@@ -132,6 +132,16 @@ pub struct CastVoteInput {
 pub struct FinalizeDecisionInput {
     pub decision_hash: ActionHash,
 }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DecisionOutcome {
+    pub decision_hash: ActionHash,
+    pub finalization_basis_action: Option<ActionHash>,
+    pub resolved_by: Option<AgentPubKey>,
+    pub chosen_option: u32,
+    pub participation_rate_bp: u32,
+    pub resolved_at: Timestamp,
+    pub quorum_bp: Option<u32>,
+}
 
 // ============================================================================
 // DNA setup helper
@@ -706,6 +716,237 @@ async fn test_tally_and_query_votes() {
         alice_pending.len(),
         0,
         "get_my_pending_votes should return 0 for Alice (already voted)"
+    );
+
+    drop(alice_conductor);
+    drop(bob_conductor);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+}
+
+// ============================================================================
+// Concurrent finalization / canonical outcome test
+// ============================================================================
+
+/// Two independent conductors finalize the same open Decision concurrently.
+/// Both outcomes must remain valid candidates, carry the same exact finalization
+/// basis, and be attributable to their respective Holochain action authors.
+/// AC-071's canonical getter must then return the same candidate on repeated reads.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor"]
+async fn test_concurrent_finalization_canonical_outcome() {
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let mut alice_conductor = SweetConductor::from_standard_config().await;
+    let mut bob_conductor = SweetConductor::from_standard_config().await;
+
+    let (alice,) = alice_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = bob_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    SweetConductor::exchange_peer_info([&alice_conductor, &bob_conductor]).await;
+
+    let bob_agent = bob.agent_pubkey().clone();
+
+    // Establish two active members.
+    let hearth_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Concurrent Finalization Hearth".to_string(),
+                description: "Testing concurrent decision resolution".to_string(),
+                hearth_type: HearthType::Chosen,
+                max_members: Some(10),
+            },
+        )
+        .await;
+    let hearth_hash = hearth_record.action_address().clone();
+
+    let invitation_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "invite_member",
+            InviteMemberInput {
+                hearth_hash: hearth_hash.clone(),
+                invitee_agent: bob_agent,
+                proposed_role: MemberRole::Adult,
+                message: "Join concurrent finalization test".to_string(),
+                expires_at: Timestamp::from_micros(Timestamp::now().as_micros() + 86_400_000_000),
+            },
+        )
+        .await;
+    let invitation_hash = invitation_record.action_address().clone();
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let _: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "accept_invitation",
+            AcceptInvitationInput {
+                invitation_hash,
+                display_name: "Bob".to_string(),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Create a decision with a short future deadline so both agents can vote.
+    let decision_hash = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "create_decision",
+            CreateDecisionInput {
+                hearth_hash: hearth_hash.clone(),
+                title: "Concurrent resolution choice".to_string(),
+                description: "Two agents will finalize concurrently".to_string(),
+                decision_type: DecisionType::MajorityVote,
+                eligible_roles: vec![MemberRole::Founder, MemberRole::Adult],
+                options: vec!["Option A".to_string(), "Option B".to_string()],
+                deadline: Timestamp::from_micros(Timestamp::now().as_micros() + 3_000_000),
+                quorum_bp: None,
+            },
+        )
+        .await
+        .action_address()
+        .clone();
+
+    let _: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "cast_vote",
+            CastVoteInput {
+                decision_hash: decision_hash.clone(),
+                choice: 0,
+                reasoning: Some("Alice vote".to_string()),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    let _: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_decisions"),
+            "cast_vote",
+            CastVoteInput {
+                decision_hash: decision_hash.clone(),
+                choice: 0,
+                reasoning: Some("Bob vote".to_string()),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+
+    // Critical race: both conductors resolve the same root simultaneously.
+    let (alice_outcome, bob_outcome) = tokio::join!(
+        alice_conductor.call(
+            &alice.zome("hearth_decisions"),
+            "finalize_decision",
+            FinalizeDecisionInput {
+                decision_hash: decision_hash.clone(),
+            },
+        ),
+        bob_conductor.call(
+            &bob.zome("hearth_decisions"),
+            "finalize_decision",
+            FinalizeDecisionInput {
+                decision_hash: decision_hash.clone(),
+            },
+        ),
+    );
+
+    assert_ne!(
+        alice_outcome.action_address(),
+        bob_outcome.action_address(),
+        "Concurrent finalizers should produce distinct candidate outcome actions",
+    );
+
+    let decode_outcome = |record: &Record| -> DecisionOutcome {
+        record
+            .entry()
+            .to_app_option()
+            .expect("Outcome record must deserialize")
+            .expect("Outcome record must contain entry data")
+    };
+
+    let alice_decoded = decode_outcome(&alice_outcome);
+    let bob_decoded = decode_outcome(&bob_outcome);
+
+    for (label, outcome, expected_agent) in [
+        ("Alice", &alice_decoded, alice.agent_pubkey()),
+        ("Bob", &bob_decoded, bob.agent_pubkey()),
+    ] {
+        assert_eq!(
+            outcome.decision_hash,
+            decision_hash,
+            "{label} outcome must reference the test Decision",
+        );
+        assert_eq!(
+            outcome.finalization_basis_action,
+            Some(decision_hash.clone()),
+            "{label} outcome must bind to the exact observed root Decision basis",
+        );
+        assert_eq!(
+            outcome.resolved_by.as_ref(),
+            Some(expected_agent),
+            "{label} resolver identity must match its Holochain action author",
+        );
+    }
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // AC-073: a terminal Decision revision must be visible as non-open.
+    let current: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_decision",
+            decision_hash.clone(),
+        )
+        .await;
+    let current_decision: Decision = current
+        .entry()
+        .to_app_option()
+        .expect("Decision record must deserialize")
+        .expect("Decision record must contain entry data");
+    assert_eq!(current_decision.status, DecisionStatus::Finalized);
+
+    // AC-071: canonical read must be stable and must return one of the preserved candidates.
+    let canonical_a: Option<Record> = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_decision_outcome",
+            decision_hash.clone(),
+        )
+        .await;
+    let canonical_b: Option<Record> = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_decision_outcome",
+            decision_hash,
+        )
+        .await;
+
+    let canonical_a = canonical_a.expect("Canonical outcome should exist after concurrent finalization");
+    let canonical_b = canonical_b.expect("Repeated canonical outcome read should exist");
+    assert_eq!(
+        canonical_a.action_address(),
+        canonical_b.action_address(),
+        "Repeated canonical reads must return the same action hash",
+    );
+    assert!(
+        canonical_a.action_address() == alice_outcome.action_address()
+            || canonical_a.action_address() == bob_outcome.action_address(),
+        "Canonical outcome must be one of the preserved concurrent candidates",
     );
 
     drop(alice_conductor);
