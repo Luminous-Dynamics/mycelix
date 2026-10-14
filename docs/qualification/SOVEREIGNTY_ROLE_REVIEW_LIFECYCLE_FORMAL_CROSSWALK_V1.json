@@ -1,0 +1,100 @@
+{
+  "schema": "mycelix.sovereignty-role-review-lifecycle-formal-crosswalk.v1",
+  "profile_id": "SOV-AI-ROLE-REVIEW-LIFECYCLE-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "formal_subject_head": "210a002472fd1be4e35fd5183bf1ffb2e42031a6",
+  "formal_subject_tree": "e418fce5ca5b2b20ef08afbe40a7bcefb76d8087",
+  "mappings": [
+    {
+      "id": "role-concentration-finding",
+      "boundary": "two or more qualification-path roles require conflict surfacing",
+      "tla": [
+        "RoleConcentrationRequiresFinding"
+      ],
+      "alloy": [
+        "RoleConcentrationRequiresFindingInvariant"
+      ],
+      "reference": [
+        "assign -> RoleConcentrationRequiresFinding"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "active-full-control-independent-review",
+      "boundary": "all four roles require an active reviewer who is distinct and role-disjoint",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "FullControlRequiresIndependentReviewInvariant"
+      ],
+      "reference": [
+        "full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "self-review",
+      "boundary": "self-review is never independent external review",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "SelfReviewOnlyFullControl"
+      ],
+      "reference": [
+        "self-review-full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "same-role-review",
+      "boundary": "another subject who holds a qualification-path role is not independent",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "SameRoleReviewerFullControl"
+      ],
+      "reference": [
+        "same-role-review-full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "active-reviewer-drift",
+      "boundary": "an active reviewer cannot acquire a qualification-path role during the review",
+      "tla": [
+        "ReviewerRoleDisjointness"
+      ],
+      "alloy": [
+        "ReviewerRoleDriftState"
+      ],
+      "reference": [
+        "reviewer-role-drift-bad -> ReviewerRoleDisjointness"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "review-closure-release",
+      "boundary": "closing review releases the role lock while preserving history",
+      "tla": [
+        "ReviewHistoryPreserved"
+      ],
+      "alloy": [
+        "ClosedReviewReleasesRoleLock"
+      ],
+      "reference": [
+        "review -> close -> later role reacquisition"
+      ],
+      "coverage": "aligned"
+    }
+  ],
+  "design_correction": "The original permanent reviewer lock was an overconstraint. The lifecycle model limits the restriction to active review and preserves historical evidence after closure.",
+  "deliberate_limits": [
+    "Reviewer identity is only a structural independence condition; it does not prove substantive reviewer competence or impartiality.",
+    "Review closure semantics are local to this model and do not prescribe a legal retention period.",
+    "This is a qualification-process theorem, not a general rule for all organizational role overlap."
+  ]
+}

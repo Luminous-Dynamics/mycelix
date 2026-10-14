@@ -1,0 +1,68 @@
+{
+  "schema": "mycelix.evidence-attestation-effect-handoff-identity-control-matrix.v1",
+  "controls": [
+    {
+      "id": "decision-identity",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "DecisionIdentityConserved",
+      "tla_control": "decision-identity",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    },
+    {
+      "id": "intent-identity",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "IntentIdentityConserved",
+      "tla_control": "intent-identity",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    },
+    {
+      "id": "operation-commitment",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "OperationIdentityConserved",
+      "tla_control": "operation-commitment",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    },
+    {
+      "id": "use-commitment",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "UseCommitmentConserved",
+      "tla_control": "use-commitment",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    },
+    {
+      "id": "target",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "TargetConserved",
+      "tla_control": "target",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    },
+    {
+      "id": "adapter",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "AdapterConserved",
+      "tla_control": "adapter",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    },
+    {
+      "id": "invocation-identity",
+      "boundary": "effect attempt must preserve the exact causal identity established at each authority-to-effect handoff",
+      "tla_invariant": "InvocationConserved",
+      "tla_control": "invocation-identity",
+      "alloy_assertion": "IdentityConservation",
+      "alloy_mutant_fact": "IdentityConservation",
+      "reference_marker": "CANONICAL PASS: exact decision, intent, use-commit, operation, target, adapter, and invocation identities are conserved"
+    }
+  ]
+}

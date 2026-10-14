@@ -1,0 +1,21 @@
+{
+  "schema": "mycelix.evidence-attestation-composed-effective-context-control-matrix.v1",
+  "controls": [
+    {
+      "id": "contextual-laundering",
+      "boundary": "positive decision requires one effective full-dimensional capability atom matching resource/action/audience/time with exact contributor provenance",
+      "tla_invariant": "DecisionRequiresSingleEffectiveAtom",
+      "tla_control": "contextual-laundering",
+      "alloy_witness": "ContextualLaunderingWitness",
+      "alloy_assertion": "DecisionRequiresSingleEffectiveAtom",
+      "alloy_dimension_assertion": "DecisionDimensionSourcesRemainValid",
+      "alloy_composition_assertion": "CompositionAtomAndProvenanceExact",
+      "alloy_mutant_fact": "DecisionRequiresSingleEffectiveAtom",
+      "reference_markers": [
+        "CANONICAL PASS: exact effective context uses one full capability atom with exact provenance",
+        "ISOLATION PASS: composition, claims, and all individual request dimensions remain valid",
+        "NEGATIVE PASS: contextual decision laundering detected"
+      ]
+    }
+  ]
+}
