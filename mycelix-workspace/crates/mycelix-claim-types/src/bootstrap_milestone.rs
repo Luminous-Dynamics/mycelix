@@ -258,6 +258,108 @@ pub struct AuthorityBasis {
     pub decision_evidence: Option<EvidenceReference>,
 }
 
+/// Whether a named standard is applicable to a declared qualification scope.
+/// This is the project's decision record, not an assertion of external certification.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StandardApplicabilityDecision {
+    Applicable,
+    Tailored,
+    NotApplicable,
+}
+
+/// Auditable project decision about one standard/revision.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StandardApplicabilityRecord {
+    /// Stable standard identifier (for example, a standard number).
+    pub standard_id: String,
+    /// Exact edition/revision used for the decision.
+    pub edition: String,
+    /// Project's applicability/tailoring decision.
+    pub decision: StandardApplicabilityDecision,
+    /// Rationale for the recorded decision and any tailoring.
+    pub rationale: String,
+    /// Controlled project requirement IDs adopted from the standard.
+    pub requirement_ids: Vec<String>,
+}
+
+/// Boundary of an environment or physical qualification claim.
+///
+/// Hashes bind the controlled requirements baseline and exact operating-envelope
+/// artifact; this schema does not fetch those artifacts or verify their signatures.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QualificationScope {
+    /// Bounded product or capability class under qualification.
+    pub subject_class: String,
+    /// Named test environment, including relevant configuration identifier.
+    pub environment_id: String,
+    /// SHA-256 of the operating envelope and conditions tested.
+    pub operating_envelope_sha256: String,
+    /// SHA-256 of the controlled requirements/acceptance baseline.
+    pub requirements_baseline_sha256: String,
+    /// Exact standards editions and project applicability decisions.
+    pub standards_applicability: Vec<StandardApplicabilityRecord>,
+}
+
+impl QualificationScope {
+    fn validate(&self) -> Result<(), ValidationError> {
+        validate_nonempty("qualification_scope.subject_class", &self.subject_class)?;
+        validate_nonempty("qualification_scope.environment_id", &self.environment_id)?;
+        validate_sha256(
+            "qualification_scope.operating_envelope_sha256",
+            &self.operating_envelope_sha256,
+        )?;
+        validate_sha256(
+            "qualification_scope.requirements_baseline_sha256",
+            &self.requirements_baseline_sha256,
+        )?;
+
+        let mut standard_keys = BTreeSet::new();
+        for standard in &self.standards_applicability {
+            validate_nonempty("standard.standard_id", &standard.standard_id)?;
+            validate_nonempty("standard.edition", &standard.edition)?;
+            validate_nonempty("standard.rationale", &standard.rationale)?;
+            if !standard_keys.insert((standard.standard_id.as_str(), standard.edition.as_str())) {
+                return Err(ValidationError::new(
+                    "duplicate standard/revision applicability record",
+                ));
+            }
+
+            let mut requirement_ids = BTreeSet::new();
+            for requirement_id in &standard.requirement_ids {
+                validate_nonempty("standard.requirement_id", requirement_id)?;
+                if !requirement_ids.insert(requirement_id.as_str()) {
+                    return Err(ValidationError::new(
+                        "duplicate requirement ID in standard applicability record",
+                    ));
+                }
+            }
+
+            match standard.decision {
+                StandardApplicabilityDecision::Applicable
+                | StandardApplicabilityDecision::Tailored
+                    if standard.requirement_ids.is_empty() =>
+                {
+                    return Err(ValidationError::new(
+                        "applicable/tailored standards require adopted requirement IDs",
+                    ));
+                }
+                StandardApplicabilityDecision::NotApplicable
+                    if !standard.requirement_ids.is_empty() =>
+                {
+                    return Err(ValidationError::new(
+                        "not-applicable standards must not list adopted requirement IDs",
+                    ));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Whether the record is an original claim or an append-only correction/retraction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -304,6 +406,8 @@ pub struct BootstrapMilestone {
     /// Evidence class for the result; used to prevent synthetic/estimated results
     /// from silently being described as measured or physically qualified.
     pub fixture_class: FixtureClass,
+    /// Required for relevant-environment and physical-qualification claims.
+    pub qualification_scope: Option<QualificationScope>,
     /// Immutable references supporting the claim and its declared class.
     pub evidence: Vec<EvidenceReference>,
     /// Dependency closures or blockers changed by the claimed transition.
@@ -361,6 +465,18 @@ impl BootstrapMilestone {
         }
         validate_evidence_list(&self.evidence)?;
         self.validate_fixture_evidence()?;
+        match (self.fixture_class, self.qualification_scope.as_ref()) {
+            (
+                FixtureClass::RelevantEnvironmentTest | FixtureClass::PhysicalQualification,
+                None,
+            ) => {
+                return Err(ValidationError::new(
+                    "relevant-environment and physical-qualification claims require a qualification scope",
+                ));
+            }
+            (_, Some(scope)) => scope.validate()?,
+            _ => {}
+        }
 
         let mut dependency_ids = BTreeSet::new();
         for delta in &self.dependency_deltas {
@@ -527,14 +643,18 @@ impl BootstrapMilestone {
                 has(EvidenceKind::RelevantEnvironmentTestReport)
             }
             FixtureClass::OperationalMeasured => has(EvidenceKind::OperationalMeasurement),
-            FixtureClass::PhysicalQualification => self.evidence.iter().any(|qualification| {
-                qualification.kind == EvidenceKind::PhysicalQualificationReport
-                    && self.evidence.iter().any(|review| {
-                        review.kind == EvidenceKind::IndependentReview
-                            && (qualification.uri != review.uri
-                                || qualification.sha256 != review.sha256)
+            FixtureClass::PhysicalQualification => {
+                has(EvidenceKind::RequirementsTraceabilityMatrix)
+                    && has(EvidenceKind::AcceptanceTestReport)
+                    && self.evidence.iter().any(|qualification| {
+                        qualification.kind == EvidenceKind::PhysicalQualificationReport
+                            && self.evidence.iter().any(|review| {
+                                review.kind == EvidenceKind::IndependentReview
+                                    && (qualification.uri != review.uri
+                                        || qualification.sha256 != review.sha256)
+                            })
                     })
-            }),
+            },
         };
         if !valid {
             return Err(ValidationError::new(
@@ -663,6 +783,7 @@ mod tests {
             source_commit_sha: "c".repeat(40),
             scenario_manifest_sha256: "d".repeat(64),
             fixture_class: FixtureClass::SyntheticSoftwareContract,
+            qualification_scope: None,
             evidence: vec![evidence(
                 "https://example.invalid/evidence/reference-run.json",
                 EvidenceKind::SyntheticFixture,
@@ -939,10 +1060,62 @@ mod tests {
         assert!(milestone.validate().is_ok());
     }
 
+    fn valid_qualification_scope() -> QualificationScope {
+        QualificationScope {
+            subject_class: "non-crew-critical-structural-coupon".to_string(),
+            environment_id: "vacuum-dust-analog-test-01".to_string(),
+            operating_envelope_sha256: "3".repeat(64),
+            requirements_baseline_sha256: "4".repeat(64),
+            standards_applicability: vec![StandardApplicabilityRecord {
+                standard_id: "ISO 12100".to_string(),
+                edition: "2010".to_string(),
+                decision: StandardApplicabilityDecision::Tailored,
+                rationale: "Terrestrial machinery risk process tailored to the test rig; not a lunar conformity claim.".to_string(),
+                requirement_ids: vec!["RISK-001".to_string()],
+            }],
+        }
+    }
+
     #[test]
-    fn physical_qualification_requires_a_separate_independent_review() {
+    fn relevant_environment_and_physical_claims_need_an_explicit_scope() {
+        let mut milestone = valid_milestone();
+        milestone.fixture_class = FixtureClass::RelevantEnvironmentTest;
+        milestone.evidence = vec![evidence(
+            "https://example.invalid/evidence/relevant-environment-test.json",
+            EvidenceKind::RelevantEnvironmentTestReport,
+            '5',
+        )];
+        assert!(milestone.validate().is_err());
+
+        milestone.qualification_scope = Some(valid_qualification_scope());
+        assert!(milestone.validate().is_ok());
+    }
+
+    #[test]
+    fn qualification_scope_fails_closed_on_invalid_hashes_and_applicability() {
+        let mut milestone = valid_milestone();
+        milestone.fixture_class = FixtureClass::RelevantEnvironmentTest;
+        milestone.evidence = vec![evidence(
+            "https://example.invalid/evidence/relevant-environment-test.json",
+            EvidenceKind::RelevantEnvironmentTestReport,
+            '5',
+        )];
+        milestone.qualification_scope = Some(valid_qualification_scope());
+        assert!(milestone.validate().is_ok());
+
+        milestone.qualification_scope.as_mut().unwrap().operating_envelope_sha256 = "XYZ".to_string();
+        assert!(milestone.validate().is_err());
+
+        milestone.qualification_scope = Some(valid_qualification_scope());
+        milestone.qualification_scope.as_mut().unwrap().standards_applicability[0].requirement_ids.clear();
+        assert!(milestone.validate().is_err());
+    }
+
+    #[test]
+    fn physical_qualification_requires_scope_traceability_acceptance_and_independent_review() {
         let mut milestone = valid_milestone();
         milestone.fixture_class = FixtureClass::PhysicalQualification;
+        milestone.qualification_scope = Some(valid_qualification_scope());
         milestone.evidence = vec![
             evidence(
                 "https://example.invalid/evidence/qualification.json",
@@ -954,9 +1127,36 @@ mod tests {
                 EvidenceKind::IndependentReview,
                 '7',
             ),
+            evidence(
+                "https://example.invalid/evidence/requirements-traceability.json",
+                EvidenceKind::RequirementsTraceabilityMatrix,
+                '8',
+            ),
+            evidence(
+                "https://example.invalid/evidence/acceptance-test.json",
+                EvidenceKind::AcceptanceTestReport,
+                '9',
+            ),
         ];
         assert!(milestone.validate().is_ok());
-        milestone.evidence.pop();
+
+        milestone.evidence.retain(|item| item.kind != EvidenceKind::RequirementsTraceabilityMatrix);
+        assert!(milestone.validate().is_err());
+
+        milestone.evidence.push(evidence(
+            "https://example.invalid/evidence/requirements-traceability.json",
+            EvidenceKind::RequirementsTraceabilityMatrix,
+            '8',
+        ));
+        milestone.evidence.retain(|item| item.kind != EvidenceKind::IndependentReview);
+        assert!(milestone.validate().is_err());
+
+        milestone.evidence.push(evidence(
+            "https://example.invalid/evidence/independent-review.json",
+            EvidenceKind::IndependentReview,
+            '7',
+        ));
+        milestone.qualification_scope = None;
         assert!(milestone.validate().is_err());
     }
 }
