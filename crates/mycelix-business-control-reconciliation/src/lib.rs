@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 
-use mycelix_business_campaign_replay::{CampaignReplay, ReplayedObservation, ReplayError};
+use mycelix_business_campaign_replay::{CampaignReplay, ReplayError, ReplayedObservation};
 use mycelix_business_core::{Digest32, ReferenceId, ScopeRef};
 use mycelix_business_import_diagnostics::ExtractionCampaignManifest;
 use mycelix_business_ingress::IngressQualificationBinding;
@@ -144,7 +144,9 @@ impl ControlReconciliationContract {
         if self.window_start_unix_ms == 0 || self.window_start_unix_ms >= self.window_end_unix_ms {
             return Err(ContractError::InvalidWindow);
         }
-        if self.registered_at_unix_ms == 0 || self.registered_at_unix_ms >= self.window_start_unix_ms {
+        if self.registered_at_unix_ms == 0
+            || self.registered_at_unix_ms >= self.window_start_unix_ms
+        {
             return Err(ContractError::NotPreregistered);
         }
         if self.scale > ScaledValue::MAX_SCALE {
@@ -217,7 +219,9 @@ impl ControlTotalStatement {
         expected_source_events: u64,
         expected_value: ScaledValue,
     ) -> Result<Self, StatementError> {
-        contract.validate().map_err(StatementError::InvalidContract)?;
+        contract
+            .validate()
+            .map_err(StatementError::InvalidContract)?;
         let mut value = Self {
             statement_id,
             contract_digest: contract.contract_digest,
@@ -253,7 +257,8 @@ impl ControlTotalStatement {
         self.expected_value
             .validate()
             .map_err(|_| StatementError::InvalidValue)?;
-        if self.expected_value.unit != contract.unit || self.expected_value.scale != contract.scale {
+        if self.expected_value.unit != contract.unit || self.expected_value.scale != contract.scale
+        {
             return Err(StatementError::InvalidValue);
         }
         if zero_digest(&self.statement_digest) {
@@ -282,8 +287,14 @@ fn statement_digest(value: &ControlTotalStatement) -> Digest32 {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ControlReconciliationDecision {
     Match,
-    CountMismatch { expected: u64, actual: u64 },
-    ValueMismatch { expected: ScaledValue, actual: ScaledValue },
+    CountMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    ValueMismatch {
+        expected: ScaledValue,
+        actual: ScaledValue,
+    },
     CountAndValueMismatch {
         expected_count: u64,
         actual_count: u64,
@@ -567,12 +578,13 @@ fn validate_replay(
         .evidence
         .validate_against(campaign)
         .map_err(ReconciliationError::ReplayEvidence)?;
-    let normalized = u64::try_from(replay.observations.len())
-        .map_err(|_| ReconciliationError::CountOverflow)?;
+    let normalized =
+        u64::try_from(replay.observations.len()).map_err(|_| ReconciliationError::CountOverflow)?;
     if normalized != replay.evidence.normalized_observations {
         return Err(ReconciliationError::ReplayObservationCountMismatch);
     }
-    if replay_observation_set_digest(&replay.observations) != replay.evidence.observation_set_digest {
+    if replay_observation_set_digest(&replay.observations) != replay.evidence.observation_set_digest
+    {
         return Err(ReconciliationError::ReplayObservationSetMismatch);
     }
     Ok(())
@@ -681,8 +693,8 @@ fn hash_scaled(hasher: &mut Sha256, value: &ScaledValue) {
 #[cfg(test)]
 mod tests {
     use mycelix_business_adapter_delimited::{
-        DecimalPolicy, DelimitedAdapterConfig, DelimitedIngressAdapter, OutputMapping, ScopeMapping,
-        TimestampEncoding, ValueMapping,
+        DecimalPolicy, DelimitedAdapterConfig, DelimitedIngressAdapter, OutputMapping,
+        ScopeMapping, TimestampEncoding, ValueMapping,
     };
     use mycelix_business_campaign_replay::replay_campaign;
     use mycelix_business_import_diagnostics::diagnose_delimited_import;
@@ -740,12 +752,9 @@ mod tests {
         adapter: &DelimitedIngressAdapter,
         file: &CampaignSourceFile,
     ) -> ExtractionCampaignManifest {
-        let manifest = diagnose_delimited_import(
-            adapter,
-            file.bytes.as_slice(),
-            file.ingested_at_unix_ms,
-        )
-        .unwrap();
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .unwrap();
         ExtractionCampaignManifest::from_files(vec![manifest]).unwrap()
     }
 
@@ -814,9 +823,11 @@ mod tests {
         assert_eq!(evidence.actual_value.mantissa, 5);
         let transitions = evidence.scoped_limitation_transitions(&contract).unwrap();
         assert_eq!(transitions.len(), 2);
-        assert!(transitions
-            .iter()
-            .all(|transition| transition.validate_against(&contract, &evidence)));
+        assert!(
+            transitions
+                .iter()
+                .all(|transition| transition.validate_against(&contract, &evidence))
+        );
         assert!(transitions.iter().all(|transition| {
             transition.scope == contract.scope
                 && transition.window_start_unix_ms == 1_000
@@ -835,12 +846,17 @@ mod tests {
         let evidence = reconcile_control_total(&campaign, &replay, &contract, &statement).unwrap();
         assert!(matches!(
             evidence.decision,
-            ControlReconciliationDecision::CountMismatch { expected: 3, actual: 2 }
+            ControlReconciliationDecision::CountMismatch {
+                expected: 3,
+                actual: 2
+            }
         ));
-        assert!(evidence
-            .scoped_limitation_transitions(&contract)
-            .unwrap()
-            .is_empty());
+        assert!(
+            evidence
+                .scoped_limitation_transitions(&contract)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -911,7 +927,10 @@ mod tests {
                 unit: id("unit:count"),
             },
         );
-        assert!(matches!(result, Err(StatementError::IssuedBeforeWindowClosed)));
+        assert!(matches!(
+            result,
+            Err(StatementError::IssuedBeforeWindowClosed)
+        ));
     }
 
     #[test]
