@@ -20,7 +20,7 @@ Existing aviation work already supplies important building blocks:
 
 - **FAA UTM** describes a cooperative information-sharing ecosystem for low-altitude unmanned aircraft. Flight intent, airspace constraints, and conflict-management services are exchanged through distributed services, complementary to traditional air traffic services.
 - **EU U-space** requires flight authorization, geo-awareness, network identification, and traffic information in designated U-space; weather and conformance services may also apply.
-- **Authorisation lifecycle exchange:** EU U-space rules/guidance describe multi-provider exchange of authorisation changes including `Accepted`, `Activated`, `Withdrawn`, and `Ended`. The prototype uses these state names as a vocabulary reference, while adding its own `Proposed` pre-authorisation planning state; this does not claim protocol or regulatory conformance.
+- **Authorisation lifecycle exchange:** EU U-space rules/guidance describe multi-provider exchange of authorisation changes including `Accepted`, `Activated`, `Withdrawn`, and `Ended`. The prototype uses these state names as a vocabulary reference, while adding its own `Proposed` pre-authorisation planning state; this does not claim protocol or regulatory conformance. Article 10 of Commission Implementing Regulation (EU) 2021/664 requires service providers to establish arrangements for conflicting requests received through different providers; the current consolidated EUR-Lex text was checked for this research update. The prototype only checks a supplied synthetic snapshot and deliberately does not implement the regulatory priority rules or provider-exchange protocol.
 - **ICAO's UTM framework** emphasizes interoperability with existing ATM, safety of people on the ground, detect-and-avoid, security/environmental risk, and a harmonized but adaptable path toward integration.
 - **NASA's 2025 strategic path-planning flight evaluation** found that tightly constrained flow corridors can leave fewer degrees of freedom for resolving conflicts. This is a warning against treating fixed lanes as the entire solution.
 - **NASA's UAM service-provider simulation** explored demand/capacity balancing, sequencing, scheduling, strategic conflict management, and data exchange.
@@ -241,12 +241,13 @@ Safety gates are non-compensatory: better throughput or lower cost cannot offset
 2. FAA, [Aeronautical Information Manual: UTM operations](https://www.faa.gov/air_traffic/publications/ATpubs/AIM_html/chap11_section_4.html).
 3. ICAO, [Unmanned Aircraft System Traffic Management Framework, Edition 4](https://www.icao.int/safety/UA/Documents/UTM%20Framework%20Edition%204.pdf).
 4. EASA, [U-space](https://www.easa.europa.eu/en/domains/air-traffic-management/u-space).
-5. NASA, [Flight Evaluation of In-Flight Strategic Path Planning Automation for Future High-Density Operations (2025)](https://ntrs.nasa.gov/citations/20250003243).
-6. NASA, [Provider of Services for Urban Air Mobility Prototype Simulation X5](https://ntrs.nasa.gov/citations/20250001367).
-7. ITU-T, [X.1385: Security requirements and guidelines for telecommunications in an urban air mobility environment](https://www.itu.int/dms_pubrec/itu-t/rec/x/T-REC-X.1385-202504-I%21%21SUM-HTM-E.htm).
-8. SACAA, [Unmanned Aircraft Systems](https://www.caa.co.za/industry-information/uas/).
-9. South African Government, [Civil Aviation Regulations: 36th Amendment (2026)](https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english).
-10. ATNS, [South African AIP ENR 1.9: Air Traffic Flow Management Procedures (edition valid 15 October 2022; historical reference)](https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html).
+5. European Commission, [Implementing Regulation (EU) 2021/664 on a regulatory framework for U-space, current consolidated text](https://eur-lex.europa.eu/legal-content/ENG/TXT/?uri=CELEX%3A32021R0664).
+6. NASA, [Flight Evaluation of In-Flight Strategic Path Planning Automation for Future High-Density Operations (2025)](https://ntrs.nasa.gov/citations/20250003243).
+7. NASA, [Provider of Services for Urban Air Mobility Prototype Simulation X5](https://ntrs.nasa.gov/citations/20250001367).
+8. ITU-T, [X.1385: Security requirements and guidelines for telecommunications in an urban air mobility environment](https://www.itu.int/dms_pubrec/itu-t/rec/x/T-REC-X.1385-202504-I%21%21SUM-HTM-E.htm).
+9. SACAA, [Unmanned Aircraft Systems](https://www.caa.co.za/industry-information/uas/).
+10. South African Government, [Civil Aviation Regulations: 36th Amendment (2026)](https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english).
+11. ATNS, [South African AIP ENR 1.9: Air Traffic Flow Management Procedures (edition valid 15 October 2022; historical reference)](https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html).
 
 ## Change discipline
 
