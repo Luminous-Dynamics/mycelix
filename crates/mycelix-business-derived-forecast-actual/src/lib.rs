@@ -407,7 +407,10 @@ impl DerivedForecastCase {
         {
             return Err(DerivedCaseError::TargetMismatch);
         }
-        if matches!(self.baseline.disposition, ForecastDisposition::Abstained { .. }) {
+        if matches!(
+            self.baseline.disposition,
+            ForecastDisposition::Abstained { .. }
+        ) {
             return Err(DerivedCaseError::BaselineAbstained);
         }
         if self.actual.value.unit != self.candidate.target.unit
@@ -421,7 +424,10 @@ impl DerivedForecastCase {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DerivedScoringError {
-    InvalidCase { index: usize, error: DerivedCaseError },
+    InvalidCase {
+        index: usize,
+        error: DerivedCaseError,
+    },
 }
 
 pub fn score_derived_cases(
@@ -444,19 +450,15 @@ pub fn score_derived_cases(
                 scorecard.candidate_absolute_error_sum = scorecard
                     .candidate_absolute_error_sum
                     .saturating_add(candidate.point.mantissa.abs_diff(actual));
-                scorecard.candidate_interval_trials = scorecard
-                    .candidate_interval_trials
-                    .saturating_add(1);
+                scorecard.candidate_interval_trials =
+                    scorecard.candidate_interval_trials.saturating_add(1);
                 if candidate.lower.mantissa <= actual && actual <= candidate.upper.mantissa {
-                    scorecard.candidate_interval_hits = scorecard
-                        .candidate_interval_hits
-                        .saturating_add(1);
+                    scorecard.candidate_interval_hits =
+                        scorecard.candidate_interval_hits.saturating_add(1);
                 }
             }
             ForecastDisposition::Abstained { .. } => {
-                scorecard.candidate_abstentions = scorecard
-                    .candidate_abstentions
-                    .saturating_add(1);
+                scorecard.candidate_abstentions = scorecard.candidate_abstentions.saturating_add(1);
                 scorecard.candidate_absolute_error_sum = scorecard
                     .candidate_absolute_error_sum
                     .saturating_add(baseline_error);
