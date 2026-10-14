@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "6a52962a5b5ea6c52c3ef8a97ef0b83223253c2a"
-EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1"]
+EXPECTED_CORPUS_BLOB_SHA = "804aee9abbe26f756c54e01b224befeec38e0d66"
+EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -58,6 +58,7 @@ EXPECTED_PROBES = {
     "planned-controller-rollout-date-is-not-completion": ("Currentness", "KeepRolloutStatusUnverified", "RolloutCompletionNotObserved"),
     "unknown-wage-regime-cannot-default-to-epwp": ("EmploymentIntegrity", "BlockPositionUntilWageReview", "EmploymentClassificationUnqualified"),
     "mixed-stage-tender-index-is-not-open-work": ("ProcurementIntegrity", "PartnerDiscoveryOnlyNoOpenNotice", "TenderStatusNotQualified"),
+    "current-tender-header-without-dated-notice": ("ProcurementIntegrity", "RequireNoticeSpecificCurrentness", "ListingOnlyCurrentnessUnqualified"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -78,6 +79,7 @@ REQUIRED_GUARDS = {
     "planned-controller-rollout-date-is-not-completion": {"PlannedCompletionDateIsNotEvidenceOfCompletion", "NoLaterConfirmationMeansUnknown", "SourceSearchScopeMustBeRecorded"},
     "unknown-wage-regime-cannot-default-to-epwp": {"WageRegimeRequiresQualifiedClassification", "EPWPRateIsNotDefaultForUnknownStatus", "NoSpeculativePayroll", "NoPositionBeforeFullFunding"},
     "mixed-stage-tender-index-is-not-open-work": {"TenderLandingPageIsDiscoveryOnly", "CaptureNoticeStageAndClosingDate", "NoAbsenceProofFromListing", "NoContractWithoutAwardAndAuthority", "NoSpeculativePayroll"},
+    "current-tender-header-without-dated-notice": {"CurrentTendersHeadingDoesNotProveOpenStatus", "TenderIdSuffixIsNotDateEvidence", "RecordTenderScopeAndLifecycleFromNotice", "NoOpportunityFromUnrelatedTender", "NoAbsenceProofFromListing"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -307,7 +309,7 @@ def validate() -> None:
         fail("paid-work integrity gate is missing mandatory role/funding/cost controls")
 
     procurement = manifest["procurement_discovery_gate"]
-    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
+    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
         fail("procurement discovery sources or landing-page authority limit drift")
     if procurement.get("current_finding") != "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence":
         fail("bounded procurement non-observation must not become proof of absence")
@@ -323,6 +325,24 @@ def validate() -> None:
         fail("Pikitup tender-index observation/currentness drift")
     if "not proof of absence" not in pikitup_proc.get("search_ceiling", "").lower():
         fail("tender listing non-observation must not be reported as proof no tender exists")
+
+    current_index = source_by_id["PIKITUP-CURRENT-INDEX-1"]
+    if current_index.get("page_label") != "Current Tenders" or current_index.get("checked_on") != "2026-10-14":
+        fail("City-hosted Pikitup current-tender listing identity/date drift")
+    if current_index.get("visible_rows") != [
+        {"tender_reference": "PIK259/17", "description": "Appointment of an Accredited Service Provider for Servicing Fire Equipment"},
+        {"tender_reference": "PIK255/17", "description": "Appointment of a Supplier for the Supply and Delivery of 4x Drones as Depicted Under Annexure A"},
+    ]:
+        fail("visible City-hosted Pikitup tender listing rows drift")
+    if current_index.get("visible_publication_or_closing_dates") is not False or current_index.get("visible_lifecycle_status") is not False:
+        fail("listing without dates/status must remain currentness-unqualified")
+    if current_index.get("matching_basic_removal_or_cooperative_work_package_in_visible_rows") is not False:
+        fail("unrelated equipment tenders cannot establish a cooperative/basic-removal work package")
+    if "not independently interpreted as a date" not in current_index.get("search_ceiling", "").lower():
+        fail("do not infer publication date from tender reference suffix")
+    current_obs = procurement.get("current_index_observations", {})
+    if current_obs.get("source_id") != "PIKITUP-CURRENT-INDEX-1" or current_obs.get("lifecycle_status_or_closing_date_visible") is not False or current_obs.get("relevant_work_package_observed") is not False:
+        fail("procurement current-index observation must require notice-specific currentness")
 
     job_source = source_by_id["SA-JOBS-2"]
     if job_source.get("geography_scope") != "South Africa nationally":
@@ -438,6 +458,9 @@ def validate() -> None:
         fail("same-title water-loss metrics must not auto-crosswalk")
     if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
         fail("unqualified water metric crosswalk cannot create a derived value or SLA")
+    current_tender_probe = by_id["current-tender-header-without-dated-notice"]
+    if current_tender_probe["expected"]["disposition"] != "RequireNoticeSpecificCurrentness" or current_tender_probe["expected"]["issue_status_effect"] != "NoOpenTenderOrWorkPackageClaim":
+        fail("current-tenders page heading cannot establish an open eligible opportunity")
     wage_probe = by_id["unknown-wage-regime-cannot-default-to-epwp"]
     if wage_probe["expected"]["disposition"] != "BlockPositionUntilWageReview" or wage_probe["expected"]["issue_status_effect"] != "NoWageRateOrPositionClaim":
         fail("unknown legal classification must block a wage or position claim")

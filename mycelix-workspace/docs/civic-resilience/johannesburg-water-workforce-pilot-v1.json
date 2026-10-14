@@ -505,6 +505,37 @@
         "KPI text or a tender index proves a cooperative is eligible or a payer is committed",
         "No matching item observed proves no future or separately published opportunity exists"
       ]
+    },
+    {
+      "source_id": "PIKITUP-CURRENT-INDEX-1",
+      "issuer": "City of Johannesburg, Work in Joburg (Pikitup tender navigation)",
+      "source_url": "https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Links/Pikitup%20Tenders/Current-Tenders.aspx",
+      "source_kind": "OfficialCityHostedPikitupCurrentTenderListing",
+      "publication_date": null,
+      "checked_on": "2026-10-14",
+      "observation_status": "OfficialCityHostedListingObserved",
+      "page_label": "Current Tenders",
+      "visible_rows": [
+        {
+          "tender_reference": "PIK259/17",
+          "description": "Appointment of an Accredited Service Provider for Servicing Fire Equipment"
+        },
+        {
+          "tender_reference": "PIK255/17",
+          "description": "Appointment of a Supplier for the Supply and Delivery of 4x Drones as Depicted Under Annexure A"
+        }
+      ],
+      "visible_publication_or_closing_dates": false,
+      "visible_lifecycle_status": false,
+      "matching_basic_removal_or_cooperative_work_package_in_visible_rows": false,
+      "allowed_use": "Example that a 'Current Tenders' heading and tender reference alone are insufficient; follow each notice to current dated lifecycle evidence.",
+      "prohibited_inference": [
+        "Assume a tender is open because its parent page is labelled Current Tenders",
+        "Assume the /17 suffix alone proves a publication date or status",
+        "Infer closing date, eligibility, funding, award, or contract from a title row",
+        "Treat two unrelated equipment/service tenders as a basic-removal or cooperative work package"
+      ],
+      "search_ceiling": "The page listing was inspected, not every linked notice or all City/Pikitup procurement channels. Missing date/status on the listing means unqualified, not closed or open."
     }
   ],
   "event_model": {
@@ -875,8 +906,8 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "6a52962a5b5ea6c52c3ef8a97ef0b83223253c2a",
-    "probe_count": 21,
+    "git_blob_sha": "804aee9abbe26f756c54e01b224befeec38e0d66",
+    "probe_count": 22,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
@@ -933,7 +964,8 @@
   "procurement_discovery_gate": {
     "source_ids": [
       "COJ-PROC-1",
-      "PIKITUP-PROC-1"
+      "PIKITUP-PROC-1",
+      "PIKITUP-CURRENT-INDEX-1"
     ],
     "required_notice_record_fields": [
       "issuer_and_tender_id",
@@ -952,6 +984,18 @@
     "listing_page_alone_proves_open_opportunity": false,
     "current_finding": "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence",
     "source_search_ceiling": "Portal/index observations only; a tender-specific current notice and its amendments must be reviewed before any eligibility or funding claim.",
-    "status": "PartnerDiscoveryOnly"
+    "status": "PartnerDiscoveryOnly",
+    "current_index_observations": {
+      "source_id": "PIKITUP-CURRENT-INDEX-1",
+      "page_label": "Current Tenders",
+      "visible_tender_references": [
+        "PIK259/17",
+        "PIK255/17"
+      ],
+      "lifecycle_status_or_closing_date_visible": false,
+      "rule": "Listing heading + identifier is not evidence of current open status. The /17 suffix is not independently interpreted as a date.",
+      "relevant_work_package_observed": false,
+      "status": "NoticeSpecificCurrentnessRequired"
+    }
   }
 }
