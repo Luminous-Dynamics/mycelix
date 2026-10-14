@@ -203,22 +203,53 @@ pub struct ControlAuthenticityCoverageEvidence {
 pub enum AuthenticityCoverageError {
     Plan(AuthenticityCoveragePlanError),
     ControlCoverage(CoverageError),
-    EntryCountMismatch { expected: usize, actual: usize },
-    ControlEntryCountMismatch { expected: usize, actual: usize },
-    DuplicateAuthenticityEntry { window_id: ReferenceId },
-    DuplicateControlEntry { window_id: ReferenceId },
-    UnknownWindow { window_id: ReferenceId },
-    MissingWindow { window_id: ReferenceId },
-    ControlReceiptMismatch { window_id: ReferenceId },
-    StatementInvalid { window_id: ReferenceId },
-    IssuerMismatch { window_id: ReferenceId },
-    VerifierPolicyMismatch { window_id: ReferenceId },
-    ReceiptVerifiedBeforeStatementIssued { window_id: ReferenceId },
-    RevalidationContextMismatch { window_id: ReferenceId },
-    Authenticity { window_id: ReferenceId, error: AuthenticityError },
+    EntryCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    ControlEntryCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    DuplicateAuthenticityEntry {
+        window_id: ReferenceId,
+    },
+    DuplicateControlEntry {
+        window_id: ReferenceId,
+    },
+    UnknownWindow {
+        window_id: ReferenceId,
+    },
+    MissingWindow {
+        window_id: ReferenceId,
+    },
+    ControlReceiptMismatch {
+        window_id: ReferenceId,
+    },
+    StatementInvalid {
+        window_id: ReferenceId,
+    },
+    IssuerMismatch {
+        window_id: ReferenceId,
+    },
+    VerifierPolicyMismatch {
+        window_id: ReferenceId,
+    },
+    ReceiptVerifiedBeforeStatementIssued {
+        window_id: ReferenceId,
+    },
+    RevalidationContextMismatch {
+        window_id: ReferenceId,
+    },
+    Authenticity {
+        window_id: ReferenceId,
+        error: AuthenticityError,
+    },
     DuplicateVerifierReceipt,
     DuplicateAuthenticityBinding,
-    WindowEvidenceInvalid { window_id: ReferenceId },
+    WindowEvidenceInvalid {
+        window_id: ReferenceId,
+    },
     ZeroDigest,
     DigestMismatch,
 }
@@ -326,9 +357,11 @@ pub fn verify_control_authenticity_coverage(
             });
         }
         if authenticity.verified_at_unix_ms < control.statement.issued_at_unix_ms {
-            return Err(AuthenticityCoverageError::ReceiptVerifiedBeforeStatementIssued {
-                window_id: window_id.clone(),
-            });
+            return Err(
+                AuthenticityCoverageError::ReceiptVerifiedBeforeStatementIssued {
+                    window_id: window_id.clone(),
+                },
+            );
         }
         let context = &auth_entry.revalidation;
         if context.verifier_domain != authenticity.verifier_domain
@@ -566,7 +599,10 @@ impl AuthenticityQualificationTransition {
 
 fn window_authenticity_digest(value: &WindowAuthenticityEvidence) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:control-window-authenticity-evidence:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:control-window-authenticity-evidence:v1",
+    );
     hash_str(&mut hasher, value.window_id.as_str());
     hasher.update(value.statement_digest.0);
     hasher.update(value.source_document_digest.0);
@@ -581,7 +617,10 @@ fn window_authenticity_digest(value: &WindowAuthenticityEvidence) -> Digest32 {
 
 fn authenticity_coverage_digest(value: &ControlAuthenticityCoverageEvidence) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:control-authenticity-coverage-evidence:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:control-authenticity-coverage-evidence:v1",
+    );
     hasher.update(value.plan_digest.0);
     hasher.update(value.control_coverage_digest.0);
     hasher.update((value.windows.len() as u64).to_be_bytes());
@@ -593,7 +632,10 @@ fn authenticity_coverage_digest(value: &ControlAuthenticityCoverageEvidence) -> 
 
 fn authenticity_transition_digest(value: &AuthenticityQualificationTransition) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:authenticity-qualification-transition:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:authenticity-qualification-transition:v1",
+    );
     hash_str(&mut hasher, value.from.as_str());
     hash_str(&mut hasher, value.to.as_str());
     hasher.update(value.authenticity_plan_digest.0);
@@ -704,7 +746,13 @@ mod tests {
             coverage_digest: Digest32::repeat(6),
         };
         let transition = AuthenticityQualificationTransition::new(&plan, evidence.coverage_digest);
-        assert_eq!(transition.from, control_source_authenticity_unverified_ref());
-        assert_eq!(transition.to, control_source_issuer_authority_unverified_ref());
+        assert_eq!(
+            transition.from,
+            control_source_authenticity_unverified_ref()
+        );
+        assert_eq!(
+            transition.to,
+            control_source_issuer_authority_unverified_ref()
+        );
     }
 }
