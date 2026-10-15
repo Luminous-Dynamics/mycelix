@@ -158,12 +158,19 @@ class SyntheticServiceJourneyTests(unittest.TestCase):
         changed["cases"][0]["expected"]["disposition"] = []
         self.assertTrue(journey.validate_corpus(changed))
 
-    def test_expected_outcome_drift_causes_report_mismatch(self) -> None:
+    def test_expected_outcome_drift_is_rejected_by_frozen_contract(self) -> None:
         changed = copy.deepcopy(self.corpus)
         changed["cases"][0]["expected"]["reason_code"] = "UNJUSTIFIED_PASS"
-        report = journey.run_corpus(changed, "b" * 40)
-        self.assertFalse(report["all_expected_outcomes_match"])
-        self.assertFalse(report["case_results"][0]["matched"])
+        errors = journey.validate_corpus(changed)
+        self.assertTrue(any("frozen scenario contract" in error for error in errors))
+        with self.assertRaisesRegex(ValueError, "invalid synthetic service-journey corpus"):
+            journey.run_corpus(changed, "b" * 40)
+
+    def test_missing_golden_vector_is_rejected(self) -> None:
+        changed = copy.deepcopy(self.corpus)
+        changed["cases"].pop()
+        errors = journey.validate_corpus(changed)
+        self.assertTrue(any("exactly 18 frozen vectors" in error for error in errors))
 
     def test_duplicate_json_keys_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate JSON object key"):
