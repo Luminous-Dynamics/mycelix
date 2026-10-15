@@ -8,6 +8,11 @@ const DEFAULT_CORPUS: &str =
     "mycelix-finance/tests/reference/valueflows-interop/mapping-corpus-v1.json";
 const EMBEDDED_CORPUS: &str =
     include_str!("../../../tests/reference/valueflows-interop/mapping-corpus-v1.json");
+const DEFAULT_PROVENANCE_FIXTURE: &str =
+    "mycelix-finance/tests/reference/valueflows-interop/provenance-envelope-contract-v1.json";
+const EMBEDDED_PROVENANCE_FIXTURE: &str = include_str!(
+    "../../../tests/reference/valueflows-interop/provenance-envelope-contract-v1.json"
+);
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -276,6 +281,396 @@ fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
             "service_obligation_provenance_required",
         ]),
         _ => None,
+    }
+}
+
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProvenanceFixture {
+    schema_id: String,
+    schema_version: String,
+    status: String,
+    purpose: String,
+    authority_boundary: ProvenanceAuthorityBoundary,
+    canonicalization_policy: CanonicalizationPolicy,
+    example_observation: ProvenanceObservation,
+    negative_controls: Vec<ProvenanceNegativeControl>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProvenanceAuthorityBoundary {
+    external_observation_authority: String,
+    external_import_may_mutate_sap: bool,
+    external_import_may_mutate_tend: bool,
+    external_import_may_mutate_mycel: bool,
+    external_import_may_finalize_settlement: bool,
+    external_import_may_finalize_governance: bool,
+    signature_proves: Vec<String>,
+    signature_proves_truth: bool,
+    signature_grants_domain_authority: bool,
+    corrections_are_append_only: bool,
+    unknown_fields_disposition: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CanonicalizationPolicy {
+    algorithm: String,
+    digest_algorithm: String,
+    digest_scope: String,
+    payload_digest_verification_implemented: bool,
+    note: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProvenanceObservation {
+    source_app: String,
+    source_profile_id: String,
+    source_record_id: String,
+    subject_id: String,
+    actor_id: String,
+    scope_id: String,
+    event_id: String,
+    revision: u64,
+    causal_predecessor: Option<String>,
+    observed_at: String,
+    recorded_at: String,
+    payload: serde_json::Value,
+    payload_canonicalization: String,
+    payload_digest_sha256: String,
+    evidence_class: String,
+    correction_of: Option<String>,
+    privacy_class: String,
+    license_id: String,
+    claim_ceiling: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProvenanceNegativeControl {
+    id: String,
+    input_condition: String,
+    expected_disposition: String,
+    required_guards: Vec<String>,
+}
+
+fn expected_provenance_control(
+    id: &str,
+) -> Option<(&'static str, &'static str, &'static [&'static str])> {
+    match id {
+        "PE-AUTH-001" => Some((
+            "A source hApp marks an observation as settled or uses it to mutate SAP, TEND, MYCEL, governance, or settlement without an independent Mycelix authorization decision.",
+            "reject_authority_promotion",
+            &[
+                "external_import_authority=none",
+                "signature_does_not_grant_domain_authority",
+                "outcome_requires_separate_domain_authorization",
+            ],
+        )),
+        "PE-SIG-001" => Some((
+            "A valid signature is treated as proof that the observation is scientifically true or that the signer has domain authority.",
+            "reject_claim_ceiling_escalation",
+            &[
+                "signature_proves_origin_and_integrity_only",
+                "evidence_class_unchanged",
+                "claim_ceiling_preserved",
+            ],
+        )),
+        "PE-REPLAY-001" => Some((
+            "An identical scoped event identity is received again with an identical canonical payload digest.",
+            "accept_idempotently_without_second_effect",
+            &[
+                "idempotency_key_includes_source_scope_event_revision",
+                "same_identity_same_digest_is_idempotent",
+                "no_second_domain_effect",
+            ],
+        )),
+        "PE-CONFLICT-001" => Some((
+            "A previously observed scoped event identity reappears with a different payload digest.",
+            "reject_identity_digest_conflict",
+            &[
+                "identity_digest_conflict_is_not_a_retry",
+                "preserve_both_conflicting_receipts",
+                "no_domain_mutation",
+            ],
+        )),
+        "PE-SUBJECT-001" => Some((
+            "The same payload digest is emitted for two distinct subjects or sensors.",
+            "preserve_distinct_subject_observations",
+            &[
+                "subject_identity_part_of_idempotency_key",
+                "payload_equality_does_not_merge_subjects",
+                "source_scope_preserved",
+            ],
+        )),
+        "PE-CORRECTION-001" => Some((
+            "A correction overwrites or deletes the original event instead of appending a linked revision.",
+            "preserve_append_only_correction",
+            &[
+                "original_record_immutable",
+                "correction_references_original",
+                "revision_monotonic",
+            ],
+        )),
+        "PE-UNKNOWN-001" => Some((
+            "A v1 record contains an unreviewed schema field that may change the meaning or authority of the record.",
+            "reject_or_quarantine_unknown_schema",
+            &[
+                "unknown_fields_denied_in_v1",
+                "no_default_authority_upgrade",
+                "quarantine_is_non_authoritative",
+            ],
+        )),
+        "PE-EVIDENCE-001" => Some((
+            "A producer labels synthetic data as real or self-asserts that its own observation has independent review.",
+            "reject_evidence_class_escalation",
+            &[
+                "evidence_class_not_self_promoted",
+                "reviewer_attestation_separate_from_producer",
+                "synthetic_never_admitted_as_real",
+            ],
+        )),
+        "PE-SCOPE-001" => Some((
+            "A record is re-used under another community or scope without an explicit evidence-bound crosswalk and authorization.",
+            "reject_scope_rebinding",
+            &[
+                "scope_part_of_identity",
+                "authorized_crosswalk_required",
+                "out_of_scope_record_non_authoritative",
+            ],
+        )),
+        "PE-REVOCATION-001" => Some((
+            "Access revocation is reported as proof that plaintext already copied by another peer has been erased.",
+            "reject_false_erasure_claim",
+            &[
+                "revocation_limits_future_authorized_access",
+                "no_retroactive_copy_erasure_claim",
+                "retraction_is_attributable_event",
+            ],
+        )),
+        _ => None,
+    }
+}
+
+fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
+    let mut errors = Vec::new();
+    macro_rules! require {
+        ($condition:expr, $message:expr) => {
+            if !$condition {
+                errors.push($message.to_string());
+            }
+        };
+    }
+
+    require!(
+        fixture.schema_id == "urn:mycelix:provenance-envelope",
+        "schema_id must remain urn:mycelix:provenance-envelope"
+    );
+    require!(
+        fixture.schema_version == "mycelix.provenance-envelope/v1",
+        "schema_version must remain mycelix.provenance-envelope/v1"
+    );
+    require!(
+        fixture.status == "research-only-contract",
+        "status must remain research-only-contract"
+    );
+    require!(!fixture.purpose.trim().is_empty(), "purpose must be explicit");
+
+    let authority = &fixture.authority_boundary;
+    require!(
+        authority.external_observation_authority == "none",
+        "external observations must have no domain authority"
+    );
+    require!(
+        !authority.external_import_may_mutate_sap,
+        "external import must not mutate SAP"
+    );
+    require!(
+        !authority.external_import_may_mutate_tend,
+        "external import must not mutate TEND"
+    );
+    require!(
+        !authority.external_import_may_mutate_mycel,
+        "external import must not mutate MYCEL"
+    );
+    require!(
+        !authority.external_import_may_finalize_settlement,
+        "external import must not finalize settlement"
+    );
+    require!(
+        !authority.external_import_may_finalize_governance,
+        "external import must not finalize governance"
+    );
+    require!(
+        authority.signature_proves.iter().map(String::as_str).eq(["origin", "integrity"]),
+        "signature semantics must be exactly origin and integrity"
+    );
+    require!(
+        !authority.signature_proves_truth,
+        "signature must not be treated as proof of truth"
+    );
+    require!(
+        !authority.signature_grants_domain_authority,
+        "signature must not grant domain authority"
+    );
+    require!(
+        authority.corrections_are_append_only,
+        "corrections must remain append-only"
+    );
+    require!(
+        authority.unknown_fields_disposition == "reject_or_quarantine",
+        "unknown v1 fields must be rejected or quarantined"
+    );
+
+    let canonicalization = &fixture.canonicalization_policy;
+    require!(
+        canonicalization.algorithm == "RFC8785-JCS",
+        "canonicalization algorithm must remain RFC8785-JCS"
+    );
+    require!(
+        canonicalization.digest_algorithm == "SHA-256",
+        "payload digest algorithm must remain SHA-256"
+    );
+    require!(
+        canonicalization.digest_scope == "canonicalized_payload_bytes",
+        "digest scope must be explicit canonicalized payload bytes"
+    );
+    require!(
+        !canonicalization.payload_digest_verification_implemented,
+        "fixture checker must not claim payload digest verification"
+    );
+    require!(
+        canonicalization.note.contains("does not recompute the payload digest")
+            && canonicalization.note.contains("does not validate RFC 8785 conformance"),
+        "canonicalization note must preserve the unimplemented-verification limitation"
+    );
+
+    let example = &fixture.example_observation;
+    for (value, field) in [
+        (example.source_app.as_str(), "source_app"),
+        (example.source_profile_id.as_str(), "source_profile_id"),
+        (example.source_record_id.as_str(), "source_record_id"),
+        (example.subject_id.as_str(), "subject_id"),
+        (example.actor_id.as_str(), "actor_id"),
+        (example.scope_id.as_str(), "scope_id"),
+        (example.event_id.as_str(), "event_id"),
+        (example.observed_at.as_str(), "observed_at"),
+        (example.recorded_at.as_str(), "recorded_at"),
+        (example.privacy_class.as_str(), "privacy_class"),
+        (example.license_id.as_str(), "license_id"),
+        (example.claim_ceiling.as_str(), "claim_ceiling"),
+    ] {
+        require!(!value.trim().is_empty(), format!("example observation requires {field}"));
+    }
+    require!(
+        example.source_profile_id == "fixture:provenance-envelope/v1",
+        "example must remain a local synthetic profile, not an implied upstream integration"
+    );
+    require!(example.revision > 0, "event revision must be positive");
+    require!(
+        example.payload_canonicalization == "RFC8785-JCS",
+        "example payload canonicalization must agree with the declared algorithm"
+    );
+    require!(
+        example.payload_digest_sha256.len() == 64
+            && example
+                .payload_digest_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+            && example.payload_digest_sha256 == example.payload_digest_sha256.to_ascii_lowercase(),
+        "example payload digest must have lowercase 64-character SHA-256 syntax"
+    );
+    require!(
+        example.evidence_class == "synthetic",
+        "reference example must remain synthetic"
+    );
+    require!(
+        example.payload.get("synthetic") == Some(&serde_json::Value::Bool(true)),
+        "synthetic example payload must retain its explicit synthetic marker"
+    );
+    require!(
+        example.correction_of.is_none() && example.causal_predecessor.is_none(),
+        "base fixture observation must not claim a predecessor or correction"
+    );
+
+    let expected_ids = [
+        "PE-AUTH-001",
+        "PE-SIG-001",
+        "PE-REPLAY-001",
+        "PE-CONFLICT-001",
+        "PE-SUBJECT-001",
+        "PE-CORRECTION-001",
+        "PE-UNKNOWN-001",
+        "PE-EVIDENCE-001",
+        "PE-SCOPE-001",
+        "PE-REVOCATION-001",
+    ];
+    let mut seen_ids = BTreeSet::new();
+    for control in &fixture.negative_controls {
+        require!(
+            seen_ids.insert(control.id.as_str()),
+            format!("duplicate provenance control id: {}", control.id)
+        );
+        require!(
+            !control.input_condition.trim().is_empty(),
+            format!("provenance control {} requires an input condition", control.id)
+        );
+        require!(
+            !control.required_guards.is_empty(),
+            format!("provenance control {} requires guards", control.id)
+        );
+        match expected_provenance_control(&control.id) {
+            Some((condition, disposition, guards)) => {
+                require!(
+                    control.input_condition == condition,
+                    format!("provenance control {} has a drifted condition", control.id)
+                );
+                require!(
+                    control.expected_disposition == disposition,
+                    format!("provenance control {} has an unsafe disposition", control.id)
+                );
+                require!(
+                    control.required_guards.iter().map(String::as_str).eq(guards.iter().copied()),
+                    format!("provenance control {} must use exactly the registered ordered guards", control.id)
+                );
+            }
+            None => errors.push(format!(
+                "provenance control {} has no registered contract",
+                control.id
+            )),
+        }
+    }
+    for id in expected_ids {
+        require!(
+            seen_ids.contains(id),
+            format!("required provenance control is missing: {id}")
+        );
+    }
+    require!(
+        seen_ids.len() == expected_ids.len(),
+        "provenance contract v1 must contain exactly the 10 registered controls"
+    );
+
+    errors
+}
+
+fn check_provenance_text(input: &str) -> Result<usize, Vec<String>> {
+    let fixture: ProvenanceFixture = match serde_json::from_str(input) {
+        Ok(fixture) => fixture,
+        Err(error) => {
+            return Err(vec![format!(
+                "invalid provenance fixture JSON/shape: {error}"
+            )])
+        }
+    };
+    let errors = validate_provenance(&fixture);
+    if errors.is_empty() {
+        Ok(fixture.negative_controls.len())
+    } else {
+        Err(errors)
     }
 }
 
@@ -804,6 +1199,24 @@ fn main() {
             process::exit(1);
         }
     }
+
+    match check_provenance_text(EMBEDDED_PROVENANCE_FIXTURE) {
+        Ok(count) => println!(
+            "PASS: {} has {} registered provenance boundary controls; no domain authority is granted (envelope v1).",
+            DEFAULT_PROVENANCE_FIXTURE, count
+        ),
+        Err(errors) => {
+            eprintln!(
+                "FAIL: {} failed {} validation checks:",
+                DEFAULT_PROVENANCE_FIXTURE,
+                errors.len()
+            );
+            for error in errors {
+                eprintln!(" - {error}");
+            }
+            process::exit(1);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1236,4 +1649,82 @@ mod tests {
             .iter()
             .any(|error| error.contains("required negative control is missing")));
     }
+
+    #[test]
+    fn checked_in_provenance_fixture_satisfies_fail_closed_contract() {
+        let count = check_provenance_text(EMBEDDED_PROVENANCE_FIXTURE)
+            .expect("checked-in provenance fixture must satisfy its local contract");
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn provenance_signature_cannot_promote_truth_or_authority() {
+        for (field, expected) in [
+            ("signature_proves_truth", "signature must not be treated as proof of truth"),
+            ("signature_grants_domain_authority", "signature must not grant domain authority"),
+        ] {
+            let mut value: serde_json::Value =
+                serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+            value["authority_boundary"][field] = true.into();
+            let errors = check_provenance_text(&value.to_string())
+                .expect_err("signature must not promote claims or authority");
+            assert!(errors.iter().any(|error| error.contains(expected)), "{errors:?}");
+        }
+    }
+
+    #[test]
+    fn provenance_fixture_rejects_unknown_v1_fields() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        value["authority_override"] = true.into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("unknown fields must not silently change v1 semantics");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("invalid provenance fixture JSON/shape")));
+    }
+
+    #[test]
+    fn provenance_fixture_rejects_malformed_digest_syntax_without_claiming_byte_verification() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        value["example_observation"]["payload_digest_sha256"] = "abc".into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("malformed digest syntax must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("lowercase 64-character SHA-256 syntax")));
+        assert!(!errors.iter().any(|error| error.contains("digest matches the source bytes")));
+    }
+
+    #[test]
+    fn provenance_controls_cannot_drift_or_widen_guard_sets() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        let controls = value["negative_controls"].as_array_mut().expect("controls");
+        let replay = controls
+            .iter_mut()
+            .find(|control| control["id"] == "PE-REPLAY-001")
+            .expect("replay control");
+        replay["required_guards"]
+            .as_array_mut()
+            .expect("guard list")
+            .push("unreviewed_guard".into());
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("unreviewed guards must fail closed");
+        assert!(errors.iter().any(|error| error.contains("registered ordered guards")));
+    }
+
+    #[test]
+    fn synthetic_observations_cannot_be_promoted_to_real_evidence() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        value["example_observation"]["evidence_class"] = "independently_corroborated".into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("the sample must remain a synthetic-only fixture");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("reference example must remain synthetic")));
+    }
+
 }
