@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "95f769beb0a9b0160f261078942976057829b00f"
-EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
+EXPECTED_CORPUS_BLOB_SHA = "f3d7429d8f751756f1d4e9208c5f5ad289220dee"
+EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","PIKITUP-BP-2025-26-1","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -54,6 +54,7 @@ EXPECTED_PROBES = {
     "working-on-infrastructure-geography-mismatch": ("EmploymentIntegrity", "TreatAsPartnerDiscoveryOnly", "GeographyNotInAnnouncedLaunchScope"),
     "sdbip-cooperative-kpi-is-not-contract-award": ("EmploymentIntegrity", "PartnerDiscoveryOnlyNoContractAward", "PlanningTargetNotContract"),
     "sdbip-coverage-target-is-not-observed-service": ("ServiceSemantics", "RequireIndependentServiceCoverageEvidence", "PlanningTargetNotObservedOutcome"),
+    "prior-plan-settlement-count-is-not-current-roster": ("ServiceSemantics", "RequirePeriodSpecificApprovedDenominator", "PriorPeriodDenominatorNotCurrent"),
     "national-epwp-target-vs-city-sdbip-target": ("EmploymentIntegrity", "PreserveSeparateTargetSeries", "DistinctProgrammeTargets"),
     "same-title-water-kpis-need-crosswalk": ("ServiceSemantics", "PreserveSeparateMetricSeries", "MetricCrosswalkUnqualified"),
     "planned-controller-rollout-date-is-not-completion": ("Currentness", "KeepRolloutStatusUnverified", "RolloutCompletionNotObserved"),
@@ -94,6 +95,7 @@ REQUIRED_GUARDS = {
     "working-on-infrastructure-geography-mismatch": {"DoNotInferGautengPilotEligibility", "NationalProgrammeAnnouncementIsNotLocalFunding", "NoSpeculativePayroll"},
     "sdbip-cooperative-kpi-is-not-contract-award": {"SdbipPlanningKpiIsNotProcurementAward", "NoCooperativeContractWithoutOpenAuthorizedProcess", "NoSpeculativePayroll"},
     "sdbip-coverage-target-is-not-observed-service": {"PlanningTargetIsNotActualCoverage", "BaselineOrTargetIsNotCurrentObservation", "TextLayerOnlyPageNeedsVisualReview", "RequireCurrentOperationalEvidenceAndDefinedDenominator", "NoCoverageOrNeedClaimFromTargetAlone"},
+    "prior-plan-settlement-count-is-not-current-roster": {"HistoricalSettlementCountIsNotCurrentDenominator", "RequireApprovedCurrentPeriodRoster", "HistoricalPlanTargetIsNotActualCoverage", "ManualTripSheetsNeedReconciliation", "NoCoverageRateWithoutMatchedNumeratorAndDenominator"},
     "national-epwp-target-vs-city-sdbip-target": {"NationalTargetIsNotCitySdbipTarget", "WorkOpportunityIsNotDurableJob", "DoNotReplacePublishedTarget"},
     "same-title-water-kpis-need-crosswalk": {"SameTitleDoesNotProveSameMetric", "UnqualifiedMetricCrosswalkFailsClosed", "NoProductionSlaCalculation"},
     "planned-controller-rollout-date-is-not-completion": {"PlannedCompletionDateIsNotEvidenceOfCompletion", "NoLaterConfirmationMeansUnknown", "SourceSearchScopeMustBeRecorded"},
@@ -303,6 +305,18 @@ def validate() -> None:
         fail("Pikitup target literals drift")
     if pikitup_kpi.get("visually_reviewed") is not False:
         fail("do not claim visual review of SDBIP printed page 27")
+    pikitup_prior_plan = source_by_id["PIKITUP-BP-2025-26-1"]
+    if pikitup_prior_plan.get("source_kind") != "OfficialBusinessPlanAndPerformanceIndicatorSpecification" or pikitup_prior_plan.get("checked_on") != "2026-10-15":
+        fail("Pikitup prior-year business-plan source identity/date drift")
+    prior_indicator = pikitup_prior_plan.get("indicator", {})
+    if prior_indicator.get("kpi_number") != 1 or prior_indicator.get("denominator_note_as_written") != "201 informal settlements verified":
+        fail("Pikitup prior-plan KPI/denominator observation drift")
+    if prior_indicator.get("denominator_current_for_2026_27_confirmed") is not False or prior_indicator.get("performance_result_for_2025_26_observed") is not False or prior_indicator.get("current_2026_27_performance_result_observed") is not False:
+        fail("historical denominator or plan targets must not be promoted to current performance evidence")
+    if prior_indicator.get("recordkeeping") != "Manual" or prior_indicator.get("reporting_cycle") != "Quarterly" or prior_indicator.get("calculation_type") != "NonCumulative":
+        fail("Pikitup KPI measurement/recordkeeping caveats drift")
+    if "screenshot retrieval" not in prior_indicator.get("review_ceiling", "").lower():
+        fail("prior-plan text-layer evidence must preserve visual-review limit")
     forbidden_claims = set(pikitup_kpi.get("prohibited_inference", []))
     if not {
         "Specific tender or contract is open",
@@ -606,6 +620,12 @@ def validate() -> None:
     coverage_input = coverage_probe["input"]
     if coverage_input.get("target_2026_27_percent") != 100 or coverage_input.get("source_page_visually_reviewed") is not False or coverage_input.get("actual_2026_27_performance_result_observed") is not False:
         fail("coverage-target probe must preserve target value and missing current outcome evidence")
+    prior_roster_probe = by_id["prior-plan-settlement-count-is-not-current-roster"]
+    if prior_roster_probe["expected"]["disposition"] != "RequirePeriodSpecificApprovedDenominator" or prior_roster_probe["expected"]["issue_status_effect"] != "NoCurrentCoverageRate":
+        fail("prior-plan settlement count cannot be reused as a current denominator")
+    prior_input = prior_roster_probe["input"]
+    if prior_input.get("historical_denominator_text") != "201 informal settlements verified" or prior_input.get("historical_denominator_reuse_authorized") is not False or prior_input.get("current_approved_settlement_roster_observed") is not False:
+        fail("prior-plan roster control must preserve the historic count and block unqualified reuse")
     epwp_probe = by_id["national-epwp-target-vs-city-sdbip-target"]
     if epwp_probe["expected"]["disposition"] != "PreserveSeparateTargetSeries":
         fail("national and City EPWP planning targets must remain distinct")

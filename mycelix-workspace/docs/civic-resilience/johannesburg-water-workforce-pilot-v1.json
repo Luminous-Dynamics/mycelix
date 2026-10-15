@@ -304,6 +304,46 @@
       }
     },
     {
+      "source_id": "PIKITUP-BP-2025-26-1",
+      "issuer": "Pikitup Johannesburg SOC Ltd",
+      "source_url": "https://www.pikitup.co.za/wp-content/uploads/2025_2026-Business-Plan_Final_v7.0.pdf",
+      "source_kind": "OfficialBusinessPlanAndPerformanceIndicatorSpecification",
+      "document_title": "Pikitup 2025/26 Business Plan Final v7.0",
+      "publication_date": "2025-05-21 (indexed publication metadata; printed issue date not independently established)",
+      "checked_on": "2026-10-15",
+      "pdf_page_count": 169,
+      "source_observation_status": "OfficialPDFTextLayerObserved;PrintedPage85ScreenshotTimedOut;NotVisuallyReviewed",
+      "indicator": {
+        "kpi_number": 1,
+        "title": "Percentage of Pikitup known informal settlements receiving basic removal services",
+        "responsible_official": "Chief Operating Officer (COO)",
+        "stated_data_sources": [
+          "Collection schedule",
+          "Trip sheets",
+          "Approved list of predetermined Pikitup-known informal settlements"
+        ],
+        "calculation_as_written": "Informal settlement serviced per week as percentage of total pre-determined informal settlement.",
+        "denominator_note_as_written": "201 informal settlements verified.",
+        "denominator_effective_date": "NotObserved",
+        "denominator_current_for_2026_27_confirmed": false,
+        "recordkeeping": "Manual",
+        "calculation_type": "NonCumulative",
+        "reporting_cycle": "Quarterly",
+        "desired_performance_as_written": "100%",
+        "performance_result_for_2025_26_observed": false,
+        "current_2026_27_performance_result_observed": false,
+        "review_ceiling": "Text extraction gives the indicator definition and the note about 201 verified settlements; web screenshot retrieval of printed page 85 timed out, so page layout/columns were not visually checked in this pass."
+      },
+      "allowed_use": "Specify the future evidence contract and identify required manual records for authorized review; use the 201 figure only as a plan-era observation, not as today's denominator or achieved coverage.",
+      "prohibited_inference": [
+        "201 is the current 2026/27 approved settlement roster",
+        "100% target proves actual 2025/26 or 2026/27 performance",
+        "No captured trip sheet proves a settlement was unserviced",
+        "The denominator remains fixed despite updates to the approved list",
+        "The plan identifies a current work package, award, payer, or funding for Mycelix"
+      ]
+    },
+    {
       "source_id": "GOV-PWR-WTR-1",
       "issuer": "South African Government",
       "source_url": "https://www.gov.za/news/media-statements/government-measures-mitigate-water-supply-disruptions-resulting-power-trips",
@@ -1234,18 +1274,18 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "95f769beb0a9b0160f261078942976057829b00f",
-    "probe_count": 38,
+    "git_blob_sha": "f3d7429d8f751756f1d4e9208c5f5ad289220dee",
+    "probe_count": 39,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 38,
+      "unique_probe_ids": 39,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
     },
-    "qualification_status_note": "The exact-head workflow result must be read from GitHub Actions; this committed manifest must not assert its own qualification result."
+    "qualification_status_note": "The exact-head workflow result must be read from GitHub Actions; this committed manifest must not assert its own qualification result. Source-page screenshot retrieval timed out for Pikitup's 2025/26 KPI method, which remains text-layer-only until visually checked."
   },
   "pilot_selection_matrix": {
     "selection_status": "NotSelected;PartnerDiscoveryRequired",

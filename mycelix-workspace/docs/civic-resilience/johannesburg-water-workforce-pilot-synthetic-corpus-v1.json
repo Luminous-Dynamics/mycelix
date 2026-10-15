@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 38,
+  "expected_probe_count": 39,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -509,6 +509,43 @@
         "TextLayerOnlyPageNeedsVisualReview",
         "RequireCurrentOperationalEvidenceAndDefinedDenominator",
         "NoCoverageOrNeedClaimFromTargetAlone"
+      ]
+    },
+    {
+      "id": "prior-plan-settlement-count-is-not-current-roster",
+      "category": "ServiceSemantics",
+      "scenario": "Pikitup's 2025/26 Business Plan technical indicator description says the basic-removal KPI uses collection schedules, trip sheets and an approved list of predetermined Pikitup-known informal settlements; the text layer notes 201 settlements verified. The 2026/27 SDBIP carries a 100% target, but no period-specific current approved settlement roster or matched operational numerator has been captured here. An adapter reuses 201 as the 2026/27 denominator or calculates achieved coverage from a target alone.",
+      "input": {
+        "historical_plan_source": "PIKITUP-BP-2025-26-1",
+        "historical_plan_period": "2025/26",
+        "historical_denominator_text": "201 informal settlements verified",
+        "historical_denominator_effective_date": "NotObserved",
+        "current_sdbip_source": "COJ-SDBIP-2026-27",
+        "current_target_percent": 100,
+        "current_approved_settlement_roster_observed": false,
+        "matched_current_period_trip_sheets_observed": false,
+        "independently_reconciled_current_numerator_observed": false,
+        "historical_denominator_reuse_authorized": false,
+        "source_page_visual_review_completed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequirePeriodSpecificApprovedDenominator",
+        "issue_status_effect": "NoCurrentCoverageRate",
+        "required_human_review": true,
+        "source_status": "PriorPeriodDenominatorNotCurrent"
+      },
+      "guards": [
+        "HistoricalSettlementCountIsNotCurrentDenominator",
+        "RequireApprovedCurrentPeriodRoster",
+        "HistoricalPlanTargetIsNotActualCoverage",
+        "ManualTripSheetsNeedReconciliation",
+        "NoCoverageRateWithoutMatchedNumeratorAndDenominator"
       ]
     },
     {
