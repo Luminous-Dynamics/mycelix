@@ -118,6 +118,18 @@ class AppealCaseEngineTests(unittest.TestCase):
         self.assertIs(self.contract["public_dht_publication_enabled"], False)
         self.assertIs(self.contract["external_notifications_enabled"], False)
 
+    def test_unimplemented_external_issue_types_are_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "issue_code must use the closed v1 issue enum"):
+            engine.new_case(
+                "CASE-SYN-UNSUPPORTED",
+                OWNER,
+                "SERVICE_APPOINTMENT_INTAKE",
+                "SOURCE_RECORD_CORRECTION_REFERRAL",
+                self.contract,
+                jurisdiction_code="JURISDICTION_SYNTHETIC",
+            )
+        self.assertIn("SOURCE_RECORD_CORRECTION_REFERRAL", self.contract["not_implemented_issue_codes"])
+
     def test_case_envelope_has_only_opaque_refs_and_control_metadata(self) -> None:
         case = self.make_case()
         self.assertEqual(case["current_state"], "not_opened")
