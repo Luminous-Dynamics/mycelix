@@ -727,7 +727,7 @@ def main() -> int:
         if args.source_commit:
             report = run_synthetic_demo(args.source_commit, contract)
             if args.report:
-                args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+                args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             print(
                 "SYNTHETIC_APPEAL_CASE=PASS "
                 f"events={report['event_count']} state={report['terminal_state']} "
