@@ -102,6 +102,16 @@ where `Y(0)` is the baseline, `Y(A)` and `Y(B)` are single-intervention cases, a
 
 For metrics where lower is better, a negative interaction can indicate beneficial synergy; for metrics where higher is better, the sign reverses. If the uncertainty interval includes zero, report the result as inconclusive rather than announcing synergy. Keep the outcome's direction and uncertainty attached to the result.
 
+### Propagate uncertainty instead of accepting a hand-written interval
+
+For each of the four scenario estimates, record an interval on the same metric and unit. A conservative interval-arithmetic enclosure for the interaction is:
+
+`delta_lower = combined_lower - A_upper - B_upper + baseline_lower`
+
+`delta_upper = combined_upper - A_lower - B_lower + baseline_upper`
+
+The declared interaction interval must be at least as wide as this propagated enclosure. If one of the four intervals is missing, a quantified interaction is blocked. This is conservative interval arithmetic, not a confidence interval or probability statement; it does not model correlation between scenario errors. For common weather, demand, or model errors, prefer a joint scenario ensemble or paired simulation runs with shared conditions, and document dependence assumptions. Never relabel a deterministic model range as a statistical confidence interval.
+
 Also record interactions that are:
 - **synergistic:** one intervention improves another's measured outcome;
 - **antagonistic:** one undermines another;
