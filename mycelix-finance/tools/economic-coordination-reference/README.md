@@ -33,13 +33,14 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Delivery is only a claim until an independent verifier confirms the exact resource, unit, quantity, and deadline.
 - Independent verification binds to the exact provider delivery-claim ID as well as a separate verifier evidence ID.
 - Unknown/stale/contested verification stays indeterminate; short or mismatched delivery becomes disputed.
+- A dispute may be reassessed only by a different independent resolver bound to the exact delivery-claim ID. Only confirmation of full delivery resolves it to Verified; adverse/incomplete reassessment is journaled and leaves the obligation disputed.
 - Lifecycle event times cannot move backwards.
 - Settlement is attempted only after verified delivery; account identity, denomination, arithmetic, and both balance bounds are checked before either balance mutates.
 - Transaction IDs are single-use for reservations, including after cancellation; obligation IDs are single-use for ledger postings.
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The reference model currently contains **21 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
+The reference model currently contains **24 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Explicit limitations
 
