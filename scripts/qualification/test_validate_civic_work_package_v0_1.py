@@ -111,9 +111,11 @@ class CivicWorkPackageTests(unittest.TestCase):
 
     def test_automated_authorization_is_rejected(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
-        record["authorization"]["authorizer_ref"] = None
+        # Keep the record schema-valid so the semantic authorization gate is
+        # exercised; a null authorizer would stop at schema validation first.
+        record["authorization"]["approved_by_human"] = False
         errors = validate_record(record, SCHEMA, "automated authorization")
-        self.assertTrue(any("approved_by_human" in error for error in errors), errors)
+        self.assertIn("CWP_E_HUMAN_AUTHORIZATION_MISSING", errors)
 
     def test_lifecycle_from_status_must_match_previous_event(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
