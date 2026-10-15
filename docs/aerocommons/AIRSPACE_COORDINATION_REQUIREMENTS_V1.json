@@ -47,6 +47,11 @@
       "id": "AIR-INV-006",
       "statement": "Safety constraints are non-compensatory; throughput, cost, noise, and fairness cannot trade away a hard safety gate.",
       "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-007",
+      "statement": "Every flight geometry evaluation requires an explicit traffic-profile/model-profile pair admitted by a versioned applicability registry; unknown, missing, or unsupported pairs remain unresolved before geometric work.",
+      "hard_gate": true
     }
   ],
   "classification_vocabulary": [
@@ -177,6 +182,30 @@
       "expected_classification": "Reject",
       "required_behavior": "Apply hard safety predicates before optimization and keep the violated gate visible in the result.",
       "forbidden_inference": "A favorable aggregate score compensates for a hard safety violation."
+    },
+    {
+      "id": "AIR-CASE-016",
+      "name": "missing_model_applicability_binding",
+      "stimulus": "A flight intent omits traffic_profile_id or model_profile_id, or supplies an empty identifier.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Return unresolved before trajectory, dynamic-constraint, or polygon intersection work; do not infer a default model from coordinates.",
+      "forbidden_inference": "Missing model metadata means the default or simplest kernel applies."
+    },
+    {
+      "id": "AIR-CASE-017",
+      "name": "real_world_traffic_profile_paired_with_toy_kernel",
+      "stimulus": "A catalogued real-world archetype such as conventional_fixed_wing, evtol_aam, low_altitude_multirotor_uas, or launch_reentry_suborbital is paired with the constant_velocity_toy_v1 model.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Reject the model/profile combination as unsupported before performing any geometric intersection work; preserve the declared unsupported model status.",
+      "forbidden_inference": "A valid local Cartesian coordinate and velocity record establish applicability to a real vehicle."
+    },
+    {
+      "id": "AIR-CASE-018",
+      "name": "direct_polygon_api_bypasses_model_admission",
+      "stimulus": "A caller sends a valid-looking FlightIntent directly to the planar polygon API with an unsupported traffic/model pair.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Apply the same fail-closed model-applicability gate in the polygon entry point and record zero geometric work.",
+      "forbidden_inference": "A lower-level geometry function may bypass the traffic-model admission contract."
     }
   ],
   "evaluation_metrics": [
@@ -210,6 +239,12 @@
       "id": "AIR-METRIC-006",
       "name": "partition_cyber_resilience_and_degraded_mode_coverage",
       "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-007",
+      "name": "unsupported_model_profile_admission",
+      "role": "non_compensatory_gate",
+      "notes": "Every geometry entry point must fail closed before geometric work when the traffic/model pair is missing or unsupported; this gate is not a learned score or performance objective."
     }
   ],
   "execution": {
@@ -283,7 +318,10 @@
       "continuous_time_axis_aligned_constraint_intersection_for_constant_velocity",
       "half_open_constraint_validity_intersection_and_exact_boundary_semantics",
       "bounded_constraint_flight_pair_intersection_work",
-      "synthetic_velocity_scaled_uncertainty_horizon_for_constraint_guard_band"
+      "synthetic_velocity_scaled_uncertainty_horizon_for_constraint_guard_band",
+      "versioned_model_applicability_registry_admits_only_an_explicit_synthetic_fixture_pair",
+      "missing_unknown_and_real_world_traffic_model_pairs_resolve_before_trajectory_geometry_work",
+      "direct_polygon_entry_point_enforces_the_same_model_applicability_gate"
     ],
     "not_yet_implemented": [
       "networked provider federation, authenticated peer exchange, and replicated snapshot/event-log reconciliation",
@@ -300,7 +338,9 @@
       "cross-provider causal ordering, replicated event-log merge, reservation supersession, and jurisdiction-specific resolution policy",
       "authoritative dynamic restriction ingestion/signature validation and jurisdiction-specific geometry/transformation",
       "dynamic weather/wind/terrain modeling and validated continuous reachable-set intersection",
-      "validated continuous reachability for maneuvering trajectories, time-varying uncertainty envelopes, and polygon/polyhedron geometry"
+      "validated continuous reachability for maneuvering trajectories, time-varying uncertainty envelopes, and polygon/polyhedron geometry",
+      "vehicle-specific dynamics and independently qualified applicability evidence for any real-world traffic archetype",
+      "authenticated provenance proving that a caller-declared traffic profile matches the physical vehicle/source"
     ],
     "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
     "lifecycle_transition_cases": [
@@ -404,7 +444,8 @@
       "constraint_vertical_datum_mismatch_unresolved",
       "invalid_constraint_uncertainty_horizon_rejected",
       "continuous_spatial_tangent_at_start_is_impact",
-      "constraint_valid_until_boundary_is_exclusive"
+      "constraint_valid_until_boundary_is_exclusive",
+      "unsupported_model_profile_resolves_before_constraint_intersection"
     ],
     "dynamic_constraint_semantics": {
       "volume_model": "synthetic axis-aligned box in explicit local frame, vertical datum and time basis",
@@ -419,7 +460,8 @@
         "same_constraint_digest_different_payload_unresolved",
         "constraint_authority_change_unresolved",
         "constraint_vertical_datum_mismatch_unresolved",
-        "invalid_constraint_sample_step_rejected"
+        "invalid_constraint_sample_step_rejected",
+        "unsupported_model_profile_resolves_before_constraint_intersection"
       ],
       "uncertainty_envelope": "declared flight uncertainty + constraint margin + absolute velocity scaled by a caller-specified synthetic uncertainty horizon",
       "sampling": "no temporal point-sampling to detect geometric intersection; report records intersection checks, not sample checks",
@@ -428,6 +470,13 @@
         "continuous_spatial_tangent_at_start_is_impact",
         "constraint_valid_until_boundary_is_exclusive"
       ]
+    },
+    "flight_trajectory_fixture_bindings": {
+      "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+      "model_profile_id": "constant_velocity_toy_v1",
+      "applicability_registry": "tools/airspace-sim/fixtures/model_applicability.json",
+      "applicability_domain": "synthetic_fixtures_only",
+      "real_world_archetypes": "unsupported"
     }
   }
 }
