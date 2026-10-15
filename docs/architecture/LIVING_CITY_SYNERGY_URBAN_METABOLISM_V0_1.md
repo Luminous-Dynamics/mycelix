@@ -12,7 +12,7 @@ The v0.1 contract introduces:
 
 - an explicit spatial, temporal, and process boundary plus a functional unit;
 - separate flow records for final energy, useful energy, exergy, water, materials, greenhouse-gas impacts, thermal exposure, accessibility, and service uptime;
-- conservation checks with declared inputs, outputs, storage changes, residuals, and tolerances;
+- conservation checks aligned with Symtropy's exact integer resource-balance kernel, including resolved evidence refs for real assessments;
 - a four-scenario interaction method for checking non-additive effects;
 - source/evidence links and pinned model-run provenance;
 - explicit role boundaries between Mycelix, Symthaea, Symtropy, and Sol Atlas;
@@ -59,7 +59,7 @@ The v0.1 balance fields align with the exact-integer convention in [Symtropy’s
 
 `residual = expected_storage_delta - observed_storage_delta`
 
-Energy, water, and conserved material mass use canonical base units of watt-hours (Wh), millilitres (mL), and grams (g). Quantities are decimal integer strings so clients cannot silently round large values through IEEE-754 floating-point numbers. The validator recomputes the residual from the fields and compares it to an explicit integer tolerance; a `balanced` label cannot override arithmetic.
+Energy, water, and conserved material mass use canonical base units of watt-hours (Wh), millilitres (mL), and grams (g). Quantities are decimal integer strings so clients cannot silently round large values through IEEE-754 floating-point numbers. The validator recomputes the residual from the fields and compares it to an explicit integer tolerance; a `balanced` label cannot override arithmetic. In a real `assessment` record, each balance check also requires Mycelix evidence-claim references that resolve; synthetic-only fixtures are forbidden from citing real-world evidence.
 
 This conservation schema deliberately excludes greenhouse-gas equivalents and exergy. CO2-equivalents are impact-accounting outputs rather than conserved mass, while exergy can be destroyed and is not a plain conserved-energy quantity. Those metrics remain separate flow records and need their own appropriate methods.
 
