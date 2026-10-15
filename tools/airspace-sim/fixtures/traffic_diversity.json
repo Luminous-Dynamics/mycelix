@@ -1,0 +1,425 @@
+{
+  "schema": "airspace-traffic-diversity-v1",
+  "status": "synthetic_research_metadata_only",
+  "authority_ceiling": "coverage taxonomy and test planning only; not operational traffic models, separation minima, flight authorization, or safety determination",
+  "current_kernel": {
+    "module": "tools/airspace-sim",
+    "model": "synthetic_local_cartesian_constant_velocity",
+    "supports_real_vehicle_dynamics": false,
+    "geographic_transformations": false,
+    "validated_reachable_sets": false,
+    "separation_minima": "not_provided",
+    "rule": "real vehicle archetypes must not inherit constant-velocity support by class label; unsupported model/class pairs remain unresolved"
+  },
+  "archetypes": [
+    {
+      "profile_id": "conventional_fixed_wing",
+      "family": "conventional",
+      "examples": [
+        "airline",
+        "regional",
+        "business",
+        "general aviation"
+      ],
+      "distinguishing_factors": [
+        "climb/descent and performance envelope",
+        "terminal/en-route regime",
+        "authoritative wake category",
+        "runway dependency and diversion"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "rotorcraft",
+      "family": "conventional",
+      "examples": [
+        "helicopter",
+        "other rotorcraft"
+      ],
+      "distinguishing_factors": [
+        "hover and low-speed modes",
+        "rotor wash",
+        "constrained landing options",
+        "mission-dependent operations"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "glider_unpowered",
+      "family": "conventional",
+      "examples": [
+        "sailplane",
+        "glider"
+      ],
+      "distinguishing_factors": [
+        "energy state",
+        "thermal and wind dependence",
+        "limited climb capability",
+        "launch/recovery area"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "low_altitude_multirotor_uas",
+      "family": "uas_low_altitude",
+      "examples": [
+        "small multirotor UAS"
+      ],
+      "distinguishing_factors": [
+        "BVLOS and link status",
+        "obstacles",
+        "high-density operations",
+        "ground exposure"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "fixed_wing_uas",
+      "family": "uas_low_altitude",
+      "examples": [
+        "fixed-wing survey drone",
+        "delivery drone"
+      ],
+      "distinguishing_factors": [
+        "loiter and range",
+        "launch/recovery",
+        "wind response",
+        "lost-link behavior"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "large_uncrewed_cargo",
+      "family": "uas_cargo",
+      "examples": [
+        "larger cargo UAS",
+        "remotely piloted fixed-wing aircraft"
+      ],
+      "distinguishing_factors": [
+        "mixed traffic",
+        "performance envelope",
+        "operational containment",
+        "detect-and-avoid evidence"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "evtol_aam",
+      "family": "advanced_air_mobility",
+      "examples": [
+        "passenger air taxi",
+        "lift-plus-cruise",
+        "tilt design"
+      ],
+      "distinguishing_factors": [
+        "transition phase",
+        "vertiport capacity",
+        "energy reserve",
+        "noise and diversion"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "public_service_specialized",
+      "family": "mission_context",
+      "examples": [
+        "firefighting",
+        "medical",
+        "search and rescue",
+        "agriculture",
+        "disaster response"
+      ],
+      "distinguishing_factors": [
+        "dynamic mission constraints",
+        "protected activity areas",
+        "rapidly changing restrictions",
+        "precedence is external authority policy"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "balloon_airship",
+      "family": "higher_airspace",
+      "examples": [
+        "free balloon",
+        "tethered balloon",
+        "airship"
+      ],
+      "distinguishing_factors": [
+        "wind-dependent drift",
+        "limited maneuver authority",
+        "prolonged uncertainty",
+        "recovery planning"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "haps_stratospheric",
+      "family": "higher_airspace",
+      "examples": [
+        "solar platform",
+        "stratospheric communication/research platform"
+      ],
+      "distinguishing_factors": [
+        "persistent loiter",
+        "atmospheric dependence",
+        "long-duration estimation",
+        "cross-border continuity"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "hale_remotely_piloted",
+      "family": "higher_airspace",
+      "examples": [
+        "high-altitude long-endurance RPAS"
+      ],
+      "distinguishing_factors": [
+        "high-altitude performance",
+        "long endurance",
+        "communications links",
+        "extended predicted trajectories"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "supersonic_hypersonic",
+      "family": "higher_airspace_high_speed",
+      "examples": [
+        "high-speed civil vehicle",
+        "research vehicle",
+        "state vehicle"
+      ],
+      "distinguishing_factors": [
+        "rapid space-time evolution",
+        "thermal/propulsive phases",
+        "broad hazard regions",
+        "environmental effects"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "launch_reentry_suborbital",
+      "family": "space_airspace_interface",
+      "examples": [
+        "launch body",
+        "suborbital vehicle",
+        "re-entry vehicle",
+        "spaceplane"
+      ],
+      "distinguishing_factors": [
+        "phase transitions",
+        "dynamic corridor/footprint",
+        "failure contingencies",
+        "cross-domain handoff"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "unknown_noncooperative",
+      "family": "unknown_traffic",
+      "examples": [
+        "uncorrelated track",
+        "lost-link vehicle",
+        "unknown track"
+      ],
+      "distinguishing_factors": [
+        "identity and intent uncertainty",
+        "stale surveillance",
+        "degraded handling",
+        "escalation to existing service"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    },
+    {
+      "profile_id": "cooperative_swarm_aggregate",
+      "family": "aggregate_cooperative",
+      "examples": [
+        "coordinated UAS fleet",
+        "multiple provider-managed vehicles"
+      ],
+      "distinguishing_factors": [
+        "membership changes",
+        "individual-vs-aggregate separation",
+        "communications partition",
+        "bounded computational load"
+      ],
+      "current_kernel_support": "not_implemented",
+      "required_model_or_adapter": "not_yet_defined",
+      "operational_claims": false
+    }
+  ],
+  "mission_contexts": [
+    "passenger",
+    "cargo",
+    "emergency_medical",
+    "search_and_rescue",
+    "fire_response",
+    "agriculture",
+    "inspection",
+    "science",
+    "telecommunications",
+    "defense_or_state",
+    "test_flight"
+  ],
+  "operating_regimes": [
+    "airport_terminal",
+    "en_route",
+    "low_altitude_urban_rural",
+    "offshore",
+    "higher_airspace",
+    "launch_ascent",
+    "reentry",
+    "regime_transition"
+  ],
+  "cooperation_states": [
+    "authenticated_cooperative",
+    "limited_cooperation",
+    "degraded_link",
+    "unknown_or_noncooperative"
+  ],
+  "interaction_backlog": [
+    {
+      "case_id": "fixedwing_uas_crewed",
+      "participants": [
+        "conventional_fixed_wing",
+        "low_altitude_multirotor_uas"
+      ],
+      "research_question": "Mixed-aircraft detection and avoidance assumptions",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "helicopter_uas",
+      "participants": [
+        "rotorcraft",
+        "low_altitude_multirotor_uas"
+      ],
+      "research_question": "Low-speed operation and constrained landing",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "evtol_terminal_flow",
+      "participants": [
+        "evtol_aam",
+        "conventional_fixed_wing"
+      ],
+      "research_question": "Vertiport slots and changing runway/approach capacity",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "glider_wind",
+      "participants": [
+        "glider_unpowered",
+        "conventional_fixed_wing"
+      ],
+      "research_question": "Wind/lift dependent trajectories rather than constant-velocity extrapolation",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "balloon_transit",
+      "participants": [
+        "balloon_airship",
+        "conventional_fixed_wing"
+      ],
+      "research_question": "Wind-drift volumes and slow movement across a long horizon",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "emergency_mixed_flow",
+      "participants": [
+        "public_service_specialized",
+        "conventional_fixed_wing"
+      ],
+      "research_question": "Authorized precedence policy; never invent priority from mission label",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "haps_high_speed",
+      "participants": [
+        "haps_stratospheric",
+        "supersonic_hypersonic"
+      ],
+      "research_question": "Cross-regime speed and persistence mismatch",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "launch_dynamic_corridor",
+      "participants": [
+        "launch_reentry_suborbital",
+        "conventional_fixed_wing"
+      ],
+      "research_question": "Time-dependent launch/re-entry hazard corridor and contingency footprint",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "swarm_partition",
+      "participants": [
+        "cooperative_swarm_aggregate",
+        "low_altitude_multirotor_uas"
+      ],
+      "research_question": "Membership changes, partitions, duplicate identities, workload bounds",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "unknown_track_degraded",
+      "participants": [
+        "unknown_noncooperative",
+        "conventional_fixed_wing"
+      ],
+      "research_question": "Stale surveillance must not be interpreted as empty airspace",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "unsupported_profile_pair",
+      "participants": [
+        "rotorcraft",
+        "balloon_airship"
+      ],
+      "research_question": "Unsupported models must return unresolved rather than inherit a generic class model",
+      "status": "design_backlog_not_executable"
+    },
+    {
+      "case_id": "aam_vertiport_capacity",
+      "participants": [
+        "evtol_aam"
+      ],
+      "research_question": "Resource capacity, sequence, charging/energy and contingency availability",
+      "status": "design_backlog_not_executable"
+    }
+  ],
+  "invariants": [
+    "No real-world archetype has current_kernel_support=implemented.",
+    "Vehicle or mission labels do not imply separation minima, right-of-way, priority, authorization, or controllability.",
+    "A model unsupported for an archetype or regime returns unresolved/degraded; it never silently falls back to a different archetype.",
+    "Unknown/noncooperative traffic plus stale or incomplete surveillance cannot yield a reassuring no-conflict conclusion.",
+    "Every future executable scenario declares model version, units, frames, time semantics, uncertainty representation, oracle, and applicability limits."
+  ]
+}
