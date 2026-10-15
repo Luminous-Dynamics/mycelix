@@ -18,6 +18,8 @@ const MAX_PAIR_SAMPLE_CHECKS: u128 = 5_000_000;
 const MAX_RESERVATION_CLAIMS: usize = 300;
 const MAX_RESERVATION_PAIR_CHECKS: usize = 50_000;
 const MAX_RESERVATION_EVENTS: usize = 1_000;
+const MAX_UNCERTAINTY_HORIZON_S: i64 = 3_600;
+const MAX_CONSTRAINT_INTERSECTION_CHECKS: u128 = 500_000;
 const MAX_CONSTRAINT_UPDATES: usize = 1_000;
 const MAX_CONSTRAINT_FLIGHTS: usize = 300;
 const MAX_CONSTRAINT_SAMPLE_CHECKS: u128 = 5_000_000;
@@ -256,7 +258,8 @@ pub struct DynamicConstraintCase {
     pub case_id: String,
     pub now_s: i64,
     pub snapshot_state: ProviderSnapshotState,
-    pub sample_step_s: i64,
+    /// Synthetic horizon for a conservative motion guard band.
+    pub uncertainty_horizon_s: i64,
     pub flights: Vec<FlightIntent>,
     pub updates: Vec<AirspaceConstraintUpdate>,
     pub expected_outcome: DynamicConstraintOutcome,
@@ -278,7 +281,7 @@ pub enum DynamicConstraintError {
     EmptyIdentity,
     TooManyUpdates,
     TooManyFlights,
-    InvalidSampleStep,
+    InvalidUncertaintyHorizon,
     InvalidSequence,
     FutureIssuedAt,
     InvalidValidityInterval,
@@ -310,7 +313,7 @@ pub struct DynamicConstraintImpact {
     pub flight_id: String,
     pub constraint_id: String,
     pub constraint_sequence: u64,
-    pub first_conservative_sample_time_s: i64,
+    pub first_conservative_intersection_time_s: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -325,7 +328,7 @@ pub struct DynamicConstraintReport {
     pub replayed_delivery_count: usize,
     pub active_constraint_count: usize,
     pub flights_considered: usize,
-    pub sample_checks: u64,
+    pub intersection_checks: u64,
     pub impacts: Vec<DynamicConstraintImpact>,
     pub errors: Vec<DynamicConstraintError>,
     pub reasons: Vec<String>,
@@ -445,7 +448,7 @@ pub struct SimulationReport {
 pub struct ConflictObservation {
     pub flight_a: String,
     pub flight_b: String,
-    pub first_conservative_sample_time_s: i64,
+    pub first_conservative_intersection_time_s: i64,
     pub nominal_horizontal_distance_mm_floor: u64,
     pub nominal_vertical_distance_mm: u64,
     pub effective_horizontal_limit_mm: u64,
@@ -631,7 +634,7 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
                     conflicts.push(ConflictObservation {
                         flight_a: left.flight_id.clone(),
                         flight_b: right.flight_id.clone(),
-                        first_conservative_sample_time_s: time_s,
+                        first_conservative_intersection_time_s: time_s,
                         nominal_horizontal_distance_mm_floor: floor_sqrt(horizontal_distance_squared) as u64,
                         nominal_vertical_distance_mm: vertical_distance as u64,
                         effective_horizontal_limit_mm: horizontal_limit as u64,
@@ -1142,11 +1145,11 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
             vec!["case_id must not be empty".to_owned()],
         );
     }
-    if case.sample_step_s <= 0 || case.sample_step_s > MAX_SAMPLE_STEP_S {
+    if case.uncertainty_horizon_s < 0 || case.uncertainty_horizon_s > MAX_UNCERTAINTY_HORIZON_S {
         return dynamic_constraint_report(
             case, DynamicConstraintOutcome::Reject, 0, 0, 0, 0, 0,
-            Vec::new(), vec![DynamicConstraintError::InvalidSampleStep],
-            vec!["sample step must be positive and within the synthetic work bound".to_owned()],
+            Vec::new(), vec![DynamicConstraintError::InvalidUncertaintyHorizon],
+            vec!["uncertainty horizon must be non-negative and within the synthetic work bound".to_owned()],
         );
     }
     if received_count > MAX_CONSTRAINT_UPDATES {
@@ -1345,92 +1348,41 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
         );
     }
 
-    let mut estimated_checks = 0_u128;
-    for constraint in &active_constraints {
-        for flight in &current_flights {
-            let start_s = case.now_s.max(flight.valid_from_s).max(constraint.valid_from_s);
-            let end_s = flight.valid_until_s.min(constraint.valid_until_s);
-            if start_s >= end_s {
-                continue;
-            }
-            let last_s = end_s - 1;
-            let duration = u128::try_from(last_s - start_s).unwrap_or(0);
-            let step = u128::try_from(case.sample_step_s).unwrap_or(1);
-            estimated_checks = estimated_checks.saturating_add(duration.div_ceil(step) + 1);
-        }
+    let estimated_checks = active_constraints.len().saturating_mul(current_flights.len()) as u128;
+    if estimated_checks > MAX_CONSTRAINT_INTERSECTION_CHECKS {
+        reasons.push(format!("estimated constraint/trajectory intersection checks ({estimated_checks}) exceeds the bound {MAX_CONSTRAINT_INTERSECTION_CHECKS}"));
+        return dynamic_constraint_report(case, DynamicConstraintOutcome::Reject, streams.len(), unique_update_count,
+            replayed_delivery_count, active_constraints.len(), current_flights.len(), Vec::new(),
+            vec![DynamicConstraintError::WorkBudgetExceeded], reasons);
     }
-    if estimated_checks > MAX_CONSTRAINT_SAMPLE_CHECKS {
-        reasons.push(format!(
-            "estimated constraint/trajectory sample work ({estimated_checks}) exceeds the bound {MAX_CONSTRAINT_SAMPLE_CHECKS}"
-        ));
-        return dynamic_constraint_report(
-            case, DynamicConstraintOutcome::Reject, streams.len(), unique_update_count,
-            replayed_delivery_count, active_constraints.len(), current_flights.len(),
-            Vec::new(), vec![DynamicConstraintError::WorkBudgetExceeded], reasons,
-        );
-    }
-
     let mut impacts = Vec::new();
-    let mut sample_checks = 0_u64;
+    let mut intersection_checks = 0_u64;
     for constraint in &active_constraints {
         for flight in &current_flights {
-            let start_s = case.now_s.max(flight.valid_from_s).max(constraint.valid_from_s);
-            let end_s = flight.valid_until_s.min(constraint.valid_until_s);
-            if start_s >= end_s {
-                continue;
-            }
-            if flight.reference_frame != constraint.reference_frame {
-                errors.push(DynamicConstraintError::IncompatibleReferenceFrame);
-                continue;
-            }
-            if flight.vertical_datum != constraint.vertical_datum {
-                errors.push(DynamicConstraintError::IncompatibleVerticalDatum);
-                continue;
-            }
-            if flight.time_basis != constraint.time_basis {
-                errors.push(DynamicConstraintError::IncompatibleTimeBasis);
-                continue;
-            }
-
-            let last_s = end_s - 1;
-            let mut time_s = start_s;
-            let mut first_impact = None;
-            loop {
-                sample_checks = sample_checks.saturating_add(1);
-                let Some(position) = position_at(flight, time_s) else {
-                    errors.push(DynamicConstraintError::InvalidFlightGeometry);
-                    break;
-                };
-                if position_within_conservative_constraint(position, flight, constraint, case.sample_step_s) {
-                    first_impact = Some(time_s);
-                    break;
-                }
-                if time_s == last_s {
-                    break;
-                }
-                let next = time_s.saturating_add(case.sample_step_s);
-                time_s = if next >= last_s { last_s } else { next };
-            }
-            if let Some(first_time) = first_impact {
+            let start_s=case.now_s.max(flight.valid_from_s).max(constraint.valid_from_s);
+            let end_s=flight.valid_until_s.min(constraint.valid_until_s);
+            if start_s>=end_s { continue; }
+            if flight.reference_frame!=constraint.reference_frame { errors.push(DynamicConstraintError::IncompatibleReferenceFrame); continue; }
+            if flight.vertical_datum!=constraint.vertical_datum { errors.push(DynamicConstraintError::IncompatibleVerticalDatum); continue; }
+            if flight.time_basis!=constraint.time_basis { errors.push(DynamicConstraintError::IncompatibleTimeBasis); continue; }
+            intersection_checks=intersection_checks.saturating_add(1);
+            if let Some(first_time)=first_conservative_intersection_time_s(flight,constraint,start_s,end_s,case.uncertainty_horizon_s) {
                 impacts.push(DynamicConstraintImpact {
-                    flight_id: flight.flight_id.clone(),
-                    constraint_id: constraint.constraint_id.clone(),
-                    constraint_sequence: constraint.sequence,
-                    first_conservative_sample_time_s: first_time,
+                    flight_id:flight.flight_id.clone(), constraint_id:constraint.constraint_id.clone(),
+                    constraint_sequence:constraint.sequence, first_conservative_intersection_time_s:first_time,
                 });
             }
         }
     }
-
     if !errors.is_empty() {
         reasons.push("space-time inputs could not be compared within a common qualified reference/time basis".to_owned());
-        return dynamic_constraint_report_with_checks(
+        return dynamic_constraint_report_with_intersection_checks(
             dynamic_constraint_report(
                 case, DynamicConstraintOutcome::Unresolved, streams.len(), unique_update_count,
                 replayed_delivery_count, active_constraints.len(), current_flights.len(),
                 impacts, errors, reasons,
             ),
-            sample_checks,
+            intersection_checks,
         );
     }
 
@@ -1449,12 +1401,12 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
         reasons.push(format!("deduplicated {replayed_delivery_count} exact constraint-update retransmission(s)"));
     }
     reasons.push("constraint update identifiers and source labels are synthetic fixture data; no signature or authoritative source is verified".to_owned());
-    dynamic_constraint_report_with_checks(
+    dynamic_constraint_report_with_intersection_checks(
         dynamic_constraint_report(
             case, outcome, streams.len(), unique_update_count, replayed_delivery_count,
             active_constraints.len(), current_flights.len(), impacts, Vec::new(), reasons,
         ),
-        sample_checks,
+        intersection_checks,
     )
 }
 
@@ -1472,7 +1424,7 @@ fn dynamic_constraint_error_outcome(errors: &[DynamicConstraintError]) -> Dynami
         DynamicConstraintError::EmptyIdentity
             | DynamicConstraintError::TooManyUpdates
             | DynamicConstraintError::TooManyFlights
-            | DynamicConstraintError::InvalidSampleStep
+            | DynamicConstraintError::InvalidUncertaintyHorizon
             | DynamicConstraintError::InvalidSequence
             | DynamicConstraintError::InvalidValidityInterval
             | DynamicConstraintError::InvalidBounds
@@ -1519,42 +1471,53 @@ fn dynamic_constraint_report(
     }
 }
 
-/// Expand each axis-aligned volume by flight uncertainty, constraint margin,
-/// and one full sample-step of absolute motion. This deliberately conservative
-/// box avoids relying on point samples alone, but is not reachability analysis.
-fn position_within_conservative_constraint(
-    position: PositionMm,
-    flight: &FlightIntent,
-    constraint: &AirspaceConstraintUpdate,
-    sample_step_s: i64,
-) -> bool {
-    let step = i128::from(sample_step_s);
-    let horizontal_x_margin = i128::from(flight.horizontal_uncertainty_mm)
-        + i128::from(constraint.horizontal_margin_mm)
-        + i128::from(flight.velocity_mm_s.x.unsigned_abs()) * step;
-    let horizontal_y_margin = i128::from(flight.horizontal_uncertainty_mm)
-        + i128::from(constraint.horizontal_margin_mm)
-        + i128::from(flight.velocity_mm_s.y.unsigned_abs()) * step;
-    let vertical_margin = i128::from(flight.vertical_uncertainty_mm)
-        + i128::from(constraint.vertical_margin_mm)
-        + i128::from(flight.velocity_mm_s.z.unsigned_abs()) * step;
-
-    let x = i128::from(position.x);
-    let y = i128::from(position.y);
-    let z = i128::from(position.z);
-    x >= i128::from(constraint.min_position_mm.x) - horizontal_x_margin
-        && x <= i128::from(constraint.max_position_mm.x) + horizontal_x_margin
-        && y >= i128::from(constraint.min_position_mm.y) - horizontal_y_margin
-        && y <= i128::from(constraint.max_position_mm.y) + horizontal_y_margin
-        && z >= i128::from(constraint.min_position_mm.z) - vertical_margin
-        && z <= i128::from(constraint.max_position_mm.z) + vertical_margin
+/// Rational elapsed time with positive denominator; bounded inputs keep products in i128.
+#[derive(Debug, Clone, Copy)]
+struct TimeFraction { numerator: i128, denominator: i128 }
+impl TimeFraction {
+    fn new(numerator:i128,denominator:i128)->Self { debug_assert!(denominator>0); Self{numerator,denominator} }
+    fn compare(self,other:Self)->std::cmp::Ordering { (self.numerator*other.denominator).cmp(&(other.numerator*self.denominator)) }
+    fn floor(self)->i128 { self.numerator.div_euclid(self.denominator) }
+}
+fn axis_intersection_interval(position_at_valid_from:i64,velocity_per_s:i64,minimum:i128,maximum:i128)
+    -> Option<(Option<TimeFraction>,Option<TimeFraction>)> {
+    let p=i128::from(position_at_valid_from); let v=i128::from(velocity_per_s);
+    if v==0 { return (p>=minimum && p<=maximum).then_some((None,None)); }
+    if v>0 { Some((Some(TimeFraction::new(minimum-p,v)),Some(TimeFraction::new(maximum-p,v)))) }
+    else { let speed=-v; Some((Some(TimeFraction::new(p-maximum,speed)),Some(TimeFraction::new(p-minimum,speed)))) }
+}
+/// Analytically intersect a constant-velocity line with a conservative
+/// axis-aligned box over [start_s,end_s). This removes coarse temporal sample
+/// misses for this linear model. The guard band is synthetic, not certified.
+fn first_conservative_intersection_time_s(flight:&FlightIntent,constraint:&AirspaceConstraintUpdate,start_s:i64,end_s:i64,uncertainty_horizon_s:i64)->Option<i64> {
+    if start_s>=end_s { return None; }
+    let p=flight.position_at_valid_from_mm; let v=flight.velocity_mm_s;
+    let hm=i128::from(flight.horizontal_uncertainty_mm)+i128::from(constraint.horizontal_margin_mm);
+    let vm=i128::from(flight.vertical_uncertainty_mm)+i128::from(constraint.vertical_margin_mm);
+    let h=i128::from(uncertainty_horizon_s);
+    let mx=hm+i128::from(v.x.unsigned_abs())*h; let my=hm+i128::from(v.y.unsigned_abs())*h; let mz=vm+i128::from(v.z.unsigned_abs())*h;
+    let axes=[
+        axis_intersection_interval(p.x,v.x,i128::from(constraint.min_position_mm.x)-mx,i128::from(constraint.max_position_mm.x)+mx)?,
+        axis_intersection_interval(p.y,v.y,i128::from(constraint.min_position_mm.y)-my,i128::from(constraint.max_position_mm.y)+my)?,
+        axis_intersection_interval(p.z,v.z,i128::from(constraint.min_position_mm.z)-mz,i128::from(constraint.max_position_mm.z)+mz)?,
+    ];
+    let lower=TimeFraction::new(i128::from(start_s)-i128::from(flight.valid_from_s),1);
+    let upper=TimeFraction::new(i128::from(end_s)-i128::from(flight.valid_from_s),1);
+    let mut enter=lower; let mut leave=upper;
+    for (axis_enter,axis_leave) in axes {
+        if let Some(t)=axis_enter { if t.compare(enter)==std::cmp::Ordering::Greater { enter=t; } }
+        if let Some(t)=axis_leave { if t.compare(leave)==std::cmp::Ordering::Less { leave=t; } }
+        if enter.compare(leave)==std::cmp::Ordering::Greater { return None; }
+    }
+    if enter.compare(upper)!=std::cmp::Ordering::Less || leave.compare(lower)==std::cmp::Ordering::Less { return None; }
+    i64::try_from(i128::from(flight.valid_from_s)+enter.floor()).ok()
 }
 
-fn dynamic_constraint_report_with_checks(
+fn dynamic_constraint_report_with_intersection_checks(
     mut report: DynamicConstraintReport,
-    sample_checks: u64,
+    intersection_checks: u64,
 ) -> DynamicConstraintReport {
-    report.sample_checks = sample_checks;
+    report.intersection_checks = intersection_checks;
     report
 }
 
@@ -1865,7 +1828,7 @@ mod tests {
     fn dynamic_constraint_invalid_sample_step_is_rejected() {
         let report = evaluate_dynamic_constraint_case(&dynamic_constraint_fixture("invalid_constraint_sample_step_rejected"));
         assert_eq!(report.actual_outcome, DynamicConstraintOutcome::Reject);
-        assert!(report.errors.contains(&DynamicConstraintError::InvalidSampleStep));
+        assert!(report.errors.contains(&DynamicConstraintError::InvalidUncertaintyHorizon));
     }
 
     #[test]
@@ -1875,7 +1838,7 @@ mod tests {
         );
         assert_eq!(report.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
         assert_eq!(report.impacts.len(), 1);
-        assert_eq!(report.impacts[0].first_conservative_sample_time_s, 5);
+        assert_eq!(report.impacts[0].first_conservative_intersection_time_s, 5);
         assert!(report.authority_ceiling.contains("does not update/withdraw authorizations"));
     }
 
@@ -2054,7 +2017,7 @@ mod tests {
         }
         let report = evaluate_scenario(&scenario);
         assert_eq!(report.classification, Classification::Conflict);
-        assert_eq!(report.conflicts[0].first_conservative_sample_time_s, 0);
+        assert_eq!(report.conflicts[0].first_conservative_intersection_time_s, 0);
         assert!(report.conflicts[0].effective_horizontal_limit_mm
             > scenario.policy.horizontal_separation_mm);
     }
