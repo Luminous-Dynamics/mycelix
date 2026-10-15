@@ -375,6 +375,22 @@ impl CoordinationContract {
         &self.history
     }
 
+    pub fn reservation(&self) -> Option<&ReservationReceipt> {
+        self.reservation.as_ref()
+    }
+
+    pub fn obligation(&self) -> Option<&ObligationTerms> {
+        self.obligation.as_ref()
+    }
+
+    pub fn delivery_claim(&self) -> Option<&DeliveryClaim> {
+        self.delivery.as_ref()
+    }
+
+    pub fn verification(&self) -> Option<&VerificationResult> {
+        self.verification.as_ref()
+    }
+
     pub fn settlement(&self) -> Option<&SettlementReceipt> {
         self.settlement.as_ref()
     }
