@@ -1173,7 +1173,8 @@ mod tests {
 
     #[test]
     fn short_delivery_is_disputed_and_cannot_settle() {
-        let (mut contract, mut ledger) = committed_contract("tx-short-delivery", 4);
+        let (mut contract, _) = committed_contract("tx-short-delivery", 4);
+        let mut ledger = Ledger::default();
         record_full_delivery(&mut contract, 3);
         assert_eq!(
             contract
