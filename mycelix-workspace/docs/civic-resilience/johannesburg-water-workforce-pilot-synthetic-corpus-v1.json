@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 35,
+  "expected_probe_count": 36,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -1062,6 +1062,39 @@
         "KeepSourceUnitAttached",
         "FlagArithmeticDifferenceForReview",
         "NoSilentReconciliation"
+      ]
+    },
+    {
+      "id": "published-snapshot-checksum-is-not-payload-verification",
+      "category": "FinanceDataIntegrity",
+      "scenario": "The official Municipal Money bulk metadata index publishes a CSV filename, snapshot timestamp, file size, MD5 and SHA-1, but the CSV payload bytes were not observed in the research pass. An adapter treats the metadata digest as proof it downloaded and independently verified those bytes, or uses the timestamp as a substitute for a financial period/query.",
+      "input": {
+        "metadata_index_observed": true,
+        "published_snapshot_last_updated": "2026-07-30_15-59-35",
+        "published_sha1": "32db68c02d2fd704e60ca95bc2fdb7c65188efb6",
+        "published_file_size_bytes": 4181869,
+        "payload_bytes_observed": false,
+        "local_checksum_computed": false,
+        "financial_period_pinned": false,
+        "amount_type_pinned": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordMetadataReceiptOnly",
+        "issue_status_effect": "PayloadAndCurrentValuesUnverified",
+        "required_human_review": true,
+        "source_status": "PublishedChecksumOnly"
+      },
+      "guards": [
+        "PublishedChecksumIsNotLocalChecksumVerification",
+        "RecordSnapshotTimestampSeparatelyFromFinancialPeriod",
+        "NoValueClaimWithoutDataPayload",
+        "PayloadBytesMustMatchPublishedDigest"
       ]
     }
   ]

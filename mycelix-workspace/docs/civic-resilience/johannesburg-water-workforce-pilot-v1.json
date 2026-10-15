@@ -753,8 +753,24 @@
         "A contract-value or expenditure total is a role-specific labour budget",
         "Data not supplied or not displayed proves zero spend",
         "Quarterly API value is interchangeable with a report generated from a different snapshot",
-        "Financial data confirms incident-level service failure or causality"
-      ]
+        "Financial data confirms incident-level service failure or causality",
+        "The published checksum proves the current CSV payload was downloaded or independently verified",
+        "The bulk snapshot timestamp is a financial reporting period",
+        "The metadata index alone supplies a queried Johannesburg budget or actual value"
+      ],
+      "bulk_snapshot_metadata": {
+        "metadata_url": "https://munimoney-media.s3.eu-west-1.amazonaws.com/munimoney-media/media/bulk_downloads/repairs_maintenance_facts_v2/index.json",
+        "observed_on": "2026-10-15",
+        "published_snapshot_last_updated": "2026-07-30_15-59-35",
+        "csv_file_name": "repairs_maintenance_facts_v2_2026-07-30_15-59-35.csv",
+        "published_md5": "69d3dbe54679a0d1e3ec45c8b62f477f",
+        "published_sha1": "32db68c02d2fd704e60ca95bc2fdb7c65188efb6",
+        "published_file_size_bytes": 4181869,
+        "payload_bytes_observed_in_this_pass": false,
+        "payload_checksum_independently_verified": false,
+        "page_reader_payload_observation": "CSV payload was not returned by the page reader; only the published metadata index was observed.",
+        "interpretation": "The published metadata is a provenance pointer and checksum receipt, not proof the CSV payload was downloaded, hashed locally, or used to produce any displayed value. The timestamp is the bulk snapshot timestamp and must not be substituted for a pinned financial year/period/amount type."
+      }
     },
     {
       "source_id": "SA-TREASURY-REPMAINT-Q2-2025-26-1",
@@ -1193,13 +1209,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "25295fe39662e0c80c4767322d5ca29f63a00dca",
-    "probe_count": 35,
+    "git_blob_sha": "e792ea14df0d1f361915f41a62e915ee717077c2",
+    "probe_count": 36,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 35,
+      "unique_probe_ids": 36,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true

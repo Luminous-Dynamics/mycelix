@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "25295fe39662e0c80c4767322d5ca29f63a00dca"
+EXPECTED_CORPUS_BLOB_SHA = "e792ea14df0d1f361915f41a62e915ee717077c2"
 EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -71,6 +71,7 @@ EXPECTED_PROBES = {
     "latest-api-quarter-is-not-report-period": ("FinanceDataIntegrity", "HoldCrossSnapshotComparison", "SnapshotsNotAligned"),
     "r-thousands-values-are-not-rands": ("FinanceDataIntegrity", "RequireUnitNormalization", "SourceReportsValuesInThousands"),
     "monthly-quarter-total-rounding-needs-review": ("FinanceDataIntegrity", "PreservePublishedTotalAndFlagReconciliation", "PublishedTotalAndRoundedMonthSumDifferByOneRThousand"),
+    "published-snapshot-checksum-is-not-payload-verification": ("FinanceDataIntegrity", "RecordMetadataReceiptOnly", "PublishedChecksumOnly"),
     "joint-water-power-statement-is-not-incident-causality": ("CausalityAndAuthority", "HypothesisOnlyNoIncidentCausalEdge", "CrossUtilityHypothesisOnly"),
 }
 REQUIRED_GUARDS = {
@@ -108,6 +109,7 @@ REQUIRED_GUARDS = {
     "latest-api-quarter-is-not-report-period": {"APIAndSection71ReportSnapshotsMayDiffer", "ReportingPeriodAndSnapshotMustMatch", "AmountTypeAndPeriodMustBePinned", "NoAggregateFundingClaim"},
     "r-thousands-values-are-not-rands": {"ReportedUnitMustTravelWithValue", "DoNotPresentThousandsAsRands", "NormalizeBeforeCrossSourceCompare", "NoFundingInferenceFromUnits"},
     "monthly-quarter-total-rounding-needs-review": {"DoNotOverwritePublishedAggregate", "KeepSourceUnitAttached", "FlagArithmeticDifferenceForReview", "NoSilentReconciliation"},
+    "published-snapshot-checksum-is-not-payload-verification": {"PublishedChecksumIsNotLocalChecksumVerification", "RecordSnapshotTimestampSeparatelyFromFinancialPeriod", "NoValueClaimWithoutDataPayload", "PayloadBytesMustMatchPublishedDigest"},
     "joint-water-power-statement-is-not-incident-causality": {"OfficialContextIsNotIncidentEvidence", "NoCausalEdgeWithoutIncidentSpecificEvidence", "NoLiveStatusFromHistoricStatement", "NoUnauthorizedTelemetry"},
 }
 
@@ -384,6 +386,17 @@ def validate() -> None:
         fail("Municipal Money currentness/dataset scope drift")
     if "not procurement" not in municipal_finance.get("use_limit", "").lower() or "not role-specific" not in municipal_finance.get("use_limit", "").lower():
         fail("aggregate municipal finance data must not be promoted to tender or role funding")
+    bulk_meta = municipal_finance.get("bulk_snapshot_metadata", {})
+    if bulk_meta.get("observed_on") != "2026-10-15" or bulk_meta.get("published_snapshot_last_updated") != "2026-07-30_15-59-35":
+        fail("Municipal Money bulk snapshot timestamp/currentness pin drift")
+    if bulk_meta.get("csv_file_name") != "repairs_maintenance_facts_v2_2026-07-30_15-59-35.csv" or bulk_meta.get("published_file_size_bytes") != 4181869:
+        fail("Municipal Money bulk snapshot file identity/size drift")
+    if bulk_meta.get("published_md5") != "69d3dbe54679a0d1e3ec45c8b62f477f" or bulk_meta.get("published_sha1") != "32db68c02d2fd704e60ca95bc2fdb7c65188efb6":
+        fail("Municipal Money published snapshot checksum receipt drift")
+    if bulk_meta.get("payload_bytes_observed_in_this_pass") is not False or bulk_meta.get("payload_checksum_independently_verified") is not False:
+        fail("published checksum metadata must not imply local payload verification")
+    if "must not be substituted for a pinned financial year/period/amount type" not in bulk_meta.get("interpretation", ""):
+        fail("bulk snapshot timestamp must remain distinct from reporting period")
     finance_view = source_by_id["JHB-REPMAINT-V2-VIEW-1"]
     if finance_view.get("checked_on") != "2026-10-15" or finance_view.get("selected_amount_type") != "NotSelectedInObservedView" or finance_view.get("numeric_amount_recorded") is not False:
         fail("Johannesburg repairs-finance view must preserve missing filter and no-number observation")
@@ -597,6 +610,9 @@ def validate() -> None:
     reconciliation_probe = by_id["monthly-quarter-total-rounding-needs-review"]
     if reconciliation_probe["expected"]["disposition"] != "PreservePublishedTotalAndFlagReconciliation" or reconciliation_probe["expected"]["issue_status_effect"] != "NoSilentRecomputedQuarterTotal":
         fail("published quarter total/month arithmetic difference must be preserved for review")
+    checksum_receipt_probe = by_id["published-snapshot-checksum-is-not-payload-verification"]
+    if checksum_receipt_probe["expected"]["disposition"] != "RecordMetadataReceiptOnly" or checksum_receipt_probe["expected"]["issue_status_effect"] != "PayloadAndCurrentValuesUnverified":
+        fail("published snapshot checksum must not be promoted to payload verification or financial-value evidence")
     cross_utility_probe = by_id["joint-water-power-statement-is-not-incident-causality"]
     if cross_utility_probe["expected"]["disposition"] != "HypothesisOnlyNoIncidentCausalEdge" or cross_utility_probe["expected"]["issue_status_effect"] != "NoLiveStatusOrCausalClaim":
         fail("joint government statement cannot establish incident-level causality or current outage")
