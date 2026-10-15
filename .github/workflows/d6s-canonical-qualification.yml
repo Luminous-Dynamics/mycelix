@@ -95,6 +95,8 @@ jobs:
           check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "65f28a83d4efd42415a2c83e50735750abb8294e"
           check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "2aa9d885b7b555eb1ea203560e096b06989f19f5"
           check_blob "docs/integral/cos-reference-node-v1.md" "ce0cf19ef76ad64417b26386913c803654030757"
+          check_blob "mycelix-manufacturing/Cargo.toml" "cb71136c20f067c609d360510c5497e225893f84"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/Cargo.toml" "54dbd6b59cc52e95cd0c4823766c610f7a18d931"
 
 
       - name: Install pinned Rust
