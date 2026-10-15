@@ -105,6 +105,7 @@ pub enum TransferBlockerCode {
     EmptyLotId,
     EmptyRightsAssessmentId,
     EmptyRecipient,
+    MissingTaxonomicAssessment,
     LotRequestMismatch,
     LotRightsReferenceMismatch,
     RightsSubjectMismatch,
@@ -233,6 +234,15 @@ pub fn evaluate_material_transfer(
             "rights state is not current authorization for the declared purpose",
         );
     }
+    if requires_taxonomic_assessment(request.purpose)
+        && !non_empty(lot.taxonomic_assessment_ref.as_deref())
+    {
+        push_blocker(
+            &mut blockers,
+            TransferBlockerCode::MissingTaxonomicAssessment,
+            "this downstream transfer purpose requires a taxonomic assessment reference",
+        );
+    }
     if !lot_state_allows_purpose(lot.state, request.purpose) {
         push_blocker(
             &mut blockers,
@@ -266,6 +276,19 @@ pub fn evaluate_material_transfer(
         disposition,
         blockers,
     }
+}
+
+/// Downstream buyer/commercial/export use must reference a separate taxonomic
+/// assessment. The reference is not authenticated by this preflight; taxonomy remains
+/// an externally reviewed authority and the referenced bytes/decision must be checked
+/// by the responsible integration before actual movement.
+fn requires_taxonomic_assessment(purpose: MaterialTransferPurpose) -> bool {
+    matches!(
+        purpose,
+        MaterialTransferPurpose::AuthorizedBuyerIntake
+            | MaterialTransferPurpose::CommercialBioprospecting
+            | MaterialTransferPurpose::Export
+    )
 }
 
 fn lot_state_allows_purpose(
@@ -401,6 +424,18 @@ mod tests {
         let result = evaluate_material_transfer(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::InvalidLotStateForPurpose
+        }));
+    }
+
+    #[test]
+    fn commercial_or_buyer_transfer_requires_taxonomic_assessment_reference() {
+        let (mut lot, mut request, mut rights) = valid_fixture();
+        lot.taxonomic_assessment_ref = None;
+        request.purpose = MaterialTransferPurpose::CommercialBioprospecting;
+        rights.purpose = MaterialTransferPurpose::CommercialBioprospecting;
+        let result = evaluate_material_transfer(&lot, &request, &rights);
+        assert!(result.blockers.iter().any(|item| {
+            item.code == TransferBlockerCode::MissingTaxonomicAssessment
         }));
     }
 
