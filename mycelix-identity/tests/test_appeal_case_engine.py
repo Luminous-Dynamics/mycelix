@@ -299,6 +299,57 @@ class AppealCaseEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "case-scoped opaque"):
             engine.new_case("NOT-A-CASE", OWNER, "SERVICE_APPOINTMENT_INTAKE", "ISSUE_RECORD_CORRECTION", self.contract)
 
+    def test_synthetic_demo_runs_through_review_appeal_retention_and_expiry(self) -> None:
+        report = engine.run_synthetic_demo("c" * 40, self.contract)
+        self.assertEqual(report["event_count"], 12)
+        self.assertEqual(report["terminal_state"], "expired")
+        self.assertTrue(report["hash_chain_valid"])
+        self.assertTrue(report["independent_appeal_reviewer"])
+        self.assertTrue(report["retention_review_complete"])
+        self.assertIs(report["durable_case_storage_enabled"], False)
+        self.assertIs(report["public_dht_publication_enabled"], False)
+        self.assertIs(report["durable_deletion_performed"], False)
+        self.assertFalse(report["real_identity_data_processed"])
+        self.assertFalse(report["external_endpoints_contacted"])
+        self.assertNotIn("actor_ref", report["event_summaries"][0])
+
+    def test_report_rejects_non_exact_commit_identifiers(self) -> None:
+        with self.assertRaisesRegex(ValueError, "40-character lowercase commit SHA"):
+            engine.run_synthetic_demo("not-a-commit", self.contract)
+
+    def test_retention_policy_cannot_be_changed_after_approval(self) -> None:
+        case = self.make_case()
+        events = []
+        case, events = self.append_open(case, events)
+        case, events = self.append(
+            case, events, actor_ref=PRIVACY, actor_role="privacy_officer",
+            action="record_retention_policy", timestamp_utc="2026-01-01T09:00:30Z",
+            policy_ref="POLICY-RETENTION-001",
+            retention_policy=copy.deepcopy(RETENTION_POLICY),
+        )
+        changed_policy = copy.deepcopy(RETENTION_POLICY)
+        changed_policy["max_retention_days"] = 2
+        with self.assertRaisesRegex(ValueError, "immutable after approval"):
+            self.append(
+                case, events, actor_ref=PRIVACY, actor_role="privacy_officer",
+                action="record_retention_policy", timestamp_utc="2026-01-01T09:00:45Z",
+                policy_ref="POLICY-RETENTION-002", retention_policy=changed_policy,
+            )
+
+    def test_modified_retention_policy_is_detected_by_chain_verifier(self) -> None:
+        case = self.make_case()
+        events = []
+        case, events = self.append_open(case, events)
+        case, events = self.append(
+            case, events, actor_ref=PRIVACY, actor_role="privacy_officer",
+            action="record_retention_policy", timestamp_utc="2026-01-01T09:00:30Z",
+            policy_ref="POLICY-RETENTION-001",
+            retention_policy=copy.deepcopy(RETENTION_POLICY),
+        )
+        changed = copy.deepcopy(case)
+        changed["retention_policy"]["max_retention_days"] = 9
+        self.assertTrue(engine.verify_event_chain(changed, events, self.contract))
+
     def test_duplicate_contract_json_keys_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate JSON object key"):
             json.loads(
