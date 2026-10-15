@@ -716,9 +716,12 @@ fn water_response_target_is_not_turnaround_or_restoration_target() {
     );
     let turnaround = evidence[1]["claim_scope"].as_str().unwrap();
     for category_value in [
+        "sewer 48 hours",
         "water outage 24 hours",
         "leaking meter 72 hours",
+        "burst meter 24 hours",
         "water leak 48 hours",
+        "major burst pipe 48 hours",
     ] {
         assert!(
             turnaround.contains(category_value),
