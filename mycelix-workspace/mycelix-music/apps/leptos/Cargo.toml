@@ -55,6 +55,7 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 symthaea-muse = { git = "https://github.com/Luminous-Dynamics/symthaea", rev = "004f83bade699aa8823dd42b393f01ad872c9596", package = "symthaea-muse", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
 uuid = { version = "1", features = ["js"] }
+mycelix-media-cid = { path = "../../../../crates/mycelix-media-cid" }
 
 # Shared Mycelix Leptos infrastructure
 mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
