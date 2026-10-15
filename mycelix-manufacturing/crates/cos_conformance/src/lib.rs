@@ -278,7 +278,7 @@ pub fn conformance_report_json() -> String {
                 _ => "Unrecognized case; should not exist in the canonical corpus.",
             },
             provenance_origin: if matches!(case.test_id, "COS-N-009" | "COS-N-013") { "Foreign evidence retains foreign origin; recognition does not rewrite origin." } else { "Local reference evidence." },
-            temporal_validity: if case.test_id == "COS-N-005" { "Negative=stale; positive=current." } else { "Current reference fixture, except explicitly foreign-origin cases." },
+            temporal_validity: if case.test_id == "COS-N-005" { "Negative=stale; positive=current." } else { "Current validity profile; see provenance_origin for local/foreign origin." },
             refinement_status: "ReferenceModelOnly",
             refinement_subject: match case.test_id {
                 "COS-N-001" => "WorkOrder/ProductionPlan -> ObservedWorkEvent",
