@@ -18,7 +18,10 @@
     "assigned_steward_ref",
     "initial_decision_actor_ref",
     "appeal_reviewer_ref",
-    "retention_policy_status"
+    "retention_policy_status",
+    "retention_policy",
+    "durable_storage_eligible",
+    "closed_at_utc"
   ],
   "event_fields": [
     "sequence",
@@ -31,7 +34,9 @@
     "reason_code",
     "target_actor_ref",
     "previous_hash",
-    "event_hash"
+    "event_hash",
+    "policy_ref",
+    "policy_digest"
   ],
   "state_values": [
     "not_opened",
@@ -174,6 +179,15 @@
       "reason_code": "RETENTION_WINDOW_ELAPSED",
       "requires_approved_retention": true,
       "requires_retention_elapsed": true
+    },
+    {
+      "action": "record_retention_policy",
+      "from_state": "ANY",
+      "to_state": "SAME",
+      "actor_role": "privacy_officer",
+      "reason_code": "RETENTION_POLICY_REVIEWED",
+      "requires_approved_retention": true,
+      "requires_policy_evidence": true
     }
   ],
   "access_policy": [
@@ -304,7 +318,8 @@
     "Durable storage is disabled until a responsible party documents and approves lawful basis, maximum retention, deletion and backup-deletion procedures, and review evidence.",
     "The requester can ask for correction and appeal but cannot issue, approve, or close their own decision.",
     "Audit role sees metadata only and has no mutation permission.",
-    "No identity material or case record is published to a public DHT."
+    "No identity material or case record is published to a public DHT.",
+    "The hash-chained policy-review event binds a reference and digest of the approved retention metadata; it does not itself authenticate that approval or create lawful authority."
   ],
   "nonclaims": [
     "This is a synthetic design contract, not legal advice, a POPIA compliance determination, a production case-management implementation, or a deployed system.",
