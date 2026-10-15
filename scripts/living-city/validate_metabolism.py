@@ -620,7 +620,7 @@ def main():
         "scenario_refs":["baseline"], "calibration_status":"uncalibrated", "validation_evidence_refs":[]
     }]
     revision_errors = schema_errors(validator, unpinned_revision)
-    if not any("engine_revision" in list(error.path) for error in revision_errors):
+    if not any(error.validator == "required" and "engine_revision" in error.message for error in revision_errors):
         fail("mutation: model run without an exact source revision was accepted")
     print("PASS mutation: model runs require an exact 40-character source revision SHA")
 
@@ -885,8 +885,12 @@ def main():
     unpinned_receipt = copy.deepcopy(receipt_case)
     unpinned_receipt["nutrient_assessments"][0]["receipt_origin"] = "symtropy_output"
     unpinned_receipt_errors = schema_errors(validator, unpinned_receipt)
-    if not any("producer_revision" in list(e.path) for e in unpinned_receipt_errors):
-        fail("mutation: real Symtropy receipt without producer revision was accepted")
+    if not any(
+        error.validator == "required" and
+        any(field in error.message for field in ("producer_revision", "payload_ref", "payload_sha256"))
+        for error in unpinned_receipt_errors
+    ):
+        fail("mutation: real Symtropy receipt without producer revision/payload commitment was accepted")
     print("PASS mutation: a real Symtropy receipt requires a pinned producer revision and payload hash")
 
     print("PASS: 45 urban-metabolism/synergy controls (37 mutation/parser rejection controls and eight positive controls); no composite symtropy score or automatic authorization.")
