@@ -415,3 +415,33 @@ The current SAP types use `u64` micro-unit amounts, but the source itself docume
 
 The corpus JSON was fetched back and parsed. Source-level consistency checks confirm the expected 3 instrument mappings and 12 registered negative controls. Rust source now defines 13 unit tests and a dedicated workflow for formatting, test execution and CLI validation. **Those Rust tests have not been run in this environment** because a Cargo toolchain is unavailable here; CI results on the exact branch head must be inspected before reporting a pass. This does not qualify full ValueFlows conformance, hREA runtime compatibility, DHT validation, settlement, or security.
 
+
+
+## Qualification correction and trust-boundary note — 2026-10-15
+
+### Initial workflow finding and correction
+
+The first observed run for the ValueFlows workflow stopped at `cargo fmt --check`; all test/run steps were skipped. It did **not** produce a Rust compile or unit-test result. The log identified formatting differences in the newly added checker. These reported formatting edits were applied on the research branch.
+
+The workflow originally used `actions/checkout@v4` without a `ref`. On a `pull_request` event GitHub checks out the synthetic merge ref by default, not necessarily the proposed source head. The workflow now explicitly selects:
+
+```yaml
+ref: ${{ github.event.pull_request.head.sha || github.sha }}
+```
+
+This makes the intended subject explicit. The next successful workflow log must still be inspected to confirm the checked-out SHA and that format → tests → CLI validation actually execute. Queued, pending, skipped or missing job results are not passes.
+
+### Self-consistency is not independent verification
+
+The checker, its expected-value tables, tests, workflow and corpus are all in this same PR-controlled trust domain. It can make contract assumptions executable and catch many accidental or incompletely updated changes, but it **cannot protect against a malicious change that weakens the checker and corpus together**. Do not call it an independent verifier or an independent security control.
+
+For any high-assurance qualification:
+1. Keep the canonical required-check policy protected on the base branch, or use a separately pinned verifier whose identity is not controlled by the proposed change.
+2. Bind each result to the exact candidate head SHA and verifier identity.
+3. Retain negative controls and verify that the trusted runner actually executed the named tests.
+4. Treat this in-PR checker as a reference contract until that stronger trust boundary exists.
+
+### Current technical claim ceiling
+
+The TEND numeric export remains blocked pending an explicit quantization/precision profile, error bound and round-trip tests because the source event-hours fields are `f32`. The SAP source comment still says `SapBalance.justified_by` is not enforced by integrity validation. Nothing in this reference fixture repairs either production path, establishes settlement, or qualifies hREA interoperability.
+
