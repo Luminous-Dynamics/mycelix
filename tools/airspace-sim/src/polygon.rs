@@ -276,8 +276,13 @@ fn point_location_at_fraction(
         let bx = i128::from(b.x) * denominator;
         let by = i128::from(b.y) * denominator;
 
-        let edge_cross = (bx - ax) * (y_numerator - ay)
-            - (by - ay) * (x_numerator - ax);
+        // Keep the edge vector unscaled and the query displacement scaled by
+        // the positive parameter denominator. Scaling both would square that
+        // denominator and could overflow i128 at the declared coordinate limits.
+        let edge_dx = i128::from(b.x) - i128::from(a.x);
+        let edge_dy = i128::from(b.y) - i128::from(a.y);
+        let edge_cross = edge_dx * (y_numerator - ay)
+            - edge_dy * (x_numerator - ax);
         if edge_cross == 0
             && x_numerator >= ax.min(bx)
             && x_numerator <= ax.max(bx)
@@ -341,7 +346,6 @@ fn validate_polygon_volume(
         validate_ring(hole)?;
     }
 
-    let outer_edge_count = volume.exterior_ring.len() - 1;
     for hole in &volume.holes {
         if point_location_at_fraction(
             hole[0], hole[0], Fraction::ZERO, &volume.exterior_ring,
@@ -383,7 +387,6 @@ fn validate_polygon_volume(
         }
     }
 
-    let _ = outer_edge_count; // documents the bounded exterior-edge count above.
     Ok(())
 }
 
