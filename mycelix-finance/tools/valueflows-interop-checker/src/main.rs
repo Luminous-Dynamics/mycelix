@@ -1900,6 +1900,31 @@ mod tests {
             std::str::from_utf8(&canonical).expect("canonical JSON is UTF-8"),
             r#"{"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]}"#
         );
+
+        // RFC 8785 Appendix C's representative key ordering, including UTF-16
+        // ordering across a non-BMP emoji and BMP characters.
+        let unicode = parse_unique_json(
+            r#"{"€":"Euro Sign","\r":"Carriage Return","דּ":"Hebrew Letter Dalet With Dagesh","1":"One","😀":"Emoji: Grinning Face","\u0080":"Control","ö":"Latin Small Letter O With Diaeresis"}"#,
+        )
+        .expect("valid JCS Unicode key-order input");
+        let canonical = String::from_utf8(
+            canonical_json_bytes(&unicode).expect("canonicalization"),
+        )
+        .expect("canonical JSON is UTF-8");
+        let control_key = format!("\"{}\":\"Control\"", '\u{0080}');
+        let key_positions = [
+            canonical.find(r#""\r":"Carriage Return""#).expect("CR key"),
+            canonical.find(r#""1":"One""#).expect("numeric key"),
+            canonical.find(&control_key).expect("C1 key"),
+            canonical.find(r#""ö":"Latin Small Letter O With Diaeresis""#).expect("ö key"),
+            canonical.find(r#""€":"Euro Sign""#).expect("euro key"),
+            canonical.find(r#""😀":"Emoji: Grinning Face""#).expect("emoji key"),
+            canonical.find(r#""דּ":"Hebrew Letter Dalet With Dagesh""#).expect("Hebrew key"),
+        ];
+        assert!(
+            key_positions.windows(2).all(|pair| pair[0] < pair[1]),
+            "JCS keys must use UTF-16 lexical order: {canonical}"
+        );
     }
 
     #[test]
@@ -1935,9 +1960,16 @@ mod tests {
     fn provenance_metadata_mutation_breaks_envelope_digest_even_when_payload_is_unchanged() {
         for (field, replacement) in [
             ("source_app", "mycelix.synthetic-fixture-altered"),
+            ("source_record_id", "synthetic:observation-0002"),
             ("subject_id", "synthetic:subject-02"),
+            ("actor_id", "synthetic:actor-02"),
             ("scope_id", "synthetic:scope-02"),
+            ("event_id", "synthetic:event-0002"),
             ("observed_at", "2026-10-15T10:00:01Z"),
+            ("recorded_at", "2026-10-15T10:00:04Z"),
+            ("evidence_class", "reported"),
+            ("privacy_class", "synthetic-private"),
+            ("license_id", "CC-BY-4.0"),
             ("claim_ceiling", "This observation proves settlement."),
         ] {
             let mut value: serde_json::Value =
