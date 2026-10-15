@@ -1832,6 +1832,29 @@ mod tests {
     }
 
     #[test]
+    fn continuous_intersection_detects_crossing_between_integer_seconds() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("continuous_intersection_catches_between_integer_seconds"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
+        assert_eq!(report.impacts[0].first_conservative_intersection_time_s, 4);
+        assert!(report.intersection_checks > 0);
+    }
+
+    #[test]
+    fn continuous_intersection_honors_tangency_and_half_open_end() {
+        let tangent = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("continuous_spatial_tangent_at_start_is_impact"),
+        );
+        assert_eq!(tangent.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
+        let end_boundary = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("constraint_valid_until_boundary_is_exclusive"),
+        );
+        assert_eq!(end_boundary.actual_outcome, DynamicConstraintOutcome::NoImpactInProvidedSnapshot);
+        assert!(end_boundary.impacts.is_empty());
+    }
+
+    #[test]
     fn newly_published_restriction_requires_reassessment() {
         let report = evaluate_dynamic_constraint_case(
             &dynamic_constraint_fixture("new_restriction_intersects_accepted_intent"),
