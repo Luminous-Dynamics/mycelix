@@ -231,16 +231,24 @@ def main() -> None:
     print("PASS mutation: missing affected-community voice blocks human pilot review")
 
     polarized_usefulness = copy.deepcopy(synthetic)
-    polarized_usefulness["ratings"][0]["scores"]["usefulness"]["score"] = 1
+    polarized_usefulness["ratings"][0]["scores"]["usefulness"]["score"] = 2
     for rating in polarized_usefulness["ratings"][1:]:
         rating["scores"]["usefulness"]["score"] = 5
-    if median_score(polarized_usefulness, "usefulness") < 4 or perspective_score_range(polarized_usefulness, "usefulness") < DISAGREEMENT_RANGE:
-        fail("mutation setup: polarized usefulness must look favorable by median while retaining a large group split")
+    if median_score(polarized_usefulness, "usefulness") < 4 or perspective_score_range(polarized_usefulness, "usefulness") != DISAGREEMENT_RANGE:
+        fail("mutation setup: polarized usefulness must retain a favorable median and hit the exact three-point tripwire")
     polarized_usefulness["recommendation"] = "hold_for_evidence"
     polarized_usefulness["dissent_summary"] = ["Synthetic-only control: perspective-level usefulness differs sharply; no actual community review is represented."]
     if recommend(polarized_usefulness, evidence_ids) != "hold_for_evidence" or semantic_errors(polarized_usefulness, concepts, source_ids, evidence_ids):
         fail("mutation: favorable usefulness median concealed a major cross-perspective disagreement")
-    print("PASS mutation: major cross-perspective usefulness split holds despite a favorable median")
+    print("PASS mutation: exact three-point usefulness split holds despite a favorable median")
+
+    subthreshold_split = copy.deepcopy(synthetic)
+    subthreshold_split["ratings"][0]["scores"]["usefulness"]["score"] = 3
+    if perspective_score_range(subthreshold_split, "usefulness") != DISAGREEMENT_RANGE - 1:
+        fail("mutation setup: subthreshold control must have a two-point usefulness range")
+    if recommend(subthreshold_split, evidence_ids) != "eligible_for_human_pilot_review" or semantic_errors(subthreshold_split, concepts, source_ids, evidence_ids):
+        fail("mutation: disagreement tripwire incorrectly triggers below its provisional threshold")
+    print("PASS mutation: two-point usefulness split remains eligible for human review; no automatic approval")
 
     erased_disagreement = copy.deepcopy(polarized_usefulness)
     erased_disagreement["dissent_summary"] = []
@@ -260,7 +268,7 @@ def main() -> None:
         fail("mutation: evaluated novelty without ready comparison set was not rejected by schema")
     print("PASS mutation: evaluated novelty requires documented comparison set")
 
-    print("PASS: 10 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
+    print("PASS: 11 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
 
 
 if __name__ == "__main__":
