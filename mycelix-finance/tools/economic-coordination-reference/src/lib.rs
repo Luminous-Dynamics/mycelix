@@ -434,6 +434,7 @@ pub struct CoordinationContract {
     obligation: Option<ObligationTerms>,
     delivery: Option<DeliveryClaim>,
     verification: Option<VerificationResult>,
+    verification_history: Vec<VerificationResult>,
     dispute_reassessments: Vec<DisputeReassessment>,
     settlement: Option<SettlementReceipt>,
     history: Vec<TransitionReceipt>,
@@ -451,6 +452,7 @@ impl CoordinationContract {
             obligation: None,
             delivery: None,
             verification: None,
+            verification_history: Vec::new(),
             dispute_reassessments: Vec::new(),
             settlement: None,
             history: Vec::new(),
@@ -487,6 +489,12 @@ impl CoordinationContract {
 
     pub fn verification(&self) -> Option<&VerificationResult> {
         self.verification.as_ref()
+    }
+
+    /// Append-only record of every accepted-to-journal verification decision,
+    /// including the original disputed result and later reassessments.
+    pub fn verification_history(&self) -> &[VerificationResult] {
+        &self.verification_history
     }
 
     pub fn dispute_reassessments(&self) -> &[DisputeReassessment] {
@@ -656,6 +664,7 @@ impl CoordinationContract {
 
         let evidence_ref = Some(result.evidence_id.clone());
         let at = result.decided_at;
+        self.verification_history.push(result.clone());
         self.verification = Some(result);
         self.transition(next, at, evidence_ref);
         Ok(next)
@@ -708,17 +717,20 @@ impl CoordinationContract {
         } else {
             Lifecycle::Disputed
         };
+        let reassessed_verification = VerificationResult {
+            verifier_id: reassessment.resolver_id.clone(),
+            claim_evidence_id: reassessment.claim_evidence_id.clone(),
+            evidence_id: reassessment.decision_evidence_id.clone(),
+            evidence_status: reassessment.evidence_status,
+            accepted_quantity: reassessment.accepted_quantity,
+            decided_at: reassessment.decided_at,
+        };
+        self.verification_history
+            .push(reassessed_verification.clone());
         if resolves {
-            // Keep the primary verification accessor aligned with the accepted
-            // state. The earlier decision remains preserved in this journal.
-            self.verification = Some(VerificationResult {
-                verifier_id: reassessment.resolver_id.clone(),
-                claim_evidence_id: reassessment.claim_evidence_id.clone(),
-                evidence_id: reassessment.decision_evidence_id.clone(),
-                evidence_status: reassessment.evidence_status,
-                accepted_quantity: reassessment.accepted_quantity,
-                decided_at: reassessment.decided_at,
-            });
+            // Keep the current verification accessor aligned with the accepted
+            // state. Prior decisions remain in verification_history.
+            self.verification = Some(reassessed_verification);
         }
         self.dispute_reassessments.push(reassessment);
         self.transition(next, at, evidence_ref);
@@ -1575,6 +1587,10 @@ mod tests {
         assert_eq!(accepted_verification.verifier_id, "independent-reviewer");
         assert_eq!(accepted_verification.accepted_quantity, Some(4));
         assert_eq!(accepted_verification.evidence_id, "review-check");
+        assert_eq!(contract.verification_history().len(), 2);
+        assert_eq!(contract.verification_history()[0].verifier_id, "first-auditor");
+        assert_eq!(contract.verification_history()[0].accepted_quantity, Some(3));
+        assert_eq!(contract.verification_history()[1].verifier_id, "independent-reviewer");
         contract.consume_verified_capacity(&mut capacity, 7).unwrap();
         let mut ledger = Ledger::default();
         ledger
@@ -1617,6 +1633,9 @@ mod tests {
         assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
         assert_eq!(contract.dispute_reassessments().len(), 1);
         assert_eq!(contract.obligation().unwrap().id, obligation_id);
+        assert_eq!(contract.verification_history().len(), 2);
+        assert_eq!(contract.verification().unwrap().verifier_id, "first-auditor");
+        assert_eq!(contract.verification_history()[1].accepted_quantity, Some(3));
         assert_eq!(
             contract.settle(&mut ledger, 8),
             Err(ContractError::InvalidTransition)
