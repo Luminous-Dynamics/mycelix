@@ -72,9 +72,7 @@ def main() -> int:
     }
     allowed_evidence_profiles = {"current_local", "stale_local", "current_foreign_node_b"}
     required_positive_bindings = {
-        # The valid counterexample must retain the context it is refining.
-        "COS-N-010": {"frs_projection", "source_observation_created"},
-        "COS-N-011": {"source_observation_created", "itc_projection"},
+        # Valid counterexamples retain the full context they are refining.
         "COS-N-009": {"external_dependency_classified", "foreign_recognition"},
         "COS-N-010": {"frs_projection", "source_observation_created"},
         "COS-N-011": {"source_observation_created", "itc_projection"},
