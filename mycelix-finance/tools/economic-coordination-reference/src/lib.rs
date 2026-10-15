@@ -1411,7 +1411,7 @@ mod tests {
 
     #[test]
     fn disputed_delivery_can_be_confirmed_by_a_distinct_independent_resolver() {
-        let (mut contract, mut ledger) = committed_contract("tx-dispute-reassess", 4);
+        let (mut contract, _) = committed_contract("tx-dispute-reassess", 4);
         record_full_delivery(&mut contract, 4);
         assert_eq!(
             contract
@@ -1442,12 +1442,20 @@ mod tests {
         );
         assert_eq!(contract.dispute_reassessments().len(), 1);
         assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        let mut ledger = Ledger::default();
+        ledger
+            .register_account("household-wallet", INSTRUMENT, ATOMIC_UNIT, 100, 0, 100)
+            .unwrap();
+        ledger
+            .register_account("coop-wallet", INSTRUMENT, ATOMIC_UNIT, 0, 0, 100)
+            .unwrap();
         assert!(contract.settle(&mut ledger, 8).is_ok());
     }
 
     #[test]
     fn unresolved_dispute_is_journaled_and_does_not_erase_obligation() {
-        let (mut contract, mut ledger) = committed_contract("tx-dispute-open", 4);
+        let (mut contract, _) = committed_contract("tx-dispute-open", 4);
+        let mut ledger = Ledger::default();
         record_full_delivery(&mut contract, 4);
         contract
             .verify_delivery(VerificationResult {
