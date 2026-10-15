@@ -722,7 +722,7 @@ mod tests {
         assert_eq!(set.schema, "airspace-polygon-scenarios-v1");
         assert_eq!(set.status, "synthetic_research_fixture");
         assert_eq!(set.authority_ceiling, "synthetic_local_planar_geometry_only");
-        assert!(set.cases.len() >= 18, "polygon golden-vector corpus unexpectedly shrank");
+        assert_eq!(set.cases.len(), 34, "polygon golden-vector corpus changed without updating this guard");
 
         let mismatches: Vec<_> = set.cases.iter().filter_map(|case| {
             let report = evaluate_polygon_intersection(&case.flight, &case.volume, case.now_s);
