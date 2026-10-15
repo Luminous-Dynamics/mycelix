@@ -618,7 +618,7 @@ fn synthetic_johannesburg_project_claims_do_not_prove_live_service_or_verified_o
             "LCSV-JHB-010",
             "https://joburg.org.za/media_/Newsroom/Pages/2026-News-Articles/Refurbished-Malvern-Clinic-restores-access-to-healthcare.aspx",
             "2026-10-14",
-            "fully staffed today",
+            "fully staffed or adequately supplied today",
         ),
     ] {
         let fixture = find_service_fixture(fixtures, fixture_id);
