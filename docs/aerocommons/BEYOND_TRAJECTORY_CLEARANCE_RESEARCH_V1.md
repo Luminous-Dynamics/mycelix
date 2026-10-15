@@ -112,6 +112,20 @@ Measure separately: eligible recovery options before/after each event, time to r
 
 The next machine-readable case, [AIR-PB-013](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json), makes this an explicit research backlog item. It is a test contract, not an implemented planner or measured result.
 
+### 9. From conflict-free traffic to auditable, policy-bound access
+
+Preventing incompatible occupancy is necessary but not sufficient for a legitimate airspace commons. Under scarcity, a scheduler also decides who waits, who gets a slot, which missions absorb disruption, and which communities bear noise or ground-risk burdens. A high-throughput result can hide a concentrated service penalty.
+
+There is a concrete standards gap to examine rather than assume away: [ASTM F3548-21](https://store.astm.org/f3548-21.html) covers strategic conflict detection, aggregate intent conformance, constraint awareness and interoperability, but explicitly says that this edition does **not** establish fairness or equitable-access requirements; it does include logging that can inform future requirements. Mycelix can investigate transparent allocation evidence without pretending it can set aviation policy.
+
+**New abstraction: an authority-bound allocation policy plus an access ledger of outcomes.** A policy is a versioned input that names its competent authority, effective interval, eligible decision fields, priority/tie-break semantics, exceptions and supersession. Each request gets an explainable allocation outcome—accepted, deferred, rejected or unresolved—with a reason linked to that exact policy. The research report measures service rate, delay and denial/defer reasons by predeclared mission/service group and region, including denominators and missing-data counts.
+
+**Non-negotiable boundary:** do not infer priority from Mycelix reputation, provider membership, commercial size, model confidence, or hidden defaults. Such a field may influence allocation only if an applicable, authorized policy explicitly permits it. The system must not select its own public priorities, declare a policy universally lawful, or use an equity metric to waive a safety/model/evidence gate. Mycelix preserves evidence and policy provenance; it does not create flight authority.
+
+The first falsifiable experiment is a metamorphic test: hold requests, capacity, safety constraints and authorized policy constant while permuting input order and changing metadata that the policy does not authorize as decision-relevant. Outcomes should remain invariant. Then measure the policy's intended trade-offs transparently across declared groups under scarcity, keeping safety eligibility, efficiency, resilience and access-distribution results as separate dimensions.
+
+The machine-readable case [AIR-PB-014](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) is research backlog, not an implemented allocator or a claim that any particular allocation policy is fair. The goal is to make normative decisions explicit and reviewable rather than bury them inside an optimizer.
+
 ## Cross-project reference architecture
 
 | Layer | Primary responsibility | Project fit | Forbidden shortcut |
