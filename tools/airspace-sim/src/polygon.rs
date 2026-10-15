@@ -724,6 +724,22 @@ mod tests {
     }
 
     #[test]
+    fn polygon_fixtures_bind_an_explicit_applicable_model() {
+        let set = fixture_set();
+        assert_eq!(set.cases.len(), 34);
+        for case in &set.cases {
+            assert!(
+                super::super::model_applicability::validate_model_profile(
+                    &case.flight.traffic_profile_id,
+                    &case.flight.model_profile_id,
+                ).is_ok(),
+                "polygon case {} needs an explicit applicable model pair",
+                case.case_id
+            );
+        }
+    }
+
+    #[test]
     fn all_committed_polygon_golden_vectors_match() {
         let set = fixture_set();
         assert_eq!(set.schema, "airspace-polygon-scenarios-v1");
