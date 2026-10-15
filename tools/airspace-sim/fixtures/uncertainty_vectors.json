@@ -1,0 +1,184 @@
+{
+  "schema": "airspace-affine-uncertainty-vectors-v1",
+  "status": "synthetic_research_vectors_not_physical_model",
+  "scope": "test-only scalar additive integer affine forms; IDs are asserted provenance labels and are not authenticated identities",
+  "units": "synthetic_mm",
+  "cases": [
+    {
+      "id": "AIR-UNC-001",
+      "terms": [
+        {
+          "source_id": "observation",
+          "lower_mm": -2,
+          "upper_mm": 3,
+          "coefficient": 1
+        },
+        {
+          "source_id": "transform",
+          "lower_mm": -4,
+          "upper_mm": 1,
+          "coefficient": 2
+        }
+      ],
+      "expected_bounds_mm": [
+        -10,
+        5
+      ]
+    },
+    {
+      "id": "AIR-UNC-002",
+      "terms": [
+        {
+          "source_id": "clock-error",
+          "lower_mm": -2,
+          "upper_mm": 3,
+          "coefficient": -2
+        }
+      ],
+      "expected_bounds_mm": [
+        -6,
+        4
+      ]
+    },
+    {
+      "id": "AIR-UNC-003",
+      "terms": [
+        {
+          "source_id": "datum-bias",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": 1
+        },
+        {
+          "source_id": "datum-bias",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": -1
+        }
+      ],
+      "expected_bounds_mm": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "AIR-UNC-004",
+      "terms": [
+        {
+          "source_id": "source-a",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": 1
+        },
+        {
+          "source_id": "source-b",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": -1
+        }
+      ],
+      "expected_bounds_mm": [
+        -20,
+        20
+      ]
+    },
+    {
+      "id": "AIR-UNC-005",
+      "terms": [
+        {
+          "source_id": "same",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": 1
+        },
+        {
+          "source_id": "same",
+          "lower_mm": -11,
+          "upper_mm": 10,
+          "coefficient": -1
+        }
+      ],
+      "expected_error": "source_bounds_mismatch"
+    },
+    {
+      "id": "AIR-UNC-006",
+      "terms": [
+        {
+          "source_id": " datum ",
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "non_canonical_source_id"
+    },
+    {
+      "id": "AIR-UNC-007",
+      "terms": [],
+      "expected_error": "empty_model"
+    },
+    {
+      "id": "AIR-UNC-008",
+      "terms": [
+        {
+          "source_id": "same",
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1000000
+        },
+        {
+          "source_id": "same",
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1000000
+        },
+        {
+          "source_id": "same",
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": -1000000
+        }
+      ],
+      "expected_bounds_mm": [
+        -1000000,
+        1000000
+      ]
+    },
+    {
+      "id": "AIR-UNC-009",
+      "terms": [
+        {
+          "source_id": "bad",
+          "lower_mm": 2,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "invalid_source_bounds"
+    },
+    {
+      "id": "AIR-UNC-010",
+      "terms": [
+        {
+          "source_id": "wide",
+          "lower_mm": -1000000000000,
+          "upper_mm": 1000000000000,
+          "coefficient": 1000000
+        }
+      ],
+      "expected_error": "output_bounds_too_wide"
+    },
+    {
+      "id": "AIR-UNC-011",
+      "terms": [
+        {
+          "source_id": "bad-coefficient",
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1000001
+        }
+      ],
+      "expected_error": "coefficient_out_of_range"
+    }
+  ]
+}
