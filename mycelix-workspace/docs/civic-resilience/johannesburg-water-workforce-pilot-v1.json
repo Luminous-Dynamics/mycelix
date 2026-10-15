@@ -1138,7 +1138,7 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "79c8f83280eb12ab4031de035816eafc3fe0ad61",
+    "git_blob_sha": "ec98502c4023a2ac94036a52689730e90b2bb258",
     "probe_count": 32,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
