@@ -50,12 +50,14 @@
         {
           "check_id": "baseline-water-balance",
           "balance_kind": "water",
-          "inputs": 100,
-          "outputs": 90,
-          "storage_change": 10,
-          "reported_residual": 0,
-          "tolerance": 0.000001,
-          "unit": "m3",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "90000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "10000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
         }
@@ -86,12 +88,14 @@
         {
           "check_id": "bioswale-water-balance",
           "balance_kind": "water",
-          "inputs": 100,
-          "outputs": 85,
-          "storage_change": 15,
-          "reported_residual": 0,
-          "tolerance": 0.000001,
-          "unit": "m3",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "85000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "15000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
         }
@@ -122,12 +126,14 @@
         {
           "check_id": "canopy-water-balance",
           "balance_kind": "water",
-          "inputs": 100,
-          "outputs": 92,
-          "storage_change": 8,
-          "reported_residual": 0,
-          "tolerance": 0.000001,
-          "unit": "m3",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "92000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "8000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
         }
@@ -159,12 +165,14 @@
         {
           "check_id": "combined-water-balance",
           "balance_kind": "water",
-          "inputs": 100,
-          "outputs": 70,
-          "storage_change": 30,
-          "reported_residual": 0,
-          "tolerance": 0.000001,
-          "unit": "m3",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "70000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "30000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
         }
