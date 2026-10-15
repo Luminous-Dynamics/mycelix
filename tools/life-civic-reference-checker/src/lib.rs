@@ -297,6 +297,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
 
 const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.json";
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
+const GPSJS_QUALITY_SCHEMA: &str = "schemas/life-civic/gpsjs-survey-quality.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
 const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.6.0.json";
@@ -316,7 +317,7 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
         .expect("manifest frozen_inputs must be an array");
     assert_eq!(
         frozen_inputs.len(),
-        3,
+        4,
         "all schema/corpus inputs must be pinned"
     );
     let actual_paths: HashSet<&str> = frozen_inputs
@@ -332,7 +333,7 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
         frozen_inputs.len(),
         "frozen input paths must be unique"
     );
-    let expected_paths: HashSet<&str> = [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA, CORPUS_PATH]
+    let expected_paths: HashSet<&str> = [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA, GPSJS_QUALITY_SCHEMA, CORPUS_PATH]
         .into_iter()
         .collect();
     assert_eq!(
@@ -361,13 +362,15 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
     let schema_paths = manifest["schemas"]
         .as_array()
         .expect("manifest schemas must be an array");
-    assert_eq!(schema_paths.len(), 2);
+    assert_eq!(schema_paths.len(), 3);
     let declared_schema_paths: HashSet<&str> = schema_paths
         .iter()
         .map(|path| path.as_str().expect("schema path must be a string"))
         .collect();
     let expected_schema_paths: HashSet<&str> =
-        [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA].into_iter().collect();
+        [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA, GPSJS_QUALITY_SCHEMA]
+            .into_iter()
+            .collect();
     assert_eq!(
         declared_schema_paths, expected_schema_paths,
         "manifest schema list must name the exact pinned contracts"
@@ -928,9 +931,10 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
 }
 
 #[test]
-fn both_schemas_are_valid_json_schema_documents() {
+fn all_declared_schemas_are_valid_json_schema_documents() {
     let _instrument = validator(INSTRUMENT_SCHEMA);
     let _assessment = validator(ASSESSMENT_SCHEMA);
+    let _gpsjs_quality = validator(GPSJS_QUALITY_SCHEMA);
 }
 
 #[test]
@@ -1400,6 +1404,24 @@ fn gpsjs_precision_negative_controls_remain_present() {
     assert!(rationale.contains("76.97%"));
     assert!(rationale.contains("80% minimum-acceptable"));
 
+    let quality_validator = validator(GPSJS_QUALITY_SCHEMA);
+    assert!(
+        quality_validator.is_valid(&precision["survey_quality"]),
+        "GPSJS survey quality metadata must satisfy its dedicated schema"
+    );
+    let mut invalid_quality = precision["survey_quality"].clone();
+    invalid_quality["response_rate_percent"]["national"] = json!(100.01);
+    assert!(
+        !quality_validator.is_valid(&invalid_quality),
+        "response rate above 100% must fail the schema"
+    );
+    let mut invalid_precision_scope = precision["survey_quality"].clone();
+    invalid_precision_scope["precision_scope_limits"]["table_41_prevalence_cv_is_precision_for_reporting_rate_change"] = json!(true);
+    assert!(
+        !quality_validator.is_valid(&invalid_precision_scope),
+        "Table 41 prevalence CV must not be accepted as precision for police-reporting proportions"
+    );
+
     let quality = precision["survey_quality"]
         .as_object()
         .expect("survey quality diagnostics must be structured");
@@ -1451,6 +1473,41 @@ fn gpsjs_precision_negative_controls_remain_present() {
             "survey precision contract missing {required}"
         );
     }
+
+    let precision_examples = quality["published_precision_examples"]
+        .as_array()
+        .expect("published precision examples must be an array");
+    let prevalence_2024_25 = precision_examples
+        .iter()
+        .find(|item| item["release"] == "GPSJS 2024/25")
+        .expect("2024/25 Table 41 example missing");
+    let prevalence_2025_26 = precision_examples
+        .iter()
+        .find(|item| item["release"] == "GPSJS 2025/26")
+        .expect("2025/26 Table 41 example missing");
+    for (example, estimate) in [(prevalence_2024_25, 43.1), (prevalence_2025_26, 46.0)] {
+        assert_eq!(example["table"], "Table 41");
+        assert_eq!(
+            example["indicator"],
+            "household_housebreaking_experience_past_12_months"
+        );
+        assert_eq!(example["estimate_percent"], json!(estimate));
+        assert_eq!(example["coefficient_of_variation_percent"], json!(3.0));
+        assert!(example["source_uri"].as_str().unwrap().starts_with("https://"));
+    }
+    assert_eq!(
+        quality["precision_scope_limits"]["reporting_rate_change_percent_points"],
+        json!(4.8)
+    );
+    assert_eq!(
+        quality["precision_scope_limits"]["year_over_year_significance_established"],
+        false
+    );
+    assert_eq!(
+        quality["precision_scope_limits"]["table_41_prevalence_cv_is_precision_for_reporting_rate_change"],
+        false
+    );
+
 
     let forbidden = precision["expected"]["forbidden_claims"]
         .as_array()

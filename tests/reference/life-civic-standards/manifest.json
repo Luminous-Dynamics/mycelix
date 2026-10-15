@@ -6,7 +6,8 @@
   "purpose": "Adversarial and boundary fixtures for instrument metadata, context-specific applicability, and evidence-claim scope across life/civic domains. These cases are not legal determinations or empirical impact results.",
   "schemas": [
     "schemas/life-civic/standard-instrument.schema.json",
-    "schemas/life-civic/applicability-assessment.schema.json"
+    "schemas/life-civic/applicability-assessment.schema.json",
+    "schemas/life-civic/gpsjs-survey-quality.schema.json"
   ],
   "cases_file": "tests/reference/life-civic-standards/cases.json",
   "requires_human_review_for_real_use": true,
@@ -77,8 +78,13 @@
     },
     {
       "path": "tests/reference/life-civic-standards/cases.json",
-      "git_blob_sha1": "a51b53e78d665a657c26270b027f483ad5db2632",
+      "git_blob_sha1": "4aab141469b0b2f9971a2d2761e91ea2d5a884af",
       "purpose": "adversarial and lifecycle fixture corpus"
+    },
+    {
+      "path": "schemas/life-civic/gpsjs-survey-quality.schema.json",
+      "git_blob_sha1": "5c79019dac237174015c169e3b893ffdc7e56cf7",
+      "purpose": "structured GPSJS survey-quality and indicator-scope schema"
     }
   ],
   "integrity_semantics": "git_blob_sha1 binds exact repository object bytes to detect accidental or unreviewed drift. It is a Git object identity, not a signature, source-authenticity proof, or independent collision-resistant trust claim."

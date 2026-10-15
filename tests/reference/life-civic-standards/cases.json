@@ -586,10 +586,13 @@
           "Gauteng estimates are invalid solely because the province response rate was 76.97%",
           "the 85.57% national response rate guarantees precision for every province or subgroup",
           "the cited 80% minimum-acceptable response rate is a statistical-significance threshold or substitutes for estimate-specific confidence intervals",
-          "year-over-year survey point estimates prove that a local robotics or economic intervention caused a crime outcome"
+          "year-over-year survey point estimates prove that a local robotics or economic intervention caused a crime outcome",
+          "the 3% coefficient of variation for Table 41 household housebreaking experience is the precision estimate for the distinct 43.4% to 48.2% police-reporting proportion",
+          "the Table 41 prevalence estimates of 43.1% in 2024/25 and 46.0% in 2025/26, each with a 3% coefficient of variation, by themselves establish statistical significance",
+          "a 4.8 percentage-point difference between rounded police-reporting proportions is statistically significant without precision estimates for those reporting proportions"
         ]
       },
-      "rationale": "Stats SA's 2025/26 GPSJS technical notes report an 85.57% national household response rate, 76.97% for Gauteng, 73.72% for the City of Johannesburg, and 67.54% for the City of Tshwane; four geographic areas fell below the cited 80% minimum-acceptable level in Stats SA 019:2017 V2.00. These response rates are quality diagnostics, not significance tests and not proof that every estimate from a lower-response area is invalid. Before stating that a difference is statistically meaningful, preserve the indicator's definition and denominator, survey design and weighting, time comparability, geographic scope, and the published estimate-specific standard error, confidence interval, coefficient of variation, or other precision information where available. A city-level response rate is not itself an estimate-precision statistic. National descriptive survey changes do not establish a local baseline or causal intervention effect.",
+      "rationale": "Stats SA's 2025/26 GPSJS technical notes report an 85.57% national household response rate, 76.97% for Gauteng, 73.72% for the City of Johannesburg, and 67.54% for the City of Tshwane; four geographic areas fell below the cited 80% minimum-acceptable level in Stats SA 019:2017 V2.00. These response rates are quality diagnostics, not significance tests and not proof that every estimate from a lower-response area is invalid. Before stating that a difference is statistically meaningful, preserve the indicator's definition and denominator, survey design and weighting, time comparability, geographic scope, and the published estimate-specific standard error, confidence interval, coefficient of variation, or other precision information where available. A city-level response rate is not itself an estimate-precision statistic. National descriptive survey changes do not establish a local baseline or causal intervention effect. Table 41's published precision figures are explicitly tracked as a different indicator: household housebreaking experience in the past 12 months was 43.1% (CV 3%) in 2024/25 and 46.0% (CV 3%) in 2025/26. Those CVs are not the precision estimate for the distinct share reporting housebreaking incidents to police (43.4% to 48.2%), and the CVs alone are not a test of the difference.",
       "synthetic": false,
       "survey_quality": {
         "response_rate_percent": {
@@ -609,7 +612,33 @@
           "confidence_interval",
           "coefficient_of_variation",
           "design_effect_or_official_precision_note"
-        ]
+        ],
+        "published_precision_examples": [
+          {
+            "release": "GPSJS 2024/25",
+            "table": "Table 41",
+            "indicator": "household_housebreaking_experience_past_12_months",
+            "estimate_percent": 43.1,
+            "coefficient_of_variation_percent": 3,
+            "source_uri": "https://www.statssa.gov.za/publications/P0341/P03412025.pdf"
+          },
+          {
+            "release": "GPSJS 2025/26",
+            "table": "Table 41",
+            "indicator": "household_housebreaking_experience_past_12_months",
+            "estimate_percent": 46,
+            "coefficient_of_variation_percent": 3,
+            "source_uri": "https://www.statssa.gov.za/publications/P0341/P03412026.pdf"
+          }
+        ],
+        "precision_scope_limits": {
+          "published_precision_indicator": "household_housebreaking_experience_past_12_months",
+          "distinct_reporting_indicator": "households_reporting_some_or_all_housebreaking_incidents_to_police",
+          "reporting_rate_change_percent_points": 4.8,
+          "table_41_prevalence_cv_is_precision_for_reporting_rate_change": false,
+          "coefficient_of_variation_alone_is_a_significance_test": false,
+          "year_over_year_significance_established": false
+        }
       }
     }
   ]

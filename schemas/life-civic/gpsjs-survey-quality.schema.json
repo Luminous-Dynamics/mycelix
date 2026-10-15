@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/schemas/life-civic/gpsjs-survey-quality.schema.json",
+  "title": "GPSJS survey quality and indicator-scope metadata",
+  "description": "Structured response-rate diagnostics and scoped published precision examples for research fixtures. These fields do not establish statistical significance, local validity, or causal effects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "response_rate_percent",
+    "geographic_areas_below_80_percent_minimum_acceptable",
+    "threshold_interpretation",
+    "requires_estimate_specific_precision_for_significance",
+    "requires_denominator_and_indicator_compatibility",
+    "requires_geographic_and_time_scope_match",
+    "requires_local_validation_for_intervention_transfer",
+    "accepted_precision_evidence",
+    "published_precision_examples",
+    "precision_scope_limits"
+  ],
+  "properties": {
+    "response_rate_percent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "national",
+        "gauteng",
+        "city_of_johannesburg",
+        "city_of_tshwane"
+      ],
+      "properties": {
+        "national": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "gauteng": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "city_of_johannesburg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "city_of_tshwane": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "geographic_areas_below_80_percent_minimum_acceptable": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "threshold_interpretation": {
+      "const": "response_rate_quality_diagnostic_not_significance_test"
+    },
+    "requires_estimate_specific_precision_for_significance": {
+      "const": true
+    },
+    "requires_denominator_and_indicator_compatibility": {
+      "const": true
+    },
+    "requires_geographic_and_time_scope_match": {
+      "const": true
+    },
+    "requires_local_validation_for_intervention_transfer": {
+      "const": true
+    },
+    "accepted_precision_evidence": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "standard_error",
+          "confidence_interval",
+          "coefficient_of_variation",
+          "design_effect_or_official_precision_note"
+        ]
+      }
+    },
+    "published_precision_examples": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "release",
+          "table",
+          "indicator",
+          "estimate_percent",
+          "coefficient_of_variation_percent",
+          "source_uri"
+        ],
+        "properties": {
+          "release": {
+            "enum": [
+              "GPSJS 2024/25",
+              "GPSJS 2025/26"
+            ]
+          },
+          "table": {
+            "const": "Table 41"
+          },
+          "indicator": {
+            "const": "household_housebreaking_experience_past_12_months"
+          },
+          "estimate_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "coefficient_of_variation_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "precision_scope_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "published_precision_indicator",
+        "distinct_reporting_indicator",
+        "reporting_rate_change_percent_points",
+        "table_41_prevalence_cv_is_precision_for_reporting_rate_change",
+        "coefficient_of_variation_alone_is_a_significance_test",
+        "year_over_year_significance_established"
+      ],
+      "properties": {
+        "published_precision_indicator": {
+          "const": "household_housebreaking_experience_past_12_months"
+        },
+        "distinct_reporting_indicator": {
+          "const": "households_reporting_some_or_all_housebreaking_incidents_to_police"
+        },
+        "reporting_rate_change_percent_points": {
+          "const": 4.8
+        },
+        "table_41_prevalence_cv_is_precision_for_reporting_rate_change": {
+          "const": false
+        },
+        "coefficient_of_variation_alone_is_a_significance_test": {
+          "const": false
+        },
+        "year_over_year_significance_established": {
+          "const": false
+        }
+      }
+    }
+  }
+}
