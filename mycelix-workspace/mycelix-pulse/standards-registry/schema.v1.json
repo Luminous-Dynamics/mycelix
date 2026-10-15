@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-pulse/standards-registry/schema.v1.json",
+  "title": "Mycelix Communications Standards Registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "as_of", "inventory_scope", "entries"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "as_of": { "type": "string", "format": "date" },
+    "inventory_scope": { "type": "string", "minLength": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target_id", "source_url"],
+      "properties": {
+        "type": {
+          "enum": ["updates", "updated_by", "amends", "amended_by", "errata_for", "profiles", "depends_on", "supersedes", "superseded_by", "related"]
+        },
+        "target_id": { "type": "string", "minLength": 1 },
+        "source_url": { "type": "string", "format": "uri" },
+        "notes": { "type": "string" }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "title", "authority", "artifact_kind", "canonical_url",
+        "source_status", "support_status", "layers", "last_checked",
+        "relations", "evidence", "notes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "authority": { "type": "string", "minLength": 1 },
+        "artifact_kind": {
+          "enum": ["standard", "rfc", "amendment", "technical_specification", "technical_report", "announcement", "implementation_reference", "working_group"]
+        },
+        "canonical_url": { "type": "string", "format": "uri" },
+        "version": { "type": ["string", "null"] },
+        "published_on": { "type": ["string", "null"], "format": "date" },
+        "last_checked": { "type": ["string", "null"], "format": "date" },
+        "source_status": {
+          "enum": ["active", "published", "proposed", "draft", "deprecated", "withdrawn", "unknown", "published_errata_review"]
+        },
+        "layers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["physical", "link", "network", "transport", "routing", "delay_tolerant", "application", "security", "identity", "implementation", "provisioning"]
+          }
+        },
+        "region_scope": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "relations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relation" }
+        },
+        "errata_urls": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        },
+        "review_flags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "support_status": {
+          "enum": ["unreviewed", "metadata_reviewed", "prototype", "profile_tested", "externally_certified", "explicitly_excluded"]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "url", "claim"],
+            "properties": {
+              "kind": {
+                "enum": ["source_review", "implementation", "test_report", "hardware_test", "interoperability_test", "certification"]
+              },
+              "url": { "type": "string", "format": "uri" },
+              "exact_subject_sha": { "type": ["string", "null"] },
+              "claim": { "type": "string", "minLength": 1 },
+              "verified_on": { "type": ["string", "null"], "format": "date" }
+            }
+          }
+        },
+        "next_review_due": { "type": ["string", "null"], "format": "date" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}
