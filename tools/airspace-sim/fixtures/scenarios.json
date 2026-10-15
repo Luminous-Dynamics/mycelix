@@ -662,6 +662,421 @@
           "time_basis": "fixture-tai-epoch-v1"
         }
       ]
+    },
+    {
+      "scenario_id": "three_aircraft_one_conflict_pair",
+      "description": "Three-aircraft baseline: one crossing conflict is attributed while a third, distant trajectory remains outside the synthetic threshold.",
+      "window_start_s": 0,
+      "window_end_s": 20,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": -100000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": 500000,
+            "y": 500000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "three_aircraft_multiple_pair_conflicts",
+      "description": "Three stationary trajectories deliberately create several simultaneous pairwise conflicts; all must be reported in this toy model.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 5000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 9000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "four_aircraft_parallel_lanes_clear",
+      "description": "Four parallel trajectories occupy widely separated synthetic lateral lanes; no pair should cross the declared fixture predicate.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "accept_for_planning_only",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 200000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "D",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 300000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "three_aircraft_uncertainty_pair_conflict",
+      "description": "Three-aircraft uncertainty control: a separated nominal pair conflicts only after the synthetic uncertainty margins are included.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 20000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 500000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "duplicate_flight_identity_rejected",
+      "description": "Negative control: two spatially separate input records share one flight ID, so conflict attribution is ambiguous and the case must reject before pairwise work.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "reject",
+      "flights": [
+        {
+          "flight_id": "DUPLICATE",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "DUPLICATE",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 250000,
+            "y": 250000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
     }
   ],
   "lifecycle_transition_cases": [
