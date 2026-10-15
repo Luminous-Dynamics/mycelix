@@ -92,6 +92,20 @@ The envelope must not have fields such as `trusted=true`, `settled=true`, or `ap
 7. Synthetic fixtures cover every negative control; no personal, clinical, or otherwise sensitive real data is needed.
 8. The fixture remains a research contract until a verifier outside the candidate PR's control checks the exact commit.
 
+## Executable provenance contract — first increment
+
+The first executable reference fixture and its Rust-side contract checks now live beside the ValueFlows corpus:
+
+- [Machine-readable v1 fixture](../../mycelix-finance/tests/reference/valueflows-interop/provenance-envelope-contract-v1.json)
+- [Rust contract checker and adversarial tests](../../mycelix-finance/tools/valueflows-interop-checker/src/main.rs)
+- The existing [ValueFlows Interoperability Qualification workflow](../../.github/workflows/valueflows-interop-qualification.yml) already watches the shared fixture/checker paths, so this increment uses the existing qualification lane rather than adding a new workflow or dependency.
+
+The fixture is intentionally synthetic and self-contained. The checker pins the schema version, rejects unreviewed fields, keeps all external Finance/governance/settlement authority false, restricts signatures to origin/integrity, requires append-only corrections, and fixes ten adversarial-control conditions, dispositions, and ordered guard sets. Six additional Rust test functions exercise those boundaries.
+
+**Important limit:** the checker currently validates the SHA-256 field's syntax only. It does **not** recompute the payload digest, implement RFC 8785/JCS canonicalization, verify signatures, prove source-file correspondence, or establish the truth of an observation. Those remain explicit implementation gates; no digest-verification or Rust test/build pass is claimed for this change until an exact-head run completes.
+
+RFC 8785/JCS is the nominated canonicalization target because the RFC defines deterministic JSON serialization for cryptographic operations; it is not yet implemented by this fixture. In particular, JCS inputs must not have duplicate object member names, strings must preserve their code points, and number formatting follows its specified serialization rules. See [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html).
+
 ## Recommended order
 
 1. **Do not import old DNAs.** All four profiles are useful as design references; their listed Holochain tuples are older than the stable 0.7 qualification baseline documented in the main matrix.
