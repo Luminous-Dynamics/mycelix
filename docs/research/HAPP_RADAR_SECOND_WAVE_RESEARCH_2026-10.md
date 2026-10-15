@@ -92,25 +92,36 @@ The envelope must not have fields such as `trusted=true`, `settled=true`, or `ap
 7. Synthetic fixtures cover every negative control; no personal, clinical, or otherwise sensitive real data is needed.
 8. The fixture remains a research contract until a verifier outside the candidate PR's control checks the exact commit.
 
-## Executable provenance contract — payload and envelope digest qualification
+## Executable provenance contract — digests, Ed25519 signature, and trust boundary
 
-The first executable reference fixture and Rust-side contract checks now live beside the ValueFlows corpus:
+The v1 reference fixture and Rust checker are now connected to the existing ValueFlows qualification lane:
 
 - [Machine-readable v1 fixture](../../mycelix-finance/tests/reference/valueflows-interop/provenance-envelope-contract-v1.json)
-- [Rust contract checker and adversarial tests](../../mycelix-finance/tools/valueflows-interop-checker/src/main.rs)
-- [Pinned standalone dependency manifest](../../mycelix-finance/tools/valueflows-interop-checker/Cargo.toml) and [lockfile](../../mycelix-finance/tools/valueflows-interop-checker/Cargo.lock)
-- The existing [ValueFlows Interoperability Qualification workflow](../../.github/workflows/valueflows-interop-qualification.yml) watches these paths, so no separate workflow or runtime adapter was added.
+- [Rust checker and adversarial tests](../../mycelix-finance/tools/valueflows-interop-checker/src/main.rs)
+- [Pinned dependency manifest](../../mycelix-finance/tools/valueflows-interop-checker/Cargo.toml) and [lockfile](../../mycelix-finance/tools/valueflows-interop-checker/Cargo.lock)
+- [Existing qualification workflow](../../.github/workflows/valueflows-interop-qualification.yml)
 
-The checker now parses JSON through a duplicate-aware visitor before creating `serde_json::Value`, rejecting duplicate member names including equivalent escaped names. It uses pinned `serde_json_canonicalizer` 0.3.2 (RFC 8785/JCS) and `sha2` 0.10.9 to recompute and compare two digests:
+### Integrity and authenticity checks
 
-1. `payload_digest_sha256`: SHA-256 over the canonicalized payload bytes.
-2. `example_envelope_digest_sha256`: SHA-256 over a canonical, domain-separated preimage containing the schema ID, schema version, and complete observation object. This binds source/record identity, subject, actor, scope, event/revision, causal links, timestamps, evidence class, privacy/license, claim ceiling, payload, and payload digest.
+1. Duplicate-aware JSON parsing rejects repeated object names, including escape-equivalent keys, before conversion to `serde_json::Value`.
+2. RFC 8785/JCS canonicalization plus SHA-256 recomputes the payload digest over canonical payload bytes.
+3. A separate envelope digest covers the schema ID/version and full observation, binding identity, subject/actor, scope, event/revision, causal links, timestamps, evidence class, privacy/license, claim ceiling, payload and payload digest.
+4. Ed25519 `verify_strict` checks a signature over a domain-separated, JCS-canonical preimage containing the signature profile/algorithm, issuer ID, key fingerprint, schema identity, envelope digest, and asserted signing time.
+5. The public-key ID is recomputed as SHA-256 of the raw Ed25519 public-key bytes. The fixture verifier also pins the expected issuer/key/public key in checker source, so the envelope cannot nominate its own trust root.
 
-Ten registered provenance negative controls remain fixed, and new test functions cover an authentic checked-in digest, payload tampering, metadata-only mutation, duplicate keys (including escaped duplicates), RFC 8785 number formatting, and UTF-16 key ordering. The current Rust source declares 32 test functions total; source-level counts are not a test pass.
+The synthetic fixture signature was independently checked against its public key in a local Python cryptography probe. This is a focused vector check, **not** a Rust compile/test pass or proof that the committed Rust build works. The current Rust source declares 37 test functions; counts indicate intended coverage, not successful execution.
 
-**Trust boundary remains explicit:** a digest detects accidental or uncoordinated changes only when compared against a trusted expected digest; an attacker can recompute an unkeyed hash. This checker does not verify signatures, authenticate an issuer, establish source-file correspondence, independently corroborate observations, or prove truth/authorization/settlement. The entire fixture remains synthetic and research-only. Large precise quantities must be represented as strings, not JSON numbers.
+### What this does not establish
 
-The canonicalization behavior is based on [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html); the dependency is pinned to the published crate version in the dedicated lockfile. No exact-head Rust compile/test or locked-metadata pass is claimed until a qualification run actually executes and completes.
+- The pinned key is a synthetic test key only. This is not a production issuer/key registry, key rotation service, or independently governed trust root.
+- `signed_at` is covered by the signature but is self-asserted. It is not a trusted timestamp, and it cannot prove a signature predates key compromise or revocation.
+- Revoked or unknown key status fails closed in the verifier contract. A production historical-validity decision needs independent time evidence and a documented revocation policy; a source-supplied status flag is not authoritative.
+- A valid signature confirms only that the holder of the corresponding private key signed the covered message. It does not prove the observation is true, independently corroborated, safe to disclose, licensed for reuse, authorized, eligible, or settled.
+- The signature is for the checked-in synthetic fixture, not for all future incoming hApps. No Finance mutation path was changed.
+
+### Qualification boundary
+
+The checker manifest pins `serde_json_canonicalizer = 0.3.2`, `sha2 = 0.10.9`, and `ed25519-dalek = 2.2.0`. Static lockfile inspection shows 38 distinct package records, no duplicate name/version pair, sorted package entries, and no unresolved dependency references. Because no local Rust toolchain is available, `cargo metadata --locked`, formatting, compilation, and the Rust tests have **not** been run locally. At the latest observed exact-head query, the qualification workflows were queued/pending or skipped; queued is not PASS. No runtime integration, production trust, or security-audit pass is claimed.
 
 ## Recommended order
 
