@@ -102,7 +102,9 @@ jobs:
       - name: Validate correction and appeal case contract
         run: |
           cd mycelix-identity
-          python appeal_case_engine.py
+          python appeal_case_engine.py \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --report appeal-case-report.json
       - name: Execute synthetic service journey and write evidence
         run: |
           cd mycelix-identity
@@ -147,5 +149,6 @@ jobs:
           path: |
             mycelix-identity/sa-did-policy-report.json
             mycelix-identity/synthetic-service-journey-report.json
+            mycelix-identity/appeal-case-report.json
           if-no-files-found: warn
           retention-days: 14
