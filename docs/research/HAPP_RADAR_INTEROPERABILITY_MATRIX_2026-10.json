@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "title": "Mycelix / hAppRadar interoperability decision matrix",
-  "observed_on": "2026-10-14",
+  "observed_on": "2026-10-15",
   "status": "research_only_not_runtime_qualification",
   "scope": {
     "repository": "https://github.com/Luminous-Dynamics/mycelix",
@@ -46,7 +46,8 @@
       "source_urls": [
         "https://happradar.com/projects/hrea",
         "https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md",
-        "https://www.valueflo.ws/specification/all_vf/"
+        "https://www.valueflo.ws/specification/all_vf/",
+        "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1"
       ],
       "useful_capability": "ValueFlows/REA vocabulary and Holochain-backed economic coordination.",
       "mycelix_domains": [
@@ -78,8 +79,35 @@
           "sha": "8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
           "committed_at": "2026-09-16T17:49:56Z",
           "url": "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4"
+        },
+        {
+          "repository": "h-REA/hREA",
+          "ref": "happ-0.5.0-beta.1",
+          "sha": "79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85",
+          "committed_at": "2026-09-10T13:10:31Z",
+          "url": "https://github.com/h-REA/hREA/commit/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85"
         }
-      ]
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-15",
+        "latest_listed_release": "happ-0.5.0-beta.1 (published 2026-09-10)",
+        "release_profile": {
+          "valueflows": "1.0",
+          "holochain": "0.7.x",
+          "hdk": "0.7.0",
+          "hdi": "0.8.0",
+          "holochain_client": "^0.21.0",
+          "graphql_adapter": "0.700.x",
+          "dna_asset_sha256": "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
+          "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7"
+        },
+        "caveats": [
+          "The release tag and its two asset digests are pinned as research evidence, but neither artifact has been selected as a Mycelix dependency.",
+          "The separately pinned sprout source branch head is a later commit than the release tag; source-tree state must not be substituted for released artifact evidence.",
+          "Mycelix Finance's reviewed dependency tuple remains on the Holochain 0.6 line; no native DNA composition or runtime integration is qualified."
+        ],
+        "use_for_mycelix": "Prefer a read-only, versioned export first. For any native composition experiment, pin the hREA DNA/hApp artifact and full client/adapter/conductor tuple, review license and migrations, and test on an isolated branch with exact round-trip and two-agent controls."
+      }
     },
     {
       "id": "nondominium",
@@ -559,7 +587,14 @@
       "url": "https://github.com/Luminous-Dynamics/mycelix/blob/23742a3802eba2e5211837dc1bff56a9deb1cdc9/mycelix-finance/zomes/tend/integrity/src/lib.rs",
       "observed_on": "2026-10-14",
       "use": "Source-level observation: TendExchange.hours, TendBalance.total_provided and total_received are f32; TendBalance.balance is i32. This blocks claims of lossless external time-quantity serialization until a precision/quantization profile is specified. This is not a runtime test."
+    },
+    {
+      "id": "hrea-release-0.5.0-beta.1",
+      "type": "pinned_upstream_release_and_artifact_digests",
+      "url": "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+      "observed_on": "2026-10-15",
+      "use": "Release claims VF 1.0 + Holochain 0.7.x and provides checksummed DNA/hApp assets; evidence only, not proof of Mycelix integration."
     }
   ],
-  "source_revisions_policy": "Moving branch URLs are discovery links only. The source_revisions field pins the exact commit inspected for each repository as of this snapshot. Compatibility/behavior statements remain source-reported until separately reproduced."
+  "source_revisions_policy": "Moving branch URLs are discovery links only. source_revisions pins the exact source commit or release commit inspected. observed_on is the latest matrix refresh, not a claim that every upstream project was re-queried on that date; each observed_maturity_and_compatibility.checked_on is the per-project evidence date. Compatibility/behavior statements remain source-reported until separately reproduced."
 }
