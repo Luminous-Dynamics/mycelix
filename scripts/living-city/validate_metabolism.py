@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed CI checks for the Living-City metabolism/synergy contract. No network calls."""
 from __future__ import annotations
-import copy, json, math, sys
+import copy, json, sys
 from datetime import date
 from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
@@ -161,11 +161,25 @@ def semantic_errors(review, concepts, evidence_ids):
                 if u["lower_bound"] > u["upper_bound"] or not u["lower_bound"] <= f["value"] <= u["upper_bound"]:
                     errors.append(f"{s['scenario_id']}/{f['flow_id']}: value and uncertainty bounds are inconsistent")
         for check in s["conservation_checks"]:
-            residual = check["inputs"] - check["outputs"] - check["storage_change"]
-            if not math.isclose(residual, check["reported_residual"], rel_tol=0.0, abs_tol=check["tolerance"]):
-                errors.append(f"{s['scenario_id']}/{check['check_id']}: reported residual does not equal inputs - outputs - storage_change")
-            if check["status"] == "balanced" and abs(residual) > check["tolerance"]:
-                errors.append(f"{s['scenario_id']}/{check['check_id']}: declared balanced but residual exceeds tolerance")
+            expected_unit = {"energy": "Wh", "water": "mL", "mass": "g"}[check["balance_kind"]]
+            if check["unit"] != expected_unit:
+                errors.append(f"{s['scenario_id']}/{check['check_id']}: {check['balance_kind']} balance requires exact unit {expected_unit!r}")
+            try:
+                inflow = int(check["inflow"])
+                generated = int(check["generated_or_added"])
+                outflow = int(check["outflow"])
+                loss = int(check["declared_loss"])
+                storage = int(check["observed_storage_delta"])
+                reported = int(check["reported_residual"])
+                tolerance = int(check["tolerance"])
+            except (ValueError, TypeError):
+                errors.append(f"{s['scenario_id']}/{check['check_id']}: resource-balance quantities must be decimal integer strings")
+                continue
+            residual = inflow + generated - outflow - loss - storage
+            if residual != reported:
+                errors.append(f"{s['scenario_id']}/{check['check_id']}: reported residual does not equal inflow + generated_or_added - outflow - declared_loss - observed_storage_delta")
+            if check["status"] == "balanced" and abs(residual) > tolerance:
+                errors.append(f"{s['scenario_id']}/{check['check_id']}: declared balanced but integer residual exceeds tolerance")
 
     for item in review["interactions"]:
         for ref in item["evidence_refs"]:
@@ -227,16 +241,16 @@ def main():
     print("PASS mutation: metric/unit incompatibility rejected")
 
     bad_residual = copy.deepcopy(synthetic)
-    bad_residual["scenarios"][0]["conservation_checks"][0]["reported_residual"] = 4
+    bad_residual["scenarios"][0]["conservation_checks"][0]["reported_residual"] = "4"
     if not any("reported residual does not equal" in e for e in semantic_errors(bad_residual, concepts, evidence_ids)):
         fail("mutation: false conservation residual accepted")
-    print("PASS mutation: residual must equal inputs - outputs - storage change")
+    print("PASS mutation: exact integer residual must match the resource-balance equation")
 
     bad_status = copy.deepcopy(synthetic)
-    bad_status["scenarios"][0]["conservation_checks"][0]["inputs"] = 120
-    if not any("declared balanced but residual exceeds" in e for e in semantic_errors(bad_status, concepts, evidence_ids)):
+    bad_status["scenarios"][0]["conservation_checks"][0]["inflow"] = "120000000"
+    if not any("declared balanced but integer residual exceeds" in e for e in semantic_errors(bad_status, concepts, evidence_ids)):
         fail("mutation: unbalanced check labelled balanced")
-    print("PASS mutation: nonzero residual cannot be declared balanced")
+    print("PASS mutation: nonzero exact residual cannot be declared balanced")
 
     bad_delta = copy.deepcopy(synthetic)
     bad_delta["interactions"][0]["reported_interaction_delta"] = -12
