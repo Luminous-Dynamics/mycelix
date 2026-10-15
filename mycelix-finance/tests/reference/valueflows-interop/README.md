@@ -18,6 +18,8 @@ cargo run --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo
 
 The dedicated GitHub Actions workflow runs the same checks when the contract, checker, or workflow changes.
 
+For pull requests, the workflow explicitly checks out `github.event.pull_request.head.sha` rather than GitHub's synthetic merge ref. The reported result should therefore name the exact proposed source head. A queued/pending/skipped check is not a pass.
+
 ## Contract decisions
 
 - **Export-only:** an imported external event never authorizes a Mycelix SAP/TEND/MYCEL balance mutation or sets settlement final.
