@@ -28,3 +28,8 @@ For payload boundary tests, preserve the current 16 MiB ceiling and exercise siz
 ## Interpretation
 
 A digest match proves byte identity relative to a declared digest, not producer authenticity or scientific truth. Schema validity proves contract conformance, not causal validity. Difference-in-differences arithmetic remains a descriptive interaction until a reviewable identification design supports a stronger claim. When evidence, calibration, cohort coverage, or falsification is inadequate, report **inconclusive/blocked**, not a fabricated numeric score.
+
+
+## Independent review separation
+
+For contribution/causal-effect claims, the review receipt must resolve and must not reuse an outcome evidence reference. The causal-effect path also declares an independent-review role; contribution claims need independent or community review. This is a referential-integrity guard, not identity proof: deployments need authenticated reviewer credentials and accountable review procedures if reviewer independence itself must be verified.

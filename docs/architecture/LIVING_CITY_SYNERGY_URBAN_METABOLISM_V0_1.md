@@ -318,3 +318,8 @@ These are release gates and engineering targets, not reported accomplishments. M
 | Field impact | Before scaling, test the preregistered primary outcome against a credible counterfactual where feasible; report costs and unintended effects by affected group, and replicate or explain context-specific heterogeneity. | Independent evaluation, source provenance and operating-owner sign-off. |
 
 The scale targets must first be benchmarked with a versioned generator and measured on the named runner. Forecast calibration and field-impact targets remain future pilot gates, not features already implemented. If a performance target is missed, report the baseline and bottleneck; do not weaken validation or shrink the adversarial corpus.
+
+
+### Independent review must be more than a second label
+
+For contribution or causal-effect claims, the review receipt must resolve separately from the outcome-source evidence references. Causal-effect claims must declare an `independent_reviewer` role; contribution claims require an independent or community reviewer role. This detects a simple but important self-attestation failure mode: reusing the same evidence identifier as both outcome support and review. The reviewer-role field is still a declaration, not cryptographic identity proof; the review record itself must be scrutinized under the host governance process.

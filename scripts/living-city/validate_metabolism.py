@@ -534,6 +534,8 @@ def semantic_errors(review, concepts, evidence_ids):
         review_ref = evaluation["review_ref"]
         if review_ref is not None and review_ref not in evidence_ids:
             errors.append(f"{eid}: unresolved independent review reference {review_ref!r}")
+        if review_ref is not None and review_ref in evaluation["evidence_refs"]:
+            errors.append(f"{eid}: independent review reference must be distinct from outcome evidence references")
         for check in evaluation["falsification_checks"]:
             for ref in check["evidence_refs"]:
                 if ref not in evidence_ids:
@@ -546,6 +548,8 @@ def semantic_errors(review, concepts, evidence_ids):
                 errors.append(f"{eid}: contribution claim requires process tracing or contribution analysis")
             if not evaluation["evidence_refs"] or evaluation["review_status"] != "evidence_reviewed" or review_ref not in evidence_ids:
                 errors.append(f"{eid}: contribution claim requires resolved evidence and an evidence-reviewed record")
+            if evaluation["reviewer_role"] not in {"independent_reviewer", "community_reviewer"}:
+                errors.append(f"{eid}: contribution claim requires independent or community review")
             if not evaluation["falsification_checks"]:
                 errors.append(f"{eid}: contribution claim requires at least one explicit alternative-explanation check")
         if claim_level == "causal_effect_claim":
@@ -553,6 +557,8 @@ def semantic_errors(review, concepts, evidence_ids):
                 errors.append(f"{eid}: causal-effect claim needs an experimental or quasi-experimental design")
             if not evaluation["evidence_refs"] or evaluation["review_status"] != "evidence_reviewed" or review_ref not in evidence_ids:
                 errors.append(f"{eid}: causal-effect claim needs evidence, an evidence-reviewed status, and a resolvable review_ref")
+            if evaluation["reviewer_role"] != "independent_reviewer":
+                errors.append(f"{eid}: causal-effect claim requires an independent reviewer role")
             checks = evaluation["falsification_checks"]
             if len(checks) < 2:
                 errors.append(f"{eid}: causal-effect claim needs at least two falsification/robustness checks")
@@ -1125,7 +1131,9 @@ def main():
     print("PASS mutation: distributional coverage evidence references must resolve")
 
     causal_contract_case = copy.deepcopy(synthetic)
-    evidence_id_for_causal_controls = next(iter(sorted(evidence_ids)))
+    ordered_evidence_ids_for_causal_controls = sorted(evidence_ids)
+    evidence_id_for_causal_controls = ordered_evidence_ids_for_causal_controls[0]
+    review_id_for_causal_controls = ordered_evidence_ids_for_causal_controls[1]
     interaction_id_for_causal_controls = causal_contract_case["interactions"][0]["interaction_id"]
     causal_contract_case["causal_evaluations"] = [{
         "evaluation_id": "synthetic-descriptive-interaction",
@@ -1142,6 +1150,7 @@ def main():
         "evidence_refs": [],
         "review_status": "not_assessed",
         "review_ref": None,
+        "reviewer_role": "not_applicable",
         "design_rationale": "Keep a numerical interaction explicitly descriptive.",
         "limitations": ["Synthetic fixture only; it cannot establish a causal effect."]
     }]
@@ -1153,7 +1162,7 @@ def main():
     invalid_causal_design["causal_evaluations"][0].update({
         "claim_level":"causal_effect_claim","design_type":"not_applicable",
         "evidence_refs":[evidence_id_for_causal_controls],"review_status":"evidence_reviewed",
-        "review_ref":evidence_id_for_causal_controls,
+        "review_ref":review_id_for_causal_controls,"reviewer_role":"independent_reviewer",
         "falsification_checks":[
             {"check_id":"negative-control","check_type":"negative_control_outcome","result":"consistent","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."},
             {"check_id":"sensitivity-check","check_type":"sensitivity","result":"consistent","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."}
@@ -1166,7 +1175,7 @@ def main():
     unreviewed_causal_claim = copy.deepcopy(causal_contract_case)
     unreviewed_causal_claim["causal_evaluations"][0].update({
         "claim_level":"causal_effect_claim","design_type":"difference_in_differences",
-        "evidence_refs":[],"review_status":"not_assessed","review_ref":None,
+        "evidence_refs":[],"review_status":"not_assessed","review_ref":None,"reviewer_role":"not_applicable",
         "falsification_checks":[
             {"check_id":"negative-control","check_type":"negative_control_outcome","result":"consistent","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."},
             {"check_id":"sensitivity-check","check_type":"sensitivity","result":"consistent","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."}
@@ -1180,7 +1189,7 @@ def main():
     failed_falsification["causal_evaluations"][0].update({
         "claim_level":"causal_effect_claim","design_type":"difference_in_differences",
         "evidence_refs":[evidence_id_for_causal_controls],"review_status":"evidence_reviewed",
-        "review_ref":evidence_id_for_causal_controls,
+        "review_ref":review_id_for_causal_controls,"reviewer_role":"independent_reviewer",
         "falsification_checks":[
             {"check_id":"negative-control","check_type":"negative_control_outcome","result":"consistent","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."},
             {"check_id":"sensitivity-check","check_type":"sensitivity","result":"not_run","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."}
@@ -1196,7 +1205,21 @@ def main():
         fail("mutation: causal evaluation detached from a known interaction was accepted")
     print("PASS mutation: causal-evaluation records must resolve their interaction reference")
 
-    print("PASS: 62 urban-metabolism/synergy controls (52 mutation/parser rejection controls and ten positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
+    reused_review_receipt = copy.deepcopy(causal_contract_case)
+    reused_review_receipt["causal_evaluations"][0].update({
+        "claim_level":"causal_effect_claim","design_type":"difference_in_differences",
+        "evidence_refs":[evidence_id_for_causal_controls],"review_status":"evidence_reviewed",
+        "review_ref":evidence_id_for_causal_controls,"reviewer_role":"independent_reviewer",
+        "falsification_checks":[
+            {"check_id":"negative-control","check_type":"negative_control_outcome","result":"consistent","evidence_refs":[evidence_id_for_causal_controls],"description":"Synthetic test record only."},
+            {"check_id":"sensitivity-check","check_type":"sensitivity","result":"consistent","evidence_refs":[review_id_for_causal_controls],"description":"Synthetic test record only."}
+        ]
+    })
+    if not any("independent review reference must be distinct from outcome evidence references" in e for e in semantic_errors(reused_review_receipt, concepts, evidence_ids)):
+        fail("mutation: outcome evidence reused as independent review receipt was accepted")
+    print("PASS mutation: independent review receipt must be distinct from outcome evidence")
+
+    print("PASS: 63 urban-metabolism/synergy controls (53 mutation/parser rejection controls and ten positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
 
 
 if __name__ == "__main__":

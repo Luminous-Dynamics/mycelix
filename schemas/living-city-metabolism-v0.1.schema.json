@@ -2160,7 +2160,8 @@
         "review_status",
         "review_ref",
         "design_rationale",
-        "limitations"
+        "limitations",
+        "reviewer_role"
       ],
       "properties": {
         "evaluation_id": {
@@ -2264,6 +2265,16 @@
             "type": "string",
             "minLength": 12
           }
+        },
+        "reviewer_role": {
+          "enum": [
+            "not_applicable",
+            "independent_reviewer",
+            "community_reviewer",
+            "project_team",
+            "public_authority"
+          ],
+          "description": "Declared role of the reviewer. This declaration is not an identity credential; independent review must be supported by a separately resolvable review record."
         }
       },
       "allOf": [
@@ -2298,6 +2309,12 @@
               },
               "falsification_checks": {
                 "minItems": 1
+              },
+              "reviewer_role": {
+                "enum": [
+                  "independent_reviewer",
+                  "community_reviewer"
+                ]
               }
             }
           }
@@ -2339,6 +2356,9 @@
               },
               "falsification_checks": {
                 "minItems": 2
+              },
+              "reviewer_role": {
+                "const": "independent_reviewer"
               }
             },
             "required": [
