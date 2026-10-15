@@ -13,7 +13,8 @@
     "stale-evidence-does-not-satisfy-current-requirement",
     "unknown-transition-remains-unknown"
   ],
-  "required_formal_obligations": [
+  "claim_ceiling": "ReferenceModelOnly: authority-boundary semantics only; no actual ledger mutation, physical execution, or operational authorization.",
+  "formal_obligation_vocabulary": [
     "COS-FV-001",
     "COS-FV-002",
     "COS-FV-003",
@@ -24,6 +25,5 @@
     "COS-FV-008",
     "COS-FV-009",
     "COS-FV-010"
-  ],
-  "claim_ceiling": "ReferenceModelOnly: authority-boundary semantics only; no actual ledger mutation, physical execution, or operational authorization."
+  ]
 }
