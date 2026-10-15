@@ -209,8 +209,12 @@ jobs:
             echo "d6s_runtime_evidence_status=NotExecuted"
             echo "canon2_runtime_binding_status=ReferenceMappingOnly"
             echo "rust_corpus=PASSED"
+            echo "d6s_canon_1_golden_vectors_rust=PASSED"
+            echo "d6s_canon_2_authority_boundary_rust=PASSED"
             echo "canon1_independent_verifier=PASSED"
             echo "canon2_authority_boundary_fixture=PASSED"
+            echo "cos_conformance_report=PASSED"
+            echo "cos_report_independent_verifier=PASSED"
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6s-canonical-reference-qualification.txt
 
