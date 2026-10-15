@@ -49,10 +49,12 @@ Mycelix Finance already has application-specific concepts for SAP, TEND and MYCE
 |---|---|---|
 | SAP balance/transfer | Resource specification + resource-affecting economic events | Preserve integer micro-SAP units, exact currency identity, and signed debit/credit semantics; do not use floating point for authoritative amounts |
 | TEND time-credit obligation/settlement | Commitment plus fulfillment/settlement event, scoped to the relevant parties/community | Preserve zero-sum accounting, unit meaning (hours), credit limits, disputes and settlement evidence |
-| MYCEL recognition/reputation | Agent-scoped attestations/claims or another explicitly non-transferable representation | Never map it into a transferable balance; distinguish evidence about reputation from the authority to compute a score |
+| MYCEL recognition/reputation | No direct ValueFlows economic entity is asserted by this profile. Use a separately namespaced, scoped attestation/credential or explicit extension (e.g. a reviewed W3C Verifiable Credential 2.0 profile). | Do not map reputation to a ValueFlows `Claim` by label alone: VF `Claim` means a future economic event claimed in reciprocity for an event already occurred. Preserve issuer, subject, provenance, proof/status, validity/revocation and privacy boundaries; verifiability is not truth or authorization. |
 | Commons pool/reserve | Scoped resource and events with policy metadata | Keep reserve floors, demurrage, mint caps and governance rules enforceable by Mycelix integrity validation |
 
 This is a candidate mapping, not a claim that the external schema already expresses every Mycelix policy. ValueFlows should describe interoperable economic facts; Mycelix remains responsible for its own monetary-policy and authorization invariants.
+
+**MYCEL semantic correction:** the normative ValueFlows specification defines `Claim` as a claim for a future economic event in reciprocity for an economic event that already occurred ([ValueFlows Claim definition](https://www.valueflo.ws/specification/vfspec/)). It is therefore not a generic reputation/attestation class. The corpus now leaves the native ValueFlows entity set empty for MYCEL instead of asserting a `Claim` mapping. A W3C Verifiable Credential 2.0 representation is a candidate profile, not an implementation decision; the VC specification requires issuer and credential subject and explicitly warns that verifiability does not establish the truth of the included claims ([W3C VC Data Model 2.0](https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/)). Any extension still needs privacy, validity/revocation, issuer trust and claim-ceiling rules.
 
 Source: https://github.com/h-REA/hREA/blob/sprout/modules/vf-graphql-holochain/src/types.ts
 
