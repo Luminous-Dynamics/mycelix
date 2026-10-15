@@ -31,11 +31,15 @@
     "cost-period-out-of-scope",
     "not-applicable-category-has-cost-line",
     "missing-environment-and-closeout-costs",
-    "paid-role-with-zero-wage-cost"
+    "paid-role-with-zero-wage-cost",
+    "currency-minor-unit-scale-mismatch",
+    "unsupported-currency-minor-unit-rule",
+    "supported-zero-decimal-currency-scale"
   ],
   "limitations": [
     "Fixtures are synthetic only and must not be used as real contracts or employment evidence.",
-    "A valid schema is not evidence of truth, funding, legal compliance, authority, or delivery."
+    "A valid schema is not evidence of truth, funding, legal compliance, authority, or delivery.",
+    "Currency minor-unit scales use a bounded explicit ISO 4217 allowlist; unknown currency codes fail closed until verified against current Maintenance Agency data."
   ],
   "schema_git_blob_sha": "e939265af66c70ad16f399203853ba1c8284ddbf"
 }
