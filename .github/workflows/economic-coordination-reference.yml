@@ -1,0 +1,47 @@
+name: Economic Coordination Reference
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/economic-coordination-reference.yml"
+      - "mycelix-finance/tools/economic-coordination-reference/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/economic-coordination-reference.yml"
+      - "mycelix-finance/tools/economic-coordination-reference/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: economic-coordination-reference-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  reference-contract:
+    name: exact-head reference contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 immutable commit
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # immutable commit inspected 2026-10-09
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert Rust toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml -- --check
+
+      - name: Run reference and adversarial tests
+        run: cargo test --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml
