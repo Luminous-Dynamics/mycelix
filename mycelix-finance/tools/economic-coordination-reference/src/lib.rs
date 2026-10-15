@@ -27,6 +27,7 @@ pub enum Lifecycle {
     Committed,
     Delivered,
     Verified,
+    CapacityConsumed,
     Settled,
     Disputed,
     Indeterminate,
@@ -231,6 +232,7 @@ impl CapacityKey {
 struct CapacitySlot {
     total: u64,
     reserved: u64,
+    consumed: u64,
 }
 
 /// Serial reference book for capacity. It demonstrates bounded reservations;
@@ -267,6 +269,7 @@ impl CapacityBook {
             CapacitySlot {
                 total,
                 reserved: 0,
+                consumed: 0,
             },
         );
         Ok(())
@@ -283,9 +286,25 @@ impl CapacityBook {
             unit: unit.to_owned(),
             window_id: window_id.to_owned(),
         };
-        self.slots
-            .get(&key)
-            .and_then(|slot| slot.total.checked_sub(slot.reserved))
+        self.slots.get(&key).and_then(|slot| {
+            slot.total
+                .checked_sub(slot.reserved)
+                .and_then(|remaining| remaining.checked_sub(slot.consumed))
+        })
+    }
+
+    pub fn consumed(
+        &self,
+        resource_id: &str,
+        unit: &str,
+        window_id: &str,
+    ) -> Option<u64> {
+        let key = CapacityKey {
+            resource_id: resource_id.to_owned(),
+            unit: unit.to_owned(),
+            window_id: window_id.to_owned(),
+        };
+        self.slots.get(&key).map(|slot| slot.consumed)
     }
 
     pub fn reservation(&self, transaction_id: &str) -> Option<&ReservationReceipt> {
@@ -307,7 +326,10 @@ impl CapacityBook {
             .reserved
             .checked_add(request.quantity)
             .ok_or(ContractError::ArithmeticOverflow)?;
-        if next_reserved > slot.total {
+        let allocated = next_reserved
+            .checked_add(slot.consumed)
+            .ok_or(ContractError::ArithmeticOverflow)?;
+        if allocated > slot.total {
             return Err(ContractError::CapacityUnavailable);
         }
 
@@ -355,6 +377,52 @@ impl CapacityBook {
         self.reservations.remove(transaction_id);
         Ok(())
     }
+
+    fn consume(
+        &mut self,
+        transaction_id: &str,
+        expected: &ReservationReceipt,
+    ) -> Result<(), ContractError> {
+        let receipt = self
+            .reservations
+            .get(transaction_id)
+            .cloned()
+            .ok_or(ContractError::MissingReservation)?;
+        if &receipt != expected {
+            return Err(ContractError::InconsistentCapacity);
+        }
+        let key = CapacityKey {
+            resource_id: receipt.resource_id,
+            unit: receipt.unit,
+            window_id: receipt.window_id,
+        };
+        let slot = self
+            .slots
+            .get(&key)
+            .ok_or(ContractError::InconsistentCapacity)?;
+        let next_reserved = slot
+            .reserved
+            .checked_sub(receipt.quantity)
+            .ok_or(ContractError::InconsistentCapacity)?;
+        let next_consumed = slot
+            .consumed
+            .checked_add(receipt.quantity)
+            .ok_or(ContractError::ArithmeticOverflow)?;
+        let allocated = next_reserved
+            .checked_add(next_consumed)
+            .ok_or(ContractError::ArithmeticOverflow)?;
+        if allocated > slot.total {
+            return Err(ContractError::InconsistentCapacity);
+        }
+        let slot = self
+            .slots
+            .get_mut(&key)
+            .ok_or(ContractError::InconsistentCapacity)?;
+        slot.reserved = next_reserved;
+        slot.consumed = next_consumed;
+        self.reservations.remove(transaction_id);
+        Ok(())
+    }
 }
 
 pub struct CoordinationContract {
@@ -362,6 +430,7 @@ pub struct CoordinationContract {
     lifecycle: Lifecycle,
     authority: Option<AuthorityProof>,
     reservation: Option<ReservationReceipt>,
+    capacity_consumed: bool,
     obligation: Option<ObligationTerms>,
     delivery: Option<DeliveryClaim>,
     verification: Option<VerificationResult>,
@@ -378,6 +447,7 @@ impl CoordinationContract {
             lifecycle: Lifecycle::Proposed,
             authority: None,
             reservation: None,
+            capacity_consumed: false,
             obligation: None,
             delivery: None,
             verification: None,
@@ -401,6 +471,10 @@ impl CoordinationContract {
 
     pub fn reservation(&self) -> Option<&ReservationReceipt> {
         self.reservation.as_ref()
+    }
+
+    pub fn capacity_consumed(&self) -> bool {
+        self.capacity_consumed
     }
 
     pub fn obligation(&self) -> Option<&ObligationTerms> {
@@ -642,14 +716,41 @@ impl CoordinationContract {
         Ok(next)
     }
 
-    /// Posts an internal double-entry reference ledger movement after delivery
-    /// is independently verified. This is not an external payment rail.
+    /// Record that verified delivery consumed the reserved physical capacity.
+    /// Capacity consumption is separate from settlement: delivered capacity is
+    /// consumed even if later accounting cannot post the financial movement.
+    pub fn consume_verified_capacity(
+        &mut self,
+        book: &mut CapacityBook,
+        now: u64,
+    ) -> Result<(), ContractError> {
+        self.require_state(Lifecycle::Verified)?;
+        self.ensure_transition_time(now)?;
+        if self.capacity_consumed {
+            return Err(ContractError::InvalidTransition);
+        }
+        let reservation = self
+            .reservation
+            .as_ref()
+            .ok_or(ContractError::MissingReservation)?;
+        book.consume(&self.request.transaction_id, reservation)?;
+        self.capacity_consumed = true;
+        self.transition(
+            Lifecycle::CapacityConsumed,
+            now,
+            Some(format!("capacity-consumed:{}", self.request.transaction_id)),
+        );
+        Ok(())
+    }
+
+    /// Posts an internal double-entry reference ledger movement only after
+    /// verified delivery has consumed its reservation. This is not an external rail.
     pub fn settle(
         &mut self,
         ledger: &mut Ledger,
         now: u64,
     ) -> Result<SettlementReceipt, ContractError> {
-        self.require_state(Lifecycle::Verified)?;
+        self.require_state(Lifecycle::CapacityConsumed)?;
         self.ensure_transition_time(now)?;
         let obligation = self
             .obligation
@@ -966,8 +1067,8 @@ mod tests {
             .unwrap();
     }
 
-    fn verified_contract(id: &str, quantity: u64) -> (CoordinationContract, Ledger) {
-        let (mut contract, _) = committed_contract(id, quantity);
+    fn verified_contract(id: &str, quantity: u64) -> (CoordinationContract, CapacityBook, Ledger) {
+        let (mut contract, capacity) = committed_contract(id, quantity);
         record_full_delivery(&mut contract, quantity);
         contract
             .verify_delivery(VerificationResult {
@@ -993,13 +1094,14 @@ mod tests {
         ledger
             .register_account("coop-wallet", INSTRUMENT, ATOMIC_UNIT, 0, 0, 100)
             .unwrap();
-        (contract, ledger)
+        (contract, capacity, ledger)
     }
 
     #[test]
     fn full_need_to_fulfilment_path_posts_balanced_internal_settlement() {
-        let (mut contract, mut ledger) = verified_contract("tx-happy", 4);
-        let receipt = contract.settle(&mut ledger, 7).unwrap();
+        let (mut contract, mut capacity, mut ledger) = verified_contract("tx-happy", 4);
+        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        let receipt = contract.settle(&mut ledger, 8).unwrap();
 
         assert_eq!(contract.lifecycle(), Lifecycle::Settled);
         assert_eq!(receipt.debit_before, 100);
