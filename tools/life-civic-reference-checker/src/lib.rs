@@ -1260,4 +1260,30 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
                 .contains("lower police-report counts alone")),
         "police-record changes alone must not be treated as proof of reduced victimization"
     );
+
+    let latest_victimization = by_id
+        .get("MYC-LCA-016")
+        .expect("latest GPSJS time-series boundary missing");
+    assert_eq!(latest_victimization["expected"]["status"], "unknown");
+    assert_eq!(latest_victimization["input_projection"]["version"], "GPSJS 2025/26 Victims of Crime Release; published 2026-09-01");
+    assert_eq!(
+        latest_victimization["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    let latest_forbidden = latest_victimization["expected"]["forbidden_claims"]
+        .as_array()
+        .expect("latest GPSJS prohibited claims must be an array");
+    assert!(
+        latest_forbidden.iter().any(|claim| claim.as_str().unwrap().contains("43.4% to 48.2%")),
+        "latest GPSJS control must preserve the reporting-rate trend without a false causal inference"
+    );
+    assert!(
+        latest_forbidden.iter().any(|claim| claim.as_str().unwrap().contains("1.493 million to 1.549 million")),
+        "latest GPSJS control must keep incident count distinct from affected-household count"
+    );
+    assert_eq!(
+        corpus["version"],
+        "0.3.0",
+        "time-series boundary must be part of the versioned current corpus"
+    );
 }

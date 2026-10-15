@@ -1,6 +1,6 @@
 {
   "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "source_snapshots": [
     {
       "snapshot_id": "ISO-WD-37120-2026-10",
@@ -78,6 +78,13 @@
       "observed_status": "Governance, Public Safety and Justice Survey 2024/25 published on 2025-08-26; descriptive national victimization and reporting evidence",
       "as_of_date": "2026-10-15",
       "notes": "Victimization-survey reports and SAPS administrative reports are different observation processes. Offense-specific national reporting proportions help identify an observability problem but are not a local pilot rate or causal model coefficient."
+    },
+    {
+      "snapshot_id": "STATSSA-GPSJS-2025-26-2026-09",
+      "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856",
+      "observed_status": "Latest Victims of Crime Release in the GPSJS series; published 2026-09-01; reference period 2025/26",
+      "as_of_date": "2026-10-15",
+      "notes": "For housebreaking, estimated incidents rose from 1.493 million (2024/25) to 1.549 million (2025/26), while households experiencing it fell from 1.123 million to 1.078 million, and the share reporting some/all incidents rose from 43.4% to 48.2%. These indicators have different denominators/constructs and must be kept separate; changes are descriptive national survey estimates, not causal effects or local pilot values."
     }
   ],
   "cases": [
@@ -520,6 +527,37 @@
         ]
       },
       "rationale": "Stats SA's 2024/25 publication reports offense-specific reporting patterns: 43.4% of households that experienced housebreaking reported some or all incidents, while 31% of people experiencing personal theft reported some or all incidents. These differing proportions show why police counts and victimization are not interchangeable. The survey is national context; local measurement, reporting dynamics, denominator compatibility, and a credible counterfactual remain necessary for evaluation.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-016",
+      "title": "Latest GPSJS estimates require separating incident counts, affected households, and police reporting",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0341:GPSJS:2025-26",
+        "artifact_kind": "other",
+        "version": "GPSJS 2025/26 Victims of Crime Release; published 2026-09-01",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856"
+      },
+      "context": {
+        "use_case": "interpret year-over-year changes in household victimization and police reports without mixing counts, populations, and reporting processes",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-15T10:20:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the rise in reported-housebreaking proportion from 43.4% to 48.2% proves housebreaking incidents fell",
+          "fewer households experiencing housebreaking necessarily means fewer incidents when estimated incidents rose from 1.493 million to 1.549 million",
+          "national 2025/26 reporting proportions are Johannesburg intervention outcomes or local reporting rates without local validation",
+          "the descriptive survey trend is a causal crime-effect coefficient or an individual risk signal"
+        ]
+      },
+      "rationale": "Stats SA's latest 2025/26 release reports an estimated 1.549 million housebreaking incidents versus 1.493 million in 2024/25; households experiencing housebreaking fell from 1.123 million to 1.078 million; and households reporting some or all housebreaking incidents rose from 43.4% to 48.2%. These are distinct indicators with different denominators. Survey estimates need their definitions, sample design and precision limits preserved, and they do not establish an intervention effect or a Johannesburg baseline.",
       "synthetic": false
     }
   ]
