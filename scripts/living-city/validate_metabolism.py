@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fail-closed CI checks for the Living-City metabolism/synergy contract. No network calls."""
 from __future__ import annotations
-import copy, json, math, sys
+import copy, json, sys
+from decimal import Decimal
 from fractions import Fraction
 from datetime import date
 from pathlib import Path
@@ -58,10 +59,18 @@ def fail(message: str) -> None:
     print(f"FAIL: {message}", file=sys.stderr)
     raise SystemExit(1)
 
+def exact_fraction(value):
+    """Parse JSON decimal quantities into exact rational values, never binary floats."""
+    if isinstance(value, Fraction):
+        return value
+    if isinstance(value, Decimal):
+        return Fraction(value)
+    return Fraction(str(value))
+
 def load_json(path: Path):
     try:
         with path.open("r", encoding="utf-8") as stream:
-            return json.load(stream)
+            return json.load(stream, parse_float=Decimal)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         fail(f"{path.relative_to(ROOT)} is not readable valid JSON: {exc}")
 
@@ -183,7 +192,8 @@ def semantic_errors(review, concepts, evidence_ids):
                     errors.append(f"{s['scenario_id']}/{f['flow_id']}: model run omits this scenario")
             if "uncertainty" in f:
                 u = f["uncertainty"]
-                if u["lower_bound"] > u["upper_bound"] or not u["lower_bound"] <= f["value"] <= u["upper_bound"]:
+                if (exact_fraction(u["lower_bound"]) > exact_fraction(u["upper_bound"])
+                    or not exact_fraction(u["lower_bound"]) <= exact_fraction(f["value"]) <= exact_fraction(u["upper_bound"])):
                     errors.append(f"{s['scenario_id']}/{f['flow_id']}: value and uncertainty bounds are inconsistent")
         for check in s["conservation_checks"]:
             expected_unit = {"energy": "Wh", "water": "mL", "mass": "g"}[check["balance_kind"]]
@@ -291,8 +301,9 @@ def semantic_errors(review, concepts, evidence_ids):
         if len({f["unit"] for f in flows}) != 1 or flows[0]["unit"] != item["unit"]:
             errors.append(f"{item['interaction_id']}: scenario-flow and reported interaction units do not match")
             continue
-        delta = flows[3]["value"] - flows[1]["value"] - flows[2]["value"] + flows[0]["value"]
-        if not math.isclose(delta, item["reported_interaction_delta"], rel_tol=0.0, abs_tol=item["tolerance"]):
+        delta = (exact_fraction(flows[3]["value"]) - exact_fraction(flows[1]["value"])
+                 - exact_fraction(flows[2]["value"]) + exact_fraction(flows[0]["value"]))
+        if abs(delta - exact_fraction(item["reported_interaction_delta"])) > exact_fraction(item["tolerance"]):
             errors.append(f"{item['interaction_id']}: delta must equal combined - A - B + baseline")
         flow_intervals = [flow.get("uncertainty") for flow in flows]
         if any(interval is None for interval in flow_intervals):
@@ -302,11 +313,14 @@ def semantic_errors(review, concepts, evidence_ids):
         # conservative enclosure; it is not a statistical confidence interval and
         # can be wider when scenario errors are correlated.
         baseline_u, a_u, b_u, combined_u = flow_intervals
-        propagated_lower = combined_u["lower_bound"] - a_u["upper_bound"] - b_u["upper_bound"] + baseline_u["lower_bound"]
-        propagated_upper = combined_u["upper_bound"] - a_u["lower_bound"] - b_u["lower_bound"] + baseline_u["upper_bound"]
+        propagated_lower = (exact_fraction(combined_u["lower_bound"]) - exact_fraction(a_u["upper_bound"])
+                            - exact_fraction(b_u["upper_bound"]) + exact_fraction(baseline_u["lower_bound"]))
+        propagated_upper = (exact_fraction(combined_u["upper_bound"]) - exact_fraction(a_u["lower_bound"])
+                            - exact_fraction(b_u["lower_bound"]) + exact_fraction(baseline_u["upper_bound"]))
         u = item["uncertainty"]
-        lo, hi = u["lower_bound"], u["upper_bound"]
-        if lo > hi or not lo <= item["reported_interaction_delta"] <= hi:
+        lo, hi = exact_fraction(u["lower_bound"]), exact_fraction(u["upper_bound"])
+        reported_delta = exact_fraction(item["reported_interaction_delta"])
+        if lo > hi or not lo <= reported_delta <= hi:
             errors.append(f"{item['interaction_id']}: delta inconsistent with uncertainty interval")
         if lo > propagated_lower or hi < propagated_upper:
             errors.append(f"{item['interaction_id']}: reported interaction interval understates propagated scenario uncertainty")
@@ -545,7 +559,40 @@ def main():
         fail("mutation: fractional Wh conversion hidden by a nonzero balance tolerance was accepted")
     print("PASS mutation: non-integral canonical energy conversion cannot hide inside balance tolerance")
 
-    print("PASS: 28 urban-metabolism/synergy controls (24 mutation controls and four positive controls); no composite symtropy score or automatic authorization.")
+    decimal_case = copy.deepcopy(synthetic)
+    decimal_values = [Decimal("0.3"), Decimal("0.1"), Decimal("0.2"), Decimal("0.4")]
+    for scenario, value in zip(decimal_case["scenarios"], decimal_values):
+        scenario["flow_records"].append({
+            "flow_id": scenario["scenario_id"] + "-decimal-access",
+            "metric_id": "accessible_person_hours", "value": value, "unit": "person_hour",
+            "evidence_kind": "synthetic_only", "life_cycle_stage": "operational",
+            "evidence_refs": [],
+            "rationale": "Synthetic decimal arithmetic control only; not a real accessibility measurement.",
+            "uncertainty": {"lower_bound": value, "upper_bound": value,
+                            "method": "Exact decimal point interval for arithmetic regression only."}
+        })
+    decimal_interaction = decimal_case["interactions"][0]
+    decimal_interaction["outcome_metric"] = "accessible_person_hours"
+    decimal_interaction["direction"] = "higher_is_better"
+    decimal_interaction["reported_interaction_delta"] = Decimal("0.4")
+    decimal_interaction["tolerance"] = Decimal("0")
+    decimal_interaction["uncertainty"]["lower_bound"] = Decimal("0.4")
+    decimal_interaction["uncertainty"]["upper_bound"] = Decimal("0.4")
+    decimal_interaction["interpreted_result"] = "positive_synergy"
+    decimal_schema_errors = schema_errors(validator, decimal_case)
+    if decimal_schema_errors:
+        fail("positive control: exact decimal interaction fails schema validation: " + describe(decimal_schema_errors))
+    if semantic_errors(decimal_case, concepts, evidence_ids):
+        fail("positive control: exact decimal difference-in-differences was not accepted")
+    print("PASS control: decimal JSON inputs preserve exact difference-in-differences at zero tolerance")
+
+    decimal_drift = copy.deepcopy(decimal_case)
+    decimal_drift["interactions"][0]["reported_interaction_delta"] = Decimal("0.4000000000000001")
+    if not any("delta must equal combined" in e for e in semantic_errors(decimal_drift, concepts, evidence_ids)):
+        fail("mutation: sub-ULP decimal interaction mismatch was accepted at zero tolerance")
+    print("PASS mutation: exact decimal interaction rejects tiny declared-delta drift at zero tolerance")
+
+    print("PASS: 30 urban-metabolism/synergy controls (25 mutation controls and five positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
