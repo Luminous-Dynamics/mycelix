@@ -180,7 +180,13 @@ def authorize_action(
     function only enforces the synthetic role/scope contract; it is not an
     authentication or authorization server.
     """
-    if not _is_handle(actor_ref) or actor_role not in load_contract()["role_values"]:
+    active_contract = load_contract()
+    if not _is_handle(actor_ref) or actor_role not in active_contract["role_values"]:
+        return False
+    declared_rules = [rule for rule in active_contract["access_policy"] if rule.get("action") == action]
+    if not declared_rules or actor_role not in {
+        role for rule in declared_rules for role in rule.get("roles", [])
+    }:
         return False
     if action == "view_case":
         if actor_role == "requester":
