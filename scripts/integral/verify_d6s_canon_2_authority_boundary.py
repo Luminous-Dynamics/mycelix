@@ -56,7 +56,7 @@ def main() -> int:
     ids = [item.get("case_id") for item in cases]
     if ids != manifest.get("required_case_ids") or len(set(ids)) != len(ids):
         raise ValueError("CASE_ID_CENSUS_MISMATCH")
-    required = set(manifest.get("required_formal_obligations", []))
+    required = set(manifest.get("formal_obligation_vocabulary", []))
     if required != {f"COS-FV-{n:03d}" for n in range(1, 11)}:
         raise ValueError("FORMAL_OBLIGATION_MANIFEST_INCOMPLETE")
     covered: set[str] = set()
