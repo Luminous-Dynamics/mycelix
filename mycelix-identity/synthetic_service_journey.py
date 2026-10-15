@@ -119,7 +119,8 @@ def validate_request(request: Any) -> list[str]:
             "issuer_trust": {"trusted", "untrusted", "unknown"},
             "status_state": {"fresh", "stale", "unknown", "revoked"},
         }.items():
-            if not isinstance(evidence.get(key), str) or evidence.get(key) not in choices:
+            value = evidence.get(key)
+            if not isinstance(value, str) or value not in choices:
                 errors.append(f"evidence.{key} must use the closed v1 enum")
         for key in ("audience_match", "nonce_fresh", "holder_binding_match"):
             if type(evidence.get(key)) is not bool:
@@ -155,8 +156,10 @@ def validate_corpus(corpus: Any) -> list[str]:
         errors.append("schema_version must be the integer 1")
     if corpus.get("maturity") != "synthetic_only":
         errors.append("maturity must remain synthetic_only")
-    for key in ("production_enabled", "no_external_calls", "no_real_identity_data"):
-        if corpus.get(key) is not False if key == "production_enabled" else corpus.get(key) is not True:
+    if corpus.get("production_enabled") is not False:
+        errors.append("production_enabled must be false")
+    for key in ("no_external_calls", "no_real_identity_data"):
+        if corpus.get(key) is not True:
             errors.append(f"{key} must preserve the research boundary")
     if corpus.get("service_model") != "appointment-intake-proof-only":
         errors.append("service_model must remain appointment-intake-proof-only")
@@ -167,9 +170,11 @@ def validate_corpus(corpus: Any) -> list[str]:
     forbidden = corpus.get("forbidden_persisted_material")
     if not _is_string_list(forbidden, non_empty=True):
         errors.append("forbidden_persisted_material must be a non-empty list")
-    if not isinstance(corpus.get("route_values"), list) or set(corpus.get("route_values", [])) != ROUTES:
+    route_values = corpus.get("route_values")
+    if not isinstance(route_values, list) or any(not isinstance(value, str) for value in route_values) or set(route_values) != ROUTES:
         errors.append("route_values must match the closed v1 enum")
-    if not isinstance(corpus.get("disposition_values"), list) or set(corpus.get("disposition_values", [])) != DISPOSITIONS:
+    disposition_values = corpus.get("disposition_values")
+    if not isinstance(disposition_values, list) or any(not isinstance(value, str) for value in disposition_values) or set(disposition_values) != DISPOSITIONS:
         errors.append("disposition_values must match the closed v1 enum")
     notes = corpus.get("nonclaims")
     if not isinstance(notes, list) or len(notes) < 3 or any(not isinstance(note, str) or not note.strip() for note in notes):
@@ -200,17 +205,23 @@ def validate_corpus(corpus: Any) -> list[str]:
         else:
             if set(expected) != EXPECTED_FIELDS:
                 errors.append(f"cases[{index}].expected fields must match the closed v1 schema")
-            if expected.get("disposition") not in DISPOSITIONS:
+            expected_disposition = expected.get("disposition")
+            if not isinstance(expected_disposition, str) or expected_disposition not in DISPOSITIONS:
                 errors.append(f"cases[{index}].expected.disposition must use the closed v1 enum")
             if not isinstance(expected.get("reason_code"), str) or not expected["reason_code"].strip():
                 errors.append(f"cases[{index}].expected.reason_code must be non-empty text")
-            if expected.get("route") not in ROUTES:
+            expected_route = expected.get("route")
+            if not isinstance(expected_route, str) or expected_route not in ROUTES:
                 errors.append(f"cases[{index}].expected.route must use the closed v1 enum")
             if not _is_string_list(expected.get("disclosed_claim_names")):
                 errors.append(f"cases[{index}].expected.disclosed_claim_names must be a unique string list")
             if expected.get("appeal_receipt_required") is not True:
                 errors.append(f"cases[{index}] must require an appeal receipt")
-            if expected.get("disposition") == "MINIMAL_DISCLOSURE" and set(expected.get("disclosed_claim_names", [])) != {"synthetic_subject_reference"}:
+            disclosed = expected.get("disclosed_claim_names")
+            if expected_disposition == "MINIMAL_DISCLOSURE" and (
+                not _is_string_list(disclosed, non_empty=True)
+                or set(disclosed) != {"synthetic_subject_reference"}
+            ):
                 errors.append(f"cases[{index}] successful outcome must disclose only the synthetic subject reference")
             if expected.get("disposition") != "MINIMAL_DISCLOSURE" and expected.get("disclosed_claim_names") != []:
                 errors.append(f"cases[{index}] unsuccessful outcome must disclose no claims")
@@ -322,7 +333,8 @@ def run_corpus(corpus: dict[str, Any], source_commit: str) -> dict[str, Any]:
             "receipt": actual["receipt"],
         })
     engine_sha = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-    corpus_sha = hashlib.sha256(CORPUS_PATH.read_bytes()).hexdigest()
+    canonical_corpus = json.dumps(corpus, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    corpus_sha = hashlib.sha256(canonical_corpus).hexdigest()
     return {
         "report_schema": "org.luminousdynamics.synthetic-service-journey-report",
         "report_version": 1,
