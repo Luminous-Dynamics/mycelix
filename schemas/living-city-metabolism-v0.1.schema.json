@@ -248,6 +248,7 @@
             "material_input",
             "recovered_material",
             "landfill_waste",
+            "edible_food_delivered",
             "operational_ghg",
             "embodied_ghg",
             "thermal_exposure_degree_hours",
@@ -478,7 +479,8 @@
                 "enum": [
                   "material_input",
                   "recovered_material",
-                  "landfill_waste"
+                  "landfill_waste",
+                  "edible_food_delivered"
                 ]
               }
             },
@@ -908,6 +910,7 @@
             "material_input",
             "recovered_material",
             "landfill_waste",
+            "edible_food_delivered",
             "operational_ghg",
             "embodied_ghg",
             "thermal_exposure_degree_hours",
