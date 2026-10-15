@@ -1291,6 +1291,7 @@
     },
     "finance_context_source_ids": [
       "SA-MUNI-FIN-API-1",
+      "SA-TREASURY-REPMAINT-Q2-2025-26-1",
       "JHB-REPMAINT-V2-VIEW-1"
     ],
     "finance_context_claim_ceiling": "Aggregate municipal finance can inform research prioritization only after filters and source snapshot are pinned; it never establishes an open tender, a contractor payment, or role-specific pilot funding."
