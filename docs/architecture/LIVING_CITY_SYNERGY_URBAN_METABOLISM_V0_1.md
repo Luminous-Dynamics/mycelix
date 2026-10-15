@@ -157,6 +157,16 @@ Each system has a bounded role. Integration occurs through versioned artifacts a
 | **Mycelix** | Version concepts, evidence claims, rights/consent state, model-run receipts, dissent, scenario comparisons, and governance decisions. | Treat schema validity or a signature as proof that a claim is true or a community has consented. |
 | **Sol Atlas** | Read-only spatial/temporal views of the same boundary and scenario IDs; show inputs, outputs, uncertainty, data gaps, equity distributions, and interaction effects. | Hide missingness, interpolate beyond source support without labelling it, or collapse results to one “symtropy score.” |
 
+### Nutrition assessment receipt boundary
+
+The source-scoped nutrient calculator already exists in [Symtropy garden kernel PR #1637](https://github.com/Luminous-Dynamics/symtropy/pull/1637) as `NutrientPortfolioAssessmentV1`. Its raw Rust output carries scenario, target, nutrient definition, scope/period, source references, exact rational numerator/denominator fields, per-line receipts, blockers, and a four-state result, but the raw output type does not itself carry a receipt ID, envelope schema version, or producer revision.
+
+Living-City therefore defines an optional wrapper envelope, `living-city-nutrient-assessment-envelope/0.1`, referenced from an `edible_food_delivered` flow by `nutrient_assessment_refs`. A real Symtropy-origin envelope pins the exact producer revision and carries a payload locator plus the SHA-256 declared for the exact serialized native receipt. The normalized fields retain the target/nutrient identity, scope and period, exact decimal-string arithmetic, source refs, status, and limitations. Synthetic test receipts are labelled separately and cannot cite real evidence. No receipt is mandatory merely to record edible food delivery: absence means **no nutrition assessment is attached**, not zero nutrient supply.
+
+The contract validator checks that receipt IDs resolve and link to exactly one food-delivery flow, that scenario/scope/period match, that assessed edible mass reconciles exactly to the flow in grams, that the denominator is `100 × value_scale`, and that shortfall/status recompute from exact numerators. `NotAssessable` and `Blocked` receipts must withhold total/supply/target arithmetic rather than fill it with zero. A `meets_declared_minimum` result means only that the receipt's declared calculation meets its declared target; it does **not** establish overall dietary adequacy, food safety, equitable access, or an individual's nutritional suitability.
+
+Important verification ceiling: the CI validator checks the declared hash's shape but does not retrieve the payload, recompute its SHA-256, or independently execute Symtropy's Rust calculator. Until the payload bytes can be fetched and hashed against the commitment, `payload_sha256` remains an unverified assertion. Mycelix's exact numerator checks are consistency checks, not cryptographic provenance or proof of source truth. Food matching, component identifiers, source quality, units and denominators should follow [FAO/INFOODS guidance](https://www.fao.org/infoods/infoods/standards-guidelines/en/).
+
 ### Minimum shared hand-off
 
 1. **Concept/hypothesis ID** — what question is being evaluated.
