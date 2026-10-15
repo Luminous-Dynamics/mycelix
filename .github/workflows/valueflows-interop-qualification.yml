@@ -28,6 +28,9 @@ jobs:
     steps:
       - name: Checkout exact subject
         uses: actions/checkout@v4
+        with:
+          # pull_request defaults to the synthetic merge ref. Qualify the PR head itself.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
