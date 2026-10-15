@@ -235,6 +235,17 @@ def semantic_errors(review, concepts, evidence_ids):
                     key_name = "storage_increase" if role == "storage_increase_refs" else "storage_decrease" if role == "storage_decrease_refs" else target_field
                     aggregate_values[key_name] += Fraction(str(flow["value"])) * factor
 
+            # Tolerance applies to the observed balance residual, not to lossy
+            # unit conversion. Every linked role total must be exactly expressible
+            # in its canonical integer base unit before tolerance is considered.
+            for role_name, aggregate in aggregate_values.items():
+                if aggregate.denominator != 1:
+                    errors.append(
+                        f"{check_context}: flow bindings for {role_name} are not exactly representable "
+                        f"as an integer {check['unit']} quantity; conversion precision loss cannot be "
+                        "hidden by the balance tolerance"
+                    )
+
             comparisons = [
                 ("inflow", Fraction(inflow)),
                 ("generated_or_added", Fraction(generated)),
@@ -522,7 +533,19 @@ def main():
         fail("mutation: non-matching exact energy conversion was accepted")
     print("PASS mutation: exact energy conversion rejects a one-Wh balance mismatch")
 
-    print("PASS: 27 urban-metabolism/synergy controls (23 mutation controls and four positive controls); no composite symtropy score or automatic authorization.")
+    fractional_energy = copy.deepcopy(exact_energy)
+    fractional_scenario = fractional_energy["scenarios"][0]
+    fractional_input = next(f for f in fractional_scenario["flow_records"] if f["flow_id"] == "baseline-energy-input-9-mj")
+    fractional_output = next(f for f in fractional_scenario["flow_records"] if f["flow_id"] == "baseline-energy-output-2500-wh")
+    fractional_input["value"] = 1
+    fractional_output["value"], fractional_output["unit"] = 1, "MJ"
+    fractional_balance = fractional_scenario["conservation_checks"][-1]
+    fractional_balance["inflow"], fractional_balance["outflow"], fractional_balance["tolerance"] = "278", "278", "1"
+    if not any("not exactly representable as an integer Wh quantity" in e for e in semantic_errors(fractional_energy, concepts, evidence_ids)):
+        fail("mutation: fractional Wh conversion hidden by a nonzero balance tolerance was accepted")
+    print("PASS mutation: non-integral canonical energy conversion cannot hide inside balance tolerance")
+
+    print("PASS: 28 urban-metabolism/synergy controls (24 mutation controls and four positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
