@@ -14,7 +14,7 @@ const MAX_ABS_SOURCE_BOUND_MM: i128 = 1_000_000_000_000;
 const MAX_ABS_COEFFICIENT: i128 = 1_000_000;
 const MAX_ABS_COMPOSED_BOUND_MM: i128 = 1_000_000_000_000_000;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 struct SourceContribution {
     /// Stable provenance identity for one latent additive error.
     source_id: String,
@@ -203,6 +203,81 @@ mod tests {
             lower_mm,
             upper_mm,
             coefficient,
+        }
+    }
+
+    #[derive(serde::Deserialize)]
+    struct FixtureSet {
+        schema: String,
+        status: String,
+        cases: Vec<FixtureCase>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct FixtureCase {
+        id: String,
+        terms: Vec<SourceContribution>,
+        expected_bounds_mm: Option<[i64; 2]>,
+        expected_error: Option<String>,
+    }
+
+    fn error_code(error: UncertaintyError) -> &'static str {
+        match error {
+            UncertaintyError::EmptyModel => "empty_model",
+            UncertaintyError::TooManyTerms => "too_many_terms",
+            UncertaintyError::EmptySourceId => "empty_source_id",
+            UncertaintyError::NonCanonicalSourceId => "non_canonical_source_id",
+            UncertaintyError::SourceIdTooLong => "source_id_too_long",
+            UncertaintyError::InvalidSourceBounds => "invalid_source_bounds",
+            UncertaintyError::SourceBoundsMismatch => "source_bounds_mismatch",
+            UncertaintyError::CoefficientOutOfRange => "coefficient_out_of_range",
+            UncertaintyError::ArithmeticOverflow => "arithmetic_overflow",
+            UncertaintyError::OutputBoundsTooWide => "output_bounds_too_wide",
+        }
+    }
+
+    #[test]
+    fn hand_derived_json_vectors_match_affine_uncertainty_contract() {
+        let fixture: FixtureSet = serde_json::from_str(include_str!("../fixtures/uncertainty_vectors.json"))
+            .expect("uncertainty vector fixture must parse");
+        assert_eq!(fixture.schema, "airspace-affine-uncertainty-vectors-v1");
+        assert_eq!(fixture.status, "synthetic_research_vectors_not_physical_model");
+        assert_eq!(fixture.cases.len(), 11);
+
+        for case in fixture.cases {
+            match AffineUncertainty::new(case.terms) {
+                Ok(model) => {
+                    assert!(
+                        case.expected_error.is_none(),
+                        "{} expected error {}, but was accepted",
+                        case.id,
+                        case.expected_error.as_deref().unwrap_or("")
+                    );
+                    let expected = case.expected_bounds_mm
+                        .unwrap_or_else(|| panic!("{} missing expected bounds", case.id));
+                    let actual = model.bounds()
+                        .unwrap_or_else(|error| panic!("{} unexpected bounds error: {:?}", case.id, error));
+                    assert_eq!(
+                        [actual.lower_mm, actual.upper_mm],
+                        expected,
+                        "unexpected conservative bounds for {}",
+                        case.id
+                    );
+                }
+                Err(error) => {
+                    assert_eq!(
+                        case.expected_error.as_deref(),
+                        Some(error_code(error)),
+                        "unexpected rejection for {}",
+                        case.id
+                    );
+                    assert!(
+                        case.expected_bounds_mm.is_none(),
+                        "{} has both expected error and expected bounds",
+                        case.id
+                    );
+                }
+            }
         }
     }
 
