@@ -1463,7 +1463,7 @@ fn dynamic_constraint_report(
         replayed_delivery_count,
         active_constraint_count,
         flights_considered,
-        sample_checks: 0,
+        intersection_checks: 0,
         impacts,
         errors,
         reasons,
@@ -1807,7 +1807,7 @@ mod tests {
         assert_eq!(report.constraint_stream_count, 1);
         assert_eq!(report.unique_update_count, 1);
         assert_eq!(report.replayed_delivery_count, 1);
-        assert!(report.sample_checks > 0);
+        assert!(report.intersection_checks > 0);
     }
 
     #[test]
