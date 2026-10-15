@@ -104,7 +104,7 @@
       "transferability": "community_scoped_mutual_credit_position"
     },
     {
-      "id": "MYCEL-RECOGNITION-CLAIM-v1",
+      "id": "MYCEL-RECOGNITION-ATTESTATION-v1",
       "mycelix_instrument": "MYCEL",
       "mycelix_identity": "mycelix:MYCEL",
       "valueflows_entities": [],
