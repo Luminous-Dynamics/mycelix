@@ -216,10 +216,22 @@ def semantic_errors(review, concepts, evidence_ids):
         delta = flows[3]["value"] - flows[1]["value"] - flows[2]["value"] + flows[0]["value"]
         if not math.isclose(delta, item["reported_interaction_delta"], rel_tol=0.0, abs_tol=item["tolerance"]):
             errors.append(f"{item['interaction_id']}: delta must equal combined - A - B + baseline")
+        flow_intervals = [flow.get("uncertainty") for flow in flows]
+        if any(interval is None for interval in flow_intervals):
+            errors.append(f"{item['interaction_id']}: every scenario flow in a quantified interaction requires an uncertainty interval")
+            continue
+        # Order is baseline, A-only, B-only, combined. Interval arithmetic forms a
+        # conservative enclosure; it is not a statistical confidence interval and
+        # can be wider when scenario errors are correlated.
+        baseline_u, a_u, b_u, combined_u = flow_intervals
+        propagated_lower = combined_u["lower_bound"] - a_u["upper_bound"] - b_u["upper_bound"] + baseline_u["lower_bound"]
+        propagated_upper = combined_u["upper_bound"] - a_u["lower_bound"] - b_u["lower_bound"] + baseline_u["upper_bound"]
         u = item["uncertainty"]
         lo, hi = u["lower_bound"], u["upper_bound"]
         if lo > hi or not lo <= item["reported_interaction_delta"] <= hi:
             errors.append(f"{item['interaction_id']}: delta inconsistent with uncertainty interval")
+        if lo > propagated_lower or hi < propagated_upper:
+            errors.append(f"{item['interaction_id']}: reported interaction interval understates propagated scenario uncertainty")
         if item["interpreted_result"] != interpretation(item["direction"], lo, hi):
             errors.append(f"{item['interaction_id']}: interpretation conflicts with uncertainty interval and metric direction")
         if stat == "synthetic_only":
@@ -322,6 +334,18 @@ def main():
         fail("mutation: interaction interpretation conflicts with direction/uncertainty")
     print("PASS mutation: interpretation respects uncertainty and metric direction")
 
+    understated_interval = copy.deepcopy(synthetic)
+    understated_interval["interactions"][0]["uncertainty"]["lower_bound"] = -17
+    if not any("understates propagated scenario uncertainty" in e for e in semantic_errors(understated_interval, concepts, evidence_ids)):
+        fail("mutation: interaction interval narrower than scenario-propagated uncertainty accepted")
+    print("PASS mutation: interaction interval cannot understate the four scenario intervals")
+
+    missing_flow_interval = copy.deepcopy(synthetic)
+    missing_flow_interval["scenarios"][2]["flow_records"][0].pop("uncertainty")
+    if not any("every scenario flow in a quantified interaction requires an uncertainty interval" in e for e in semantic_errors(missing_flow_interval, concepts, evidence_ids)):
+        fail("mutation: quantified synergy without uncertainty on one counterfactual accepted")
+    print("PASS mutation: all four counterfactual flows require uncertainty bounds")
+
     reverse_period = copy.deepcopy(protocol)
     reverse_period["system_boundary"]["start_date"] = "2027-01-01"
     if not any("start_date is after end_date" in e for e in semantic_errors(reverse_period, concepts, evidence_ids)):
@@ -367,7 +391,7 @@ def main():
         fail("mutation: model run without an exact source revision was accepted")
     print("PASS mutation: model runs require an exact 40-character source revision SHA")
 
-    print("PASS: 20 urban-metabolism/synergy controls (18 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
+    print("PASS: 22 urban-metabolism/synergy controls (20 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
