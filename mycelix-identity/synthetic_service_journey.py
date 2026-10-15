@@ -18,6 +18,26 @@ from typing import Any
 CORPUS_PATH = Path(__file__).with_name("SYNTHETIC_SERVICE_JOURNEY_V1.json")
 SCHEMA_ID = "org.luminousdynamics.synthetic-service-journey"
 EXPECTED_CASE_COUNT = 18
+FROZEN_EXPECTATIONS = {
+    "SVC-001-MINIMAL-SUCCESS": ("MINIMAL_DISCLOSURE", "PURPOSE_SCOPE_VALID", "digital_minimal_disclosure", ("synthetic_subject_reference",)),
+    "SVC-002-ENTITLEMENT-INFERENCE": ("DENIED", "IDENTITY_NOT_ENTITLEMENT", "manual_review_required", ()),
+    "SVC-003-PURPOSE-MISMATCH": ("DENIED", "PURPOSE_GRANT_INVALID", "manual_review_required", ()),
+    "SVC-004-EXCESSIVE-CLAIM": ("DENIED", "CLAIM_OUTSIDE_PURPOSE_SCOPE", "manual_review_required", ()),
+    "SVC-005-VERIFIER-OUTAGE": ("INDETERMINATE", "VERIFICATION_SOURCE_UNAVAILABLE", "assisted_or_non_digital", ()),
+    "SVC-006-STALE-STATUS": ("INDETERMINATE", "CREDENTIAL_STATUS_NOT_CURRENT", "assisted_or_non_digital", ()),
+    "SVC-007-INVALID-PROOF": ("REJECTED", "PROOF_INVALID", "correction_and_appeal", ()),
+    "SVC-008-AUDIENCE-MISMATCH": ("REJECTED", "AUDIENCE_MISMATCH", "correction_and_appeal", ()),
+    "SVC-009-REPLAYED-REQUEST": ("REJECTED", "REPLAY_DETECTED", "correction_and_appeal", ()),
+    "SVC-010-HOLDER-BINDING-MISMATCH": ("REJECTED", "HOLDER_BINDING_MISMATCH", "correction_and_appeal", ()),
+    "SVC-011-UNTRUSTED-ISSUER": ("REJECTED", "ISSUER_NOT_TRUSTED", "correction_and_appeal", ()),
+    "SVC-012-UNKNOWN-ISSUER-TRUST": ("INDETERMINATE", "ISSUER_TRUST_UNKNOWN", "assisted_or_non_digital", ()),
+    "SVC-013-UNKNOWN-PROOF-STATE": ("INDETERMINATE", "PROOF_STATUS_UNKNOWN", "assisted_or_non_digital", ()),
+    "SVC-014-REVOKED-CREDENTIAL": ("REJECTED", "CREDENTIAL_REVOKED", "correction_and_appeal", ()),
+    "SVC-015-NO-DIGITAL-ACCESS": ("INDETERMINATE", "DIGITAL_ROUTE_UNAVAILABLE", "assisted_or_non_digital", ()),
+    "SVC-016-NO-FALLBACK-AVAILABLE": ("INDETERMINATE", "VERIFICATION_SOURCE_UNAVAILABLE", "manual_review_required", ()),
+    "SVC-017-REQUIRED-CLAIM-MISSING": ("REJECTED", "REQUESTED_CLAIM_UNAVAILABLE", "correction_and_appeal", ()),
+    "SVC-018-UNKNOWN-PURPOSE-GRANT": ("DENIED", "PURPOSE_GRANT_INVALID", "manual_review_required", ()),
+}
 SOURCE_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 DISPOSITIONS = {"MINIMAL_DISCLOSURE", "DENIED", "REJECTED", "INDETERMINATE"}
 ROUTES = {
@@ -201,6 +221,8 @@ def validate_corpus(corpus: Any) -> list[str]:
             errors.append(f"duplicate case_id: {case_id}")
         else:
             seen.add(case_id)
+        if isinstance(case_id, str) and case_id not in FROZEN_EXPECTATIONS:
+            errors.append(f"cases[{index}].case_id is not in the frozen scenario registry")
         errors.extend(f"cases[{index}]: {message}" for message in validate_request(case.get("request")))
         expected = case.get("expected")
         if not isinstance(expected, dict):
@@ -220,6 +242,16 @@ def validate_corpus(corpus: Any) -> list[str]:
                 errors.append(f"cases[{index}].expected.disclosed_claim_names must be a unique string list")
             if expected.get("appeal_receipt_required") is not True:
                 errors.append(f"cases[{index}] must require an appeal receipt")
+            if isinstance(case_id, str) and case_id in FROZEN_EXPECTATIONS:
+                frozen = FROZEN_EXPECTATIONS[case_id]
+                observed = (
+                    expected_disposition,
+                    expected.get("reason_code"),
+                    expected_route,
+                    tuple(expected.get("disclosed_claim_names", [])) if _is_string_list(expected.get("disclosed_claim_names")) else (),
+                )
+                if observed != frozen:
+                    errors.append(f"cases[{index}] expected outcome differs from frozen scenario contract")
             disclosed = expected.get("disclosed_claim_names")
             if expected_disposition == "MINIMAL_DISCLOSURE" and (
                 not _is_string_list(disclosed, non_empty=True)
@@ -228,6 +260,8 @@ def validate_corpus(corpus: Any) -> list[str]:
                 errors.append(f"cases[{index}] successful outcome must disclose only the synthetic subject reference")
             if expected.get("disposition") != "MINIMAL_DISCLOSURE" and expected.get("disclosed_claim_names") != []:
                 errors.append(f"cases[{index}] unsuccessful outcome must disclose no claims")
+    if seen != set(FROZEN_EXPECTATIONS):
+        errors.append("case IDs must match the complete frozen scenario registry")
     if _contains_forbidden_key(corpus):
         errors.append("corpus must not include raw identity, credential, or claim-value fields")
     return errors
