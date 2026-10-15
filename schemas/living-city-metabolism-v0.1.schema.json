@@ -1061,7 +1061,8 @@
         "time_step_seconds",
         "scenario_refs",
         "calibration_status",
-        "validation_evidence_refs"
+        "validation_evidence_refs",
+        "engine_revision"
       ],
       "properties": {
         "model_run_id": {
@@ -1113,6 +1114,10 @@
             "type": "string",
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           }
+        },
+        "engine_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
         }
       },
       "allOf": [
