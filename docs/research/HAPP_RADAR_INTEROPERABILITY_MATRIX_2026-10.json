@@ -516,6 +516,12 @@
       "input_condition": "Legacy TEND service-hour field (f32) is exported as exact decimal quantity without an approved quantization/precision profile.",
       "expected_disposition": "block_unqualified_quantity_export",
       "reason": "Source inspection found TendExchange.hours and cumulative hours are f32. String formatting alone does not make the binary source value exact in the target economic model."
+    },
+    {
+      "id": "TEND-BEARER-PROMOTION-001",
+      "input_condition": "A TEND position is exported as freely transferable bearer units without preserving community scope, counterparties and service-obligation provenance.",
+      "expected_disposition": "reject_bearer_asset_promotion",
+      "reason": "TEND is modeled as community-scoped mutual credit; the export must not detach a balance from its underlying obligations."
     }
   ],
   "source_register": [
