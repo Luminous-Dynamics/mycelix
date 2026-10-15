@@ -61,6 +61,15 @@ def main() -> int:
     if required != {f"COS-FV-{n:03d}" for n in range(1, 11)}:
         raise ValueError("FORMAL_OBLIGATION_MANIFEST_INCOMPLETE")
     covered: set[str] = set()
+    allowed_bindings = {
+        "plan_execution", "requirement_availability", "assignment_observed_work",
+        "plan_consumption", "output_qualification", "foreign_recognition",
+        "itc_projection", "frs_projection", "recommendation_authorized",
+        "effect_recorded", "quality_current", "denominator_explicit",
+        "general_capability_evidence", "failure_history_preserved",
+        "source_observation_created", "physical_work_binding",
+    }
+    allowed_evidence_profiles = {"current_local", "stale_local", "current_foreign_node_b"}
     allowed_decisions = set(corpus.get("decision_enum", []))
     if allowed_decisions != {"Accepted", "Rejected", "Unknown", "Conflicting", "Stale", "Superseded", "Unauthorized", "Unbound"}:
         raise ValueError("DECISION_ENUM_MISMATCH")
@@ -71,6 +80,23 @@ def main() -> int:
         covered.update(obligations)
         if vector.get("expected_negative") not in allowed_decisions or vector.get("expected_positive") != "Accepted":
             raise ValueError(f"INVALID_EXPECTED_DECISIONS {vector.get('test_id')}")
+        for side in ("negative_input", "positive_input"):
+            input_record = vector.get(side)
+            if not isinstance(input_record, dict):
+                raise ValueError(f"EXPLICIT_INPUT_MISSING {vector.get('test_id')}/{side}")
+            names = input_record.get("bindings")
+            if not isinstance(names, list) or any(not isinstance(name, str) for name in names):
+                raise ValueError(f"INVALID_BINDING_LIST {vector.get('test_id')}/{side}")
+            if len(names) != len(set(names)) or not set(names) <= allowed_bindings:
+                raise ValueError(f"UNKNOWN_OR_DUPLICATE_BINDING {vector.get('test_id')}/{side}")
+            if input_record.get("evidence_profile") not in allowed_evidence_profiles:
+                raise ValueError(f"UNKNOWN_EVIDENCE_PROFILE {vector.get('test_id')}/{side}")
+        test_id = vector.get("test_id")
+        if test_id == "COS-N-005" and vector["negative_input"]["evidence_profile"] != "stale_local":
+            raise ValueError("STALE_EVIDENCE_NEGATIVE_CONTROL_MISSING")
+        if test_id in {"COS-N-009", "COS-N-013"}:
+            if vector["negative_input"]["evidence_profile"] != "current_foreign_node_b" or vector["positive_input"]["evidence_profile"] != "current_foreign_node_b":
+                raise ValueError(f"FOREIGN_ORIGIN_FIXTURE_LOST {test_id}")
         if not vector.get("input_class") or not vector.get("claim_ceiling"):
             raise ValueError(f"INCOMPLETE_VECTOR_METADATA {vector.get('test_id')}")
     if covered != required:
