@@ -1878,6 +1878,74 @@ mod tests {
     }
 
     #[test]
+    fn synthetic_origin_delivery_claim_cannot_be_verified_as_real_fulfilment() {
+        let (mut contract, _) = committed_contract("tx-synthetic-claim", 1);
+        contract
+            .record_delivery(DeliveryClaim {
+                source_id: "repair-coop".to_owned(),
+                evidence_id: "simulation-delivery-claim".to_owned(),
+                resource_id: "repair-hours".to_owned(),
+                unit: "hour".to_owned(),
+                quantity: 1,
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::SyntheticSimulation,
+                observed_at: 5,
+            })
+            .unwrap();
+
+        assert_eq!(
+            contract.verify_delivery(VerificationResult {
+                verifier_id: "independent-auditor".to_owned(),
+                claim_evidence_id: "simulation-delivery-claim".to_owned(),
+                evidence_id: "live-review-of-simulated-claim".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
+                accepted_quantity: Some(1),
+                decided_at: 6,
+            }),
+            Ok(Lifecycle::Indeterminate)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Indeterminate);
+    }
+
+    #[test]
+    fn synthetic_origin_dispute_reassessment_cannot_resolve_real_dispute() {
+        let (mut contract, _) = committed_contract("tx-synthetic-reassessment", 4);
+        record_full_delivery(&mut contract, 4);
+        assert_eq!(
+            contract
+                .verify_delivery(VerificationResult {
+                    verifier_id: "first-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    evidence_id: "initial-short-check".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
+                    accepted_quantity: Some(3),
+                    decided_at: 6,
+                })
+                .unwrap(),
+            Lifecycle::Disputed
+        );
+
+        assert_eq!(
+            contract
+                .reassess_dispute(DisputeReassessment {
+                    resolver_id: "second-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    decision_evidence_id: "simulated-reassessment".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::SyntheticSimulation,
+                    accepted_quantity: Some(4),
+                    decided_at: 7,
+                })
+                .unwrap(),
+            Lifecycle::Disputed
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
+        assert_eq!(contract.dispute_reassessments().len(), 1);
+    }
+
+    #[test]
     fn delivery_claim_must_come_from_the_authorized_provider() {
         let (mut contract, _) = committed_contract("tx-untrusted-delivery-source", 1);
         let result = contract.record_delivery(DeliveryClaim {
