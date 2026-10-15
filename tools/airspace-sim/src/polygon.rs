@@ -58,6 +58,7 @@ pub enum PolygonIntersectionOutcome {
 #[serde(rename_all = "snake_case")]
 pub enum PolygonGeometryError {
     EmptyIdentity,
+    UnsupportedModelProfile,
     UnqualifiedReference,
     UnqualifiedFlightTime,
     IncompatibleReferenceFrame,
@@ -551,6 +552,12 @@ pub fn evaluate_polygon_intersection(
     if flight.flight_id.trim().is_empty() {
         return rejected(PolygonGeometryError::EmptyIdentity);
     }
+    if super::model_applicability::validate_model_profile(
+        &flight.traffic_profile_id,
+        &flight.model_profile_id,
+    ).is_err() {
+        return unresolved(PolygonGeometryError::UnsupportedModelProfile);
+    }
     if !flight.time_qualified {
         return unresolved(PolygonGeometryError::UnqualifiedFlightTime);
     }
@@ -730,6 +737,19 @@ mod tests {
                 .then_some((case.case_id.as_str(), case.expected_outcome, report))
         }).collect();
         assert!(mismatches.is_empty(), "polygon fixture mismatches: {mismatches:#?}");
+    }
+
+    #[test]
+    fn polygon_kernel_fails_closed_for_unsupported_model_profile() {
+        let mut set = fixture_set();
+        let mut case = set.cases.remove(0);
+        case.flight.traffic_profile_id = "evtol_aam".to_owned();
+        case.flight.model_profile_id =
+            super::super::model_applicability::CONSTANT_VELOCITY_TOY_MODEL_ID.to_owned();
+
+        let report = evaluate_polygon_intersection(&case.flight, &case.volume, case.now_s);
+        assert_eq!(report.outcome, PolygonIntersectionOutcome::Unresolved);
+        assert_eq!(report.error, Some(PolygonGeometryError::UnsupportedModelProfile));
     }
 
     #[test]
