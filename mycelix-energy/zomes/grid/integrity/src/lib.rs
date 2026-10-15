@@ -105,49 +105,33 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::EnergyProduction(production) => {
-                        validate_create_energy_production(
-                            EntryCreationAction::Create(action),
-                            production,
-                        )
-                    }
-                    EntryTypes::EnergyConsumption(consumption) => {
-                        validate_create_energy_consumption(
-                            EntryCreationAction::Create(action),
-                            consumption,
-                        )
-                    }
-                    EntryTypes::TradeOffer(offer) => {
-                        validate_create_trade_offer(EntryCreationAction::Create(action), offer)
-                    }
-                    EntryTypes::Trade(trade) => {
-                        validate_create_trade(EntryCreationAction::Create(action), trade)
-                    }
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::EnergyProduction(production) => validate_create_energy_production(
+                    EntryCreationAction::Create(action),
+                    production,
+                ),
+                EntryTypes::EnergyConsumption(consumption) => validate_create_energy_consumption(
+                    EntryCreationAction::Create(action),
+                    consumption,
+                ),
+                EntryTypes::TradeOffer(offer) => {
+                    validate_create_trade_offer(EntryCreationAction::Create(action), offer)
                 }
-            }
-            OpEntry::UpdateEntry { app_entry, action, .. } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::EnergyProduction(_) => {
-                        Ok(ValidateCallbackResult::Invalid(
-                            "Production records cannot be updated".into(),
-                        ))
-                    }
-                    EntryTypes::EnergyConsumption(_) => {
-                        Ok(ValidateCallbackResult::Invalid(
-                            "Consumption records cannot be updated".into(),
-                        ))
-                    }
-                    EntryTypes::TradeOffer(offer) => {
-                        validate_update_trade_offer(action, offer)
-                    }
-                    EntryTypes::Trade(trade) => {
-                        validate_update_trade(action, trade)
-                    }
+                EntryTypes::Trade(trade) => {
+                    validate_create_trade(EntryCreationAction::Create(action), trade)
                 }
+            },
+            OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::EnergyProduction(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Production records cannot be updated".into(),
+                )),
+                EntryTypes::EnergyConsumption(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Consumption records cannot be updated".into(),
+                )),
+                EntryTypes::TradeOffer(offer) => validate_update_trade_offer(action, offer),
+                EntryTypes::Trade(trade) => validate_update_trade(action, trade),
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -307,10 +291,7 @@ fn validate_create_trade(
     }
 }
 
-fn validate_update_trade(
-    _action: Update,
-    trade: Trade,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_update_trade(_action: Update, trade: Trade) -> ExternResult<ValidateCallbackResult> {
     match trade_validation_error(&trade) {
         Some(message) => Ok(ValidateCallbackResult::Invalid(message.into())),
         None => Ok(ValidateCallbackResult::Valid),
@@ -394,8 +375,14 @@ mod tests {
 
     #[test]
     fn real_energy_record_validators_accept_valid_fixtures() {
-        assert_eq!(energy_production_validation_error(&valid_energy_production()), None);
-        assert_eq!(energy_consumption_validation_error(&valid_energy_consumption()), None);
+        assert_eq!(
+            energy_production_validation_error(&valid_energy_production()),
+            None
+        );
+        assert_eq!(
+            energy_consumption_validation_error(&valid_energy_consumption()),
+            None
+        );
         assert_eq!(trade_offer_validation_error(&valid_trade_offer()), None);
         assert_eq!(trade_validation_error(&valid_trade()), None);
     }
