@@ -333,9 +333,14 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
         frozen_inputs.len(),
         "frozen input paths must be unique"
     );
-    let expected_paths: HashSet<&str> = [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA, GPSJS_QUALITY_SCHEMA, CORPUS_PATH]
-        .into_iter()
-        .collect();
+    let expected_paths: HashSet<&str> = [
+        INSTRUMENT_SCHEMA,
+        ASSESSMENT_SCHEMA,
+        GPSJS_QUALITY_SCHEMA,
+        CORPUS_PATH,
+    ]
+    .into_iter()
+    .collect();
     assert_eq!(
         actual_paths, expected_paths,
         "manifest must pin the expected schemas and corpus, not unrelated files"
@@ -1416,7 +1421,9 @@ fn gpsjs_precision_negative_controls_remain_present() {
         "response rate above 100% must fail the schema"
     );
     let mut invalid_precision_scope = precision["survey_quality"].clone();
-    invalid_precision_scope["precision_scope_limits"]["table_41_prevalence_cv_is_precision_for_reporting_rate_change"] = json!(true);
+    let invalid_precision_scope_limits = &mut invalid_precision_scope["precision_scope_limits"];
+    invalid_precision_scope_limits["table_41_prevalence_cv_is_precision_for_reporting_rate_change"] =
+        json!(true);
     assert!(
         !quality_validator.is_valid(&invalid_precision_scope),
         "Table 41 prevalence CV must not be accepted as precision for police-reporting proportions"
@@ -1491,9 +1498,14 @@ fn gpsjs_precision_negative_controls_remain_present() {
             example["indicator"],
             "household_housebreaking_experience_past_12_months"
         );
-        assert_eq!(example["estimate_percent"], json!(estimate));
-        assert_eq!(example["coefficient_of_variation_percent"], json!(3.0));
-        assert!(example["source_uri"].as_str().unwrap().starts_with("https://"));
+        assert_eq!(example["estimate_percent"].as_f64(), Some(estimate));
+        assert_eq!(example["coefficient_of_variation_percent"].as_f64(), Some(3.0));
+        assert!(
+            example["source_uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("https://")
+        );
     }
     assert_eq!(
         quality["precision_scope_limits"]["reporting_rate_change_percent_points"],
@@ -1504,7 +1516,8 @@ fn gpsjs_precision_negative_controls_remain_present() {
         false
     );
     assert_eq!(
-        quality["precision_scope_limits"]["table_41_prevalence_cv_is_precision_for_reporting_rate_change"],
+        quality["precision_scope_limits"]
+            ["table_41_prevalence_cv_is_precision_for_reporting_rate_change"],
         false
     );
 
