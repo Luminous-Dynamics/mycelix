@@ -7,6 +7,7 @@ import fnmatch
 import re
 import sys
 import tomllib
+from typing import NoReturn
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
