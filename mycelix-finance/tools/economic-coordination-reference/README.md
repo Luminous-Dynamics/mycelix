@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The reference model currently contains **33 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
+The reference model currently contains **38 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Explicit limitations
 

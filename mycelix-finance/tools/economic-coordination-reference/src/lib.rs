@@ -1965,4 +1965,140 @@ mod tests {
         assert!(contract.verification().is_none());
     }
 
+
+    #[test]
+    fn unknown_origin_policy_evidence_blocks_authorization() {
+        let mut contract = CoordinationContract::new(request("tx-origin-unknown-rights", 1)).unwrap();
+        let mut rights = gate("rights-v1");
+        rights.origin = EvidenceOrigin::Unknown;
+
+        assert_eq!(
+            contract.authorize(authority(), rights, gate("ecology-v1"), 1),
+            Err(ContractError::EvidenceNotVerified)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Proposed);
+        assert!(contract.obligation().is_none());
+    }
+
+    #[test]
+    fn unknown_origin_obligation_evidence_cannot_be_committed() {
+        let mut contract = authorized_contract("tx-origin-unknown-obligation", 1);
+        let mut capacity = CapacityBook::default();
+        capacity
+            .declare_capacity("repair-hours", "hour", "week-42", 1)
+            .unwrap();
+        contract.reserve(&mut capacity, 2).unwrap();
+
+        let result = contract.commit(
+            ObligationTerms {
+                id: "obligation-tx-origin-unknown-obligation".to_owned(),
+                debtor_id: "household-a".to_owned(),
+                creditor_id: "repair-coop".to_owned(),
+                debit_account: "household-wallet".to_owned(),
+                credit_account: "coop-wallet".to_owned(),
+                instrument_id: INSTRUMENT.to_owned(),
+                atomic_unit: ATOMIC_UNIT.to_owned(),
+                amount_atomic: 30,
+                due_at: 9,
+                policy_digest: "policy-digest-a".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::Unknown,
+            },
+            3,
+        );
+
+        assert_eq!(result, Err(ContractError::EvidenceNotVerified));
+        assert_eq!(contract.lifecycle(), Lifecycle::Reserved);
+        assert!(contract.obligation().is_none());
+    }
+
+    #[test]
+    fn unknown_origin_delivery_claim_cannot_be_verified_as_real_fulfilment() {
+        let (mut contract, _) = committed_contract("tx-origin-unknown-claim", 1);
+        contract
+            .record_delivery(DeliveryClaim {
+                source_id: "repair-coop".to_owned(),
+                evidence_id: "unknown-origin-delivery-claim".to_owned(),
+                resource_id: "repair-hours".to_owned(),
+                unit: "hour".to_owned(),
+                quantity: 1,
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::Unknown,
+                observed_at: 5,
+            })
+            .unwrap();
+
+        assert_eq!(
+            contract.verify_delivery(VerificationResult {
+                verifier_id: "independent-auditor".to_owned(),
+                claim_evidence_id: "unknown-origin-delivery-claim".to_owned(),
+                evidence_id: "live-review-of-unknown-origin-claim".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
+                accepted_quantity: Some(1),
+                decided_at: 6,
+            }),
+            Ok(Lifecycle::Indeterminate)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Indeterminate);
+    }
+
+    #[test]
+    fn unknown_origin_verification_cannot_confirm_real_fulfilment() {
+        let (mut contract, _) = committed_contract("tx-origin-unknown-verification", 1);
+        record_full_delivery(&mut contract, 1);
+
+        assert_eq!(
+            contract.verify_delivery(VerificationResult {
+                verifier_id: "independent-auditor".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                evidence_id: "unknown-origin-verification".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::Unknown,
+                accepted_quantity: Some(1),
+                decided_at: 6,
+            }),
+            Ok(Lifecycle::Indeterminate)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Indeterminate);
+        assert!(contract.verification().is_some());
+    }
+
+    #[test]
+    fn unknown_origin_dispute_reassessment_cannot_resolve_real_dispute() {
+        let (mut contract, _) = committed_contract("tx-origin-unknown-reassessment", 4);
+        record_full_delivery(&mut contract, 4);
+        assert_eq!(
+            contract
+                .verify_delivery(VerificationResult {
+                    verifier_id: "first-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    evidence_id: "initial-short-check".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
+                    accepted_quantity: Some(3),
+                    decided_at: 6,
+                })
+                .unwrap(),
+            Lifecycle::Disputed
+        );
+
+        assert_eq!(
+            contract
+                .reassess_dispute(DisputeReassessment {
+                    resolver_id: "second-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    decision_evidence_id: "unknown-origin-reassessment".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::Unknown,
+                    accepted_quantity: Some(4),
+                    decided_at: 7,
+                })
+                .unwrap(),
+            Lifecycle::Disputed
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
+        assert_eq!(contract.dispute_reassessments().len(), 1);
+    }
+
 }
