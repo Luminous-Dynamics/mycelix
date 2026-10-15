@@ -1973,6 +1973,109 @@ mod tests {
     }
 
     #[test]
+    fn paradigm_shift_benchmark_contract_is_falsifiable_and_honest_about_status() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!(
+            "../fixtures/paradigm_shift_benchmarks.json"
+        )).expect("paradigm-shift benchmark manifest must parse");
+
+        assert_eq!(
+            manifest["schema"].as_str(),
+            Some("airspace-paradigm-shift-benchmarks-v1")
+        );
+        assert_eq!(
+            manifest["status"].as_str(),
+            Some("research_design_not_executable_benchmarks")
+        );
+        assert_eq!(
+            manifest["authority_ceiling"].as_str(),
+            Some("offline_research_evaluation_only_no_operational_aviation_authority")
+        );
+
+        let shared_invariants = manifest["shared_invariants"]
+            .as_array()
+            .expect("shared invariant vocabulary must be an array");
+        let shared_ids: std::collections::BTreeSet<&str> = shared_invariants
+            .iter()
+            .map(|value| value.as_str().expect("invariant IDs must be strings"))
+            .collect();
+        assert_eq!(shared_ids.len(), shared_invariants.len());
+        assert!(shared_ids.len() >= 7);
+        for required in [
+            "unsupported_model_never_yields_geometry_clearance",
+            "hard_constraints_precede_optimization",
+            "stale_or_partitioned_inputs_never_prove_absence_of_impact",
+            "producer_output_is_checked_independently",
+            "unknown_behavior_is_unresolved_not_defaulted",
+        ] {
+            assert!(shared_ids.contains(required), "shared invariant is missing: {required}");
+        }
+
+        let benchmarks = manifest["benchmarks"]
+            .as_array()
+            .expect("benchmark cases must be an array");
+        assert_eq!(benchmarks.len(), 12);
+        let mut ids = std::collections::BTreeSet::new();
+        let allowed_statuses = [
+            "implemented_pending_exact_head_verification",
+            "partial_foundations_exist_not_fully_qualified",
+            "research_backlog",
+        ];
+        for benchmark in benchmarks {
+            let id = benchmark["id"].as_str().expect("benchmark needs ID");
+            assert!(ids.insert(id), "duplicate paradigm benchmark ID: {id}");
+            for field in ["name", "paradigm", "hypothesis", "baseline", "stimulus"] {
+                assert!(
+                    !benchmark[field].as_str().unwrap_or("").trim().is_empty(),
+                    "benchmark {id} needs a non-empty {field}"
+                );
+            }
+            let status = benchmark["status"].as_str().expect("benchmark needs status");
+            assert!(
+                allowed_statuses.contains(&status),
+                "benchmark {id} has unrecognized status {status}"
+            );
+            for field in ["success_conditions", "falsifiers", "required_evidence", "hard_invariants"] {
+                let values = benchmark[field]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("benchmark {id} needs array {field}"));
+                assert!(!values.is_empty(), "benchmark {id} must define {field}");
+                for value in values {
+                    let value = value.as_str()
+                        .unwrap_or_else(|| panic!("benchmark {id} {field} entries must be strings"));
+                    assert!(!value.trim().is_empty(), "benchmark {id} {field} cannot contain blank entries");
+                }
+            }
+            for invariant in benchmark["hard_invariants"].as_array().unwrap() {
+                assert!(
+                    shared_ids.contains(invariant.as_str().unwrap()),
+                    "benchmark {id} references unknown shared invariant {invariant}"
+                );
+            }
+        }
+        for required in [
+            "AIR-PB-001", "AIR-PB-002", "AIR-PB-003", "AIR-PB-004",
+            "AIR-PB-005", "AIR-PB-006", "AIR-PB-007", "AIR-PB-008",
+            "AIR-PB-009", "AIR-PB-010", "AIR-PB-011", "AIR-PB-012",
+        ] {
+            assert!(ids.contains(required), "required research case missing: {required}");
+        }
+        let admission = benchmarks.iter()
+            .find(|benchmark| benchmark["id"] == "AIR-PB-001")
+            .expect("model-admission benchmark must exist");
+        assert_eq!(
+            admission["status"].as_str(),
+            Some("implemented_pending_exact_head_verification")
+        );
+        assert!(
+            benchmarks.iter().all(|benchmark| {
+                benchmark["status"] != "passed"
+                    && benchmark["status"] != "operationally_validated"
+            }),
+            "the research manifest must not manufacture qualification claims"
+        );
+    }
+
+    #[test]
     fn traffic_diversity_catalogue_is_unique_explicit_and_fail_closed() {
         let catalogue: serde_json::Value =
             serde_json::from_str(include_str!("../fixtures/traffic_diversity.json"))
