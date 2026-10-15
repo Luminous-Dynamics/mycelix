@@ -130,7 +130,7 @@ python3 appeal_case_engine.py --source-commit <40-character-commit-sha> --report
 python3 -m unittest discover -s tests -p 'test_appeal_case_engine.py' -v
 ```
 
-The report binds the source commit, engine digest, contract digest and 12-event chain summary. The example keeps durable storage, external notifications and public-DHT publication disabled. Retention defaults to `not_assessed`; the engine only represents a reviewed policy when legal-basis, responsible-party, maximum-retention, deletion, backup-deletion and review references are present. Even then it does not turn on persistence or perform deletion. An expired state is not proof that database replicas/backups have been erased.
+The report binds the source commit, engine digest, contract digest and 12-event chain summary. The example keeps durable storage, external notifications and public-DHT publication disabled. Retention defaults to `not_assessed`; a reviewed policy must specify the same jurisdiction and record class as the case's controlled issue-code mapping, along with lawful-basis, responsible-party, maximum-retention, deletion, backup-deletion and review references. An unassigned jurisdiction or class mismatch fails closed. Even a complete policy does not turn on persistence or perform deletion. An expired state is not proof that database replicas/backups have been erased.
 
 The audit chain is tamper-evident metadata, not an authenticated signature, trusted timestamp, authorization service, or production audit log. Opaque handles may still be personal information. Map correction/deletion and external complaint processes with the responsible controller for the relevant jurisdiction before real data is processed.
 
