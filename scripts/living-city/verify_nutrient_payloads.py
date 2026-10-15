@@ -135,6 +135,11 @@ def verify_review_payloads(review: dict[str, Any], repo_root: Path) -> dict[str,
                                     "reason": f"nutrient_assessments[{index}] has an unknown receipt_origin"})
             continue
         if receipt["receipt_origin"] == "symtropy_output":
+            receipt_id = receipt.get("receipt_id")
+            if not isinstance(receipt_id, str) or not receipt_id.strip():
+                invalid_records.append({"receipt_id": receipt_id, "status": "invalid_receipt",
+                                        "reason": f"nutrient_assessments[{index}] needs a non-empty string receipt_id"})
+                continue
             real.append(receipt)
 
     if not real:

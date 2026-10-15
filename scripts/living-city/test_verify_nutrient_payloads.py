@@ -137,6 +137,13 @@ class NutrientPayloadVerifierTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertEqual(report["records"][0]["status"], "invalid_receipt")
 
+    def test_missing_receipt_id_fails_closed(self) -> None:
+        receipt = dict(self.receipt)
+        receipt.pop("receipt_id")
+        report = verify_review_payloads({"nutrient_assessments": [receipt]}, self.root)
+        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["records"][0]["status"], "invalid_receipt")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
