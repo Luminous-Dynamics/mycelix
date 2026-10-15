@@ -21,6 +21,9 @@ on:
       - "mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json"
       - "mycelix-identity/validate_portable_adapter_profile.py"
       - "mycelix-identity/tests/test_portable_adapter_profile.py"
+      - "mycelix-identity/SYNTHETIC_SERVICE_JOURNEY_V1.json"
+      - "mycelix-identity/synthetic_service_journey.py"
+      - "mycelix-identity/tests/test_synthetic_service_journey.py"
   push:
     branches: [main]
     paths:
@@ -41,6 +44,9 @@ on:
       - "mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json"
       - "mycelix-identity/validate_portable_adapter_profile.py"
       - "mycelix-identity/tests/test_portable_adapter_profile.py"
+      - "mycelix-identity/SYNTHETIC_SERVICE_JOURNEY_V1.json"
+      - "mycelix-identity/synthetic_service_journey.py"
+      - "mycelix-identity/tests/test_synthetic_service_journey.py"
   workflow_dispatch:
 
 permissions:
@@ -87,6 +93,12 @@ jobs:
         run: |
           cd mycelix-identity
           python validate_portable_adapter_profile.py
+      - name: Execute synthetic service journey and write evidence
+        run: |
+          cd mycelix-identity
+          python synthetic_service_journey.py \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --report synthetic-service-journey-report.json
       - name: Execute synthetic policy vectors and write evidence
         run: |
           cd mycelix-identity
@@ -109,11 +121,17 @@ jobs:
         run: |
           cd mycelix-identity
           python -m unittest discover -s tests -p 'test_portable_adapter_profile.py' -v
+      - name: Run synthetic service journey regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_synthetic_service_journey.py' -v
       - name: Upload synthetic policy evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sa-did-synthetic-policy-report-${{ github.event.pull_request.head.sha || github.sha }}
-          path: mycelix-identity/sa-did-policy-report.json
+          name: identity-synthetic-contract-reports-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            mycelix-identity/sa-did-policy-report.json
+            mycelix-identity/synthetic-service-journey-report.json
           if-no-files-found: warn
           retention-days: 14
