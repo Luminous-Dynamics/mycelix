@@ -37,7 +37,7 @@ CASE_DYNAMIC_FIELDS = {
 RETENTION_FIELDS = {
     "status", "jurisdiction_code", "record_class", "lawful_basis_ref",
     "responsible_party_ref", "max_retention_days", "deletion_procedure_ref",
-    "backup_deletion_policy_ref", "review_evidence_ref", "note",
+    "backup_deletion_policy_ref", "review_evidence_ref",
 }
 PROHIBITED_EVENT_KEYS = {
     "raw_credential", "credential_bytes", "national_identifier_value", "national_id_number",
@@ -125,8 +125,6 @@ def validate_retention_policy(
     days = policy.get("max_retention_days")
     if type(days) is not int or days < 1 or days > 36500:
         errors.append("max_retention_days must be an integer from 1 to 36500")
-    if not isinstance(policy.get("note"), str) or not policy["note"].strip():
-        errors.append("retention policy note must explain the policy scope")
     return errors
 
 
@@ -733,7 +731,6 @@ def run_synthetic_demo(source_commit: str, contract: dict[str, Any] | None = Non
         "deletion_procedure_ref": "POLICY-DEMO-DELETE-001",
         "backup_deletion_policy_ref": "POLICY-DEMO-BACKUP-001",
         "review_evidence_ref": "POLICY-DEMO-REVIEW-001",
-        "note": "Synthetic demonstration only; this is not a statutory retention period.",
     }
     apply(
         "record_retention_policy", "2026-01-01T09:00:30Z",
