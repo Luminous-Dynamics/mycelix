@@ -1777,6 +1777,137 @@ mod tests {
     }
 
     #[test]
+    fn traffic_diversity_catalogue_is_unique_explicit_and_fail_closed() {
+        let catalogue: serde_json::Value =
+            serde_json::from_str(include_str!("../fixtures/traffic_diversity.json"))
+                .expect("traffic diversity catalogue must be valid JSON");
+
+        assert_eq!(
+            catalogue["schema"].as_str(),
+            Some("airspace-traffic-diversity-v1")
+        );
+        assert_eq!(
+            catalogue["status"].as_str(),
+            Some("synthetic_research_metadata_only")
+        );
+        assert_eq!(
+            catalogue["current_kernel"]["supports_real_vehicle_dynamics"].as_bool(),
+            Some(false)
+        );
+        assert_eq!(
+            catalogue["current_kernel"]["separation_minima"].as_str(),
+            Some("not_provided")
+        );
+
+        let archetypes = catalogue["archetypes"]
+            .as_array()
+            .expect("archetypes array exists");
+        assert_eq!(archetypes.len(), 15);
+        let mut profile_ids = std::collections::BTreeSet::new();
+        for profile in archetypes {
+            let profile_id = profile["profile_id"]
+                .as_str()
+                .expect("every archetype needs an ID");
+            assert!(
+                profile_ids.insert(profile_id),
+                "duplicate traffic profile ID: {profile_id}"
+            );
+            assert_eq!(
+                profile["current_kernel_support"].as_str(),
+                Some("not_implemented"),
+                "real vehicle archetype must not imply the toy kernel models it: {profile_id}"
+            );
+            assert_eq!(
+                profile["operational_claims"].as_bool(),
+                Some(false),
+                "traffic catalogue cannot make operational claims: {profile_id}"
+            );
+            assert!(
+                profile["examples"].as_array().is_some_and(|values| !values.is_empty()),
+                "examples must be explicit: {profile_id}"
+            );
+            assert!(
+                profile["distinguishing_factors"]
+                    .as_array()
+                    .is_some_and(|values| !values.is_empty()),
+                "model requirements must be explicit: {profile_id}"
+            );
+            assert_eq!(
+                profile["required_model_or_adapter"].as_str(),
+                Some("not_yet_defined"),
+                "do not advertise an unevidenced model adapter: {profile_id}"
+            );
+        }
+
+        for required in [
+            "conventional_fixed_wing",
+            "rotorcraft",
+            "glider_unpowered",
+            "low_altitude_multirotor_uas",
+            "fixed_wing_uas",
+            "large_uncrewed_cargo",
+            "evtol_aam",
+            "public_service_specialized",
+            "balloon_airship",
+            "haps_stratospheric",
+            "hale_remotely_piloted",
+            "supersonic_hypersonic",
+            "launch_reentry_suborbital",
+            "unknown_noncooperative",
+            "cooperative_swarm_aggregate",
+        ] {
+            assert!(
+                profile_ids.contains(required),
+                "required traffic archetype missing: {required}"
+            );
+        }
+
+        for collection_name in ["mission_contexts", "operating_regimes", "cooperation_states"] {
+            let values = catalogue[collection_name]
+                .as_array()
+                .unwrap_or_else(|| panic!("{collection_name} must be an array"));
+            let mut unique = std::collections::BTreeSet::new();
+            for value in values {
+                let value = value.as_str()
+                    .unwrap_or_else(|| panic!("{collection_name} entries must be strings"));
+                assert!(!value.trim().is_empty(), "{collection_name} cannot contain blank values");
+                assert!(unique.insert(value), "duplicate {collection_name} value: {value}");
+            }
+        }
+
+        let interactions = catalogue["interaction_backlog"]
+            .as_array()
+            .expect("interaction backlog array exists");
+        assert_eq!(interactions.len(), 12);
+        let mut case_ids = std::collections::BTreeSet::new();
+        for case in interactions {
+            let case_id = case["case_id"].as_str().expect("interaction case needs ID");
+            assert!(case_ids.insert(case_id), "duplicate interaction case ID: {case_id}");
+            assert!(
+                !case["research_question"].as_str().unwrap_or("").trim().is_empty(),
+                "interaction case needs a research question: {case_id}"
+            );
+            assert_eq!(
+                case["status"].as_str(),
+                Some("design_backlog_not_executable"),
+                "do not count a design descriptor as an executable scenario: {case_id}"
+            );
+            let participants = case["participants"]
+                .as_array()
+                .expect("interaction participants must be an array");
+            assert!(!participants.is_empty(), "interaction case needs participants: {case_id}");
+            for participant in participants {
+                let participant = participant.as_str()
+                    .expect("participant profile ID must be a string");
+                assert!(
+                    profile_ids.contains(participant),
+                    "unknown traffic profile {participant} in {case_id}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn all_committed_scenario_expectations_match() {
         let set = fixture_set();
         let output = replay_set(&set);
