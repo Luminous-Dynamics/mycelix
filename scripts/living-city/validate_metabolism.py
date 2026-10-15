@@ -175,6 +175,10 @@ def nutrient_assessment_errors(review, evidence_ids):
 
         status = receipt["status"]
         if status in {"meets_declared_minimum", "shortfall_against_declared_minimum"}:
+            if not receipt["composition_source_refs"]:
+                errors.append(f"{rid}: assessed nutrient receipt needs at least one composition source reference")
+            if not receipt["delivery_source_refs"]:
+                errors.append(f"{rid}: assessed nutrient receipt needs at least one delivery source reference")
             try:
                 scale = int(receipt["value_scale"])
                 total_grams = int(receipt["total_edible_delivered_grams"])
@@ -837,6 +841,24 @@ def main():
         fail("positive control: valid synthetic nutrient receipt fails semantic checks: " + "; ".join(receipt_semantic))
     print("PASS control: versioned nutrient receipt resolves to a same-scope, same-period food flow and exact edible mass")
 
+    missing_composition_source = copy.deepcopy(receipt_case)
+    missing_composition_source["nutrient_assessments"][0]["composition_source_refs"] = []
+    if not schema_errors(validator, missing_composition_source) or not any(
+        "needs at least one composition source reference" in e
+        for e in semantic_errors(missing_composition_source, concepts, evidence_ids)
+    ):
+        fail("mutation: assessed nutrient receipt without a composition source reference was accepted")
+    print("PASS mutation: assessed nutrient receipt requires at least one composition source reference")
+
+    missing_delivery_source = copy.deepcopy(receipt_case)
+    missing_delivery_source["nutrient_assessments"][0]["delivery_source_refs"] = []
+    if not schema_errors(validator, missing_delivery_source) or not any(
+        "needs at least one delivery source reference" in e
+        for e in semantic_errors(missing_delivery_source, concepts, evidence_ids)
+    ):
+        fail("mutation: assessed nutrient receipt without a delivery source reference was accepted")
+    print("PASS mutation: assessed nutrient receipt requires at least one delivery source reference")
+
     not_assessable_case = copy.deepcopy(receipt_case)
     not_assessable_receipt = not_assessable_case["nutrient_assessments"][0]
     not_assessable_receipt["receipt_id"] = "synthetic-missing-composition-assessment"
@@ -893,7 +915,7 @@ def main():
         fail("mutation: real Symtropy receipt without producer revision/payload commitment was accepted")
     print("PASS mutation: a real Symtropy receipt requires a pinned producer revision and payload hash")
 
-    print("PASS: 45 urban-metabolism/synergy controls (37 mutation/parser rejection controls and eight positive controls); no composite symtropy score or automatic authorization.")
+    print("PASS: 47 urban-metabolism/synergy controls (39 mutation/parser rejection controls and eight positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
