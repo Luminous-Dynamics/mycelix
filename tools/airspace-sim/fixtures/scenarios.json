@@ -2083,7 +2083,6 @@
       "case_id": "new_restriction_intersects_accepted_intent",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2137,13 +2136,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "reassessment_required"
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "no_intersection_in_complete_snapshot",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2197,13 +2196,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "no_impact_in_provided_snapshot"
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "constraint_update_changes_clear_plan_to_affected",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2283,13 +2282,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "reassessment_required"
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "withdrawn_constraint_no_longer_intersects",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2369,13 +2368,13 @@
           "state": "withdrawn"
         }
       ],
-      "expected_outcome": "no_impact_in_provided_snapshot"
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "partitioned_snapshot_without_updates_degraded",
       "now_s": 5,
       "snapshot_state": "partitioned",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2402,13 +2401,13 @@
         }
       ],
       "updates": [],
-      "expected_outcome": "degraded"
+      "expected_outcome": "degraded",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "stale_snapshot_known_impact_still_requires_reassessment",
       "now_s": 5,
       "snapshot_state": "stale_or_incomplete",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2462,13 +2461,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "reassessment_required"
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "constraint_sequence_gap_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2548,13 +2547,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "constraint_fork_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2660,13 +2659,13 @@
           "state": "withdrawn"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "malformed_constraint_bounds_rejected",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2720,13 +2719,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "reject"
+      "expected_outcome": "reject",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "constraint_frame_mismatch_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2780,13 +2779,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "future_constraint_update_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2840,13 +2839,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "expired_constraint_does_not_intersect",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -2900,13 +2899,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "no_impact_in_provided_snapshot"
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
     },
     {
-      "case_id": "conservative_margin_catches_between_sample_pass",
+      "case_id": "continuous_intersection_catches_between_integer_seconds",
       "now_s": 4,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 2,
       "flights": [
         {
           "flight_id": "A",
@@ -2944,7 +2943,7 @@
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_basis": "fixture-tai-epoch-v1",
           "valid_from_s": 4,
-          "valid_until_s": 6,
+          "valid_until_s": 5,
           "min_position_mm": {
             "x": 44000,
             "y": -100,
@@ -2960,13 +2959,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "reassessment_required"
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 0
     },
     {
       "case_id": "unqualified_flight_time_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -3020,13 +3019,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "exact_constraint_update_retransmission_idempotent",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -3106,13 +3105,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "no_impact_in_provided_snapshot"
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "same_constraint_digest_different_payload_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -3192,13 +3191,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "constraint_authority_change_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -3278,13 +3277,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
       "case_id": "constraint_vertical_datum_mismatch_unresolved",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 1,
       "flights": [
         {
           "flight_id": "A",
@@ -3338,13 +3337,13 @@
           "state": "active"
         }
       ],
-      "expected_outcome": "unresolved"
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
     },
     {
-      "case_id": "invalid_constraint_sample_step_rejected",
+      "case_id": "invalid_constraint_uncertainty_horizon_rejected",
       "now_s": 5,
       "snapshot_state": "complete_fresh",
-      "sample_step_s": 0,
       "flights": [
         {
           "flight_id": "A",
@@ -3371,7 +3370,128 @@
         }
       ],
       "updates": [],
-      "expected_outcome": "reject"
+      "expected_outcome": "reject",
+      "uncertainty_horizon_s": 3601
+    },
+    {
+      "case_id": "continuous_spatial_tangent_at_start_is_impact",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "uncertainty_horizon_s": 0,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-TANGENT",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-TANGENT:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 50000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required"
+    },
+    {
+      "case_id": "constraint_valid_until_boundary_is_exclusive",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "uncertainty_horizon_s": 0,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-END-EXCLUSIVE",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-END-EXCLUSIVE:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 60000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 61000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot"
     }
   ]
 }
