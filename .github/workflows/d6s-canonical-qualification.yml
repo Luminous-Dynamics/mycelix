@@ -93,6 +93,8 @@ jobs:
           check_blob "docs/integral/d6s-canon-2-manifest.json" "fd43f8255afeba1edaace6519867e20896a3c8f1"
           check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs" "4516f7d72308b05de3ea03945ac550bb4628c80d"
           check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "65f28a83d4efd42415a2c83e50735750abb8294e"
+          check_blob "scripts/integral/verify_cos_conformance_report.py" "3c56a827f52f695dc292f788ca03b06af9a7e579"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/src/bin/cos_report.rs" "3bfd6e8e2b80c4eec1bdffea0d0fdbd951c6394a"
           check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "2aa9d885b7b555eb1ea203560e096b06989f19f5"
           check_blob "docs/integral/cos-reference-node-v1.md" "ce0cf19ef76ad64417b26386913c803654030757"
           check_blob "mycelix-manufacturing/Cargo.toml" "cb71136c20f067c609d360510c5497e225893f84"
@@ -147,6 +149,12 @@ jobs:
         if: steps.scope.outputs.required == 'true'
         run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
 
+      - name: Generate and independently verify COS conformance report
+        if: steps.scope.outputs.required == 'true'
+        run: |
+          cargo run --manifest-path mycelix-manufacturing/Cargo.toml --locked -p cos_conformance --bin cos-report > cos-reference-conformance-report.json
+          python3 scripts/integral/verify_cos_conformance_report.py cos-reference-conformance-report.json
+
       - name: Record non-applicability without qualifying D6S
         if: steps.scope.outputs.required != 'true'
         run: |
@@ -187,6 +195,8 @@ jobs:
             echo "rustfmt=$(rustfmt --version)"
             echo "python=$(python3 --version)"
             echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "cos_report_sha256=$(sha256sum cos-reference-conformance-report.json | cut -d' ' -f1)"
+            echo "cos_report_git_blob_sha=$(git hash-object cos-reference-conformance-report.json)"
             echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
             echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
@@ -209,4 +219,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
-          path: d6s-canonical-reference-qualification.txt
+          path: |
+            d6s-canonical-reference-qualification.txt
+            cos-reference-conformance-report.json
