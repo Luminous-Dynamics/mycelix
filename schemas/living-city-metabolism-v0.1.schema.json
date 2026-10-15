@@ -618,7 +618,8 @@
         "tolerance",
         "unit",
         "status",
-        "rationale"
+        "rationale",
+        "evidence_refs"
       ],
       "properties": {
         "check_id": {
@@ -676,6 +677,14 @@
         "rationale": {
           "type": "string",
           "minLength": 12
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
         }
       },
       "allOf": [
