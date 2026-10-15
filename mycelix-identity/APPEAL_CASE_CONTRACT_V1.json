@@ -14,6 +14,7 @@
     "case_owner_ref",
     "service_code",
     "issue_code",
+    "jurisdiction_code",
     "current_state",
     "assigned_steward_ref",
     "initial_decision_actor_ref",
@@ -294,7 +295,9 @@
     "deletion_procedure_ref": null,
     "backup_deletion_policy_ref": null,
     "review_evidence_ref": null,
-    "note": "Unknown legal or contractual retention duties must be resolved by the responsible party; this template invents no statutory period."
+    "note": "Unknown legal or contractual retention duties must be resolved by the responsible party; this template invents no statutory period.",
+    "jurisdiction_code": null,
+    "record_class": null
   },
   "prohibited_fields_and_payloads": [
     "raw_credential",
@@ -320,13 +323,15 @@
     "Audit role sees metadata only and has no mutation permission.",
     "No identity material or case record is published to a public DHT.",
     "The hash-chained policy-review event binds a reference and digest of the approved retention metadata; it does not itself authenticate that approval or create lawful authority.",
-    "A completed retention-policy review means the schedule fields are documented in the synthetic case model; it does not enable durable storage or override the top-level disabled-by-default setting."
+    "A completed retention-policy review means the schedule fields are documented in the synthetic case model; it does not enable durable storage or override the top-level disabled-by-default setting.",
+    "An approved retention schedule must name the same jurisdiction and record class as the case. Unknown/unassigned jurisdiction or a mismatched issue-to-record-class mapping fails closed."
   ],
   "nonclaims": [
     "This is a synthetic design contract, not legal advice, a POPIA compliance determination, a production case-management implementation, or a deployed system.",
     "Pseudonymization is not anonymization; local actor handles and timestamps may remain linkable personal information.",
     "A hash chain detects mutation only when its head is protected or independently anchored; this contract does not provide signatures or authenticated actor identity.",
-    "Retention and complaint pathways must be mapped to the applicable authority, contract, and jurisdiction before any real personal information is processed."
+    "Retention and complaint pathways must be mapped to the applicable authority, contract, and jurisdiction before any real personal information is processed.",
+    "The sample retention period is synthetic only; no statutory retention period or cross-border equivalence is inferred."
   ],
   "references": [
     {
@@ -344,5 +349,32 @@
       "url": "https://www.nist.gov/privacy-engineering",
       "use": "Privacy-risk assessment and privacy engineering methods."
     }
-  ]
+  ],
+  "issue_code_values": [
+    "ISSUE_RECORD_CORRECTION",
+    "SOURCE_RECORD_CORRECTION_REFERRAL",
+    "DATA_ACCESS_REQUEST",
+    "DATA_DELETION_REQUEST",
+    "PROCESSING_OBJECTION",
+    "PRIVACY_COMPLAINT_REFERRAL",
+    "INITIAL_DECISION_APPEAL",
+    "ACCESSIBILITY_FALLBACK_REQUEST"
+  ],
+  "record_class_values": [
+    "service_correction_case",
+    "source_record_referral",
+    "privacy_rights_case",
+    "privacy_complaint_referral",
+    "appeal_case"
+  ],
+  "issue_record_classes": {
+    "ISSUE_RECORD_CORRECTION": "service_correction_case",
+    "SOURCE_RECORD_CORRECTION_REFERRAL": "source_record_referral",
+    "DATA_ACCESS_REQUEST": "privacy_rights_case",
+    "DATA_DELETION_REQUEST": "privacy_rights_case",
+    "PROCESSING_OBJECTION": "privacy_rights_case",
+    "PRIVACY_COMPLAINT_REFERRAL": "privacy_complaint_referral",
+    "INITIAL_DECISION_APPEAL": "appeal_case",
+    "ACCESSIBILITY_FALLBACK_REQUEST": "service_correction_case"
+  }
 }
