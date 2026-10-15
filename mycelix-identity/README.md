@@ -118,6 +118,14 @@ python3 -m unittest discover -s tests -p 'test_synthetic_service_journey.py' -v
 
 The report is bound to the source SHA, evaluator hash and canonical corpus hash. Receipts are allow-listed, contain only outcome metadata and claim names, and are emitted as ephemeral outputs only. The harness does not store durable appeal cases, validate actual credentials/signatures, contact an external endpoint, or make eligibility decisions. Synthetic test approval is not real legal authorization.
 
+### Correction and independent appeal case contract
+
+The [case contract](APPEAL_CASE_CONTRACT_V1.json) and [in-memory state machine](appeal_case_engine.py) define owner/steward/reviewer roles, explicit state transitions, independent appeal review, retention-policy gates, and a SHA-256 hash-chained event sequence. Audit events use allow-listed codes and opaque case-scoped actor references; raw credentials, identity values, biometrics, free-text notes and verifier responses are prohibited.
+
+Run `python3 appeal_case_engine.py` and `python3 -m unittest discover -s tests -p 'test_appeal_case_engine.py' -v` from this directory. The example keeps durable storage, external notifications and public-DHT publication disabled. Retention defaults to `not_assessed`; the engine only represents a reviewed policy when legal-basis, responsible-party, maximum-retention, deletion, backup-deletion and review references are present. Even then it does not turn on persistence or perform deletion. An expired state is not proof that database replicas/backups have been erased.
+
+The audit chain is tamper-evident metadata, not an authenticated signature, trusted timestamp, authorization service, or production audit log. Opaque handles may still be personal information. Map correction/deletion and external complaint processes with the responsible controller for the relevant jurisdiction before real data is processed.
+
 
 ## African Digital Public Infrastructure interoperability
 
