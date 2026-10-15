@@ -17,6 +17,7 @@ from typing import Any
 
 REPO_FILE_PREFIX = "repo-file:"
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 BOUND_FIELDS = (
     "scenario_id", "target_id", "nutrient_id", "nutrient_definition_ref",
     "unit", "target_scope_ref", "period_ref", "value_scale",
@@ -68,14 +69,6 @@ def resolve_repo_file(payload_ref: Any, repo_root: Path) -> tuple[Path | None, s
     return resolved, None
 
 
-def _payload_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def verify_receipt_payload(receipt: dict[str, Any], repo_root: Path) -> dict[str, Any]:
     receipt_id, payload_ref, expected = receipt.get("receipt_id"), receipt.get("payload_ref"), receipt.get("payload_sha256")
     base = {"receipt_id": receipt_id, "payload_ref": payload_ref}
@@ -92,10 +85,15 @@ def verify_receipt_payload(receipt: dict[str, Any], repo_root: Path) -> dict[str
         }
         return {**base, "status": path_error, "reason": explanations[path_error]}
     try:
-        actual = _payload_sha256(path)
-        raw_bytes = path.read_bytes()
+        # Hash and parse the same in-memory byte sequence to avoid a file-change
+        # race between digest verification and JSON parsing.
+        with path.open("rb") as stream:
+            raw_bytes = stream.read(MAX_PAYLOAD_BYTES + 1)
     except OSError:
         return {**base, "status": "unreadable_payload", "reason": "payload bytes could not be read"}
+    if len(raw_bytes) > MAX_PAYLOAD_BYTES:
+        return {**base, "status": "payload_too_large", "reason": f"payload exceeds the {MAX_PAYLOAD_BYTES}-byte offline verification limit"}
+    actual = hashlib.sha256(raw_bytes).hexdigest()
     if actual != expected:
         return {**base, "status": "hash_mismatch", "expected_sha256": expected, "actual_sha256": actual,
                 "reason": "SHA-256 of exact on-disk bytes does not match the envelope commitment"}
