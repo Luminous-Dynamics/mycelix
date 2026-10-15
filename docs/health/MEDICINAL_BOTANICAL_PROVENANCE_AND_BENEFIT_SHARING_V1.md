@@ -46,6 +46,16 @@ Proposed explicit states:
 - `Expired` / `Superseded` — no longer current; historical decision remains auditable.
 - `NotApplicableWithRationale` — only for an explicitly scoped gate, with evidence and rationale.
 
+Every rights assessment MUST include an explicit validity interval using the Unix-second fields
+`valid_from_unix_s` (inclusive) and `valid_until_unix_s` (exclusive). Require
+`valid_from_unix_s < valid_until_unix_s`. Transfer preflight must check the supplied
+evaluation time against that interval; malformed, not-yet-valid, and expired assessments
+block even if their state label still says `AuthorizedForDeclaredPurpose`. A caller-supplied
+timestamp is not a trusted clock and does not establish that a newer revocation has not
+occurred. Before a real hand-off, the responsible integration must resolve the canonical
+rights assessment, currentness/supersession state, reviewer/authority and evidence from their
+own owners.
+
 Unknown or malformed permission fails closed. Software must not decide whether an activity legally requires a permit; it records the reviewed determination and source.
 
 ## 4. Provenance graph
