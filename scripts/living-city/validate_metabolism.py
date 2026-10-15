@@ -346,7 +346,7 @@ def main():
 
     bad_run_ref = copy.deepcopy(synthetic)
     bad_run_ref["model_runs"] = [{
-        "model_run_id":"unlinked-run", "engine":"symtropy", "engine_version":"0.1",
+        "model_run_id":"unlinked-run", "engine":"symtropy", "engine_version":"0.1", "engine_revision":"a"*40,
         "input_manifest_sha256":"0"*64, "seed":1, "time_step_seconds":60,
         "scenario_refs":["scenario-not-present"], "calibration_status":"uncalibrated",
         "validation_evidence_refs":[]
@@ -355,7 +355,19 @@ def main():
         fail("mutation: model run with unresolved scenario identity accepted")
     print("PASS mutation: model run must link to known scenario IDs")
 
-    print("PASS: 19 urban-metabolism/synergy controls (17 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
+    unpinned_revision = copy.deepcopy(synthetic)
+    unpinned_revision["record_status"] = "assessment"
+    unpinned_revision["model_runs"] = [{
+        "model_run_id":"revision-control-run", "engine":"symtropy", "engine_version":"0.1",
+        "engine_revision":"main", "input_manifest_sha256":"0"*64, "seed":1, "time_step_seconds":60,
+        "scenario_refs":["baseline"], "calibration_status":"uncalibrated", "validation_evidence_refs":[]
+    }]
+    revision_errors = schema_errors(validator, unpinned_revision)
+    if not any("engine_revision" in list(error.path) for error in revision_errors):
+        fail("mutation: model run without an exact source revision was accepted")
+    print("PASS mutation: model runs require an exact 40-character source revision SHA")
+
+    print("PASS: 20 urban-metabolism/synergy controls (18 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
