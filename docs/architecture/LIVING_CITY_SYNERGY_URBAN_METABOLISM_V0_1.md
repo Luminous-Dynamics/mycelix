@@ -18,7 +18,7 @@ The v0.1 contract introduces:
 - explicit role boundaries between Mycelix, Symthaea, Symtropy, and Sol Atlas;
 - no single overall city score, and no automatic authorization to build.
 
-This is an interface contract first. It does not claim that the listed flows or the synthetic values in the validator fixture have been measured in Johannesburg.
+This is an interface contract first. It does not claim that the listed flows or the synthetic values in the validator fixture have been measured in Johannesburg. It is intentionally aligned with Symtropy’s isolated resource-balance kernel rather than creating a competing physical accounting engine.
 
 ## 1. What should “thermodynamically better” mean?
 
@@ -51,15 +51,19 @@ Use physical thermodynamics where the system boundary, units, and processes supp
 
 ## 2. Energy, exergy, and conservation: keep the physics honest
 
-### 2.1 Energy balance
+### 2.1 Exact resource balances
 
-For one clearly bounded subsystem over one defined period, use a consistent sign convention:
+The v0.1 balance fields align with the exact-integer convention in [Symtropy’s bounded garden resource-balance kernel, PR #1637](https://github.com/Luminous-Dynamics/symtropy/pull/1637):
 
-`residual = inputs - outputs - change_in_stored_energy`
+`expected_storage_delta = inflow + generated_or_added - outflow - declared_loss`
 
-A system is marked balanced only if the absolute residual is within a declared tolerance appropriate to the measurement/model precision. The water and material ledgers use analogous balance checks, with their own units and storage definitions. Internal transfers must cancel when both sides are inside the same boundary; do not count them as both new inputs and new outputs.
+`residual = expected_storage_delta - observed_storage_delta`
 
-A residual is an audit finding, not a score. A large residual means missing flows, poor measurements, wrong boundaries, or an incompatible model until resolved.
+Energy, water, and conserved material mass use canonical base units of watt-hours (Wh), millilitres (mL), and grams (g). Quantities are decimal integer strings so clients cannot silently round large values through IEEE-754 floating-point numbers. The validator recomputes the residual from the fields and compares it to an explicit integer tolerance; a `balanced` label cannot override arithmetic.
+
+This conservation schema deliberately excludes greenhouse-gas equivalents and exergy. CO2-equivalents are impact-accounting outputs rather than conserved mass, while exergy can be destroyed and is not a plain conserved-energy quantity. Those metrics remain separate flow records and need their own appropriate methods.
+
+Internal transfers must cancel when both sides are inside the same boundary; do not count them as both new inputs and new outputs. A residual is an audit finding, not a score. A large residual means missing flows, poor measurements, wrong boundaries, or an incompatible model until resolved.
 
 ### 2.2 Energy is not exergy
 
