@@ -26,7 +26,7 @@
     "envelope_digest_scope": "canonicalized_envelope_preimage",
     "payload_digest_verification_implemented": true,
     "envelope_digest_verification_implemented": true,
-    "note": "The checker rejects duplicate member names, canonicalizes payload and envelope preimage with the pinned RFC 8785/JCS library, and recomputes both SHA-256 digests. The envelope preimage binds schema ID/version plus all observation identity, scope, timestamp, evidence, privacy/license, claim-ceiling, and payload-digest fields. Digests do not authenticate an issuer: the checker does not verify signatures, establish source-file correspondence, or establish truth/authority. Large precise quantities must be represented as strings, not JSON numbers."
+    "note": "The checker rejects duplicate member names and recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage. The envelope preimage binds schema ID/version plus all observation identity, scope, timestamp, evidence, privacy/license, claim-ceiling, and payload-digest fields. Digests do not authenticate an issuer: the checker does not verify signatures, establish source-file correspondence, or establish truth/authority. Large precise quantities must be represented as strings, not JSON numbers."
   },
   "example_observation": {
     "source_app": "mycelix.synthetic-fixture",
