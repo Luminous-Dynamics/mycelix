@@ -7,7 +7,7 @@
 //! evidence-verification outcomes; this model checks the consequences of those
 //! outcomes and keeps financial and physical states distinct.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -53,6 +53,7 @@ pub enum ContractError {
     BalanceLimit,
     ArithmeticOverflow,
     AlreadyPosted,
+    NonMonotonicTime,
 }
 
 impl fmt::Display for ContractError {
@@ -171,6 +172,9 @@ pub struct DeliveryClaim {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationResult {
     pub verifier_id: String,
+    /// Exact provider/source claim the independent verifier evaluated.
+    pub claim_evidence_id: String,
+    /// Identifier for the independent verifier's own evidence/decision.
     pub evidence_id: String,
     pub evidence_status: EvidenceStatus,
     pub accepted_quantity: Option<u64>,
@@ -222,6 +226,8 @@ struct CapacitySlot {
 pub struct CapacityBook {
     slots: BTreeMap<CapacityKey, CapacitySlot>,
     reservations: BTreeMap<String, ReservationReceipt>,
+    /// Reservation transaction identities are single-use, including after release.
+    seen_transactions: BTreeSet<String>,
 }
 
 impl CapacityBook {
@@ -274,7 +280,9 @@ impl CapacityBook {
     }
 
     fn reserve(&mut self, request: &NeedRequest) -> Result<ReservationReceipt, ContractError> {
-        if self.reservations.contains_key(&request.transaction_id) {
+        if self.seen_transactions.contains(&request.transaction_id)
+            || self.reservations.contains_key(&request.transaction_id)
+        {
             return Err(ContractError::DuplicateReservation);
         }
         let key = CapacityKey::from_request(request);
@@ -302,6 +310,7 @@ impl CapacityBook {
             window_id: request.window_id.clone(),
             quantity: request.quantity,
         };
+        self.seen_transactions.insert(request.transaction_id.clone());
         self.reservations
             .insert(request.transaction_id.clone(), receipt.clone());
         Ok(receipt)
@@ -403,6 +412,7 @@ impl CoordinationContract {
         now: u64,
     ) -> Result<(), ContractError> {
         self.require_state(Lifecycle::Proposed)?;
+        self.ensure_transition_time(now)?;
         if now >= self.request.accept_until {
             return Err(ContractError::Expired);
         }
@@ -439,6 +449,7 @@ impl CoordinationContract {
         now: u64,
     ) -> Result<ReservationReceipt, ContractError> {
         self.require_state(Lifecycle::Authorized)?;
+        self.ensure_transition_time(now)?;
         if now >= self.request.accept_until {
             return Err(ContractError::Expired);
         }
@@ -458,6 +469,7 @@ impl CoordinationContract {
         now: u64,
     ) -> Result<(), ContractError> {
         self.require_state(Lifecycle::Reserved)?;
+        self.ensure_transition_time(now)?;
         if now >= self.request.accept_until {
             return Err(ContractError::Expired);
         }
@@ -496,6 +508,7 @@ impl CoordinationContract {
             return Err(ContractError::InvalidEvidence);
         }
         let at = claim.observed_at;
+        self.ensure_transition_time(at)?;
         let evidence_ref = Some(claim.evidence_id.clone());
         self.delivery = Some(claim);
         self.transition(Lifecycle::Delivered, at, evidence_ref);
@@ -511,8 +524,15 @@ impl CoordinationContract {
         if self.lifecycle != Lifecycle::Delivered && self.lifecycle != Lifecycle::Indeterminate {
             return Err(ContractError::InvalidTransition);
         }
+        self.ensure_transition_time(result.decided_at)?;
         let delivery = self.delivery.as_ref().ok_or(ContractError::InvalidEvidence)?;
-        if !non_empty(&result.verifier_id) || !non_empty(&result.evidence_id) {
+        if !non_empty(&result.verifier_id)
+            || !non_empty(&result.claim_evidence_id)
+            || !non_empty(&result.evidence_id)
+        {
+            return Err(ContractError::InvalidEvidence);
+        }
+        if result.claim_evidence_id != delivery.evidence_id {
             return Err(ContractError::InvalidEvidence);
         }
         if result.verifier_id == self.request.requester_id
@@ -556,6 +576,7 @@ impl CoordinationContract {
         now: u64,
     ) -> Result<SettlementReceipt, ContractError> {
         self.require_state(Lifecycle::Verified)?;
+        self.ensure_transition_time(now)?;
         let obligation = self
             .obligation
             .as_ref()
@@ -584,6 +605,7 @@ impl CoordinationContract {
         ) {
             return Err(ContractError::InvalidTransition);
         }
+        self.ensure_transition_time(now)?;
         if self.lifecycle == Lifecycle::Reserved {
             book.release(&self.request.transaction_id)?;
             self.reservation = None;
@@ -595,6 +617,13 @@ impl CoordinationContract {
     fn require_state(&self, expected: Lifecycle) -> Result<(), ContractError> {
         if self.lifecycle != expected {
             return Err(ContractError::InvalidTransition);
+        }
+        Ok(())
+    }
+
+    fn ensure_transition_time(&self, at: u64) -> Result<(), ContractError> {
+        if self.history.last().is_some_and(|previous| at < previous.at) {
+            return Err(ContractError::NonMonotonicTime);
         }
         Ok(())
     }
@@ -640,6 +669,7 @@ struct LedgerAccount {
 pub struct Ledger {
     accounts: BTreeMap<AccountKey, LedgerAccount>,
     postings: BTreeMap<String, SettlementReceipt>,
+    posted_obligations: BTreeSet<String>,
 }
 
 impl Ledger {
@@ -697,7 +727,12 @@ impl Ledger {
         obligation: &ObligationTerms,
         posted_at: u64,
     ) -> Result<SettlementReceipt, ContractError> {
-        if self.postings.contains_key(transaction_id) {
+        if !non_empty(&obligation.id) || obligation.amount_atomic == 0 {
+            return Err(ContractError::InvalidObligation);
+        }
+        if self.postings.contains_key(transaction_id)
+            || self.posted_obligations.contains(&obligation.id)
+        {
             return Err(ContractError::AlreadyPosted);
         }
         let debit_key = AccountKey::new(
@@ -763,6 +798,7 @@ impl Ledger {
             .balance = credit_after;
         self.postings
             .insert(transaction_id.to_owned(), receipt.clone());
+        self.posted_obligations.insert(obligation.id.clone());
         Ok(receipt)
     }
 }
@@ -862,6 +898,7 @@ mod tests {
         contract
             .verify_delivery(VerificationResult {
                 verifier_id: "independent-auditor".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 evidence_id: "independent-delivery-check-1".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
                 accepted_quantity: Some(quantity),
@@ -1014,6 +1051,7 @@ mod tests {
         record_full_delivery(&mut contract, 2);
         let result = VerificationResult {
             verifier_id: "repair-coop".to_owned(),
+            claim_evidence_id: "provider-delivery-claim-1".to_owned(),
             evidence_id: "same-party-check".to_owned(),
             evidence_status: EvidenceStatus::Verified,
             accepted_quantity: Some(2),
@@ -1036,6 +1074,7 @@ mod tests {
             contract
                 .verify_delivery(VerificationResult {
                     verifier_id: "independent-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "incomplete-check".to_owned(),
                     evidence_status: EvidenceStatus::Unknown,
                     accepted_quantity: None,
@@ -1048,6 +1087,7 @@ mod tests {
             contract
                 .verify_delivery(VerificationResult {
                     verifier_id: "independent-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "reconciled-check".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
                     accepted_quantity: Some(2),
@@ -1066,6 +1106,7 @@ mod tests {
             contract
                 .verify_delivery(VerificationResult {
                     verifier_id: "independent-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "short-delivery-check".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
                     accepted_quantity: Some(3),
@@ -1197,6 +1238,101 @@ mod tests {
         assert_eq!(
             ledger.balance("account-a", INSTRUMENT, ATOMIC_UNIT),
             Some(10)
+        );
+    }
+
+    #[test]
+    fn verifier_must_bind_the_exact_delivery_claim() {
+        let (mut contract, _) = committed_contract("tx-claim-binding", 1);
+        record_full_delivery(&mut contract, 1);
+
+        assert_eq!(
+            contract.verify_delivery(VerificationResult {
+                verifier_id: "independent-auditor".to_owned(),
+                claim_evidence_id: "different-provider-claim".to_owned(),
+                evidence_id: "independent-check".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(1),
+                decided_at: 6,
+            }),
+            Err(ContractError::InvalidEvidence)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Delivered);
+        assert!(contract.verification().is_none());
+    }
+
+    #[test]
+    fn lifecycle_timestamps_cannot_move_backwards() {
+        let mut contract = authorized_contract("tx-time-order", 1);
+        let mut book = CapacityBook::default();
+        book.declare_capacity("repair-hours", "hour", "week-42", 1)
+            .unwrap();
+
+        assert_eq!(
+            contract.reserve(&mut book, 0),
+            Err(ContractError::NonMonotonicTime)
+        );
+        assert_eq!(book.remaining("repair-hours", "hour", "week-42"), Some(1));
+        assert!(contract.reservation().is_none());
+    }
+
+    #[test]
+    fn released_transaction_identity_cannot_be_reserved_again() {
+        let mut book = CapacityBook::default();
+        book.declare_capacity("repair-hours", "hour", "week-42", 2)
+            .unwrap();
+        let mut first = authorized_contract("tx-single-use", 1);
+        first.reserve(&mut book, 2).unwrap();
+        first.cancel(&mut book, 3).unwrap();
+
+        let mut second = authorized_contract("tx-single-use", 1);
+        assert_eq!(
+            second.reserve(&mut book, 2),
+            Err(ContractError::DuplicateReservation)
+        );
+        assert_eq!(book.remaining("repair-hours", "hour", "week-42"), Some(2));
+    }
+
+    #[test]
+    fn obligation_identity_cannot_be_settled_under_another_transaction() {
+        let (mut first, mut ledger) = verified_contract("tx-obligation-first", 1);
+        let (mut second, _) = verified_contract("tx-obligation-second", 1);
+        second.obligation.as_mut().unwrap().id = first.obligation.as_ref().unwrap().id.clone();
+
+        first.settle(&mut ledger, 7).unwrap();
+        let debit_after_first = ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT);
+        let credit_after_first = ledger.balance("coop-wallet", INSTRUMENT, ATOMIC_UNIT);
+
+        assert_eq!(
+            second.settle(&mut ledger, 7),
+            Err(ContractError::AlreadyPosted)
+        );
+        assert_eq!(
+            ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT),
+            debit_after_first
+        );
+        assert_eq!(
+            ledger.balance("coop-wallet", INSTRUMENT, ATOMIC_UNIT),
+            credit_after_first
+        );
+        assert!(ledger.posting("tx-obligation-second").is_none());
+    }
+
+    #[test]
+    fn settlement_timestamp_cannot_precede_verified_delivery() {
+        let (mut contract, mut ledger) = verified_contract("tx-settlement-time", 1);
+        assert_eq!(
+            contract.settle(&mut ledger, 4),
+            Err(ContractError::NonMonotonicTime)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        assert_eq!(
+            ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT),
+            Some(100)
+        );
+        assert_eq!(
+            ledger.balance("coop-wallet", INSTRUMENT, ATOMIC_UNIT),
+            Some(0)
         );
     }
 
