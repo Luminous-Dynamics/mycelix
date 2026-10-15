@@ -54,12 +54,7 @@ jobs:
           while IFS= read -r path; do
             [[ -n "$path" ]] || continue
             case "$path" in
-              docs/integral/*|scripts/integral/*|
-              .github/workflows/d6s-canonical-qualification.yml|
-              mycelix-manufacturing/Cargo.toml|
-              mycelix-manufacturing/crates/cos_conformance/Cargo.toml|
-              mycelix-manufacturing/crates/cos_conformance/src/*|
-              mycelix-manufacturing/crates/cos_conformance/tests/*)
+              docs/integral/*|scripts/integral/*|.github/workflows/d6s-canonical-qualification.yml|mycelix-manufacturing/Cargo.toml|mycelix-manufacturing/crates/cos_conformance/Cargo.toml|mycelix-manufacturing/crates/cos_conformance/src/*|mycelix-manufacturing/crates/cos_conformance/tests/*)
                 required=true
                 echo "D6S-relevant change: $path"
                 ;;
