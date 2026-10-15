@@ -12,7 +12,9 @@
 - Yu et al. (2025), *The Effect of Novelty and Usefulness on Creative Idea Adoption: An S-Shaped Relationships*, reports a positive relationship between usefulness and adoption and a context-dependent, S-shaped relationship for novelty. Adoption should be evaluated separately from perceived creativity: https://doi.org/10.1002/jocb.70059
 - *Rater effects in creativity assessment: A mixed methods investigation* (2015) found inconsistent ratings and low dependability coefficients across three rater groups, supporting explicit attention to disagreement rather than assuming aggregate ratings are stable: https://doi.org/10.1016/j.tsc.2014.10.004
 - Davison & Rowden (2026), *Unjust by design?*, analyses how urban-design governance and design standards can reproduce exclusion and displacement; it reinforces treating justice and affected-group voice as constraints rather than as creativity trade-offs: https://doi.org/10.1016/j.progress.2026.101034
-- A 2026 South African study of placemaking governance reports risks of tokenistic participation; a completed scorecard is not a substitute for meaningful co-production with local participants: https://doi.org/10.1007/s44327-026-00274-4
+- A 2026 South African study of placemaking governance reports risks of tokenistic participation and identifies co-design, co-stewardship, adaptive governance, and sustained relationships as practical mechanisms; its Bellville single case is informative, not a universal causal result: https://doi.org/10.1007/s44327-026-00274-4
+- A 2025 engineering-design evaluation study found greater novice-rater reliability when ideas included sketches than when represented by text alone; that result supports testing representation effects rather than assuming a text-only score is format-neutral: https://doi.org/10.1017/pds.2025.10092
+- A January 2026 study of three public spaces along Johannesburg’s Fox Street reports that temporary activities such as performances and pop-up markets helped activate space, but impacts could be short-lived without institutional support; it also reports mixed public views shaped by safety and accessibility: https://doi.org/10.1016/j.cities.2025.106436
 
 These studies motivate separation of dimensions; they do not validate the Living-City thresholds below. The initial 1–5 anchors and routing rules are hypotheses to test and revise with local reviewers and outcome data.
 
@@ -29,6 +31,14 @@ This contract names **surprise** as the measured dimension and treats “oddity�
 - **Delight/meaning:** resident-defined pleasure, identity, curiosity, or cultural meaning. Visual novelty is not a substitute for lived meaning.
 
 The seven dimensions use ordinal 1–5 ratings with written rationales. Do not average them into a single number. Display dimension profiles, differences between reviewer groups, and dissent.
+
+### Control presentation bias before scoring
+
+Do not ask one concept to compete as a polished rendering against another represented only by a paragraph. Before group scoring, prepare a comparable, accessible design-card pack for every candidate: (1) the same-length plain-language problem and mechanism statement; (2) one annotated sketch or spatial/service diagram where relevant; (3) a short everyday-use scenario; (4) intended beneficiaries and plausible burdens; (5) dependencies, uncertainty, and comparator links; and (6) who will operate, maintain, pay for, and stop or reverse the intervention. Provide alt text and text equivalents so visual presentation does not exclude reviewers.
+
+Record the representation format and fidelity in the review notes. Where feasible, test presentation effects with a balanced subset shown in text-only and text-plus-sketch form, without treating a sketch as evidence of feasibility. A change in understanding after viewing a diagram should prompt explanation or usability testing, not be mistaken for a change in a concept’s underlying novelty. This protocol is a design safeguard informed by one engineering-design study, not a universal finding about all reviewers or all civic concepts.
+
+For public-space concepts, the design card must also show the post-pilot path: named steward/operator, plausible recurring funding, repair and maintenance responsibilities, feedback loop, and stop/transfer conditions. A successful temporary activation is not proof that the intervention can be sustained. The Johannesburg Fox Street study motivates this check, but does not by itself establish how any particular Johannesburg project would perform.
 
 ## The routing policy
 
