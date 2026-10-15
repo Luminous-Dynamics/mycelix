@@ -1277,11 +1277,25 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
         .as_array()
         .expect("latest GPSJS prohibited claims must be an array");
     assert!(
-        latest_forbidden.iter().any(|claim| claim.as_str().unwrap().contains("43.4% to 48.2%")),
+        latest_forbidden
+            .iter()
+            .any(|claim| {
+                claim
+                    .as_str()
+                    .unwrap()
+                    .contains("43.4% to 48.2%")
+            }),
         "latest GPSJS control must preserve the reporting-rate trend without a false causal inference"
     );
     assert!(
-        latest_forbidden.iter().any(|claim| claim.as_str().unwrap().contains("1.493 million to 1.549 million")),
+        latest_forbidden
+            .iter()
+            .any(|claim| {
+                claim
+                    .as_str()
+                    .unwrap()
+                    .contains("1.493 million to 1.549 million")
+            }),
         "latest GPSJS control must keep incident count distinct from affected-household count"
     );
     assert_eq!(
