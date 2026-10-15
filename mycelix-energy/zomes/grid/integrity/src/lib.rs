@@ -456,22 +456,6 @@ mod tests {
         }
     }
 
-    fn valid_trade() -> Trade {
-        Trade {
-            id: "trade:1".to_string(),
-            offer_id: "offer:1".to_string(),
-            seller_did: "did:test:seller1".to_string(),
-            buyer_did: "did:test:buyer1".to_string(),
-            amount_kwh: 2.0,
-            price_per_kwh: 0.15,
-            total_price: 0.30,
-            currency: "USD".to_string(),
-            executed: create_test_timestamp(),
-            settled: false,
-            payment_reference: None,
-        }
-    }
-
     #[test]
     fn test_energy_production_valid_did() {
         let production = valid_energy_production();
