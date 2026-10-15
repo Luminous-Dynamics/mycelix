@@ -78,7 +78,7 @@ pub struct FlightIntent {
     pub priority: FlightPriority,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PositionMm {
     pub x: i64,
     pub y: i64,
@@ -320,6 +320,7 @@ pub struct DynamicConstraintReport {
     pub expected_outcome: DynamicConstraintOutcome,
     pub expectation_matches: bool,
     pub received_update_count: usize,
+    pub constraint_stream_count: usize,
     pub unique_update_count: usize,
     pub replayed_delivery_count: usize,
     pub active_constraint_count: usize,
@@ -1423,10 +1424,13 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
 
     if !errors.is_empty() {
         reasons.push("space-time inputs could not be compared within a common qualified reference/time basis".to_owned());
-        return dynamic_constraint_report(
-            case, DynamicConstraintOutcome::Unresolved, streams.len(), unique_update_count,
-            replayed_delivery_count, active_constraints.len(), current_flights.len(),
-            impacts, errors, reasons,
+        return dynamic_constraint_report_with_checks(
+            dynamic_constraint_report(
+                case, DynamicConstraintOutcome::Unresolved, streams.len(), unique_update_count,
+                replayed_delivery_count, active_constraints.len(), current_flights.len(),
+                impacts, errors, reasons,
+            ),
+            sample_checks,
         );
     }
 
@@ -1445,9 +1449,12 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
         reasons.push(format!("deduplicated {replayed_delivery_count} exact constraint-update retransmission(s)"));
     }
     reasons.push("constraint update identifiers and source labels are synthetic fixture data; no signature or authoritative source is verified".to_owned());
-    dynamic_constraint_report(
-        case, outcome, streams.len(), unique_update_count, replayed_delivery_count,
-        active_constraints.len(), current_flights.len(), impacts, Vec::new(), reasons,
+    dynamic_constraint_report_with_checks(
+        dynamic_constraint_report(
+            case, outcome, streams.len(), unique_update_count, replayed_delivery_count,
+            active_constraints.len(), current_flights.len(), impacts, Vec::new(), reasons,
+        ),
+        sample_checks,
     )
 }
 
@@ -1484,8 +1491,8 @@ fn dynamic_constraint_error_outcome(errors: &[DynamicConstraintError]) -> Dynami
 fn dynamic_constraint_report(
     case: &DynamicConstraintCase,
     actual_outcome: DynamicConstraintOutcome,
+    constraint_stream_count: usize,
     unique_update_count: usize,
-    received_unique_digest_count: usize,
     replayed_delivery_count: usize,
     active_constraint_count: usize,
     flights_considered: usize,
@@ -1499,7 +1506,8 @@ fn dynamic_constraint_report(
         expected_outcome: case.expected_outcome,
         expectation_matches: actual_outcome == case.expected_outcome,
         received_update_count: case.updates.len(),
-        unique_update_count: received_unique_digest_count,
+        constraint_stream_count,
+        unique_update_count,
         replayed_delivery_count,
         active_constraint_count,
         flights_considered,
