@@ -98,6 +98,11 @@ class NutrientPayloadVerifierTests(unittest.TestCase):
         self.receipt["payload_sha256"] = "not-a-hash"
         self.assertEqual(verify_receipt_payload(self.receipt, self.root)["status"], "invalid_commitment")
 
+    def test_payload_over_size_cap_is_rejected(self) -> None:
+        with self.payload_path.open("wb") as stream:
+            stream.truncate(16 * 1024 * 1024 + 1)
+        self.assertEqual(verify_receipt_payload(self.receipt, self.root)["status"], "payload_too_large")
+
     def test_duplicate_keys_in_native_payload_are_rejected(self) -> None:
         raw = b'{"scenario_id":"first","scenario_id":"second"}'
         self.payload_path.write_bytes(raw)
