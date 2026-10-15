@@ -89,6 +89,10 @@ pub struct MaterialRightsAssessmentV1 {
     pub recipient_ref: String,
     pub purpose: MaterialTransferPurpose,
     pub state: RightsDecisionState,
+    /// Inclusive start of the reviewed decision's validity window (Unix seconds).
+    pub valid_from_unix_s: u64,
+    /// Exclusive end of the reviewed decision's validity window (Unix seconds).
+    pub valid_until_unix_s: u64,
     /// Reference to the reviewed source decision/permit/consent record.
     pub evidence_ref: Option<String>,
     /// Reference to the accountable reviewer or decision-making body.
@@ -113,6 +117,9 @@ pub enum TransferBlockerCode {
     RightsPurposeMismatch,
     RightsNotAuthorized,
     InvalidLotStateForPurpose,
+    InvalidRightsValidityWindow,
+    RightsNotYetValid,
+    RightsExpiredAtEvaluation,
     MissingRightsEvidence,
     MissingRightsReviewer,
 }
@@ -147,6 +154,7 @@ pub fn evaluate_material_transfer(
     lot: &BotanicalMaterialLotV1,
     request: &MaterialTransferRequestV1,
     rights: &MaterialRightsAssessmentV1,
+    evaluation_time_unix_s: u64,
 ) -> TransferPreflightDecisionV1 {
     let mut blockers = Vec::new();
 
@@ -225,6 +233,25 @@ pub fn evaluate_material_transfer(
             &mut blockers,
             TransferBlockerCode::RightsPurposeMismatch,
             "rights decision does not cover the requested purpose",
+        );
+    }
+    if rights.valid_from_unix_s >= rights.valid_until_unix_s {
+        push_blocker(
+            &mut blockers,
+            TransferBlockerCode::InvalidRightsValidityWindow,
+            "rights validity window must have valid_from earlier than valid_until",
+        );
+    } else if evaluation_time_unix_s < rights.valid_from_unix_s {
+        push_blocker(
+            &mut blockers,
+            TransferBlockerCode::RightsNotYetValid,
+            "rights decision is not yet valid at evaluation time",
+        );
+    } else if evaluation_time_unix_s >= rights.valid_until_unix_s {
+        push_blocker(
+            &mut blockers,
+            TransferBlockerCode::RightsExpiredAtEvaluation,
+            "rights decision is expired at evaluation time",
         );
     }
     if rights.state != RightsDecisionState::AuthorizedForDeclaredPurpose {
@@ -357,16 +384,28 @@ mod tests {
             recipient_ref: "RECIPIENT-LAB-01".to_owned(),
             purpose: MaterialTransferPurpose::LaboratoryQualityAssessment,
             state: RightsDecisionState::AuthorizedForDeclaredPurpose,
+            valid_from_unix_s: 1_800_000_000,
+            valid_until_unix_s: 1_900_000_000,
             evidence_ref: Some("EXTERNAL-REVIEW-001".to_owned()),
             reviewer_ref: Some("REVIEWER-001".to_owned()),
         };
         (lot, request, rights)
     }
 
+    const EVALUATION_TIME_UNIX_S: u64 = 1_850_000_000;
+
+    fn evaluate_fixture(
+        lot: &BotanicalMaterialLotV1,
+        request: &MaterialTransferRequestV1,
+        rights: &MaterialRightsAssessmentV1,
+    ) -> TransferPreflightDecisionV1 {
+        evaluate_material_transfer(lot, request, rights, EVALUATION_TIME_UNIX_S)
+    }
+
     #[test]
     fn exact_current_scope_reaches_custodian_review_only() {
         let (lot, request, rights) = valid_fixture();
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert_eq!(
             result.disposition,
             TransferPreflightDisposition::PreflightCompleteForCustodianReview
@@ -375,10 +414,45 @@ mod tests {
     }
 
     #[test]
+    fn rights_window_is_start_inclusive_and_end_exclusive() {
+        let (lot, request, mut rights) = valid_fixture();
+        assert_eq!(
+            evaluate_material_transfer(&lot, &request, &rights, rights.valid_from_unix_s).disposition,
+            TransferPreflightDisposition::PreflightCompleteForCustodianReview
+        );
+        rights.valid_from_unix_s = 1_800_000_000;
+        let at_expiry =
+            evaluate_material_transfer(&lot, &request, &rights, rights.valid_until_unix_s);
+        assert!(at_expiry.blockers.iter().any(|item| {
+            item.code == TransferBlockerCode::RightsExpiredAtEvaluation
+        }));
+    }
+
+    #[test]
+    fn malformed_rights_window_is_blocked() {
+        let (lot, request, mut rights) = valid_fixture();
+        rights.valid_from_unix_s = rights.valid_until_unix_s;
+        let result = evaluate_fixture(&lot, &request, &rights);
+        assert!(result.blockers.iter().any(|item| {
+            item.code == TransferBlockerCode::InvalidRightsValidityWindow
+        }));
+    }
+
+    #[test]
+    fn future_rights_window_is_blocked() {
+        let (lot, request, mut rights) = valid_fixture();
+        rights.valid_from_unix_s = EVALUATION_TIME_UNIX_S + 1;
+        let result = evaluate_fixture(&lot, &request, &rights);
+        assert!(result.blockers.iter().any(|item| {
+            item.code == TransferBlockerCode::RightsNotYetValid
+        }));
+    }
+
+    #[test]
     fn recipient_mismatch_is_blocked() {
         let (lot, request, mut rights) = valid_fixture();
         rights.recipient_ref = "RECIPIENT-OTHER".to_owned();
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert_eq!(result.disposition, TransferPreflightDisposition::Blocked);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::RightsRecipientMismatch
@@ -389,7 +463,7 @@ mod tests {
     fn purpose_mismatch_is_blocked_even_when_recipient_matches() {
         let (lot, request, mut rights) = valid_fixture();
         rights.purpose = MaterialTransferPurpose::CommercialBioprospecting;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::RightsPurposeMismatch
         }));
@@ -399,7 +473,7 @@ mod tests {
     fn withdrawn_rights_never_pass() {
         let (lot, request, mut rights) = valid_fixture();
         rights.state = RightsDecisionState::Withdrawn;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::RightsNotAuthorized
         }));
@@ -409,7 +483,7 @@ mod tests {
     fn quarantined_lot_never_passes() {
         let (mut lot, request, rights) = valid_fixture();
         lot.state = MaterialLotState::Quarantined;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::InvalidLotStateForPurpose
         }));
@@ -421,7 +495,7 @@ mod tests {
         lot.state = MaterialLotState::QualityPending;
         request.purpose = MaterialTransferPurpose::AuthorizedBuyerIntake;
         rights.purpose = MaterialTransferPurpose::AuthorizedBuyerIntake;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::InvalidLotStateForPurpose
         }));
@@ -433,7 +507,7 @@ mod tests {
         lot.taxonomic_assessment_ref = None;
         request.purpose = MaterialTransferPurpose::CommercialBioprospecting;
         rights.purpose = MaterialTransferPurpose::CommercialBioprospecting;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::MissingTaxonomicAssessment
         }));
@@ -443,7 +517,7 @@ mod tests {
     fn rights_reference_must_match_the_lots_exact_assessment() {
         let (mut lot, request, rights) = valid_fixture();
         lot.rights_assessment_ref = Some("RIGHTS-OLD".to_owned());
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::LotRightsReferenceMismatch
         }));
@@ -454,7 +528,7 @@ mod tests {
         let (lot, request, mut rights) = valid_fixture();
         rights.evidence_ref = None;
         rights.reviewer_ref = None;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::MissingRightsEvidence
         }));
@@ -468,11 +542,11 @@ mod tests {
         let (lot, mut request, mut rights) = valid_fixture();
         request.purpose = MaterialTransferPurpose::NonCommercialResearch;
         rights.purpose = MaterialTransferPurpose::NonCommercialResearch;
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.is_empty());
 
         request.purpose = MaterialTransferPurpose::CommercialBioprospecting;
-        let changed_scope = evaluate_material_transfer(&lot, &request, &rights);
+        let changed_scope = evaluate_fixture(&lot, &request, &rights);
         assert!(changed_scope.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::RightsPurposeMismatch
         }));
@@ -482,7 +556,7 @@ mod tests {
     fn wrong_lot_identity_is_blocked() {
         let (lot, mut request, rights) = valid_fixture();
         request.lot_id = "BOT-LOT-OTHER".to_owned();
-        let result = evaluate_material_transfer(&lot, &request, &rights);
+        let result = evaluate_fixture(&lot, &request, &rights);
         assert!(result.blockers.iter().any(|item| {
             item.code == TransferBlockerCode::LotRequestMismatch
         }));
