@@ -542,13 +542,6 @@ pub fn evaluate_polygon_intersection(
     volume: &PolygonExclusionVolume,
     now_s: i64,
 ) -> PolygonEvaluationReport {
-    if let Err(error) = validate_polygon_volume(volume) {
-        return match error {
-            PolygonGeometryError::UnqualifiedReference => unresolved(error),
-            _ => rejected(error),
-        };
-    }
-
     if flight.flight_id.trim().is_empty() {
         return rejected(PolygonGeometryError::EmptyIdentity);
     }
@@ -557,6 +550,12 @@ pub fn evaluate_polygon_intersection(
         &flight.model_profile_id,
     ).is_err() {
         return unresolved(PolygonGeometryError::UnsupportedModelProfile);
+    }
+    if let Err(error) = validate_polygon_volume(volume) {
+        return match error {
+            PolygonGeometryError::UnqualifiedReference => unresolved(error),
+            _ => rejected(error),
+        };
     }
     if !flight.time_qualified {
         return unresolved(PolygonGeometryError::UnqualifiedFlightTime);
