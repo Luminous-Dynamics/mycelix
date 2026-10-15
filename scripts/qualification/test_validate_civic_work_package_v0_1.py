@@ -56,7 +56,7 @@ class CivicWorkPackageTests(unittest.TestCase):
 
     def test_automated_authorization_is_rejected(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
-        record["authorization"]["approved_by_human"] = False
+        record["authorization"]["authorizer_ref"] = None
         errors = validate_record(record, SCHEMA, "automated authorization")
         self.assertTrue(any("approved_by_human" in error for error in errors), errors)
 
