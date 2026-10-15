@@ -295,7 +295,7 @@ def _apply_event_state(
         raise ValueError("independent appeal reviewer must differ from the initial decision-maker")
     if transition.get("requires_appeal_reviewer_match") and actor_ref != state["appeal_reviewer_ref"]:
         raise ValueError("appeal decision must be issued by the assigned independent reviewer")
-    if transition.get("requires_approved_retention"):
+    if transition.get("requires_approved_retention") and action != "record_retention_policy":
         policy = state["retention_policy"]
         if state["retention_policy_status"] != "approved" or validate_retention_policy(policy):
             raise ValueError("case expiry requires an approved, complete retention policy")
