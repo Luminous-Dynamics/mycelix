@@ -23,8 +23,10 @@
     "algorithm": "RFC8785-JCS",
     "digest_algorithm": "SHA-256",
     "digest_scope": "canonicalized_payload_bytes",
+    "envelope_digest_scope": "canonicalized_envelope_preimage",
     "payload_digest_verification_implemented": true,
-    "note": "The checker parses JSON while rejecting duplicate member names, canonicalizes the payload using the pinned RFC 8785/JCS library, and recomputes SHA-256 over those canonical bytes. It does not verify signatures, establish source-file correspondence, or establish the truth of the observation. Large precise quantities must be represented as strings, not JSON numbers."
+    "envelope_digest_verification_implemented": true,
+    "note": "The checker rejects duplicate member names, canonicalizes payload and envelope preimage with the pinned RFC 8785/JCS library, and recomputes both SHA-256 digests. The envelope preimage binds schema ID/version plus all observation identity, scope, timestamp, evidence, privacy/license, claim-ceiling, and payload-digest fields. Digests do not authenticate an issuer: the checker does not verify signatures, establish source-file correspondence, or establish truth/authority. Large precise quantities must be represented as strings, not JSON numbers."
   },
   "example_observation": {
     "source_app": "mycelix.synthetic-fixture",
@@ -51,6 +53,7 @@
     "license_id": "CC0-1.0",
     "claim_ceiling": "Synthetic fixture only. This record establishes no real-world observation, calibration validity, scientific accuracy, certification, entitlement, governance eligibility, authorization, or settlement."
   },
+  "example_envelope_digest_sha256": "7c5b12f551791b6ccad8ced7995e4220205ffa289f8d1806af68a7168d16625b",
   "negative_controls": [
     {
       "id": "PE-AUTH-001",
