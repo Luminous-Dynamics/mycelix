@@ -445,3 +445,16 @@ For any high-assurance qualification:
 
 The TEND numeric export remains blocked pending an explicit quantization/precision profile, error bound and round-trip tests because the source event-hours fields are `f32`. The SAP source comment still says `SapBalance.justified_by` is not enforced by integrity validation. Nothing in this reference fixture repairs either production path, establishes settlement, or qualifies hREA interoperability.
 
+
+
+## TEND transferability refinement — 2026-10-15
+
+The mapping now replaces its coarse boolean transferability field with explicit semantic profiles:
+
+- SAP: `transferable_units_with_domain_rules`
+- TEND: `community_scoped_mutual_credit_position`
+- MYCEL: `non_transferable_recognition_attestation`
+
+This avoids implying that TEND is a bearer-like token. The TEND source defines each exchange against a service provider, receiver, DAO/community, and hours of service; its unit and obligation context must travel together. The new `VF-TEND-BEARER-001` negative control rejects promotion to freely transferable units unless an explicit, separately authorized instrument/conversion profile is introduced. The ecosystem matrix carries the same failure case.
+
+The reference corpus now has **13 negative controls** and the Rust checker has **14 test functions** defined in source. This is source/corpus-level verification only. The dedicated workflow previously failed at formatting before test execution; after applying the reported formatting corrections and changing checkout to the exact PR head, a new executed result is still needed. Do not call the Rust suite passed until a run on the exact current head completes all required steps successfully.
