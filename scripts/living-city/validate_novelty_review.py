@@ -214,6 +214,13 @@ def main() -> None:
         fail("mutation: high surprise and low legibility did not route to comprehension prototype")
     print("PASS mutation: high-surprise/low-legibility concept routes to comprehension prototype only")
 
+    unknown_gate_with_oddity = copy.deepcopy(odd_and_unclear)
+    unknown_gate_with_oddity["hard_gates"]["life_safety"]["status"] = "unknown"
+    unknown_gate_with_oddity["recommendation"] = "hold_for_evidence"
+    if recommend(unknown_gate_with_oddity, evidence_ids) != "hold_for_evidence" or semantic_errors(unknown_gate_with_oddity, concepts, source_ids, evidence_ids):
+        fail("mutation: unknown hard gate must block comprehension-prototype routing")
+    print("PASS mutation: unknown hard gate takes precedence over high-surprise/low-legibility routing")
+
     missing_voice = copy.deepcopy(synthetic)
     missing_voice["ratings"] = [item for item in missing_voice["ratings"] if item["perspective"] != "affected_community"]
     missing_voice["recommendation"] = "hold_for_evidence"
@@ -253,7 +260,7 @@ def main() -> None:
         fail("mutation: evaluated novelty without ready comparison set was not rejected by schema")
     print("PASS mutation: evaluated novelty requires documented comparison set")
 
-    print("PASS: 9 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
+    print("PASS: 10 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
 
 
 if __name__ == "__main__":
