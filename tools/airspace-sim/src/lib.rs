@@ -1897,6 +1897,63 @@ mod tests {
     }
 
     #[test]
+    fn every_real_world_archetype_is_unresolved_before_trajectory_work() {
+        let catalogue: serde_json::Value = serde_json::from_str(include_str!(
+            "../fixtures/traffic_diversity.json"
+        )).expect("traffic-diversity catalogue must parse");
+        let archetypes = catalogue["archetypes"]
+            .as_array()
+            .expect("catalogue must contain archetypes");
+        let baseline = fixture_set().scenarios[0].clone();
+
+        for archetype in archetypes {
+            let profile_id = archetype["profile_id"]
+                .as_str()
+                .expect("each archetype must have an ID");
+            let mut scenario = baseline.clone();
+            scenario.flights[0].traffic_profile_id = profile_id.to_owned();
+            scenario.flights[0].model_profile_id =
+                model_applicability::CONSTANT_VELOCITY_TOY_MODEL_ID.to_owned();
+
+            let report = evaluate_scenario(&scenario);
+            assert_eq!(
+                report.classification,
+                Classification::Unresolved,
+                "real-world archetype reached the toy kernel: {profile_id}"
+            );
+            assert_eq!(report.pair_sample_checks, 0, "geometry ran for {profile_id}");
+            assert!(report.conflicts.is_empty(), "geometry emitted conflicts for {profile_id}");
+        }
+    }
+
+    #[test]
+    fn machine_readable_requirements_cover_model_applicability_negative_controls() {
+        let requirements: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/aerocommons/AIRSPACE_COORDINATION_REQUIREMENTS_V1.json"
+        )).expect("airspace requirements contract must parse");
+        assert!(requirements["invariants"].as_array().is_some_and(|values| {
+            values.iter().any(|item| {
+                item["id"] == "AIR-INV-007" && item["hard_gate"] == true
+            })
+        }));
+
+        let cases = requirements["cases"]
+            .as_array()
+            .expect("requirements contract must contain cases");
+        for (id, expected) in [
+            ("AIR-CASE-016", "Unresolved"),
+            ("AIR-CASE-017", "Unresolved"),
+            ("AIR-CASE-018", "Unresolved"),
+        ] {
+            let case = cases.iter().find(|item| item["id"] == id)
+                .unwrap_or_else(|| panic!("required applicability case is missing: {id}"));
+            assert_eq!(case["expected_classification"].as_str(), Some(expected));
+            assert!(!case["required_behavior"].as_str().unwrap_or("").trim().is_empty());
+            assert!(!case["forbidden_inference"].as_str().unwrap_or("").trim().is_empty());
+        }
+    }
+
+    #[test]
     fn dynamic_constraint_evaluator_fails_closed_for_unsupported_model_pairs() {
         let mut case = fixture_set()
             .dynamic_constraint_cases
