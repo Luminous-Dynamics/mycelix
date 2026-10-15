@@ -1,0 +1,389 @@
+{
+  "$schema": "./schema.v1.json",
+  "schema_version": "1.0.0",
+  "as_of": "2026-10-15",
+  "inventory_scope": "Seed records verified against the linked public source during this pass. This is not an exhaustive standards inventory or a claim of Pulse interoperability.",
+  "entries": [
+    {
+      "id": "bluetooth.core",
+      "title": "Bluetooth Core Specification",
+      "authority": "Bluetooth SIG",
+      "artifact_kind": "standard",
+      "canonical_url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/index-en.html",
+      "version": "6.3",
+      "published_on": "2026-05-05",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["physical", "link", "network", "security"],
+      "region_scope": ["regional spectrum rules and device certifications apply"],
+      "relations": [],
+      "errata_urls": ["https://www.bluetooth.com/specifications/specs/"],
+      "review_flags": ["check-adopted-specification-list-and-mandatory-errata-before-implementation"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/index-en.html",
+          "exact_subject_sha": null,
+          "claim": "The official Bluetooth Core Specification page identifies version 6.3 and date 2026-05-05; this is source metadata only, not a Pulse conformance result.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Choose only required Bluetooth profiles and OS-exposed capabilities for the target platform. A current Core specification does not imply every controller, profile, or mobile OS exposes the needed functionality."
+    },
+    {
+      "id": "ieee.802.15.4",
+      "title": "IEEE Standard for Low-Rate Wireless Networks",
+      "authority": "IEEE Standards Association",
+      "artifact_kind": "standard",
+      "canonical_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+      "version": "802.15.4-2024",
+      "published_on": "2024-12-12",
+      "last_checked": "2026-10-15",
+      "source_status": "active",
+      "layers": ["physical", "link"],
+      "region_scope": ["PHYs and permitted operating modes vary by region"],
+      "relations": [
+        {
+          "type": "amended_by",
+          "target_id": "ieee.802.15.4ac-2026",
+          "source_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+          "notes": "The active standard page lists 802.15.4ac-2026 among amendments."
+        },
+        {
+          "type": "amended_by",
+          "target_id": "ieee.802.15.4ae-2026",
+          "source_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+          "notes": "The active standard page lists 802.15.4ae-2026 among amendments."
+        }
+      ],
+      "errata_urls": ["https://standards.ieee.org/ieee/802.15.4/11041/"],
+      "review_flags": ["review-listed-2026-amendments-before-choosing-a-device-profile"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+          "exact_subject_sha": null,
+          "claim": "IEEE identifies 802.15.4-2024 as active and lists 802.15.4ac-2026 and 802.15.4ae-2026 as amendments.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "This record describes PHY/MAC scope only. Thread, Zigbee, Matter, and vendor mesh implementations add distinct layers and profiles; do not treat this entry as evidence that any of them work."
+    },
+    {
+      "id": "ieee.802.15.4ac-2026",
+      "title": "IEEE 802.15.4ac-2026 amendment",
+      "authority": "IEEE Standards Association",
+      "artifact_kind": "amendment",
+      "canonical_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+      "version": "802.15.4ac-2026",
+      "published_on": null,
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["physical", "link"],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "amends",
+          "target_id": "ieee.802.15.4",
+          "source_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+          "notes": "The IEEE page lists this amendment for the base standard; obtain the amendment's own normative text before implementing it."
+        }
+      ],
+      "errata_urls": [],
+      "review_flags": ["normative-document-and-publication-date-not-yet-captured"],
+      "support_status": "unreviewed",
+      "evidence": [],
+      "next_review_due": "2027-04-13",
+      "notes": "The source page confirms the amendment identifier but this seed does not capture its full text, exact publication date, or implementation requirements."
+    },
+    {
+      "id": "ieee.802.15.4ae-2026",
+      "title": "IEEE 802.15.4ae-2026 amendment",
+      "authority": "IEEE Standards Association",
+      "artifact_kind": "amendment",
+      "canonical_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+      "version": "802.15.4ae-2026",
+      "published_on": null,
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["physical", "link"],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "amends",
+          "target_id": "ieee.802.15.4",
+          "source_url": "https://standards.ieee.org/ieee/802.15.4/11041/",
+          "notes": "The IEEE page lists this amendment for the base standard; obtain the amendment's own normative text before implementing it."
+        }
+      ],
+      "errata_urls": [],
+      "review_flags": ["normative-document-and-publication-date-not-yet-captured"],
+      "support_status": "unreviewed",
+      "evidence": [],
+      "next_review_due": "2027-04-13",
+      "notes": "The source page confirms the amendment identifier but this seed does not capture its full text, exact publication date, or implementation requirements."
+    },
+    {
+      "id": "lorawan.ts1",
+      "title": "LoRaWAN Link Layer Specification package",
+      "authority": "LoRa Alliance",
+      "artifact_kind": "technical_specification",
+      "canonical_url": "https://lora-alliance.org/resource_hub/lorawan-104-specification-package/",
+      "version": "TS1-1.0.4 package",
+      "published_on": null,
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["physical", "link", "security", "provisioning"],
+      "region_scope": ["EU868", "AS923", "IN865", "KR920", "RU864", "US915", "AU915 and other regional variants as defined by the applicable profile"],
+      "relations": [],
+      "errata_urls": ["https://lora-alliance.org/lorawan-for-developers/"],
+      "review_flags": ["verify-current-package-and-regional-parameters-before-implementation"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://lora-alliance.org/resource_hub/lorawan-104-specification-package/",
+          "exact_subject_sha": null,
+          "claim": "The official LoRa Alliance page identifies a LoRaWAN 1.0.4 package including link-layer specification, certification protocol, certification requirements, and a reference implementation validated for named regions.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "This is not a LoRa PHY implementation record. The LoRa radio technology, LoRaWAN protocols, network-server APIs, certification tools, and regional parameters must be tracked distinctly."
+    },
+    {
+      "id": "lorawan.ts014",
+      "title": "LoRaWAN TS014 device-profile onboarding specification",
+      "authority": "LoRa Alliance",
+      "artifact_kind": "technical_specification",
+      "canonical_url": "https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable",
+      "version": null,
+      "published_on": "2026-08-04",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["provisioning", "application"],
+      "region_scope": [],
+      "relations": [],
+      "errata_urls": [],
+      "review_flags": ["announcement-reviewed-normative-document-and-edition-not-yet-captured"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable",
+          "exact_subject_sha": null,
+          "claim": "LoRa Alliance's 2026-08-04 announcement says TS014 enables LoRaWAN networks to automatically pull device profiles; the normative spec, edition, and applicability still need direct review.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Announcement is a discovery pointer rather than the normative specification. This concerns provisioning, not Pulse message transport itself."
+    },
+    {
+      "id": "lorawan.ts018",
+      "title": "LoRaWAN TS018 device-profile QR provisioning specification",
+      "authority": "LoRa Alliance",
+      "artifact_kind": "technical_specification",
+      "canonical_url": "https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable",
+      "version": null,
+      "published_on": "2026-08-04",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["provisioning", "application"],
+      "region_scope": [],
+      "relations": [],
+      "errata_urls": [],
+      "review_flags": ["announcement-reviewed-normative-document-and-edition-not-yet-captured"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable",
+          "exact_subject_sha": null,
+          "claim": "LoRa Alliance's 2026-08-04 announcement says TS018 uses the device identification QR code to encode the device profile server; the normative spec, edition, and applicability still need direct review.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Announcement is a discovery pointer rather than the normative specification. This concerns provisioning, not Pulse message transport itself."
+    },
+    {
+      "id": "lorawan.tr016",
+      "title": "LoRaWAN TR016 relay implementation guidance",
+      "authority": "LoRa Alliance",
+      "artifact_kind": "technical_report",
+      "canonical_url": "https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable",
+      "version": null,
+      "published_on": "2026-08-04",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["link", "network"],
+      "region_scope": [],
+      "relations": [],
+      "errata_urls": [],
+      "review_flags": ["announcement-reviewed-normative-document-and-edition-not-yet-captured"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable",
+          "exact_subject_sha": null,
+          "claim": "LoRa Alliance's 2026-08-04 announcement describes TR016 as technical guidance for interoperable LoRaWAN Relay products; the normative document and applicability still need direct review.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Announcement is a discovery pointer rather than the normative report. Review the target relay architecture before any Pulse adapter decision."
+    },
+    {
+      "id": "ietf.rfc-9171",
+      "title": "Bundle Protocol Version 7",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9171",
+      "version": "RFC 9171",
+      "published_on": "2022-01-01",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["delay_tolerant", "application", "routing"],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "updated_by",
+          "target_id": "ietf.rfc-9713",
+          "source_url": "https://www.rfc-editor.org/info/rfc9171",
+          "notes": "RFC Editor lists RFC 9713 as updating RFC 9171."
+        },
+        {
+          "type": "updated_by",
+          "target_id": "ietf.rfc-9758",
+          "source_url": "https://www.rfc-editor.org/info/rfc9171",
+          "notes": "RFC Editor lists RFC 9758 as updating RFC 9171."
+        }
+      ],
+      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9171"],
+      "review_flags": ["read-with-rfc-9713-and-rfc-9758-not-in-isolation"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc9171",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor describes BPv7 as a store-carry-forward overlay suitable for intermittent connectivity and lists RFC 9713 and RFC 9758 as updates.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Strong architectural candidate for outage-tolerant messaging, but Pulse has not thereby implemented BPv7 or any convergence-layer adapter. RFC status does not imply deployed interoperability."
+    },
+    {
+      "id": "ietf.rfc-9172",
+      "title": "Bundle Protocol Security (BPSec)",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9172",
+      "version": "RFC 9172",
+      "published_on": "2022-01-01",
+      "last_checked": "2026-10-15",
+      "source_status": "published_errata_review",
+      "layers": ["delay_tolerant", "security"],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "related",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/info/rfc9172",
+          "notes": "BPSec specifies security services for Bundle Protocol bundles."
+        }
+      ],
+      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9172"],
+      "review_flags": ["rfc-editor-displays-reported-errata-impact-review-required"],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc9172",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor identifies RFC 9172 as an Internet Standards Track Proposed Standard defining integrity and confidentiality services for BP bundles; errata must be reviewed before adopting a profile.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "The RFC Editor errata page showed reported errata during this review. Track reported versus verified errata distinctly and assess impact on the exact profile being implemented."
+    },
+    {
+      "id": "ietf.rfc-9713",
+      "title": "Bundle Protocol Version 7 Administrative Record Types Registry",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9713",
+      "version": "RFC 9713",
+      "published_on": "2025-01-01",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["delay_tolerant", "application"],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "updates",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/info/rfc9713",
+          "notes": "Clarifies use of the IANA Bundle Administrative Record Types registry for BPv7."
+        }
+      ],
+      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9713"],
+      "review_flags": [],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc9713",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor says RFC 9713 updates RFC 9171 and was published January 2025.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Read together with BPv7 and the relevant IANA registry. This seed does not record application implementation support."
+    },
+    {
+      "id": "ietf.rfc-9758",
+      "title": "Updates to the 'ipn' URI Scheme",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9758",
+      "version": "RFC 9758",
+      "published_on": "2025-05-01",
+      "last_checked": "2026-10-15",
+      "source_status": "published",
+      "layers": ["delay_tolerant", "application", "identity"],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "updates",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/info/rfc9758",
+          "notes": "Updates encoding and decoding of 'ipn' URIs when used as BPv7 endpoint identifiers."
+        }
+      ],
+      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9758"],
+      "review_flags": [],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc9758",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor says RFC 9758 updates RFC 9171 and was published May 2025.",
+          "verified_on": "2026-10-15"
+        }
+      ],
+      "next_review_due": "2027-01-13",
+      "notes": "Endpoint identifier normalization must follow the normative update. Do not treat different encoded representations as different logical endpoints if the standard defines them as equivalent."
+    }
+  ]
+}
