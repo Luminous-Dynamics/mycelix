@@ -9,6 +9,12 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+mod polygon;
+pub use polygon::{
+    evaluate_polygon_intersection, PolygonEvaluationReport, PolygonExclusionVolume,
+    PolygonGeometryError, PolygonIntersectionOutcome, PolygonPointMm,
+};
+
 const MAX_HORIZON_S: i64 = 7 * 24 * 60 * 60;
 const MAX_SAMPLE_STEP_S: i64 = 3_600;
 const MAX_ABS_POSITION_MM: i64 = 1_000_000_000_000_000;

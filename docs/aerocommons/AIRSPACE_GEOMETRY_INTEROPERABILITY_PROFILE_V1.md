@@ -1,6 +1,6 @@
 # Airspace Geometry Interoperability Profile V1
 
-**Status:** research design contract; implementation and conformance tests not yet executed  
+**Status:** geographic interoperability design contract; geographic adapters/conformance not yet implemented or executed  
 **Authority ceiling:** data interpretation and planning/simulation evidence only  
 **Research checked:** 2026-10-15  
 **Tracking:** [AIRSPACE-COMMONS-001](https://github.com/Luminous-Dynamics/mycelix/issues/5023)  
@@ -8,7 +8,7 @@
 
 ## 1. Purpose and non-goals
 
-Define a conservative boundary for interoperating with published aeronautical geometry and time-dependent trajectory data without inventing a competing aviation data standard. The immediate implementation in `tools/airspace-sim` remains a deterministic reference evaluator for synthetic local-frame, axis-aligned volumes. This document does **not** add geographic polygon intersection, parse AIXM, implement an OGC API, or claim conformance.
+Define a conservative boundary for interoperating with published aeronautical geometry and time-dependent trajectory data without inventing a competing aviation data standard. The existing axis-aligned-box evaluator remains intact. A separate `src/polygon.rs` kernel now tests synthetic local-planar polygon rings, holes and centerline/time/vertical intersections using bounded integer/rational predicates. It is not a geographic adapter. This document does **not** add CRS transformation, parse GeoJSON/AIXM, implement an OGC API, model nonzero uncertainty envelopes, or claim standards conformance.
 
 This is an adapter/profile proposal, not a flight-safety specification. No geometry result, record signature, successful parse, reservation, or simulation may be treated as flight authorization, separation assurance, or proof that the physical airspace is safe.
 
@@ -83,7 +83,7 @@ Known impact takes precedence over stale-view degradation, matching the dynamic-
 
 ## 7. Proposed golden/adversarial profile cases
 
-These cases are a *future conformance backlog*, not yet executable tests in `tools/airspace-sim`. Implement each only with a chosen geometry library/reference algorithm, exact fixture data, and reviewed expected outcomes.
+The AIGEO cases remain a *future geographic-adapter conformance backlog*, not executed by the new local-planar kernel. The kernel has a separate committed synthetic fixture corpus at `tools/airspace-sim/fixtures/polygon_cases.json`; its Rust unit tests do not qualify geographic CRS transforms or formats. Implement each AIGEO case only with a selected geographic library/reference algorithm, exact source fixture data, and reviewed expected outcomes.
 
 | Case | Input / mutation | Expected result |
 |---|---|---|
@@ -108,7 +108,15 @@ These cases are a *future conformance backlog*, not yet executable tests in `too
 
 Acceptance requires a source fixture and SHA, independent expected result, an intentionally invalid/negative control, round-trip tests where conversion applies, and exact-head evidence. A test count alone is not qualification.
 
-## 8. Qualification sequence
+## 8. Current local-planar kernel boundary
+
+The separate Rust module `tools/airspace-sim/src/polygon.rs` implements a deliberately small first geometry kernel for synthetic local Cartesian coordinates in millimetres. It validates explicit ring closure, coordinate limits, degenerate/self-intersecting rings, hole containment/overlap, a 512-total-vertex cap, and a seven-day horizon. For straight constant-velocity centerlines it checks the simultaneous intersection of the polygon's closed spatial footprint, a closed vertical band, and the half-open flight/volume time interval. Rational segment-boundary parameters and rational interior witnesses are used rather than a temporal sampling grid.
+
+The corpus in `tools/airspace-sim/fixtures/polygon_cases.json` exercises impacts, clear misses, tangencies, holes, vertical and temporal boundaries, negative velocity, stationary paths, validity-window disjointness, coordinate/ring defects, source-frame/datum/time mismatches and unsupported uncertainty.
+
+**This is a bounded geometry research kernel, not a geographic engine.** Coordinates are not longitude/latitude and no CRS conversion, antimeridian normalization, ellipsoidal/geodesic edge, altitude transformation, statistical uncertainty, or physical aircraft reachability is implemented. The kernel refuses any nonzero horizontal/vertical uncertainty as `unresolved`; it cannot silently claim the zero-width centerline represents a trajectory tube. Its geometry tests do not establish safety or authorization.
+
+## 9. Qualification sequence
 
 1. **Schema review:** approve field definitions, units, source-authority mapping and versioning. Freeze synthetic fixture schemas separately from operational sources.
 2. **Adapter golden vectors:** parse and emit representative AIXM/Moving Features fixtures without dropping identifiers, temporal features, CRS/TRS, or unknown fields required for audit.
@@ -118,7 +126,7 @@ Acceptance requires a source fixture and SHA, independent expected result, an in
 6. **Jurisdiction and operations review:** establish which provider/source is authoritative and applicable, whether the source is current, required operating approvals, vertical limit interpretation, emergency policy and responsibility boundaries.
 7. **Only then** consider switching the conflict evaluator from synthetic local boxes to a new geometric adapter. Keep the old reference fixtures permanently as regression controls.
 
-## 9. References checked
+## 10. References checked
 
 1. EUROCONTROL/AIXM, [AIXM 5.1.1 specification](https://aixm.aero/page/aixm-511-specification): UML data model, XML Schema and temporality concept.
 2. OGC, [Moving Features Encoding Extension — JSON 1.0](https://docs.ogc.org/is/19-045r3/19-045r3.html): temporal geometry, spatial/temporal reference system members and interpolation concepts.
