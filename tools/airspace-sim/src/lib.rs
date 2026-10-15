@@ -18,6 +18,9 @@ const MAX_PAIR_SAMPLE_CHECKS: u128 = 5_000_000;
 const MAX_RESERVATION_CLAIMS: usize = 300;
 const MAX_RESERVATION_PAIR_CHECKS: usize = 50_000;
 const MAX_RESERVATION_EVENTS: usize = 1_000;
+const MAX_CONSTRAINT_UPDATES: usize = 1_000;
+const MAX_CONSTRAINT_FLIGHTS: usize = 300;
+const MAX_CONSTRAINT_SAMPLE_CHECKS: u128 = 5_000_000;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScenarioSet {
@@ -29,6 +32,8 @@ pub struct ScenarioSet {
     pub reservation_cases: Vec<ReservationCoordinationCase>,
     #[serde(default)]
     pub reservation_event_cases: Vec<ReservationEventCoordinationCase>,
+    #[serde(default)]
+    pub dynamic_constraint_cases: Vec<DynamicConstraintCase>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -218,6 +223,116 @@ pub struct ReservationEventCoordinationCase {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum ConstraintState {
+    Active,
+    Withdrawn,
+}
+
+/// One version of a synthetic, source-qualified 4D airspace constraint.
+/// Bounds are axis-aligned within the named local frame; time is half-open
+/// [valid_from_s, valid_until_s). Digest fields are opaque fixture labels only.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AirspaceConstraintUpdate {
+    pub constraint_id: String,
+    pub authority_id: String,
+    pub sequence: u64,
+    pub update_digest: String,
+    pub previous_update_digest: Option<String>,
+    pub issued_at_s: i64,
+    pub reference_frame: String,
+    pub vertical_datum: String,
+    pub time_basis: String,
+    pub valid_from_s: i64,
+    pub valid_until_s: i64,
+    pub min_position_mm: PositionMm,
+    pub max_position_mm: PositionMm,
+    pub horizontal_margin_mm: u64,
+    pub vertical_margin_mm: u64,
+    pub state: ConstraintState,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DynamicConstraintCase {
+    pub case_id: String,
+    pub now_s: i64,
+    pub snapshot_state: ProviderSnapshotState,
+    pub sample_step_s: i64,
+    pub flights: Vec<FlightIntent>,
+    pub updates: Vec<AirspaceConstraintUpdate>,
+    pub expected_outcome: DynamicConstraintOutcome,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DynamicConstraintOutcome {
+    NoImpactInProvidedSnapshot,
+    ReassessmentRequired,
+    Degraded,
+    Reject,
+    Unresolved,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DynamicConstraintError {
+    EmptyIdentity,
+    TooManyUpdates,
+    TooManyFlights,
+    InvalidSampleStep,
+    InvalidSequence,
+    FutureIssuedAt,
+    InvalidValidityInterval,
+    InvalidBounds,
+    InvalidMargin,
+    ConflictingUpdateDigest,
+    SequenceGap,
+    ForkedSequence,
+    PredecessorMismatch,
+    TimeReversal,
+    AuthorityChanged,
+    ReferenceFrameChanged,
+    VerticalDatumChanged,
+    TimeBasisChanged,
+    IllegalStateTransition,
+    EmptyFlightIdentity,
+    InvalidFlightWindow,
+    InvalidFlightGeometry,
+    UnqualifiedFlightTime,
+    UnqualifiedFrame,
+    IncompatibleReferenceFrame,
+    IncompatibleVerticalDatum,
+    IncompatibleTimeBasis,
+    WorkBudgetExceeded,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DynamicConstraintImpact {
+    pub flight_id: String,
+    pub constraint_id: String,
+    pub constraint_sequence: u64,
+    pub first_conservative_sample_time_s: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DynamicConstraintReport {
+    pub case_id: String,
+    pub actual_outcome: DynamicConstraintOutcome,
+    pub expected_outcome: DynamicConstraintOutcome,
+    pub expectation_matches: bool,
+    pub received_update_count: usize,
+    pub unique_update_count: usize,
+    pub replayed_delivery_count: usize,
+    pub active_constraint_count: usize,
+    pub flights_considered: usize,
+    pub sample_checks: u64,
+    pub impacts: Vec<DynamicConstraintImpact>,
+    pub errors: Vec<DynamicConstraintError>,
+    pub reasons: Vec<String>,
+    pub authority_ceiling: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ReservationOutcome {
     NoConflictInProvidedSnapshot,
     Conflict,
@@ -344,11 +459,13 @@ pub struct ReplayOutput {
     pub input_lifecycle_transition_case_count: usize,
     pub input_reservation_case_count: usize,
     pub input_reservation_event_case_count: usize,
+    pub input_dynamic_constraint_case_count: usize,
     pub all_expectations_match: bool,
     pub reports: Vec<SimulationReport>,
     pub lifecycle_transition_reports: Vec<LifecycleTransitionReport>,
     pub reservation_reports: Vec<ReservationCoordinationReport>,
     pub reservation_event_reports: Vec<ReservationEventCoordinationReport>,
+    pub dynamic_constraint_reports: Vec<DynamicConstraintReport>,
 }
 
 const AUTHORITY_CEILING: &str =
@@ -1005,6 +1122,434 @@ fn reservation_event_report(
 }
 
 /// Evaluate a complete versioned fixture and preserve expected classifications.
+const DYNAMIC_CONSTRAINT_AUTHORITY_CEILING: &str =
+    "synthetic dynamic-constraint impact screening only; does not update/withdraw authorizations or authorize flight";
+
+/// Reconcile constraint-update streams, then conservatively screen current flight
+/// intent against active 4D exclusion volumes. Known impacts win over snapshot
+/// freshness: an observed overlap always asks for reassessment. A missing or stale
+/// view can never establish absence of impact.
+pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> DynamicConstraintReport {
+    let mut errors = Vec::new();
+    let mut reasons = Vec::new();
+    let received_count = case.updates.len();
+
+    if case.case_id.trim().is_empty() {
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Reject, 0, 0, 0, 0, 0,
+            Vec::new(), vec![DynamicConstraintError::EmptyIdentity],
+            vec!["case_id must not be empty".to_owned()],
+        );
+    }
+    if case.sample_step_s <= 0 || case.sample_step_s > MAX_SAMPLE_STEP_S {
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Reject, 0, 0, 0, 0, 0,
+            Vec::new(), vec![DynamicConstraintError::InvalidSampleStep],
+            vec!["sample step must be positive and within the synthetic work bound".to_owned()],
+        );
+    }
+    if received_count > MAX_CONSTRAINT_UPDATES {
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Reject, 0, 0, 0, 0, 0,
+            Vec::new(), vec![DynamicConstraintError::TooManyUpdates],
+            vec![format!("received update count {received_count} exceeds the replay bound {MAX_CONSTRAINT_UPDATES}")],
+        );
+    }
+    if case.flights.len() > MAX_CONSTRAINT_FLIGHTS {
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Reject, 0, 0, 0, 0, 0,
+            Vec::new(), vec![DynamicConstraintError::TooManyFlights],
+            vec![format!("flight count {} exceeds the replay bound {MAX_CONSTRAINT_FLIGHTS}", case.flights.len())],
+        );
+    }
+
+    for update in &case.updates {
+        if update.constraint_id.trim().is_empty()
+            || update.authority_id.trim().is_empty()
+            || update.update_digest.trim().is_empty()
+            || update.reference_frame.trim().is_empty()
+            || update.vertical_datum.trim().is_empty()
+            || update.time_basis.trim().is_empty()
+        {
+            errors.push(DynamicConstraintError::EmptyIdentity);
+        }
+        if update.sequence == 0 {
+            errors.push(DynamicConstraintError::InvalidSequence);
+        }
+        if update.issued_at_s > case.now_s {
+            errors.push(DynamicConstraintError::FutureIssuedAt);
+        }
+        let duration = update.valid_until_s.checked_sub(update.valid_from_s);
+        if duration.is_none()
+            || duration.unwrap_or(0) <= 0
+            || duration.unwrap_or(i64::MAX) > MAX_HORIZON_S
+        {
+            errors.push(DynamicConstraintError::InvalidValidityInterval);
+        }
+        if !position_in_bounds(update.min_position_mm)
+            || !position_in_bounds(update.max_position_mm)
+            || update.min_position_mm.x > update.max_position_mm.x
+            || update.min_position_mm.y > update.max_position_mm.y
+            || update.min_position_mm.z > update.max_position_mm.z
+        {
+            errors.push(DynamicConstraintError::InvalidBounds);
+        }
+        if update.horizontal_margin_mm > MAX_THRESHOLD_MM
+            || update.vertical_margin_mm > MAX_THRESHOLD_MM
+        {
+            errors.push(DynamicConstraintError::InvalidMargin);
+        }
+    }
+    if !errors.is_empty() {
+        reasons.push("a constraint update failed source identity, version, time, volume, or uncertainty qualification".to_owned());
+        let outcome = dynamic_constraint_error_outcome(&errors);
+        return dynamic_constraint_report(case, outcome, 0, 0, 0, 0, 0, Vec::new(), errors, reasons);
+    }
+
+    // An update identifier may denote only one complete, typed payload.
+    // Exact retransmissions are idempotent and counted; conflicting reuse is unresolved.
+    let mut unique_updates: BTreeMap<String, AirspaceConstraintUpdate> = BTreeMap::new();
+    let mut replayed_delivery_count = 0_usize;
+    for update in &case.updates {
+        if let Some(existing) = unique_updates.get(&update.update_digest) {
+            if existing == update {
+                replayed_delivery_count = replayed_delivery_count.saturating_add(1);
+            } else {
+                errors.push(DynamicConstraintError::ConflictingUpdateDigest);
+            }
+        } else {
+            unique_updates.insert(update.update_digest.clone(), update.clone());
+        }
+    }
+    if !errors.is_empty() {
+        reasons.push("one update digest identifies different payloads; constraint history cannot be reconciled".to_owned());
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Unresolved, 0, unique_updates.len(),
+            replayed_delivery_count, 0, 0, Vec::new(), errors, reasons,
+        );
+    }
+
+    let unique_update_count = unique_updates.len();
+    let mut streams: BTreeMap<String, Vec<AirspaceConstraintUpdate>> = BTreeMap::new();
+    for update in unique_updates.values() {
+        streams.entry(update.constraint_id.clone()).or_default().push(update.clone());
+    }
+
+    for updates in streams.values_mut() {
+        updates.sort_by_key(|update| update.sequence);
+        let Some(first) = updates.first() else {
+            continue;
+        };
+        if first.sequence != 1 {
+            errors.push(DynamicConstraintError::SequenceGap);
+        }
+        if first.previous_update_digest.is_some() {
+            errors.push(DynamicConstraintError::PredecessorMismatch);
+        }
+        if first.state != ConstraintState::Active {
+            errors.push(DynamicConstraintError::IllegalStateTransition);
+        }
+        for pair in updates.windows(2) {
+            let previous = &pair[0];
+            let next = &pair[1];
+            if previous.sequence == next.sequence {
+                errors.push(DynamicConstraintError::ForkedSequence);
+                continue;
+            }
+            if previous.sequence.checked_add(1) != Some(next.sequence) {
+                errors.push(DynamicConstraintError::SequenceGap);
+            }
+            if next.previous_update_digest.as_deref() != Some(previous.update_digest.as_str()) {
+                errors.push(DynamicConstraintError::PredecessorMismatch);
+            }
+            if next.issued_at_s < previous.issued_at_s {
+                errors.push(DynamicConstraintError::TimeReversal);
+            }
+            if previous.authority_id != next.authority_id {
+                errors.push(DynamicConstraintError::AuthorityChanged);
+            }
+            if previous.reference_frame != next.reference_frame {
+                errors.push(DynamicConstraintError::ReferenceFrameChanged);
+            }
+            if previous.vertical_datum != next.vertical_datum {
+                errors.push(DynamicConstraintError::VerticalDatumChanged);
+            }
+            if previous.time_basis != next.time_basis {
+                errors.push(DynamicConstraintError::TimeBasisChanged);
+            }
+            if !constraint_state_transition_allowed(previous.state, next.state) {
+                errors.push(DynamicConstraintError::IllegalStateTransition);
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        reasons.push("one or more constraint histories contain a sequence gap/fork, broken predecessor, source/time qualification change, or illegal transition".to_owned());
+        let outcome = dynamic_constraint_error_outcome(&errors);
+        return dynamic_constraint_report(
+            case, outcome, streams.len(), unique_update_count, replayed_delivery_count,
+            0, 0, Vec::new(), errors, reasons,
+        );
+    }
+
+    let active_constraints: Vec<&AirspaceConstraintUpdate> = streams.values()
+        .filter_map(|updates| updates.last())
+        .filter(|update| update.state == ConstraintState::Active && update.valid_until_s > case.now_s)
+        .collect();
+
+    let mut current_flights: Vec<&FlightIntent> = Vec::new();
+    for flight in &case.flights {
+        if flight.flight_id.trim().is_empty() {
+            errors.push(DynamicConstraintError::EmptyFlightIdentity);
+        }
+        if flight.valid_until_s <= flight.valid_from_s
+            || flight.valid_until_s.checked_sub(flight.valid_from_s)
+                .map(|duration| duration > MAX_HORIZON_S)
+                .unwrap_or(true)
+        {
+            errors.push(DynamicConstraintError::InvalidFlightWindow);
+        }
+        if flight.horizontal_uncertainty_mm > MAX_THRESHOLD_MM
+            || flight.vertical_uncertainty_mm > MAX_THRESHOLD_MM
+            || !position_in_bounds(flight.position_at_valid_from_mm)
+            || !velocity_in_bounds(flight.velocity_mm_s)
+            || position_at(flight, flight.valid_from_s).is_none()
+            || flight.valid_until_s.checked_sub(1)
+                .and_then(|last| position_at(flight, last))
+                .is_none()
+        {
+            errors.push(DynamicConstraintError::InvalidFlightGeometry);
+        }
+        if !flight.time_qualified {
+            errors.push(DynamicConstraintError::UnqualifiedFlightTime);
+        }
+        if flight.reference_frame.trim().is_empty()
+            || flight.vertical_datum.trim().is_empty()
+            || flight.time_basis.trim().is_empty()
+        {
+            errors.push(DynamicConstraintError::UnqualifiedFrame);
+        }
+        if !matches!(flight.state, IntentState::Withdrawn | IntentState::Ended)
+            && case.now_s < flight.valid_until_s
+        {
+            current_flights.push(flight);
+        }
+    }
+    if !errors.is_empty() {
+        reasons.push("one or more flight intents are malformed or lack qualified space-time inputs".to_owned());
+        let outcome = dynamic_constraint_error_outcome(&errors);
+        return dynamic_constraint_report(
+            case, outcome, streams.len(), unique_update_count, replayed_delivery_count,
+            active_constraints.len(), current_flights.len(), Vec::new(), errors, reasons,
+        );
+    }
+
+    let mut estimated_checks = 0_u128;
+    for constraint in &active_constraints {
+        for flight in &current_flights {
+            let start_s = case.now_s.max(flight.valid_from_s).max(constraint.valid_from_s);
+            let end_s = flight.valid_until_s.min(constraint.valid_until_s);
+            if start_s >= end_s {
+                continue;
+            }
+            let last_s = end_s - 1;
+            let duration = u128::try_from(last_s - start_s).unwrap_or(0);
+            let step = u128::try_from(case.sample_step_s).unwrap_or(1);
+            estimated_checks = estimated_checks.saturating_add(duration.div_ceil(step) + 1);
+        }
+    }
+    if estimated_checks > MAX_CONSTRAINT_SAMPLE_CHECKS {
+        reasons.push(format!(
+            "estimated constraint/trajectory sample work ({estimated_checks}) exceeds the bound {MAX_CONSTRAINT_SAMPLE_CHECKS}"
+        ));
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Reject, streams.len(), unique_update_count,
+            replayed_delivery_count, active_constraints.len(), current_flights.len(),
+            Vec::new(), vec![DynamicConstraintError::WorkBudgetExceeded], reasons,
+        );
+    }
+
+    let mut impacts = Vec::new();
+    let mut sample_checks = 0_u64;
+    for constraint in &active_constraints {
+        for flight in &current_flights {
+            let start_s = case.now_s.max(flight.valid_from_s).max(constraint.valid_from_s);
+            let end_s = flight.valid_until_s.min(constraint.valid_until_s);
+            if start_s >= end_s {
+                continue;
+            }
+            if flight.reference_frame != constraint.reference_frame {
+                errors.push(DynamicConstraintError::IncompatibleReferenceFrame);
+                continue;
+            }
+            if flight.vertical_datum != constraint.vertical_datum {
+                errors.push(DynamicConstraintError::IncompatibleVerticalDatum);
+                continue;
+            }
+            if flight.time_basis != constraint.time_basis {
+                errors.push(DynamicConstraintError::IncompatibleTimeBasis);
+                continue;
+            }
+
+            let last_s = end_s - 1;
+            let mut time_s = start_s;
+            let mut first_impact = None;
+            loop {
+                sample_checks = sample_checks.saturating_add(1);
+                let Some(position) = position_at(flight, time_s) else {
+                    errors.push(DynamicConstraintError::InvalidFlightGeometry);
+                    break;
+                };
+                if position_within_conservative_constraint(position, flight, constraint, case.sample_step_s) {
+                    first_impact = Some(time_s);
+                    break;
+                }
+                if time_s == last_s {
+                    break;
+                }
+                let next = time_s.saturating_add(case.sample_step_s);
+                time_s = if next >= last_s { last_s } else { next };
+            }
+            if let Some(first_time) = first_impact {
+                impacts.push(DynamicConstraintImpact {
+                    flight_id: flight.flight_id.clone(),
+                    constraint_id: constraint.constraint_id.clone(),
+                    constraint_sequence: constraint.sequence,
+                    first_conservative_sample_time_s: first_time,
+                });
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        reasons.push("space-time inputs could not be compared within a common qualified reference/time basis".to_owned());
+        return dynamic_constraint_report(
+            case, DynamicConstraintOutcome::Unresolved, streams.len(), unique_update_count,
+            replayed_delivery_count, active_constraints.len(), current_flights.len(),
+            impacts, errors, reasons,
+        );
+    }
+
+    let outcome = if !impacts.is_empty() {
+        reasons.push("one or more current flight-intent envelopes intersect an active dynamic constraint; the competent service must reassess and update or withdraw affected authorizations".to_owned());
+        DynamicConstraintOutcome::ReassessmentRequired
+    } else if case.snapshot_state != ProviderSnapshotState::CompleteFresh {
+        reasons.push("constraint view is stale, partitioned, or incomplete; absence of an impact cannot be established".to_owned());
+        DynamicConstraintOutcome::Degraded
+    } else {
+        reasons.push("no impact was found in this complete supplied snapshot under the bounded conservative model; this is not operational clearance".to_owned());
+        DynamicConstraintOutcome::NoImpactInProvidedSnapshot
+    };
+
+    if replayed_delivery_count > 0 {
+        reasons.push(format!("deduplicated {replayed_delivery_count} exact constraint-update retransmission(s)"));
+    }
+    reasons.push("constraint update identifiers and source labels are synthetic fixture data; no signature or authoritative source is verified".to_owned());
+    dynamic_constraint_report(
+        case, outcome, streams.len(), unique_update_count, replayed_delivery_count,
+        active_constraints.len(), current_flights.len(), impacts, Vec::new(), reasons,
+    )
+}
+
+fn constraint_state_transition_allowed(previous: ConstraintState, next: ConstraintState) -> bool {
+    matches!(
+        (previous, next),
+        (ConstraintState::Active, ConstraintState::Active | ConstraintState::Withdrawn)
+            | (ConstraintState::Withdrawn, ConstraintState::Active | ConstraintState::Withdrawn)
+    )
+}
+
+fn dynamic_constraint_error_outcome(errors: &[DynamicConstraintError]) -> DynamicConstraintOutcome {
+    if errors.iter().any(|error| matches!(
+        error,
+        DynamicConstraintError::EmptyIdentity
+            | DynamicConstraintError::TooManyUpdates
+            | DynamicConstraintError::TooManyFlights
+            | DynamicConstraintError::InvalidSampleStep
+            | DynamicConstraintError::InvalidSequence
+            | DynamicConstraintError::InvalidValidityInterval
+            | DynamicConstraintError::InvalidBounds
+            | DynamicConstraintError::InvalidMargin
+            | DynamicConstraintError::EmptyFlightIdentity
+            | DynamicConstraintError::InvalidFlightWindow
+            | DynamicConstraintError::InvalidFlightGeometry
+            | DynamicConstraintError::WorkBudgetExceeded
+    )) {
+        DynamicConstraintOutcome::Reject
+    } else {
+        DynamicConstraintOutcome::Unresolved
+    }
+}
+
+fn dynamic_constraint_report(
+    case: &DynamicConstraintCase,
+    actual_outcome: DynamicConstraintOutcome,
+    unique_update_count: usize,
+    received_unique_digest_count: usize,
+    replayed_delivery_count: usize,
+    active_constraint_count: usize,
+    flights_considered: usize,
+    impacts: Vec<DynamicConstraintImpact>,
+    errors: Vec<DynamicConstraintError>,
+    reasons: Vec<String>,
+) -> DynamicConstraintReport {
+    DynamicConstraintReport {
+        case_id: case.case_id.clone(),
+        actual_outcome,
+        expected_outcome: case.expected_outcome,
+        expectation_matches: actual_outcome == case.expected_outcome,
+        received_update_count: case.updates.len(),
+        unique_update_count: received_unique_digest_count,
+        replayed_delivery_count,
+        active_constraint_count,
+        flights_considered,
+        sample_checks: 0,
+        impacts,
+        errors,
+        reasons,
+        authority_ceiling: DYNAMIC_CONSTRAINT_AUTHORITY_CEILING,
+    }
+}
+
+/// Expand each axis-aligned volume by flight uncertainty, constraint margin,
+/// and one full sample-step of absolute motion. This deliberately conservative
+/// box avoids relying on point samples alone, but is not reachability analysis.
+fn position_within_conservative_constraint(
+    position: PositionMm,
+    flight: &FlightIntent,
+    constraint: &AirspaceConstraintUpdate,
+    sample_step_s: i64,
+) -> bool {
+    let step = i128::from(sample_step_s);
+    let horizontal_x_margin = i128::from(flight.horizontal_uncertainty_mm)
+        + i128::from(constraint.horizontal_margin_mm)
+        + i128::from(flight.velocity_mm_s.x.unsigned_abs()) * step;
+    let horizontal_y_margin = i128::from(flight.horizontal_uncertainty_mm)
+        + i128::from(constraint.horizontal_margin_mm)
+        + i128::from(flight.velocity_mm_s.y.unsigned_abs()) * step;
+    let vertical_margin = i128::from(flight.vertical_uncertainty_mm)
+        + i128::from(constraint.vertical_margin_mm)
+        + i128::from(flight.velocity_mm_s.z.unsigned_abs()) * step;
+
+    let x = i128::from(position.x);
+    let y = i128::from(position.y);
+    let z = i128::from(position.z);
+    x >= i128::from(constraint.min_position_mm.x) - horizontal_x_margin
+        && x <= i128::from(constraint.max_position_mm.x) + horizontal_x_margin
+        && y >= i128::from(constraint.min_position_mm.y) - horizontal_y_margin
+        && y <= i128::from(constraint.max_position_mm.y) + horizontal_y_margin
+        && z >= i128::from(constraint.min_position_mm.z) - vertical_margin
+        && z <= i128::from(constraint.max_position_mm.z) + vertical_margin
+}
+
+fn dynamic_constraint_report_with_checks(
+    mut report: DynamicConstraintReport,
+    sample_checks: u64,
+) -> DynamicConstraintReport {
+    report.sample_checks = sample_checks;
+    report
+}
+
 pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
     let reports: Vec<SimulationReport> = set.scenarios.iter().map(evaluate_scenario).collect();
     let lifecycle_transition_reports: Vec<LifecycleTransitionReport> = set
@@ -1022,10 +1567,16 @@ pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
         .iter()
         .map(evaluate_reservation_event_case)
         .collect();
+    let dynamic_constraint_reports: Vec<DynamicConstraintReport> = set
+        .dynamic_constraint_cases
+        .iter()
+        .map(evaluate_dynamic_constraint_case)
+        .collect();
     let all_expectations_match = reports.iter().all(|item| item.expectation_matches)
         && lifecycle_transition_reports.iter().all(|item| item.expectation_matches)
         && reservation_reports.iter().all(|item| item.expectation_matches)
-        && reservation_event_reports.iter().all(|item| item.expectation_matches);
+        && reservation_event_reports.iter().all(|item| item.expectation_matches)
+        && dynamic_constraint_reports.iter().all(|item| item.expectation_matches);
     ReplayOutput {
         schema: "airspace-replay-output-v1",
         status: "research_fixture_not_operational",
@@ -1033,11 +1584,13 @@ pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
         input_lifecycle_transition_case_count: lifecycle_transition_reports.len(),
         input_reservation_case_count: reservation_reports.len(),
         input_reservation_event_case_count: reservation_event_reports.len(),
+        input_dynamic_constraint_case_count: dynamic_constraint_reports.len(),
         all_expectations_match,
         reports,
         lifecycle_transition_reports,
         reservation_reports,
         reservation_event_reports,
+        dynamic_constraint_reports,
     }
 }
 
@@ -1225,9 +1778,10 @@ mod tests {
         assert_eq!(output.input_lifecycle_transition_case_count, set.lifecycle_transition_cases.len());
         assert_eq!(output.input_reservation_case_count, set.reservation_cases.len());
         assert_eq!(output.input_reservation_event_case_count, set.reservation_event_cases.len());
+        assert_eq!(output.input_dynamic_constraint_case_count, set.dynamic_constraint_cases.len());
         assert!(
             output.all_expectations_match,
-            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}; mismatched reservation reports: {:#?}; mismatched reservation-event reports: {:#?}",
+            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}; mismatched reservation reports: {:#?}; mismatched reservation-event reports: {:#?}; mismatched dynamic-constraint reports: {:#?}",
             output.reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>(),
             output.lifecycle_transition_reports
                 .iter()
@@ -1240,10 +1794,84 @@ mod tests {
             output.reservation_event_reports
                 .iter()
                 .filter(|report| !report.expectation_matches)
+                .collect::<Vec<_>>(),
+            output.dynamic_constraint_reports
+                .iter()
+                .filter(|report| !report.expectation_matches)
                 .collect::<Vec<_>>()
         );
     }
 
+
+
+    fn dynamic_constraint_fixture(case_id: &str) -> DynamicConstraintCase {
+        fixture_set()
+            .dynamic_constraint_cases
+            .into_iter()
+            .find(|case| case.case_id == case_id)
+            .expect("dynamic constraint case exists")
+    }
+
+    #[test]
+    fn dynamic_constraint_fixtures_match_expected_outcomes() {
+        let set = fixture_set();
+        let reports: Vec<_> = set.dynamic_constraint_cases
+            .iter()
+            .map(evaluate_dynamic_constraint_case)
+            .collect();
+        assert!(
+            reports.iter().all(|report| report.expectation_matches),
+            "mismatched dynamic-constraint reports: {:#?}",
+            reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn newly_published_restriction_requires_reassessment() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("new_restriction_intersects_accepted_intent"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
+        assert_eq!(report.impacts.len(), 1);
+        assert_eq!(report.impacts[0].first_conservative_sample_time_s, 5);
+        assert!(report.authority_ceiling.contains("does not update/withdraw authorizations"));
+    }
+
+    #[test]
+    fn withdrawal_removes_constraint_from_new_snapshot_but_does_not_grant_authority() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("withdrawn_constraint_no_longer_intersects"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::NoImpactInProvidedSnapshot);
+        assert!(report.impacts.is_empty());
+        assert!(report.authority_ceiling.contains("does not update/withdraw authorizations"));
+    }
+
+    #[test]
+    fn stale_view_cannot_hide_a_known_constraint_impact() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("stale_snapshot_known_impact_still_requires_reassessment"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
+        assert!(!report.impacts.is_empty());
+    }
+
+    #[test]
+    fn constraint_history_negative_controls_fail_closed() {
+        let cases = [
+            ("constraint_sequence_gap_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::SequenceGap),
+            ("constraint_fork_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::ForkedSequence),
+            ("malformed_constraint_bounds_rejected", DynamicConstraintOutcome::Reject, DynamicConstraintError::InvalidBounds),
+            ("constraint_frame_mismatch_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::IncompatibleReferenceFrame),
+            ("future_constraint_update_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::FutureIssuedAt),
+        ];
+        for (case_id, expected, error) in cases {
+            let report = evaluate_dynamic_constraint_case(&dynamic_constraint_fixture(case_id));
+            assert_eq!(report.actual_outcome, expected, "{case_id}: {report:#?}");
+            assert!(report.expectation_matches, "{case_id}: fixture expectation mismatch");
+            assert!(report.errors.contains(&error), "{case_id}: missing {error:?}");
+        }
+    }
 
     fn reservation_event_fixture(case_id: &str) -> ReservationEventCoordinationCase {
         fixture_set()
@@ -1311,6 +1939,76 @@ mod tests {
         assert_eq!(report.actual_outcome, ReservationOutcome::NoConflictInProvidedSnapshot);
         assert_eq!(report.replayed_delivery_count, 1);
         assert!(report.reasons.iter().any(|reason| reason.contains("deduplicated")));
+    }
+
+
+    fn dynamic_constraint_fixture(case_id: &str) -> DynamicConstraintCase {
+        fixture_set()
+            .dynamic_constraint_cases
+            .into_iter()
+            .find(|case| case.case_id == case_id)
+            .expect("dynamic constraint case exists")
+    }
+
+    #[test]
+    fn dynamic_constraint_fixtures_match_expected_outcomes() {
+        let set = fixture_set();
+        let reports: Vec<_> = set.dynamic_constraint_cases
+            .iter()
+            .map(evaluate_dynamic_constraint_case)
+            .collect();
+        assert!(
+            reports.iter().all(|report| report.expectation_matches),
+            "mismatched dynamic-constraint reports: {:#?}",
+            reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn newly_published_restriction_requires_reassessment() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("new_restriction_intersects_accepted_intent"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
+        assert_eq!(report.impacts.len(), 1);
+        assert_eq!(report.impacts[0].first_conservative_sample_time_s, 5);
+        assert!(report.authority_ceiling.contains("does not update/withdraw authorizations"));
+    }
+
+    #[test]
+    fn withdrawal_removes_constraint_from_new_snapshot_but_does_not_grant_authority() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("withdrawn_constraint_no_longer_intersects"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::NoImpactInProvidedSnapshot);
+        assert!(report.impacts.is_empty());
+        assert!(report.authority_ceiling.contains("does not update/withdraw authorizations"));
+    }
+
+    #[test]
+    fn stale_view_cannot_hide_a_known_constraint_impact() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("stale_snapshot_known_impact_still_requires_reassessment"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::ReassessmentRequired);
+        assert!(!report.impacts.is_empty());
+    }
+
+    #[test]
+    fn constraint_history_negative_controls_fail_closed() {
+        let cases = [
+            ("constraint_sequence_gap_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::SequenceGap),
+            ("constraint_fork_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::ForkedSequence),
+            ("malformed_constraint_bounds_rejected", DynamicConstraintOutcome::Reject, DynamicConstraintError::InvalidBounds),
+            ("constraint_frame_mismatch_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::IncompatibleReferenceFrame),
+            ("future_constraint_update_unresolved", DynamicConstraintOutcome::Unresolved, DynamicConstraintError::FutureIssuedAt),
+        ];
+        for (case_id, expected, error) in cases {
+            let report = evaluate_dynamic_constraint_case(&dynamic_constraint_fixture(case_id));
+            assert_eq!(report.actual_outcome, expected, "{case_id}: {report:#?}");
+            assert!(report.expectation_matches, "{case_id}: fixture expectation mismatch");
+            assert!(report.errors.contains(&error), "{case_id}: missing {error:?}");
+        }
     }
 
     fn reservation_fixture(case_id: &str) -> ReservationCoordinationCase {

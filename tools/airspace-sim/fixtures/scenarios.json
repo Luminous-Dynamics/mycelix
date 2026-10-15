@@ -2077,5 +2077,950 @@
       ],
       "expected_outcome": "reject"
     }
+  ],
+  "dynamic_constraint_cases": [
+    {
+      "case_id": "new_restriction_intersects_accepted_intent",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-NEW",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-NEW:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required"
+    },
+    {
+      "case_id": "no_intersection_in_complete_snapshot",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-AWAY",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-AWAY:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot"
+    },
+    {
+      "case_id": "constraint_update_changes_clear_plan_to_affected",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-REV",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-REV:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-REV",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-REV:update:2:active",
+          "previous_update_digest": "TFR-REV:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required"
+    },
+    {
+      "case_id": "withdrawn_constraint_no_longer_intersects",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-WITHDRAW",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-WITHDRAW:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-WITHDRAW",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-WITHDRAW:update:2:withdrawn",
+          "previous_update_digest": "TFR-WITHDRAW:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "withdrawn"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot"
+    },
+    {
+      "case_id": "partitioned_snapshot_without_updates_degraded",
+      "now_s": 5,
+      "snapshot_state": "partitioned",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [],
+      "expected_outcome": "degraded"
+    },
+    {
+      "case_id": "stale_snapshot_known_impact_still_requires_reassessment",
+      "now_s": 5,
+      "snapshot_state": "stale_or_incomplete",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-STALE-KNOWN",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-STALE-KNOWN:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required"
+    },
+    {
+      "case_id": "constraint_sequence_gap_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-GAP",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-GAP:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-GAP",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 3,
+          "update_digest": "TFR-GAP:update:3:active",
+          "previous_update_digest": "TFR-GAP:update:2:active",
+          "issued_at_s": 3,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "constraint_fork_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-FORK",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-FORK:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-FORK",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-FORK:update:2:active",
+          "previous_update_digest": "TFR-FORK:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-FORK",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-FORK:update:2:withdrawn",
+          "previous_update_digest": "TFR-FORK:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "withdrawn"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "malformed_constraint_bounds_rejected",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-BAD-BOX",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-BAD-BOX:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "min_position_mm": {
+            "x": 5,
+            "y": 5,
+            "z": 5
+          },
+          "max_position_mm": {
+            "x": 4,
+            "y": 6,
+            "z": 6
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reject"
+    },
+    {
+      "case_id": "constraint_frame_mismatch_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-FRAME",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-FRAME:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "unrelated-frame",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "future_constraint_update_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-FUTURE",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-FUTURE:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 6,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "expired_constraint_does_not_intersect",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-EXPIRED",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-EXPIRED:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 0,
+          "valid_until_s": 5,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot"
+    },
+    {
+      "case_id": "conservative_margin_catches_between_sample_pass",
+      "now_s": 4,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 2,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-BETWEEN",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-BETWEEN:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 4,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 44000,
+            "y": -100,
+            "z": 99900
+          },
+          "max_position_mm": {
+            "x": 46000,
+            "y": 100,
+            "z": 100100
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required"
+    },
+    {
+      "case_id": "unqualified_flight_time_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "sample_step_s": 1,
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": false,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-TIME",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-TIME:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    }
   ]
 }

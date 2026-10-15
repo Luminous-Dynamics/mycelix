@@ -4,7 +4,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 
 ## What it does
 
-- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, and 16 reservation-event-stream fixtures.
+- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, 16 reservation-event-stream fixtures, and 14 dynamic airspace-constraint fixtures.
 - Uses explicit millimetre / millimetre-per-second integer units and a fixed simulation window.
 - Refuses to compare coordinates across unqualified clocks, incompatible reference frames, or vertical datums.
 - Rejects expired, withdrawn, ended, malformed, out-of-bounds, or over-budget flight-intent fixtures.
@@ -17,6 +17,10 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Never reports a no-conflict result from a partitioned or stale/incomplete provider snapshot.
 - Keeps emergency claims from automatically preempting conflicting claims; emergency cases require the competent operational process.
 - Replays provider-local reservation updates by explicit sequence, detecting gaps, forks, broken predecessor links, time reversal, changed reservation semantics, and illegal state transitions.
+- Reconciles versioned airspace-constraint updates, including activation, changed volumes, withdrawal, and stale/partitioned source views.
+- Screens current flight-intent envelopes against active 4D axis-aligned restriction volumes with explicit coordinate frame, vertical datum, time basis and validity.
+- Expands each volume by declared uncertainty and one full sample-step of trajectory motion to conservatively reduce missed between-sample intersections; this is still not formal reachability analysis.
+- Reports known impacts as `reassessment_required` even when the input view is stale, and uses `degraded` rather than no-impact when no hit is observed in an incomplete view.
 - Treats input arrival order as non-semantic when a complete sequence chain is available; idempotently deduplicates only exact full-event retransmissions and counts them in the report.
 - Projects only accepted/activated, unexpired reservation streams into the conflict screen; proposals are not accepted slots.
 - Rejects snapshots above the bounded claim/pairwise-work budget and received event histories above 1,000 records.
@@ -51,7 +55,7 @@ The snapshot evaluator accepts one asserted snapshot. The separate event evaluat
 
 ## Important limitations
 
-This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model provider-network replication, signatures/identity authentication, cross-provider causal ordering or partition merge, reservation supersession, capacity greater than one, real scheduling/fairness, turn/climb performance, acceleration, wind, terrain, weather, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
+This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model provider-network replication, signatures/identity authentication, cross-provider causal ordering or partition merge, reservation supersession, three-dimensional polygon/polyhedron geometry, time-varying wind/weather, terrain, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
 
 The trajectories are straight and constant-velocity. The conservative margin is based on relative velocity and the maximum sampling interval; it is useful for testing the contract but is not a formally validated reachability analysis. The coordinate frame and separation thresholds are synthetic fixture values. They are not official separation minima and must never be reused for live operations.
 
