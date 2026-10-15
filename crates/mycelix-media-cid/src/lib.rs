@@ -88,7 +88,7 @@ pub fn parse_media_cid(value: &str) -> Result<Cid, CidAdmissionError> {
     }
 
     if cid.hash().code() != MULTIHASH_SHA2_256
-        || cid.hash().size() != SHA2_256_DIGEST_BYTES
+        || usize::from(cid.hash().size()) != SHA2_256_DIGEST_BYTES
     {
         return Err(CidAdmissionError::UnsupportedMultihash);
     }
@@ -116,13 +116,13 @@ mod tests {
         assert_eq!(v0.version(), Version::V0);
         assert_eq!(v0.codec(), CODEC_DAG_PB);
         assert_eq!(v0.hash().code(), MULTIHASH_SHA2_256);
-        assert_eq!(v0.hash().size(), SHA2_256_DIGEST_BYTES);
+        assert_eq!(usize::from(v0.hash().size()), SHA2_256_DIGEST_BYTES);
 
         let v1 = parse_media_cid(CID_V1_DAG_PB).unwrap();
         assert_eq!(v1.version(), Version::V1);
         assert_eq!(v1.codec(), CODEC_DAG_PB);
         assert_eq!(v1.hash().code(), MULTIHASH_SHA2_256);
-        assert_eq!(v1.hash().size(), SHA2_256_DIGEST_BYTES);
+        assert_eq!(usize::from(v1.hash().size()), SHA2_256_DIGEST_BYTES);
     }
 
     #[test]
