@@ -320,6 +320,17 @@ def semantic_errors(review, concepts, evidence_ids):
         if len({f["unit"] for f in flows}) != 1 or flows[0]["unit"] != item["unit"]:
             errors.append(f"{item['interaction_id']}: scenario-flow and reported interaction units do not match")
             continue
+        if item["outcome_metric"] == "edible_food_delivered":
+            food_comparability = {
+                (flow.get("beneficiary_scope_ref"), flow.get("delivery_period_ref"), flow.get("delivery_basis"))
+                for flow in flows
+            }
+            if len(food_comparability) != 1 or any(None in fields for fields in food_comparability):
+                errors.append(
+                    f"{item['interaction_id']}: edible-food counterfactuals require matching beneficiary scope, "
+                    "delivery period, and delivered-edible-portion basis"
+                )
+                continue
         delta = (exact_fraction(flows[3]["value"]) - exact_fraction(flows[1]["value"])
                  - exact_fraction(flows[2]["value"]) + exact_fraction(flows[0]["value"]))
         if abs(delta - exact_fraction(item["reported_interaction_delta"])) > exact_fraction(item["tolerance"]):
@@ -643,6 +654,9 @@ def main():
             "life_cycle_stage": "operational",
             "evidence_refs": [],
             "rationale": "Synthetic edible food delivered solely for scenario-contract tests.",
+            "beneficiary_scope_ref": "corridor-beneficiary-cohort",
+            "delivery_period_ref": "synthetic-corridor-year",
+            "delivery_basis": "edible_portion_received_by_beneficiary",
             "uncertainty": {
                 "lower_bound": value - 5,
                 "upper_bound": value + 5,
@@ -673,7 +687,21 @@ def main():
         fail("mutation: edible food delivered with an energy unit was accepted")
     print("PASS mutation: edible food delivery requires a mass unit")
 
-    print("PASS: 34 urban-metabolism/synergy controls (28 mutation/parser rejection controls and six positive controls); no composite symtropy score or automatic authorization.")
+    missing_food_scope = copy.deepcopy(food_delivery_case)
+    missing_food_flow = next(f for f in missing_food_scope["scenarios"][0]["flow_records"] if f["metric_id"] == "edible_food_delivered")
+    missing_food_flow.pop("beneficiary_scope_ref")
+    if not schema_errors(validator, missing_food_scope):
+        fail("mutation: edible food delivery without a beneficiary scope was accepted")
+    print("PASS mutation: edible food delivery must name a beneficiary scope")
+
+    mismatched_food_period = copy.deepcopy(food_delivery_case)
+    mismatched_food_flow = next(f for f in mismatched_food_period["scenarios"][1]["flow_records"] if f["metric_id"] == "edible_food_delivered")
+    mismatched_food_flow["delivery_period_ref"] = "synthetic-different-period"
+    if not any("require matching beneficiary scope, delivery period" in e for e in semantic_errors(mismatched_food_period, concepts, evidence_ids)):
+        fail("mutation: food-delivery interaction across incomparable periods was accepted")
+    print("PASS mutation: food-delivery interaction rejects mismatched beneficiary/period/basis")
+
+    print("PASS: 36 urban-metabolism/synergy controls (30 mutation/parser rejection controls and six positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
