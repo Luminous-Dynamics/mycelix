@@ -240,19 +240,16 @@ impl CapacityBook {
             unit: unit.to_owned(),
             window_id: window_id.to_owned(),
         };
-        if self
-            .slots
-            .insert(
-                key,
-                CapacitySlot {
-                    total,
-                    reserved: 0,
-                },
-            )
-            .is_some()
-        {
+        if self.slots.contains_key(&key) {
             return Err(ContractError::DuplicateCapacity);
         }
+        self.slots.insert(
+            key,
+            CapacitySlot {
+                total,
+                reserved: 0,
+            },
+        );
         Ok(())
     }
 
@@ -649,20 +646,17 @@ impl Ledger {
             return Err(ContractError::InvalidRequest);
         }
         let key = AccountKey::new(account_id, instrument_id, atomic_unit);
-        if self
-            .accounts
-            .insert(
-                key,
-                LedgerAccount {
-                    balance: opening_balance,
-                    min_balance,
-                    max_balance,
-                },
-            )
-            .is_some()
-        {
+        if self.accounts.contains_key(&key) {
             return Err(ContractError::DuplicateAccount);
         }
+        self.accounts.insert(
+            key,
+            LedgerAccount {
+                balance: opening_balance,
+                min_balance,
+                max_balance,
+            },
+        );
         Ok(())
     }
 
@@ -970,12 +964,16 @@ mod tests {
 
     #[test]
     fn obligation_must_bind_the_authorizing_policy() {
-        let (mut contract, _) = committed_contract("tx-policy", 1);
-        assert_eq!(contract.lifecycle(), Lifecycle::Committed);
+        let mut contract = authorized_contract("tx-policy", 1);
+        let mut book = CapacityBook::default();
+        book.declare_capacity("repair-hours", "hour", "week-42", 1)
+            .unwrap();
+        contract.reserve(&mut book, 2).unwrap();
+
         assert_eq!(
             contract.commit(
                 ObligationTerms {
-                    id: "second-obligation".to_owned(),
+                    id: "obligation-policy".to_owned(),
                     debtor_id: "household-a".to_owned(),
                     creditor_id: "repair-coop".to_owned(),
                     debit_account: "household-wallet".to_owned(),
@@ -987,10 +985,11 @@ mod tests {
                     policy_digest: "different-policy".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
                 },
-                4,
+                3,
             ),
-            Err(ContractError::InvalidTransition)
+            Err(ContractError::InvalidObligation)
         );
+        assert_eq!(contract.lifecycle(), Lifecycle::Reserved);
     }
 
     #[test]
@@ -1149,6 +1148,39 @@ mod tests {
         assert_eq!(
             ledger.balance("coop-wallet", "other:instrument", ATOMIC_UNIT),
             Some(0)
+        );
+    }
+
+    #[test]
+    fn duplicate_capacity_declaration_does_not_reset_existing_reservations() {
+        let mut book = CapacityBook::default();
+        book.declare_capacity("repair-hours", "hour", "week-42", 2)
+            .unwrap();
+        let mut contract = authorized_contract("tx-capacity-preserve", 1);
+        contract.reserve(&mut book, 2).unwrap();
+
+        assert_eq!(
+            book.declare_capacity("repair-hours", "hour", "week-42", 50),
+            Err(ContractError::DuplicateCapacity)
+        );
+        assert_eq!(book.remaining("repair-hours", "hour", "week-42"), Some(1));
+        assert!(book.reservation("tx-capacity-preserve").is_some());
+    }
+
+    #[test]
+    fn duplicate_account_declaration_does_not_overwrite_existing_balance() {
+        let mut ledger = Ledger::default();
+        ledger
+            .register_account("account-a", INSTRUMENT, ATOMIC_UNIT, 10, 0, 20)
+            .unwrap();
+
+        assert_eq!(
+            ledger.register_account("account-a", INSTRUMENT, ATOMIC_UNIT, 0, 0, 0),
+            Err(ContractError::DuplicateAccount)
+        );
+        assert_eq!(
+            ledger.balance("account-a", INSTRUMENT, ATOMIC_UNIT),
+            Some(10)
         );
     }
 
