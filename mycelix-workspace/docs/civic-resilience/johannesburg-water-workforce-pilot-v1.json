@@ -655,8 +655,19 @@
       "issuer": "Pikitup Johannesburg SOC Limited",
       "source_url": "https://pikitup.co.za/rfq/",
       "source_kind": "OfficialIssuerProcurementListing",
-      "checked_on": "2026-10-14",
-      "observation_status": "OfficialIssuerListingObserved",
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialIssuerPageAndLinkedPdfObserved;LifecycleGroupingAmbiguous",
+      "issuer_page_recheck": {
+        "checked_on": "2026-10-15",
+        "visible_current_rfqs_block_contains_this_tender": false,
+        "same_page_lists_tender_elsewhere": true,
+        "same_page_link_id": 57,
+        "official_pdf_opened": true,
+        "official_pdf_pages_1_and_2_visually_reviewed": true,
+        "pikitup_specific_addendum_row_observed_in_page_text": false,
+        "addenda_search_ceiling": "The inspected RFQ index contains addenda entries for other bid numbers but no PIK016-specific addendum row was observed. This page-text observation does not prove that no later addendum exists on the issuer notice board or another source.",
+        "lifecycle_conclusion": "NotQualified;DoNotPromoteToTenderOpenVerified"
+      },
       "listing_entry": {
         "tender_reference": "PIK 016/2026-2027",
         "title": "Appointment of a contractor with a CIDB grading of 1GB or higher to do general repairs at Robinson Deep Landfill Site",
@@ -680,7 +691,7 @@
       "issuer": "Pikitup Johannesburg SOC Limited",
       "source_url": "https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf",
       "source_kind": "OfficialBidInvitationDocument",
-      "checked_on": "2026-10-14",
+      "checked_on": "2026-10-15",
       "publication_date": "NotObserved",
       "tender_reference": "PIK 016/2026-27",
       "title": "Appointment of a contractor with a CIDB grading of 1GB or higher to do general repairs at Robinson Deep Landfill Site",
@@ -704,8 +715,8 @@
         "Only bids officially published on the Pikitup website or notice board are considered",
         "Bidders are warned against bribery and promises of preferential treatment"
       ],
-      "pdf_extraction_status": "TextLayerObserved;ScreenshotAttemptsTimedOut",
-      "open_status_assessment": "Specific issuer invitation observed with a published future deadline at check date; do not promote to TenderOpenVerified until timezone semantics, most recent addenda/corrigenda and live status are rechecked.",
+      "pdf_extraction_status": "OfficialPdfTextObserved;Pages1And2VisuallyReviewedOn2026-10-15",
+      "open_status_assessment": "Official linked invitation rechecked on 2026-10-15 and printed pages 1-2 visually reviewed: closing deadline is published as 19 October 2026 at 11:00, but timezone is not specified. The issuer page does not include this reference in its visible Current RFQs block although the link appears elsewhere on the same page; current lifecycle and complete addenda status remain unqualified. Do not promote to TenderOpenVerified.",
       "role_funding_or_mycelix_eligibility_confirmed": false,
       "allowed_use": "A time-bounded procurement evidence test and potential lead for a suitably qualified construction contractor; revalidate before any reliance.",
       "prohibited_inference": [

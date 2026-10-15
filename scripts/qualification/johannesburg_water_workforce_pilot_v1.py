@@ -417,9 +417,20 @@ def validate() -> None:
     if lead.get("role_funding_confirmed") is not False or lead.get("mycelix_or_cooperative_eligibility_assessed") is not False or lead.get("award_or_signed_contract_observed") is not False:
         fail("procurement discovery lead must not imply award, employer, or funded role")
     rfq = source_by_id["PIKITUP-RFQ-INDEX-1"]
-    if rfq.get("checked_on") != "2026-10-14" or rfq.get("listing_entry", {}).get("tender_reference") != "PIK 016/2026-2027":
+    if rfq.get("checked_on") != "2026-10-15" or rfq.get("listing_entry", {}).get("tender_reference") != "PIK 016/2026-2027":
         fail("issuer-hosted RFQ index source/date/reference drift")
+    issuer_recheck = rfq.get("issuer_page_recheck", {})
+    if issuer_recheck.get("checked_on") != "2026-10-15" or issuer_recheck.get("visible_current_rfqs_block_contains_this_tender") is not False or issuer_recheck.get("same_page_lists_tender_elsewhere") is not True:
+        fail("conflicting Pikitup RFQ index placement must remain lifecycle-unqualified")
+    if issuer_recheck.get("pikitup_specific_addendum_row_observed_in_page_text") is not False or "does not prove that no later addendum exists" not in issuer_recheck.get("addenda_search_ceiling", ""):
+        fail("absence of an observed PIK016 addendum row must not be treated as exhaustive proof")
+    if issuer_recheck.get("official_pdf_opened") is not True or issuer_recheck.get("official_pdf_pages_1_and_2_visually_reviewed") is not True or issuer_recheck.get("lifecycle_conclusion") != "NotQualified;DoNotPromoteToTenderOpenVerified":
+        fail("official tender recheck must record visual review and block unsupported open-status promotion")
     tender_doc = source_by_id["PIKITUP-PIK016-DOC-1"]
+    if tender_doc.get("checked_on") != "2026-10-15" or tender_doc.get("pdf_extraction_status") != "OfficialPdfTextObserved;Pages1And2VisuallyReviewedOn2026-10-15":
+        fail("official tender PDF review evidence/date drift")
+    if "visible Current RFQs block" not in tender_doc.get("open_status_assessment", "") or "Do not promote to TenderOpenVerified" not in tender_doc.get("open_status_assessment", ""):
+        fail("current-index grouping conflict must block open-status promotion")
     if tender_doc.get("minimum_cidb_grading") != "1GB" or tender_doc.get("closing_timezone") != "NotSpecifiedInSource" or tender_doc.get("role_funding_or_mycelix_eligibility_confirmed") is not False:
         fail("tender document eligibility/timezone authority limits drift")
     if not {"Bid/RFQ documents are issued free of charge", "No payment is required for Central Supplier Database registration", "Bidders are warned against bribery and promises of preferential treatment"}.issubset(set(tender_doc.get("anti_fraud_instructions_observed", []))):
