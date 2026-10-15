@@ -3396,8 +3396,8 @@
             "y": 0,
             "z": 0
           },
-          "horizontal_uncertainty_mm": 1000,
-          "vertical_uncertainty_mm": 1000,
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
           "priority": "routine",
           "state": "accepted",
           "time_basis": "fixture-tai-epoch-v1"
@@ -3456,8 +3456,8 @@
             "y": 0,
             "z": 0
           },
-          "horizontal_uncertainty_mm": 1000,
-          "vertical_uncertainty_mm": 1000,
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
           "priority": "routine",
           "state": "accepted",
           "time_basis": "fixture-tai-epoch-v1"
