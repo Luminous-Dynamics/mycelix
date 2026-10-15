@@ -59,16 +59,17 @@ jobs:
       - name: Assert resolved reference-test dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
-      # Keep this gate scoped to the conformance library. The historical
-      # D6S integration target names no longer exist; the dedicated pinned
-      # Python verifiers below exercise CANON-1 and CANON-2 independently.
-      - name: Compile and test scoped conformance library
+      # Run the existing conformance integration targets. Keep the
+      # independent CANON-1 / CANON-2 fixture verifiers below as separate steps.
+      - name: Run existing conformance integration suites
         run: >-
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
           --locked
           -p cos_conformance
-          --lib
+          --test integral_five_system_adversarial
+          --test productive_loop_refinement
+          --test source_refinement
 
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
