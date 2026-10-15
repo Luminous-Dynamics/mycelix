@@ -638,6 +638,9 @@
             "properties": {
               "delivery_basis": {
                 "const": "edible_portion_received_by_beneficiary"
+              },
+              "life_cycle_stage": {
+                "const": "operational"
               }
             }
           }
