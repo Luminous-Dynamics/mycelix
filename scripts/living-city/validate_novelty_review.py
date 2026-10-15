@@ -270,7 +270,13 @@ def main() -> None:
         fail("mutation: evaluated novelty without ready comparison set was not rejected by schema")
     print("PASS mutation: evaluated novelty requires documented comparison set")
 
-    print("PASS: 11 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
+    untyped_comparator = copy.deepcopy(synthetic)
+    untyped_comparator["comparison_set"]["reference_ids"] = ["bare-reference-id"]
+    if not list(validator.iter_errors(untyped_comparator)):
+        fail("mutation: comparator reference without source/evidence type prefix was accepted")
+    print("PASS mutation: comparator references must declare source: or evidence: type")
+
+    print("PASS: 12 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
 
 
 if __name__ == "__main__":
