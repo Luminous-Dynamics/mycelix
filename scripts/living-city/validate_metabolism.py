@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fail-closed CI checks for the Living-City metabolism/synergy contract. No network calls."""
 from __future__ import annotations
-import copy, json, sys
+import copy, json, math, sys
+from decimal import Decimal
 from datetime import date
 from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
@@ -12,6 +13,27 @@ PROTOCOL_PATH = ROOT / "fixtures/living-city/metabolism/johannesburg-civic-corri
 SYNTHETIC_PATH = ROOT / "fixtures/living-city/metabolism/johannesburg-civic-corridor-synthetic.v0.1.json"
 MANIFEST_PATH = ROOT / "fixtures/living-city/manifest.v0.1.json"
 CLAIMS_DIR = ROOT / "fixtures/living-city/evidence/claims"
+
+FLOW_UNIT_DIMENSION_FACTOR = {
+    "Wh": ("energy", Decimal("1")),
+    "kWh": ("energy", Decimal("1000")),
+    "MWh": ("energy", Decimal("1000000")),
+    "MJ": ("energy", Decimal("1000000") / Decimal("3600")),
+    "GJ": ("energy", Decimal("1000000000") / Decimal("3600")),
+    "L": ("water", Decimal("1000")),
+    "m3": ("water", Decimal("1000000")),
+    "g": ("mass", Decimal("1")),
+    "kg": ("mass", Decimal("1000")),
+    "t": ("mass", Decimal("1000000")),
+}
+BINDING_ROLE_FIELDS = {
+    "inflow_refs": ("inflow", "add"),
+    "generated_or_added_refs": ("generated_or_added", "add"),
+    "outflow_refs": ("outflow", "add"),
+    "loss_refs": ("declared_loss", "add"),
+    "storage_increase_refs": ("observed_storage_delta", "add"),
+    "storage_decrease_refs": ("observed_storage_delta", "subtract"),
+}
 
 UNIT_BY_METRIC = {
     "final_energy": {"Wh", "kWh", "MWh", "MJ", "GJ"},
@@ -137,6 +159,7 @@ def semantic_errors(review, concepts, evidence_ids):
     for s in review["scenarios"]:
         ids = [f["flow_id"] for f in s["flow_records"]]
         if len(ids) != len(set(ids)): errors.append(f"{s['scenario_id']}: flow_id values must be unique")
+        flow_by_id = {flow["flow_id"]: flow for flow in s["flow_records"]}
         if s["role"] == "baseline" and s["intervention_refs"]: errors.append(f"{s['scenario_id']}: baseline cannot include interventions")
         if s["role"] == "single_intervention" and len(s["intervention_refs"]) != 1:
             errors.append(f"{s['scenario_id']}: single_intervention needs exactly one intervention")
@@ -183,6 +206,48 @@ def semantic_errors(review, concepts, evidence_ids):
             except (ValueError, TypeError):
                 errors.append(f"{check_context}: resource-balance quantities must be decimal integer strings")
                 continue
+
+            bindings = check["flow_bindings"]
+            seen_refs = set()
+            aggregate_values = {"inflow": Decimal("0"), "generated_or_added": Decimal("0"),
+                                "outflow": Decimal("0"), "declared_loss": Decimal("0"),
+                                "storage_increase": Decimal("0"), "storage_decrease": Decimal("0")}
+            for role, (target_field, operation) in BINDING_ROLE_FIELDS.items():
+                for ref in bindings[role]:
+                    if ref in seen_refs:
+                        errors.append(f"{check_context}: flow reference {ref!r} is double-counted across conservation roles")
+                        continue
+                    seen_refs.add(ref)
+                    flow = flow_by_id.get(ref)
+                    if flow is None:
+                        errors.append(f"{check_context}: unknown flow reference in {role}: {ref!r}")
+                        continue
+                    unit_entry = FLOW_UNIT_DIMENSION_FACTOR.get(flow["unit"])
+                    if unit_entry is None:
+                        errors.append(f"{check_context}: flow {ref!r} has no supported balance-unit conversion for {flow['unit']!r}")
+                        continue
+                    dimension, factor = unit_entry
+                    if dimension != check["balance_kind"]:
+                        errors.append(f"{check_context}: flow {ref!r} dimension {dimension!r} cannot bind to {check['balance_kind']!r} balance")
+                        continue
+                    key_name = "storage_increase" if role == "storage_increase_refs" else "storage_decrease" if role == "storage_decrease_refs" else target_field
+                    aggregate_values[key_name] += Decimal(str(flow["value"])) * factor
+
+            comparisons = [
+                ("inflow", Decimal(inflow)),
+                ("generated_or_added", Decimal(generated)),
+                ("outflow", Decimal(outflow)),
+                ("declared_loss", Decimal(loss)),
+                ("observed_storage_delta", Decimal(storage)),
+            ]
+            for field_name, declared in comparisons:
+                if field_name == "observed_storage_delta":
+                    aggregate = aggregate_values["storage_increase"] - aggregate_values["storage_decrease"]
+                else:
+                    aggregate = aggregate_values[field_name]
+                if abs(aggregate - declared) > Decimal(tolerance):
+                    errors.append(f"{check_context}: flow bindings for {field_name} do not match the declared base-unit quantity")
+
             residual = inflow + generated - outflow - loss - storage
             if residual != reported:
                 errors.append(f"{check_context}: reported residual does not equal inflow + generated_or_added - outflow - declared_loss - observed_storage_delta")
@@ -282,6 +347,18 @@ def main():
     if not any("real assessment balance requires evidence references" in e for e in semantic_errors(missing_balance_evidence, concepts, evidence_ids)):
         fail("mutation: a real assessment balance without supporting evidence was accepted")
     print("PASS mutation: real assessed balances must cite supporting Mycelix evidence")
+
+    unknown_flow_binding = copy.deepcopy(synthetic)
+    unknown_flow_binding["scenarios"][0]["conservation_checks"][0]["flow_bindings"]["outflow_refs"] = ["flow-does-not-exist"]
+    if not any("unknown flow reference in outflow_refs" in e for e in semantic_errors(unknown_flow_binding, concepts, evidence_ids)):
+        fail("mutation: conservation ledger with an unresolved flow binding was accepted")
+    print("PASS mutation: conservation flow bindings must resolve within the scenario")
+
+    mismatched_flow_binding = copy.deepcopy(synthetic)
+    mismatched_flow_binding["scenarios"][0]["conservation_checks"][0]["outflow"] = "99000000"
+    if not any("flow bindings for outflow do not match" in e for e in semantic_errors(mismatched_flow_binding, concepts, evidence_ids)):
+        fail("mutation: declared outflow that disagrees with linked flow records was accepted")
+    print("PASS mutation: physical flow records and conservation totals must agree")
 
     bad_residual = copy.deepcopy(synthetic)
     bad_residual["scenarios"][0]["conservation_checks"][0]["reported_residual"] = "4"
@@ -399,7 +476,7 @@ def main():
         fail("mutation: model run without an exact source revision was accepted")
     print("PASS mutation: model runs require an exact 40-character source revision SHA")
 
-    print("PASS: 23 urban-metabolism/synergy controls (20 mutation controls and three positive controls); no composite symtropy score or automatic authorization.")
+    print("PASS: 25 urban-metabolism/synergy controls (22 mutation controls and three positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
