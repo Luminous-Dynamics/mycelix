@@ -170,19 +170,45 @@ fn expected_mapping(
 
 fn expected_input_condition(id: &str) -> Option<&'static str> {
     match id {
-        "VF-AUTH-001" => Some("Imported EconomicEvent is used directly to increase, decrease, or settle an authoritative Mycelix SAP/TEND balance."),
-        "VF-MYCEL-001" => Some("MYCEL recognition is exported as a ValueFlows Claim, currency, transferable balance, or spendable entitlement without a specifically reviewed semantic profile."),
-        "VF-TEND-001" => Some("TEND obligation is translated into SAP without an explicit, separately authorized exchange event and conversion profile."),
-        "VF-AMOUNT-001" => Some("An authoritative SAP micro-unit amount is parsed through binary floating point or loses its base-10 integer representation."),
-        "VF-UNIT-001" => Some("A quantity lacks its unit profile or a receiving adapter substitutes another unit."),
-        "VF-SCOPE-001" => Some("Community/issuer scope is omitted and records from separate economic networks become indistinguishable."),
-        "VF-ORIGIN-001" => Some("An exported record loses its source system, source record, source action/event, or revision identity."),
-        "VF-REPLAY-001" => Some("The same imported observation is replayed and counted as a second economic effect."),
-        "VF-CORRECTION-001" => Some("A correction overwrites the original event or removes its provenance from historical exports."),
-        "VF-UNKNOWN-001" => Some("Stale, missing, conflicting or unsupported evidence is represented as settled, valid, or definitively false without a policy basis."),
-        "VF-VERSION-001" => Some("hREA source's stated VF 1.0 profile is silently treated as identical to the published ontology page version 0.17, or a source branch is treated as a packaged compatible artifact."),
-        "VF-TEND-F32-001" => Some("TEND service hours sourced from the legacy f32 fields are exported as an exact decimal quantity without a versioned quantization/precision profile."),
-        "VF-TEND-BEARER-001" => Some("A TEND balance/obligation is exported as freely transferable bearer units without the original community, counterparties and service-obligation scope."),
+        "VF-AUTH-001" => Some(
+            "Imported EconomicEvent is used directly to increase, decrease, or settle an authoritative Mycelix SAP/TEND balance.",
+        ),
+        "VF-MYCEL-001" => Some(
+            "MYCEL recognition is exported as a ValueFlows Claim, currency, transferable balance, or spendable entitlement without a specifically reviewed semantic profile.",
+        ),
+        "VF-TEND-001" => Some(
+            "TEND obligation is translated into SAP without an explicit, separately authorized exchange event and conversion profile.",
+        ),
+        "VF-AMOUNT-001" => Some(
+            "An authoritative SAP micro-unit amount is parsed through binary floating point or loses its base-10 integer representation.",
+        ),
+        "VF-UNIT-001" => Some(
+            "A quantity lacks its unit profile or a receiving adapter substitutes another unit.",
+        ),
+        "VF-SCOPE-001" => Some(
+            "Community/issuer scope is omitted and records from separate economic networks become indistinguishable.",
+        ),
+        "VF-ORIGIN-001" => Some(
+            "An exported record loses its source system, source record, source action/event, or revision identity.",
+        ),
+        "VF-REPLAY-001" => Some(
+            "The same imported observation is replayed and counted as a second economic effect.",
+        ),
+        "VF-CORRECTION-001" => Some(
+            "A correction overwrites the original event or removes its provenance from historical exports.",
+        ),
+        "VF-UNKNOWN-001" => Some(
+            "Stale, missing, conflicting or unsupported evidence is represented as settled, valid, or definitively false without a policy basis.",
+        ),
+        "VF-VERSION-001" => Some(
+            "hREA source's stated VF 1.0 profile is silently treated as identical to the published ontology page version 0.17, or a source branch is treated as a packaged compatible artifact.",
+        ),
+        "VF-TEND-F32-001" => Some(
+            "TEND service hours sourced from the legacy f32 fields are exported as an exact decimal quantity without a versioned quantization/precision profile.",
+        ),
+        "VF-TEND-BEARER-001" => Some(
+            "A TEND balance/obligation is exported as freely transferable bearer units without the original community, counterparties and service-obligation scope.",
+        ),
         _ => None,
     }
 }
@@ -611,7 +637,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                     fail(
                         &mut errors,
                         mapping.valueflows_entities.is_empty(),
-                        "MYCEL recognition has no direct ValueFlows economic entity in corpus v1; do not map a generic attestation to Claim".into(),
+                        "MYCEL has no direct ValueFlows economic entity mapping".into(),
                     );
                 }
             }
