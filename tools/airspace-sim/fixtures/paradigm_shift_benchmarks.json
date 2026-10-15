@@ -1,0 +1,357 @@
+{
+  "schema": "airspace-paradigm-shift-benchmarks-v1",
+  "status": "research_design_not_executable_benchmarks",
+  "reviewed_on": "2026-10-15",
+  "authority_ceiling": "offline_research_evaluation_only_no_operational_aviation_authority",
+  "result_semantics": {
+    "passing_means": "The implementation conforms to this synthetic benchmark contract under its declared assumptions.",
+    "does_not_mean": [
+      "operational separation safety",
+      "airworthiness",
+      "certification",
+      "flight authorization",
+      "source authenticity unless separately verified",
+      "real-world model applicability"
+    ]
+  },
+  "shared_invariants": [
+    "unsupported_model_never_yields_geometry_clearance",
+    "hard_constraints_precede_optimization",
+    "stale_or_partitioned_inputs_never_prove_absence_of_impact",
+    "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+    "producer_output_is_checked_independently",
+    "all_results_bind_exact_inputs_models_rules_and_checker",
+    "unknown_behavior_is_unresolved_not_defaulted"
+  ],
+  "benchmarks": [
+    {
+      "id": "AIR-PB-001",
+      "name": "model_admission_fail_closed",
+      "paradigm": "qualified_reachable_volumes",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "An explicit allowlist prevents missing, unknown, and unsupported traffic/model pairs from reaching geometric evaluation.",
+      "baseline": "A coordinate-only constant-velocity evaluator can process a real-world archetype unless a caller or adapter blocks it.",
+      "stimulus": "Remove model identifiers and then substitute each of the 15 real-world archetypes while retaining the toy model ID.",
+      "success_conditions": [
+        "Missing or unsupported pairs classify as unresolved.",
+        "Trajectory sample checks and geometric intersection checks remain zero.",
+        "The synthetic fixture/model pair remains admitted only for synthetic research fixtures."
+      ],
+      "falsifiers": [
+        "Any unsupported or missing pair produces an accepted-for-planning result.",
+        "Any geometric work occurs after failed model admission."
+      ],
+      "required_evidence": [
+        "Exact-head Rust unit-test output",
+        "Model registry and traffic catalogue digests",
+        "Independent assertion over every real-world archetype"
+      ],
+      "hard_invariants": [
+        "unsupported_model_never_yields_geometry_clearance",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ]
+    },
+    {
+      "id": "AIR-PB-002",
+      "name": "independent_monitor_detects_producer_error",
+      "paradigm": "assurance_artifacts_not_self_certification",
+      "status": "research_backlog",
+      "hypothesis": "A separately implemented checker detects intentionally corrupted candidate plans and report fields without reusing producer calculations.",
+      "baseline": "Producer-generated expected values may reproduce the same implementation defect as the system under test.",
+      "stimulus": "Mutate a plan's reported conflict state, time interval, model ID, or resource total after candidate generation.",
+      "success_conditions": [
+        "The independent checker rejects every declared hard-gate violation in the corpus.",
+        "The report identifies the violated invariant and binds its input digest."
+      ],
+      "falsifiers": [
+        "A deliberately injected violation is accepted.",
+        "The checker trusts producer totals rather than recomputing predicates."
+      ],
+      "required_evidence": [
+        "Checker source identity",
+        "Mutation corpus and expected outcomes",
+        "Exact-head run receipt"
+      ],
+      "hard_invariants": [
+        "producer_output_is_checked_independently",
+        "hard_constraints_precede_optimization"
+      ]
+    },
+    {
+      "id": "AIR-PB-003",
+      "name": "uncertainty_envelope_under_approximation",
+      "paradigm": "qualified_reachable_volumes",
+      "status": "research_backlog",
+      "hypothesis": "A qualified model's reported envelope contains all oracle states for the declared domain, horizon, and assumptions.",
+      "baseline": "Nominal trajectories plus caller-selected margins do not establish a conservative reachable set.",
+      "stimulus": "Generate boundary trajectories, bounded disturbances, delayed observations, and model-domain edge cases against an independent high-resolution or analytic oracle.",
+      "success_conditions": [
+        "No oracle state falls outside a claimed conservative envelope within the declared domain.",
+        "Out-of-domain or unbounded uncertainty returns unresolved.",
+        "Envelope conservatism and compute cost are reported separately."
+      ],
+      "falsifiers": [
+        "Any in-domain oracle state falls outside the claimed envelope.",
+        "The model claims conservative coverage outside its declared domain."
+      ],
+      "required_evidence": [
+        "Versioned model domain",
+        "Independent oracle",
+        "Seeded corpus manifest",
+        "Under-approximation counterexamples"
+      ],
+      "hard_invariants": [
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-004",
+      "name": "corridor_optionality_counterfactual",
+      "paradigm": "dynamic_space_time_resource_fabric",
+      "status": "research_backlog",
+      "hypothesis": "Comparing constrained corridors against alternative route topology reveals operating regimes where fixed corridors remove conflict-resolution options.",
+      "baseline": "A corridor-only planner can appear efficient while leaving too few feasible maneuvers under dense or disrupted traffic.",
+      "stimulus": "Replay identical synthetic traffic, hard constraints, and resource limits with corridor-only and topology-flexible candidate sets.",
+      "success_conditions": [
+        "Both configurations report hard-gate results before performance metrics.",
+        "Feasible candidate count, conflict outcomes, delay, search effort, and recovery options are reported.",
+        "No configuration is declared superior using a score that hides hard-gate failures."
+      ],
+      "falsifiers": [
+        "A hard-ineligible plan is counted as feasible.",
+        "A claimed corridor benefit cannot be reproduced from identical pinned inputs."
+      ],
+      "required_evidence": [
+        "Pinned scenario corpus",
+        "Candidate-pool completeness declaration",
+        "Independent feasibility oracle",
+        "Counterfactual report"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-005",
+      "name": "time_dependent_shared_resource_contention",
+      "paradigm": "dynamic_space_time_resource_fabric",
+      "status": "research_backlog",
+      "hypothesis": "Time-windowed capacity accounting identifies shared-resource over-allocation that a static route/edge capacity view misses.",
+      "baseline": "A static edge-capacity report is not a schedule for runway, vertiport, charging, approach segment, or airspace occupancy.",
+      "stimulus": "Submit multiple individually valid candidate plans whose aggregate demand overlaps in a shared resource interval, including adjacent half-open windows and expired capacity evidence.",
+      "success_conditions": [
+        "Cumulative overlapping allocation above capacity is rejected by an independent verifier.",
+        "Adjacent non-overlapping half-open intervals remain non-conflicting.",
+        "Stale, unqualified, or out-of-window capacity returns degraded or unresolved."
+      ],
+      "falsifiers": [
+        "The sum of overlapping accepted allocations exceeds declared capacity.",
+        "Expired capacity evidence is treated as current."
+      ],
+      "required_evidence": [
+        "Resource identity and unit contract",
+        "Time-window fixture corpus",
+        "Independent resource-conservation checker"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "stale_or_partitioned_inputs_never_prove_absence_of_impact"
+      ]
+    },
+    {
+      "id": "AIR-PB-006",
+      "name": "federated_partition_and_conflict_replay",
+      "paradigm": "federated_coordination_bounded_authority",
+      "status": "partial_foundations_exist_not_fully_qualified",
+      "hypothesis": "Provider event reordering, exact retransmission, forks, stale snapshots, and partitions have deterministic outcomes that never manufacture a clear or authoritative winner.",
+      "baseline": "Naive last-writer-wins or arrival-order logic can erase a conflict or imply global agreement from a partial view.",
+      "stimulus": "Permute event arrival; duplicate exact deliveries; inject conflicting same-sequence payloads, missing predecessors, clock incompatibility, expiry and provider partitions.",
+      "success_conditions": [
+        "Exact retransmissions are idempotent and counted.",
+        "Forks, gaps, and contradictory histories remain unresolved.",
+        "Known impacts still prompt reassessment on stale views; no observed impact on a stale view never means no impact.",
+        "No reservation result is represented as flight authorization."
+      ],
+      "falsifiers": [
+        "A partial or stale view returns a definitive no-impact classification.",
+        "Conflicting versions disappear without an explicit reconciliation result."
+      ],
+      "required_evidence": [
+        "Event corpus digest",
+        "Permutation test output",
+        "State-machine oracle",
+        "Exact-head result receipt"
+      ],
+      "hard_invariants": [
+        "stale_or_partitioned_inputs_never_prove_absence_of_impact",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct"
+      ]
+    },
+    {
+      "id": "AIR-PB-007",
+      "name": "hard_gate_cannot_be_bought_by_objective_weights",
+      "paradigm": "safety_first_feasible_set_planning",
+      "status": "research_backlog",
+      "hypothesis": "No performance-weight setting admits a candidate that violates an applicable hard gate.",
+      "baseline": "A scalar weighted sum can trade a hard violation against lower cost, delay, energy, or noise.",
+      "stimulus": "Construct a prohibited or unresolved candidate with arbitrarily favorable performance metrics and compare it with feasible alternatives under extreme objective weights.",
+      "success_conditions": [
+        "The infeasible candidate is eliminated before objective ranking.",
+        "Performance weights cannot change hard-gate classification.",
+        "Reports preserve the violated gate separately from optimization scores."
+      ],
+      "falsifiers": [
+        "Any weight vector allows an ineligible candidate to be selected as feasible.",
+        "A scalar score hides a failed hard gate."
+      ],
+      "required_evidence": [
+        "Objective-independent gate oracle",
+        "Adversarial weight sweep",
+        "Selected-candidate and rejected-candidate reports"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization"
+      ]
+    },
+    {
+      "id": "AIR-PB-008",
+      "name": "source_bytes_freshness_and_rights_are_separate",
+      "paradigm": "assurance_artifacts_not_self_certification",
+      "status": "research_backlog",
+      "hypothesis": "The evidence adapter distinguishes byte integrity, publisher authenticity, source freshness, usage rights, and scenario fitness instead of collapsing them into one trusted flag.",
+      "baseline": "A parseable payload or digest-shaped string can be mistaken for verified, current, authorized-to-use data.",
+      "stimulus": "Use correct and incorrect hashes, stale timestamps, unknown rights, unverified publisher identity, changed source bytes, and parsed-and-reserialized variants.",
+      "success_conditions": [
+        "Exact-byte hash mismatch is rejected.",
+        "Passing byte integrity does not imply publisher authenticity, legal rights, freshness, or physical truth.",
+        "Any unqualified dimension required by the scenario remains visibly unresolved."
+      ],
+      "falsifiers": [
+        "A digest string passes without hashing exact source bytes.",
+        "Unknown rights, stale data, or unauthenticated authority are silently promoted to qualified."
+      ],
+      "required_evidence": [
+        "Exact raw-byte test artifacts",
+        "Receipt verifier identity",
+        "Rights/freshness negative controls",
+        "Independent digest recomputation"
+      ],
+      "hard_invariants": [
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct"
+      ]
+    },
+    {
+      "id": "AIR-PB-009",
+      "name": "unknown_and_noncooperative_traffic_is_not_absence",
+      "paradigm": "qualified_reachable_volumes",
+      "status": "research_backlog",
+      "hypothesis": "A lack of cooperative intent is represented as an observation/coverage limitation rather than as an empty part of the traffic picture.",
+      "baseline": "Intent-centric planning can miss objects without valid identity, timely telemetry, or cooperative trajectory data.",
+      "stimulus": "Inject anonymous tracks, dropped reports, conflicting sensors, spoofed labels and no-track-coverage regions.",
+      "success_conditions": [
+        "The result exposes the missing observation/coverage dimension.",
+        "No absence-of-track assertion is interpreted as proof of absence of traffic.",
+        "The system separates track confidence from legal identity and model applicability."
+      ],
+      "falsifiers": [
+        "Missing or non-cooperative traffic is silently omitted while a clear result is asserted.",
+        "Sensor confidence alone is treated as legal identification or authorization."
+      ],
+      "required_evidence": [
+        "Observation/coverage metadata",
+        "Injected-loss corpus",
+        "Independent classification oracle"
+      ],
+      "hard_invariants": [
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "stale_or_partitioned_inputs_never_prove_absence_of_impact"
+      ]
+    },
+    {
+      "id": "AIR-PB-010",
+      "name": "ground_and_community_externality_visibility",
+      "paradigm": "joint_air_ground_community_coordination",
+      "status": "research_backlog",
+      "hypothesis": "Eligible alternatives can be compared for externalities and distributional effects without allowing those objective values to override hard feasibility.",
+      "baseline": "Airspace efficiency scores can omit where noise, ground risk, delay and infrastructure burdens are concentrated.",
+      "stimulus": "Compare feasible synthetic plans across noise exposure, energy, emergency access, ground exposure, infrastructure readiness and who receives service.",
+      "success_conditions": [
+        "Hard eligibility is reported independently of externality metrics.",
+        "Metrics retain units, provenance, uncertainty, spatial scope and affected groups.",
+        "The output surfaces tradeoffs rather than compressing incomparable values into an unexplained score."
+      ],
+      "falsifiers": [
+        "A plan with a hard violation wins due to better externality scores.",
+        "Uncertain or missing externality evidence is represented as zero impact."
+      ],
+      "required_evidence": [
+        "Source-qualified spatial inputs",
+        "Units and aggregation contract",
+        "Sensitivity analysis",
+        "Distributional comparison report"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-011",
+      "name": "counterfactual_disruption_and_recovery",
+      "paradigm": "reproducible_assurance_artifact",
+      "status": "research_backlog",
+      "hypothesis": "A candidate planner can report defensible alternatives under disruptions using pinned assumptions and without turning forecast output into authorization.",
+      "baseline": "A single preferred route can fail under weather, capacity loss, closure, communications partition or diversion demand.",
+      "stimulus": "Remove a resource, invalidate evidence, withdraw a restriction, partition a provider or introduce a synthetic wind-model mismatch; recompute all candidates.",
+      "success_conditions": [
+        "Each counterfactual binds exact changes to the baseline manifest.",
+        "Recovery options, unresolved conditions, performance deltas and compute budget are reported.",
+        "No alternative is promoted while its model or required evidence is unresolved."
+      ],
+      "falsifiers": [
+        "The report cannot identify which changed inputs caused a result change.",
+        "A forecast or planner result is represented as operational clearance."
+      ],
+      "required_evidence": [
+        "Baseline/counterfactual manifest pair",
+        "Input diffs",
+        "Independent feasibility oracle",
+        "Reproducible run receipt"
+      ],
+      "hard_invariants": [
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ]
+    },
+    {
+      "id": "AIR-PB-012",
+      "name": "cross_project_replay_reproducibility",
+      "paradigm": "assurance_artifacts_not_self_certification",
+      "status": "research_backlog",
+      "hypothesis": "Versioned contracts allow independent adapters in Mycelix, Symthaea, Sol-Atlas and Symtropy to preserve scope, evidence identity and result semantics across a shared fixture corpus.",
+      "baseline": "Cross-project descriptions can drift while similarly named fields acquire different units, time semantics or authority meanings.",
+      "stimulus": "Run a pinned language-neutral corpus through independent Rust adapters and compare normalized decisions plus retained uncertainty, evidence and authority metadata.",
+      "success_conditions": [
+        "Every consumer rejects unknown required schema versions and missing required qualification.",
+        "Normalized classifications and invariant outcomes agree across consumers.",
+        "Consumer build/source identities and any disagreements are retained."
+      ],
+      "falsifiers": [
+        "A consumer silently coerces an unknown enum/schema into a positive result.",
+        "Equivalent fixture inputs change meaning because an adapter drops units, time basis, evidence IDs or authority ceiling."
+      ],
+      "required_evidence": [
+        "Schema and fixture digests",
+        "Consumer commits/build identities",
+        "Differential output comparison",
+        "Negative-control report"
+      ],
+      "hard_invariants": [
+        "producer_output_is_checked_independently",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    }
+  ]
+}
