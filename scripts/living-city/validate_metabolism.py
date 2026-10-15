@@ -71,10 +71,24 @@ def reject_nonstandard_constant(token: str):
     """Reject NaN/Infinity tokens, which are not valid JSON numbers."""
     raise ValueError(f"non-standard JSON numeric constant: {token}")
 
+def reject_duplicate_keys(pairs):
+    """Reject duplicate object names rather than silently applying last-key-wins."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON object key: {key!r}")
+        result[key] = value
+    return result
+
 def load_json(path: Path):
     try:
         with path.open("r", encoding="utf-8") as stream:
-            return json.load(stream, parse_float=Decimal, parse_constant=reject_nonstandard_constant)
+            return json.load(
+                stream,
+                parse_float=Decimal,
+                parse_constant=reject_nonstandard_constant,
+                object_pairs_hook=reject_duplicate_keys,
+            )
     except (OSError, UnicodeError, ValueError) as exc:
         fail(f"{path.relative_to(ROOT)} is not readable valid JSON: {exc}")
 
@@ -605,7 +619,18 @@ def main():
         fail("mutation: non-standard JSON NaN numeric constant was accepted")
     print("PASS mutation: non-standard JSON NaN/Infinity constants are rejected at the parser boundary")
 
-    print("PASS: 31 urban-metabolism/synergy controls (26 mutation/parser rejection controls and five positive controls); no composite symtropy score or automatic authorization.")
+    duplicate_key_rejected = False
+    try:
+        json.loads('{"record_status":"assessment","record_status":"synthetic_test_only"}',
+                   parse_float=Decimal, parse_constant=reject_nonstandard_constant,
+                   object_pairs_hook=reject_duplicate_keys)
+    except ValueError:
+        duplicate_key_rejected = True
+    if not duplicate_key_rejected:
+        fail("mutation: duplicate JSON object key was accepted with ambiguous last-key-wins behavior")
+    print("PASS mutation: duplicate JSON object keys are rejected at the parser boundary")
+
+    print("PASS: 32 urban-metabolism/synergy controls (27 mutation/parser rejection controls and five positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
