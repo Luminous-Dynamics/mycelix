@@ -799,7 +799,82 @@ def main():
         fail("mutation: delivered edible food labelled as embodied construction was accepted")
     print("PASS mutation: delivered-food service outcomes must use the operational life-cycle stage")
 
-    print("PASS: 37 urban-metabolism/synergy controls (31 mutation/parser rejection controls and six positive controls); no composite symtropy score or automatic authorization.")
+    receipt_case = copy.deepcopy(food_delivery_case)
+    receipt_flow = next(
+        f for f in receipt_case["scenarios"][-1]["flow_records"]
+        if f["metric_id"] == "edible_food_delivered"
+    )
+    receipt_flow["nutrient_assessment_refs"] = ["synthetic-vitamin-c-assessment"]
+    receipt_case["nutrient_assessments"] = [{
+        "receipt_id": "synthetic-vitamin-c-assessment",
+        "receipt_schema_version": "living-city-nutrient-assessment-envelope/0.1",
+        "receipt_origin": "synthetic_test_only",
+        "scenario_id": "bioswale-and-canopy",
+        "target_id": "synthetic-vitamin-c-target",
+        "nutrient_id": "vitamin-c",
+        "nutrient_definition_ref": "synthetic-vitamin-c-definition",
+        "unit": "milligrams",
+        "target_scope_ref": "corridor-beneficiary-cohort",
+        "period_ref": "synthetic-corridor-year",
+        "value_scale": "1000",
+        "total_edible_delivered_grams": "180000",
+        "supply_numerator": "100000000",
+        "target_numerator": "50000000",
+        "denominator": "100000",
+        "shortfall_numerator": "0",
+        "composition_source_refs": ["synthetic-composition-source"],
+        "delivery_source_refs": ["synthetic-delivery-source"],
+        "target_source_ref": "synthetic-target-source",
+        "status": "meets_declared_minimum",
+        "evidence_refs": [],
+        "limitations": ["Synthetic arithmetic receipt only; no actual food composition or dietary adequacy claim."]
+    }]
+    receipt_schema_errors = schema_errors(validator, receipt_case)
+    if receipt_schema_errors:
+        fail("positive control: valid synthetic nutrient receipt fails schema: " + describe(receipt_schema_errors))
+    receipt_semantic = semantic_errors(receipt_case, concepts, evidence_ids)
+    if receipt_semantic:
+        fail("positive control: valid synthetic nutrient receipt fails semantic checks: " + "; ".join(receipt_semantic))
+    print("PASS control: versioned nutrient receipt resolves to a same-scope, same-period food flow and exact edible mass")
+
+    unknown_receipt_link = copy.deepcopy(receipt_case)
+    unknown_receipt_link["scenarios"][-1]["flow_records"][-1]["nutrient_assessment_refs"] = ["missing-nutrient-receipt"]
+    if not any("unresolved nutrient assessment reference" in e for e in semantic_errors(unknown_receipt_link, concepts, evidence_ids)):
+        fail("mutation: unresolved nutrient receipt reference was accepted")
+    print("PASS mutation: food flow cannot reference a missing nutrient receipt")
+
+    wrong_receipt_scope = copy.deepcopy(receipt_case)
+    wrong_receipt_scope["nutrient_assessments"][0]["target_scope_ref"] = "different-beneficiary-cohort"
+    if not any("receipt target scope does not match" in e for e in semantic_errors(wrong_receipt_scope, concepts, evidence_ids)):
+        fail("mutation: receipt from another beneficiary scope was accepted")
+    print("PASS mutation: nutrient receipt must match the food-flow beneficiary scope")
+
+    wrong_receipt_mass = copy.deepcopy(receipt_case)
+    wrong_receipt_mass["nutrient_assessments"][0]["total_edible_delivered_grams"] = "180001"
+    if not any("receipt edible mass does not match" in e for e in semantic_errors(wrong_receipt_mass, concepts, evidence_ids)):
+        fail("mutation: nutrient receipt with a one-gram mass mismatch was accepted")
+    print("PASS mutation: nutrient receipt total must match the linked food flow exactly")
+
+    wrong_receipt_shortfall = copy.deepcopy(receipt_case)
+    wrong_receipt_shortfall["nutrient_assessments"][0]["shortfall_numerator"] = "1"
+    if not any("shortfall does not match exact supply and target" in e for e in semantic_errors(wrong_receipt_shortfall, concepts, evidence_ids)):
+        fail("mutation: arithmetic-inconsistent nutrient receipt was accepted")
+    print("PASS mutation: nutrient receipt shortfall must recompute from exact numerators")
+
+    orphan_receipt = copy.deepcopy(receipt_case)
+    orphan_receipt["scenarios"][-1]["flow_records"][-1]["nutrient_assessment_refs"] = []
+    if not any("receipt must be linked to exactly one food-delivery flow" in e for e in semantic_errors(orphan_receipt, concepts, evidence_ids)):
+        fail("mutation: unreferenced nutrient receipt was accepted")
+    print("PASS mutation: each nutrient receipt must link to exactly one food-delivery flow")
+
+    unpinned_receipt = copy.deepcopy(receipt_case)
+    unpinned_receipt["nutrient_assessments"][0]["receipt_origin"] = "symtropy_output"
+    unpinned_receipt_errors = schema_errors(validator, unpinned_receipt)
+    if not any("producer_revision" in list(e.path) for e in unpinned_receipt_errors):
+        fail("mutation: real Symtropy receipt without producer revision was accepted")
+    print("PASS mutation: a real Symtropy receipt requires a pinned producer revision and payload hash")
+
+    print("PASS: 44 urban-metabolism/synergy controls (37 mutation/parser rejection controls and seven positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
