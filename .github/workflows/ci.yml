@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
+      energy: ${{ steps.filter.outputs.energy }}
       civic: ${{ steps.filter.outputs.civic }}
       hearth: ${{ steps.filter.outputs.hearth }}
       finance: ${{ steps.filter.outputs.finance }}
@@ -46,6 +47,8 @@ jobs:
             commons:
               - 'mycelix-commons/**'
               - 'crates/mycelix-bridge-*/**'
+            energy:
+              - 'mycelix-energy/**'
             civic:
               - 'mycelix-civic/**'
               - 'crates/mycelix-bridge-*/**'
@@ -150,6 +153,28 @@ jobs:
           workspaces: mycelix-commons
       - name: Test commons
         run: cd mycelix-commons && cargo test --workspace
+
+  test-energy:
+    needs: changes
+    if: needs.changes.outputs.energy == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-energy
+      - name: Check formatting for changed grid integrity zome
+        run: cargo fmt --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml --check
+      - name: Test changed grid integrity zome
+        run: cargo test --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml
+      - name: Build changed grid integrity zome for Holochain WASM
+        run: cargo build --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml --release --target wasm32-unknown-unknown
 
   test-civic:
     needs: changes
@@ -441,6 +466,7 @@ jobs:
       - format
       - test-cos-conformance
       - test-commons
+      - test-energy
       - test-civic
       - test-hearth
       - test-finance
@@ -459,6 +485,7 @@ jobs:
           echo "Format: ${{ needs.format.result }}"
           echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
+          echo "Energy: ${{ needs.test-energy.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
@@ -474,7 +501,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-energy.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
