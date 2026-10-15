@@ -118,6 +118,14 @@ Mycelix is responsible for preserving the distinction between proposed intent, a
 
 For shared restrictions and intents, reconcile version/predecessor history and duplicates before consuming a snapshot. An identified impact requires reassessment; stale/partitioned inputs without an impact found remain degraded rather than no-impact. An empty conflict list is meaningful only within the evaluated model and qualified evidence domain.
 
+#### Implemented admission gate on this draft branch
+
+The first executable slice now lives in `tools/airspace-sim/src/model_applicability.rs`, driven by `fixtures/model_applicability.json`. Every `FlightIntent` carries `traffic_profile_id` and `model_profile_id`; the fields deserialize missing values as blank solely so the evaluators can return an explicit `Unresolved` report rather than quietly defaulting to a model.
+
+The current registry admits only `synthetic_fixture_kinematics_v1` + `constant_velocity_toy_v1`, labelled synthetic-fixtures-only and not validated. It intentionally contains exactly one pair, and the runtime schema guard rejects attempts to widen it by adding a registry entry alone. Both nominal trajectory evaluation and dynamic-constraint screening stop before geometric work for a missing or unsupported pair. The 58 committed synthetic flight records are explicitly bound to that pair; unit tests cover unknown/missing bindings and all 15 traffic-diversity archetypes.
+
+This is a **model-selection gate**, not a qualified applicability argument for an operational model. The current branch's exact-head Rust tests must pass before treating the implementation as verified; until then this is committed code with pending evidence.
+
 ### Symthaea → advisory inference and explanation
 
 Symthaea may identify suspicious observations, summarize conflicting evidence, suggest alternative route candidates, or prioritize manual review. Persist source relations and distinct observations rather than relying only on a lossy bundled hypervector. Its recommendation should cite evidence IDs and uncertainty, and the independent Mycelix checker must recompute any machine-enforced predicate from typed input.
