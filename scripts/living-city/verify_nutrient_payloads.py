@@ -121,12 +121,34 @@ def verify_review_payloads(review: dict[str, Any], repo_root: Path) -> dict[str,
     if not isinstance(receipts, list):
         return {"status": "blocked", "ok": False, "records": [],
                 "errors": ["nutrient_assessments must be an array"]}
-    real = [r for r in receipts if isinstance(r, dict) and r.get("receipt_origin") == "symtropy_output"]
+
+    real: list[dict[str, Any]] = []
+    invalid_records: list[dict[str, Any]] = []
+    allowed_origins = {"symtropy_output", "synthetic_test_only"}
+    for index, receipt in enumerate(receipts):
+        if not isinstance(receipt, dict):
+            invalid_records.append({"receipt_id": None, "status": "invalid_receipt",
+                                    "reason": f"nutrient_assessments[{index}] must be an object"})
+            continue
+        if receipt.get("receipt_origin") not in allowed_origins:
+            invalid_records.append({"receipt_id": receipt.get("receipt_id"), "status": "invalid_receipt",
+                                    "reason": f"nutrient_assessments[{index}] has an unknown receipt_origin"})
+            continue
+        if receipt["receipt_origin"] == "symtropy_output":
+            real.append(receipt)
+
     if not real:
+        if invalid_records:
+            return {"status": "blocked", "ok": False, "records": invalid_records,
+                    "errors": ["malformed receipt entries cannot be ignored"]}
         return {"status": "no_real_receipts", "ok": False, "records": [],
                 "errors": ["no Symtropy-origin nutrient payload was available to verify; this is not a verification pass"]}
-    ids = [r.get("receipt_id") for r in real]
-    duplicate_ids = {rid for rid in ids if ids.count(rid) > 1}
+
+    counts: dict[Any, int] = {}
+    for receipt in real:
+        rid = receipt.get("receipt_id")
+        counts[rid] = counts.get(rid, 0) + 1
+    duplicate_ids = {rid for rid, count in counts.items() if count > 1}
     records = []
     for receipt in real:
         record = verify_receipt_payload(receipt, repo_root)
@@ -134,12 +156,13 @@ def verify_review_payloads(review: dict[str, Any], repo_root: Path) -> dict[str,
             record["status"] = "duplicate_receipt_id"
             record["reason"] = "real payload receipts must have unique receipt_id values"
         records.append(record)
+    records.extend(invalid_records)
     ok = all(record.get("status") == "verified" for record in records)
     return {
         "status": "verified" if ok else "blocked",
         "ok": ok,
         "records": records,
-        "summary": {"real_receipts": len(records),
+        "summary": {"real_receipts": len(real),
                     "verified": sum(record.get("status") == "verified" for record in records),
                     "blocked": sum(record.get("status") != "verified" for record in records)},
     }

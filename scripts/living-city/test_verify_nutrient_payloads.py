@@ -124,6 +124,19 @@ class NutrientPayloadVerifierTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertTrue(all(r["status"] == "duplicate_receipt_id" for r in report["records"]))
 
+    def test_non_object_receipt_entry_fails_closed(self) -> None:
+        report = verify_review_payloads({"nutrient_assessments": [None]}, self.root)
+        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["records"][0]["status"], "invalid_receipt")
+
+    def test_unknown_receipt_origin_fails_closed(self) -> None:
+        report = verify_review_payloads(
+            {"nutrient_assessments": [{"receipt_id": "odd", "receipt_origin": "asserted_valid"}]},
+            self.root,
+        )
+        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["records"][0]["status"], "invalid_receipt")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

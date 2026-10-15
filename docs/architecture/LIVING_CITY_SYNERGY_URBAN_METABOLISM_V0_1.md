@@ -236,3 +236,34 @@ Before using a real Living-City record for a decision:
 - Ricciardi, Callegari & Leone (2026), *Guidelines for creating an urban digital twin module for urban regeneration scenarios assessment that include climate change mitigation and adaptation*, DOI: https://doi.org/10.1016/j.cities.2026.107020 — discusses data ownership, integration, privacy, and technical barriers in urban digital-twin modules.
 
 The research motivates careful accounting and boundary discipline; it does not validate this schema, any proposed synergy, a specific city outcome, or a single symtropy measure.
+
+
+## Paradigm shifts: from city dashboards to evidence-carrying civic experiments
+
+The ambition should not be a prettier dashboard or a single number called city health. It should be a **reproducible public-interest decision system** in which each claim can be traced to observations, transformations, model versions, uncertainty, and an explicit decision boundary—while governance authority remains with accountable people and institutions.
+
+### 1. Make every claim proof-carrying
+
+Treat each reported number as a typed claim plus a provenance path: source identity, scope, period, method, units, transformations, model revision, raw-payload digest, and limitations. “Well-formed JSON,” “hash matched,” “producer authenticated,” and “scientifically supported” are different verification states. The new offline verifier closes the raw-byte and envelope-binding gap for repository-local payloads; it deliberately does not pretend that a digest authenticates a producer. This separation is consistent with the artifact/statement/predicate layers in [in-toto Attestation](https://github.com/in-toto/attestation/blob/main/spec/v1/README.md), [SLSA's artifact-verification guidance](https://slsa.dev/spec/v1.2/verifying-artifacts), and the raw-message digest model in [RFC 9530](https://www.rfc-editor.org/rfc/rfc9530.html).
+
+### 2. Replace the monolithic digital twin with a network of bounded experiments
+
+Keep each scenario tied to a declared functional unit and boundary, but model imports, exports, storage changes, upstream supply chains, and displaced impacts as connected flows rather than assuming a city is a closed box. Maintain the four-counterfactual interaction calculation and scenario uncertainty, but never equate arithmetic interaction with causal proof. A future causal-identification record should specify the assignment/design type, unit of analysis, intervention timing, counterfactual construction, pre-trend or balance checks where applicable, confounder strategy, interference/spillover assumptions, predeclared outcomes, and falsification controls. If that record is absent or fails review, the result ceiling stays “descriptive interaction,” not “causal synergy.”
+
+### 3. Optimize decisions, not an opaque composite score
+
+Keep a Pareto set across emissions, resilience, water, energy, food delivery, access, affordability, displacement, and maintenance. Apply non-compensatory safety, rights, and service floors before ranking trade-offs; no carbon or efficiency improvement should mathematically cancel a breach of a declared rights or service floor. When evidence is weak, the next action should often be to reduce uncertainty rather than choose a winner. A future value-of-information step can prioritize the measurement or field test most likely to change a decision, given its cost, urgency, uncertainty, and distribution of benefits.
+
+### 4. Make the digital twin contestable and privacy-preserving
+
+A simulation should inform a decision, not authorize procurement, benefits, zoning, or displacement by itself. Preserve the distinction among measured, source-estimated, model-derived, synthetic, blocked, and not-assessable values; make limitations and unresolved dependencies visible. Give affected communities a way to challenge a source, scope, target, or assumption, and use purpose-bound access plus aggregation/minimization for sensitive data. This approach complements the [FAIR principles](https://www.nature.com/articles/sdata201618) for reusable data and the European Commission's [Local Digital Twin work](https://regions-and-cities.ec.europa.eu/cities-portal/eu-initiatives-cities/eu-local-digital-twin-ldt-toolbox_en), which emphasizes scope, governance, data quality, and interoperability.
+
+### Execution sequence
+
+1. **Implemented in this PR:** exact-byte SHA-256 verification, envelope-to-payload binding across 17 native fields, safe repository-local paths, explicit external-unverified outcomes, and adversarial unit controls.
+2. **Next integrity milestone:** introduce a signed attestation and explicit trust policy binding the payload digest, producer revision, build/workflow identity, and verifier version. A digest alone is not a signature.
+3. **Next scientific milestone:** add a causal-identification contract to any claim that goes beyond descriptive interaction, with negative controls for absent or contradicted design evidence.
+4. **Next decision milestone:** build a value-of-information and Pareto-based review process that points to the best next measurement without collapsing rights or uncertainty into one score.
+5. **Pilot gate:** require local source licensing, community co-design, calibrated field evidence, privacy review, maintenance ownership, and independent exact-head verification. Protocol-only and synthetic fixtures remain prohibited as evidence of Johannesburg outcomes.
+
+These are proposed engineering gates, not a claim that the latter stages already exist or that a city deployment has been validated.
