@@ -103,6 +103,16 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
     previous_status = None
     previous_time: datetime | None = None
 
+    # Lifecycle gates remain binding after closure/cancellation. Otherwise a record
+    # could reach authorization or execution and then evade its historical
+    # funding, labor-protection, or independent-verification requirements by
+    # changing only its current status to closed_or_cancelled.
+    reached_statuses = {event.get("to_status") for event in events}
+    funding_gate_reached = status in _FUNDED_STATUSES or bool(reached_statuses & _FUNDED_STATUSES)
+    authorization_gate_reached = status in _AUTHORIZED_STATUSES or bool(reached_statuses & _AUTHORIZED_STATUSES)
+    execution_gate_reached = status in _EXECUTION_STATUSES or bool(reached_statuses & _EXECUTION_STATUSES)
+    verification_gate_reached = status == "independently_verified" or "independently_verified" in reached_statuses
+
     for event in events:
         event_id = event.get("event_id")
         if event_id in seen_event_ids:
@@ -224,7 +234,7 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
             errors.append("CWP_E_PERIOD_COSTING_INCOMPLETE")
         if not cost_breakdown.get("reviewed_by_ref") or not cost_breakdown.get("reviewed_at"):
             errors.append("CWP_E_COST_COVERAGE_REVIEW_MISSING")
-    if status in _FUNDED_STATUSES:
+    if funding_gate_reached:
         if funding.get("status") != "committed" or not funding.get("commitment_evidence_ref"):
             errors.append("CWP_E_FUNDING_NOT_COMMITTED")
         if not isinstance(amount, int) or isinstance(amount, bool) or not isinstance(estimate, int) or isinstance(estimate, bool) or amount < estimate:
@@ -257,7 +267,7 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
                 if not role.get("terms_ref"):
                     errors.append("CWP_E_PAID_ROLE_TERMS_MISSING")
 
-    if status in _AUTHORIZED_STATUSES:
+    if authorization_gate_reached:
         auth = record.get("authorization", {})
         if auth.get("status") != "approved" or auth.get("approved_by_human") is not True or not all(auth.get(k) for k in ("authorizer_ref", "authority_basis", "decision_ref", "decided_at")):
             errors.append("CWP_E_HUMAN_AUTHORIZATION_MISSING")
@@ -269,7 +279,7 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
         if not procurement.get("source_ref"):
             errors.append("CWP_E_PROCUREMENT_EVIDENCE_MISSING")
 
-    if status in _EXECUTION_STATUSES:
+    if execution_gate_reached:
         if record.get("community_review", {}).get("status") not in {"completed", "not_required"}:
             errors.append("CWP_E_COMMUNITY_REVIEW_GATE_UNMET")
         protection = record.get("protections", {})
@@ -279,7 +289,7 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
         if protection.get("no_adverse_automated_decisions") is not True:
             errors.append("CWP_E_AUTOMATED_ADVERSE_DECISION_GUARD_MISSING")
 
-    if status == "independently_verified":
+    if verification_gate_reached:
         verification = record.get("verification", {})
         reviewer = verification.get("reviewer_ref")
         execution_refs = set(record.get("labor_plan", {}).get("execution_actor_refs", []))
