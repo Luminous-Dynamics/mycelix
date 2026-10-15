@@ -519,7 +519,8 @@
         "Analytical expected bounds and canonical source order are stable under equivalent input permutations, including coefficient folds that temporarily exceed the limit but finish within it.",
         "Missing models, mismatched bounds for a shared source, excess terms, out-of-range coefficients, and excessive output bounds fail closed.",
         "The implementation is compiled only for tests and does not change the production geometry decision path.",
-        "Source IDs with leading or trailing whitespace are rejected rather than silently creating distinct identities for an intended shared source."
+        "Source IDs with leading or trailing whitespace are rejected rather than silently creating distinct identities for an intended shared source.",
+        "The committed 11-vector JSON corpus yields the expected interval or error for every case under the declared scalar-algebra contract."
       ],
       "falsifiers": [
         "A different-source pair is silently merged or cancelled.",
@@ -528,7 +529,8 @@
         "An overflow or configured work-bound violation returns a normal bounded result.",
         "The prototype is described as multi-axis reachability, validated flight uncertainty, or operational safety.",
         "Reordering the same legal contributions changes the final coefficient, bounded result, or acceptance outcome solely because an intermediate coefficient sum temporarily exceeds the limit.",
-        "Noncanonical source identifiers with leading or trailing whitespace are admitted as separate dependency identities."
+        "Noncanonical source identifiers with leading or trailing whitespace are admitted as separate dependency identities.",
+        "Any JSON vector's observed result differs from its predeclared expected interval or error outcome."
       ],
       "required_evidence": [
         "Exact-head Rust unit-test output",
@@ -536,7 +538,10 @@
         "Negative-control output for source mismatch, absent model, excessive terms, coefficient overflow, and excessive bounds",
         "Source/build identity and a scope statement separating this primitive from the full AIR-PB-015 pipeline",
         "Independent review of source-identity semantics before adding transformation or physical-model adapters",
-        "Permutation pair for same-source coefficients near the configured coefficient limit and negative-control source IDs with noncanonical whitespace"
+        "Permutation pair for same-source coefficients near the configured coefficient limit and negative-control source IDs with noncanonical whitespace",
+        "Fixture corpus tools/airspace-sim/fixtures/uncertainty_vectors.json with 11 hand-derived expected outcomes",
+        "Independent host-side arithmetic recomputation of all 11 committed vectors (structural cross-check only; Rust execution still pending)",
+        "Exact-head Rust test output for the vector-driven test and standalone uncertainty module"
       ],
       "hard_invariants": [
         "uncertainty_composition_preserves_dependencies_and_bounds",
