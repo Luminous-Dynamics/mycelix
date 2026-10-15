@@ -42,6 +42,7 @@ enum UncertaintyError {
     EmptyModel,
     TooManyTerms,
     EmptySourceId,
+    NonCanonicalSourceId,
     SourceIdTooLong,
     InvalidSourceBounds,
     SourceBoundsMismatch,
@@ -138,6 +139,9 @@ impl AffineUncertainty {
             if term.source_id.trim().is_empty() {
                 return Err(UncertaintyError::EmptySourceId);
             }
+            if term.source_id.as_str() != term.source_id.trim() {
+                return Err(UncertaintyError::NonCanonicalSourceId);
+            }
             if term.source_id.len() > MAX_SOURCE_ID_BYTES {
                 return Err(UncertaintyError::SourceIdTooLong);
             }
@@ -159,9 +163,9 @@ impl AffineUncertainty {
                     .coefficient
                     .checked_add(term.coefficient)
                     .ok_or(UncertaintyError::ArithmeticOverflow)?;
-                if i128::from(combined).abs() > MAX_ABS_COEFFICIENT {
-                    return Err(UncertaintyError::CoefficientOutOfRange);
-                }
+                // Delay the coefficient range check until all contributions
+                // for this source are folded, so equivalent input permutations
+                // cannot differ because of an over-limit intermediate sum.
                 existing.coefficient = combined;
             } else {
                 by_source.insert(term.source_id.clone(), term);
@@ -169,6 +173,13 @@ impl AffineUncertainty {
                     return Err(UncertaintyError::TooManyTerms);
                 }
             }
+        }
+
+        if by_source
+            .values()
+            .any(|term| i128::from(term.coefficient).abs() > MAX_ABS_COEFFICIENT)
+        {
+            return Err(UncertaintyError::CoefficientOutOfRange);
         }
 
         Ok(Self {
@@ -257,6 +268,35 @@ mod tests {
             IntervalBounds {
                 lower_mm: -6,
                 upper_mm: 4
+            }
+        );
+    }
+
+    #[test]
+    fn noncanonical_source_identifiers_are_rejected() {
+        assert_eq!(
+            AffineUncertainty::new(vec![contribution(" datum-bias ", -1, 1, 1)]).unwrap_err(),
+            UncertaintyError::NonCanonicalSourceId
+        );
+    }
+
+    #[test]
+    fn coefficient_fold_is_input_order_invariant_near_the_declared_limit() {
+        let max = MAX_ABS_COEFFICIENT as i64;
+        let terms = vec![
+            contribution("same", -1, 1, max),
+            contribution("same", -1, 1, max),
+            contribution("same", -1, 1, -max),
+        ];
+        let forward = AffineUncertainty::new(terms.clone()).unwrap();
+        let reversed = AffineUncertainty::new(terms.into_iter().rev().collect()).unwrap();
+
+        assert_eq!(forward, reversed);
+        assert_eq!(
+            forward.bounds().unwrap(),
+            IntervalBounds {
+                lower_mm: -max,
+                upper_mm: max
             }
         );
     }
