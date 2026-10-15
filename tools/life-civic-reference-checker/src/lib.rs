@@ -628,11 +628,19 @@ fn synthetic_johannesburg_project_claims_do_not_prove_live_service_or_verified_o
         assert_eq!(instance["scope"]["service_class"], "general_municipal");
         assert_eq!(instance["case_state"], "human_review_required");
         assert_eq!(instance["outcome"]["status"], "unknown");
-        assert!(instance["outcome"]["verification_evidence_ids"].as_array().unwrap().is_empty());
+        assert!(
+            instance["outcome"]["verification_evidence_ids"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(instance["outcome"]["verified_at"], Value::Null);
         assert_eq!(instance["effects"]["mode"], "effects_disabled");
         assert_eq!(instance["effects"]["effects_requested"], false);
-        assert!(check.is_valid(instance), "{fixture_id} must satisfy service journey schema");
+        assert!(
+            check.is_valid(instance),
+            "{fixture_id} must satisfy service journey schema"
+        );
         assert!(
             validate_service_claim_semantics(instance).is_ok(),
             "{fixture_id} must satisfy service claim semantics"
@@ -647,14 +655,19 @@ fn synthetic_johannesburg_project_claims_do_not_prove_live_service_or_verified_o
         assert_eq!(evidence["retrieved_at"], Value::Null);
         assert_eq!(evidence["checked_at"], Value::Null);
         assert!(
-            evidence["limitations"].as_str().unwrap().contains("not captured as evidence"),
+            evidence["limitations"]
+                .as_str()
+                .unwrap()
+                .contains("not captured as evidence"),
             "{fixture_id} must retain its non-capture limitation"
         );
         let prohibited = instance["claim_ceiling"]["prohibited_inferences"]
             .as_array()
             .expect("prohibited inferences must be an array");
         assert!(
-            prohibited.iter().any(|claim| claim.as_str().is_some_and(|text| text.contains(prohibited_probe))),
+            prohibited.iter().any(|claim| claim
+                .as_str()
+                .is_some_and(|text| text.contains(prohibited_probe))),
             "{fixture_id} is missing its key prohibited inference"
         );
     }
