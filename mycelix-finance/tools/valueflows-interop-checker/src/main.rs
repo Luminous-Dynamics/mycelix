@@ -1,5 +1,8 @@
 use serde::Deserialize;
-use std::{collections::{BTreeMap, BTreeSet}, env, fs, process};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    env, fs, process,
+};
 
 const DEFAULT_CORPUS: &str =
     "mycelix-finance/tests/reference/valueflows-interop/mapping-corpus-v1.json";
@@ -108,7 +111,13 @@ fn expected_disposition(id: &str) -> Option<&'static str> {
 
 fn expected_mapping(
     instrument: &str,
-) -> Option<(&'static str, &'static str, &'static str, bool, &'static [&'static str])> {
+) -> Option<(
+    &'static str,
+    &'static str,
+    &'static str,
+    bool,
+    &'static [&'static str],
+)> {
     match instrument {
         "SAP" => Some((
             "mycelix:SAP",
@@ -219,7 +228,11 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
 
     let authority = &corpus.authority_boundary;
-    fail(&mut errors, authority.export_only, "authority_boundary.export_only must be true".into());
+    fail(
+        &mut errors,
+        authority.export_only,
+        "authority_boundary.export_only must be true".into(),
+    );
     fail(
         &mut errors,
         !authority.external_facts_are_authoritative,
@@ -260,8 +273,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     fail(
         &mut errors,
         source.published_ontology_version == "0.17"
-            && source.published_ontology_version_iri
-                == "https://w3id.org/valueflows/ont/0.17/vf",
+            && source.published_ontology_version_iri == "https://w3id.org/valueflows/ont/0.17/vf",
         "published ontology version and version IRI must remain explicitly pinned to 0.17".into(),
     );
     fail(
@@ -279,12 +291,17 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     fail(
         &mut errors,
         source.hrea_source_commit.len() == 40
-            && source.hrea_source_commit.chars().all(|ch| ch.is_ascii_hexdigit()),
+            && source
+                .hrea_source_commit
+                .chars()
+                .all(|ch| ch.is_ascii_hexdigit()),
         "hREA source commit must be a full 40-character hexadecimal SHA".into(),
     );
     fail(
         &mut errors,
-        source.hrea_source_commit_url.ends_with(&source.hrea_source_commit),
+        source
+            .hrea_source_commit_url
+            .ends_with(&source.hrea_source_commit),
         "hREA source commit URL must end with the pinned commit SHA".into(),
     );
     fail(
@@ -327,7 +344,10 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     ] {
         fail(
             &mut errors,
-            contract.required_envelope_fields.iter().any(|field| field == required),
+            contract
+                .required_envelope_fields
+                .iter()
+                .any(|field| field == required),
             format!("required envelope field is missing: {required}"),
         );
     }
@@ -371,9 +391,11 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         );
         fail(
             &mut errors,
-            !mapping.mycelix_identity.trim().is_empty()
-                && !mapping.unit_profile.trim().is_empty(),
-            format!("mapping {} must identify an instrument and unit profile", mapping.id),
+            !mapping.mycelix_identity.trim().is_empty() && !mapping.unit_profile.trim().is_empty(),
+            format!(
+                "mapping {} must identify an instrument and unit profile",
+                mapping.id
+            ),
         );
         fail(
             &mut errors,
@@ -398,16 +420,28 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         fail(
             &mut errors,
             !mapping.source_event_is_authority_for_ledger_mutation,
-            format!("mapping {} must not promote source events to ledger authority", mapping.id),
+            format!(
+                "mapping {} must not promote source events to ledger authority",
+                mapping.id
+            ),
         );
         fail(
             &mut errors,
             !mapping.maps_to_authoritative_balance,
-            format!("mapping {} must not map directly to authoritative balances", mapping.id),
+            format!(
+                "mapping {} must not map directly to authoritative balances",
+                mapping.id
+            ),
         );
 
-        if instruments.insert(mapping.mycelix_instrument.as_str(), mapping).is_some() {
-            errors.push(format!("duplicate instrument mapping: {}", mapping.mycelix_instrument));
+        if instruments
+            .insert(mapping.mycelix_instrument.as_str(), mapping)
+            .is_some()
+        {
+            errors.push(format!(
+                "duplicate instrument mapping: {}",
+                mapping.mycelix_instrument
+            ));
         }
 
         match expected_mapping(&mapping.mycelix_instrument) {
@@ -420,7 +454,10 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 fail(
                     &mut errors,
                     mapping.quantity_encoding == encoding,
-                    format!("{} has an unsafe or unexpected quantity encoding", mapping.id),
+                    format!(
+                        "{} has an unsafe or unexpected quantity encoding",
+                        mapping.id
+                    ),
                 );
                 fail(
                     &mut errors,
@@ -435,8 +472,14 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 for entity in entities {
                     fail(
                         &mut errors,
-                        mapping.valueflows_entities.iter().any(|candidate| candidate.as_str() == *entity),
-                        format!("{} is missing required ValueFlows entity {entity}", mapping.id),
+                        mapping
+                            .valueflows_entities
+                            .iter()
+                            .any(|candidate| candidate.as_str() == *entity),
+                        format!(
+                            "{} is missing required ValueFlows entity {entity}",
+                            mapping.id
+                        ),
                     );
                 }
                 if mapping.mycelix_instrument == "MYCEL" {
@@ -503,7 +546,10 @@ fn validate(corpus: &Corpus) -> Vec<String> {
             Some(expected) => fail(
                 &mut errors,
                 control.expected_disposition == expected,
-                format!("negative control {} has incorrect expected disposition", control.id),
+                format!(
+                    "negative control {} has incorrect expected disposition",
+                    control.id
+                ),
             ),
             None => errors.push(format!("unknown negative control: {}", control.id)),
         }
@@ -512,12 +558,21 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 for guard in required {
                     fail(
                         &mut errors,
-                        control.required_guards.iter().any(|candidate| candidate.as_str() == *guard),
-                        format!("negative control {} is missing required guard: {guard}", control.id),
+                        control
+                            .required_guards
+                            .iter()
+                            .any(|candidate| candidate.as_str() == *guard),
+                        format!(
+                            "negative control {} is missing required guard: {guard}",
+                            control.id
+                        ),
                     );
                 }
             }
-            None => errors.push(format!("negative control {} has no registered guard contract", control.id)),
+            None => errors.push(format!(
+                "negative control {} has no registered guard contract",
+                control.id
+            )),
         }
     }
     for id in expected_controls {
@@ -597,7 +652,9 @@ mod tests {
         let mut value = fixture();
         value["authority_boundary"]["external_facts_are_authoritative"] = true.into();
         let errors = check_text(&value.to_string()).expect_err("external authority must fail");
-        assert!(errors.iter().any(|error| error.contains("external facts must never be authoritative")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("external facts must never be authoritative")));
     }
 
     #[test]
@@ -610,7 +667,9 @@ mod tests {
             .expect("MYCEL mapping");
         mycel["transferable"] = true.into();
         let errors = check_text(&value.to_string()).expect_err("MYCEL transferability must fail");
-        assert!(errors.iter().any(|error| error.contains("incorrect transferability semantics")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("incorrect transferability semantics")));
     }
 
     #[test]
@@ -623,7 +682,9 @@ mod tests {
             .expect("SAP mapping");
         sap["quantity_encoding"] = "binary_float".into();
         let errors = check_text(&value.to_string()).expect_err("binary float encoding must fail");
-        assert!(errors.iter().any(|error| error.contains("unsafe or unexpected quantity encoding")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unsafe or unexpected quantity encoding")));
     }
 
     #[test]
@@ -645,20 +706,26 @@ mod tests {
         let mut value = fixture();
         value["source_profile"]["published_ontology_version"] = "1.0".into();
         let errors = check_text(&value.to_string()).expect_err("version conflation must fail");
-        assert!(errors.iter().any(|error| error.contains("published ontology version")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("published ontology version")));
     }
 
     #[test]
     fn negative_control_dispositions_are_fixed_and_fail_closed() {
         let mut value = fixture();
-        let controls = value["negative_controls"].as_array_mut().expect("controls array");
+        let controls = value["negative_controls"]
+            .as_array_mut()
+            .expect("controls array");
         let replay = controls
             .iter_mut()
             .find(|control| control["id"] == "VF-REPLAY-001")
             .expect("replay control");
         replay["expected_disposition"] = "accept".into();
         let errors = check_text(&value.to_string()).expect_err("unsafe disposition must fail");
-        assert!(errors.iter().any(|error| error.contains("incorrect expected disposition")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("incorrect expected disposition")));
     }
 
     #[test]
@@ -666,7 +733,9 @@ mod tests {
         let mut value = fixture();
         value["unreviewed_authority_override"] = true.into();
         let errors = check_text(&value.to_string()).expect_err("unknown fields must fail");
-        assert!(errors.iter().any(|error| error.contains("invalid corpus JSON/shape")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("invalid corpus JSON/shape")));
     }
 
     #[test]
@@ -678,24 +747,36 @@ mod tests {
             .find(|control| control["id"] == "VF-AMOUNT-001")
             .expect("amount control");
         amount["required_guards"] = serde_json::json!(["canonical_integer_string"]);
-        let errors = check_text(&value.to_string()).expect_err("dropping exact-round-trip guards must fail");
-        assert!(errors.iter().any(|error| error.contains("missing required guard")));
+        let errors =
+            check_text(&value.to_string()).expect_err("dropping exact-round-trip guards must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("missing required guard")));
     }
 
     #[test]
     fn imported_external_fact_cannot_mark_settlement_final() {
         let mut value = fixture();
         value["authority_boundary"]["external_import_may_mark_settlement_final"] = true.into();
-        let errors = check_text(&value.to_string()).expect_err("external import must not finalize settlement");
-        assert!(errors.iter().any(|error| error.contains("external import must not mark settlement final")));
+        let errors = check_text(&value.to_string())
+            .expect_err("external import must not finalize settlement");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("external import must not mark settlement final")));
     }
 
     #[test]
     fn provenance_scope_and_correction_lineage_are_required() {
         for (field, expected_error) in [
-            ("preserves_origin_and_source_event", "must preserve origin/source event"),
+            (
+                "preserves_origin_and_source_event",
+                "must preserve origin/source event",
+            ),
             ("preserves_community_scope", "must preserve community scope"),
-            ("preserves_correction_lineage", "must preserve correction lineage"),
+            (
+                "preserves_correction_lineage",
+                "must preserve correction lineage",
+            ),
         ] {
             let mut value = fixture();
             let mappings = value["mappings"].as_array_mut().expect("mappings array");
@@ -705,7 +786,10 @@ mod tests {
                 .expect("SAP mapping");
             sap[field] = false.into();
             let errors = check_text(&value.to_string()).expect_err("lossy mapping must fail");
-            assert!(errors.iter().any(|error| error.contains(expected_error)), "{field}: {errors:?}");
+            assert!(
+                errors.iter().any(|error| error.contains(expected_error)),
+                "{field}: {errors:?}"
+            );
         }
     }
 
@@ -718,8 +802,11 @@ mod tests {
             .find(|mapping| mapping["mycelix_instrument"] == "TEND")
             .expect("TEND mapping");
         tend["mycelix_identity"] = "mycelix:SAP".into();
-        let errors = check_text(&value.to_string()).expect_err("TEND/SAP identity substitution must fail");
-        assert!(errors.iter().any(|error| error.contains("unexpected instrument identity")));
+        let errors =
+            check_text(&value.to_string()).expect_err("TEND/SAP identity substitution must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unexpected instrument identity")));
     }
 
     #[test]
@@ -727,7 +814,10 @@ mod tests {
         let mut value = fixture();
         let controls = value["negative_controls"].as_array_mut().expect("controls array");
         controls.pop();
-        let errors = check_text(&value.to_string()).expect_err("missing negative control must fail");
-        assert!(errors.iter().any(|error| error.contains("required negative control is missing")));
+        let errors =
+            check_text(&value.to_string()).expect_err("missing negative control must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("required negative control is missing")));
     }
 }
