@@ -67,11 +67,15 @@ def exact_fraction(value):
         return Fraction(value)
     return Fraction(str(value))
 
+def reject_nonstandard_constant(token: str):
+    """Reject NaN/Infinity tokens, which are not valid JSON numbers."""
+    raise ValueError(f"non-standard JSON numeric constant: {token}")
+
 def load_json(path: Path):
     try:
         with path.open("r", encoding="utf-8") as stream:
-            return json.load(stream, parse_float=Decimal)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            return json.load(stream, parse_float=Decimal, parse_constant=reject_nonstandard_constant)
+    except (OSError, UnicodeError, ValueError) as exc:
         fail(f"{path.relative_to(ROOT)} is not readable valid JSON: {exc}")
 
 def schema_errors(validator, item):
@@ -592,7 +596,16 @@ def main():
         fail("mutation: sub-ULP decimal interaction mismatch was accepted at zero tolerance")
     print("PASS mutation: exact decimal interaction rejects tiny declared-delta drift at zero tolerance")
 
-    print("PASS: 30 urban-metabolism/synergy controls (25 mutation controls and five positive controls); no composite symtropy score or automatic authorization.")
+    nonstandard_json_number_rejected = False
+    try:
+        json.loads('{"value": NaN}', parse_float=Decimal, parse_constant=reject_nonstandard_constant)
+    except ValueError:
+        nonstandard_json_number_rejected = True
+    if not nonstandard_json_number_rejected:
+        fail("mutation: non-standard JSON NaN numeric constant was accepted")
+    print("PASS mutation: non-standard JSON NaN/Infinity constants are rejected at the parser boundary")
+
+    print("PASS: 31 urban-metabolism/synergy controls (26 mutation/parser rejection controls and five positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
