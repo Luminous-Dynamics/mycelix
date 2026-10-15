@@ -393,7 +393,12 @@
       "future_constraint_update_unresolved",
       "expired_constraint_does_not_intersect",
       "conservative_margin_catches_between_sample_pass",
-      "unqualified_flight_time_unresolved"
+      "unqualified_flight_time_unresolved",
+      "exact_constraint_update_retransmission_idempotent",
+      "same_constraint_digest_different_payload_unresolved",
+      "constraint_authority_change_unresolved",
+      "constraint_vertical_datum_mismatch_unresolved",
+      "invalid_constraint_sample_step_rejected"
     ],
     "dynamic_constraint_semantics": {
       "volume_model": "synthetic axis-aligned box in explicit local frame, vertical datum and time basis",
@@ -402,7 +407,14 @@
       "withdrawal": "latest withdrawn version removes the constraint from the current synthetic view; does not restore flight authorization or certify safety",
       "intersection": "integer constant-velocity trajectories screened by a bounded sample loop; volume is expanded by declared uncertainty, constraint margin, and one full sample-step of absolute motion",
       "stale_snapshot": "known intersections remain reassessment_required; absence of observed intersection in stale/partitioned view is degraded",
-      "authority_ceiling": "impact evidence only; competent service decides how to update or withdraw authorizations"
+      "authority_ceiling": "impact evidence only; competent service decides how to update or withdraw authorizations",
+      "additional_negative_controls": [
+        "exact_constraint_update_retransmission_idempotent",
+        "same_constraint_digest_different_payload_unresolved",
+        "constraint_authority_change_unresolved",
+        "constraint_vertical_datum_mismatch_unresolved",
+        "invalid_constraint_sample_step_rejected"
+      ]
     }
   }
 }

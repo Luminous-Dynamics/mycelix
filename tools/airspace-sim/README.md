@@ -4,7 +4,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 
 ## What it does
 
-- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, 16 reservation-event-stream fixtures, and 14 dynamic airspace-constraint fixtures.
+- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, 16 reservation-event-stream fixtures, and 19 dynamic airspace-constraint fixtures.
 - Uses explicit millimetre / millimetre-per-second integer units and a fixed simulation window.
 - Refuses to compare coordinates across unqualified clocks, incompatible reference frames, or vertical datums.
 - Rejects expired, withdrawn, ended, malformed, out-of-bounds, or over-budget flight-intent fixtures.
@@ -17,7 +17,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Never reports a no-conflict result from a partitioned or stale/incomplete provider snapshot.
 - Keeps emergency claims from automatically preempting conflicting claims; emergency cases require the competent operational process.
 - Replays provider-local reservation updates by explicit sequence, detecting gaps, forks, broken predecessor links, time reversal, changed reservation semantics, and illegal state transitions.
-- Reconciles versioned airspace-constraint updates, including activation, changed volumes, withdrawal, and stale/partitioned source views.
+- Reconciles versioned airspace-constraint updates, including activation, changed volumes, withdrawal, exact retransmission, contradictory digest reuse, source identity changes, and stale/partitioned views.
 - Screens current flight-intent envelopes against active 4D axis-aligned restriction volumes with explicit coordinate frame, vertical datum, time basis and validity.
 - Expands each volume by declared uncertainty and one full sample-step of trajectory motion to conservatively reduce missed between-sample intersections; this is still not formal reachability analysis.
 - Reports known impacts as `reassessment_required` even when the input view is stale, and uses `degraded` rather than no-impact when no hit is observed in an incomplete view.

@@ -1834,6 +1834,40 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn constraint_update_retransmission_is_idempotent_and_counted() {
+        let report = evaluate_dynamic_constraint_case(
+            &dynamic_constraint_fixture("exact_constraint_update_retransmission_idempotent"),
+        );
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::NoImpactInProvidedSnapshot);
+        assert_eq!(report.constraint_stream_count, 1);
+        assert_eq!(report.unique_update_count, 1);
+        assert_eq!(report.replayed_delivery_count, 1);
+        assert!(report.sample_checks > 0);
+    }
+
+    #[test]
+    fn conflicting_constraint_update_digest_and_source_changes_fail_closed() {
+        for (case_id, expected_error) in [
+            ("same_constraint_digest_different_payload_unresolved", DynamicConstraintError::ConflictingUpdateDigest),
+            ("constraint_authority_change_unresolved", DynamicConstraintError::AuthorityChanged),
+            ("constraint_vertical_datum_mismatch_unresolved", DynamicConstraintError::IncompatibleVerticalDatum),
+        ] {
+            let report = evaluate_dynamic_constraint_case(&dynamic_constraint_fixture(case_id));
+            assert_eq!(report.actual_outcome, DynamicConstraintOutcome::Unresolved, "{case_id}: {report:#?}");
+            assert!(report.expectation_matches, "{case_id}: fixture expectation mismatch");
+            assert!(report.errors.contains(&expected_error), "{case_id}: missing {expected_error:?}");
+        }
+    }
+
+    #[test]
+    fn dynamic_constraint_invalid_sample_step_is_rejected() {
+        let report = evaluate_dynamic_constraint_case(&dynamic_constraint_fixture("invalid_constraint_sample_step_rejected"));
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::Reject);
+        assert!(report.errors.contains(&DynamicConstraintError::InvalidSampleStep));
+    }
+
     #[test]
     fn newly_published_restriction_requires_reassessment() {
         let report = evaluate_dynamic_constraint_case(
