@@ -59,7 +59,8 @@
           "tolerance": "0",
           "unit": "mL",
           "status": "balanced",
-          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": []
         }
       ],
       "limitations": [
@@ -97,7 +98,8 @@
           "tolerance": "0",
           "unit": "mL",
           "status": "balanced",
-          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": []
         }
       ],
       "limitations": [
@@ -135,7 +137,8 @@
           "tolerance": "0",
           "unit": "mL",
           "status": "balanced",
-          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": []
         }
       ],
       "limitations": [
@@ -174,7 +177,8 @@
           "tolerance": "0",
           "unit": "mL",
           "status": "balanced",
-          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance."
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": []
         }
       ],
       "limitations": [
