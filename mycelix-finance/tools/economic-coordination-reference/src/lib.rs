@@ -54,6 +54,7 @@ pub enum ContractError {
     ArithmeticOverflow,
     AlreadyPosted,
     NonMonotonicTime,
+    DisputeUnresolved,
 }
 
 impl fmt::Display for ContractError {
@@ -176,6 +177,19 @@ pub struct VerificationResult {
     pub claim_evidence_id: String,
     /// Identifier for the independent verifier's own evidence/decision.
     pub evidence_id: String,
+    pub evidence_status: EvidenceStatus,
+    pub accepted_quantity: Option<u64>,
+    pub decided_at: u64,
+}
+
+/// An independent reassessment of a previously disputed delivery.
+/// It never deletes or waives an obligation; it can only confirm full delivery
+/// for the existing contract, otherwise the dispute remains open.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DisputeReassessment {
+    pub resolver_id: String,
+    pub claim_evidence_id: String,
+    pub decision_evidence_id: String,
     pub evidence_status: EvidenceStatus,
     pub accepted_quantity: Option<u64>,
     pub decided_at: u64,
@@ -352,6 +366,7 @@ pub struct CoordinationContract {
     obligation: Option<ObligationTerms>,
     delivery: Option<DeliveryClaim>,
     verification: Option<VerificationResult>,
+    dispute_reassessments: Vec<DisputeReassessment>,
     settlement: Option<SettlementReceipt>,
     history: Vec<TransitionReceipt>,
 }
@@ -367,6 +382,7 @@ impl CoordinationContract {
             obligation: None,
             delivery: None,
             verification: None,
+            dispute_reassessments: Vec::new(),
             settlement: None,
             history: Vec::new(),
         })
@@ -398,6 +414,10 @@ impl CoordinationContract {
 
     pub fn verification(&self) -> Option<&VerificationResult> {
         self.verification.as_ref()
+    }
+
+    pub fn dispute_reassessments(&self) -> &[DisputeReassessment] {
+        &self.dispute_reassessments
     }
 
     pub fn settlement(&self) -> Option<&SettlementReceipt> {
@@ -566,6 +586,59 @@ impl CoordinationContract {
         self.verification = Some(result);
         self.transition(next, at, evidence_ref);
         Ok(next)
+    }
+
+    /// Reassess a disputed delivery through a distinct, independent resolver.
+    ///
+    /// Only evidence that confirms the exact full delivery can advance to
+    /// Verified. An unresolved/adverse assessment is retained in the journal
+    /// and leaves the obligation disputed; it never silently waives money owed.
+    pub fn reassess_dispute(
+        &mut self,
+        reassessment: DisputeReassessment,
+    ) -> Result<Lifecycle, ContractError> {
+        self.require_state(Lifecycle::Disputed)?;
+        self.ensure_transition_time(reassessment.decided_at)?;
+        let delivery = self.delivery.as_ref().ok_or(ContractError::InvalidEvidence)?;
+        let previous_verifier = self.verification.as_ref().map(|v| v.verifier_id.as_str());
+
+        if !non_empty(&reassessment.resolver_id)
+            || !non_empty(&reassessment.claim_evidence_id)
+            || !non_empty(&reassessment.decision_evidence_id)
+            || reassessment.claim_evidence_id != delivery.evidence_id
+        {
+            return Err(ContractError::InvalidEvidence);
+        }
+        if reassessment.resolver_id == self.request.requester_id
+            || reassessment.resolver_id == self.request.provider_id
+            || reassessment.resolver_id == delivery.source_id
+            || Some(reassessment.resolver_id.as_str()) == previous_verifier
+        {
+            return Err(ContractError::NotIndependentVerifier);
+        }
+
+        let resolves = reassessment.evidence_status == EvidenceStatus::Verified
+            && reassessment.accepted_quantity == Some(self.request.quantity)
+            && delivery.resource_id == self.request.resource_id
+            && delivery.unit == self.request.unit
+            && delivery.quantity == self.request.quantity
+            && delivery.observed_at <= self.request.deliver_by;
+
+        let at = reassessment.decided_at;
+        let evidence_ref = Some(reassessment.decision_evidence_id.clone());
+        let next = if resolves {
+            Lifecycle::Verified
+        } else {
+            Lifecycle::Disputed
+        };
+        self.dispute_reassessments.push(reassessment);
+        self.transition(next, at, evidence_ref);
+
+        if resolves {
+            Ok(Lifecycle::Verified)
+        } else {
+            Err(ContractError::DisputeUnresolved)
+        }
     }
 
     /// Posts an internal double-entry reference ledger movement after delivery
@@ -1334,6 +1407,108 @@ mod tests {
             ledger.balance("coop-wallet", INSTRUMENT, ATOMIC_UNIT),
             Some(0)
         );
+    }
+
+    #[test]
+    fn disputed_delivery_can_be_confirmed_by_a_distinct_independent_resolver() {
+        let (mut contract, mut ledger) = committed_contract("tx-dispute-reassess", 4);
+        record_full_delivery(&mut contract, 4);
+        assert_eq!(
+            contract
+                .verify_delivery(VerificationResult {
+                    verifier_id: "first-auditor".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    evidence_id: "first-check".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    accepted_quantity: Some(3),
+                    decided_at: 6,
+                })
+                .unwrap(),
+            Lifecycle::Disputed
+        );
+
+        assert_eq!(
+            contract
+                .reassess_dispute(DisputeReassessment {
+                    resolver_id: "independent-reviewer".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    decision_evidence_id: "review-check".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    accepted_quantity: Some(4),
+                    decided_at: 7,
+                })
+                .unwrap(),
+            Lifecycle::Verified
+        );
+        assert_eq!(contract.dispute_reassessments().len(), 1);
+        assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        assert!(contract.settle(&mut ledger, 8).is_ok());
+    }
+
+    #[test]
+    fn unresolved_dispute_is_journaled_and_does_not_erase_obligation() {
+        let (mut contract, mut ledger) = committed_contract("tx-dispute-open", 4);
+        record_full_delivery(&mut contract, 4);
+        contract
+            .verify_delivery(VerificationResult {
+                verifier_id: "first-auditor".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                evidence_id: "first-check".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(3),
+                decided_at: 6,
+            })
+            .unwrap();
+        let obligation_id = contract.obligation().unwrap().id.clone();
+
+        assert_eq!(
+            contract.reassess_dispute(DisputeReassessment {
+                resolver_id: "independent-reviewer".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                decision_evidence_id: "still-short".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(3),
+                decided_at: 7,
+            }),
+            Err(ContractError::DisputeUnresolved)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
+        assert_eq!(contract.dispute_reassessments().len(), 1);
+        assert_eq!(contract.obligation().unwrap().id, obligation_id);
+        assert_eq!(
+            contract.settle(&mut ledger, 8),
+            Err(ContractError::InvalidTransition)
+        );
+    }
+
+    #[test]
+    fn dispute_resolver_must_differ_from_first_verifier() {
+        let (mut contract, _) = committed_contract("tx-dispute-resolver", 4);
+        record_full_delivery(&mut contract, 4);
+        contract
+            .verify_delivery(VerificationResult {
+                verifier_id: "first-auditor".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                evidence_id: "first-check".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(3),
+                decided_at: 6,
+            })
+            .unwrap();
+
+        assert_eq!(
+            contract.reassess_dispute(DisputeReassessment {
+                resolver_id: "first-auditor".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                decision_evidence_id: "same-reviewer".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(4),
+                decided_at: 7,
+            }),
+            Err(ContractError::NotIndependentVerifier)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
+        assert!(contract.dispute_reassessments().is_empty());
     }
 
     #[test]
