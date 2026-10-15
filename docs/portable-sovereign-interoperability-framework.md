@@ -130,7 +130,7 @@ Do not use "countries onboarded" as the primary success metric. A single safe, a
 2. **Implemented in this PR, awaiting exact-head CI:** a jurisdiction-neutral [portable adapter profile template](../mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json), [closed-schema validator](../mycelix-identity/validate_portable_adapter_profile.py), and [21 adversarial tests](../mycelix-identity/tests/test_portable_adapter_profile.py). This is a research-only template, not an authorized adapter.
 3. Add cross-region reference mappings as research notes only. Do not hard-code EU/ASEAN/IdLAC status into production trust settings.
 4. Preserve exact-head evidence: contract tests must pass on the exact commit before claiming implementation validation.
-5. Create a lightweight synthetic end-to-end service example proving purpose scope, minimal claims, offline fallback and appeal receipt without real identity data.
+5. **Implemented in this PR, awaiting exact-head CI:** run the [18-case synthetic service journey](../mycelix-identity/SYNTHETIC_SERVICE_JOURNEY_V1.json) through the [deterministic evaluator](../mycelix-identity/synthetic_service_journey.py) and its [19-method adversarial suite](../mycelix-identity/tests/test_synthetic_service_journey.py). It covers purpose-grant binding, minimum claim disclosure, verifier outage/unknown-state fallback, replay rejection, identity-versus-entitlement boundaries, and ephemeral appeal receipts. It is not a credential verifier or durable case-management service.
 6. Treat regional organizations as potential partners/standard-setters, not customers who have already expressed demand. Ask for review, publish gaps and listen.
 
 ## Sources
