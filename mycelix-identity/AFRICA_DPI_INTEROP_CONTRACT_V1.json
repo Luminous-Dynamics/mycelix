@@ -1,0 +1,110 @@
+{
+  "schema_id": "org.luminousdynamics.africa-dpi-interoperability-contract",
+  "schema_version": 1,
+  "profile_id": "AFRICA-DPI-001",
+  "title": "Africa sovereign digital public infrastructure interoperability contract",
+  "snapshot_date": "2026-10-14",
+  "maturity": "research_only",
+  "production_enabled": false,
+  "role": "country-adapter-and-evidence-layer-not-a-government-or-continental-trust-authority",
+  "jurisdiction_model": "sovereign-national-profiles-with-optional-bilateral-or-regional-federation",
+  "national_profiles_are_separate_artifacts": true,
+  "country_profiles": [],
+  "hard_invariants": {
+    "production_enabled": false,
+    "central_continental_identity_database": false,
+    "single_continental_root_of_trust": false,
+    "store_raw_credential_in_public_dht": false,
+    "store_national_identity_number_in_public_dht": false,
+    "store_biometric_template_in_public_dht": false,
+    "store_replayable_presentation_in_public_dht": false,
+    "identity_implies_citizenship": false,
+    "identity_implies_residency_or_migration_permission": false,
+    "identity_implies_service_eligibility": false,
+    "identity_implies_mycelix_membership": false,
+    "identity_implies_governance_or_execution_authority": false,
+    "undocumented_government_endpoint_allowed": false,
+    "screen_scraping_allowed": false,
+    "reverse_engineered_app_protocol_allowed": false,
+    "mandatory_smartphone_only_access": false,
+    "non_digital_or_assisted_alternative_required": true,
+    "purpose_and_legal_basis_required": true,
+    "minimum_disclosure_required": true,
+    "explicit_route_and_issuer_separation_required": true,
+    "unknown_trust_or_status_fails_closed": true,
+    "country_level_data_protection_review_required": true,
+    "accountable_grievance_and_correction_path_required": true
+  },
+  "country_profile_status_values": [
+    "not_assessed",
+    "research_only",
+    "partner_review",
+    "sandbox_authorized",
+    "production_authorized"
+  ],
+  "required_country_profile_sections": [
+    "national_authority_and_legal_basis",
+    "issuer_and_trust_metadata",
+    "credential_formats_and_protocol_versions",
+    "verification_and_holder_binding",
+    "validity_status_suspension_and_revocation",
+    "purpose_limitation_and_minimum_disclosure",
+    "relying_party_onboarding_and_contract_terms",
+    "data_protection_and_retention",
+    "offline_assisted_and_non_digital_access",
+    "accessibility_languages_and_low_connectivity",
+    "data_correction_appeal_and_grievance",
+    "incident_reporting_and_key_compromise",
+    "conformance_vectors_and_negative_controls",
+    "evidence_commit_and_release_approval"
+  ],
+  "release_gates": {
+    "reviewed_primary_law_and_regulations": false,
+    "written_authority_or_partner_approval": false,
+    "official_protocol_and_trust_metadata_verified": false,
+    "status_lifecycle_and_key_rotation_specified": false,
+    "privacy_impact_assessment_approved": false,
+    "data_retention_and_erasure_verified": false,
+    "offline_and_non_digital_path_tested": false,
+    "accessibility_and_language_review_complete": false,
+    "security_threat_model_and_independent_review_complete": false,
+    "positive_and_negative_conformance_tests_passed": false,
+    "operational_incident_and_grievance_process_agreed": false,
+    "human_approval_recorded_for_exact_release_commit": false
+  },
+  "references": [
+    {
+      "id": "au_digital_id_interoperability_framework",
+      "url": "https://au.int/en/documents/20231211/au-interoperability-framework-digital-id",
+      "use": "Continental interoperability principles while preserving national identity-system sovereignty."
+    },
+    {
+      "id": "au_data_policy_framework",
+      "url": "https://www.au.int/en/documents/20220728/au-data-policy-framework",
+      "use": "Data governance, rights, and cross-border data policy context."
+    },
+    {
+      "id": "afcfta_digital_trade_protocol",
+      "url": "https://www.au.int/en/treaties/protocol-agreement-establishing-african-continental-free-trade-area-digital-trade",
+      "use": "Digital-trade interoperability principles and legal-framework context."
+    },
+    {
+      "id": "smart_africa_trust_alliance",
+      "url": "https://smartafrica.org/service-post/digital-identity-for-africa/",
+      "use": "Potential regional coordination and trust-framework dialogue; not evidence of a deployed API."
+    },
+    {
+      "id": "south_africa_dha_digital_id",
+      "url": "https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct",
+      "use": "South African national research profile source; does not establish production relying-party protocol."
+    }
+  ],
+  "notes": [
+    "This contract is a fail-closed architecture boundary, not a continental identity registry, legal determination, certification, or production integration.",
+    "A Member State may retain its existing foundational identity system and choose its own credential issuance and storage model; Mycelix must not infer trust from country name, document appearance, or a protocol family alone.",
+    "A national profile must be based on reviewed official sources and documented authority. Empty country_profiles means no country profile is qualified by this artifact.",
+    "Consent alone is not automatically a legal basis. Each relying party must establish an appropriate lawful purpose, authority, proportionality, retention, and grievance path.",
+    "Country-specific eligibility rules remain with the relevant public authority and law. A successful identity proof must not be converted into a decision about benefits, immigration status, membership, credit, voting, or legal rights.",
+    "Report hashes and test outputs support reproducibility but are not a digital signature or independent runner attestation."
+  ]
+}

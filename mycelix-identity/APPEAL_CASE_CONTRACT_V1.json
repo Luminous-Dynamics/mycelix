@@ -1,0 +1,375 @@
+{
+  "schema_id": "org.luminousdynamics.correction-appeal-case-contract",
+  "schema_version": 1,
+  "contract_id": "CORRECTION-APPEAL-001",
+  "title": "Minimal correction and independent appeal case contract",
+  "maturity": "research_only",
+  "production_enabled": false,
+  "durable_case_storage_enabled": false,
+  "public_dht_publication_enabled": false,
+  "external_notifications_enabled": false,
+  "legal_compliance_claimed": false,
+  "case_fields": [
+    "case_ref",
+    "case_owner_ref",
+    "service_code",
+    "issue_code",
+    "jurisdiction_code",
+    "current_state",
+    "assigned_steward_ref",
+    "initial_decision_actor_ref",
+    "appeal_reviewer_ref",
+    "retention_policy_status",
+    "retention_policy",
+    "retention_review_complete",
+    "closed_at_utc"
+  ],
+  "event_fields": [
+    "sequence",
+    "timestamp_utc",
+    "actor_ref",
+    "actor_role",
+    "action",
+    "from_state",
+    "to_state",
+    "reason_code",
+    "target_actor_ref",
+    "previous_hash",
+    "event_hash",
+    "policy_ref",
+    "policy_digest"
+  ],
+  "state_values": [
+    "not_opened",
+    "opened",
+    "acknowledged",
+    "under_review",
+    "correction_requested",
+    "decision_issued",
+    "appeal_requested",
+    "appeal_under_review",
+    "appeal_decided",
+    "closed",
+    "expired"
+  ],
+  "role_values": [
+    "requester",
+    "case_steward",
+    "independent_reviewer",
+    "privacy_officer",
+    "auditor"
+  ],
+  "reason_codes": [
+    "REQUEST_RECEIVED",
+    "REQUEST_ACKNOWLEDGED",
+    "STEWARD_ASSIGNED",
+    "CORRECTION_REQUESTED",
+    "REVIEW_RESUMED",
+    "DECISION_RECORDED",
+    "APPEAL_REQUESTED",
+    "APPEAL_REVIEW_STARTED",
+    "APPEAL_DECISION_RECORDED",
+    "CASE_CLOSED",
+    "RETENTION_WINDOW_ELAPSED",
+    "ACCESS_GRANTED",
+    "ACCESS_DENIED",
+    "RETENTION_POLICY_REVIEWED",
+    "INVALID_TRANSITION",
+    "NOT_AUTHORIZED",
+    "INSUFFICIENT_RETENTION_EVIDENCE"
+  ],
+  "transitions": [
+    {
+      "action": "open_case",
+      "from_state": "not_opened",
+      "to_state": "opened",
+      "actor_role": "requester",
+      "reason_code": "REQUEST_RECEIVED",
+      "requires_owner_match": true
+    },
+    {
+      "action": "acknowledge_case",
+      "from_state": "opened",
+      "to_state": "acknowledged",
+      "actor_role": "case_steward",
+      "reason_code": "REQUEST_ACKNOWLEDGED",
+      "requires_target_actor": true
+    },
+    {
+      "action": "assign_steward",
+      "from_state": "acknowledged",
+      "to_state": "under_review",
+      "actor_role": "case_steward",
+      "reason_code": "STEWARD_ASSIGNED",
+      "requires_current_steward": true,
+      "requires_target_actor": true
+    },
+    {
+      "action": "submit_correction",
+      "from_state": "under_review",
+      "to_state": "correction_requested",
+      "actor_role": "requester",
+      "reason_code": "CORRECTION_REQUESTED",
+      "requires_owner_match": true
+    },
+    {
+      "action": "resume_review",
+      "from_state": "correction_requested",
+      "to_state": "under_review",
+      "actor_role": "case_steward",
+      "reason_code": "REVIEW_RESUMED",
+      "requires_current_steward": true
+    },
+    {
+      "action": "issue_initial_decision",
+      "from_state": "under_review",
+      "to_state": "decision_issued",
+      "actor_role": "case_steward",
+      "reason_code": "DECISION_RECORDED",
+      "requires_current_steward": true,
+      "records_initial_decision_actor": true
+    },
+    {
+      "action": "request_appeal",
+      "from_state": "decision_issued",
+      "to_state": "appeal_requested",
+      "actor_role": "requester",
+      "reason_code": "APPEAL_REQUESTED",
+      "requires_owner_match": true
+    },
+    {
+      "action": "start_appeal_review",
+      "from_state": "appeal_requested",
+      "to_state": "appeal_under_review",
+      "actor_role": "independent_reviewer",
+      "reason_code": "APPEAL_REVIEW_STARTED",
+      "requires_target_actor": false,
+      "records_appeal_reviewer": true,
+      "must_differ_from_initial_decision_actor": true
+    },
+    {
+      "action": "issue_appeal_decision",
+      "from_state": "appeal_under_review",
+      "to_state": "appeal_decided",
+      "actor_role": "independent_reviewer",
+      "reason_code": "APPEAL_DECISION_RECORDED",
+      "requires_appeal_reviewer_match": true,
+      "must_differ_from_initial_decision_actor": true
+    },
+    {
+      "action": "close_case",
+      "from_state": "decision_issued",
+      "to_state": "closed",
+      "actor_role": "case_steward",
+      "reason_code": "CASE_CLOSED",
+      "requires_current_steward": true
+    },
+    {
+      "action": "close_case",
+      "from_state": "appeal_decided",
+      "to_state": "closed",
+      "actor_role": "case_steward",
+      "reason_code": "CASE_CLOSED",
+      "requires_current_steward": true
+    },
+    {
+      "action": "expire_case",
+      "from_state": "closed",
+      "to_state": "expired",
+      "actor_role": "privacy_officer",
+      "reason_code": "RETENTION_WINDOW_ELAPSED",
+      "requires_approved_retention": true,
+      "requires_retention_elapsed": true
+    },
+    {
+      "action": "record_retention_policy",
+      "from_state": "ANY_AFTER_OPEN",
+      "to_state": "SAME",
+      "actor_role": "privacy_officer",
+      "reason_code": "RETENTION_POLICY_REVIEWED",
+      "requires_approved_retention": true,
+      "requires_policy_evidence": true
+    }
+  ],
+  "access_policy": [
+    {
+      "action": "open_case",
+      "roles": [
+        "requester"
+      ],
+      "scope": "case_owner_only"
+    },
+    {
+      "action": "submit_correction",
+      "roles": [
+        "requester"
+      ],
+      "scope": "case_owner_only"
+    },
+    {
+      "action": "request_appeal",
+      "roles": [
+        "requester"
+      ],
+      "scope": "case_owner_only"
+    },
+    {
+      "action": "view_case",
+      "roles": [
+        "requester",
+        "case_steward",
+        "independent_reviewer"
+      ],
+      "scope": "owner_or_assigned_case_role"
+    },
+    {
+      "action": "view_audit_metadata",
+      "roles": [
+        "auditor",
+        "privacy_officer"
+      ],
+      "scope": "metadata_only"
+    },
+    {
+      "action": "acknowledge_case",
+      "roles": [
+        "case_steward"
+      ],
+      "scope": "intake_assignment_only"
+    },
+    {
+      "action": "assign_steward",
+      "roles": [
+        "case_steward"
+      ],
+      "scope": "assigned_case_only"
+    },
+    {
+      "action": "issue_initial_decision",
+      "roles": [
+        "case_steward"
+      ],
+      "scope": "assigned_case_only"
+    },
+    {
+      "action": "start_appeal_review",
+      "roles": [
+        "independent_reviewer"
+      ],
+      "scope": "assigned_appeal_only"
+    },
+    {
+      "action": "issue_appeal_decision",
+      "roles": [
+        "independent_reviewer"
+      ],
+      "scope": "assigned_appeal_only"
+    },
+    {
+      "action": "close_case",
+      "roles": [
+        "case_steward"
+      ],
+      "scope": "assigned_case_only"
+    },
+    {
+      "action": "review_retention_policy",
+      "roles": [
+        "privacy_officer"
+      ],
+      "scope": "policy_metadata_only"
+    },
+    {
+      "action": "expire_case",
+      "roles": [
+        "privacy_officer"
+      ],
+      "scope": "retention_metadata_only"
+    }
+  ],
+  "retention_policy_template": {
+    "status": "not_assessed",
+    "lawful_basis_ref": null,
+    "responsible_party_ref": null,
+    "max_retention_days": null,
+    "deletion_procedure_ref": null,
+    "backup_deletion_policy_ref": null,
+    "review_evidence_ref": null,
+    "jurisdiction_code": null,
+    "record_class": null
+  },
+  "prohibited_fields_and_payloads": [
+    "raw_credential",
+    "credential_bytes",
+    "national_identifier_value",
+    "national_id_number",
+    "biometric_template",
+    "biometric_data",
+    "replayable_presentation",
+    "claim_values",
+    "person_name",
+    "date_of_birth_value",
+    "residential_address",
+    "free_text_notes",
+    "full_credential_or_verifier_response"
+  ],
+  "security_invariants": [
+    "All actor references and case references are random, case-scoped opaque handles; a pseudonymous handle can still be personal information.",
+    "Every accepted event is hash-chained over canonical event metadata; the chain is tamper-evident only and is not a signature, identity proof, or trusted timestamp.",
+    "The original decision-maker must not be the independent appeal reviewer.",
+    "Durable storage is disabled until a responsible party documents and approves lawful basis, maximum retention, deletion and backup-deletion procedures, and review evidence.",
+    "The requester can ask for correction and appeal but cannot issue, approve, or close their own decision.",
+    "Audit role sees metadata only and has no mutation permission.",
+    "No identity material or case record is published to a public DHT.",
+    "The hash-chained policy-review event binds a reference and digest of the approved retention metadata; it does not itself authenticate that approval or create lawful authority.",
+    "A completed retention-policy review means the schedule fields are documented in the synthetic case model; it does not enable durable storage or override the top-level disabled-by-default setting.",
+    "An approved retention schedule must name the same jurisdiction and record class as the case. Unknown/unassigned jurisdiction or a mismatched issue-to-record-class mapping fails closed.",
+    "Retention policies use structured fields only; free-text notes are deliberately excluded to avoid accidentally placing case details into policy metadata."
+  ],
+  "nonclaims": [
+    "This is a synthetic design contract, not legal advice, a POPIA compliance determination, a production case-management implementation, or a deployed system.",
+    "Pseudonymization is not anonymization; local actor handles and timestamps may remain linkable personal information.",
+    "A hash chain detects mutation only when its head is protected or independently anchored; this contract does not provide signatures or authenticated actor identity.",
+    "Retention and complaint pathways must be mapped to the applicable authority, contract, and jurisdiction before any real personal information is processed.",
+    "The sample retention period is synthetic only; no statutory retention period or cross-border equivalence is inferred.",
+    "This v1 state machine implements only service-record correction and appeal; issuer-source corrections, data-access/deletion requests, processing objections, regulator complaints, and accessibility referrals require separate jurisdiction-specific workflows and are not sent or resolved by this harness."
+  ],
+  "references": [
+    {
+      "id": "south_africa_dtic_popia_forms",
+      "url": "https://www.thedtic.gov.za/paia/",
+      "use": "Official government portal surfaces POPIA forms for correction or deletion and complaints; cited as a research lead, not a complete legal analysis."
+    },
+    {
+      "id": "nist_sp_800_171r3_audit",
+      "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/800-171r3/NIST.SP.800-171r3.html",
+      "use": "Audit event selection, record content, retention policy alignment and protection of audit information."
+    },
+    {
+      "id": "nist_privacy_engineering",
+      "url": "https://www.nist.gov/privacy-engineering",
+      "use": "Privacy-risk assessment and privacy engineering methods."
+    }
+  ],
+  "issue_code_values": [
+    "ISSUE_RECORD_CORRECTION"
+  ],
+  "record_class_values": [
+    "service_correction_case",
+    "source_record_referral",
+    "privacy_rights_case",
+    "privacy_complaint_referral",
+    "appeal_case"
+  ],
+  "issue_record_classes": {
+    "ISSUE_RECORD_CORRECTION": "service_correction_case"
+  },
+  "not_implemented_issue_codes": [
+    "SOURCE_RECORD_CORRECTION_REFERRAL",
+    "DATA_ACCESS_REQUEST",
+    "DATA_DELETION_REQUEST",
+    "PROCESSING_OBJECTION",
+    "PRIVACY_COMPLAINT_REFERRAL",
+    "ACCESSIBILITY_FALLBACK_REQUEST"
+  ]
+}

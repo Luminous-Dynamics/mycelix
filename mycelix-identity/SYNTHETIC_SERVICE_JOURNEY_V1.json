@@ -1,0 +1,885 @@
+{
+  "schema_id": "org.luminousdynamics.synthetic-service-journey",
+  "schema_version": 1,
+  "maturity": "synthetic_only",
+  "production_enabled": false,
+  "no_external_calls": true,
+  "no_real_identity_data": true,
+  "service_model": "appointment-intake-proof-only",
+  "permitted_claim_names": [
+    "synthetic_subject_reference"
+  ],
+  "forbidden_persisted_material": [
+    "raw_credential",
+    "national_identifier_value",
+    "biometric_template",
+    "replayable_presentation",
+    "claim_values"
+  ],
+  "route_values": [
+    "digital_minimal_disclosure",
+    "assisted_or_non_digital",
+    "correction_and_appeal",
+    "manual_review_required"
+  ],
+  "disposition_values": [
+    "MINIMAL_DISCLOSURE",
+    "DENIED",
+    "REJECTED",
+    "INDETERMINATE"
+  ],
+  "nonclaims": [
+    "The scenarios contain no real identity data and do not verify actual credentials or signatures.",
+    "A passing proof-only route does not establish eligibility, entitlement, citizenship, residency, or legal rights.",
+    "Synthetic test authorization is not legal authority or permission to connect to an external verifier.",
+    "The harness returns appeal receipts as ephemeral outputs and does not implement durable receipt storage or case management."
+  ],
+  "cases": [
+    {
+      "case_id": "SVC-001-MINIMAL-SUCCESS",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "MINIMAL_DISCLOSURE",
+        "reason_code": "PURPOSE_SCOPE_VALID",
+        "route": "digital_minimal_disclosure",
+        "disclosed_claim_names": [
+          "synthetic_subject_reference"
+        ],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-002-ENTITLEMENT-INFERENCE",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "benefits_eligibility",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "DENIED",
+        "reason_code": "IDENTITY_NOT_ENTITLEMENT",
+        "route": "manual_review_required",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-003-PURPOSE-MISMATCH",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "check_benefit_eligibility",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "DENIED",
+        "reason_code": "PURPOSE_GRANT_INVALID",
+        "route": "manual_review_required",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-004-EXCESSIVE-CLAIM",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "national_identifier"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "DENIED",
+        "reason_code": "CLAIM_OUTSIDE_PURPOSE_SCOPE",
+        "route": "manual_review_required",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-005-VERIFIER-OUTAGE",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "unavailable",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "INDETERMINATE",
+        "reason_code": "VERIFICATION_SOURCE_UNAVAILABLE",
+        "route": "assisted_or_non_digital",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-006-STALE-STATUS",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "stale",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "INDETERMINATE",
+        "reason_code": "CREDENTIAL_STATUS_NOT_CURRENT",
+        "route": "assisted_or_non_digital",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-007-INVALID-PROOF",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "invalid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "PROOF_INVALID",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-008-AUDIENCE-MISMATCH",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": false,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "AUDIENCE_MISMATCH",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-009-REPLAYED-REQUEST",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": false,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "REPLAY_DETECTED",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-010-HOLDER-BINDING-MISMATCH",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": false,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "HOLDER_BINDING_MISMATCH",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-011-UNTRUSTED-ISSUER",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "untrusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "ISSUER_NOT_TRUSTED",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-012-UNKNOWN-ISSUER-TRUST",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "unknown",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "INDETERMINATE",
+        "reason_code": "ISSUER_TRUST_UNKNOWN",
+        "route": "assisted_or_non_digital",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-013-UNKNOWN-PROOF-STATE",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "unknown",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "INDETERMINATE",
+        "reason_code": "PROOF_STATUS_UNKNOWN",
+        "route": "assisted_or_non_digital",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-014-REVOKED-CREDENTIAL",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "revoked",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "CREDENTIAL_REVOKED",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-015-NO-DIGITAL-ACCESS",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": false,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "INDETERMINATE",
+        "reason_code": "DIGITAL_ROUTE_UNAVAILABLE",
+        "route": "assisted_or_non_digital",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-016-NO-FALLBACK-AVAILABLE",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "unavailable",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": false,
+          "non_digital_available": false
+        }
+      },
+      "expected": {
+        "disposition": "INDETERMINATE",
+        "reason_code": "VERIFICATION_SOURCE_UNAVAILABLE",
+        "route": "manual_review_required",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-017-REQUIRED-CLAIM-MISSING",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "synthetic_test_approved",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "national_identifier",
+            "date_of_birth"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "REJECTED",
+        "reason_code": "REQUESTED_CLAIM_UNAVAILABLE",
+        "route": "correction_and_appeal",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    },
+    {
+      "case_id": "SVC-018-UNKNOWN-PURPOSE-GRANT",
+      "request": {
+        "service_id": "community-service-intake",
+        "purpose": "create_appointment_intake",
+        "requested_outcome": "proof_only",
+        "requested_claims": [
+          "synthetic_subject_reference"
+        ],
+        "purpose_grant": {
+          "grant_id": "SYNTHETIC-GRANT-001",
+          "service_id": "community-service-intake",
+          "purpose": "create_appointment_intake",
+          "status": "unknown",
+          "allowed_claims": [
+            "synthetic_subject_reference"
+          ]
+        },
+        "evidence": {
+          "source_state": "available",
+          "proof_state": "valid",
+          "issuer_trust": "trusted",
+          "status_state": "fresh",
+          "audience_match": true,
+          "nonce_fresh": true,
+          "holder_binding_match": true,
+          "available_claims": [
+            "synthetic_subject_reference",
+            "national_identifier",
+            "date_of_birth",
+            "residential_address"
+          ]
+        },
+        "access": {
+          "digital_available": true,
+          "assisted_available": true,
+          "non_digital_available": true
+        }
+      },
+      "expected": {
+        "disposition": "DENIED",
+        "reason_code": "PURPOSE_GRANT_INVALID",
+        "route": "manual_review_required",
+        "disclosed_claim_names": [],
+        "appeal_receipt_required": true
+      }
+    }
+  ]
+}

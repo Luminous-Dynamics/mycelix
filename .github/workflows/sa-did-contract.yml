@@ -1,0 +1,154 @@
+name: SA-DID Contract Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/sa-did-contract.yml"
+      - "mycelix-identity/SA_DID_PROFILE_V1.json"
+      - "mycelix-identity/validate_sa_did_profile.py"
+      - "mycelix-identity/sa_did_policy_engine.py"
+      - "mycelix-identity/tests/test_sa_did_*.py"
+      - "docs/sa-digital-id-interoperability.md"
+      - "docs/africa-digital-public-infrastructure-interoperability.md"
+      - "docs/portable-sovereign-interoperability-framework.md"
+      - "mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json"
+      - "mycelix-identity/validate_africa_dpi_contract.py"
+      - "mycelix-identity/tests/test_africa_dpi_contract.py"
+      - "mycelix-identity/AFRICA_COUNTRY_RESEARCH_MATRIX_V1.json"
+      - "mycelix-identity/validate_africa_country_research_matrix.py"
+      - "mycelix-identity/tests/test_africa_country_research_matrix.py"
+      - "mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json"
+      - "mycelix-identity/validate_portable_adapter_profile.py"
+      - "mycelix-identity/tests/test_portable_adapter_profile.py"
+      - "mycelix-identity/SYNTHETIC_SERVICE_JOURNEY_V1.json"
+      - "mycelix-identity/synthetic_service_journey.py"
+      - "mycelix-identity/tests/test_synthetic_service_journey.py"
+      - "mycelix-identity/APPEAL_CASE_CONTRACT_V1.json"
+      - "mycelix-identity/appeal_case_engine.py"
+      - "mycelix-identity/tests/test_appeal_case_engine.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sa-did-contract.yml"
+      - "mycelix-identity/SA_DID_PROFILE_V1.json"
+      - "mycelix-identity/validate_sa_did_profile.py"
+      - "mycelix-identity/sa_did_policy_engine.py"
+      - "mycelix-identity/tests/test_sa_did_*.py"
+      - "docs/sa-digital-id-interoperability.md"
+      - "docs/africa-digital-public-infrastructure-interoperability.md"
+      - "docs/portable-sovereign-interoperability-framework.md"
+      - "mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json"
+      - "mycelix-identity/validate_africa_dpi_contract.py"
+      - "mycelix-identity/tests/test_africa_dpi_contract.py"
+      - "mycelix-identity/AFRICA_COUNTRY_RESEARCH_MATRIX_V1.json"
+      - "mycelix-identity/validate_africa_country_research_matrix.py"
+      - "mycelix-identity/tests/test_africa_country_research_matrix.py"
+      - "mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json"
+      - "mycelix-identity/validate_portable_adapter_profile.py"
+      - "mycelix-identity/tests/test_portable_adapter_profile.py"
+      - "mycelix-identity/SYNTHETIC_SERVICE_JOURNEY_V1.json"
+      - "mycelix-identity/synthetic_service_journey.py"
+      - "mycelix-identity/tests/test_synthetic_service_journey.py"
+      - "mycelix-identity/APPEAL_CASE_CONTRACT_V1.json"
+      - "mycelix-identity/appeal_case_engine.py"
+      - "mycelix-identity/tests/test_appeal_case_engine.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sa-did-synthetic-contract:
+    name: SA-DID synthetic contract and evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Report the same commit we actually test, not the default PR merge ref.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert report commit matches checked-out source
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [ "$actual" != "$EXPECTED_SOURCE_COMMIT" ]; then
+            printf 'ERROR: checked-out commit %s differs from expected %s\n' "$actual" "$EXPECTED_SOURCE_COMMIT" >&2
+            exit 1
+          fi
+          printf 'SA_DID_SOURCE_COMMIT=%s\n' "$actual"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate closed SA-DID research contract
+        run: |
+          cd mycelix-identity
+          python validate_sa_did_profile.py
+      - name: Validate Africa DPI sovereignty contract
+        run: |
+          cd mycelix-identity
+          python validate_africa_dpi_contract.py
+      - name: Validate Africa country research matrix
+        run: |
+          cd mycelix-identity
+          python validate_africa_country_research_matrix.py
+      - name: Validate portable sovereign adapter profile template
+        run: |
+          cd mycelix-identity
+          python validate_portable_adapter_profile.py
+      - name: Validate correction and appeal case contract
+        run: |
+          cd mycelix-identity
+          python appeal_case_engine.py \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --report appeal-case-report.json
+      - name: Execute synthetic service journey and write evidence
+        run: |
+          cd mycelix-identity
+          python synthetic_service_journey.py \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --report synthetic-service-journey-report.json
+      - name: Execute synthetic policy vectors and write evidence
+        run: |
+          cd mycelix-identity
+          python sa_did_policy_engine.py \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --report sa-did-policy-report.json
+      - name: Run SA-DID regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_sa_did_*.py' -v
+      - name: Run Africa DPI contract regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v
+      - name: Run Africa country matrix regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_africa_country_research_matrix.py' -v
+      - name: Run portable adapter profile regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_portable_adapter_profile.py' -v
+      - name: Run synthetic service journey regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_synthetic_service_journey.py' -v
+      - name: Run correction and appeal case regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_appeal_case_engine.py' -v
+      - name: Upload synthetic policy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-synthetic-contract-reports-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            mycelix-identity/sa-did-policy-report.json
+            mycelix-identity/synthetic-service-journey-report.json
+            mycelix-identity/appeal-case-report.json
+          if-no-files-found: warn
+          retention-days: 14
