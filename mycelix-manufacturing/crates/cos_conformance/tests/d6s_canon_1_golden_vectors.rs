@@ -135,6 +135,22 @@ fn canonical_vectors_cover_each_formal_obligation() {
     assert_eq!(observed, expected, "every COS-FV obligation must have corpus coverage");
     let report: Value = serde_json::from_str(&cos_conformance::conformance_report_json())
         .expect("reference report JSON");
+    assert_eq!(report["case_count"].as_u64(), Some(32));
+    assert_eq!(report["records"].as_array().map(Vec::len), Some(16));
+    for record in report["records"].as_array().expect("report records") {
+        assert_eq!(
+            record["actual_negative"],
+            record["expected_negative"],
+            "{} report negative result drift",
+            record["test_id"].as_str().unwrap_or("unknown")
+        );
+        assert_eq!(
+            record["actual_positive"],
+            record["expected_positive"],
+            "{} report positive result drift",
+            record["test_id"].as_str().unwrap_or("unknown")
+        );
+    }
     assert_eq!(
         report["untested_formal_obligations"].as_array().map(Vec::len),
         Some(0),
