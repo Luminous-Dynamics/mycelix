@@ -1,6 +1,6 @@
 # Mycelix / hAppRadar Comparative Interoperability Review
-Date: 2026-10-10
-Status: research findings and proposed engineering gates; source builds/tests were not run as part of this review.
+Date: 2026-10-15 (hREA release evidence refreshed; individual sections retain their own inspection dates)
+Status: comparative research and proposed engineering gates. The upstream release metadata and asset digests below were inspected, but Mycelix/hREA runtime integration is not claimed.
 
 ## Executive finding
 
@@ -13,15 +13,19 @@ This review compared the public hAppRadar directory, hREA's ValueFlows implement
 ### 1. Version compatibility is a hard boundary, not a packaging detail
 
 - Mycelix's root README documents Holochain 0.6.0 / HDK 0.6.0 / HDI 0.7.0. The Finance workspace pins HDK 0.6.1 and HDI 0.7.1 in `mycelix-finance/Cargo.toml`.
-- hREA's current in-repository release guide describes `happ-0.5.0-beta` on Holochain 0.7.x, with HDK 0.7.0, HDI 0.8.0, `@holochain/client` 0.21.x and the 0.700.x GraphQL adapter line. hREA documents breaking 0.6-to-0.7 changes in validation callback signatures, action wire format, and WASM `getrandom` configuration.
+- As of 2026-10-15, hREA's latest listed release is [`happ-0.5.0-beta.1`](https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1), published 2026-09-10. The release notes claim ValueFlows 1.0 + Holochain 0.7.x and require `@holochain/client` `^0.21.0`; the compatible release tuple is HDK 0.7.0, HDI 0.8.0, with the 0.700.x GraphQL adapter line. The release tag points at commit `79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85`. The published `hrea.dna` and `hrea.happ` asset SHA-256 digests are pinned in the corpus and matrix below.
+- The separately pinned `sprout` source snapshot `8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4` is a later source commit, not the release-tag commit. Do not substitute the source branch's code for a versioned release artifact. The checksummed release is tracked as research evidence only; it has **not** been selected as a Mycelix integration dependency, and no hREA/Mycelix runtime compatibility is claimed.
+- The Holochain 0.6-to-0.7 upgrade changes validation callback/action APIs and network transport, and has no built-in 0.6 conductor database migration path. Native DNA composition therefore remains a compatibility/migration task, not a packaging-only change.
 - hAppRadar's cached project metadata can describe a released version while repository docs describe a newer development/release line. Record the exact source ref, release artifact, conductor, HDK/HDI, client and adapter versions for every compatibility claim.
 
-**Decision:** do not treat hREA zomes as drop-in dependencies for current Mycelix Finance. First prototype against a pinned artifact. Native DNA composition requires a deliberate compatibility/migration plan. A separate-process/API integration is a different trust and networking boundary and must be documented as such; it does not make 0.6 and 0.7 DHTs one network.
+**Decision:** do not treat hREA zomes as drop-in dependencies for current Mycelix Finance. The release tag and SHA-256 asset digests are now pinned as evidence, but an artifact is not a Mycelix dependency until it is deliberately selected, license-reviewed, and tested against a fully pinned conductor/HDK/HDI/client/adapter tuple. Start with a loss-aware read-only export. Native DNA composition requires an explicit compatibility/migration plan; a separate-process/API integration is a different trust and networking boundary and does not make 0.6 and 0.7 DHTs one network.
 
 Sources:
 - Mycelix root: https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md
 - Finance manifest: https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
-- hREA release and compatibility guide: https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md
+- hREA release guide: https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md
+- Exact hREA release tag and public asset checksums: https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1
+- Pinned hREA source branch commit: https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4
 - hREA ValueFlows types: https://github.com/h-REA/hREA/blob/sprout/modules/vf-graphql-holochain/src/types.ts
 - hAppRadar directory: https://happradar.com/projects
 
@@ -118,7 +122,7 @@ Source: https://github.com/lightningrodlabs/moss/blob/main/README.md
 
 **Requests and Offers — a small, concrete economic user journey.** `happenings-community/requests-and-offers` implements a peer-to-peer request/offer board, is explicitly marked alpha/not production ready, and its package manifest wires a Sweettest suite plus UI unit/integration tests. Its documented MVP is intentionally a listing board with contact, ownership controls, and search; agreement, exchange, reputation and matching are later features. That scope discipline is useful for Mycelix: first prove one simple request → offer → commitment → delivery/receipt → SAP/TEND settlement path works end-to-end, instead of trying to launch all economic and civic domains at once.
 
-The repository also provides a compatibility caution: its current `download-hrea` script fetches the pinned `happ-0.4.0-beta/hrea.dna` artifact, while the current hREA in-repository guide describes the later `happ-0.5.0-beta` / Holochain 0.7 line. Pinning an older supported artifact is fine, but integration claims must follow the exact artifact and matching conductor/client/GraphQL package—not the newest README alone. The project's own README calls it alpha, so its documented test surfaces are a pattern to benchmark, not proof of production readiness.
+The repository also provides a compatibility caution: its current `download-hrea` script fetches the pinned `happ-0.4.0-beta/hrea.dna` artifact, while hREA's latest listed release as checked on 2026-10-15 is `happ-0.5.0-beta.1`, which claims Holochain 0.7.x. Requests and Offers therefore appears pinned to an older hREA artifact/0.6.1 stack; do not infer 0.7 compatibility from the upstream project's newer release. Pin and qualify the exact artifact and matching conductor/client/GraphQL package. The project's own README calls it alpha, so its documented test surfaces are a pattern to benchmark, not proof of production readiness.
 
 Sources:
 - https://github.com/happenings-community/requests-and-offers/blob/main/README.md
