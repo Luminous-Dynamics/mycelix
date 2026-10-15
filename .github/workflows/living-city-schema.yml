@@ -41,3 +41,5 @@ jobs:
         run: python scripts/living-city/test_schema_mutations.py
       - name: Validate source catalogue, evidence claims, and semantic references
         run: python scripts/living-city/validate_evidence.py
+      - name: Validate novelty, surprise, legibility, and non-compensatory routing
+        run: python scripts/living-city/validate_novelty_review.py

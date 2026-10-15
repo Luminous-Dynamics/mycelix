@@ -1,0 +1,432 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/living-city-novelty-review-v0.1.schema.json",
+  "title": "Living-City Novelty, Surprise, and Usefulness Review",
+  "description": "Contextual, multi-perspective review of a versioned design hypothesis. Scores remain separate; no overall creativity score is defined.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "concept_ref",
+    "stage",
+    "status",
+    "comparison_set",
+    "evidence_refs",
+    "affected_groups",
+    "ratings",
+    "hard_gates",
+    "recommendation",
+    "recommendation_policy_version",
+    "dissent_summary",
+    "recorded_at",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "living-city-novelty-review/0.1"
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "concept_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concept_id",
+        "concept_version",
+        "hypothesis_id"
+      ],
+      "properties": {
+        "concept_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "concept_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hypothesis_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        }
+      }
+    },
+    "stage": {
+      "enum": [
+        "exploration",
+        "comparison",
+        "prototype",
+        "pilot_readiness"
+      ]
+    },
+    "status": {
+      "enum": [
+        "protocol_only",
+        "panel_evaluated",
+        "contested"
+      ]
+    },
+    "comparison_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "description",
+        "method",
+        "reference_ids",
+        "source_refs",
+        "limitations"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_defined",
+            "incomplete",
+            "ready"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 16
+        },
+        "method": {
+          "type": "string",
+          "minLength": 16
+        },
+        "reference_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      }
+    },
+    "affected_groups": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "residents",
+          "disabled_people",
+          "children_and_older_people",
+          "transit_operators",
+          "informal_traders",
+          "maintenance_workers",
+          "essential_workers",
+          "local_creatives",
+          "public_health_workers",
+          "municipal_services",
+          "visitors",
+          "other"
+        ]
+      }
+    },
+    "ratings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/perspectiveRating"
+      }
+    },
+    "hard_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "life_safety",
+        "accessibility",
+        "rights_and_consent",
+        "environmental_and_land_feasibility",
+        "operating_owner_and_funding",
+        "anti_displacement",
+        "privacy_and_data_minimization"
+      ],
+      "properties": {
+        "life_safety": {
+          "$ref": "#/$defs/gate"
+        },
+        "accessibility": {
+          "$ref": "#/$defs/gate"
+        },
+        "rights_and_consent": {
+          "$ref": "#/$defs/gate"
+        },
+        "environmental_and_land_feasibility": {
+          "$ref": "#/$defs/gate"
+        },
+        "operating_owner_and_funding": {
+          "$ref": "#/$defs/gate"
+        },
+        "anti_displacement": {
+          "$ref": "#/$defs/gate"
+        },
+        "privacy_and_data_minimization": {
+          "$ref": "#/$defs/gate"
+        }
+      }
+    },
+    "recommendation": {
+      "enum": [
+        "not_evaluated",
+        "hold_for_evidence",
+        "prototype_for_comprehension_testing",
+        "eligible_for_human_pilot_review",
+        "stop_or_reframe"
+      ]
+    },
+    "recommendation_policy_version": {
+      "const": "living-city-novelty-routing/0.1"
+    },
+    "dissent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "rationale"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        }
+      }
+    },
+    "scoredDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "rationale"
+      ],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        }
+      }
+    },
+    "perspectiveRating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "perspective",
+        "sample_size_band",
+        "scores",
+        "notes",
+        "dissent_notes"
+      ],
+      "properties": {
+        "perspective": {
+          "enum": [
+            "affected_community",
+            "accessibility_and_disability",
+            "operator_and_local_livelihoods",
+            "design_and_technical",
+            "delivery_and_maintenance",
+            "public_health_and_climate",
+            "other"
+          ]
+        },
+        "sample_size_band": {
+          "enum": [
+            "1-2",
+            "3-5",
+            "6-10",
+            "11+"
+          ]
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "novelty",
+            "surprise",
+            "legibility",
+            "usefulness",
+            "context_fit",
+            "feasibility",
+            "delight"
+          ],
+          "properties": {
+            "novelty": {
+              "$ref": "#/$defs/scoredDimension"
+            },
+            "surprise": {
+              "$ref": "#/$defs/scoredDimension"
+            },
+            "legibility": {
+              "$ref": "#/$defs/scoredDimension"
+            },
+            "usefulness": {
+              "$ref": "#/$defs/scoredDimension"
+            },
+            "context_fit": {
+              "$ref": "#/$defs/scoredDimension"
+            },
+            "feasibility": {
+              "$ref": "#/$defs/scoredDimension"
+            },
+            "delight": {
+              "$ref": "#/$defs/scoredDimension"
+            }
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 12
+        },
+        "dissent_notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "protocol_only"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ratings": {
+            "maxItems": 0
+          },
+          "recommendation": {
+            "const": "not_evaluated"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "panel_evaluated",
+              "contested"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ratings": {
+            "minItems": 3
+          },
+          "comparison_set": {
+            "properties": {
+              "status": {
+                "const": "ready"
+              },
+              "reference_ids": {
+                "minItems": 3
+              }
+            }
+          },
+          "evidence_refs": {
+            "minItems": 1
+          },
+          "recommendation": {
+            "not": {
+              "const": "not_evaluated"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "contested"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "dissent_summary": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": "living-city-novelty-review/0.1",
+  "review_id": "johannesburg-civic-corridor-novelty-review-plan",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "stage": "exploration",
+  "status": "protocol_only",
+  "comparison_set": {
+    "status": "not_defined",
+    "description": "No sufficiently documented local and cross-city reference set has been assembled for this concept yet.",
+    "method": "Before scoring novelty, compare at least three documented precedents or prior concepts with explicit context and source links; record similarities and differences.",
+    "reference_ids": [],
+    "source_refs": [],
+    "limitations": [
+      "Novelty has not been assessed; absence of a comparison set must not be interpreted as proof that the idea is original."
+    ]
+  },
+  "evidence_refs": [],
+  "affected_groups": [
+    "residents",
+    "disabled_people",
+    "transit_operators",
+    "informal_traders",
+    "maintenance_workers",
+    "public_health_workers",
+    "municipal_services"
+  ],
+  "ratings": [],
+  "hard_gates": {
+    "life_safety": {
+      "status": "unknown",
+      "rationale": "No site-specific safety or engineering review has been performed."
+    },
+    "accessibility": {
+      "status": "unknown",
+      "rationale": "No local disabled-user review or measured route audit has been performed."
+    },
+    "rights_and_consent": {
+      "status": "unknown",
+      "rationale": "No community authorship, cultural rights, or consent process has taken place."
+    },
+    "environmental_and_land_feasibility": {
+      "status": "unknown",
+      "rationale": "No site-specific utility, soil, contamination, flood, or ecological assessment has been performed."
+    },
+    "operating_owner_and_funding": {
+      "status": "unknown",
+      "rationale": "No named delivery owner, operating plan, or maintenance budget has been established."
+    },
+    "anti_displacement": {
+      "status": "unknown",
+      "rationale": "No housing-tenure, trader-livelihood, or displacement-impact assessment has been performed."
+    },
+    "privacy_and_data_minimization": {
+      "status": "unknown",
+      "rationale": "No operational data flow or privacy review has been performed."
+    }
+  },
+  "recommendation": "not_evaluated",
+  "recommendation_policy_version": "living-city-novelty-routing/0.1",
+  "dissent_summary": [],
+  "recorded_at": "2026-10-15T08:13:00+02:00",
+  "limitations": [
+    "This is a protocol-only fixture, not a completed review or a claim of community endorsement.",
+    "The rubric has not been calibrated in Johannesburg through paid local review or observed outcomes.",
+    "No single weighted creativity score is defined; individual dimensions and dissent remain visible."
+  ]
+}
