@@ -7,3 +7,5 @@ description = "Scoped botanical material transfer preflight contracts for Myceli
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+
+[workspace]
