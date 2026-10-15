@@ -141,6 +141,96 @@ def select_interaction_scenarios(review, interaction):
     ]
     return [items[0] for items in sets] if all(len(items) == 1 for items in sets) else None
 
+FOOD_UNIT_TO_GRAMS = {"g": Fraction(1), "kg": Fraction(1000), "t": Fraction(1000000)}
+
+def nutrient_assessment_errors(review, evidence_ids):
+    """Cross-check versioned Symtropy nutrient receipt envelopes; never infer absence as zero."""
+    errors = []
+    receipts = review.get("nutrient_assessments", [])
+    ids = [r["receipt_id"] for r in receipts]
+    if len(ids) != len(set(ids)):
+        errors.append("nutrient assessment receipt_id values must be unique")
+    by_receipt = {r["receipt_id"]: r for r in receipts}
+    link_counts = {rid: 0 for rid in by_receipt}
+    scenarios = {s["scenario_id"]: s for s in review["scenarios"]}
+
+    for receipt in receipts:
+        rid = receipt["receipt_id"]
+        scenario_id = receipt["scenario_id"]
+        if scenario_id not in scenarios:
+            errors.append(f"{rid}: unresolved nutrient-assessment scenario_id {scenario_id!r}")
+        for ref in receipt["evidence_refs"]:
+            if ref not in evidence_ids:
+                errors.append(f"{rid}: unresolved nutrient-assessment evidence reference {ref!r}")
+        if review["record_status"] == "assessment":
+            if receipt["receipt_origin"] != "symtropy_output":
+                errors.append(f"{rid}: real assessment cannot use a synthetic-only nutrient receipt")
+            if receipt["status"] in {"meets_declared_minimum", "shortfall_against_declared_minimum"} and not receipt["evidence_refs"]:
+                errors.append(f"{rid}: assessed nutrient contribution needs resolving evidence references")
+        if review["record_status"] == "synthetic_test_only":
+            if receipt["receipt_origin"] != "synthetic_test_only":
+                errors.append(f"{rid}: synthetic test record cannot contain a real Symtropy-output receipt")
+            if receipt["evidence_refs"]:
+                errors.append(f"{rid}: synthetic nutrient receipt must not cite real evidence")
+
+        status = receipt["status"]
+        if status in {"meets_declared_minimum", "shortfall_against_declared_minimum"}:
+            try:
+                scale = int(receipt["value_scale"])
+                total_grams = int(receipt["total_edible_delivered_grams"])
+                supply = int(receipt["supply_numerator"])
+                target = int(receipt["target_numerator"])
+                denominator = int(receipt["denominator"])
+                shortfall = int(receipt["shortfall_numerator"])
+            except (TypeError, ValueError):
+                errors.append(f"{rid}: assessable nutrient receipt quantities must be exact decimal integer strings")
+                continue
+            if scale <= 0 or denominator != 100 * scale:
+                errors.append(f"{rid}: nutrient receipt denominator must equal 100 * value_scale")
+            if target <= 0:
+                errors.append(f"{rid}: declared nutrient target numerator must be positive")
+            expected_shortfall = max(target - supply, 0)
+            if shortfall != expected_shortfall:
+                errors.append(f"{rid}: nutrient receipt shortfall does not match exact supply and target numerators")
+            expected_status = "meets_declared_minimum" if supply >= target else "shortfall_against_declared_minimum"
+            if status != expected_status:
+                errors.append(f"{rid}: nutrient receipt status conflicts with exact supply/target comparison")
+        for scenario in review["scenarios"]:
+            for flow in scenario["flow_records"]:
+                refs = flow.get("nutrient_assessment_refs", [])
+                if rid in refs:
+                    if scenario_id != scenario["scenario_id"]:
+                        errors.append(f"{rid}: receipt scenario does not match the flow scenario")
+                    if flow.get("beneficiary_scope_ref") != receipt["target_scope_ref"]:
+                        errors.append(f"{rid}: receipt target scope does not match the delivered-food flow scope")
+                    if flow.get("delivery_period_ref") != receipt["period_ref"]:
+                        errors.append(f"{rid}: receipt period does not match the delivered-food flow period")
+
+    for scenario in review["scenarios"]:
+        for flow in scenario["flow_records"]:
+            refs = flow.get("nutrient_assessment_refs", [])
+            if refs and flow["metric_id"] != "edible_food_delivered":
+                errors.append(f"{scenario['scenario_id']}/{flow['flow_id']}: nutrient assessments may only attach to edible_food_delivered flows")
+            for ref in refs:
+                receipt = by_receipt.get(ref)
+                if receipt is None:
+                    errors.append(f"{scenario['scenario_id']}/{flow['flow_id']}: unresolved nutrient assessment reference {ref!r}")
+                    continue
+                link_counts[ref] += 1
+                if receipt["status"] in {"meets_declared_minimum", "shortfall_against_declared_minimum"}:
+                    total = int(receipt["total_edible_delivered_grams"])
+                    factor = FOOD_UNIT_TO_GRAMS.get(flow["unit"])
+                    if factor is None:
+                        errors.append(f"{scenario['scenario_id']}/{flow['flow_id']}: unsupported food mass unit for receipt comparison")
+                    else:
+                        converted = exact_fraction(flow["value"]) * factor
+                        if converted.denominator != 1 or converted.numerator != total:
+                            errors.append(f"{receipt['receipt_id']}: receipt edible mass does not match the linked food-delivery flow")
+    for rid, count in link_counts.items():
+        if count != 1:
+            errors.append(f"{rid}: nutrient assessment receipt must be linked to exactly one food-delivery flow (found {count})")
+    return errors
+
 def semantic_errors(review, concepts, evidence_ids):
     errors = []
     boundary = review["system_boundary"]
@@ -360,6 +450,7 @@ def semantic_errors(review, concepts, evidence_ids):
             if item["evidence_refs"]: errors.append(f"{item['interaction_id']}: synthetic interaction must not cite real evidence")
             if any(f["evidence_kind"] != "synthetic_only" for f in flows):
                 errors.append(f"{item['interaction_id']}: synthetic interaction must use synthetic flows only")
+    errors.extend(nutrient_assessment_errors(review, evidence_ids))
     return errors
 
 def main():
