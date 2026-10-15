@@ -41,3 +41,5 @@ jobs:
         run: python scripts/living-city/test_schema_mutations.py
       - name: Validate source catalogue, evidence claims, and semantic references
         run: python scripts/living-city/validate_evidence.py
+      - name: Validate urban metabolism, conservation balances, and synergy counterfactuals
+        run: python scripts/living-city/validate_metabolism.py
