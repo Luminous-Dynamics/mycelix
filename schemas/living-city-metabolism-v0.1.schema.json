@@ -1620,6 +1620,14 @@
               "shortfall_numerator": {
                 "type": "string",
                 "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "composition_source_refs": {
+                "type": "array",
+                "minItems": 1
+              },
+              "delivery_source_refs": {
+                "type": "array",
+                "minItems": 1
               }
             }
           }
