@@ -32,7 +32,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Rejects snapshots above the bounded claim/pairwise-work budget and received event histories above 1,000 records.
 - Produces machine-readable JSON with expected-vs-actual classifications and explicit authority scope.
 - Maintains a machine-checked traffic-diversity catalogue with 15 real-world archetypes and 12 planned interaction cases. These are explicitly design metadata, not executable traffic simulations; real-world classes are marked unsupported by the current toy kernel.
-- Requires every replay flight to carry explicit traffic and model profile IDs. The executable applicability registry admits only the synthetic-fixture / constant-velocity-toy pair; missing, unknown, or real-world traffic profiles fail closed as unresolved before trajectory/restriction intersection work. This gate constrains model selection; it does not validate the toy model or establish aviation safety.
+- Requires every replay and polygon-screen flight to carry explicit traffic and model profile IDs. The executable applicability registry admits only the synthetic-fixture / constant-velocity-toy pair; missing, unknown, or real-world traffic profiles fail closed as unresolved before trajectory, dynamic-restriction, or polygon-intersection work. This gate constrains model selection; it does not validate the toy model or establish aviation safety.
 
 ## Run
 
