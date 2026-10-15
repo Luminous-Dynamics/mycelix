@@ -92,7 +92,7 @@ jobs:
           check_blob "docs/integral/d6s-canon-2-authority-boundary-fixture.json" "aa30f08be279147cf85ecfd64436d1aa546920ba"
           check_blob "docs/integral/d6s-canon-2-manifest.json" "fd43f8255afeba1edaace6519867e20896a3c8f1"
           check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs" "4516f7d72308b05de3ea03945ac550bb4628c80d"
-          check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "65f28a83d4efd42415a2c83e50735750abb8294e"
+          check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "1d9fef4e615279e88526012593f8e0798494a0c6"
           check_blob "scripts/integral/verify_cos_conformance_report.py" "3c56a827f52f695dc292f788ca03b06af9a7e579"
           check_blob "mycelix-manufacturing/crates/cos_conformance/src/bin/cos_report.rs" "3bfd6e8e2b80c4eec1bdffea0d0fdbd951c6394a"
           check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "2aa9d885b7b555eb1ea203560e096b06989f19f5"
