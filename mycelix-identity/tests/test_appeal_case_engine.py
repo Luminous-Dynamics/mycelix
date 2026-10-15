@@ -20,6 +20,8 @@ REVIEWER = "ACTOR-SYN-REVIEWER-001"
 PRIVACY = "ACTOR-SYN-PRIVACY-001"
 RETENTION_POLICY = {
     "status": "approved",
+    "jurisdiction_code": "JURISDICTION_SYNTHETIC",
+    "record_class": "service_correction_case",
     "lawful_basis_ref": "POLICY-LAWFUL-BASIS-001",
     "responsible_party_ref": "ACTOR-SYN-CONTROLLER-001",
     "max_retention_days": 1,
@@ -42,6 +44,7 @@ class AppealCaseEngineTests(unittest.TestCase):
             "SERVICE_APPOINTMENT_INTAKE",
             "ISSUE_RECORD_CORRECTION",
             self.contract,
+            jurisdiction_code="JURISDICTION_SYNTHETIC",
         )
 
     def append(self, case: dict, events: list, **kwargs):
@@ -201,6 +204,32 @@ class AppealCaseEngineTests(unittest.TestCase):
         policy = copy.deepcopy(RETENTION_POLICY)
         policy["review_evidence_ref"] = None
         self.assertTrue(engine.validate_retention_policy(policy))
+
+    def test_retention_policy_must_match_case_jurisdiction(self) -> None:
+        case = self.make_case()
+        events = []
+        case, events = self.append_open(case, events)
+        changed = copy.deepcopy(RETENTION_POLICY)
+        changed["jurisdiction_code"] = "JURISDICTION_OTHER"
+        with self.assertRaisesRegex(ValueError, "jurisdiction must match"):
+            self.append(
+                case, events, actor_ref=PRIVACY, actor_role="privacy_officer",
+                action="record_retention_policy", timestamp_utc="2026-01-01T09:00:30Z",
+                policy_ref="POLICY-RETENTION-001", retention_policy=changed,
+            )
+
+    def test_retention_policy_must_match_issue_to_record_class_mapping(self) -> None:
+        case = self.make_case()
+        events = []
+        case, events = self.append_open(case, events)
+        changed = copy.deepcopy(RETENTION_POLICY)
+        changed["record_class"] = "privacy_complaint_referral"
+        with self.assertRaisesRegex(ValueError, "record class must match"):
+            self.append(
+                case, events, actor_ref=PRIVACY, actor_role="privacy_officer",
+                action="record_retention_policy", timestamp_utc="2026-01-01T09:00:30Z",
+                policy_ref="POLICY-RETENTION-001", retention_policy=changed,
+            )
 
     def test_retention_policy_is_not_approved_by_an_unprivileged_actor(self) -> None:
         case = self.make_case()
