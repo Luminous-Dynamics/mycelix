@@ -331,7 +331,8 @@
     "Pseudonymization is not anonymization; local actor handles and timestamps may remain linkable personal information.",
     "A hash chain detects mutation only when its head is protected or independently anchored; this contract does not provide signatures or authenticated actor identity.",
     "Retention and complaint pathways must be mapped to the applicable authority, contract, and jurisdiction before any real personal information is processed.",
-    "The sample retention period is synthetic only; no statutory retention period or cross-border equivalence is inferred."
+    "The sample retention period is synthetic only; no statutory retention period or cross-border equivalence is inferred.",
+    "This v1 state machine implements only service-record correction and appeal; issuer-source corrections, data-access/deletion requests, processing objections, regulator complaints, and accessibility referrals require separate jurisdiction-specific workflows and are not sent or resolved by this harness."
   ],
   "references": [
     {
@@ -351,14 +352,7 @@
     }
   ],
   "issue_code_values": [
-    "ISSUE_RECORD_CORRECTION",
-    "SOURCE_RECORD_CORRECTION_REFERRAL",
-    "DATA_ACCESS_REQUEST",
-    "DATA_DELETION_REQUEST",
-    "PROCESSING_OBJECTION",
-    "PRIVACY_COMPLAINT_REFERRAL",
-    "INITIAL_DECISION_APPEAL",
-    "ACCESSIBILITY_FALLBACK_REQUEST"
+    "ISSUE_RECORD_CORRECTION"
   ],
   "record_class_values": [
     "service_correction_case",
@@ -368,13 +362,14 @@
     "appeal_case"
   ],
   "issue_record_classes": {
-    "ISSUE_RECORD_CORRECTION": "service_correction_case",
-    "SOURCE_RECORD_CORRECTION_REFERRAL": "source_record_referral",
-    "DATA_ACCESS_REQUEST": "privacy_rights_case",
-    "DATA_DELETION_REQUEST": "privacy_rights_case",
-    "PROCESSING_OBJECTION": "privacy_rights_case",
-    "PRIVACY_COMPLAINT_REFERRAL": "privacy_complaint_referral",
-    "INITIAL_DECISION_APPEAL": "appeal_case",
-    "ACCESSIBILITY_FALLBACK_REQUEST": "service_correction_case"
-  }
+    "ISSUE_RECORD_CORRECTION": "service_correction_case"
+  },
+  "not_implemented_issue_codes": [
+    "SOURCE_RECORD_CORRECTION_REFERRAL",
+    "DATA_ACCESS_REQUEST",
+    "DATA_DELETION_REQUEST",
+    "PROCESSING_OBJECTION",
+    "PRIVACY_COMPLAINT_REFERRAL",
+    "ACCESSIBILITY_FALLBACK_REQUEST"
+  ]
 }
