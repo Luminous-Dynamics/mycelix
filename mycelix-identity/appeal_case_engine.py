@@ -20,7 +20,7 @@ from typing import Any
 
 CONTRACT_PATH = Path(__file__).with_name("APPEAL_CASE_CONTRACT_V1.json")
 GENESIS_HASH = "0" * 64
-IMMUTABLE_CASE_FIELDS = ("case_ref", "case_owner_ref", "service_code", "issue_code")
+IMMUTABLE_CASE_FIELDS = ("case_ref", "case_owner_ref", "service_code", "issue_code", "jurisdiction_code")
 HANDLE_RE = re.compile(r"^[A-Z0-9][A-Z0-9._-]{2,95}$")
 CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,63}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -35,8 +35,9 @@ CASE_DYNAMIC_FIELDS = {
     "retention_review_complete", "closed_at_utc",
 }
 RETENTION_FIELDS = {
-    "status", "lawful_basis_ref", "responsible_party_ref", "max_retention_days",
-    "deletion_procedure_ref", "backup_deletion_policy_ref", "review_evidence_ref", "note",
+    "status", "jurisdiction_code", "record_class", "lawful_basis_ref",
+    "responsible_party_ref", "max_retention_days", "deletion_procedure_ref",
+    "backup_deletion_policy_ref", "review_evidence_ref", "note",
 }
 PROHIBITED_EVENT_KEYS = {
     "raw_credential", "credential_bytes", "national_identifier_value", "national_id_number",
@@ -97,8 +98,12 @@ def _retention_template(contract: dict[str, Any]) -> dict[str, Any]:
     return copy.deepcopy(contract["retention_policy_template"])
 
 
-def validate_retention_policy(policy: Any) -> list[str]:
-    """A complete approved policy can be represented; it never enables persistence itself."""
+def validate_retention_policy(
+    policy: Any,
+    contract: dict[str, Any] | None = None,
+) -> list[str]:
+    """Validate a jurisdiction/record-class-specific policy, never authorize persistence."""
+    active_contract = contract or load_contract()
     if not isinstance(policy, dict):
         return ["retention policy must be an object"]
     errors: list[str] = []
@@ -106,6 +111,11 @@ def validate_retention_policy(policy: Any) -> list[str]:
         errors.append("retention policy fields must match the closed v1 schema")
     if policy.get("status") != "approved":
         errors.append("retention policy status must be approved")
+    if not _is_code(policy.get("jurisdiction_code")) or policy.get("jurisdiction_code") == "JURISDICTION_UNASSIGNED":
+        errors.append("retention policy requires an explicitly assigned jurisdiction code")
+    classes = active_contract.get("record_class_values", [])
+    if not isinstance(policy.get("record_class"), str) or policy.get("record_class") not in classes:
+        errors.append("retention policy record_class must use the closed v1 enum")
     for key in (
         "lawful_basis_ref", "responsible_party_ref", "deletion_procedure_ref",
         "backup_deletion_policy_ref", "review_evidence_ref",
@@ -126,6 +136,8 @@ def new_case(
     service_code: str,
     issue_code: str,
     contract: dict[str, Any] | None = None,
+    *,
+    jurisdiction_code: str = "JURISDICTION_UNASSIGNED",
 ) -> dict[str, Any]:
     """Create an in-memory case envelope containing only opaque refs and stable codes."""
     active_contract = contract or load_contract()
@@ -135,12 +147,17 @@ def new_case(
         raise ValueError("case_owner_ref must be an opaque local actor handle")
     if not _is_code(service_code) or not _is_code(issue_code):
         raise ValueError("service_code and issue_code must be stable uppercase codes")
+    if issue_code not in active_contract.get("issue_code_values", []):
+        raise ValueError("issue_code must use the closed v1 issue enum")
+    if not _is_code(jurisdiction_code):
+        raise ValueError("jurisdiction_code must be a stable uppercase code")
     retention = _retention_template(active_contract)
     return {
         "case_ref": case_ref,
         "case_owner_ref": case_owner_ref,
         "service_code": service_code,
         "issue_code": issue_code,
+        "jurisdiction_code": jurisdiction_code,
         "current_state": "not_opened",
         "assigned_steward_ref": None,
         "initial_decision_actor_ref": None,
@@ -317,9 +334,14 @@ def _apply_event_state(
             raise ValueError("retention policy is immutable after approval in v1")
         if policy_document is None:
             raise ValueError("retention policy review requires the policy document")
-        policy_errors = validate_retention_policy(policy_document)
+        policy_errors = validate_retention_policy(policy_document, contract)
         if policy_errors:
             raise ValueError("invalid approved retention policy: " + "; ".join(policy_errors))
+        if policy_document.get("jurisdiction_code") != base_case.get("jurisdiction_code"):
+            raise ValueError("retention policy jurisdiction must match the case jurisdiction")
+        expected_class = contract.get("issue_record_classes", {}).get(base_case.get("issue_code"))
+        if expected_class is None or policy_document.get("record_class") != expected_class:
+            raise ValueError("retention policy record class must match the case issue-code mapping")
         if not _is_handle(event["policy_ref"]):
             raise ValueError("policy_ref must be an opaque approved-policy reference")
         if event["policy_digest"] != _hash(policy_document):
@@ -459,9 +481,14 @@ def append_event(
             raise ValueError("retention_policy is required for policy review")
         if state["current_state"] == "not_opened" or state["current_state"] == "expired":
             raise ValueError("retention policy must be reviewed on an opened, active case")
-        policy_errors = validate_retention_policy(event_policy)
+        policy_errors = validate_retention_policy(event_policy, active_contract)
         if policy_errors:
             raise ValueError("invalid approved retention policy: " + "; ".join(policy_errors))
+        if event_policy.get("jurisdiction_code") != case.get("jurisdiction_code"):
+            raise ValueError("retention policy jurisdiction must match the case jurisdiction")
+        expected_class = active_contract.get("issue_record_classes", {}).get(case.get("issue_code"))
+        if expected_class is None or event_policy.get("record_class") != expected_class:
+            raise ValueError("retention policy record class must match the case issue-code mapping")
         new_policy_digest = _hash(event_policy)
     else:
         new_policy_digest = None
@@ -535,7 +562,8 @@ def validate_contract(contract: Any) -> list[str]:
         "public_dht_publication_enabled", "external_notifications_enabled",
         "legal_compliance_claimed", "case_fields", "event_fields", "state_values",
         "role_values", "reason_codes", "transitions", "access_policy",
-        "retention_policy_template", "prohibited_fields_and_payloads",
+        "retention_policy_template", "issue_code_values", "record_class_values",
+        "issue_record_classes", "prohibited_fields_and_payloads",
         "security_invariants", "nonclaims", "references",
     }
     if set(contract) != required:
@@ -552,7 +580,7 @@ def validate_contract(contract: Any) -> list[str]:
         if contract.get(key) is not False:
             errors.append(f"{key} must remain false")
     required_case_fields = {
-        "case_ref", "case_owner_ref", "service_code", "issue_code", "current_state",
+        "case_ref", "case_owner_ref", "service_code", "issue_code", "jurisdiction_code", "current_state",
         "assigned_steward_ref", "initial_decision_actor_ref", "appeal_reviewer_ref",
         "retention_policy_status", "retention_policy", "retention_review_complete", "closed_at_utc",
     }
@@ -624,6 +652,29 @@ def validate_contract(contract: Any) -> list[str]:
     template = contract.get("retention_policy_template")
     if not isinstance(template, dict) or set(template) != RETENTION_FIELDS or template.get("status") != "not_assessed":
         errors.append("retention_policy_template must remain unassessed and use the closed schema")
+    issue_codes = contract.get("issue_code_values")
+    record_classes = contract.get("record_class_values")
+    issue_mapping = contract.get("issue_record_classes")
+    if (
+        not isinstance(issue_codes, list)
+        or not issue_codes
+        or any(not isinstance(value, str) for value in issue_codes)
+        or len(issue_codes) != len(set(issue_codes))
+    ):
+        errors.append("issue_code_values must be a unique string list")
+    if (
+        not isinstance(record_classes, list)
+        or not record_classes
+        or any(not isinstance(value, str) for value in record_classes)
+        or len(record_classes) != len(set(record_classes))
+    ):
+        errors.append("record_class_values must be a unique string list")
+    if (
+        not isinstance(issue_mapping, dict)
+        or set(issue_mapping) != set(issue_codes if isinstance(issue_codes, list) else [])
+        or any(not isinstance(value, str) or value not in (record_classes if isinstance(record_classes, list) else []) for value in issue_mapping.values())
+    ):
+        errors.append("issue_record_classes must map every issue code to a declared record class")
     references = contract.get("references")
     if not isinstance(references, list) or not references:
         errors.append("references must be a non-empty array")
@@ -650,6 +701,7 @@ def run_synthetic_demo(source_commit: str, contract: dict[str, Any] | None = Non
         "SERVICE_APPOINTMENT_INTAKE",
         "ISSUE_RECORD_CORRECTION",
         active_contract,
+        jurisdiction_code="JURISDICTION_SYNTHETIC",
     )
     events: list[dict[str, Any]] = []
 
@@ -665,6 +717,8 @@ def run_synthetic_demo(source_commit: str, contract: dict[str, Any] | None = Non
     apply("open_case", "2026-01-01T09:00:00Z", "ACTOR-SYN-DEMO-OWNER", "requester")
     policy = {
         "status": "approved",
+        "jurisdiction_code": "JURISDICTION_SYNTHETIC",
+        "record_class": "service_correction_case",
         "lawful_basis_ref": "POLICY-DEMO-LAWFUL-001",
         "responsible_party_ref": "ACTOR-SYN-DEMO-CONTROLLER",
         "max_retention_days": 1,
