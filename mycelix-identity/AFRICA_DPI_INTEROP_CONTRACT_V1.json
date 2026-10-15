@@ -105,6 +105,6 @@
     "A national profile must be based on reviewed official sources and documented authority. Empty country_profiles means no country profile is qualified by this artifact.",
     "Consent alone is not automatically a legal basis. Each relying party must establish an appropriate lawful purpose, authority, proportionality, retention, and grievance path.",
     "Country-specific eligibility rules remain with the relevant public authority and law. A successful identity proof must not be converted into a decision about benefits, immigration status, membership, credit, voting, or legal rights.",
-    "Report hashes and test outputs support reproducibility but are not digital signatures or independent runner attestations."
+    "Report hashes and test outputs support reproducibility but are not a digital signature or independent runner attestation."
   ]
 }
