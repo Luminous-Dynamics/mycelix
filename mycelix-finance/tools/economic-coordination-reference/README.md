@@ -27,12 +27,12 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 
 - Integer quantities and instrument-specific atomic units; no floating-point settlement arithmetic.
 - Explicit separation of financial obligation, resource capacity, delivery claim, verification, and internal ledger posting.
-- Authorization fails closed if authority, rights, or ecological evidence is not verified, or if a required gate denies the request.
+- Authorization fails closed if authority, rights, or ecological evidence is not verified, if a required gate denies the request, or if evidence is explicitly marked `SyntheticOnly`.
 - A commitment must bind the policy digest that authorized it.
 - Capacity reservation is bounded in this serial reference model, and pre-commit cancellation releases its reservation.
 - Only the contract's named provider may submit its delivery claim; an unrelated source cannot enter the verification path. Delivery remains a claim until an independent verifier confirms the exact resource, unit, quantity, and deadline.
 - Independent verification binds to the exact provider delivery-claim ID as well as a separate verifier evidence ID.
-- Unknown/stale/contested verification stays indeterminate; short or mismatched delivery becomes disputed.
+- Unknown/stale/contested verification stays indeterminate; short or mismatched delivery becomes disputed. A `SyntheticOnly` verification decision can never promote a delivery to `Verified`, and a `SyntheticOnly` obligation cannot be committed.
 - A dispute may be reassessed only by a different independent resolver bound to the exact delivery-claim ID. A resolver can contribute only one reassessment per dispute; only confirmation of full delivery resolves it to Verified. Adverse/incomplete reassessment is journaled and leaves the obligation disputed without erasing the obligation. When reassessment resolves the dispute, the primary verification accessor points to the accepted decision while the append-only verification history retains the earlier verdict and all later review decisions.
 - Reassessment returns the resulting lifecycle state whether it resolves or leaves the dispute open, avoiding an error return after an already-recorded state change.
 - Lifecycle event times cannot move backwards.
@@ -43,11 +43,11 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The reference model currently contains **28 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
+The reference model currently contains **31 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Explicit limitations
 
-- Evidence statuses and policy digests are inputs from a caller. This crate does not authenticate signatures, establish physical truth, or qualify who may issue evidence.
+- Evidence statuses and policy digests are inputs from a caller. The `SyntheticOnly` marker makes the simulation boundary explicit inside this reference state machine, but cannot stop a dishonest caller from falsely labelling simulated evidence as `Verified`. This crate does not authenticate signatures, establish physical truth, or qualify who may issue evidence.
 - The capacity book is in-memory and serial. It does not prove distributed reservation safety under DHT concurrency, network partitions, or Byzantine peers.
 - The ledger is in-memory and internal-only. It does not move fiat, SAP, TEND, stablecoins, bank deposits, or any external asset; it does not establish legal settlement or discharge.
 - The model does not decide which socioeconomic policy is legitimate, optimize resource allocation, establish fairness, or prove real-world economic outcomes.
