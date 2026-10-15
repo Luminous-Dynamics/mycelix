@@ -35,14 +35,46 @@ jobs:
 
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+      - name: Determine whether D6S qualification is in scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "D6S qualification is explicitly requested or running on its dedicated branch."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA" "$QUALIFIED_SHA")"
+          required=false
+          while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            case "$path" in
+              docs/integral/d6s-canon-1-*|docs/integral/d6s-canon-2-*|              scripts/integral/verify_d6s_canon_1.py|              scripts/integral/verify_d6s_canon_2_authority_boundary.py|              mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs|              mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs|              mycelix-manufacturing/crates/cos_conformance/Cargo.toml|              mycelix-manufacturing/Cargo.toml)
+                required=true
+                printf 'D6S-relevant change: %s\n' "$path"
+                ;;
+            esac
+          done <<< "$changed"
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          echo "d6s_scope_changed=$required"
+          if [[ "$required" != true ]]; then
+            echo "No D6S corpus, verifier, target, or relevant manifest changed; do not claim D6S qualification."
+          fi
 
       - name: Install pinned Rust
+        if: steps.scope.outputs.required == 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
         with:
           toolchain: 1.96.0
           components: rustfmt
 
       - name: Assert Rust toolchain identity
+        if: steps.scope.outputs.required == 'true'
         run: |
           test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
           rustfmt +1.96.0 --version
@@ -54,15 +86,18 @@ jobs:
       # corpus and independent CANON verifiers below.
 
       - name: Generate reference-test dependency lock
+        if: steps.scope.outputs.required == 'true'
         run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
 
       - name: Assert resolved reference-test dependency graph
+        if: steps.scope.outputs.required == 'true'
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
       # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
       - name: Run D6S canonical integration suites
+        if: steps.scope.outputs.required == 'true'
         run: >-
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
@@ -72,12 +107,29 @@ jobs:
           --test d6s_canon_2_authority_boundary
 
       - name: Run independent D6S-CANON-1 verifier
+        if: steps.scope.outputs.required == 'true'
         run: python3 scripts/integral/verify_d6s_canon_1.py
 
       - name: Run D6S-CANON-2 authority-boundary fixture verifier
+        if: steps.scope.outputs.required == 'true'
         run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
 
+      - name: Record non-applicability without qualifying D6S
+        if: steps.scope.outputs.required != 'true'
+        run: |
+          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=not-applicable"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "d6s_scope_changed=false"
+            echo "claim_ceiling=NotQualified"
+          } | tee d6s-canonical-reference-not-applicable.txt
+
       - name: Emit qualification record
+        if: steps.scope.outputs.required == 'true'
         run: |
           {
             echo "D6S CANONICAL REFERENCE GATE"
@@ -120,6 +172,7 @@ jobs:
           } | tee d6s-canonical-reference-qualification.txt
 
       - name: Upload qualification record
+        if: steps.scope.outputs.required == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
