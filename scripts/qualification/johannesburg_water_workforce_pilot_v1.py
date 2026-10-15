@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "65273f33994cf1c8829004d974aee0821e61e7cf"
+EXPECTED_CORPUS_BLOB_SHA = "95f769beb0a9b0160f261078942976057829b00f"
 EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -53,6 +53,7 @@ EXPECTED_PROBES = {
     "demographic-risk-proxy": ("FairnessAndRights", "RejectAdverseAction", "UnsupportedAndProhibited"),
     "working-on-infrastructure-geography-mismatch": ("EmploymentIntegrity", "TreatAsPartnerDiscoveryOnly", "GeographyNotInAnnouncedLaunchScope"),
     "sdbip-cooperative-kpi-is-not-contract-award": ("EmploymentIntegrity", "PartnerDiscoveryOnlyNoContractAward", "PlanningTargetNotContract"),
+    "sdbip-coverage-target-is-not-observed-service": ("ServiceSemantics", "RequireIndependentServiceCoverageEvidence", "PlanningTargetNotObservedOutcome"),
     "national-epwp-target-vs-city-sdbip-target": ("EmploymentIntegrity", "PreserveSeparateTargetSeries", "DistinctProgrammeTargets"),
     "same-title-water-kpis-need-crosswalk": ("ServiceSemantics", "PreserveSeparateMetricSeries", "MetricCrosswalkUnqualified"),
     "planned-controller-rollout-date-is-not-completion": ("Currentness", "KeepRolloutStatusUnverified", "RolloutCompletionNotObserved"),
@@ -92,6 +93,7 @@ REQUIRED_GUARDS = {
     "demographic-risk-proxy": {"PovertyIsNotEvidenceOfWrongdoing", "ModelFlagIsNotAdjudication"},
     "working-on-infrastructure-geography-mismatch": {"DoNotInferGautengPilotEligibility", "NationalProgrammeAnnouncementIsNotLocalFunding", "NoSpeculativePayroll"},
     "sdbip-cooperative-kpi-is-not-contract-award": {"SdbipPlanningKpiIsNotProcurementAward", "NoCooperativeContractWithoutOpenAuthorizedProcess", "NoSpeculativePayroll"},
+    "sdbip-coverage-target-is-not-observed-service": {"PlanningTargetIsNotActualCoverage", "BaselineOrTargetIsNotCurrentObservation", "TextLayerOnlyPageNeedsVisualReview", "RequireCurrentOperationalEvidenceAndDefinedDenominator", "NoCoverageOrNeedClaimFromTargetAlone"},
     "national-epwp-target-vs-city-sdbip-target": {"NationalTargetIsNotCitySdbipTarget", "WorkOpportunityIsNotDurableJob", "DoNotReplacePublishedTarget"},
     "same-title-water-kpis-need-crosswalk": {"SameTitleDoesNotProveSameMetric", "UnqualifiedMetricCrosswalkFailsClosed", "NoProductionSlaCalculation"},
     "planned-controller-rollout-date-is-not-completion": {"PlannedCompletionDateIsNotEvidenceOfCompletion", "NoLaterConfirmationMeansUnknown", "SourceSearchScopeMustBeRecorded"},
@@ -361,7 +363,7 @@ def validate() -> None:
         fail("tender listing non-observation must not be reported as proof no tender exists")
 
     current_index = source_by_id["PIKITUP-CURRENT-INDEX-1"]
-    if current_index.get("page_label") != "Current Tenders" or current_index.get("checked_on") != "2026-10-14":
+    if current_index.get("page_label") != "Current Tenders" or current_index.get("checked_on") != "2026-10-15":
         fail("City-hosted Pikitup current-tender listing identity/date drift")
     if current_index.get("visible_rows") != [
         {"tender_reference": "PIK259/17", "description": "Appointment of an Accredited Service Provider for Servicing Fire Equipment"},
@@ -598,6 +600,12 @@ def validate() -> None:
         fail("SDBIP planning KPI must not be treated as a procurement award")
     if coop_probe["expected"]["issue_status_effect"] != "NoFundedPositionsOrContractClaim":
         fail("cooperative contract candidate cannot imply funded positions")
+    coverage_probe = by_id["sdbip-coverage-target-is-not-observed-service"]
+    if coverage_probe["expected"]["disposition"] != "RequireIndependentServiceCoverageEvidence" or coverage_probe["expected"]["issue_status_effect"] != "NoVerifiedCoverageOrServiceNeedClaim":
+        fail("SDBIP planning target cannot establish achieved service coverage or an unmet need")
+    coverage_input = coverage_probe["input"]
+    if coverage_input.get("target_2026_27_percent") != 100 or coverage_input.get("source_page_visually_reviewed") is not False or coverage_input.get("actual_2026_27_performance_result_observed") is not False:
+        fail("coverage-target probe must preserve target value and missing current outcome evidence")
     epwp_probe = by_id["national-epwp-target-vs-city-sdbip-target"]
     if epwp_probe["expected"]["disposition"] != "PreserveSeparateTargetSeries":
         fail("national and City EPWP planning targets must remain distinct")

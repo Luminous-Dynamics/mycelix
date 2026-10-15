@@ -70,6 +70,8 @@ The intended improvement is not a second recruitment platform. It is a better li
 
 The 2026/27 SDBIP reveals a second candidate worth investigating before treating the water pathway as the only jobs vehicle. On printed page 27, KPI 15 is the percentage of known informal settlements receiving basic removal services. Its intervention text includes a decentralized fleet/depot model and incorporating local cooperatives into basic removal services through new service-level contracts; the plan shows a 100% target. The page-27 table was only observed in the PDF text layer during this pass and was not visually reviewed.
 
+The 100% figure is a **planning target, not a measured 2026/27 service result**. The page-27 row remains text-layer-only, and this research capture has no current operational coverage result or underlying tripsheet/recognized-settlement records for the target period. That absence does not prove either full coverage or service failure. Before claiming a service gap, success, or a need for more work packages, require authorized current operational records, a defined denominator and reporting period, and a human-reviewed reconciliation. Synthetic control 38 checks that neither the 100% target nor this incomplete capture is promoted to an outcome claim.
+
 This is a **procurement-discovery lead**, not proof a tender is open, a budget remains available, a cooperative has been awarded a contract, or the target is achieved. The water and Pikitup candidates should therefore be compared rather than silently selecting one:
 
 | Decision dimension | Water-fault coordination | Pikitup basic-removal/cooperative services |
@@ -152,7 +154,7 @@ Before announcing a position, record the legal employer/contracting entity, writ
 
 ### Procurement discovery is not an opportunity guarantee
 
-The City procurement hub links current bids, RFQs, canceled bids, awards and entity procurement. The City-hosted Pikitup “Current Tenders” listing, checked 14 October 2026, showed rows for PIK259/17 (fire-equipment servicing) and PIK255/17 (four-drone supply) but exposed no publication date, closing date or lifecycle status beside those rows. I do not infer a date from the `/17` suffix. Separately, the Pikitup tender index reviewed in this pass exposed mixed lifecycle-stage examples, including a June 2026 cancellation and April/May 2026 awards alongside older advertised/closed notices. No tender-specific open cooperative/basic-removal work package was captured in the pages inspected. This bounded non-observation is **not** proof that no opportunity exists and is not a complete procurement audit.
+The City procurement hub links current bids, RFQs, canceled bids, awards and entity procurement. The City-hosted Pikitup “Current Tenders” listing was checked again on 15 October 2026 and still showed rows for PIK259/17 (fire-equipment servicing) and PIK255/17 (four-drone supply) without publication dates, closing dates or lifecycle status beside the rows. I do not infer a date from the `/17` suffix. Separately, the Pikitup tender index reviewed in this pass exposed mixed lifecycle-stage examples, including a June 2026 cancellation and April/May 2026 awards alongside older advertised/closed notices. No tender-specific open cooperative/basic-removal work package was captured in the pages inspected. This bounded non-observation is **not** proof that no opportunity exists and is not a complete procurement audit.
 
 ### A real issuer-published notice found during discovery (not a selected pilot)
 
@@ -319,7 +321,7 @@ If these questions cannot be answered, remain in synthetic/shadow research. Do n
 9. South African Department of Employment and Labour, 3 February 2026 wage-rate announcement (effective 1 March 2026): https://www.labour.gov.za/Media-Desk/Media-Statements/Pages/Minister-of-Employment-and-Labour%2C-Meth-increases-the-statutory-National-Minimum-Wage-to-R30%2C23-per-hour.aspx
 10. City of Johannesburg, Tenders and Quotations procurement hub (checked 14 October 2026): https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Tenders-and-Quotations.aspx
 11. Pikitup, Tenders index (checked 14 October 2026): https://pikitup.co.za/tenders/
-12. City of Johannesburg-hosted Pikitup “Current Tenders” listing (checked 14 October 2026): https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Links/Pikitup%20Tenders/Current-Tenders.aspx
+12. City of Johannesburg-hosted Pikitup “Current Tenders” listing (rechecked 15 October 2026): https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Links/Pikitup%20Tenders/Current-Tenders.aspx
 13. National Treasury, OCPO Transparency Portal data user guide: https://data.etenders.gov.za/Home/LearnMore
 14. National Treasury procurement dataset coverage and quality profile: https://data.open-contracting.org/en/publication/143
 15. Open Contracting Data Standard v1.1.5, lifecycle model: https://standard.open-contracting.org/latest/en/primer/how/

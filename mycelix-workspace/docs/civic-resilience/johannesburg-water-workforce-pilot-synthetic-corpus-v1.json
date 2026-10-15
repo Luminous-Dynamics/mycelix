@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 37,
+  "expected_probe_count": 38,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -466,6 +466,49 @@
         "SdbipPlanningKpiIsNotProcurementAward",
         "NoCooperativeContractWithoutOpenAuthorizedProcess",
         "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "sdbip-coverage-target-is-not-observed-service",
+      "category": "ServiceSemantics",
+      "scenario": "The City of Johannesburg 2026/27 SDBIP lists a 100% target for KPI 15 (known informal settlements receiving basic removal services). The summary row on printed page 27 was observed in the PDF text layer but not visually reviewed; this evidence set contains no current operational coverage result or linked tripsheet/settlement records for the target period. An adapter treats the target/baseline planning fields as proof that current service coverage is 100%, or conversely infers an unmet service gap from the absence of outcome evidence in this research capture.",
+      "input": {
+        "source_document": "City of Johannesburg 2026/27 SDBIP",
+        "kpi_number": 15,
+        "baseline_percent": 100,
+        "target_2025_26_percent": 100,
+        "target_2026_27_percent": 100,
+        "quarterly_targets_2026_27_percent": [
+          100,
+          100,
+          100,
+          100
+        ],
+        "source_page_printed": 27,
+        "source_page_text_layer_observed": true,
+        "source_page_visually_reviewed": false,
+        "current_operational_records_observed": false,
+        "actual_2026_27_performance_result_observed": false,
+        "outcome_evidence_scope": "NotCapturedInThisResearchPass;AbsenceFromCaptureIsNotProofOfServiceFailure"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireIndependentServiceCoverageEvidence",
+        "issue_status_effect": "NoVerifiedCoverageOrServiceNeedClaim",
+        "required_human_review": true,
+        "source_status": "PlanningTargetNotObservedOutcome"
+      },
+      "guards": [
+        "PlanningTargetIsNotActualCoverage",
+        "BaselineOrTargetIsNotCurrentObservation",
+        "TextLayerOnlyPageNeedsVisualReview",
+        "RequireCurrentOperationalEvidenceAndDefinedDenominator",
+        "NoCoverageOrNeedClaimFromTargetAlone"
       ]
     },
     {

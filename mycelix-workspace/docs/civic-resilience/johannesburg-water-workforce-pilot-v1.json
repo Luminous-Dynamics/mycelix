@@ -267,7 +267,7 @@
         "source_page_printed": 27,
         "text_layer_observed": true,
         "visually_reviewed": false,
-        "allowed_use": "Candidate alternative for a job-first pilot and for partner/procurement discovery",
+        "allowed_use": "Planning-only candidate for comparative partner/procurement discovery; require current operational evidence before any claim about actual service coverage or a service gap",
         "prohibited_inference": [
           "Specific tender or contract is open",
           "Any supplier/cooperative has been awarded a contract",
@@ -539,7 +539,7 @@
       "source_url": "https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Links/Pikitup%20Tenders/Current-Tenders.aspx",
       "source_kind": "OfficialCityHostedPikitupCurrentTenderListing",
       "publication_date": null,
-      "checked_on": "2026-10-14",
+      "checked_on": "2026-10-15",
       "observation_status": "OfficialCityHostedListingObserved",
       "page_label": "Current Tenders",
       "visible_rows": [
@@ -1234,13 +1234,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "65273f33994cf1c8829004d974aee0821e61e7cf",
-    "probe_count": 37,
+    "git_blob_sha": "95f769beb0a9b0160f261078942976057829b00f",
+    "probe_count": 38,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 37,
+      "unique_probe_ids": 38,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
