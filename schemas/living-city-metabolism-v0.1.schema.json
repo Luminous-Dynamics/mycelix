@@ -1517,7 +1517,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2048,
-          "description": "Location or immutable artifact identifier from which the exact serialized Symtropy receipt payload can be retrieved for hash verification."
+          "description": "Location or immutable artifact identifier for the exact serialized native payload. Offline verification supports repository-relative files only via repo-file:<relative-posix-path>; absolute paths, parent traversal, and paths resolving outside the repository are rejected. Other locators remain unverified unless a separate trusted resolver retrieves and verifies their bytes."
         }
       },
       "allOf": [

@@ -165,7 +165,21 @@ Living-City therefore defines an optional wrapper envelope, `living-city-nutrien
 
 The contract validator checks that receipt IDs resolve and link to exactly one food-delivery flow, that scenario/scope/period match, that assessed edible mass reconciles exactly to the flow in grams, that the denominator is `100 × value_scale`, and that shortfall/status recompute from exact numerators. `NotAssessable` and `Blocked` receipts must withhold total/supply/target arithmetic rather than fill it with zero. A `meets_declared_minimum` result means only that the receipt's declared calculation meets its declared target; it does **not** establish overall dietary adequacy, food safety, equitable access, or an individual's nutritional suitability.
 
-Important verification ceiling: the CI validator checks the declared hash's shape but does not retrieve the payload, recompute its SHA-256, or independently execute Symtropy's Rust calculator. Until the payload bytes can be fetched and hashed against the commitment, `payload_sha256` remains an unverified assertion. Mycelix's exact numerator checks are consistency checks, not cryptographic provenance or proof of source truth. Food matching, component identifiers, source quality, units and denominators should follow [FAO/INFOODS guidance](https://www.fao.org/infoods/infoods/standards-guidelines/en/).
+Important verification ceiling: the CI validator checks the declared hash's shape but does not retrieve the payload, recompute its SHA-256, or independently execute Symtropy's Rust calculator. Until the payload bytes can be fetched and hashed against the commitment, `payload_sha256` remains an unverified assertion. Mycelix's exact numerator checks are consistency checks, not cryptographic provenance or proof of source truth.
+
+## Payload integrity gate (implemented, offline and fail-closed)
+
+The companion verifier at \`scripts/living-city/verify_nutrient_payloads.py\` closes a specific gap in the schema-only validator. For a real \`symtropy_output\` receipt, it accepts only an explicit \`repo-file:<relative-posix-path>\` locator for offline checking. It rejects absolute paths, parent traversal, and symlinks that resolve outside the repository. It hashes the exact raw payload bytes (not re-serialized JSON), rejects duplicate JSON keys and non-standard numeric constants, then checks that 17 native Symtropy fields—including scenario/target/nutrient identity, unit, beneficiary scope, period, exact numerator/denominator values, source refs and status—match the normalized envelope exactly.
+
+Run it against a review JSON export from the repository root:
+
+\`\`\`sh
+python scripts/living-city/verify_nutrient_payloads.py /path/to/review.json --repo-root .
+\`\`\`
+
+The command exits non-zero when a payload is missing, a hash mismatches, the payload and envelope disagree, the locator escapes the repository, or the reference is external/opaque. It never accesses the network; external payloads remain \`external_unverified\` until an explicitly trusted resolver is supplied. Unit tests cover matching bytes, changed bytes, re-hashed-but-conflicting envelope values, missing files, traversal, absolute paths, symlink escape, remote references, malformed hashes, duplicate keys, synthetic-only no-op input, and duplicate receipt IDs.
+
+This verifies byte integrity and the binding between the byte-identified payload and the envelope, **not** the authenticity of the producer, truth of the source records, correctness of the nutritional standard, or adequacy of a diet. The declared producer revision remains a provenance claim until a trusted attestation or separate source/build verification binds it to a known Symtropy build. The design follows the separation between artifact identity, provenance statements, and verifier policy in [in-toto Attestation](https://github.com/in-toto/attestation/blob/main/spec/v1/README.md) and [SLSA provenance verification](https://slsa.dev/spec/v1.2/verifying-artifacts), and the raw-byte digest principle of [IETF RFC 9530](https://www.rfc-editor.org/rfc/rfc9530.html). Food matching, component identifiers, source quality, units and denominators should follow [FAO/INFOODS guidance](https://www.fao.org/infoods/infoods/standards-guidelines/en/).
 
 ### Minimum shared hand-off
 
