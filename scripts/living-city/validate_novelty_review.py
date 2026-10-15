@@ -295,7 +295,7 @@ def main() -> None:
         fail("mutation: unresolved hard-gate evidence reference was accepted")
     print("PASS mutation: unresolved hard-gate evidence references are rejected")
 
-    print("PASS: 14 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
+    print("PASS: 15 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
 
 
 if __name__ == "__main__":
