@@ -1268,6 +1268,23 @@ mod tests {
     }
 
     #[test]
+    fn additional_event_stream_negative_controls_fail_closed() {
+        let cases = [
+            ("same_digest_conflicting_payload_unresolved", ReservationOutcome::Unresolved, ReservationEventError::ConflictingEventDigest),
+            ("reservation_semantics_mutation_unresolved", ReservationOutcome::Unresolved, ReservationEventError::ReservationSemanticsChanged),
+            ("event_issue_time_reversal_unresolved", ReservationOutcome::Unresolved, ReservationEventError::TimeReversal),
+            ("missing_initial_prefix_unresolved", ReservationOutcome::Unresolved, ReservationEventError::SequenceGap),
+            ("malformed_event_interval_rejected", ReservationOutcome::Reject, ReservationEventError::InvalidInterval),
+        ];
+        for (case_id, expected_outcome, expected_error) in cases {
+            let report = evaluate_reservation_event_case(&reservation_event_fixture(case_id));
+            assert_eq!(report.actual_outcome, expected_outcome, "{case_id}: {report:#?}");
+            assert!(report.expectation_matches, "{case_id}: fixture expectation mismatch");
+            assert!(report.errors.contains(&expected_error), "{case_id}: missing {expected_error:?}");
+        }
+    }
+
+    #[test]
     fn event_arrival_order_does_not_change_reconciled_projection() {
         let mut case = reservation_event_fixture("reordered_updates_converge_no_conflict");
         let original = evaluate_reservation_event_case(&case);

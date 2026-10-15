@@ -346,7 +346,12 @@
       "withdrawal_releases_current_claim",
       "partitioned_event_view_degraded",
       "expired_replayed_history_not_current",
-      "future_event_time_unresolved"
+      "future_event_time_unresolved",
+      "same_digest_conflicting_payload_unresolved",
+      "reservation_semantics_mutation_unresolved",
+      "event_issue_time_reversal_unresolved",
+      "missing_initial_prefix_unresolved",
+      "malformed_event_interval_rejected"
     ],
     "reservation_event_semantics": {
       "sequence_scope": "strict per-reservation stream; starts at sequence 1 and must be contiguous",
@@ -357,7 +362,14 @@
       "active_projection": "latest Accepted or Activated event when not expired or ended",
       "cross_provider": "conflicts are surfaced; no winner, global causal order, or reservation grant",
       "maximum_received_events": 1000,
-      "authority_ceiling": "synthetic provider-local event replay and reservation conflict screen only"
+      "authority_ceiling": "synthetic provider-local event replay and reservation conflict screen only",
+      "additional_negative_controls": [
+        "same_digest_conflicting_payload_unresolved",
+        "reservation_semantics_mutation_unresolved",
+        "event_issue_time_reversal_unresolved",
+        "missing_initial_prefix_unresolved",
+        "malformed_event_interval_rejected"
+      ]
     }
   }
 }
