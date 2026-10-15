@@ -126,11 +126,6 @@ pub struct AuthorityProof {
     pub policy_digest: String,
     pub evidence_status: EvidenceStatus,
     pub origin: EvidenceOrigin,
-    pub origin: EvidenceOrigin,
-    pub origin: EvidenceOrigin,
-    pub origin: EvidenceOrigin,
-    pub origin: EvidenceOrigin,
-    pub origin: EvidenceOrigin,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,6 +133,7 @@ pub struct GateAssessment {
     pub policy_id: String,
     pub permitted: bool,
     pub evidence_status: EvidenceStatus,
+    pub origin: EvidenceOrigin,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -172,6 +168,7 @@ pub struct ObligationTerms {
     pub due_at: u64,
     pub policy_digest: String,
     pub evidence_status: EvidenceStatus,
+    pub origin: EvidenceOrigin,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -182,6 +179,7 @@ pub struct DeliveryClaim {
     pub unit: String,
     pub quantity: u64,
     pub evidence_status: EvidenceStatus,
+    pub origin: EvidenceOrigin,
     pub observed_at: u64,
 }
 
@@ -193,6 +191,7 @@ pub struct VerificationResult {
     /// Identifier for the independent verifier's own evidence/decision.
     pub evidence_id: String,
     pub evidence_status: EvidenceStatus,
+    pub origin: EvidenceOrigin,
     pub accepted_quantity: Option<u64>,
     pub decided_at: u64,
 }
@@ -206,6 +205,7 @@ pub struct DisputeReassessment {
     pub claim_evidence_id: String,
     pub decision_evidence_id: String,
     pub evidence_status: EvidenceStatus,
+    pub origin: EvidenceOrigin,
     pub accepted_quantity: Option<u64>,
     pub decided_at: u64,
 }
