@@ -1302,7 +1302,8 @@ mod tests {
 
     #[test]
     fn balance_limit_failure_is_atomic() {
-        let (mut contract, _) = verified_contract("tx-balance-limit", 1);
+        let (mut contract, mut capacity, _) = verified_contract("tx-balance-limit", 1);
+        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
         let mut ledger = Ledger::default();
         ledger
             .register_account(
@@ -1319,7 +1320,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            contract.settle(&mut ledger, 7),
+            contract.settle(&mut ledger, 8),
             Err(ContractError::BalanceLimit)
         );
         assert_eq!(
@@ -1330,17 +1331,24 @@ mod tests {
             ledger.balance("coop-wallet", INSTRUMENT, ATOMIC_UNIT),
             Some(0)
         );
-        assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        assert_eq!(contract.lifecycle(), Lifecycle::CapacityConsumed);
+        assert!(contract.capacity_consumed());
+        assert_eq!(
+            capacity.remaining("repair-hours", "hour", "week-42"),
+            Some(0)
+        );
+        assert_eq!(capacity.consumed("repair-hours", "hour", "week-42"), Some(1));
         assert!(ledger.posting("tx-balance-limit").is_none());
     }
 
     #[test]
     fn repeated_settlement_does_not_post_twice() {
-        let (mut contract, mut ledger) = verified_contract("tx-replay", 1);
-        contract.settle(&mut ledger, 7).unwrap();
+        let (mut contract, mut capacity, mut ledger) = verified_contract("tx-replay", 1);
+        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        contract.settle(&mut ledger, 8).unwrap();
 
         assert_eq!(
-            contract.settle(&mut ledger, 8),
+            contract.settle(&mut ledger, 9),
             Err(ContractError::InvalidTransition)
         );
         assert_eq!(
@@ -1355,7 +1363,8 @@ mod tests {
 
     #[test]
     fn missing_instrument_account_does_not_move_any_balance() {
-        let (mut contract, _) = verified_contract("tx-instrument-mismatch", 1);
+        let (mut contract, mut capacity, _) = verified_contract("tx-instrument-mismatch", 1);
+        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
         let mut ledger = Ledger::default();
         ledger
             .register_account(
@@ -1372,7 +1381,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            contract.settle(&mut ledger, 7),
+            contract.settle(&mut ledger, 8),
             Err(ContractError::AccountNotFound)
         );
         assert_eq!(
@@ -1472,16 +1481,18 @@ mod tests {
 
     #[test]
     fn obligation_identity_cannot_be_settled_under_another_transaction() {
-        let (mut first, mut ledger) = verified_contract("tx-obligation-first", 1);
-        let (mut second, _) = verified_contract("tx-obligation-second", 1);
+        let (mut first, mut first_capacity, mut ledger) = verified_contract("tx-obligation-first", 1);
+        let (mut second, mut second_capacity, _) = verified_contract("tx-obligation-second", 1);
         second.obligation.as_mut().unwrap().id = first.obligation.as_ref().unwrap().id.clone();
+        first.consume_verified_capacity(&mut first_capacity, 7).unwrap();
+        second.consume_verified_capacity(&mut second_capacity, 7).unwrap();
 
-        first.settle(&mut ledger, 7).unwrap();
+        first.settle(&mut ledger, 8).unwrap();
         let debit_after_first = ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT);
         let credit_after_first = ledger.balance("coop-wallet", INSTRUMENT, ATOMIC_UNIT);
 
         assert_eq!(
-            second.settle(&mut ledger, 7),
+            second.settle(&mut ledger, 8),
             Err(ContractError::AlreadyPosted)
         );
         assert_eq!(
@@ -1497,12 +1508,14 @@ mod tests {
 
     #[test]
     fn settlement_timestamp_cannot_precede_verified_delivery() {
-        let (mut contract, mut ledger) = verified_contract("tx-settlement-time", 1);
+        let (mut contract, mut capacity, mut ledger) = verified_contract("tx-settlement-time", 1);
+        contract.consume_verified_capacity(&mut capacity, 6).unwrap();
         assert_eq!(
             contract.settle(&mut ledger, 4),
             Err(ContractError::NonMonotonicTime)
         );
-        assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        assert_eq!(contract.lifecycle(), Lifecycle::CapacityConsumed);
+        assert!(contract.capacity_consumed());
         assert_eq!(
             ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT),
             Some(100)
