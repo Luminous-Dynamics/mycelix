@@ -1265,7 +1265,10 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
         .get("MYC-LCA-016")
         .expect("latest GPSJS time-series boundary missing");
     assert_eq!(latest_victimization["expected"]["status"], "unknown");
-    assert_eq!(latest_victimization["input_projection"]["version"], "GPSJS 2025/26 Victims of Crime Release; published 2026-09-01");
+    assert_eq!(
+        latest_victimization["input_projection"]["version"],
+        "GPSJS 2025/26 Victims of Crime Release; published 2026-09-01"
+    );
     assert_eq!(
         latest_victimization["expected"]["required_reason_codes"][0],
         "context_insufficient"
