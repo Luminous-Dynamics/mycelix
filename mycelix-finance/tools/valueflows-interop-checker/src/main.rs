@@ -49,6 +49,23 @@ struct SourceProfile {
     packaged_hrea_artifact_pinned: bool,
     hrea_runtime_qualified_with_mycelix: bool,
     version_note: String,
+    release_evidence: ReleaseEvidence,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReleaseEvidence {
+    release_tag: String,
+    release_commit: String,
+    published_at: String,
+    release_url: String,
+    claimed_valueflows_profile: String,
+    claimed_holochain_requirement: String,
+    claimed_client_requirement: String,
+    dna_asset_sha256: String,
+    happ_asset_sha256: String,
+    selected_for_mycelix_integration: bool,
+    evidence_scope: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -323,8 +340,67 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
     fail(
         &mut errors,
-        !source.version_note.trim().is_empty(),
-        "source profile must explain version/profile separation".into(),
+        source.version_note.contains("published")
+            && source.version_note.contains("research evidence only"),
+        "source profile must separate published ontology, branch source, and release evidence"
+            .into(),
+    );
+
+    let release = &source.release_evidence;
+    fail(
+        &mut errors,
+        release.release_tag == "happ-0.5.0-beta.1"
+            && release.release_url
+                == "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+        "hREA released artifact evidence must be pinned to happ-0.5.0-beta.1".into(),
+    );
+    fail(
+        &mut errors,
+        release.release_commit.len() == 40
+            && release
+                .release_commit
+                .chars()
+                .all(|ch| ch.is_ascii_hexdigit()),
+        "hREA release commit must be a full 40-character hexadecimal SHA".into(),
+    );
+    fail(
+        &mut errors,
+        release.published_at == "2026-09-10T13:10:58Z",
+        "hREA release publication timestamp must remain pinned to the reviewed release".into(),
+    );
+    fail(
+        &mut errors,
+        release.claimed_valueflows_profile == "1.0"
+            && release.claimed_holochain_requirement == "0.7.x"
+            && release.claimed_client_requirement == "^0.21.0",
+        "hREA release profile must preserve its ValueFlows/Holochain/client requirements".into(),
+    );
+    fail(
+        &mut errors,
+        release.dna_asset_sha256.len() == 64
+            && release
+                .dna_asset_sha256
+                .chars()
+                .all(|ch| ch.is_ascii_hexdigit()),
+        "hREA DNA artifact must have a pinned 64-character SHA-256 digest".into(),
+    );
+    fail(
+        &mut errors,
+        release.happ_asset_sha256.len() == 64
+            && release
+                .happ_asset_sha256
+                .chars()
+                .all(|ch| ch.is_ascii_hexdigit()),
+        "hREA hApp artifact must have a pinned 64-character SHA-256 digest".into(),
+    );
+    fail(
+        &mut errors,
+        !release.selected_for_mycelix_integration
+            && release.evidence_scope == "research_evidence_only"
+            && !source.packaged_hrea_artifact_pinned
+            && !source.hrea_runtime_qualified_with_mycelix,
+        "pinned release evidence must not be promoted to a selected or qualified Mycelix dependency"
+            .into(),
     );
 
     let contract = &corpus.mapping_contract;
@@ -724,6 +800,27 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("unsafe or unexpected quantity encoding")));
+    }
+
+    #[test]
+    fn hrea_release_evidence_is_pinned_without_claiming_integration() {
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["dna_asset_sha256"] =
+            "not-a-sha256-digest".into();
+        let errors =
+            check_text(&value.to_string()).expect_err("malformed release digest must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("DNA artifact must have a pinned 64-character SHA-256")));
+
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["selected_for_mycelix_integration"] =
+            true.into();
+        let errors = check_text(&value.to_string())
+            .expect_err("release evidence must not imply Mycelix integration");
+        assert!(errors.iter().any(|error| {
+            error.contains("must not be promoted to a selected or qualified Mycelix dependency")
+        }));
     }
 
     #[test]
