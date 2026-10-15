@@ -5,6 +5,8 @@
 //! Every result is scoped to a synthetic fixture and the simplified trajectory
 //! model documented in README.md.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 const MAX_HORIZON_S: i64 = 7 * 24 * 60 * 60;
@@ -15,6 +17,7 @@ const MAX_THRESHOLD_MM: u64 = 1_000_000_000_000_000;
 const MAX_PAIR_SAMPLE_CHECKS: u128 = 5_000_000;
 const MAX_RESERVATION_CLAIMS: usize = 300;
 const MAX_RESERVATION_PAIR_CHECKS: usize = 50_000;
+const MAX_RESERVATION_EVENTS: usize = 1_000;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScenarioSet {
@@ -24,6 +27,8 @@ pub struct ScenarioSet {
     pub scenarios: Vec<Scenario>,
     pub lifecycle_transition_cases: Vec<LifecycleTransitionCase>,
     pub reservation_cases: Vec<ReservationCoordinationCase>,
+    #[serde(default)]
+    pub reservation_event_cases: Vec<ReservationEventCoordinationCase>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -182,6 +187,35 @@ pub struct ReservationCoordinationCase {
     pub expected_outcome: ReservationOutcome,
 }
 
+/// Provider-local reservation event. Digest fields are opaque fixture identifiers,
+/// not computed hashes or authenticated integrity evidence.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct ReservationEvent {
+    pub reservation_id: String,
+    pub provider_id: String,
+    pub sequence: u64,
+    pub event_digest: String,
+    pub previous_event_digest: Option<String>,
+    pub issued_at_s: i64,
+    pub expires_at_s: i64,
+    pub resource_id: String,
+    pub trajectory_digest: String,
+    pub time_basis: String,
+    pub start_s: i64,
+    pub end_s: i64,
+    pub state: IntentState,
+    pub priority: FlightPriority,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ReservationEventCoordinationCase {
+    pub case_id: String,
+    pub now_s: i64,
+    pub snapshot_state: ProviderSnapshotState,
+    pub events: Vec<ReservationEvent>,
+    pub expected_outcome: ReservationOutcome,
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ReservationOutcome {
@@ -203,6 +237,42 @@ pub enum ReservationError {
     FutureIssuedAt,
     DuplicateReservationId,
     TimeBasisMismatch,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReservationEventError {
+    EmptyIdentity,
+    EmptyEventSet,
+    TooManyEvents,
+    InvalidSequence,
+    InvalidInterval,
+    InvalidExpiry,
+    FutureIssuedAt,
+    ConflictingEventDigest,
+    SequenceGap,
+    ForkedSequence,
+    PredecessorMismatch,
+    ReservationSemanticsChanged,
+    TimeReversal,
+    IllegalStateTransition,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReservationEventCoordinationReport {
+    pub case_id: String,
+    pub actual_outcome: ReservationOutcome,
+    pub expected_outcome: ReservationOutcome,
+    pub expectation_matches: bool,
+    pub received_event_count: usize,
+    pub unique_event_count: usize,
+    pub replayed_delivery_count: usize,
+    pub reservation_stream_count: usize,
+    pub current_claim_count: usize,
+    pub conflicts: Vec<ReservationConflict>,
+    pub errors: Vec<ReservationEventError>,
+    pub reasons: Vec<String>,
+    pub authority_ceiling: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -273,10 +343,12 @@ pub struct ReplayOutput {
     pub input_scenario_count: usize,
     pub input_lifecycle_transition_case_count: usize,
     pub input_reservation_case_count: usize,
+    pub input_reservation_event_case_count: usize,
     pub all_expectations_match: bool,
     pub reports: Vec<SimulationReport>,
     pub lifecycle_transition_reports: Vec<LifecycleTransitionReport>,
     pub reservation_reports: Vec<ReservationCoordinationReport>,
+    pub reservation_event_reports: Vec<ReservationEventCoordinationReport>,
 }
 
 const AUTHORITY_CEILING: &str =
@@ -679,6 +751,259 @@ fn reservation_report(
     }
 }
 
+const RESERVATION_EVENT_AUTHORITY_CEILING: &str =
+    "synthetic reservation event-stream reconciliation only; no authenticated exchange, reservation grant, or flight authorization";
+
+/// Reconcile provider-local streams, then run the existing bounded reservation
+/// overlap screen. Input arrival order is not semantic; per-reservation sequence
+/// and predecessor linkage define the local history.
+pub fn evaluate_reservation_event_case(
+    case: &ReservationEventCoordinationCase,
+) -> ReservationEventCoordinationReport {
+    let mut errors = Vec::new();
+    let mut reasons = Vec::new();
+    let received_count = case.events.len();
+
+    if case.case_id.trim().is_empty() {
+        return reservation_event_report(
+            case, ReservationOutcome::Reject, 0, 0, 0, 0, Vec::new(),
+            vec![ReservationEventError::EmptyIdentity],
+            vec!["case_id must not be empty".to_owned()],
+        );
+    }
+    if received_count == 0 {
+        return reservation_event_report(
+            case, ReservationOutcome::Reject, 0, 0, 0, 0, Vec::new(),
+            vec![ReservationEventError::EmptyEventSet],
+            vec!["an empty event set cannot establish a current reservation view".to_owned()],
+        );
+    }
+    if received_count > MAX_RESERVATION_EVENTS {
+        return reservation_event_report(
+            case, ReservationOutcome::Reject, 0, 0, 0, 0, Vec::new(),
+            vec![ReservationEventError::TooManyEvents],
+            vec![format!("received event count {received_count} exceeds the deterministic replay bound {MAX_RESERVATION_EVENTS}")],
+        );
+    }
+
+    for event in &case.events {
+        if event.reservation_id.trim().is_empty()
+            || event.provider_id.trim().is_empty()
+            || event.event_digest.trim().is_empty()
+            || event.resource_id.trim().is_empty()
+            || event.trajectory_digest.trim().is_empty()
+            || event.time_basis.trim().is_empty()
+        {
+            errors.push(ReservationEventError::EmptyIdentity);
+        }
+        if event.sequence == 0 {
+            errors.push(ReservationEventError::InvalidSequence);
+        }
+        if event.start_s >= event.end_s {
+            errors.push(ReservationEventError::InvalidInterval);
+        }
+        if event.expires_at_s <= event.issued_at_s {
+            errors.push(ReservationEventError::InvalidExpiry);
+        }
+        if event.issued_at_s > case.now_s {
+            errors.push(ReservationEventError::FutureIssuedAt);
+        }
+    }
+    if !errors.is_empty() {
+        reasons.push("one or more events failed identity, sequence, interval, expiry, or issue-time qualification".to_owned());
+        let outcome = reservation_event_error_outcome(&errors);
+        return reservation_event_report(
+            case, outcome, 0, 0, 0, 0, Vec::new(), errors, reasons,
+        );
+    }
+
+    // An opaque digest may only identify one immutable event payload. Exact
+    // full-event retransmissions are idempotent and counted; changed payloads
+    // are unresolved. No cryptographic verification is claimed.
+    let mut unique_events: BTreeMap<String, ReservationEvent> = BTreeMap::new();
+    let mut replayed_delivery_count = 0_usize;
+    for event in &case.events {
+        if let Some(existing) = unique_events.get(&event.event_digest) {
+            if existing == event {
+                replayed_delivery_count = replayed_delivery_count.saturating_add(1);
+            } else {
+                errors.push(ReservationEventError::ConflictingEventDigest);
+            }
+        } else {
+            unique_events.insert(event.event_digest.clone(), event.clone());
+        }
+    }
+    if !errors.is_empty() {
+        reasons.push("one event digest identifies different payloads; the provider history cannot be reconciled".to_owned());
+        return reservation_event_report(
+            case, ReservationOutcome::Unresolved, 0, unique_events.len(),
+            replayed_delivery_count, 0, Vec::new(), errors, reasons,
+        );
+    }
+
+    let unique_event_count = unique_events.len();
+    let mut streams: BTreeMap<String, Vec<ReservationEvent>> = BTreeMap::new();
+    for event in unique_events.values() {
+        streams.entry(event.reservation_id.clone()).or_default().push(event.clone());
+    }
+
+    for events in streams.values_mut() {
+        events.sort_by_key(|event| event.sequence);
+        let Some(first) = events.first() else {
+            continue;
+        };
+        if first.sequence != 1 {
+            errors.push(ReservationEventError::SequenceGap);
+        }
+        if first.previous_event_digest.is_some() {
+            errors.push(ReservationEventError::PredecessorMismatch);
+        }
+        if first.state != IntentState::Proposed {
+            errors.push(ReservationEventError::IllegalStateTransition);
+        }
+        for pair in events.windows(2) {
+            let previous = &pair[0];
+            let next = &pair[1];
+            if previous.sequence == next.sequence {
+                errors.push(ReservationEventError::ForkedSequence);
+                continue;
+            }
+            if previous.sequence.checked_add(1) != Some(next.sequence) {
+                errors.push(ReservationEventError::SequenceGap);
+            }
+            if next.previous_event_digest.as_deref() != Some(previous.event_digest.as_str()) {
+                errors.push(ReservationEventError::PredecessorMismatch);
+            }
+            if next.issued_at_s < previous.issued_at_s {
+                errors.push(ReservationEventError::TimeReversal);
+            }
+            if !same_reservation_event_semantics(first, next) {
+                errors.push(ReservationEventError::ReservationSemanticsChanged);
+            }
+            if !state_transition_allowed(previous.state, next.state) {
+                errors.push(ReservationEventError::IllegalStateTransition);
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        reasons.push("one or more streams have a gap, fork, broken predecessor link, time reversal, changed reservation semantics, or illegal lifecycle".to_owned());
+        let outcome = reservation_event_error_outcome(&errors);
+        return reservation_event_report(
+            case, outcome, streams.len(), unique_event_count,
+            replayed_delivery_count, 0, Vec::new(), errors, reasons,
+        );
+    }
+
+    let mut claims = Vec::new();
+    for events in streams.values() {
+        let Some(latest) = events.last() else {
+            continue;
+        };
+        // Proposed intents do not occupy an accepted reservation. Terminal,
+        // expired, and ended windows are not current claims.
+        if !matches!(latest.state, IntentState::Accepted | IntentState::Activated)
+            || case.now_s >= latest.expires_at_s
+            || case.now_s >= latest.end_s
+        {
+            continue;
+        }
+        claims.push(ReservationClaim {
+            reservation_id: latest.reservation_id.clone(),
+            provider_id: latest.provider_id.clone(),
+            resource_id: latest.resource_id.clone(),
+            trajectory_digest: latest.trajectory_digest.clone(),
+            time_basis: latest.time_basis.clone(),
+            sequence: latest.sequence,
+            issued_at_s: latest.issued_at_s,
+            expires_at_s: latest.expires_at_s,
+            start_s: latest.start_s,
+            end_s: latest.end_s,
+            state: latest.state,
+            priority: latest.priority,
+        });
+    }
+
+    let projected_snapshot = ReservationCoordinationCase {
+        case_id: case.case_id.clone(),
+        now_s: case.now_s,
+        snapshot_state: case.snapshot_state,
+        claims,
+        expected_outcome: case.expected_outcome,
+    };
+    let snapshot_report = evaluate_reservation_case(&projected_snapshot);
+    reasons.extend(snapshot_report.reasons);
+    reasons.push(format!(
+        "reconciled {} provider-local reservation stream(s) from {} unique event(s); {} exact retransmission(s) were deduplicated",
+        streams.len(), unique_event_count, replayed_delivery_count
+    ));
+    reasons.push("opaque event-digest linkage is a consistency fixture, not cryptographic verification or authenticated provider evidence".to_owned());
+
+    reservation_event_report(
+        case, snapshot_report.actual_outcome, streams.len(), unique_event_count,
+        replayed_delivery_count, snapshot_report.active_claim_count,
+        snapshot_report.conflicts, Vec::new(), reasons,
+    )
+}
+
+fn same_reservation_event_semantics(first: &ReservationEvent, next: &ReservationEvent) -> bool {
+    first.reservation_id == next.reservation_id
+        && first.provider_id == next.provider_id
+        && first.resource_id == next.resource_id
+        && first.trajectory_digest == next.trajectory_digest
+        && first.time_basis == next.time_basis
+        && first.expires_at_s == next.expires_at_s
+        && first.start_s == next.start_s
+        && first.end_s == next.end_s
+        && first.priority == next.priority
+}
+
+fn reservation_event_error_outcome(errors: &[ReservationEventError]) -> ReservationOutcome {
+    if errors.iter().any(|error| {
+        matches!(
+            error,
+            ReservationEventError::EmptyIdentity
+                | ReservationEventError::EmptyEventSet
+                | ReservationEventError::TooManyEvents
+                | ReservationEventError::InvalidSequence
+                | ReservationEventError::InvalidInterval
+                | ReservationEventError::InvalidExpiry
+        )
+    }) {
+        ReservationOutcome::Reject
+    } else {
+        ReservationOutcome::Unresolved
+    }
+}
+
+fn reservation_event_report(
+    case: &ReservationEventCoordinationCase,
+    actual_outcome: ReservationOutcome,
+    reservation_stream_count: usize,
+    unique_event_count: usize,
+    replayed_delivery_count: usize,
+    current_claim_count: usize,
+    conflicts: Vec<ReservationConflict>,
+    errors: Vec<ReservationEventError>,
+    reasons: Vec<String>,
+) -> ReservationEventCoordinationReport {
+    ReservationEventCoordinationReport {
+        case_id: case.case_id.clone(),
+        actual_outcome,
+        expected_outcome: case.expected_outcome,
+        expectation_matches: actual_outcome == case.expected_outcome,
+        received_event_count: case.events.len(),
+        unique_event_count,
+        replayed_delivery_count,
+        reservation_stream_count,
+        current_claim_count,
+        conflicts,
+        errors,
+        reasons,
+        authority_ceiling: RESERVATION_EVENT_AUTHORITY_CEILING,
+    }
+}
+
 /// Evaluate a complete versioned fixture and preserve expected classifications.
 pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
     let reports: Vec<SimulationReport> = set.scenarios.iter().map(evaluate_scenario).collect();
@@ -692,19 +1017,27 @@ pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
         .iter()
         .map(evaluate_reservation_case)
         .collect();
+    let reservation_event_reports: Vec<ReservationEventCoordinationReport> = set
+        .reservation_event_cases
+        .iter()
+        .map(evaluate_reservation_event_case)
+        .collect();
     let all_expectations_match = reports.iter().all(|item| item.expectation_matches)
         && lifecycle_transition_reports.iter().all(|item| item.expectation_matches)
-        && reservation_reports.iter().all(|item| item.expectation_matches);
+        && reservation_reports.iter().all(|item| item.expectation_matches)
+        && reservation_event_reports.iter().all(|item| item.expectation_matches);
     ReplayOutput {
         schema: "airspace-replay-output-v1",
         status: "research_fixture_not_operational",
         input_scenario_count: reports.len(),
         input_lifecycle_transition_case_count: lifecycle_transition_reports.len(),
         input_reservation_case_count: reservation_reports.len(),
+        input_reservation_event_case_count: reservation_event_reports.len(),
         all_expectations_match,
         reports,
         lifecycle_transition_reports,
         reservation_reports,
+        reservation_event_reports,
     }
 }
 
@@ -891,9 +1224,10 @@ mod tests {
         assert_eq!(output.input_scenario_count, set.scenarios.len());
         assert_eq!(output.input_lifecycle_transition_case_count, set.lifecycle_transition_cases.len());
         assert_eq!(output.input_reservation_case_count, set.reservation_cases.len());
+        assert_eq!(output.input_reservation_event_case_count, set.reservation_event_cases.len());
         assert!(
             output.all_expectations_match,
-            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}; mismatched reservation reports: {:#?}",
+            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}; mismatched reservation reports: {:#?}; mismatched reservation-event reports: {:#?}",
             output.reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>(),
             output.lifecycle_transition_reports
                 .iter()
@@ -902,8 +1236,64 @@ mod tests {
             output.reservation_reports
                 .iter()
                 .filter(|report| !report.expectation_matches)
+                .collect::<Vec<_>>(),
+            output.reservation_event_reports
+                .iter()
+                .filter(|report| !report.expectation_matches)
                 .collect::<Vec<_>>()
         );
+    }
+
+
+    fn reservation_event_fixture(case_id: &str) -> ReservationEventCoordinationCase {
+        fixture_set()
+            .reservation_event_cases
+            .into_iter()
+            .find(|case| case.case_id == case_id)
+            .expect("reservation event case exists")
+    }
+
+    #[test]
+    fn reservation_event_stream_fixtures_match_expected_outcomes() {
+        let set = fixture_set();
+        let reports: Vec<_> = set.reservation_event_cases
+            .iter()
+            .map(evaluate_reservation_event_case)
+            .collect();
+        assert!(
+            reports.iter().all(|report| report.expectation_matches),
+            "mismatched reservation-event reports: {:#?}",
+            reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn event_arrival_order_does_not_change_reconciled_projection() {
+        let mut case = reservation_event_fixture("reordered_updates_converge_no_conflict");
+        let original = evaluate_reservation_event_case(&case);
+        case.events.reverse();
+        let reversed = evaluate_reservation_event_case(&case);
+        assert_eq!(original.actual_outcome, reversed.actual_outcome);
+        assert_eq!(original.current_claim_count, reversed.current_claim_count);
+        assert_eq!(original.unique_event_count, reversed.unique_event_count);
+    }
+
+    #[test]
+    fn reservation_event_forks_and_gaps_fail_closed() {
+        for case_id in ["sequence_gap_unresolved", "same_sequence_fork_unresolved", "predecessor_mismatch_unresolved"] {
+            let report = evaluate_reservation_event_case(&reservation_event_fixture(case_id));
+            assert_eq!(report.actual_outcome, ReservationOutcome::Unresolved, "{case_id}");
+            assert!(report.expectation_matches, "{case_id}: {report:#?}");
+            assert!(!report.errors.is_empty(), "{case_id}: missing expected error");
+        }
+    }
+
+    #[test]
+    fn exact_event_retransmission_is_idempotent_but_reported() {
+        let report = evaluate_reservation_event_case(&reservation_event_fixture("exact_retransmission_is_idempotent"));
+        assert_eq!(report.actual_outcome, ReservationOutcome::NoConflictInProvidedSnapshot);
+        assert_eq!(report.replayed_delivery_count, 1);
+        assert!(report.reasons.iter().any(|reason| reason.contains("deduplicated")));
     }
 
     fn reservation_fixture(case_id: &str) -> ReservationCoordinationCase {

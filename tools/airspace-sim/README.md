@@ -4,7 +4,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 
 ## What it does
 
-- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, and 14 reservation-snapshot fixtures.
+- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, and 11 reservation-event-stream fixtures.
 - Uses explicit millimetre / millimetre-per-second integer units and a fixed simulation window.
 - Refuses to compare coordinates across unqualified clocks, incompatible reference frames, or vertical datums.
 - Rejects expired, withdrawn, ended, malformed, out-of-bounds, or over-budget flight-intent fixtures.
@@ -16,7 +16,10 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Treats expired, withdrawn, or ended claims as non-current; flags duplicate versions and incompatible time bases for reconciliation.
 - Never reports a no-conflict result from a partitioned or stale/incomplete provider snapshot.
 - Keeps emergency claims from automatically preempting conflicting claims; emergency cases require the competent operational process.
-- Rejects snapshots above the bounded claim/pairwise-work budget.
+- Replays provider-local reservation updates by explicit sequence, detecting gaps, forks, broken predecessor links, time reversal, changed reservation semantics, and illegal state transitions.
+- Treats input arrival order as non-semantic when a complete sequence chain is available; idempotently deduplicates only exact full-event retransmissions and counts them in the report.
+- Projects only accepted/activated, unexpired reservation streams into the conflict screen; proposals are not accepted slots.
+- Rejects snapshots above the bounded claim/pairwise-work budget and received event histories above 1,000 records.
 - Produces machine-readable JSON with expected-vs-actual classifications and explicit authority scope.
 
 ## Run
@@ -44,11 +47,11 @@ Or pass a specific scenario-set JSON path after `--verify`.
 
 Reservation intervals use half-open semantics: `[start_s, end_s)`, so `[100, 200)` and `[200, 300)` are adjacent but do not overlap. Two current claims conflict only when they name the same resource, share a qualified time basis, and their intervals overlap. Expiry and terminal state are considered before pairwise conflict checking.
 
-The evaluator accepts one asserted snapshot, not a replicated event log. Duplicate reservation IDs are unresolved rather than silently resolved by choosing the highest sequence. A `complete_fresh` marker is an explicit synthetic test input, not independently verified network evidence. Incomplete provider views always degrade a no-conflict result. Emergency priority does not automatically preempt another reservation.
+The snapshot evaluator accepts one asserted snapshot. The separate event evaluator sorts provider-local streams by sequence and checks contiguous numbering, predecessor linkage, monotonic issue time, stable reservation semantics, and legal lifecycle transitions. Gaps, forks, or contradictory payloads are unresolved; exact full-event retransmissions are deduplicated and counted. Opaque digest fields are fixture linkage labels, not computed hashes, signatures, or authenticated evidence. Cross-provider claims are screened for conflict, but this does not implement global causal ordering, authenticated exchange, partition merge, supersession, or winner selection. A `complete_fresh` marker is a synthetic input, not independently verified network evidence. Incomplete views cannot yield a no-conflict result. Emergency priority does not automatically preempt another reservation.
 
 ## Important limitations
 
-This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model provider-network replication, signatures/identity authentication, deterministic cross-provider event ordering, capacity greater than one, real scheduling/fairness, turn/climb performance, acceleration, wind, terrain, weather, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
+This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model provider-network replication, signatures/identity authentication, cross-provider causal ordering or partition merge, reservation supersession, capacity greater than one, real scheduling/fairness, turn/climb performance, acceleration, wind, terrain, weather, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
 
 The trajectories are straight and constant-velocity. The conservative margin is based on relative velocity and the maximum sampling interval; it is useful for testing the contract but is not a formally validated reachability analysis. The coordinate frame and separation thresholds are synthetic fixture values. They are not official separation minima and must never be reused for live operations.
 

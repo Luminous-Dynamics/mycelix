@@ -1387,5 +1387,527 @@
       ],
       "expected_outcome": "no_conflict_in_provided_snapshot"
     }
+  ],
+  "reservation_event_cases": [
+    {
+      "case_id": "reordered_updates_converge_no_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-ORDER",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-ORDER:event:2:accepted",
+          "previous_event_digest": "R-ORDER:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-ORDER",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-ORDER",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-ORDER:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-ORDER",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "sequence_gap_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-GAP",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-GAP:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-GAP",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-GAP",
+          "provider_id": "provider-a",
+          "sequence": 3,
+          "event_digest": "R-GAP:event:3:accepted",
+          "previous_event_digest": "R-GAP:event:2:accepted",
+          "issued_at_s": 3,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-GAP",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "same_sequence_fork_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-FORK",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-FORK:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FORK",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-FORK",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-FORK:event:2:accepted",
+          "previous_event_digest": "R-FORK:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FORK",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-FORK",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-FORK:event:2:withdrawn",
+          "previous_event_digest": "R-FORK:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FORK",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "withdrawn",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "predecessor_mismatch_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-PREV",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-PREV:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PREV",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-PREV",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-PREV:event:2:accepted",
+          "previous_event_digest": "wrong-parent",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PREV",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "illegal_terminal_transition_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-STATE",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-STATE:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-STATE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-STATE",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-STATE:event:2:ended",
+          "previous_event_digest": "R-STATE:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-STATE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "ended",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "exact_retransmission_is_idempotent",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-REPLAY",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-REPLAY:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-REPLAY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-REPLAY",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-REPLAY:event:2:accepted",
+          "previous_event_digest": "R-REPLAY:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-REPLAY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-REPLAY",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-REPLAY:event:2:accepted",
+          "previous_event_digest": "R-REPLAY:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-REPLAY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "cross_provider_event_stream_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-CROSS-A",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-CROSS-A:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CROSS-A",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-CROSS-A:event:2:accepted",
+          "previous_event_digest": "R-CROSS-A:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CROSS-B",
+          "provider_id": "provider-b",
+          "sequence": 1,
+          "event_digest": "R-CROSS-B:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-B",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 150,
+          "end_s": 250,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CROSS-B",
+          "provider_id": "provider-b",
+          "sequence": 2,
+          "event_digest": "R-CROSS-B:event:2:accepted",
+          "previous_event_digest": "R-CROSS-B:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-B",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 150,
+          "end_s": 250,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "conflict"
+    },
+    {
+      "case_id": "withdrawal_releases_current_claim",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-WITHDRAW",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-WITHDRAW:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-WITHDRAW",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-WITHDRAW",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-WITHDRAW:event:2:accepted",
+          "previous_event_digest": "R-WITHDRAW:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-WITHDRAW",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-WITHDRAW",
+          "provider_id": "provider-a",
+          "sequence": 3,
+          "event_digest": "R-WITHDRAW:event:3:withdrawn",
+          "previous_event_digest": "R-WITHDRAW:event:2:accepted",
+          "issued_at_s": 3,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-WITHDRAW",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "withdrawn",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "partitioned_event_view_degraded",
+      "now_s": 50,
+      "snapshot_state": "partitioned",
+      "events": [
+        {
+          "reservation_id": "R-PART-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-PART-EVENT:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PART-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-PART-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-PART-EVENT:event:2:accepted",
+          "previous_event_digest": "R-PART-EVENT:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PART-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "degraded"
+    },
+    {
+      "case_id": "expired_replayed_history_not_current",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-EXPIRED-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-EXPIRED-EVENT:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 50,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-EXPIRED-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-EXPIRED-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-EXPIRED-EVENT:event:2:accepted",
+          "previous_event_digest": "R-EXPIRED-EVENT:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 50,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-EXPIRED-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "future_event_time_unresolved",
+      "now_s": 2,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-FUTURE-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-FUTURE-EVENT:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 10,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FUTURE-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-FUTURE-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-FUTURE-EVENT:event:2:accepted",
+          "previous_event_digest": "R-FUTURE-EVENT:event:1:proposed",
+          "issued_at_s": 11,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FUTURE-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    }
   ]
 }

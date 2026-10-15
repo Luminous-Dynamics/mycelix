@@ -235,7 +235,7 @@
   "prototype": {
     "implementation": "tools/airspace-sim",
     "language": "Rust",
-    "status": "initial_traffic_lifecycle_and_reservation_snapshot_replay_authored",
+    "status": "initial_traffic_lifecycle_snapshot_and_reservation_event_replay_authored",
     "fixture_scenarios": [
       "clear_separation",
       "crossing_conflict",
@@ -267,7 +267,13 @@
       "duplicate_reservation_ids_remain_unresolved_without_last_writer_wins",
       "stale_or_partitioned_snapshot_cannot_yield_no_conflict",
       "emergency_reservation_does_not_automatically_preempt_conflict",
-      "bounded_reservation_claim_and_pairwise_work"
+      "bounded_reservation_claim_and_pairwise_work",
+      "provider_local_reservation_event_stream_replay_by_explicit_sequence",
+      "event_predecessor_linkage_and_monotonic_issue_time_checks",
+      "reservation_event_gap_fork_and_illegal_transition_fail_closed",
+      "exact_full_event_retransmission_deduplication_with_auditable_count",
+      "out_of_order_event_arrival_reconciles_to_same_provider_local_projection",
+      "accepted_or_activated_unexpired_event_projection_for_snapshot_conflict_screen"
     ],
     "not_yet_implemented": [
       "networked provider federation, authenticated peer exchange, and replicated snapshot/event-log reconciliation",
@@ -281,7 +287,8 @@
       "competent-authority reservation allocation and flight-authorization lifecycle integration",
       "capacity-aware scheduling, sequencing, and fairness across resource pools",
       "authoritative provider identity/signature verification and trust-root governance",
-      "versioned reservation update stream with explicit cross-provider causal ordering and partition merge policy"
+      "authenticated provider-to-provider event exchange and cryptographic payload/signature verification",
+      "cross-provider causal ordering, replicated event-log merge, reservation supersession, and jurisdiction-specific resolution policy"
     ],
     "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
     "lifecycle_transition_cases": [
@@ -327,6 +334,30 @@
         "max_pair_checks": 50000
       },
       "authority_ceiling": "snapshot conflict assessment only; not reservation allocation or flight authorization"
+    },
+    "reservation_event_cases": [
+      "reordered_updates_converge_no_conflict",
+      "sequence_gap_unresolved",
+      "same_sequence_fork_unresolved",
+      "predecessor_mismatch_unresolved",
+      "illegal_terminal_transition_unresolved",
+      "exact_retransmission_is_idempotent",
+      "cross_provider_event_stream_conflict",
+      "withdrawal_releases_current_claim",
+      "partitioned_event_view_degraded",
+      "expired_replayed_history_not_current",
+      "future_event_time_unresolved"
+    ],
+    "reservation_event_semantics": {
+      "sequence_scope": "strict per-reservation stream; starts at sequence 1 and must be contiguous",
+      "predecessor_link": "opaque prior-event identifier; this prototype does not compute or authenticate digests",
+      "event_order": "arrival order is ignored; sequence is sorted, but gaps and forks are unresolved",
+      "retransmission": "only byte-for-byte identical complete event records are deduplicated",
+      "mutable_fields": "resource, trajectory, time basis, interval, expiry, priority, and provider remain fixed within one reservation stream",
+      "active_projection": "latest Accepted or Activated event when not expired or ended",
+      "cross_provider": "conflicts are surfaced; no winner, global causal order, or reservation grant",
+      "maximum_received_events": 1000,
+      "authority_ceiling": "synthetic provider-local event replay and reservation conflict screen only"
     }
   }
 }
