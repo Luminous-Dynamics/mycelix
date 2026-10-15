@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 mod polygon;
+mod model_applicability;
 pub use polygon::{
     evaluate_polygon_intersection, PolygonEvaluationReport, PolygonExclusionVolume,
     PolygonGeometryError, PolygonIntersectionOutcome, PolygonPointMm,
@@ -68,6 +69,12 @@ pub struct SeparationPolicy {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FlightIntent {
     pub flight_id: String,
+    /// Catalogue profile; missing values intentionally deserialize blank and fail closed.
+    #[serde(default)]
+    pub traffic_profile_id: String,
+    /// Exact model contract admitted for this traffic profile.
+    #[serde(default)]
+    pub model_profile_id: String,
     pub state: IntentState,
     pub reference_frame: String,
     pub vertical_datum: String,
@@ -307,6 +314,7 @@ pub enum DynamicConstraintError {
     DuplicateFlightIdentity,
     InvalidFlightWindow,
     InvalidFlightGeometry,
+    UnsupportedModelProfile,
     UnqualifiedFlightTime,
     UnqualifiedFrame,
     IncompatibleReferenceFrame,
@@ -540,6 +548,30 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
                 )],
             );
         }
+    }
+
+    // Model applicability is an admission gate: do not run even the toy trajectory
+    // evaluator for a missing, unknown, or real-world profile/model combination.
+    if let Some(reason) = scenario.flights.iter().find_map(|flight| {
+        model_applicability::validate_model_profile(
+            &flight.traffic_profile_id,
+            &flight.model_profile_id,
+        )
+        .err()
+        .map(|error| format!(
+            "flight intent '{}' model applicability unresolved: {error}",
+            flight.flight_id
+        ))
+    }) {
+        return report(
+            scenario,
+            Classification::Unresolved,
+            scenario.flights.len(),
+            pair_count(scenario.flights.len()),
+            0,
+            Vec::new(),
+            vec![reason],
+        );
     }
 
     if scenario.flights.iter().any(|flight| !flight.time_qualified) {
@@ -1334,6 +1366,16 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
     let mut current_flights: Vec<&FlightIntent> = Vec::new();
     let mut seen_flight_ids = BTreeMap::<&str, ()>::new();
     for flight in &case.flights {
+        if let Err(reason) = model_applicability::validate_model_profile(
+            &flight.traffic_profile_id,
+            &flight.model_profile_id,
+        ) {
+            errors.push(DynamicConstraintError::UnsupportedModelProfile);
+            reasons.push(format!(
+                "flight intent '{}' model applicability unresolved: {reason}",
+                flight.flight_id
+            ));
+        }
         if flight.flight_id.trim().is_empty() {
             errors.push(DynamicConstraintError::EmptyFlightIdentity);
         } else if seen_flight_ids.insert(flight.flight_id.as_str(), ()).is_some() {
@@ -1774,6 +1816,83 @@ mod tests {
     fn fixture_set() -> ScenarioSet {
         serde_json::from_str(include_str!("../fixtures/scenarios.json"))
             .expect("the committed scenario fixture must parse")
+    }
+
+    #[test]
+    fn replay_fixtures_explicitly_bind_every_flight_to_the_synthetic_model() {
+        let set = fixture_set();
+        let mut count = 0usize;
+        for scenario in &set.scenarios {
+            for flight in &scenario.flights {
+                assert!(
+                    model_applicability::validate_model_profile(
+                        &flight.traffic_profile_id,
+                        &flight.model_profile_id,
+                    ).is_ok(),
+                    "scenario {} flight {} must carry the allowed explicit fixture pair",
+                    scenario.scenario_id,
+                    flight.flight_id
+                );
+                count += 1;
+            }
+        }
+        for case in &set.dynamic_constraint_cases {
+            for flight in &case.flights {
+                assert!(
+                    model_applicability::validate_model_profile(
+                        &flight.traffic_profile_id,
+                        &flight.model_profile_id,
+                    ).is_ok(),
+                    "dynamic case {} flight {} must carry the allowed explicit fixture pair",
+                    case.case_id,
+                    flight.flight_id
+                );
+                count += 1;
+            }
+        }
+        assert_eq!(count, 58, "the pinned fixture census changed; review model bindings");
+    }
+
+    #[test]
+    fn trajectory_evaluator_fails_closed_for_missing_or_unsupported_model_pairs() {
+        let mut scenario = fixture_set().scenarios[0].clone();
+        let baseline = evaluate_scenario(&scenario);
+        assert_eq!(baseline.classification, scenario.expected_classification);
+
+        scenario.flights[0].traffic_profile_id = "conventional_fixed_wing".to_owned();
+        scenario.flights[0].model_profile_id =
+            model_applicability::CONSTANT_VELOCITY_TOY_MODEL_ID.to_owned();
+        let unsupported = evaluate_scenario(&scenario);
+        assert_eq!(unsupported.classification, Classification::Unresolved);
+        assert_eq!(unsupported.pair_sample_checks, 0);
+        assert!(unsupported.conflicts.is_empty());
+        assert!(unsupported.reasons.iter().any(|reason| reason.contains("no admissible registry entry")));
+
+        scenario.flights[0].traffic_profile_id.clear();
+        let missing = evaluate_scenario(&scenario);
+        assert_eq!(missing.classification, Classification::Unresolved);
+        assert_eq!(missing.pair_sample_checks, 0);
+        assert!(missing.conflicts.is_empty());
+        assert!(missing.reasons.iter().any(|reason| reason.contains("traffic_profile_id is missing")));
+    }
+
+    #[test]
+    fn dynamic_constraint_evaluator_fails_closed_for_unsupported_model_pairs() {
+        let mut case = fixture_set()
+            .dynamic_constraint_cases
+            .into_iter()
+            .find(|case| !case.flights.is_empty() && !case.updates.is_empty())
+            .expect("at least one executable dynamic-constraint fixture is required");
+        case.flights[0].traffic_profile_id = "evtol_aam".to_owned();
+        case.flights[0].model_profile_id =
+            model_applicability::CONSTANT_VELOCITY_TOY_MODEL_ID.to_owned();
+
+        let report = evaluate_dynamic_constraint_case(&case);
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::Unresolved);
+        assert!(report.errors.contains(&DynamicConstraintError::UnsupportedModelProfile));
+        assert_eq!(report.intersection_checks, 0);
+        assert!(report.impacts.is_empty());
+        assert!(report.reasons.iter().any(|reason| reason.contains("no admissible registry entry")));
     }
 
     #[test]
