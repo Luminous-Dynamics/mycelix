@@ -2,7 +2,7 @@
   "manifest_version": "d6s-canon-2-manifest/1",
   "fixture_id": "D6S-CANON-2",
   "fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
-  "fixture_git_blob_sha": "a7f98fcd6bbcee260dfaa2ba704f6cd6b27aac14",
+  "fixture_git_blob_sha": "aa30f08be279147cf85ecfd64436d1aa546920ba",
   "case_count": 7,
   "required_case_ids": [
     "production-observation-is-not-itc-mint",
