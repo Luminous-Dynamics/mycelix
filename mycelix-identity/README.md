@@ -105,6 +105,20 @@ A reusable, jurisdiction-neutral starting point is now available as a deliberate
 
 The template starts with no authority, protocol endpoint, issuer, trust metadata, or authorization, and keeps all 12 release gates closed. From this directory, run `python3 validate_portable_adapter_profile.py` and `python3 -m unittest discover -s tests -p 'test_portable_adapter_profile.py' -v`. The validator is a structural guard; it does not authenticate written approvals or independently verify credentials.
 
+### Synthetic end-to-end service journey
+
+The [synthetic service journey corpus](SYNTHETIC_SERVICE_JOURNEY_V1.json) and [deterministic evaluator](synthetic_service_journey.py) model a proof-only appointment-intake flow, not a government integration. Eighteen frozen scenarios exercise minimum disclosure, exact purpose-grant binding, invalid/replayed/unknown proof states, verifier outages, assisted/non-digital fallback, correction/appeal routing, and rejection of identity-as-entitlement decisions.
+
+From `mycelix-identity/`, execute the frozen vector corpus with an exact source commit:
+
+```sh
+python3 synthetic_service_journey.py --source-commit <40-character-commit-sha> --report /tmp/synthetic-service-journey-report.json
+python3 -m unittest discover -s tests -p 'test_synthetic_service_journey.py' -v
+```
+
+The report is bound to the source SHA, evaluator hash and canonical corpus hash. Receipts are allow-listed, contain only outcome metadata and claim names, and are emitted as ephemeral outputs only. The harness does not store durable appeal cases, validate actual credentials/signatures, contact an external endpoint, or make eligibility decisions. Synthetic test approval is not real legal authorization.
+
+
 ## African Digital Public Infrastructure interoperability
 
 A continent-level contract defines the governance boundaries for interoperating independently governed national systems:
