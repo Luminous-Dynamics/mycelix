@@ -666,7 +666,26 @@
         "official_pdf_pages_1_and_2_visually_reviewed": true,
         "pikitup_specific_addendum_row_observed_in_page_text": false,
         "addenda_search_ceiling": "The inspected RFQ index contains addenda entries for other bid numbers but no PIK016-specific addendum row was observed. This page-text observation does not prove that no later addendum exists on the issuer notice board or another source.",
-        "lifecycle_conclusion": "NotQualified;DoNotPromoteToTenderOpenVerified"
+        "lifecycle_conclusion": "NotQualified;DoNotPromoteToTenderOpenVerified",
+        "visible_current_rfqs_block_examples": [
+          {
+            "tender_reference": "PIK 018/2026-2027",
+            "published_closing_date": "2026-10-08",
+            "observed_block": "Current RFQs",
+            "checked_on": "2026-10-15",
+            "extension_observed": "NotObserved",
+            "interpretation": "Published closing date predates the check date; the inspected page observation does not establish an extension or current open status."
+          },
+          {
+            "tender_reference": "PIK 014/2026-2027",
+            "published_closing_date": "2026-09-17",
+            "observed_block": "Current RFQs",
+            "checked_on": "2026-10-15",
+            "extension_observed": "NotObserved",
+            "interpretation": "Published closing date predates the check date; the inspected page observation does not establish an extension or current open status."
+          }
+        ],
+        "current_block_reliability": "HeadingAndMembershipAreNotReliableLifecycleProof;RowsWithPublishedDeadlinesAlreadyPastRemainVisible"
       },
       "listing_entry": {
         "tender_reference": "PIK 016/2026-2027",
@@ -1215,13 +1234,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "e86e28d0e0356eb52b2e1f9427bd9cc497ee5169",
-    "probe_count": 36,
+    "git_blob_sha": "65273f33994cf1c8829004d974aee0821e61e7cf",
+    "probe_count": 37,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 36,
+      "unique_probe_ids": 37,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true

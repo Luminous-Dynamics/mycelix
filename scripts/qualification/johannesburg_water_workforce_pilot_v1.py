@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "e86e28d0e0356eb52b2e1f9427bd9cc497ee5169"
+EXPECTED_CORPUS_BLOB_SHA = "65273f33994cf1c8829004d974aee0821e61e7cf"
 EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -72,6 +72,7 @@ EXPECTED_PROBES = {
     "r-thousands-values-are-not-rands": ("FinanceDataIntegrity", "RequireUnitNormalization", "SourceReportsValuesInThousands"),
     "monthly-quarter-total-rounding-needs-review": ("FinanceDataIntegrity", "PreservePublishedTotalAndFlagReconciliation", "PublishedTotalAndRoundedMonthSumDifferByOneRThousand"),
     "published-snapshot-checksum-is-not-payload-verification": ("FinanceDataIntegrity", "RecordMetadataReceiptOnly", "PublishedChecksumOnly"),
+    "current-rfq-block-with-past-deadline-is-not-open": ("ProcurementIntegrity", "RequireNoticeSpecificCurrentness", "ConflictingIssuerListingCurrentness"),
     "joint-water-power-statement-is-not-incident-causality": ("CausalityAndAuthority", "HypothesisOnlyNoIncidentCausalEdge", "CrossUtilityHypothesisOnly"),
 }
 REQUIRED_GUARDS = {
@@ -110,6 +111,7 @@ REQUIRED_GUARDS = {
     "r-thousands-values-are-not-rands": {"ReportedUnitMustTravelWithValue", "DoNotPresentThousandsAsRands", "NormalizeBeforeCrossSourceCompare", "NoFundingInferenceFromUnits"},
     "monthly-quarter-total-rounding-needs-review": {"DoNotOverwritePublishedAggregate", "KeepSourceUnitAttached", "FlagArithmeticDifferenceForReview", "NoSilentReconciliation"},
     "published-snapshot-checksum-is-not-payload-verification": {"PublishedChecksumIsNotLocalChecksumVerification", "RecordSnapshotTimestampSeparatelyFromFinancialPeriod", "NoValueClaimWithoutDataPayload", "PayloadBytesMustMatchPublishedDigest"},
+    "current-rfq-block-with-past-deadline-is-not-open": {"CurrentRfqHeadingDoesNotOverrideClosingDate", "PastPublishedDeadlineIsNotOpenWithoutExtensionEvidence", "ListingPlacementIsNotLifecycleStatus", "LatestAddendaMustBeChecked", "NoAutomaticStagePromotion"},
     "joint-water-power-statement-is-not-incident-causality": {"OfficialContextIsNotIncidentEvidence", "NoCausalEdgeWithoutIncidentSpecificEvidence", "NoLiveStatusFromHistoricStatement", "NoUnauthorizedTelemetry"},
 }
 
@@ -459,6 +461,13 @@ def validate() -> None:
         fail("conflicting Pikitup RFQ index placement must remain lifecycle-unqualified")
     if issuer_recheck.get("pikitup_specific_addendum_row_observed_in_page_text") is not False or "does not prove that no later addendum exists" not in issuer_recheck.get("addenda_search_ceiling", ""):
         fail("absence of an observed PIK016 addendum row must not be treated as exhaustive proof")
+    current_rows = issuer_recheck.get("visible_current_rfqs_block_examples", [])
+    if not any(row.get("tender_reference") == "PIK 018/2026-2027" and row.get("published_closing_date") == "2026-10-08" for row in current_rows):
+        fail("stale-dated PIK018 row must be preserved as conflicting Current RFQs evidence")
+    if not any(row.get("tender_reference") == "PIK 014/2026-2027" and row.get("published_closing_date") == "2026-09-17" for row in current_rows):
+        fail("stale-dated PIK014 row must be preserved as conflicting Current RFQs evidence")
+    if issuer_recheck.get("current_block_reliability") != "HeadingAndMembershipAreNotReliableLifecycleProof;RowsWithPublishedDeadlinesAlreadyPastRemainVisible":
+        fail("Current RFQs heading must not override dated notice evidence")
     if issuer_recheck.get("official_pdf_opened") is not True or issuer_recheck.get("official_pdf_pages_1_and_2_visually_reviewed") is not True or issuer_recheck.get("lifecycle_conclusion") != "NotQualified;DoNotPromoteToTenderOpenVerified":
         fail("official tender recheck must record visual review and block unsupported open-status promotion")
     tender_doc = source_by_id["PIKITUP-PIK016-DOC-1"]
@@ -644,6 +653,9 @@ def validate() -> None:
     current_tender_probe = by_id["current-tender-header-without-dated-notice"]
     if current_tender_probe["expected"]["disposition"] != "RequireNoticeSpecificCurrentness" or current_tender_probe["expected"]["issue_status_effect"] != "NoOpenTenderOrWorkPackageClaim":
         fail("current-tenders page heading cannot establish an open eligible opportunity")
+    stale_rfq_block_probe = by_id["current-rfq-block-with-past-deadline-is-not-open"]
+    if stale_rfq_block_probe["expected"]["disposition"] != "RequireNoticeSpecificCurrentness" or stale_rfq_block_probe["expected"]["issue_status_effect"] != "NoOpenTenderOrExtensionClaim":
+        fail("past-dated RFQs in a Current RFQs block cannot establish live open status or extension")
     wage_probe = by_id["unknown-wage-regime-cannot-default-to-epwp"]
     if wage_probe["expected"]["disposition"] != "BlockPositionUntilWageReview" or wage_probe["expected"]["issue_status_effect"] != "NoWageRateOrPositionClaim":
         fail("unknown legal classification must block a wage or position claim")

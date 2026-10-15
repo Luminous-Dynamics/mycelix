@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 36,
+  "expected_probe_count": 37,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -1098,6 +1098,50 @@
         "RecordSnapshotTimestampSeparatelyFromFinancialPeriod",
         "NoValueClaimWithoutDataPayload",
         "PayloadBytesMustMatchPublishedDigest"
+      ]
+    },
+    {
+      "id": "current-rfq-block-with-past-deadline-is-not-open",
+      "category": "ProcurementIntegrity",
+      "scenario": "On 15 October 2026, the issuer page's 'Current RFQs' block still displays PIK 018/2026-2027 with a published closing date of 8 October and PIK 014/2026-2027 with a published closing date of 17 September. PIK 016/2026-2027 with a published 19 October closing date appears elsewhere on the same page. No notice-specific extension or exhaustive addenda status has been established. An adapter treats the heading or page placement as authoritative current open status.",
+      "input": {
+        "check_date": "2026-10-15",
+        "current_block_rows": [
+          {
+            "tender_reference": "PIK 018/2026-2027",
+            "published_closing_date": "2026-10-08",
+            "days_past_deadline_at_check": 7
+          },
+          {
+            "tender_reference": "PIK 014/2026-2027",
+            "published_closing_date": "2026-09-17",
+            "days_past_deadline_at_check": 28
+          }
+        ],
+        "target_reference": "PIK 016/2026-2027",
+        "target_published_closing_date": "2026-10-19",
+        "target_outside_current_rfqs_block": true,
+        "extension_or_addendum_verified": false,
+        "live_lifecycle_status_verified": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireNoticeSpecificCurrentness",
+        "issue_status_effect": "NoOpenTenderOrExtensionClaim",
+        "required_human_review": true,
+        "source_status": "ConflictingIssuerListingCurrentness"
+      },
+      "guards": [
+        "CurrentRfqHeadingDoesNotOverrideClosingDate",
+        "PastPublishedDeadlineIsNotOpenWithoutExtensionEvidence",
+        "ListingPlacementIsNotLifecycleStatus",
+        "LatestAddendaMustBeChecked",
+        "NoAutomaticStagePromotion"
       ]
     }
   ]
