@@ -6,254 +6,1266 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "record_id", "record_status", "concept_ref",
-    "system_boundary", "functional_unit", "scenarios", "interactions",
-    "model_runs", "system_roles", "limitations"
+    "schema_version",
+    "record_id",
+    "record_status",
+    "concept_ref",
+    "system_boundary",
+    "functional_unit",
+    "scenarios",
+    "interactions",
+    "model_runs",
+    "system_roles",
+    "limitations"
   ],
   "properties": {
-    "schema_version": {"const": "living-city-metabolism/0.1"},
-    "record_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-    "record_status": {"enum": ["protocol_only", "synthetic_test_only", "assessment"]},
+    "schema_version": {
+      "const": "living-city-metabolism/0.1"
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "record_status": {
+      "enum": [
+        "protocol_only",
+        "synthetic_test_only",
+        "assessment"
+      ]
+    },
     "concept_ref": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["concept_id", "concept_version", "hypothesis_id"],
+      "required": [
+        "concept_id",
+        "concept_version",
+        "hypothesis_id"
+      ],
       "properties": {
-        "concept_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
-        "concept_version": {"type": "integer", "minimum": 1},
-        "hypothesis_id": {"type": "string", "pattern": "^[a-z0-9-]+$"}
+        "concept_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+        },
+        "concept_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hypothesis_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        }
       }
     },
     "system_boundary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["boundary_id", "spatial_scope", "start_date", "end_date", "temporal_resolution", "included_processes", "excluded_processes", "cut_off_rules"],
+      "required": [
+        "boundary_id",
+        "spatial_scope",
+        "start_date",
+        "end_date",
+        "temporal_resolution",
+        "included_processes",
+        "excluded_processes",
+        "cut_off_rules"
+      ],
       "properties": {
-        "boundary_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "spatial_scope": {"enum": ["site", "corridor", "ward", "municipality", "catchment", "service_area", "supply_chain", "regional_system"]},
-        "spatial_reference": {"type": "string", "minLength": 8},
-        "start_date": {"type": "string", "format": "date"},
-        "end_date": {"type": "string", "format": "date"},
-        "temporal_resolution": {"enum": ["subhourly", "hourly", "daily", "monthly", "annual", "scenario_horizon"]},
-        "included_processes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 5}},
-        "excluded_processes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 5}},
-        "cut_off_rules": {"type": "string", "minLength": 20}
+        "boundary_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "spatial_scope": {
+          "enum": [
+            "site",
+            "corridor",
+            "ward",
+            "municipality",
+            "catchment",
+            "service_area",
+            "supply_chain",
+            "regional_system"
+          ]
+        },
+        "spatial_reference": {
+          "type": "string",
+          "minLength": 8
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "temporal_resolution": {
+          "enum": [
+            "subhourly",
+            "hourly",
+            "daily",
+            "monthly",
+            "annual",
+            "scenario_horizon"
+          ]
+        },
+        "included_processes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "excluded_processes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "cut_off_rules": {
+          "type": "string",
+          "minLength": 20
+        }
       }
     },
     "functional_unit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["quantity", "unit", "service_definition"],
+      "required": [
+        "quantity",
+        "unit",
+        "service_definition"
+      ],
       "properties": {
-        "quantity": {"type": "number", "exclusiveMinimum": 0},
-        "unit": {"enum": ["corridor_year", "person_year", "square_metre_year", "passenger_trip", "cubic_metre_delivered", "kilogram_processed", "service_event", "absolute_boundary", "other"]},
-        "service_definition": {"type": "string", "minLength": 20}
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "enum": [
+            "corridor_year",
+            "person_year",
+            "square_metre_year",
+            "passenger_trip",
+            "cubic_metre_delivered",
+            "kilogram_processed",
+            "service_event",
+            "absolute_boundary",
+            "other"
+          ]
+        },
+        "service_definition": {
+          "type": "string",
+          "minLength": 20
+        }
       }
     },
     "scenarios": {
       "type": "array",
-      "items": {"$ref": "#/$defs/scenario"}
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
     },
     "interactions": {
       "type": "array",
-      "items": {"$ref": "#/$defs/interaction"}
+      "items": {
+        "$ref": "#/$defs/interaction"
+      }
     },
     "model_runs": {
       "type": "array",
-      "items": {"$ref": "#/$defs/modelRun"}
+      "items": {
+        "$ref": "#/$defs/modelRun"
+      }
     },
     "system_roles": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mycelix", "symthaea", "symtropy", "sol_atlas"],
+      "required": [
+        "mycelix",
+        "symthaea",
+        "symtropy",
+        "sol_atlas"
+      ],
       "properties": {
-        "mycelix": {"$ref": "#/$defs/mycelixRole"},
-        "symthaea": {"$ref": "#/$defs/symthaeaRole"},
-        "symtropy": {"$ref": "#/$defs/symtropyRole"},
-        "sol_atlas": {"$ref": "#/$defs/solAtlasRole"}
+        "mycelix": {
+          "$ref": "#/$defs/mycelixRole"
+        },
+        "symthaea": {
+          "$ref": "#/$defs/symthaeaRole"
+        },
+        "symtropy": {
+          "$ref": "#/$defs/symtropyRole"
+        },
+        "sol_atlas": {
+          "$ref": "#/$defs/solAtlasRole"
+        }
       }
     },
-    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 12}}
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 12
+      }
+    }
   },
   "$defs": {
     "flow": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["flow_id", "metric_id", "value", "unit", "evidence_kind", "life_cycle_stage", "evidence_refs", "rationale"],
+      "required": [
+        "flow_id",
+        "metric_id",
+        "value",
+        "unit",
+        "evidence_kind",
+        "life_cycle_stage",
+        "evidence_refs",
+        "rationale"
+      ],
       "properties": {
-        "flow_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "metric_id": {"enum": ["final_energy", "useful_energy", "solar_generation", "exergy_input", "exergy_output", "potable_water_withdrawal", "reclaimed_water_use", "stormwater_runoff", "stormwater_retained", "material_input", "recovered_material", "landfill_waste", "operational_ghg", "embodied_ghg", "thermal_exposure_degree_hours", "accessible_person_hours", "essential_service_uptime", "tree_canopy_area"]},
-        "value": {"type": "number", "minimum": 0},
-        "unit": {"enum": ["Wh", "kWh", "MWh", "MJ", "GJ", "Wh_exergy", "kWh_exergy", "MJ_exergy", "GJ_exergy", "L", "m3", "g", "kg", "t", "gCO2e", "kgCO2e", "tCO2e", "person_degree_hour", "person_hour", "fraction", "m2"]},
-        "evidence_kind": {"enum": ["measured", "source_estimate", "model_output", "assumption", "target", "synthetic_only"]},
-        "life_cycle_stage": {"enum": ["operational", "embodied_construction", "embodied_maintenance", "end_of_life", "avoided", "other"]},
-        "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}},
-        "model_run_ref": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "flow_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "metric_id": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "evidence_kind": {
+          "enum": [
+            "measured",
+            "source_estimate",
+            "model_output",
+            "assumption",
+            "target",
+            "synthetic_only"
+          ]
+        },
+        "life_cycle_stage": {
+          "enum": [
+            "operational",
+            "embodied_construction",
+            "embodied_maintenance",
+            "end_of_life",
+            "avoided",
+            "other"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "model_run_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
         "uncertainty": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["lower_bound", "upper_bound", "method"],
+          "required": [
+            "lower_bound",
+            "upper_bound",
+            "method"
+          ],
           "properties": {
-            "lower_bound": {"type": "number", "minimum": 0},
-            "upper_bound": {"type": "number", "minimum": 0},
-            "method": {"type": "string", "minLength": 12}
+            "lower_bound": {
+              "type": "number",
+              "minimum": 0
+            },
+            "upper_bound": {
+              "type": "number",
+              "minimum": 0
+            },
+            "method": {
+              "type": "string",
+              "minLength": 12
+            }
           }
         },
-        "rationale": {"type": "string", "minLength": 12}
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        }
       },
       "allOf": [
-        {"if": {"properties": {"evidence_kind": {"enum": ["measured", "source_estimate", "model_output"]}}, "required": ["evidence_kind"]}, "then": {"properties": {"evidence_refs": {"minItems": 1}}}},
-        {"if": {"properties": {"evidence_kind": {"const": "model_output"}}, "required": ["evidence_kind"]}, "then": {"required": ["model_run_ref"]}},
-        {"if": {"properties": {"metric_id": {"enum": ["final_energy", "useful_energy", "solar_generation"]}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"enum": ["Wh", "kWh", "MWh", "MJ", "GJ"]}}}},
-        {"if": {"properties": {"metric_id": {"enum": ["exergy_input", "exergy_output"]}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"enum": ["Wh_exergy", "kWh_exergy", "MJ_exergy", "GJ_exergy"]}}}},
-        {"if": {"properties": {"metric_id": {"enum": ["potable_water_withdrawal", "reclaimed_water_use", "stormwater_runoff", "stormwater_retained"]}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"enum": ["L", "m3"]}}}},
-        {"if": {"properties": {"metric_id": {"enum": ["material_input", "recovered_material", "landfill_waste"]}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"enum": ["g", "kg", "t"]}}}},
-        {"if": {"properties": {"metric_id": {"enum": ["operational_ghg", "embodied_ghg"]}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"enum": ["gCO2e", "kgCO2e", "tCO2e"]}}}},
-        {"if": {"properties": {"metric_id": {"const": "thermal_exposure_degree_hours"}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"const": "person_degree_hour"}}}},
-        {"if": {"properties": {"metric_id": {"const": "accessible_person_hours"}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"const": "person_hour"}}}},
-        {"if": {"properties": {"metric_id": {"const": "essential_service_uptime"}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"const": "fraction"}, "value": {"maximum": 1}}}},
-        {"if": {"properties": {"metric_id": {"const": "tree_canopy_area"}}, "required": ["metric_id"]}, "then": {"properties": {"unit": {"const": "m2"}}}}
+        {
+          "if": {
+            "properties": {
+              "evidence_kind": {
+                "enum": [
+                  "measured",
+                  "source_estimate",
+                  "model_output"
+                ]
+              }
+            },
+            "required": [
+              "evidence_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_kind": {
+                "const": "model_output"
+              }
+            },
+            "required": [
+              "evidence_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "model_run_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "final_energy",
+                  "useful_energy",
+                  "solar_generation"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "Wh",
+                  "kWh",
+                  "MWh",
+                  "MJ",
+                  "GJ"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "exergy_input",
+                  "exergy_output"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "Wh_exergy",
+                  "kWh_exergy",
+                  "MJ_exergy",
+                  "GJ_exergy"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "potable_water_withdrawal",
+                  "reclaimed_water_use",
+                  "stormwater_runoff",
+                  "stormwater_retained"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "L",
+                  "m3"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "material_input",
+                  "recovered_material",
+                  "landfill_waste"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "g",
+                  "kg",
+                  "t"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "operational_ghg",
+                  "embodied_ghg"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "gCO2e",
+                  "kgCO2e",
+                  "tCO2e"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "thermal_exposure_degree_hours"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "person_degree_hour"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "accessible_person_hours"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "person_hour"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "essential_service_uptime"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "fraction"
+              },
+              "value": {
+                "maximum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "tree_canopy_area"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "m2"
+              }
+            }
+          }
+        }
       ]
     },
     "conservationCheck": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["check_id", "balance_kind", "inputs", "outputs", "storage_change", "reported_residual", "tolerance", "unit", "status", "rationale"],
+      "required": [
+        "check_id",
+        "balance_kind",
+        "inflow",
+        "generated_or_added",
+        "outflow",
+        "declared_loss",
+        "observed_storage_delta",
+        "reported_residual",
+        "tolerance",
+        "unit",
+        "status",
+        "rationale"
+      ],
       "properties": {
-        "check_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "balance_kind": {"enum": ["energy", "water", "mass", "carbon"]},
-        "inputs": {"type": "number", "minimum": 0},
-        "outputs": {"type": "number", "minimum": 0},
-        "storage_change": {"type": "number"},
-        "reported_residual": {"type": "number"},
-        "tolerance": {"type": "number", "minimum": 0},
-        "unit": {"enum": ["Wh", "kWh", "MWh", "MJ", "GJ", "L", "m3", "g", "kg", "t", "gCO2e", "kgCO2e", "tCO2e"]},
-        "status": {"enum": ["balanced", "unresolved"]},
-        "rationale": {"type": "string", "minLength": 12}
-      }
+        "check_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "balance_kind": {
+          "enum": [
+            "energy",
+            "water",
+            "mass"
+          ]
+        },
+        "inflow": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "generated_or_added": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "outflow": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "declared_loss": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "observed_storage_delta": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$"
+        },
+        "reported_residual": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$"
+        },
+        "tolerance": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "mL",
+            "g"
+          ]
+        },
+        "status": {
+          "enum": [
+            "balanced",
+            "unresolved"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "balance_kind": {
+                "const": "energy"
+              }
+            },
+            "required": [
+              "balance_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "Wh"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "balance_kind": {
+                "const": "water"
+              }
+            },
+            "required": [
+              "balance_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "mL"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "balance_kind": {
+                "const": "mass"
+              }
+            },
+            "required": [
+              "balance_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "g"
+              }
+            }
+          }
+        }
+      ]
     },
     "scenario": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scenario_id", "role", "intervention_refs", "flow_records", "conservation_checks", "limitations"],
+      "required": [
+        "scenario_id",
+        "role",
+        "intervention_refs",
+        "flow_records",
+        "conservation_checks",
+        "limitations"
+      ],
       "properties": {
-        "scenario_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "role": {"enum": ["baseline", "single_intervention", "combined_bundle", "candidate"]},
-        "intervention_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}},
-        "flow_records": {"type": "array", "items": {"$ref": "#/$defs/flow"}},
-        "conservation_checks": {"type": "array", "items": {"$ref": "#/$defs/conservationCheck"}},
-        "limitations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 12}}
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "role": {
+          "enum": [
+            "baseline",
+            "single_intervention",
+            "combined_bundle",
+            "candidate"
+          ]
+        },
+        "intervention_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "flow_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/flow"
+          }
+        },
+        "conservation_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/conservationCheck"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
       }
     },
     "interaction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["interaction_id", "intervention_a", "intervention_b", "outcome_metric", "direction", "hypothesized_relationship", "assessment_status", "method", "evidence_refs", "rationale"],
+      "required": [
+        "interaction_id",
+        "intervention_a",
+        "intervention_b",
+        "outcome_metric",
+        "direction",
+        "hypothesized_relationship",
+        "assessment_status",
+        "method",
+        "evidence_refs",
+        "rationale"
+      ],
       "properties": {
-        "interaction_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "intervention_a": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "intervention_b": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "outcome_metric": {"enum": ["final_energy", "useful_energy", "solar_generation", "exergy_input", "exergy_output", "potable_water_withdrawal", "reclaimed_water_use", "stormwater_runoff", "stormwater_retained", "material_input", "recovered_material", "landfill_waste", "operational_ghg", "embodied_ghg", "thermal_exposure_degree_hours", "accessible_person_hours", "essential_service_uptime", "tree_canopy_area"]},
-        "direction": {"enum": ["higher_is_better", "lower_is_better"]},
-        "hypothesized_relationship": {"enum": ["synergy", "antagonism", "conditional", "unknown"]},
-        "assessment_status": {"enum": ["not_assessed", "qualitative", "quantified", "synthetic_only"]},
-        "method": {"enum": ["not_assessed", "mechanism_hypothesis", "difference_in_differences"]},
-        "reported_interaction_delta": {"type": "number"},
-        "unit": {"enum": ["Wh", "kWh", "MWh", "MJ", "GJ", "Wh_exergy", "kWh_exergy", "MJ_exergy", "GJ_exergy", "L", "m3", "g", "kg", "t", "gCO2e", "kgCO2e", "tCO2e", "person_degree_hour", "person_hour", "fraction", "m2"]},
-        "tolerance": {"type": "number", "minimum": 0},
+        "interaction_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "intervention_a": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "intervention_b": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "outcome_metric": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better"
+          ]
+        },
+        "hypothesized_relationship": {
+          "enum": [
+            "synergy",
+            "antagonism",
+            "conditional",
+            "unknown"
+          ]
+        },
+        "assessment_status": {
+          "enum": [
+            "not_assessed",
+            "qualitative",
+            "quantified",
+            "synthetic_only"
+          ]
+        },
+        "method": {
+          "enum": [
+            "not_assessed",
+            "mechanism_hypothesis",
+            "difference_in_differences"
+          ]
+        },
+        "reported_interaction_delta": {
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
         "uncertainty": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["lower_bound", "upper_bound", "method"],
+          "required": [
+            "lower_bound",
+            "upper_bound",
+            "method"
+          ],
           "properties": {
-            "lower_bound": {"type": "number"},
-            "upper_bound": {"type": "number"},
-            "method": {"type": "string", "minLength": 12}
+            "lower_bound": {
+              "type": "number"
+            },
+            "upper_bound": {
+              "type": "number"
+            },
+            "method": {
+              "type": "string",
+              "minLength": 12
+            }
           }
         },
-        "interpreted_result": {"enum": ["positive_synergy", "negative_interaction", "inconclusive"]},
-        "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}},
-        "rationale": {"type": "string", "minLength": 12}
+        "interpreted_result": {
+          "enum": [
+            "positive_synergy",
+            "negative_interaction",
+            "inconclusive"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        }
       },
       "allOf": [
         {
-          "if": {"properties": {"assessment_status": {"const": "quantified"}}, "required": ["assessment_status"]},
-          "then": {"required": ["reported_interaction_delta", "unit", "tolerance", "uncertainty", "interpreted_result"], "properties": {"method": {"const": "difference_in_differences"}, "evidence_refs": {"minItems": 1}}}
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "quantified"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reported_interaction_delta",
+              "unit",
+              "tolerance",
+              "uncertainty",
+              "interpreted_result"
+            ],
+            "properties": {
+              "method": {
+                "const": "difference_in_differences"
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
         },
         {
-          "if": {"properties": {"assessment_status": {"const": "synthetic_only"}}, "required": ["assessment_status"]},
-          "then": {"required": ["reported_interaction_delta", "unit", "tolerance", "uncertainty", "interpreted_result"], "properties": {"method": {"const": "difference_in_differences"}}}
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "synthetic_only"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reported_interaction_delta",
+              "unit",
+              "tolerance",
+              "uncertainty",
+              "interpreted_result"
+            ],
+            "properties": {
+              "method": {
+                "const": "difference_in_differences"
+              }
+            }
+          }
         },
         {
-          "if": {"properties": {"assessment_status": {"const": "not_assessed"}}, "required": ["assessment_status"]},
-          "then": {"properties": {"method": {"const": "not_assessed"}}}
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "not_assessed"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method": {
+                "const": "not_assessed"
+              }
+            }
+          }
         },
         {
-          "if": {"properties": {"assessment_status": {"const": "qualitative"}}, "required": ["assessment_status"]},
-          "then": {"properties": {"method": {"const": "mechanism_hypothesis"}}}
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "qualitative"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method": {
+                "const": "mechanism_hypothesis"
+              }
+            }
+          }
         }
       ]
     },
     "modelRun": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["model_run_id", "engine", "engine_version", "input_manifest_sha256", "seed", "time_step_seconds", "scenario_refs", "calibration_status", "validation_evidence_refs"],
+      "required": [
+        "model_run_id",
+        "engine",
+        "engine_version",
+        "input_manifest_sha256",
+        "seed",
+        "time_step_seconds",
+        "scenario_refs",
+        "calibration_status",
+        "validation_evidence_refs"
+      ],
       "properties": {
-        "model_run_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-        "engine": {"enum": ["symtropy", "other"]},
-        "engine_version": {"type": "string", "minLength": 1},
-        "input_manifest_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "seed": {"type": "integer", "minimum": 0},
-        "time_step_seconds": {"type": "number", "exclusiveMinimum": 0},
-        "scenario_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}},
-        "calibration_status": {"enum": ["uncalibrated", "calibrated", "validated"]},
-        "validation_evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}}
+        "model_run_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "engine": {
+          "enum": [
+            "symtropy",
+            "other"
+          ]
+        },
+        "engine_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "time_step_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "scenario_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "calibration_status": {
+          "enum": [
+            "uncalibrated",
+            "calibrated",
+            "validated"
+          ]
+        },
+        "validation_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        }
       },
       "allOf": [
-        {"if": {"properties": {"calibration_status": {"const": "validated"}}, "required": ["calibration_status"]}, "then": {"properties": {"validation_evidence_refs": {"minItems": 1}}}}
+        {
+          "if": {
+            "properties": {
+              "calibration_status": {
+                "const": "validated"
+              }
+            },
+            "required": [
+              "calibration_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "validation_evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        }
       ]
     },
     "mycelixRole": {
-      "type": "object", "additionalProperties": false, "required": ["responsibility", "boundary"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
       "properties": {
-        "responsibility": {"const": "evidence_provenance_and_governance"},
-        "boundary": {"type": "string", "minLength": 20}
+        "responsibility": {
+          "const": "evidence_provenance_and_governance"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
       }
     },
     "symthaeaRole": {
-      "type": "object", "additionalProperties": false, "required": ["responsibility", "boundary"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
       "properties": {
-        "responsibility": {"const": "hypothesis_generation_and_uncertainty"},
-        "boundary": {"type": "string", "minLength": 20}
+        "responsibility": {
+          "const": "hypothesis_generation_and_uncertainty"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
       }
     },
     "symtropyRole": {
-      "type": "object", "additionalProperties": false, "required": ["responsibility", "boundary"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
       "properties": {
-        "responsibility": {"const": "versioned_physical_scenario_simulation"},
-        "boundary": {"type": "string", "minLength": 20}
+        "responsibility": {
+          "const": "versioned_physical_scenario_simulation"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
       }
     },
     "solAtlasRole": {
-      "type": "object", "additionalProperties": false, "required": ["responsibility", "boundary"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
       "properties": {
-        "responsibility": {"const": "read_only_spatiotemporal_visualization"},
-        "boundary": {"type": "string", "minLength": 20}
+        "responsibility": {
+          "const": "read_only_spatiotemporal_visualization"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
       }
     }
   },
   "allOf": [
     {
-      "if": {"properties": {"record_status": {"const": "protocol_only"}}, "required": ["record_status"]},
-      "then": {"properties": {"scenarios": {"maxItems": 0}, "interactions": {"maxItems": 0}, "model_runs": {"maxItems": 0}}}
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "protocol_only"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenarios": {
+            "maxItems": 0
+          },
+          "interactions": {
+            "maxItems": 0
+          },
+          "model_runs": {
+            "maxItems": 0
+          }
+        }
+      }
     },
     {
-      "if": {"properties": {"record_status": {"const": "synthetic_test_only"}}, "required": ["record_status"]},
-      "then": {"properties": {"scenarios": {"minItems": 4}, "interactions": {"minItems": 1}, "model_runs": {"maxItems": 0}}}
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "synthetic_test_only"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenarios": {
+            "minItems": 4
+          },
+          "interactions": {
+            "minItems": 1
+          },
+          "model_runs": {
+            "maxItems": 0
+          }
+        }
+      }
     },
     {
-      "if": {"properties": {"record_status": {"const": "assessment"}}, "required": ["record_status"]},
-      "then": {"properties": {"scenarios": {"minItems": 2}}}
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "assessment"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenarios": {
+            "minItems": 2
+          }
+        }
+      }
     }
   ]
 }
