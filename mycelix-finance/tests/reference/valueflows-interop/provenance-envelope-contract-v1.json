@@ -26,7 +26,7 @@
     "envelope_digest_scope": "canonicalized_envelope_preimage",
     "payload_digest_verification_implemented": true,
     "envelope_digest_verification_implemented": true,
-    "note": "The checker rejects duplicate member names and recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage. The envelope preimage binds schema ID/version plus all observation identity, scope, timestamp, evidence, privacy/license, claim-ceiling, and payload-digest fields. Digests do not authenticate an issuer: the checker does not verify signatures, establish source-file correspondence, or establish truth/authority. Large precise quantities must be represented as strings, not JSON numbers."
+    "note": "The checker rejects duplicate member names and recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage. It verifies an Ed25519 signature over a domain-separated canonical preimage using a pinned synthetic test-key binding only. The signed_at string is self-asserted and is not a trusted timestamp; production issuer registry and key revocation infrastructure are not implemented. Signature verification does not establish source-file correspondence, truth, or domain authority. Large precise quantities must be represented as strings, not JSON numbers."
   },
   "example_observation": {
     "source_app": "mycelix.synthetic-fixture",
@@ -63,6 +63,36 @@
         "external_import_authority=none",
         "signature_does_not_grant_domain_authority",
         "outcome_requires_separate_domain_authorization"
+      ]
+    },
+    {
+      "id": "PE-SIG-KEY-001",
+      "input_condition": "A source supplies a different, self-derived Ed25519 key and claims that key is an authorized issuer.",
+      "expected_disposition": "reject_untrusted_issuer_key",
+      "required_guards": [
+        "issuer_key_must_match_out_of_band_trust_binding",
+        "public_key_fingerprint_recomputed",
+        "signature_failure_non_authoritative"
+      ]
+    },
+    {
+      "id": "PE-SIG-TAMPER-001",
+      "input_condition": "An otherwise valid provenance signature or one of its signed metadata fields is altered after signing.",
+      "expected_disposition": "reject_invalid_ed25519_signature",
+      "required_guards": [
+        "ed25519_verify_strict",
+        "signature_preimage_domain_separated",
+        "signature_failure_non_authoritative"
+      ]
+    },
+    {
+      "id": "PE-SIG-REVOKE-001",
+      "input_condition": "A cryptographically valid signature is presented after the trusted key registry marks its key revoked, without independent trusted timestamp evidence.",
+      "expected_disposition": "reject_revoked_key_without_trusted_timestamp",
+      "required_guards": [
+        "revocation_state_external_to_signed_envelope",
+        "self_asserted_signed_at_not_trusted",
+        "revoked_key_rejects_by_default"
       ]
     },
     {
@@ -155,5 +185,25 @@
         "retraction_is_attributable_event"
       ]
     }
-  ]
+  ],
+  "signature_policy": {
+    "algorithm": "Ed25519",
+    "profile": "mycelix.provenance-envelope-signature/v1",
+    "key_id_algorithm": "SHA-256 of raw Ed25519 public-key bytes",
+    "trust_mode": "pinned-synthetic-test-key-only",
+    "signature_verification_implemented": true,
+    "production_issuer_registry_implemented": false,
+    "key_revocation_registry_implemented": false,
+    "signed_at_is_trusted_timestamp": false,
+    "claim_ceiling": "Signature verifies possession of the private key matching the pinned synthetic test key over a domain-separated message only; it does not establish truth, independent corroboration, or grant domain authority."
+  },
+  "signature": {
+    "profile": "mycelix.provenance-envelope-signature/v1",
+    "algorithm": "Ed25519",
+    "issuer_id": "urn:mycelix:issuer:synthetic-01",
+    "key_id": "sha256:dfd6251d9330a21b322de85cdf49fa4730ce7d0e8890d677124c4c41e487e197",
+    "public_key_hex": "376dbc1327c9e66b5a5eb33343ff5cbe86dc303b59ba0d2be413f7224e8b05a4",
+    "signed_at": "2026-10-15T16:55:00Z",
+    "signature_hex": "26533f52adc923542dc7cb2ad6f8b9f1663046886ae84f6bf6e23fa3e6ccb810e5c2e8b935a123804b93bd79169e336f7e6f680a333e228801042991771da304"
+  }
 }
