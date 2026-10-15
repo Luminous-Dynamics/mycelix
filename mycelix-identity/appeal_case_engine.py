@@ -391,9 +391,9 @@ def verify_event_chain(
             errors.append(f"events[{index}] transition replay failed: {exc}")
             break
         previous_hash = event.get("event_hash", "")
-    if events and policy_event_digest != _hash(policy_doc):
+    if policy_event_digest is not None and policy_event_digest != _hash(policy_doc):
         errors.append("current retention policy is not bound to the reviewed policy event")
-    if not events and policy_doc != _retention_template(active_contract):
+    if policy_event_digest is None and policy_doc != _retention_template(active_contract):
         errors.append("retention policy differs from the unreviewed initial template")
     actual_state = _state_snapshot(case)
     if actual_state != state:
