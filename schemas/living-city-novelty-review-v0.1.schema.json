@@ -244,8 +244,36 @@
         "rationale": {
           "type": "string",
           "minLength": 12
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_refs"
+            ]
+          }
+        }
+      ]
     },
     "scoredDimension": {
       "type": "object",
