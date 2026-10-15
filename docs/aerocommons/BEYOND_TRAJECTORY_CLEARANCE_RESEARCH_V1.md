@@ -96,6 +96,22 @@ Airspace capacity is coupled to runways, vertiports, charging, energy availabili
 
 **Research question:** can feasible plans reduce delay, energy use, noise/ground exposure and emergency recovery time while keeping all hard gates intact and reporting who bears the costs and benefits?
 
+### 8. From nominal throughput to recoverable capacity and option value
+
+A schedule can look excellent in an undisturbed day and still be brittle: a closed vertiport, a newly active restriction, a provider partition, stale capacity data, or an emergency mission can remove the only remaining feasible continuation. Optimizing the current flight set is not the same as keeping future safe choices available.
+
+**New abstraction: a recovery-option set.** Alongside each research candidate, record which alternate time windows, route/resource combinations, landing options, or other declared contingencies remain eligible under specified disruption assumptions. Each option must name its dependencies, validity interval, evidence frontier, and the independent feasibility profile that qualified it. A recorded option is not a guarantee: it can expire or become unavailable, and it must never be represented as live without current evidence.
+
+**Paradigm shift:** treat *recoverability* as a system-level property of an allocation, rather than measuring only per-flight conflicts, nominal throughput, or delay. The research question becomes: *how many independently checked continuations remain when the environment changes, and who loses service when they do not?*
+
+A useful comparison should replay identical pinned demand under at least three policy families: (a) nominal-throughput-first scheduling, (b) policy-defined contingency capacity, and (c) an adaptive option-preserving strategy. Do not prescribe a universal reserve percentage: the correct policy depends on jurisdiction, infrastructure, mission mix, weather and declared operating assumptions, and has to be tested rather than guessed. NASA's [Provider of Services for Urban Air Mobility prototype simulation (X5)](https://ntrs.nasa.gov/citations/20250001367) is a relevant baseline because it investigated demand-capacity balancing and sequencing/scheduling; it does not validate any Mycelix allocation rule.
+
+Measure separately: eligible recovery options before/after each event, time to recover, delay distributions, unserved missions by declared class and region, emergency-service availability, capacity left idle, energy/noise/ground exposure where qualified inputs exist, and computation cost. Preserve worst-case and subgroup outcomes. No weighted average may turn a hard-gate violation into an acceptable trade, and an aggregate improvement must not conceal a material access penalty.
+
+**Falsifiers:** the option-preserving policy wins only because it sees easier inputs; stale or closed resources are counted as available; an emergency label silently preempts another mission; performance improves by relaxing a hard constraint; or total throughput rises while predeclared emergency/community outcomes silently worsen.
+
+The next machine-readable case, [AIR-PB-013](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json), makes this an explicit research backlog item. It is a test contract, not an implemented planner or measured result.
+
 ## Cross-project reference architecture
 
 | Layer | Primary responsibility | Project fit | Forbidden shortcut |
