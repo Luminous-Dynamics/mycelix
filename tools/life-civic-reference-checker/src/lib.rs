@@ -3,7 +3,7 @@
 //! This checker validates schema shape and corpus invariants. It does not determine
 //! legal applicability, certify conformance, or authorize service actions.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha1::{Digest, Sha1};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -37,7 +37,6 @@ fn validator(relative_schema: &str) -> jsonschema::Validator {
         .build(&schema)
         .unwrap_or_else(|error| panic!("could not compile JSON Schema {relative_schema}: {error}"))
 }
-
 
 fn git_blob_sha1(relative_path: &str) -> String {
     let path = repo_root().join(relative_path);
@@ -232,7 +231,9 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
                 .as_array()
                 .ok_or_else(|| format!("{conflict_id} evidence_ids must be an array"))?;
             if ids.len() < 2 {
-                return Err(format!("{conflict_id} requires at least two claim evidence IDs"));
+                return Err(format!(
+                    "{conflict_id} requires at least two claim evidence IDs"
+                ));
             }
             let mut unique_ids = HashSet::new();
             for value in ids {
@@ -251,9 +252,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
 
             let resolution_ids = conflict["resolution_evidence_ids"]
                 .as_array()
-                .ok_or_else(|| {
-                    format!("{conflict_id} resolution_evidence_ids must be an array")
-                })?;
+                .ok_or_else(|| format!("{conflict_id} resolution_evidence_ids must be an array"))?;
             if conflict["status"] == "resolved" && resolution_ids.is_empty() {
                 return Err(format!(
                     "{conflict_id} cannot be marked resolved without resolution evidence"
@@ -315,23 +314,27 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
     let frozen_inputs = manifest["frozen_inputs"]
         .as_array()
         .expect("manifest frozen_inputs must be an array");
-    assert_eq!(frozen_inputs.len(), 3, "all schema/corpus inputs must be pinned");
+    assert_eq!(
+        frozen_inputs.len(),
+        3,
+        "all schema/corpus inputs must be pinned"
+    );
     let actual_paths: HashSet<&str> = frozen_inputs
         .iter()
-        .map(|entry| entry["path"].as_str().expect("frozen path must be a string"))
+        .map(|entry| {
+            entry["path"]
+                .as_str()
+                .expect("frozen path must be a string")
+        })
         .collect();
     assert_eq!(
         actual_paths.len(),
         frozen_inputs.len(),
         "frozen input paths must be unique"
     );
-    let expected_paths: HashSet<&str> = [
-        INSTRUMENT_SCHEMA,
-        ASSESSMENT_SCHEMA,
-        CORPUS_PATH,
-    ]
-    .into_iter()
-    .collect();
+    let expected_paths: HashSet<&str> = [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA, CORPUS_PATH]
+        .into_iter()
+        .collect();
     assert_eq!(
         actual_paths, expected_paths,
         "manifest must pin the expected schemas and corpus, not unrelated files"
@@ -414,7 +417,11 @@ fn service_journey_manifest_pins_exact_schema_and_case_bytes() {
     assert_eq!(frozen_inputs.len(), 3);
     let actual_paths: HashSet<&str> = frozen_inputs
         .iter()
-        .map(|entry| entry["path"].as_str().expect("frozen path must be a string"))
+        .map(|entry| {
+            entry["path"]
+                .as_str()
+                .expect("frozen path must be a string")
+        })
         .collect();
     assert_eq!(actual_paths.len(), frozen_inputs.len());
     let expected_paths: HashSet<&str> = [
@@ -427,7 +434,9 @@ fn service_journey_manifest_pins_exact_schema_and_case_bytes() {
     assert_eq!(actual_paths, expected_paths);
 
     for entry in frozen_inputs {
-        let path = entry["path"].as_str().expect("frozen path must be a string");
+        let path = entry["path"]
+            .as_str()
+            .expect("frozen path must be a string");
         let expected = entry["git_blob_sha1"]
             .as_str()
             .expect("frozen input Git blob SHA-1 must be a string");
@@ -454,7 +463,10 @@ fn scoped_independent_restoration_requires_captured_evidence() {
     );
     assert_eq!(fixture["expected_schema_valid"], true);
     let instance = &fixture["instance"];
-    assert!(check.is_valid(instance), "schema-valid synthetic control was rejected");
+    assert!(
+        check.is_valid(instance),
+        "schema-valid synthetic control was rejected"
+    );
     assert!(
         validate_service_claim_semantics(instance).is_err(),
         "synthetic evidence must not substantiate a real independently verified completion"
@@ -508,8 +520,7 @@ fn scoped_independent_restoration_requires_captured_evidence() {
             "verification evidence must refer to an independent observation or measurement"
         );
         assert_eq!(
-            referenced["independence"],
-            "independent",
+            referenced["independence"], "independent",
             "verification evidence must explicitly be independent"
         );
     }
@@ -593,25 +604,25 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         let fixture_id = fixture["fixture_id"]
             .as_str()
             .expect("fixture_id must be a string");
-        assert!(ids.insert(fixture_id), "duplicate service fixture: {fixture_id}");
+        assert!(
+            ids.insert(fixture_id),
+            "duplicate service fixture: {fixture_id}"
+        );
 
         let expected = fixture["expected_schema_valid"]
             .as_bool()
             .expect("expected_schema_valid must be boolean");
         let instance = &fixture["instance"];
         assert_eq!(
-            instance["effects"]["mode"],
-            "effects_disabled",
+            instance["effects"]["mode"], "effects_disabled",
             "{fixture_id} must keep external effects disabled"
         );
         assert_eq!(
-            instance["effects"]["effects_requested"],
-            false,
+            instance["effects"]["effects_requested"], false,
             "{fixture_id} must not request an external effect"
         );
         assert_eq!(
-            instance["effects"]["external_action_status"],
-            "not_attempted",
+            instance["effects"]["external_action_status"], "not_attempted",
             "{fixture_id} must not claim an external action was attempted"
         );
         assert_eq!(
@@ -640,8 +651,7 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         &find_service_fixture(fixtures, "conflicting-official-water-guidance")["instance"];
     assert_eq!(conflict["case_state"], "source_conflict");
     assert_eq!(
-        conflict["route"]["status"],
-        "candidate_found",
+        conflict["route"]["status"], "candidate_found",
         "source-target conflict must not be mislabeled as a route conflict"
     );
     assert_eq!(conflict["outcome"]["status"], "conflicted");
@@ -664,13 +674,23 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|entry| entry["evidence_id"].as_str().expect("evidence_id must be a string"))
+        .map(|entry| {
+            entry["evidence_id"]
+                .as_str()
+                .expect("evidence_id must be a string")
+        })
         .collect();
     assert!(
         conflicting_evidence_ids.is_subset(&actual_evidence_ids),
         "source conflict must point to evidence actually present in the case"
     );
-    assert_eq!(conflict["route"]["source_references"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        conflict["route"]["source_references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
 
     let unavailable =
         &find_service_fixture(fixtures, "unavailable-current-source-requires-review")["instance"];
@@ -684,13 +704,17 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         "unavailable source must record the failed refresh attempt time"
     );
 
-    let cross_utility = &find_service_fixture(
-        fixtures,
-        "cross-utility-statement-not-incident-cause",
-    )["instance"];
+    let cross_utility =
+        &find_service_fixture(fixtures, "cross-utility-statement-not-incident-cause")["instance"];
     assert_eq!(cross_utility["case_state"], "human_review_required");
     assert_eq!(cross_utility["route"]["status"], "unknown");
-    assert_eq!(cross_utility["route"]["source_evidence_ids"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        cross_utility["route"]["source_evidence_ids"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
     assert_eq!(cross_utility["outcome"]["status"], "unknown");
     assert_eq!(cross_utility["review_required"], true);
     assert_eq!(cross_utility["review_status"], "requested");
@@ -701,10 +725,9 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
     assert_eq!(statement["retrieved_at"], Value::Null);
     assert_eq!(statement["checked_at"], Value::Null);
     assert!(
-        statement["limitations"]
-            .as_str()
-            .unwrap()
-            .contains("not evidence that a specific resident's interruption was caused by electricity"),
+        statement["limitations"].as_str().unwrap().contains(
+            "not evidence that a specific resident's interruption was caused by electricity"
+        ),
         "public cross-utility context must not become incident-level causal evidence"
     );
     assert!(
@@ -728,7 +751,10 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         fixtures,
         "invalid-verified-outcome-with-provider-evidence-only",
     )["instance"];
-    assert_eq!(false_verification["outcome"]["status"], "independently_verified_complete");
+    assert_eq!(
+        false_verification["outcome"]["status"],
+        "independently_verified_complete"
+    );
     assert!(
         false_verification["evidence"]
             .as_array()
@@ -914,13 +940,13 @@ fn corpus_ids_reasons_and_forbidden_claims_are_well_formed() {
             .iter()
             .map(|value| value.as_str().expect("status enum must contain strings"))
             .collect();
-    let valid_reasons: HashSet<&str> =
-        schema["properties"]["result"]["properties"]["reason_codes"]["items"]["enum"]
-            .as_array()
-            .expect("assessment schema must enumerate reason codes")
-            .iter()
-            .map(|value| value.as_str().expect("reason enum must contain strings"))
-            .collect();
+    let valid_reasons: HashSet<&str> = schema["properties"]["result"]["properties"]["reason_codes"]
+        ["items"]["enum"]
+        .as_array()
+        .expect("assessment schema must enumerate reason codes")
+        .iter()
+        .map(|value| value.as_str().expect("reason enum must contain strings"))
+        .collect();
 
     let mut ids = HashSet::new();
     for case in cases {
@@ -930,7 +956,10 @@ fn corpus_ids_reasons_and_forbidden_claims_are_well_formed() {
         let status = expected["status"]
             .as_str()
             .expect("expected status must be a string");
-        assert!(valid_statuses.contains(status), "{id} uses unknown status {status}");
+        assert!(
+            valid_statuses.contains(status),
+            "{id} uses unknown status {status}"
+        );
 
         let reasons = expected["required_reason_codes"]
             .as_array()
@@ -947,8 +976,14 @@ fn corpus_ids_reasons_and_forbidden_claims_are_well_formed() {
         let forbidden = expected["forbidden_claims"]
             .as_array()
             .expect("each case requires prohibited claims");
-        assert!(!forbidden.is_empty(), "{id} has no prohibited-claim controls");
-        assert!(case["synthetic"].is_boolean(), "{id} must say whether it is synthetic");
+        assert!(
+            !forbidden.is_empty(),
+            "{id} has no prohibited-claim controls"
+        );
+        assert!(
+            case["synthetic"].is_boolean(),
+            "{id} must say whether it is synthetic"
+        );
     }
 }
 
@@ -961,11 +996,18 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
         .map(|case| (case["case_id"].as_str().expect("case ID"), case))
         .collect();
 
-    let draft = by_id.get("MYC-LCA-002").expect("ISO 37120 draft control missing");
+    let draft = by_id
+        .get("MYC-LCA-002")
+        .expect("ISO 37120 draft control missing");
     assert_eq!(draft["expected"]["status"], "indeterminate");
-    assert_eq!(draft["expected"]["required_reason_codes"][0], "draft_not_published");
+    assert_eq!(
+        draft["expected"]["required_reason_codes"][0],
+        "draft_not_published"
+    );
 
-    let lifecycle = by_id.get("MYC-LCA-003").expect("ISO 37101 lifecycle control missing");
+    let lifecycle = by_id
+        .get("MYC-LCA-003")
+        .expect("ISO 37101 lifecycle control missing");
     assert!(
         lifecycle["expected"]["forbidden_claims"]
             .as_array()
@@ -974,7 +1016,9 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             .any(|claim| claim.as_str().unwrap().contains("automatically withdraws"))
     );
 
-    let registry = by_id.get("MYC-LCA-007").expect("registry-authority control missing");
+    let registry = by_id
+        .get("MYC-LCA-007")
+        .expect("registry-authority control missing");
     assert!(
         registry["expected"]["forbidden_claims"]
             .as_array()
@@ -983,7 +1027,9 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             .any(|claim| claim.as_str().unwrap().contains("authorizes the action"))
     );
 
-    let transparency = by_id.get("MYC-LCA-008").expect("transparency/truth control missing");
+    let transparency = by_id
+        .get("MYC-LCA-008")
+        .expect("transparency/truth control missing");
     assert!(
         transparency["expected"]["forbidden_claims"]
             .as_array()
@@ -997,7 +1043,9 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             })
     );
 
-    let nist_draft = by_id.get("MYC-LCA-009").expect("NIST OT draft control missing");
+    let nist_draft = by_id
+        .get("MYC-LCA-009")
+        .expect("NIST OT draft control missing");
     assert_eq!(nist_draft["expected"]["status"], "indeterminate");
     assert_eq!(
         nist_draft["expected"]["required_reason_codes"][0],
@@ -1098,7 +1146,10 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             .as_array()
             .unwrap()
             .iter()
-            .any(|claim| claim.as_str().unwrap().contains("universal 0.80 fair-pay adequacy threshold")),
+            .any(|claim| claim
+                .as_str()
+                .unwrap()
+                .contains("universal 0.80 fair-pay adequacy threshold")),
         "ILO measurement framework must not be treated as a source for the synthetic numeric threshold"
     );
 }
