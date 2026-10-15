@@ -310,7 +310,7 @@ def main():
         fail("mutation: model run with unresolved scenario identity accepted")
     print("PASS mutation: model run must link to known scenario IDs")
 
-    print("PASS: 12 urban-metabolism/synergy controls; no composite symtropy score or automatic authorization.")
+    print("PASS: 16 urban-metabolism/synergy controls (14 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
