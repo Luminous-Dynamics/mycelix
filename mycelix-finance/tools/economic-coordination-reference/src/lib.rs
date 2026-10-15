@@ -266,7 +266,7 @@ impl CapacityBook {
         };
         self.slots
             .get(&key)
-            .map(|slot| slot.total.saturating_sub(slot.reserved))
+            .and_then(|slot| slot.total.checked_sub(slot.reserved))
     }
 
     pub fn reservation(&self, transaction_id: &str) -> Option<&ReservationReceipt> {
