@@ -92,19 +92,25 @@ The envelope must not have fields such as `trusted=true`, `settled=true`, or `ap
 7. Synthetic fixtures cover every negative control; no personal, clinical, or otherwise sensitive real data is needed.
 8. The fixture remains a research contract until a verifier outside the candidate PR's control checks the exact commit.
 
-## Executable provenance contract — first increment
+## Executable provenance contract — payload and envelope digest qualification
 
-The first executable reference fixture and its Rust-side contract checks now live beside the ValueFlows corpus:
+The first executable reference fixture and Rust-side contract checks now live beside the ValueFlows corpus:
 
 - [Machine-readable v1 fixture](../../mycelix-finance/tests/reference/valueflows-interop/provenance-envelope-contract-v1.json)
 - [Rust contract checker and adversarial tests](../../mycelix-finance/tools/valueflows-interop-checker/src/main.rs)
-- The existing [ValueFlows Interoperability Qualification workflow](../../.github/workflows/valueflows-interop-qualification.yml) already watches the shared fixture/checker paths, so this increment uses the existing qualification lane rather than adding a new workflow or dependency.
+- [Pinned standalone dependency manifest](../../mycelix-finance/tools/valueflows-interop-checker/Cargo.toml) and [lockfile](../../mycelix-finance/tools/valueflows-interop-checker/Cargo.lock)
+- The existing [ValueFlows Interoperability Qualification workflow](../../.github/workflows/valueflows-interop-qualification.yml) watches these paths, so no separate workflow or runtime adapter was added.
 
-The fixture is intentionally synthetic and self-contained. The checker pins the schema version, rejects unreviewed fields, keeps all external Finance/governance/settlement authority false, restricts signatures to origin/integrity, requires append-only corrections, and fixes ten adversarial-control conditions, dispositions, and ordered guard sets. Six additional Rust test functions exercise those boundaries.
+The checker now parses JSON through a duplicate-aware visitor before creating `serde_json::Value`, rejecting duplicate member names including equivalent escaped names. It uses pinned `serde_json_canonicalizer` 0.3.2 (RFC 8785/JCS) and `sha2` 0.10.9 to recompute and compare two digests:
 
-**Important limit:** the checker currently validates the SHA-256 field's syntax only. It does **not** recompute the payload digest, implement RFC 8785/JCS canonicalization, verify signatures, prove source-file correspondence, or establish the truth of an observation. Those remain explicit implementation gates; no digest-verification or Rust test/build pass is claimed for this change until an exact-head run completes.
+1. `payload_digest_sha256`: SHA-256 over the canonicalized payload bytes.
+2. `example_envelope_digest_sha256`: SHA-256 over a canonical, domain-separated preimage containing the schema ID, schema version, and complete observation object. This binds source/record identity, subject, actor, scope, event/revision, causal links, timestamps, evidence class, privacy/license, claim ceiling, payload, and payload digest.
 
-RFC 8785/JCS is the nominated canonicalization target because the RFC defines deterministic JSON serialization for cryptographic operations; it is not yet implemented by this fixture. In particular, JCS inputs must not have duplicate object member names, strings must preserve their code points, and number formatting follows its specified serialization rules. See [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html).
+Ten registered provenance negative controls remain fixed, and new test functions cover an authentic checked-in digest, payload tampering, metadata-only mutation, duplicate keys (including escaped duplicates), RFC 8785 number formatting, and UTF-16 key ordering. The current Rust source declares 32 test functions total; source-level counts are not a test pass.
+
+**Trust boundary remains explicit:** a digest detects accidental or uncoordinated changes only when compared against a trusted expected digest; an attacker can recompute an unkeyed hash. This checker does not verify signatures, authenticate an issuer, establish source-file correspondence, independently corroborate observations, or prove truth/authorization/settlement. The entire fixture remains synthetic and research-only. Large precise quantities must be represented as strings, not JSON numbers.
+
+The canonicalization behavior is based on [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html); the dependency is pinned to the published crate version in the dedicated lockfile. No exact-head Rust compile/test or locked-metadata pass is claimed until a qualification run actually executes and completes.
 
 ## Recommended order
 
