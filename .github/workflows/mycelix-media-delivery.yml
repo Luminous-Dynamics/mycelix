@@ -12,6 +12,7 @@ on:
       - "crates/mycelix-leptos-ui/**"
       - "mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**"
       - "mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**"
+      - "crates/mycelix-media-cid/**"
   push:
     branches: [main]
     paths:
@@ -33,6 +34,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cid-admission:
+    name: Typed CID admission policy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test supported and rejected CID profiles
+        run: cargo test --manifest-path crates/mycelix-media-cid/Cargo.toml
+
   delivery-contract:
     name: Dependency-free delivery contract tests
     runs-on: ubuntu-latest
