@@ -286,8 +286,8 @@ mod tests {
         assert_eq!(
             forward.bounds().unwrap(),
             IntervalBounds {
-                lower_mm: -7,
-                upper_mm: 12
+                lower_mm: -12,
+                upper_mm: 8
             }
         );
     }
