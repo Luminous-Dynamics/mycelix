@@ -2,7 +2,7 @@
 """Fail-closed CI checks for the Living-City metabolism/synergy contract. No network calls."""
 from __future__ import annotations
 import copy, json, math, sys
-from decimal import Decimal
+from fractions import Fraction
 from datetime import date
 from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
@@ -15,16 +15,18 @@ MANIFEST_PATH = ROOT / "fixtures/living-city/manifest.v0.1.json"
 CLAIMS_DIR = ROOT / "fixtures/living-city/evidence/claims"
 
 FLOW_UNIT_DIMENSION_FACTOR = {
-    "Wh": ("energy", Decimal("1")),
-    "kWh": ("energy", Decimal("1000")),
-    "MWh": ("energy", Decimal("1000000")),
-    "MJ": ("energy", Decimal("1000000") / Decimal("3600")),
-    "GJ": ("energy", Decimal("1000000000") / Decimal("3600")),
-    "L": ("water", Decimal("1000")),
-    "m3": ("water", Decimal("1000000")),
-    "g": ("mass", Decimal("1")),
-    "kg": ("mass", Decimal("1000")),
-    "t": ("mass", Decimal("1000000")),
+    # Fractions preserve exact unit ratios: e.g. 9 MJ == 2,500 Wh.
+    # Never round conversion factors before comparing to integer ledger terms.
+    "Wh": ("energy", Fraction(1)),
+    "kWh": ("energy", Fraction(1000)),
+    "MWh": ("energy", Fraction(1000000)),
+    "MJ": ("energy", Fraction(1000000, 3600)),
+    "GJ": ("energy", Fraction(1000000000, 3600)),
+    "L": ("water", Fraction(1000)),
+    "m3": ("water", Fraction(1000000)),
+    "g": ("mass", Fraction(1)),
+    "kg": ("mass", Fraction(1000)),
+    "t": ("mass", Fraction(1000000)),
 }
 BINDING_ROLE_FIELDS = {
     "inflow_refs": ("inflow", "add"),
@@ -209,9 +211,9 @@ def semantic_errors(review, concepts, evidence_ids):
 
             bindings = check["flow_bindings"]
             seen_refs = set()
-            aggregate_values = {"inflow": Decimal("0"), "generated_or_added": Decimal("0"),
-                                "outflow": Decimal("0"), "declared_loss": Decimal("0"),
-                                "storage_increase": Decimal("0"), "storage_decrease": Decimal("0")}
+            aggregate_values = {"inflow": Fraction(0), "generated_or_added": Fraction(0),
+                                "outflow": Fraction(0), "declared_loss": Fraction(0),
+                                "storage_increase": Fraction(0), "storage_decrease": Fraction(0)}
             for role, (target_field, operation) in BINDING_ROLE_FIELDS.items():
                 for ref in bindings[role]:
                     if ref in seen_refs:
@@ -231,21 +233,21 @@ def semantic_errors(review, concepts, evidence_ids):
                         errors.append(f"{check_context}: flow {ref!r} dimension {dimension!r} cannot bind to {check['balance_kind']!r} balance")
                         continue
                     key_name = "storage_increase" if role == "storage_increase_refs" else "storage_decrease" if role == "storage_decrease_refs" else target_field
-                    aggregate_values[key_name] += Decimal(str(flow["value"])) * factor
+                    aggregate_values[key_name] += Fraction(str(flow["value"])) * factor
 
             comparisons = [
-                ("inflow", Decimal(inflow)),
-                ("generated_or_added", Decimal(generated)),
-                ("outflow", Decimal(outflow)),
-                ("declared_loss", Decimal(loss)),
-                ("observed_storage_delta", Decimal(storage)),
+                ("inflow", Fraction(inflow)),
+                ("generated_or_added", Fraction(generated)),
+                ("outflow", Fraction(outflow)),
+                ("declared_loss", Fraction(loss)),
+                ("observed_storage_delta", Fraction(storage)),
             ]
             for field_name, declared in comparisons:
                 if field_name == "observed_storage_delta":
                     aggregate = aggregate_values["storage_increase"] - aggregate_values["storage_decrease"]
                 else:
                     aggregate = aggregate_values[field_name]
-                if abs(aggregate - declared) > Decimal(tolerance):
+                if abs(aggregate - declared) > Fraction(tolerance):
                     errors.append(f"{check_context}: flow bindings for {field_name} do not match the declared base-unit quantity")
 
             residual = inflow + generated - outflow - loss - storage
@@ -476,7 +478,51 @@ def main():
         fail("mutation: model run without an exact source revision was accepted")
     print("PASS mutation: model runs require an exact 40-character source revision SHA")
 
-    print("PASS: 25 urban-metabolism/synergy controls (22 mutation controls and three positive controls); no composite symtropy score or automatic authorization.")
+    exact_energy = copy.deepcopy(synthetic)
+    baseline_scenario = exact_energy["scenarios"][0]
+    baseline_scenario["flow_records"].extend([
+        {
+            "flow_id": "baseline-energy-input-9-mj", "metric_id": "final_energy",
+            "value": 9, "unit": "MJ", "evidence_kind": "synthetic_only",
+            "life_cycle_stage": "operational", "evidence_refs": [],
+            "rationale": "Synthetic exact-unit conversion control only; not a measured energy flow."
+        },
+        {
+            "flow_id": "baseline-energy-output-2500-wh", "metric_id": "final_energy",
+            "value": 2500, "unit": "Wh", "evidence_kind": "synthetic_only",
+            "life_cycle_stage": "operational", "evidence_refs": [],
+            "rationale": "Synthetic canonical-unit conversion control only; not a measured energy flow."
+        }
+    ])
+    baseline_scenario["conservation_checks"].append({
+        "check_id": "baseline-energy-exact-conversion", "balance_kind": "energy",
+        "inflow": "2500", "generated_or_added": "0", "outflow": "2500",
+        "declared_loss": "0", "observed_storage_delta": "0", "reported_residual": "0",
+        "tolerance": "0", "unit": "Wh", "status": "balanced",
+        "rationale": "Synthetic exact arithmetic control: 9 MJ equals 2500 Wh exactly.",
+        "evidence_refs": [],
+        "flow_bindings": {
+            "inflow_refs": ["baseline-energy-input-9-mj"],
+            "generated_or_added_refs": [], "outflow_refs": ["baseline-energy-output-2500-wh"],
+            "loss_refs": [], "storage_increase_refs": [], "storage_decrease_refs": []
+        }
+    })
+    exact_errors = schema_errors(validator, exact_energy)
+    if exact_errors:
+        fail("positive control: exact MJ-to-Wh conversion fixture fails schema validation: " + describe(exact_errors))
+    exact_semantic = semantic_errors(exact_energy, concepts, evidence_ids)
+    if exact_semantic:
+        fail("positive control: exact MJ-to-Wh conversion failed conservation checks: " + "; ".join(exact_semantic))
+    print("PASS control: rational MJ/GJ conversion preserves exact integer-Wh balances")
+
+    wrong_energy_conversion = copy.deepcopy(exact_energy)
+    wrong_energy_input = next(f for f in wrong_energy_conversion["scenarios"][0]["flow_records"] if f["flow_id"] == "baseline-energy-input-9-mj")
+    wrong_energy_input["value"] = 9.0036  # Exactly 2,501 Wh; declared inflow remains 2,500 Wh.
+    if not any("flow bindings for inflow do not match" in e for e in semantic_errors(wrong_energy_conversion, concepts, evidence_ids)):
+        fail("mutation: non-matching exact energy conversion was accepted")
+    print("PASS mutation: exact energy conversion rejects a one-Wh balance mismatch")
+
+    print("PASS: 27 urban-metabolism/synergy controls (23 mutation controls and four positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
