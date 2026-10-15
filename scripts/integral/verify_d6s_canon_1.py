@@ -68,13 +68,22 @@ def main() -> int:
         "effect_recorded", "quality_current", "denominator_explicit",
         "general_capability_evidence", "failure_history_preserved",
         "source_observation_created", "physical_work_binding",
+        "external_dependency_classified", "local_capability_claim", "local_origin_claim",
     }
     allowed_evidence_profiles = {"current_local", "stale_local", "current_foreign_node_b"}
     required_positive_bindings = {
         # The valid counterexample must retain the context it is refining.
         "COS-N-010": {"frs_projection", "source_observation_created"},
         "COS-N-011": {"source_observation_created", "itc_projection"},
+        "COS-N-009": {"external_dependency_classified", "foreign_recognition"},
+        "COS-N-010": {"frs_projection", "source_observation_created"},
+        "COS-N-011": {"source_observation_created", "itc_projection"},
         "COS-N-012": {"itc_projection", "physical_work_binding"},
+        "COS-N-013": {"foreign_recognition"},
+    }
+    required_negative_bindings = {
+        "COS-N-009": {"local_capability_claim"},
+        "COS-N-013": {"local_origin_claim"},
     }
     allowed_decisions = set(corpus.get("decision_enum", []))
     if allowed_decisions != {"Accepted", "Rejected", "Unknown", "Conflicting", "Stale", "Superseded", "Unauthorized", "Unbound"}:
@@ -106,6 +115,9 @@ def main() -> int:
         required = required_positive_bindings.get(test_id)
         if required is not None and not required <= set(vector["positive_input"]["bindings"]):
             raise ValueError(f"POSITIVE_CONTEXT_BINDING_MISSING {test_id}: {sorted(required - set(vector['positive_input']['bindings']))}")
+        forbidden_collapse = required_negative_bindings.get(test_id)
+        if forbidden_collapse is not None and not forbidden_collapse <= set(vector["negative_input"]["bindings"]):
+            raise ValueError(f"NEGATIVE_COLLAPSE_CONTROL_MISSING {test_id}: {sorted(forbidden_collapse - set(vector['negative_input']['bindings']))}")
         if not vector.get("input_class") or not vector.get("claim_ceiling"):
             raise ValueError(f"INCOMPLETE_VECTOR_METADATA {vector.get('test_id')}")
     if covered != required:
