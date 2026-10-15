@@ -85,10 +85,10 @@ jobs:
           # These roots are deliberately repeated here. Updating the corpus,
           # manifest, reference engine, Rust test, or independent verifier requires
           # a visible reviewed update to this pin list in the same change.
-          check_blob "docs/integral/d6s-canon-1-golden-vectors.json" "bc47805d9715a8bea23109d3843c4f1a4f646735"
-          check_blob "docs/integral/d6s-canon-1-manifest.json" "b08642879a85b245989231525ca8d1d96cf84db0"
-          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "9279e13f520646df170e0e01b0fe5b01665f23b8"
-          check_blob "scripts/integral/verify_d6s_canon_1.py" "f82bc3fa3d71fcdf687f3ace7215d0bd6e81a35a"
+          check_blob "docs/integral/d6s-canon-1-golden-vectors.json" "b8c1e935e2fc5f1046598ac8bda5e35db3c831e5"
+          check_blob "docs/integral/d6s-canon-1-manifest.json" "2d91a5f7baddfb1055fad81f504f81a33fa32840"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "2ef8f33ac48bd4942288cee337d70a8d55354ea5"
+          check_blob "scripts/integral/verify_d6s_canon_1.py" "e7bfebb0057496f296e42b736703fe8476593cf6"
           check_blob "docs/integral/d6s-canon-2-authority-boundary-fixture.json" "a7f98fcd6bbcee260dfaa2ba704f6cd6b27aac14"
           check_blob "docs/integral/d6s-canon-2-manifest.json" "8731a211f6d9c9befdf478861bdeeb8cefd241fb"
           check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs" "4fdfaf3fe4d4e6bf6d2ebbd87532742f09bed2db"
