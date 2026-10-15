@@ -28,7 +28,6 @@ RETENTION_POLICY = {
     "deletion_procedure_ref": "POLICY-DELETE-001",
     "backup_deletion_policy_ref": "POLICY-BACKUP-DELETE-001",
     "review_evidence_ref": "POLICY-REVIEW-001",
-    "note": "Synthetic test policy only; not a statutory or production retention schedule.",
 }
 
 
