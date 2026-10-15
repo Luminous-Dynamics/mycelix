@@ -60,6 +60,12 @@ def main() -> int:
     if required != {f"COS-FV-{n:03d}" for n in range(1, 11)}:
         raise ValueError("FORMAL_OBLIGATION_MANIFEST_INCOMPLETE")
     covered: set[str] = set()
+    allowed_bindings = {
+        "source_observation_created", "itc_projection", "frs_projection",
+        "recommendation_authorized", "effect_recorded", "foreign_recognition",
+        "output_qualification", "physical_work_binding",
+    }
+    allowed_profiles = {"current_local", "stale_local", "current_foreign_node_b"}
     required_fields = {
         "production-observation-is-not-itc-mint": ("expected_without_projection", "expected_after_explicit_projection"),
         "frs-projection-is-not-source-observation": ("expected_without_source_observation", "expected_after_explicit_source_observation"),
@@ -76,9 +82,36 @@ def main() -> int:
             raise ValueError(f"INVALID_FORMAL_MAPPING {case_id}")
         if not item.get("claim_ceiling"):
             raise ValueError(f"CLAIM_CEILING_MISSING {case_id}")
+        if not isinstance(item.get("initial_bindings"), list) or any(not isinstance(x, str) for x in item["initial_bindings"]):
+            raise ValueError(f"INITIAL_BINDINGS_INVALID {case_id}")
+        if len(item["initial_bindings"]) != len(set(item["initial_bindings"])) or not set(item["initial_bindings"]) <= allowed_bindings:
+            raise ValueError(f"INITIAL_BINDINGS_UNKNOWN_OR_DUPLICATE {case_id}")
+        if item.get("evidence_profile") not in allowed_profiles:
+            raise ValueError(f"EVIDENCE_PROFILE_INVALID {case_id}")
         for field in required_fields.get(case_id, ()):
             if field not in item:
                 raise ValueError(f"REQUIRED_EXPECTATION_MISSING {case_id}/{field}")
+        for transition_field in ("additional_bindings", "authority_bindings", "effect_bindings"):
+            if transition_field in item:
+                values = item[transition_field]
+                if not isinstance(values, list) or any(not isinstance(x, str) for x in values):
+                    raise ValueError(f"TRANSITION_BINDINGS_INVALID {case_id}/{transition_field}")
+                if len(values) != len(set(values)) or not set(values) <= allowed_bindings:
+                    raise ValueError(f"TRANSITION_BINDINGS_UNKNOWN_OR_DUPLICATE {case_id}/{transition_field}")
+        if case_id == "qualified-output-is-not-physical-work":
+            if not {"itc_projection", "output_qualification"} <= set(item["initial_bindings"]):
+                raise ValueError("PHYSICAL_WORK_NEGATIVE_CONTEXT_INCOMPLETE")
+            if "physical_work_binding" not in item.get("additional_bindings", []):
+                raise ValueError("PHYSICAL_WORK_POSITIVE_BINDING_MISSING")
+        if case_id == "recommendation-does-not-create-effect":
+            if "recommendation_authorized" not in item.get("authority_bindings", []) or "effect_recorded" not in item.get("effect_bindings", []):
+                raise ValueError("AUTHORITY_EFFECT_SEQUENCE_INCOMPLETE")
+        if case_id == "foreign-recognition-preserves-origin":
+            if item["evidence_profile"] != "current_foreign_node_b" or "foreign_recognition" not in item.get("additional_bindings", []):
+                raise ValueError("FOREIGN_PROVENANCE_SEQUENCE_INCOMPLETE")
+        if case_id == "stale-evidence-does-not-satisfy-current-requirement":
+            if item["evidence_profile"] != "stale_local" or item.get("positive_evidence_profile") != "current_local":
+                raise ValueError("TEMPORAL_VALIDITY_PROFILES_INCOMPLETE")
         covered.update(obligations)
     if set(ids) != set(required_fields):
         raise ValueError("UNEXPECTED_OR_MISSING_BOUNDARY_CASE")
