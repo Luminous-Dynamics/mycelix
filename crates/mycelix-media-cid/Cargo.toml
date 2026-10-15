@@ -1,0 +1,13 @@
+# Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+
+[package]
+name = "mycelix-media-cid"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Bounded, typed CID admission policy for Mycelix media delivery"
+
+[dependencies]
+cid = { version = "0.11.3", default-features = true }
