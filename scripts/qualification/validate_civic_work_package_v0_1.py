@@ -41,6 +41,27 @@ _AUTHORIZED_STATUSES = {
 }
 _EXECUTION_STATUSES = {"announced", "active", "completion_claimed", "independently_verified"}
 
+# ISO 4217 minor-unit scales for the deliberately bounded initial allowlist.
+# Do not guess for unlisted currency codes: update against the current ISO 4217
+# Maintenance Agency data before supporting another currency.
+_SUPPORTED_CURRENCY_MINOR_UNIT_DIGITS = {
+    "AUD": 2,
+    "BHD": 3,
+    "CAD": 2,
+    "CHF": 2,
+    "CNY": 2,
+    "EUR": 2,
+    "GBP": 2,
+    "INR": 2,
+    "JPY": 0,
+    "KRW": 0,
+    "KWD": 3,
+    "NZD": 2,
+    "OMR": 3,
+    "USD": 2,
+    "ZAR": 2,
+}
+
 
 def fail(message: str) -> None:
     raise ValueError(message)
@@ -117,6 +138,21 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
     commissioning = record.get("commissioning", {})
     scope_period = record.get("scope", {}).get("period", {})
     cost_breakdown = funding.get("cost_breakdown", {})
+
+    # Declared integer amounts only mean something when their scale matches the
+    # currency. Reject unknown scales rather than silently applying a 10^n factor.
+    currency = funding.get("currency")
+    minor_unit_digits = funding.get("minor_unit_digits")
+    if currency is not None or minor_unit_digits is not None:
+        expected_digits = _SUPPORTED_CURRENCY_MINOR_UNIT_DIGITS.get(currency)
+        if expected_digits is None:
+            errors.append("CWP_E_UNSUPPORTED_CURRENCY_MINOR_UNIT_RULE")
+        elif (
+            not isinstance(minor_unit_digits, int)
+            or isinstance(minor_unit_digits, bool)
+            or minor_unit_digits != expected_digits
+        ):
+            errors.append("CWP_E_CURRENCY_MINOR_UNIT_DIGITS_MISMATCH")
     cost_items = cost_breakdown.get("cost_items", [])
     category_coverage = cost_breakdown.get("category_coverage", [])
     required_cost_categories = {
