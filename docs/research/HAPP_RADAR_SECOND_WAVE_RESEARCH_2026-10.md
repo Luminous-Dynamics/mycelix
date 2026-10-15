@@ -123,6 +123,22 @@ The synthetic fixture signature was independently checked against its public key
 
 The checker manifest pins `serde_json_canonicalizer = 0.3.2`, `sha2 = 0.10.9`, and `ed25519-dalek = 2.2.0`. Static lockfile inspection shows 38 distinct package records, no duplicate name/version pair, sorted package entries, and no unresolved dependency references. Because no local Rust toolchain is available, `cargo metadata --locked`, formatting, compilation, and the Rust tests have **not** been run locally. At the latest observed exact-head query, the qualification workflows were queued/pending or skipped; queued is not PASS. No runtime integration, production trust, or security-audit pass is claimed.
 
+### Production path: align with a published proof profile before hApp rollout
+
+The current `mycelix.provenance-envelope-signature/v1` is a deliberately small **fixture signature profile**, not a W3C Data Integrity proof or a general cross-app signing standard. Before any production import or credential issuance, compare it with the W3C Recommendation [Data Integrity EdDSA Cryptosuites v1.0](https://www.w3.org/TR/vc-di-eddsa/). That specification standardizes Ed25519 proof processing and defines both `eddsa-jcs-2022` (JSON Canonicalization Scheme) and `eddsa-rdfc-2022` (RDF Dataset Canonicalization). Its proof model also uses an explicit `verificationMethod` and `proofPurpose`, so a signature's intended role is not inferred from key possession alone.
+
+If Mycelix uses the [Verifiable Credentials Data Model v2.0](https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/) for issuer assertions, evaluate its `credentialStatus` model and a concrete status-list profile rather than inventing per-credential revocation fields. The VC data model defines the status-discovery property but leaves status mechanism details to each status type; its privacy guidance cautions against status checks that let issuers infer which holders/verifiers are interacting. Any Mycelix status solution needs an explicit privacy threat model.
+
+Minimum production acceptance gates before converting this fixture into a general signature format:
+
+1. Run published W3C cryptosuite test vectors for the chosen profile, including altered proof configuration, altered payload, wrong verification method, wrong purpose, malformed public key, and malformed proof value.
+2. Resolve `issuer_id` and `key_id` through an independently governed, versioned trust registry. A record must not establish its own authority merely by carrying a public key.
+3. Record key publication, rotation, deactivation, compromise, and revocation as attributable state transitions with explicit effective-time semantics. Never accept self-asserted `signed_at` as proof that a signature predates revocation; require independent trusted timestamp/evidence or reject/quarantine the historical claim.
+4. Preserve distinct outcomes: cryptographically valid, issuer trusted for this purpose, key acceptable under current/historical status policy, claim semantically reviewed, and domain action authorized. Do not collapse them into one boolean `verified`.
+5. Keep status lookup privacy-preserving; do not require an issuer notification for every individual verification.
+
+The next production step is therefore **interop conformance and key lifecycle design**, not expanding this custom fixture's field set. The pinned synthetic key remains only an executable cryptographic test vector.
+
 ## Recommended order
 
 1. **Do not import old DNAs.** All four profiles are useful as design references; their listed Holochain tuples are older than the stable 0.7 qualification baseline documented in the main matrix.
