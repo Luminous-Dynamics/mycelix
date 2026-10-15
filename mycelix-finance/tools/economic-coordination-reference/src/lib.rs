@@ -605,7 +605,13 @@ impl CoordinationContract {
     /// delivery occurred; independent verification is a separate transition.
     pub fn record_delivery(&mut self, claim: DeliveryClaim) -> Result<(), ContractError> {
         self.require_state(Lifecycle::Committed)?;
-        if !non_empty(&claim.source_id) || !non_empty(&claim.evidence_id) {
+        // Only the named provider may assert delivery for this contract. A
+        // third-party claim must not become settleable merely because a verifier
+        // later accepts its resource/quantity fields.
+        if !non_empty(&claim.source_id)
+            || claim.source_id != self.request.provider_id
+            || !non_empty(&claim.evidence_id)
+        {
             return Err(ContractError::InvalidEvidence);
         }
         let at = claim.observed_at;
@@ -1759,4 +1765,23 @@ mod tests {
             Some(ContractError::InvalidRequest)
         );
     }
+    #[test]
+    fn delivery_claim_must_come_from_the_authorized_provider() {
+        let (mut contract, _) = committed_contract("tx-untrusted-delivery-source", 1);
+        let result = contract.record_delivery(DeliveryClaim {
+            source_id: "untrusted-observer".to_owned(),
+            evidence_id: "untrusted-claim-1".to_owned(),
+            resource_id: "repair-hours".to_owned(),
+            unit: "hour".to_owned(),
+            quantity: 1,
+            evidence_status: EvidenceStatus::Unknown,
+            observed_at: 5,
+        });
+
+        assert_eq!(result, Err(ContractError::InvalidEvidence));
+        assert_eq!(contract.lifecycle(), Lifecycle::Committed);
+        assert!(contract.delivery_claim().is_none());
+        assert!(contract.verification().is_none());
+    }
+
 }
