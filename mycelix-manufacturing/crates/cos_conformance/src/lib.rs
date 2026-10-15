@@ -62,6 +62,9 @@ pub struct Bindings {
     pub plan_consumption: bool,
     pub output_qualification: bool,
     pub foreign_recognition: bool,
+    pub external_dependency_classified: bool,
+    pub local_capability_claim: bool,
+    pub local_origin_claim: bool,
     pub itc_projection: bool,
     pub frs_projection: bool,
     pub recommendation_authorized: bool,
@@ -80,6 +83,9 @@ pub fn bind_assignment_to_observed_work(b: &mut Bindings) { b.assignment_observe
 pub fn bind_plan_to_consumption(b: &mut Bindings) { b.plan_consumption = true; }
 pub fn qualify_output(b: &mut Bindings) { b.output_qualification = true; }
 pub fn recognize_foreign_evidence(b: &mut Bindings) { b.foreign_recognition = true; }
+pub fn classify_external_dependency(b: &mut Bindings) { b.external_dependency_classified = true; }
+pub fn claim_local_capability(b: &mut Bindings) { b.local_capability_claim = true; }
+pub fn claim_local_origin(b: &mut Bindings) { b.local_origin_claim = true; }
 pub fn project_to_itc(b: &mut Bindings) { b.itc_projection = true; }
 pub fn project_to_frs(b: &mut Bindings) { b.frs_projection = true; }
 pub fn authorize_recommendation(b: &mut Bindings) { b.recommendation_authorized = true; }
@@ -110,7 +116,26 @@ pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence
         "COS-N-006" => if b.output_qualification { Decision::Accepted } else { Decision::Rejected },
         "COS-N-007" => if b.general_capability_evidence { Decision::Accepted } else { Decision::Rejected },
         "COS-N-008" => if b.failure_history_preserved { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-009" | "COS-N-013" => if b.foreign_recognition { Decision::Accepted } else { Decision::Rejected },
+        "COS-N-009" => {
+            let foreign_origin = evidence.is_some_and(|e| matches!(&e.origin, Origin::Foreign(_)));
+            if b.local_capability_claim {
+                Decision::Rejected
+            } else if foreign_origin && b.external_dependency_classified && b.foreign_recognition {
+                Decision::Accepted
+            } else {
+                Decision::Rejected
+            }
+        },
+        "COS-N-013" => {
+            let foreign_origin = evidence.is_some_and(|e| matches!(&e.origin, Origin::Foreign(_)));
+            if b.local_origin_claim {
+                Decision::Rejected
+            } else if foreign_origin && b.foreign_recognition {
+                Decision::Accepted
+            } else {
+                Decision::Rejected
+            }
+        },
         "COS-N-010" => if b.source_observation_created { Decision::Accepted } else { Decision::Rejected },
         "COS-N-011" => if b.itc_projection { Decision::Accepted } else { Decision::Rejected },
         "COS-N-012" => if b.physical_work_binding { Decision::Accepted } else { Decision::Rejected },
