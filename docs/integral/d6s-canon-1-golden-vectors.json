@@ -1,0 +1,180 @@
+{
+  "schema_version": "d6s-canon-1-golden-vectors/1",
+  "corpus_id": "D6S-CANON-1",
+  "status": "ReferenceModelOnly",
+  "basis": "docs/integral/cos-reference-node-v1.md; Mycelix issue #3334; formal companion issue #3333",
+  "vector_count": 16,
+  "decision_enum": [
+    "Accepted",
+    "Rejected",
+    "Unknown",
+    "Conflicting",
+    "Stale",
+    "Superseded",
+    "Unauthorized",
+    "Unbound"
+  ],
+  "vectors": [
+    {
+      "test_id": "COS-N-001",
+      "formal_obligations": [
+        "COS-FV-002",
+        "COS-FV-007"
+      ],
+      "input_class": "completed-work-order-without-observed-work",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Plan or completion state is not observed execution."
+    },
+    {
+      "test_id": "COS-N-002",
+      "formal_obligations": [
+        "COS-FV-002"
+      ],
+      "input_class": "planned-bom-without-consumption-evidence",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "A planned BOM is not a material-consumption event."
+    },
+    {
+      "test_id": "COS-N-003",
+      "formal_obligations": [
+        "COS-FV-003"
+      ],
+      "input_class": "skill-credential-without-current-availability",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Skill qualification does not prove current worker availability."
+    },
+    {
+      "test_id": "COS-N-004",
+      "formal_obligations": [
+        "COS-FV-003"
+      ],
+      "input_class": "machine-capability-without-current-availability",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Machine capability does not prove present availability."
+    },
+    {
+      "test_id": "COS-N-005",
+      "formal_obligations": [
+        "COS-FV-005"
+      ],
+      "input_class": "expired-calibration-for-current-qa",
+      "expected_negative": "Stale",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Expired evidence remains historical and cannot discharge a current requirement."
+    },
+    {
+      "test_id": "COS-N-006",
+      "formal_obligations": [
+        "COS-FV-004"
+      ],
+      "input_class": "useful-output-without-qualification",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Useful output is not safety or quality qualification."
+    },
+    {
+      "test_id": "COS-N-007",
+      "formal_obligations": [
+        "COS-FV-002"
+      ],
+      "input_class": "single-success-as-general-capability",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "One successful run does not establish general capability."
+    },
+    {
+      "test_id": "COS-N-008",
+      "formal_obligations": [
+        "COS-FV-006"
+      ],
+      "input_class": "later-success-erases-failure",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Later success cannot erase historical failure evidence."
+    },
+    {
+      "test_id": "COS-N-009",
+      "formal_obligations": [
+        "COS-FV-009"
+      ],
+      "input_class": "imported-dependency-as-local-capability",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Foreign or imported dependency provenance must remain explicit."
+    },
+    {
+      "test_id": "COS-N-010",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "input_class": "frs-prediction-as-source-observation",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "A derived finding is not an independently observed source fact."
+    },
+    {
+      "test_id": "COS-N-011",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "input_class": "production-event-automatically-mints-itc",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Production evidence does not automatically create a downstream ledger entry."
+    },
+    {
+      "test_id": "COS-N-012",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "input_class": "itc-entry-as-physical-work-proof",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "An ITC projection is not physical-work evidence."
+    },
+    {
+      "test_id": "COS-N-013",
+      "formal_obligations": [
+        "COS-FV-010"
+      ],
+      "input_class": "foreign-attestation-rewritten-as-local",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Recognition never rewrites original evidence provenance."
+    },
+    {
+      "test_id": "COS-N-014",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "input_class": "recommendation-without-authorized-effect",
+      "expected_negative": "Unauthorized",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "A recommendation cannot directly create an operational effect."
+    },
+    {
+      "test_id": "COS-N-015",
+      "formal_obligations": [
+        "COS-FV-004"
+      ],
+      "input_class": "distribution-as-quality-certification",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "Distribution completion does not establish product qualification."
+    },
+    {
+      "test_id": "COS-N-016",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "input_class": "throughput-claim-with-unknown-denominator",
+      "expected_negative": "Rejected",
+      "expected_positive": "Accepted",
+      "claim_ceiling": "A throughput/share assertion requires an explicit denominator."
+    }
+  ]
+}
