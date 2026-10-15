@@ -94,7 +94,7 @@ jobs:
           check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs" "4516f7d72308b05de3ea03945ac550bb4628c80d"
           check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "1d9fef4e615279e88526012593f8e0798494a0c6"
           check_blob "scripts/integral/verify_cos_conformance_report.py" "82456ec449253710210cc6780fc301fcce0ff020"
-          check_blob "scripts/integral/test_verify_cos_conformance_report.py" "PLACEHOLDER_TEST_BLOB"
+          check_blob "scripts/integral/test_verify_cos_conformance_report.py" "3ae836fc1c5dea7b85b2ffdd3a0f66665d28f2a7"
           check_blob "mycelix-manufacturing/crates/cos_conformance/src/bin/cos_report.rs" "3bfd6e8e2b80c4eec1bdffea0d0fdbd951c6394a"
           check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "2aa9d885b7b555eb1ea203560e096b06989f19f5"
           check_blob "docs/integral/cos-reference-node-v1.md" "ce0cf19ef76ad64417b26386913c803654030757"
