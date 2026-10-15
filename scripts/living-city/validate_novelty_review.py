@@ -19,6 +19,9 @@ SOURCE_PATH = ROOT / "fixtures/living-city/evidence/sources.v0.1.json"
 EVIDENCE_CLAIMS_DIR = ROOT / "fixtures/living-city/evidence/claims"
 DIMENSIONS = ("novelty", "surprise", "legibility", "usefulness", "context_fit", "feasibility", "delight")
 REQUIRED_PERSPECTIVES = {"affected_community", "accessibility_and_disability", "delivery_and_maintenance"}
+# Provisional governance tripwire, not an empirically calibrated effect-size threshold.
+DISAGREEMENT_DIMENSIONS = ("legibility", "usefulness", "context_fit", "feasibility")
+DISAGREEMENT_RANGE = 3
 GATE_KEYS = ("life_safety", "accessibility", "rights_and_consent", "environmental_and_land_feasibility", "operating_owner_and_funding", "anti_displacement", "privacy_and_data_minimization")
 
 
@@ -64,6 +67,12 @@ def median_score(review: dict, dimension: str):
     return statistics.median(values) if values else None
 
 
+def perspective_score_range(review: dict, dimension: str) -> int:
+    """Range across perspective-level aggregates; never combine or erase group profiles."""
+    values = [rating["scores"][dimension]["score"] for rating in review["ratings"]]
+    return max(values) - min(values) if len(values) > 1 else 0
+
+
 def recommend(review: dict, evidence_ids: set[str]) -> str:
     if review["status"] == "protocol_only":
         return "not_evaluated"
@@ -72,10 +81,13 @@ def recommend(review: dict, evidence_ids: set[str]) -> str:
         return "stop_or_reframe"
     if review["status"] == "contested":
         return "hold_for_evidence"
-    if review["stage"] in {"exploration", "comparison", "prototype"} and median_score(review, "surprise") >= 4 and median_score(review, "legibility") <= 2:
-        return "prototype_for_comprehension_testing"
+    # A favorable median must not conceal major divergence on decision-critical dimensions.
+    if any(perspective_score_range(review, dimension) >= DISAGREEMENT_RANGE for dimension in DISAGREEMENT_DIMENSIONS):
+        return "hold_for_evidence"
     if any(status not in {"pass", "not_applicable"} for status in gates):
         return "hold_for_evidence"
+    if review["stage"] in {"exploration", "comparison", "prototype"} and median_score(review, "surprise") >= 4 and median_score(review, "legibility") <= 2:
+        return "prototype_for_comprehension_testing"
     if review["comparison_set"]["status"] != "ready" or len(review["comparison_set"]["reference_ids"]) < 3:
         return "hold_for_evidence"
     if not review["evidence_refs"] or any(ref not in evidence_ids for ref in review["evidence_refs"]):
@@ -116,6 +128,9 @@ def semantic_errors(review: dict, concepts: dict, source_ids: set[str], evidence
             errors.append(f"unresolved source reference in comparison set {reference!r}")
     if review["status"] == "contested" and not review["dissent_summary"]:
         errors.append("contested review must preserve dissent_summary")
+    large_disagreements = [dimension for dimension in DIMENSIONS if perspective_score_range(review, dimension) >= DISAGREEMENT_RANGE]
+    if large_disagreements and not review["dissent_summary"]:
+        errors.append("large cross-perspective rating differences must be preserved in dissent_summary: " + ", ".join(large_disagreements))
     expected = recommend(review, evidence_ids)
     if review["recommendation"] != expected:
         errors.append(f"declared recommendation {review['recommendation']!r} does not match policy recommendation {expected!r}")
@@ -208,6 +223,24 @@ def main() -> None:
         fail("mutation: missing affected-community perspective incorrectly eligible")
     print("PASS mutation: missing affected-community voice blocks human pilot review")
 
+    polarized_usefulness = copy.deepcopy(synthetic)
+    polarized_usefulness["ratings"][0]["scores"]["usefulness"]["score"] = 1
+    for rating in polarized_usefulness["ratings"][1:]:
+        rating["scores"]["usefulness"]["score"] = 5
+    if median_score(polarized_usefulness, "usefulness") < 4 or perspective_score_range(polarized_usefulness, "usefulness") < DISAGREEMENT_RANGE:
+        fail("mutation setup: polarized usefulness must look favorable by median while retaining a large group split")
+    polarized_usefulness["recommendation"] = "hold_for_evidence"
+    polarized_usefulness["dissent_summary"] = ["Synthetic-only control: perspective-level usefulness differs sharply; no actual community review is represented."]
+    if recommend(polarized_usefulness, evidence_ids) != "hold_for_evidence" or semantic_errors(polarized_usefulness, concepts, source_ids, evidence_ids):
+        fail("mutation: favorable usefulness median concealed a major cross-perspective disagreement")
+    print("PASS mutation: major cross-perspective usefulness split holds despite a favorable median")
+
+    erased_disagreement = copy.deepcopy(polarized_usefulness)
+    erased_disagreement["dissent_summary"] = []
+    if not any("large cross-perspective rating differences must be preserved" in error for error in semantic_errors(erased_disagreement, concepts, source_ids, evidence_ids)):
+        fail("mutation: major cross-perspective rating difference was allowed without a preserved dissent summary")
+    print("PASS mutation: major cross-perspective difference cannot be hidden by an empty dissent summary")
+
     protocol_laundering = copy.deepcopy(plan)
     protocol_laundering["ratings"] = copy.deepcopy(synthetic["ratings"])
     if not list(validator.iter_errors(protocol_laundering)):
@@ -220,7 +253,7 @@ def main() -> None:
         fail("mutation: evaluated novelty without ready comparison set was not rejected by schema")
     print("PASS mutation: evaluated novelty requires documented comparison set")
 
-    print("PASS: 7 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
+    print("PASS: 9 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
 
 
 if __name__ == "__main__":
