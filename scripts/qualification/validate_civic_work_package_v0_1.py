@@ -182,6 +182,8 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
     try:
         scope_start = date.fromisoformat(scope_period["start_date"]) if scope_period.get("start_date") else None
         scope_end = date.fromisoformat(scope_period["end_date"]) if scope_period.get("end_date") else None
+        if scope_start and scope_end and scope_end < scope_start:
+            errors.append("CWP_E_INVALID_SCOPE_PERIOD")
     except (TypeError, ValueError):
         errors.append("CWP_E_INVALID_SCOPE_PERIOD")
 
@@ -256,6 +258,12 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
                     errors.append("CWP_E_COST_PERIOD_OUTSIDE_FUNDED_PERIOD")
         except (KeyError, TypeError, ValueError):
             errors.append("CWP_E_INVALID_FUNDED_PERIOD")
+        if scope_start is None or scope_end is None:
+            errors.append("CWP_E_FUNDED_SCOPE_PERIOD_MISSING")
+        elif funded_start is not None and funded_end is not None and (
+            funded_start > scope_start or funded_end < scope_end
+        ):
+            errors.append("CWP_E_FUNDED_PERIOD_DOES_NOT_COVER_SCOPE")
         paid_roles = [role for role in record.get("labor_plan", {}).get("roles", []) if role.get("paid") is True]
         if paid_roles and sum(item.get("amount_minor_units", 0) for item in cost_items if item.get("category") == "wages") <= 0:
             errors.append("CWP_E_PAID_ROLES_WITHOUT_POSITIVE_WAGES")
