@@ -213,6 +213,13 @@
         "type": "string",
         "minLength": 12
       }
+    },
+    "nutrient_assessments": {
+      "type": "array",
+      "description": "Optional versioned, source-scoped nutrient portfolio assessment envelopes emitted by Symtropy or synthetic contract controls. Absence is not zero nutrition supply.",
+      "items": {
+        "$ref": "#/$defs/nutrientAssessment"
+      }
     }
   },
   "$defs": {
@@ -358,6 +365,15 @@
         "rationale": {
           "type": "string",
           "minLength": 12
+        },
+        "nutrient_assessment_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "description": "References to nutrient assessment envelopes in nutrient_assessments; optional, and absence never implies zero nutrient supply."
         }
       },
       "allOf": [
@@ -1318,6 +1334,324 @@
           "minLength": 20
         }
       }
+    },
+    "nutrientAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "receipt_schema_version",
+        "receipt_origin",
+        "scenario_id",
+        "target_id",
+        "nutrient_id",
+        "nutrient_definition_ref",
+        "unit",
+        "target_scope_ref",
+        "period_ref",
+        "value_scale",
+        "total_edible_delivered_grams",
+        "supply_numerator",
+        "target_numerator",
+        "denominator",
+        "shortfall_numerator",
+        "composition_source_refs",
+        "delivery_source_refs",
+        "target_source_ref",
+        "status",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "receipt_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "receipt_schema_version": {
+          "const": "living-city-nutrient-assessment-envelope/0.1"
+        },
+        "receipt_origin": {
+          "enum": [
+            "symtropy_output",
+            "synthetic_test_only"
+          ]
+        },
+        "producer_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$",
+          "description": "Exact Symtropy source revision; required for symtropy_output receipts."
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 of the exact serialized Symtropy NutrientPortfolioAssessmentV1 payload; the hash is only a declared commitment until those bytes are independently checked."
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "nutrient_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "nutrient_definition_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "unit": {
+          "enum": [
+            "micrograms",
+            "milligrams",
+            "grams",
+            "kilocalories",
+            "kilojoules"
+          ]
+        },
+        "target_scope_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "period_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "value_scale": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "total_edible_delivered_grams": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "supply_numerator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "target_numerator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "denominator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "shortfall_numerator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "composition_source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "delivery_source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "target_source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "status": {
+          "enum": [
+            "meets_declared_minimum",
+            "shortfall_against_declared_minimum",
+            "not_assessable",
+            "blocked"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "receipt_origin": {
+                "const": "symtropy_output"
+              }
+            },
+            "required": [
+              "receipt_origin"
+            ]
+          },
+          "then": {
+            "required": [
+              "producer_revision",
+              "payload_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "receipt_origin": {
+                "const": "synthetic_test_only"
+              }
+            },
+            "required": [
+              "receipt_origin"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "producer_revision"
+                  ]
+                },
+                {
+                  "required": [
+                    "payload_sha256"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "evidence_refs": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "meets_declared_minimum",
+                  "shortfall_against_declared_minimum"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "value_scale",
+              "total_edible_delivered_grams",
+              "supply_numerator",
+              "target_numerator",
+              "denominator",
+              "shortfall_numerator"
+            ],
+            "properties": {
+              "value_scale": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "total_edible_delivered_grams": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "supply_numerator": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "target_numerator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "denominator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "shortfall_numerator": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_assessable",
+                  "blocked"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "total_edible_delivered_grams": {
+                "type": "null"
+              },
+              "supply_numerator": {
+                "type": "null"
+              },
+              "target_numerator": {
+                "type": "null"
+              },
+              "denominator": {
+                "type": "null"
+              },
+              "shortfall_numerator": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -1341,6 +1675,9 @@
             "maxItems": 0
           },
           "model_runs": {
+            "maxItems": 0
+          },
+          "nutrient_assessments": {
             "maxItems": 0
           }
         }
