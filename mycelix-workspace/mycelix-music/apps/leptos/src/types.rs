@@ -114,6 +114,8 @@ impl Song {
         &self,
         preference: Option<&str>,
     ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
+        mycelix_media_cid::validate_media_cid(&self.ipfs_cid)
+            .map_err(|_| DeliveryPlanError::InvalidContentAddress)?;
         delivery_candidates_for_preference(&self.audio_manifest(), preference)
     }
 
@@ -158,6 +160,7 @@ impl Song {
     /// Construct cover art URL using this browser's selected gateway pool.
     pub fn cover_url_with_preference(&self, preference: Option<&str>) -> Option<String> {
         let cid = self.cover_cid.as_ref()?;
+        mycelix_media_cid::validate_media_cid(cid).ok()?;
         let manifest = MediaAssetManifestV1::for_ipfs(
             format!("{}:cover", self.song_hash),
             cid.clone(),
@@ -378,6 +381,41 @@ mod tests {
 
         let decoded: AgentPubKey = rmp_serde::from_slice(&encoded).unwrap();
         assert_eq!(decoded, agent);
+    }
+
+    #[test]
+    fn media_route_rejects_parseable_text_that_is_not_in_the_supported_cid_profile() {
+        let mut song = mock_songs().remove(0);
+        // This is a CIDv1-shaped text envelope, but its identity multihash is
+        // outside the Music profile's sha2-256 allowlist.
+        song.ipfs_cid = "bafkqaaa".into();
+
+        assert_eq!(
+            song.audio_delivery_candidates_with_preference(Some("https://media.example.org")),
+            Err(DeliveryPlanError::InvalidContentAddress)
+        );
+
+        song.cover_cid = Some("bafkqaaa".into());
+        assert_eq!(
+            song.cover_url_with_preference(Some("https://media.example.org")),
+            None
+        );
+    }
+
+    #[test]
+    fn media_route_accepts_supported_cid_when_gateway_is_explicit() {
+        let mut song = mock_songs().remove(0);
+        song.ipfs_cid =
+            "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".into();
+
+        let routes = song
+            .audio_delivery_candidates_with_preference(Some("https://media.example.org"))
+            .unwrap();
+        assert_eq!(routes.len(), 1);
+        assert_eq!(
+            routes[0].url,
+            "https://media.example.org/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi"
+        );
     }
 
     #[test]
