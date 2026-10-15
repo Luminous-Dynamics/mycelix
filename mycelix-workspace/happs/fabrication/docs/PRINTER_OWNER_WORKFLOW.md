@@ -139,6 +139,12 @@ Do not start with a generic plugin bus, proprietary cloud, new slicer, or autono
 
 Secrets belong in approved local secret storage, never in print artefacts, Git, public Mycelix entries or diagnostic logs. Validate origins and certificates when network mode is used; require authentication; minimize outbound traffic; rate-limit mutation commands; and offer offline mode. Security tests must cover credential leakage, stale approval replay, unauthorized start/stop/config edits, forged capabilities, wrong-printer/artifact binding and network loss during state change.
 
+## Read-only adapter conformance fixture
+
+A draft, machine-readable failure/adversarial fixture corpus is checked in at [`docs/fixtures/printer-read-only-conformance-v1.json`](fixtures/printer-read-only-conformance-v1.json). It defines 11 cases for read-only Moonraker discovery/status, including healthy/not-ready/degraded server states, 401 authentication failure, malformed/missing data, stale status, cross-origin redirects, unknown capabilities, and attempted state-changing HTTP/JSON-RPC operations.
+
+The corpus explicitly requires mutation attempts to be denied **before the network request is sent** during P1, credentials never to reach unrelated redirects or logs, and missing/stale values to remain unknown rather than healthy/zero. The fixture file is a contract for future tests, not executable evidence that an adapter already complies. No live printer was contacted, and no runtime code/test was added in this PR.
+
 ## Acceptance gates
 
 | Gate | Must demonstrate | Explicit non-claim |
