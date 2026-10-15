@@ -107,9 +107,7 @@
       "id": "MYCEL-RECOGNITION-CLAIM-v1",
       "mycelix_instrument": "MYCEL",
       "mycelix_identity": "mycelix:MYCEL",
-      "valueflows_entities": [
-        "Claim"
-      ],
+      "valueflows_entities": [],
       "quantity_encoding": "none_attestation_only",
       "unit_profile": "not_applicable",
       "preserves_asset_identity": true,
@@ -118,7 +116,7 @@
       "preserves_correction_lineage": true,
       "source_event_is_authority_for_ledger_mutation": false,
       "maps_to_authoritative_balance": false,
-      "notes": "Represent recognition as an attributable, scoped claim/attestation. Do not project MYCEL into a transferable quantity, currency, or authoritative global reputation score.",
+      "notes": "No direct ValueFlows economic entity is asserted for MYCEL recognition in this profile: a ValueFlows Claim specifically denotes a claim for a future economic event in reciprocity for an economic event that already occurred. Export only a separately namespaced, scoped attestation (for example, a deliberately profiled W3C Verifiable Credential 2.0 representation or an explicit Mycelix extension); preserve issuer, subject, provenance, proof/verification status, validity/revocation state and privacy boundaries. Such a credential profile is a candidate, not yet selected or implemented, and verifiability does not establish truth or authorization. Do not project MYCEL into transferable quantity, currency or an authoritative global reputation score.",
       "transferability": "non_transferable_recognition_attestation"
     }
   ],
@@ -136,12 +134,13 @@
     },
     {
       "id": "VF-MYCEL-001",
-      "input_condition": "MYCEL recognition is exported as currency, transferable balance, or spendable entitlement.",
+      "input_condition": "MYCEL recognition is exported as a ValueFlows Claim, currency, transferable balance, or spendable entitlement without a specifically reviewed semantic profile.",
       "expected_disposition": "reject_semantic_loss",
       "required_guards": [
-        "MYCEL.transferability=non_transferable_recognition_attestation",
+        "MYCEL.valueflows_entities=empty_no_core_mapping",
         "MYCEL.quantity_encoding=none_attestation_only",
-        "MYCEL.maps_to_authoritative_balance=false"
+        "MYCEL.maps_to_authoritative_balance=false",
+        "MYCEL.transferability=non_transferable_recognition_attestation"
       ]
     },
     {
