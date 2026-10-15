@@ -9,6 +9,19 @@ Related work:
 - Mycelix issue #3343, *Fiat, Web3, stablecoin, mutual-credit and external-instrument interoperability fabric*.
 - Mycelix issue #3345, *Settlement rail profiles, finality algebra, and reconciliation receipts*.
 - Symthaea issue #7188 / PR #7189, *Socioeconomic interoperability laboratory*.
+- [ValueFlows 1.0 specification](https://www.valueflo.ws/specification/vfspec/) for economic intents, commitments, claims, resources, and observed events.
+
+## Interoperability boundary
+
+This crate intentionally does not serialize ValueFlows objects yet. A follow-on adapter should propose explicit mappings rather than equating similarly named records:
+
+- `NeedRequest` is a candidate projection to a ValueFlows `Intent` (request/offer), not proof that the request is authorized or that capacity exists.
+- `ObligationTerms` is a candidate commitment/contract projection with Mycelix-specific instrument, policy, and settlement metadata preserved.
+- `DeliveryClaim` is a provider assertion pending verification; it must not be emitted as an observed `EconomicEvent` simply because it was recorded.
+- A ValueFlows `Claim` has its own semantics: a claim for a future economic event in reciprocity for an event that already occurred. It is not a generic replacement for reputation, authority, an obligation, or an internal settlement receipt.
+- A verified delivery may support an `EconomicEvent` projection, while the financial settlement record remains separately bound to a defined claim/settlement profile.
+
+The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment`) from observed flows (`EconomicEvent`) and defines `Claim` separately. Any adapter must retain those distinctions and declare which fields are native, profile extensions, or unrepresented. This README records an adapter proposal, not an implemented or qualified mapping.
 
 ## What it demonstrates
 
