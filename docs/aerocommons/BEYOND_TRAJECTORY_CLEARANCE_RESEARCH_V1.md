@@ -141,6 +141,20 @@ This is not a claim that uncertainty propagation is new. Set-propagation and rea
 
 The machine-readable case [AIR-PB-015](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) is a research contract only. The current airspace toy kernel does **not** implement this uncertainty algebra or a validated reachable set.
 
+
+### 11. From multiple green checks to evidence of assurance diversity
+
+Two checkers that share a parser, transformation function, model assumptions, or generated expected outputs may reproduce the same defect. Agreement is evidence only to the extent that the verification paths are capable of failing differently and have actually been challenged. NASA's [runtime-assurance recommendations](https://ntrs.nasa.gov/citations/20220015734) explicitly warn that the monitor must itself be fit for purpose; redundant labels alone do not establish this.
+
+**New abstraction: an assurance dependency graph plus a mutation ledger.** Record who generated each expected result, which sources and libraries each checker uses, which predicates are independently derived, and where components remain shared. Then deliberately mutate the plan and its evidence: boundaries, units, clock/datum, source freshness, uncertainty dependencies, capacity totals, authority scope and serialization. Include legitimate near-boundary counter-controls so a checker cannot pass by rejecting everything.
+
+This is not a claim that N-version programming, independent verification or mutation testing are new. The research shift is to treat *the strength of the assurance argument itself* as an object that can be attacked and measured. For each hard invariant, report which checker detected each fault, which faults survived, whether detectors share the suspected faulty dependency, and what remains outside the tested domain. Do not convert these dimensions to a single “assurance score.”
+
+**Falsifiers:** a shared-library mutation fools all checkers; any injected hard-gate violation escapes without an explicit coverage gap; a crash, timeout, mismatch or disagreement is interpreted as approval; or a reported pass cannot be traced to pinned source/build/dependency identities and predeclared fault outcomes.
+
+The machine-readable case [AIR-PB-016](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) is a research contract only. The current repo does not yet implement multiple independent airspace checkers or this mutation campaign. The intended next step is not to claim the monitor is independent, but to create evidence of what it catches—and where correlated failure remains possible.
+
+
 ## Cross-project reference architecture
 
 | Layer | Primary responsibility | Project fit | Forbidden shortcut |
