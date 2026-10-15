@@ -796,7 +796,7 @@ mod tests {
             check_text(&value.to_string()).expect_err("malformed release digest must fail");
         assert!(errors
             .iter()
-            .any(|error| error.contains("DNA artifact must have a pinned 64-character SHA-256")));
+            .any(|error| error.contains("DNA artifact digest does not match")));
 
         let mut value = fixture();
         value["source_profile"]["release_evidence"]["selected_for_mycelix_integration"] =
