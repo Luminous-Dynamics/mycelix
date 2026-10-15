@@ -151,6 +151,16 @@ fn canonical_vectors_cover_each_formal_obligation() {
             record["test_id"].as_str().unwrap_or("unknown")
         );
     }
+    for record in report["records"].as_array().expect("report records") {
+        for field in ["input_evidence_classes", "refinement_subject", "claim_ceiling"] {
+            assert!(
+                record[field].as_str().is_some_and(|value| !value.trim().is_empty()),
+                "report record {} lacks required field {field}",
+                record["test_id"].as_str().unwrap_or("unknown")
+            );
+        }
+        assert_eq!(record["refinement_status"], "ReferenceModelOnly");
+    }
     assert_eq!(
         report["untested_formal_obligations"].as_array().map(Vec::len),
         Some(0),
