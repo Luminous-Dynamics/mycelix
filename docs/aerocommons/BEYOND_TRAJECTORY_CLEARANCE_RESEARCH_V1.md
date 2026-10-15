@@ -126,6 +126,21 @@ The first falsifiable experiment is a metamorphic test: hold requests, capacity,
 
 The machine-readable case [AIR-PB-014](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) is research backlog, not an implemented allocator or a claim that any particular allocation policy is fair. The goal is to make normative decisions explicit and reviewable rather than bury them inside an optimizer.
 
+
+### 10. From disconnected confidence scores to compositional uncertainty
+
+A pipeline can be wrong even when every component looks locally plausible. A sensor reports a position bound; an adapter transforms the coordinate frame; a clock adapter aligns timestamps; a tracking service propagates the state; a dynamics model predicts forward. If one boundary drops units, latency, a common datum bias, a clock offset, a correlation, or a model residual, the final “uncertainty” may be narrower than the states the evidence actually permits.
+
+**New abstraction: an uncertainty dependency graph.** Each component declares the quantity it bounds, units and coordinate/time basis, domain and validity horizon, bound/distribution semantics, source provenance, and dependencies needed by its composition rule. Transform and propagation nodes retain their contribution and assumptions. The system combines *sets/bounds or qualified probabilistic quantities according to an explicit rule*; it does not add arbitrary margins, treat every error as independent, or turn a confidence number into a guaranteed physical bound.
+
+This is not a claim that uncertainty propagation is new. Set-propagation and reachability methods have a mature research base ([Althoff, Frehse and Girard, 2021](https://doi.org/10.1146/annurev-control-071420-081941)); NASA has published trajectory conflict-detection methods using variable four-dimensional uncertainty bounds ([NASA report](https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20200000495.pdf)); and a May 2026 study examined uncertainty quantification for state-based conflict detection and resolution in U-space ([Rahman, Ellerbroek and Hoekstra, 2026](https://doi.org/10.1016/j.ress.2025.112111)). The distinct Mycelix research question is whether uncertainty metadata, dependence, validity, source lineage and failure semantics survive *every interoperability boundary* and can be independently challenged with reproducible cross-stage counterexamples.
+
+**First experiment:** build a synthetic pipeline with analytically controlled observation error, shared/common-mode datum bias, clock skew, message latency, transform error and model residual. Compare the emitted envelope against an independent set-based oracle. Deliberately remove dependence IDs, duplicate a source, reorder stages, expire evidence, and substitute an unsupported composition rule. Each mutation should either produce the same permitted envelope or reduce the result to unresolved/degraded—never silently shrink the claimed bound.
+
+**Falsifiers:** an oracle state falls outside an envelope advertised as conservative; shared errors are treated as independent without justification; a missing component defaults to zero; or a result cannot be reconstructed from exact source, transform, model, rule and checker identities. An “uncertainty budget” is not a safety guarantee unless its semantics and domain are qualified.
+
+The machine-readable case [AIR-PB-015](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) is a research contract only. The current airspace toy kernel does **not** implement this uncertainty algebra or a validated reachable set.
+
 ## Cross-project reference architecture
 
 | Layer | Primary responsibility | Project fit | Forbidden shortcut |
