@@ -54,7 +54,6 @@ pub enum ContractError {
     ArithmeticOverflow,
     AlreadyPosted,
     NonMonotonicTime,
-    DisputeUnresolved,
 }
 
 impl fmt::Display for ContractError {
@@ -613,6 +612,10 @@ impl CoordinationContract {
             || reassessment.resolver_id == self.request.provider_id
             || reassessment.resolver_id == delivery.source_id
             || Some(reassessment.resolver_id.as_str()) == previous_verifier
+            || self
+                .dispute_reassessments
+                .iter()
+                .any(|previous| previous.resolver_id == reassessment.resolver_id)
         {
             return Err(ContractError::NotIndependentVerifier);
         }
@@ -634,11 +637,9 @@ impl CoordinationContract {
         self.dispute_reassessments.push(reassessment);
         self.transition(next, at, evidence_ref);
 
-        if resolves {
-            Ok(Lifecycle::Verified)
-        } else {
-            Err(ContractError::DisputeUnresolved)
-        }
+        // The state transition and journal append succeeded in either case;
+        // return the resulting state rather than an error after mutating state.
+        Ok(next)
     }
 
     /// Posts an internal double-entry reference ledger movement after delivery
@@ -1479,7 +1480,7 @@ mod tests {
                 accepted_quantity: Some(3),
                 decided_at: 7,
             }),
-            Err(ContractError::DisputeUnresolved)
+            Ok(Lifecycle::Disputed)
         );
         assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
         assert_eq!(contract.dispute_reassessments().len(), 1);
@@ -1518,6 +1519,48 @@ mod tests {
         );
         assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
         assert!(contract.dispute_reassessments().is_empty());
+    }
+
+    #[test]
+    fn same_resolver_cannot_repeat_a_dispute_reassessment() {
+        let (mut contract, _) = committed_contract("tx-dispute-repeat-resolver", 4);
+        record_full_delivery(&mut contract, 4);
+        contract
+            .verify_delivery(VerificationResult {
+                verifier_id: "first-auditor".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                evidence_id: "first-check".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(3),
+                decided_at: 6,
+            })
+            .unwrap();
+        assert_eq!(
+            contract
+                .reassess_dispute(DisputeReassessment {
+                    resolver_id: "independent-reviewer".to_owned(),
+                    claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                    decision_evidence_id: "still-short".to_owned(),
+                    evidence_status: EvidenceStatus::Verified,
+                    accepted_quantity: Some(3),
+                    decided_at: 7,
+                })
+                .unwrap(),
+            Lifecycle::Disputed
+        );
+        assert_eq!(
+            contract.reassess_dispute(DisputeReassessment {
+                resolver_id: "independent-reviewer".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                decision_evidence_id: "same-reviewer-again".to_owned(),
+                evidence_status: EvidenceStatus::Verified,
+                accepted_quantity: Some(4),
+                decided_at: 8,
+            }),
+            Err(ContractError::NotIndependentVerifier)
+        );
+        assert_eq!(contract.dispute_reassessments().len(), 1);
+        assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
     }
 
     #[test]
