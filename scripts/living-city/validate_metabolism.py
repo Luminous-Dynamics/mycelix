@@ -837,6 +837,21 @@ def main():
         fail("positive control: valid synthetic nutrient receipt fails semantic checks: " + "; ".join(receipt_semantic))
     print("PASS control: versioned nutrient receipt resolves to a same-scope, same-period food flow and exact edible mass")
 
+    not_assessable_case = copy.deepcopy(receipt_case)
+    not_assessable_receipt = not_assessable_case["nutrient_assessments"][0]
+    not_assessable_receipt["receipt_id"] = "synthetic-missing-composition-assessment"
+    not_assessable_receipt["status"] = "not_assessable"
+    for key in ("total_edible_delivered_grams", "supply_numerator", "target_numerator", "denominator", "shortfall_numerator"):
+        not_assessable_receipt[key] = None
+    not_assessable_flow = next(
+        f for f in not_assessable_case["scenarios"][-1]["flow_records"]
+        if f["metric_id"] == "edible_food_delivered"
+    )
+    not_assessable_flow["nutrient_assessment_refs"] = ["synthetic-missing-composition-assessment"]
+    if schema_errors(validator, not_assessable_case) or semantic_errors(not_assessable_case, concepts, evidence_ids):
+        fail("positive control: missing nutrient composition must remain NotAssessable, not zero or a fabricated shortfall")
+    print("PASS control: NotAssessable nutrition receipt preserves missingness instead of turning missing composition into zero")
+
     unknown_receipt_link = copy.deepcopy(receipt_case)
     unknown_receipt_link["scenarios"][-1]["flow_records"][-1]["nutrient_assessment_refs"] = ["missing-nutrient-receipt"]
     if not any("unresolved nutrient assessment reference" in e for e in semantic_errors(unknown_receipt_link, concepts, evidence_ids)):
@@ -874,7 +889,7 @@ def main():
         fail("mutation: real Symtropy receipt without producer revision was accepted")
     print("PASS mutation: a real Symtropy receipt requires a pinned producer revision and payload hash")
 
-    print("PASS: 44 urban-metabolism/synergy controls (37 mutation/parser rejection controls and seven positive controls); no composite symtropy score or automatic authorization.")
+    print("PASS: 45 urban-metabolism/synergy controls (37 mutation/parser rejection controls and eight positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
