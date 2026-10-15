@@ -8,6 +8,8 @@
 
 Treat Living-City as a network of linked services and flows—not a set of isolated green, mobility, energy, housing, water, waste, and public-space projects. The same intervention can provide multiple benefits, impose new burdens, and depend on another system to work.
 
+The boundary must not stop at the municipal border when the relevant flows do not. Electricity, fuels, food, construction materials, spare parts, water, waste, and embodied emissions may originate in or be exported to other regions. Record those dependencies as explicit imports, exports, upstream processes, and downstream consequences; do not treat an imported resource as impact-free merely because its production occurred elsewhere. A 2025 review of 74 studies on interconnected urban metabolic networks argues that inter-city links are often overlooked, while research on material/energy flow analysis emphasizes the need for comparable, quantitative inventories. See [Metabolism of interconnected cities (2025)](https://doi.org/10.1016/j.resconrec.2025.108194) and [Material and energy flow analysis for circular-economy assessment (2024)](https://doi.org/10.1111/jiec.13504).
+
 The v0.1 contract introduces:
 
 - an explicit spatial, temporal, and process boundary plus a functional unit;
@@ -188,5 +190,7 @@ Before using a real Living-City record for a decision:
 - *Landauer principle and thermodynamics of computation* (2025 review), PMID 40345217: https://pubmed.ncbi.nlm.nih.gov/40345217/ — the bound concerns logically irreversible operations such as erasure, not an all-purpose energy floor.
 - Breed & du Plessis, *How can Green Infrastructure Uptake Improve Urban Environmental Conditions Triggered by Climate Change?*, African Journal of Landscape Architecture: https://www.ajlajournal.org/articles/how-can-green-infrastructure-uptake-improve-urban-environmental-conditions-triggered-by-climate-change — includes the Paterson Park, Johannesburg stormwater-channel naturalisation example and stresses cross-sector planning and site-appropriate planting.
 - Liu et al. (2015), *Urban Metabolism: A Review of Current Knowledge and Directions for Future Study*, DOI: https://doi.org/10.1021/acs.est.5b03060 — argues for standardized, multi-level and spatially explicit accounting.
+- *Metabolism of interconnected cities: A review of the literature and analytical framework* (2025), DOI: https://doi.org/10.1016/j.resconrec.2025.108194 — synthesizes 74 studies and underscores the relevance of inter-city linkages.
+- Papageorgiou et al. (2024), *Applying material and energy flow analysis to assess urban metabolism in the context of the circular economy*, DOI: https://doi.org/10.1111/jiec.13504 — quantitative material/energy inventories for assessing urban circular-economy strategies.
 
 The research motivates careful accounting and boundary discipline; it does not validate this schema, any proposed synergy, a specific city outcome, or a single symtropy measure.
