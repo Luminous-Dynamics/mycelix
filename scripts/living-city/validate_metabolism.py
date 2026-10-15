@@ -48,6 +48,7 @@ UNIT_BY_METRIC = {
     "stormwater_runoff": {"L", "m3"}, "stormwater_retained": {"L", "m3"},
     "material_input": {"g", "kg", "t"}, "recovered_material": {"g", "kg", "t"},
     "landfill_waste": {"g", "kg", "t"},
+    "edible_food_delivered": {"g", "kg", "t"},
     "operational_ghg": {"gCO2e", "kgCO2e", "tCO2e"},
     "embodied_ghg": {"gCO2e", "kgCO2e", "tCO2e"},
     "thermal_exposure_degree_hours": {"person_degree_hour"},
@@ -630,7 +631,49 @@ def main():
         fail("mutation: duplicate JSON object key was accepted with ambiguous last-key-wins behavior")
     print("PASS mutation: duplicate JSON object keys are rejected at the parser boundary")
 
-    print("PASS: 32 urban-metabolism/synergy controls (27 mutation/parser rejection controls and five positive controls); no composite symtropy score or automatic authorization.")
+    food_delivery_case = copy.deepcopy(synthetic)
+    food_values = [100, 140, 125, 180]  # Synthetic kg, not a crop/yield forecast.
+    for scenario, value in zip(food_delivery_case["scenarios"], food_values):
+        scenario["flow_records"].append({
+            "flow_id": scenario["scenario_id"] + "-edible-food",
+            "metric_id": "edible_food_delivered",
+            "value": value,
+            "unit": "kg",
+            "evidence_kind": "synthetic_only",
+            "life_cycle_stage": "operational",
+            "evidence_refs": [],
+            "rationale": "Synthetic edible food delivered solely for scenario-contract tests.",
+            "uncertainty": {
+                "lower_bound": value - 5,
+                "upper_bound": value + 5,
+                "method": "Synthetic ±5 kg interval for arithmetic testing only; not a measured uncertainty."
+            }
+        })
+    food_item = food_delivery_case["interactions"][0]
+    food_item["outcome_metric"] = "edible_food_delivered"
+    food_item["unit"] = "kg"
+    food_item["direction"] = "higher_is_better"
+    food_item["reported_interaction_delta"] = 15
+    food_item["tolerance"] = 0
+    food_item["uncertainty"]["lower_bound"] = -5
+    food_item["uncertainty"]["upper_bound"] = 35
+    food_item["interpreted_result"] = "inconclusive"
+    food_schema_errors = schema_errors(validator, food_delivery_case)
+    if food_schema_errors:
+        fail("positive control: edible food delivery scenario fails schema: " + describe(food_schema_errors))
+    food_semantic_errors = semantic_errors(food_delivery_case, concepts, evidence_ids)
+    if food_semantic_errors:
+        fail("positive control: edible food delivery counterfactual is not valid: " + "; ".join(food_semantic_errors))
+    print("PASS control: food-delivery interaction is evaluated across all four counterfactuals; uncertainty spanning zero stays inconclusive")
+
+    invalid_food_unit = copy.deepcopy(food_delivery_case)
+    invalid_food_flow = next(f for f in invalid_food_unit["scenarios"][0]["flow_records"] if f["metric_id"] == "edible_food_delivered")
+    invalid_food_flow["unit"] = "Wh"
+    if not schema_errors(validator, invalid_food_unit):
+        fail("mutation: edible food delivered with an energy unit was accepted")
+    print("PASS mutation: edible food delivery requires a mass unit")
+
+    print("PASS: 34 urban-metabolism/synergy controls (28 mutation/parser rejection controls and six positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
