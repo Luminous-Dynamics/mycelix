@@ -19,6 +19,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Replays provider-local reservation updates by explicit sequence, detecting gaps, forks, broken predecessor links, time reversal, changed reservation semantics, and illegal state transitions.
 - Reconciles versioned airspace-constraint updates, including activation, changed volumes, withdrawal, exact retransmission, contradictory digest reuse, source identity changes, and stale/partitioned views.
 - Screens current flight-intent envelopes against active 4D axis-aligned restriction volumes with explicit coordinate frame, vertical datum, time basis and validity.
+- Documents a proposed geographic interchange boundary in [AIRSPACE_GEOMETRY_INTEROPERABILITY_PROFILE_V1.md](../../docs/aerocommons/AIRSPACE_GEOMETRY_INTEROPERABILITY_PROFILE_V1.md); AIXM/OGC mappings are future adapters, not implemented or qualified by this crate.
 - Uses continuous-time slab intersection for constant-velocity trajectories against expanded axis-aligned 4D restriction boxes; no temporal point samples are used to discover intersections.
 - Uses a bounded synthetic uncertainty horizon to expand the box by velocity-scaled guard margins. This reduces dependence on sample rate but is not a validated flight uncertainty or reachable-set model.
 - Reports known impacts as `reassessment_required` even when the input view is stale, and uses `degraded` rather than no-impact when no hit is observed in an incomplete view.
@@ -57,7 +58,7 @@ The snapshot evaluator accepts one asserted snapshot. The separate event evaluat
 
 ## Important limitations
 
-This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model provider-network replication, signatures/identity authentication, cross-provider causal ordering or partition merge, reservation supersession, three-dimensional polygon/polyhedron geometry, time-varying wind/weather, terrain, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
+This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. Geographic polygon/polyhedron intersection and authoritative AIXM / OGC Moving Features adapters remain specified as future work in the linked interoperability profile, not implemented or qualified here. it does not model provider-network replication, signatures/identity authentication, cross-provider causal ordering or partition merge, reservation supersession, three-dimensional polygon/polyhedron geometry, time-varying wind/weather, terrain, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
 
 The trajectories are straight and constant-velocity. The conservative margin is based on relative velocity and the maximum sampling interval; it is useful for testing the contract but is not a formally validated reachability analysis. The coordinate frame and separation thresholds are synthetic fixture values. They are not official separation minima and must never be reused for live operations.
 

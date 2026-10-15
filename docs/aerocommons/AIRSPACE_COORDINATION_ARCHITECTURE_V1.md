@@ -79,6 +79,8 @@ A flight intent should not be represented as a 2D polyline or a bare sequence of
 
 Use a **trajectory tube**: a time-indexed intended trajectory plus a qualified uncertainty envelope and capability bounds. The first schema must define the meaning of every bound, its units, frame and validity—not invent universal separation minima. Safety thresholds and decision rules must reference the applicable authority-, operation- and aircraft-specific source.
 
+The proposed geographic interchange boundary is defined in [AIRSPACE_GEOMETRY_INTEROPERABILITY_PROFILE_V1.md](AIRSPACE_GEOMETRY_INTEROPERABILITY_PROFILE_V1.md). It treats AIXM as a source format for authoritative aeronautical information where adopted, and OGC Moving Features as a possible trajectory-exchange model—not as a universal authority or safety protocol. The present Rust harness still evaluates synthetic local-frame axis-aligned boxes only; the geographic profile is specified but not implemented or qualified.
+
 Altitude bands and corridors can be useful capacity tools, but must not be treated as universal. Reserve room for maneuvering and contingency paths; evaluate cross-flow, climb/descent and degraded-navigation cases. As the NASA flight evaluation highlights, overly tight corridors can remove options precisely when a conflict needs to be resolved.
 
 ## 6. Layered, federated architecture
@@ -248,6 +250,11 @@ Safety gates are non-compensatory: better throughput or lower cost cannot offset
 9. SACAA, [Unmanned Aircraft Systems](https://www.caa.co.za/industry-information/uas/).
 10. South African Government, [Civil Aviation Regulations: 36th Amendment (2026)](https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english).
 11. ATNS, [South African AIP ENR 1.9: Air Traffic Flow Management Procedures (edition valid 15 October 2022; historical reference)](https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html).
+12. EUROCONTROL/AIXM, [AIXM 5.1.1 specification: data model, XML schema and temporality concept](https://aixm.aero/page/aixm-511-specification).
+13. OGC, [Moving Features Encoding Extension — JSON, version 1.0](https://docs.ogc.org/is/19-045r3/19-045r3.html).
+14. OGC, [OGC API — Moving Features, Part 1: Core, version 1.0](https://www.ogc.org/standards/ogc-api-moving-features/).
+15. IETF, [RFC 7946: The GeoJSON Format](https://www.rfc-editor.org/rfc/rfc7946/), including WGS 84 coordinate semantics and antimeridian interoperability guidance.
+16. OGC, [Simple Feature Access — Part 1: Common Architecture](https://www.ogc.org/standards/sfa/).
 
 ## Change discipline
 
