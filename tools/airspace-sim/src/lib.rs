@@ -519,6 +519,29 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
             vec!["scenario must contain at least one flight intent".to_owned()]);
     }
 
+    // Flight IDs are the attribution keys in conflict reports. Never perform
+    // pairwise evaluation when two input records would be indistinguishable.
+    let mut seen_flight_ids = BTreeMap::<&str, ()>::new();
+    for flight in &scenario.flights {
+        if flight.flight_id.trim().is_empty() {
+            continue; // The existing qualification loop below rejects empty IDs.
+        }
+        if seen_flight_ids.insert(flight.flight_id.as_str(), ()).is_some() {
+            return report(
+                scenario,
+                Classification::Reject,
+                scenario.flights.len(),
+                pair_count(scenario.flights.len()),
+                0,
+                Vec::new(),
+                vec![format!(
+                    "duplicate flight_id '{}' makes pairwise conflict attribution ambiguous",
+                    flight.flight_id
+                )],
+            );
+        }
+    }
+
     if scenario.flights.iter().any(|flight| !flight.time_qualified) {
         return report(scenario, Classification::Unresolved, scenario.flights.len(), pair_count(scenario.flights.len()), 0,
             Vec::new(), vec!["at least one flight has an unqualified time basis".to_owned()]);
@@ -1787,6 +1810,23 @@ mod tests {
     }
 
 
+
+    #[test]
+    fn duplicate_trajectory_flight_identity_is_rejected_before_pairwise_checks() {
+        let scenario = fixture_set()
+            .scenarios
+            .into_iter()
+            .find(|scenario| scenario.scenario_id == "duplicate_flight_identity_rejected")
+            .expect("duplicate flight identity regression fixture exists");
+
+        let report = evaluate_scenario(&scenario);
+        assert_eq!(report.classification, Classification::Reject);
+        assert_eq!(report.pair_sample_checks, 0);
+        assert!(
+            report.reasons.iter().any(|reason| reason.contains("duplicate flight_id")),
+            "expected explicit duplicate-identity reason: {report:#?}"
+        );
+    }
 
     fn dynamic_constraint_fixture(case_id: &str) -> DynamicConstraintCase {
         fixture_set()
