@@ -25,6 +25,7 @@ on:
       - "crates/mycelix-leptos-ui/**"
       - "mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**"
       - "mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**"
+      - "crates/mycelix-media-cid/**"
 
 permissions:
   contents: read
