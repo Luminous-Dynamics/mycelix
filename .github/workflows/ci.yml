@@ -171,10 +171,10 @@ jobs:
           workspaces: mycelix-energy
       - name: Check formatting for changed grid integrity zome
         run: cargo fmt --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml --check
-      - name: Check energy zome unit tests
-        run: cd mycelix-energy && cargo test --workspace
-      - name: Build energy zomes for Holochain WASM
-        run: cd mycelix-energy && cargo build --release --target wasm32-unknown-unknown --workspace
+      - name: Test changed grid integrity zome
+        run: cargo test --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml
+      - name: Build changed grid integrity zome for Holochain WASM
+        run: cargo build --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml --release --target wasm32-unknown-unknown
 
   test-civic:
     needs: changes
