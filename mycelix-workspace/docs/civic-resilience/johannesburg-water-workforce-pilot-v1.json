@@ -824,13 +824,12 @@
       "checked_on": "2026-10-15",
       "observation_status": "OfficialFilteredTablePageObserved",
       "selected_municipality": "City of Johannesburg",
-      "selected_financial_year": "NotObserved",
-      "selected_period": "NotObserved",
-      "selected_amount_type": "NotSelectedInObservedView",
-      "visible_page_message": "This year contains no data for the selected amount type.",
+      "selected_financial_year": "NotExposedInStaticTextCapture",
+      "selected_period": "NotExposedInStaticTextCapture",
+      "selected_amount_type": "NotExposedInStaticTextCapture",
       "numeric_amount_recorded": false,
       "amount_claimed": false,
-      "interpretation": "The observed view did not specify the amount type or a year/period for a numeric record. The page message is not a measured zero, not a complete-spend assertion, and not evidence that municipal funding exists or is absent.",
+      "interpretation": "The observed artifact is a static text capture, not a fully rendered interactive table. Client-side logic can supply a year and amount type even when those filters are absent from the captured URL, but the selected controls and resulting numeric cells were not captured. This is render-incomplete evidence, not a measured zero, not proof of spend/no spend, and not evidence of pilot funding.",
       "allowed_use": "Record the query as incomplete and specify required filters before using an aggregate figure.",
       "prohibited_inference": [
         "Current actual spend equals zero",
@@ -838,7 +837,14 @@
         "The municipality has money available for the proposed pilot",
         "Budgeted, actual, audited actual and contract value are interchangeable",
         "This table identifies an open tender or a role-specific payer"
-      ]
+      ],
+      "page_text_snapshot_kind": "StaticTextCapture;ClientSideJavascriptNotExecutedByReader",
+      "client_rendered_selection_state_observed": false,
+      "rendered_data_cells_observed": false,
+      "visible_page_message_in_static_text_capture": "This year contains no data for the selected amount type.",
+      "rendering_limit_source_url": "https://github.com/OpenUpSA/municipal-data/blob/e841a4539fcb0933cc761434fe69c93de0755c66/municipal_finance/static/javascript/table.js",
+      "rendering_limit_observation_checked_on": "2026-10-15",
+      "client_selection_behavior_as_read": "The JavaScript preloads available financial years and amount types, chooses a year/type from available data when the URL does not pin them, and writes filter state to query parameters. The static text capture did not expose the resulting interactive selection or numeric cells."
     }
   ],
   "event_model": {
@@ -1209,7 +1215,7 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "e792ea14df0d1f361915f41a62e915ee717077c2",
+    "git_blob_sha": "e86e28d0e0356eb52b2e1f9427bd9cc497ee5169",
     "probe_count": 36,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",

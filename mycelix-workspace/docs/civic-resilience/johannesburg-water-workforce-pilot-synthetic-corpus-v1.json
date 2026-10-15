@@ -884,14 +884,16 @@
     {
       "id": "municipal-repairs-view-without-amount-type-is-not-zero",
       "category": "FinanceDataIntegrity",
-      "scenario": "The official City of Johannesburg repairs-and-maintenance table is opened with the municipality filter, but no financial year, period or amount type is selected. The page says 'This year contains no data for the selected amount type.' An adapter converts the absence of a displayed numeric cell to a zero-spend assertion.",
+      "scenario": "A static text capture of the official City of Johannesburg repairs-and-maintenance table includes a generic no-data message but does not expose the interactive client-side year, period, amount-type selection or numeric cells. An adapter treats the incomplete capture as a measured zero-spend assertion.",
       "input": {
         "municipality": "JHB",
-        "financial_year": null,
-        "financial_period": null,
-        "amount_type": null,
-        "numeric_amount_present": false,
-        "page_notice_present": true
+        "url_has_municipality_filter": true,
+        "financial_year_exposed_in_static_capture": false,
+        "financial_period_exposed_in_static_capture": false,
+        "amount_type_exposed_in_static_capture": false,
+        "client_side_render_executed_by_capture": false,
+        "numeric_amount_present_in_capture": false,
+        "generic_message_present": true
       },
       "expected": {
         "automated_external_write": false,
@@ -906,8 +908,9 @@
         "source_status": "FinanceFiltersIncomplete"
       },
       "guards": [
-        "AmountTypeIsRequired",
-        "FinancialYearAndPeriodMustBePinned",
+        "StaticTextCaptureIsNotRenderedTableState",
+        "ClientSideDefaultsMustBeCapturedForReproducibility",
+        "AmountTypeAndPeriodMustBePinnedForValueClaims",
         "NoDisplayedCellIsNotMeasuredZero",
         "AggregateSpendIsNotTenderFunding"
       ]

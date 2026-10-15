@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "e792ea14df0d1f361915f41a62e915ee717077c2"
+EXPECTED_CORPUS_BLOB_SHA = "e86e28d0e0356eb52b2e1f9427bd9cc497ee5169"
 EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -104,7 +104,7 @@ REQUIRED_GUARDS = {
     "pikitup-deadline-without-timezone-is-not-open-verified": {"TenderDeadlineNeedsTimezone", "FuturePublishedDeadlineAloneNotFullOpenGate", "CheckLatestAddendaBeforeOpenStatus", "NoAutomaticStagePromotion"},
     "cidb-tender-requirement-is-not-cooperative-job-eligibility": {"SpecificTenderRequirementsControl", "DoNotAssumeCooperativeEligibility", "ContractScopeDoesNotEqualRoleBudget", "NoPositionBeforeFullFunding"},
     "tender-document-fee-or-bribe-solicitation-is-not-official": {"TenderDocumentsAndCsdRegistrationAreFree", "UseIssuerPublishedChannels", "NoBribeOrPreferentialTreatment", "ReportThroughOfficialChannelOnly", "AllegationIsNotAdjudicatedFinding"},
-    "municipal-repairs-view-without-amount-type-is-not-zero": {"AmountTypeIsRequired", "FinancialYearAndPeriodMustBePinned", "NoDisplayedCellIsNotMeasuredZero", "AggregateSpendIsNotTenderFunding"},
+    "municipal-repairs-view-without-amount-type-is-not-zero": {"StaticTextCaptureIsNotRenderedTableState", "ClientSideDefaultsMustBeCapturedForReproducibility", "AmountTypeAndPeriodMustBePinnedForValueClaims", "NoDisplayedCellIsNotMeasuredZero", "AggregateSpendIsNotTenderFunding"},
     "aggregate-repairs-spend-is-not-role-funding": {"AggregateFinanceIsNotTenderEvidence", "ContractValueIsNotRoleBudget", "NoPositionBeforeFullFunding", "Section71FunctionAndPeriodMustBePinned"},
     "latest-api-quarter-is-not-report-period": {"APIAndSection71ReportSnapshotsMayDiffer", "ReportingPeriodAndSnapshotMustMatch", "AmountTypeAndPeriodMustBePinned", "NoAggregateFundingClaim"},
     "r-thousands-values-are-not-rands": {"ReportedUnitMustTravelWithValue", "DoNotPresentThousandsAsRands", "NormalizeBeforeCrossSourceCompare", "NoFundingInferenceFromUnits"},
@@ -398,10 +398,14 @@ def validate() -> None:
     if "must not be substituted for a pinned financial year/period/amount type" not in bulk_meta.get("interpretation", ""):
         fail("bulk snapshot timestamp must remain distinct from reporting period")
     finance_view = source_by_id["JHB-REPMAINT-V2-VIEW-1"]
-    if finance_view.get("checked_on") != "2026-10-15" or finance_view.get("selected_amount_type") != "NotSelectedInObservedView" or finance_view.get("numeric_amount_recorded") is not False:
-        fail("Johannesburg repairs-finance view must preserve missing filter and no-number observation")
+    if finance_view.get("checked_on") != "2026-10-15" or finance_view.get("selected_amount_type") != "NotExposedInStaticTextCapture" or finance_view.get("numeric_amount_recorded") is not False:
+        fail("Johannesburg finance view must preserve static-capture limits and no-number observation")
+    if finance_view.get("page_text_snapshot_kind") != "StaticTextCapture;ClientSideJavascriptNotExecutedByReader" or finance_view.get("client_rendered_selection_state_observed") is not False or finance_view.get("rendered_data_cells_observed") is not False:
+        fail("static page text must not be presented as the rendered client-side filter/table state")
     if "not a measured zero" not in finance_view.get("interpretation", "").lower():
-        fail("unselected financial view must not be treated as measured zero")
+        fail("unqualified static finance capture must not be treated as measured zero")
+    if "client-side logic can supply a year and amount type" not in finance_view.get("interpretation", "").lower():
+        fail("finance view must preserve the client-side default-selection limitation")
     if procurement.get("finance_context_source_ids") != ["SA-MUNI-FIN-API-1", "SA-TREASURY-REPMAINT-Q2-2025-26-1", "JHB-REPMAINT-V2-VIEW-1"]:
         fail("aggregate municipal finance context source pin drift")
     q2_report = source_by_id["SA-TREASURY-REPMAINT-Q2-2025-26-1"]
