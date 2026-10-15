@@ -1900,6 +1900,117 @@ mod tests {
     }
 
     #[test]
+    fn seeded_random_coarse_sampling_never_misses_integer_time_conflicts() {
+        fn draw(seed: &mut u64) -> u64 {
+            *seed = seed.wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            *seed
+        }
+
+        fn between(seed: &mut u64, low: i64, high: i64) -> i64 {
+            let width = u64::try_from(high - low + 1).expect("positive random range");
+            low + i64::try_from(draw(seed) % width).expect("bounded draw")
+        }
+
+        let set = fixture_set();
+        let template = set.scenarios
+            .iter()
+            .find(|scenario| scenario.scenario_id == "clear_separation")
+            .expect("clear template exists");
+        let mut seed = 0xA17C_0A57_2026_1015_u64;
+        let mut oracle_conflicts = 0_usize;
+        let mut oracle_clear = 0_usize;
+
+        // A deterministic, dependency-free randomized regression corpus. The
+        // oracle inspects every integer second with the unexpanded thresholds;
+        // the evaluator may conservatively report additional conflicts.
+        for case_index in 0..512 {
+            let mut scenario = template.clone();
+            scenario.scenario_id = format!("seeded_integer_oracle_{case_index:04}");
+            scenario.window_start_s = 0;
+            scenario.window_end_s = 30;
+            scenario.policy.sample_step_s = between(&mut seed, 2, 8);
+            scenario.policy.horizontal_separation_mm =
+                u64::try_from(between(&mut seed, 500, 3_500)).expect("positive threshold");
+            scenario.policy.vertical_separation_mm =
+                u64::try_from(between(&mut seed, 500, 3_500)).expect("positive threshold");
+
+            let mut flights: Vec<FlightIntent> =
+                template.flights.iter().take(2).cloned().collect();
+            for (index, flight) in flights.iter_mut().enumerate() {
+                flight.flight_id = format!("P{index}");
+                flight.valid_from_s = 0;
+                flight.valid_until_s = 30;
+                flight.position_at_valid_from_mm = PositionMm {
+                    x: between(&mut seed, -10_000, 10_000),
+                    y: between(&mut seed, -10_000, 10_000),
+                    z: between(&mut seed, 80_000, 120_000),
+                };
+                flight.velocity_mm_s = VelocityMmS {
+                    x: between(&mut seed, -500, 500),
+                    y: between(&mut seed, -500, 500),
+                    z: between(&mut seed, -100, 100),
+                };
+                flight.horizontal_uncertainty_mm = 0;
+                flight.vertical_uncertainty_mm = 0;
+                flight.time_qualified = true;
+                flight.state = IntentState::Activated;
+                flight.priority = FlightPriority::Routine;
+            }
+            scenario.flights = flights;
+
+            let left = &scenario.flights[0];
+            let right = &scenario.flights[1];
+            let horizontal_limit = i128::from(scenario.policy.horizontal_separation_mm);
+            let vertical_limit = i128::from(scenario.policy.vertical_separation_mm);
+            let mut oracle_conflict = false;
+
+            for time_s in scenario.window_start_s..=scenario.window_end_s {
+                let left_elapsed = i128::from(time_s - left.valid_from_s);
+                let right_elapsed = i128::from(time_s - right.valid_from_s);
+                let left_x = i128::from(left.position_at_valid_from_mm.x)
+                    + i128::from(left.velocity_mm_s.x) * left_elapsed;
+                let left_y = i128::from(left.position_at_valid_from_mm.y)
+                    + i128::from(left.velocity_mm_s.y) * left_elapsed;
+                let left_z = i128::from(left.position_at_valid_from_mm.z)
+                    + i128::from(left.velocity_mm_s.z) * left_elapsed;
+                let right_x = i128::from(right.position_at_valid_from_mm.x)
+                    + i128::from(right.velocity_mm_s.x) * right_elapsed;
+                let right_y = i128::from(right.position_at_valid_from_mm.y)
+                    + i128::from(right.velocity_mm_s.y) * right_elapsed;
+                let right_z = i128::from(right.position_at_valid_from_mm.z)
+                    + i128::from(right.velocity_mm_s.z) * right_elapsed;
+                let dx = left_x - right_x;
+                let dy = left_y - right_y;
+                let dz = (left_z - right_z).abs();
+
+                if dx * dx + dy * dy <= horizontal_limit * horizontal_limit
+                    && dz <= vertical_limit
+                {
+                    oracle_conflict = true;
+                    break;
+                }
+            }
+
+            let report = evaluate_scenario(&scenario);
+            if oracle_conflict {
+                oracle_conflicts += 1;
+                assert_eq!(
+                    report.classification,
+                    Classification::Conflict,
+                    "coarse sampling missed an integer-time conflict in {}: {report:#?}",
+                    scenario.scenario_id
+                );
+            } else {
+                oracle_clear += 1;
+            }
+        }
+
+        assert!(oracle_conflicts > 0, "seed must exercise conflict cases");
+        assert!(oracle_clear > 0, "seed must exercise no-conflict integer oracles");
+    }
+
+    #[test]
     fn duplicate_trajectory_flight_identity_is_rejected_before_pairwise_checks() {
         let scenario = fixture_set()
             .scenarios
