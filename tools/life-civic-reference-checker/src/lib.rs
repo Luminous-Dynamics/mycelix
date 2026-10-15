@@ -1013,7 +1013,12 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             .as_array()
             .unwrap()
             .iter()
-            .any(|claim| claim.as_str().unwrap().contains("automatically withdraws"))
+            .any(|claim| {
+                claim
+                    .as_str()
+                    .unwrap()
+                    .contains("withdrawn solely because a replacement is being drafted")
+            })
     );
 
     let registry = by_id
