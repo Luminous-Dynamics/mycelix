@@ -98,7 +98,7 @@ For one outcome metric (Y) under comparable boundaries, units, periods, and func
 
 `interaction = Y(A+B) - Y(A) - Y(B) + Y(0)`
 
-where `Y(0)` is the baseline, `Y(A)` and `Y(B)` are single-intervention cases, and `Y(A+B)` is the combined case. The validator checks the arithmetic and unit consistency; it does not establish causal identification by itself. Real estimates still need defensible study design, evidence, uncertainty analysis, and attention to weather, demand, and other confounders.
+where `Y(0)` is the baseline, `Y(A)` and `Y(B)` are single-intervention cases, and `Y(A+B)` is the combined case. The validator checks the arithmetic and unit consistency; it does not establish causal identification by itself. Real estimates still need defensible study design, evidence, uncertainty analysis, and attention to weather, demand, and other confounders. Outcome values, reported deltas, tolerances, and interval endpoints are parsed from JSON decimal literals without first converting them to binary floating point, then compared with exact rational arithmetic. This matters even for ordinary-looking decimal values: at zero tolerance, a difference-in-differences delta of `0.4` must match exactly, while `0.4000000000000001` must be rejected. Tolerance remains an explicit domain allowance; it is not an excuse for binary-rounding error.
 
 For metrics where lower is better, a negative interaction can indicate beneficial synergy; for metrics where higher is better, the sign reverses. If the uncertainty interval includes zero, report the result as inconclusive rather than announcing synergy. Keep the outcome's direction and uncertainty attached to the result.
 
