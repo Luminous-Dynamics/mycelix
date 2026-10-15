@@ -48,7 +48,8 @@
         "https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md",
         "https://www.valueflo.ws/specification/all_vf/",
         "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
-        "https://www.valueflo.ws/introduction/status/"
+        "https://www.valueflo.ws/introduction/status/",
+        "https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/"
       ],
       "useful_capability": "ValueFlows/REA vocabulary and Holochain-backed economic coordination.",
       "mycelix_domains": [
@@ -62,7 +63,8 @@
       "contract": [
         "Map resources, commitments, intents, claims and economic events without treating them as interchangeable.",
         "Preserve exact asset identity, integer quantity and units, issuer/community scope, provenance and correction lineage.",
-        "Imported events do not authorize SAP/TEND mutation or settle an obligation by themselves."
+        "Imported events do not authorize SAP/TEND mutation or settle an obligation by themselves.",
+        "Do not map a MYCEL recognition attestation to ValueFlows Claim unless the record actually has Claim's reciprocal future-economic-event semantics; use a separately profiled attestation/credential or explicit namespaced extension."
       ],
       "blocking_evidence": [
         "Verify the exact hREA DNA/hApp bytes against the pinned release digests in CI; review the Apache-2.0 license and approve any code reuse explicitly.",
@@ -506,7 +508,13 @@
       "id": "VF-MYCEL-002",
       "input_condition": "MYCEL recognition is exported as a transferable economic balance.",
       "expected_disposition": "reject_semantic_loss",
-      "reason": "Recognition/reputation is not transferable money."
+      "reason": "Recognition/reputation is not transferable money; additionally, ValueFlows Claim has a specific reciprocal economic-obligation meaning."
+    },
+    {
+      "id": "VF-MYCEL-CLAIM-001",
+      "input_condition": "MYCEL recognition/attestation is placed in a ValueFlows Claim without evidence it represents a future reciprocal economic event.",
+      "expected_disposition": "reject_semantic_loss",
+      "reason": "ValueFlows Claim specifically denotes a claim for a future economic event in reciprocity for an economic event already occurred; use a separately scoped attestation/credential profile or document exact semantic fit."
     },
     {
       "id": "VF-TEND-003",
@@ -611,6 +619,13 @@
       "url": "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
       "observed_on": "2026-10-15",
       "use": "Release claims VF 1.0 + Holochain 0.7.x and provides checksummed DNA/hApp assets; evidence only, not proof of Mycelix integration."
+    },
+    {
+      "id": "w3c-vc-data-model-2.0",
+      "type": "w3c_recommendation",
+      "url": "https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/",
+      "observed_on": "2026-10-15",
+      "use": "Candidate data model for attributable attestations; issuer and credential subject are mandatory, and verifiability does not itself make claims true or authorize action."
     }
   ],
   "source_revisions_policy": "Moving branch URLs are discovery links only. source_revisions pins the exact source commit or release commit inspected. observed_on is the latest matrix refresh, not a claim that every upstream project was re-queried on that date; each observed_maturity_and_compatibility.checked_on is the per-project evidence date. Compatibility/behavior statements remain source-reported until separately reproduced."
