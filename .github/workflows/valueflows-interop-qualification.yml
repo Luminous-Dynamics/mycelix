@@ -32,10 +32,16 @@ jobs:
           # pull_request defaults to the synthetic merge ref. Qualify the PR head itself.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Install Rust
+      - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # immutable commit inspected 2026-10-09
         with:
+          toolchain: 1.96.0
           components: rustfmt
+
+      - name: Assert Rust toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
 
       - name: Verify pinned hREA release artifact digests
         shell: bash
@@ -54,10 +60,10 @@ jobs:
             "$RUNNER_TEMP/hrea.happ" | sha256sum --check --strict
 
       - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml -- --check
+        run: cargo fmt --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml --locked -- --check
 
       - name: Run contract and adversarial tests
-        run: cargo test --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
+        run: cargo test --locked --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
 
       - name: Validate checked-in corpus with executable
-        run: cargo run --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
+        run: cargo run --locked --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
