@@ -26,7 +26,7 @@
     "envelope_digest_scope": "canonicalized_envelope_preimage",
     "payload_digest_verification_implemented": true,
     "envelope_digest_verification_implemented": true,
-    "note": "The checker rejects duplicate member names and recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage. It verifies an Ed25519 signature over a domain-separated canonical preimage using a pinned synthetic test-key binding only. The signed_at string is self-asserted and is not a trusted timestamp; production issuer registry and key revocation infrastructure are not implemented. Signature verification does not establish source-file correspondence, truth, or domain authority. Large precise quantities must be represented as strings, not JSON numbers."
+    "note": "The checker rejects duplicate member names and recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage. Ed25519 signature verification is implemented for one pinned synthetic test-key binding only. The signed_at string is self-asserted and is not a trusted timestamp; production issuer registry and key revocation infrastructure are not implemented. Signature verification does not establish source-file correspondence, truth, or domain authority. Large precise quantities must be represented as strings, not JSON numbers."
   },
   "example_observation": {
     "source_app": "mycelix.synthetic-fixture",
@@ -195,7 +195,7 @@
     "production_issuer_registry_implemented": false,
     "key_revocation_registry_implemented": false,
     "signed_at_is_trusted_timestamp": false,
-    "claim_ceiling": "Signature verifies possession of the private key matching the pinned synthetic test key over a domain-separated message only; it does not establish truth, independent corroboration, or grant domain authority."
+    "claim_ceiling": "Signature verification confirms the synthetic key holder signed a domain-separated message; it does not establish truth, independent corroboration, and does not grant domain authority."
   },
   "signature": {
     "profile": "mycelix.provenance-envelope-signature/v1",
