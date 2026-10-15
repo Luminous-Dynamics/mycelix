@@ -1292,7 +1292,7 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
         "latest GPSJS control must keep incident count distinct from affected-household count"
     );
     assert_eq!(
-        corpus["version"], "0.4.0",
+        corpus["version"], "0.5.0",
         "time-series boundary must be part of the versioned current corpus"
     );
 }
@@ -1321,6 +1321,58 @@ fn gpsjs_precision_negative_controls_remain_present() {
     assert!(rationale.contains("85.57%"));
     assert!(rationale.contains("76.97%"));
     assert!(rationale.contains("80% minimum-acceptable"));
+
+    let quality = precision["survey_quality"]
+        .as_object()
+        .expect("survey quality diagnostics must be structured");
+    assert_eq!(quality["response_rate_percent"]["national"].as_f64(), Some(85.57));
+    assert_eq!(quality["response_rate_percent"]["gauteng"].as_f64(), Some(76.97));
+    assert_eq!(
+        quality["response_rate_percent"]["city_of_johannesburg"].as_f64(),
+        Some(73.72)
+    );
+    assert_eq!(
+        quality["response_rate_percent"]["city_of_tshwane"].as_f64(),
+        Some(67.54)
+    );
+    assert_eq!(
+        quality["geographic_areas_below_80_percent_minimum_acceptable"],
+        4
+    );
+    assert_eq!(
+        quality["threshold_interpretation"],
+        "response_rate_quality_diagnostic_not_significance_test"
+    );
+    assert_eq!(
+        quality["requires_estimate_specific_precision_for_significance"],
+        true
+    );
+    assert_eq!(
+        quality["requires_denominator_and_indicator_compatibility"],
+        true
+    );
+    assert_eq!(
+        quality["requires_geographic_and_time_scope_match"],
+        true
+    );
+    assert_eq!(
+        quality["requires_local_validation_for_intervention_transfer"],
+        true
+    );
+    let accepted_precision = quality["accepted_precision_evidence"]
+        .as_array()
+        .expect("accepted precision evidence must be an array");
+    for required in [
+        "standard_error",
+        "confidence_interval",
+        "coefficient_of_variation",
+        "design_effect_or_official_precision_note",
+    ] {
+        assert!(
+            accepted_precision.iter().any(|item| item == required),
+            "survey precision contract missing {required}"
+        );
+    }
 
     let forbidden = precision["expected"]["forbidden_claims"]
         .as_array()
@@ -1353,7 +1405,7 @@ fn gpsjs_precision_negative_controls_remain_present() {
         "precision control must preserve estimate-specific uncertainty requirements"
     );
     assert_eq!(
-        corpus["version"], "0.4.0",
+        corpus["version"], "0.5.0",
         "survey-precision boundary must be part of the versioned current corpus"
     );
 }
