@@ -433,7 +433,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         contract.import_authority == "none",
         "external import authority must be none".into(),
     );
-    for required in [
+    let expected_envelope_fields = [
         "source_system",
         "source_record_id",
         "source_action_or_event_id",
@@ -443,7 +443,8 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         "asset_or_instrument_identity",
         "quantity_and_unit_profile",
         "claim_ceiling",
-    ] {
+    ];
+    for required in expected_envelope_fields {
         fail(
             &mut errors,
             contract
@@ -455,27 +456,32 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     }
     fail(
         &mut errors,
-        contract.quantity_policy.contains("base-10 integer strings")
-            && contract.quantity_policy.contains("binary floating-point"),
-        "quantity policy must preserve exact base-10 integer strings and reject float loss".into(),
+        contract.required_envelope_fields.len() == expected_envelope_fields.len(),
+        "envelope field set must contain exactly the nine v1 fields".into(),
     );
     fail(
         &mut errors,
-        contract.identity_policy.contains("namespaced")
-            && contract.identity_policy.contains("explicit"),
-        "identity policy must require namespaced identifiers and explicit crosswalks".into(),
+        contract.quantity_policy
+            == "Authoritative numeric quantities are emitted as canonical base-10 integer strings in the mapping envelope, not binary floating-point JSON numbers. A downstream serializer may emit a ValueFlows Measure only when its exact-decimal behavior is established; the original integer string and unit profile remain available for round-trip checks.",
+        "quantity policy must remain the exact approved integer-string rule".into(),
     );
     fail(
         &mut errors,
-        contract.correction_policy.contains("append")
-            && contract.correction_policy.contains("not mutate"),
-        "correction policy must preserve append-only source history".into(),
+        contract.identity_policy
+            == "Every external identifier is namespaced by source system and scope. Equal bare IDs from different sources are not the same resource unless an explicit, evidence-bound crosswalk exists.",
+        "identity policy must remain the exact approved namespacing rule".into(),
     );
     fail(
         &mut errors,
-        contract.semantics_policy.contains("authorization")
-            && contract.semantics_policy.contains("settlement"),
-        "semantic policy must distinguish facts, authorization and settlement".into(),
+        contract.correction_policy
+            == "Corrections append a new record referencing the corrected event. They do not mutate or erase the historical source event.",
+        "correction policy must remain append-only and preserve the historical event".into(),
+    );
+    fail(
+        &mut errors,
+        contract.semantics_policy
+            == "Economic facts, reputation attestations, eligibility, authorization, settlement and outcomes remain separate claim types.",
+        "semantic policy must continue separating facts, authorization, settlement and outcomes".into(),
     );
 
     let mut mapping_ids = BTreeSet::new();
@@ -571,19 +577,16 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                     mapping.transferability == transferability,
                     format!("{} has incorrect transferability semantics", mapping.id),
                 );
-                for entity in entities {
-                    fail(
-                        &mut errors,
-                        mapping
-                            .valueflows_entities
-                            .iter()
-                            .any(|candidate| candidate.as_str() == *entity),
-                        format!(
-                            "{} is missing required ValueFlows entity {entity}",
-                            mapping.id
-                        ),
-                    );
-                }
+                let has_exact_entities = mapping
+                    .valueflows_entities
+                    .iter()
+                    .map(String::as_str)
+                    .eq(entities.iter().copied());
+                fail(
+                    &mut errors,
+                    has_exact_entities,
+                    format!("{} has an unexpected ValueFlows entity set", mapping.id),
+                );
                 if mapping.mycelix_instrument == "MYCEL" {
                     fail(
                         &mut errors,
@@ -911,6 +914,52 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("DNA migration boundary must remain explicit")));
+    }
+
+    #[test]
+    fn mapping_contract_rules_and_entity_sets_cannot_be_widened() {
+        for (field, changed) in [
+            ("quantity_policy", "binary floating-point is acceptable"),
+            ("identity_policy", "bare identifiers are globally unique"),
+            ("correction_policy", "corrections overwrite history"),
+            ("semantics_policy", "settlement means truth and authorization"),
+        ] {
+            let mut value = fixture();
+            value["mapping_contract"][field] = changed.into();
+            let errors = check_text(&value.to_string())
+                .expect_err("a weakened mapping policy must fail");
+            assert!(
+                errors.iter().any(|error| error.contains("policy")),
+                "{field}: {errors:?}"
+            );
+        }
+
+        let mut value = fixture();
+        value["mapping_contract"]["required_envelope_fields"]
+            .as_array_mut()
+            .expect("envelope field list")
+            .push("unreviewed_extra_field".into());
+        let errors = check_text(&value.to_string())
+            .expect_err("v1 envelope must not silently grow extra fields");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exactly the nine v1 fields")));
+
+        let mut value = fixture();
+        let mappings = value["mappings"].as_array_mut().expect("mappings array");
+        let tend = mappings
+            .iter_mut()
+            .find(|mapping| mapping["mycelix_instrument"] == "TEND")
+            .expect("TEND mapping");
+        tend["valueflows_entities"]
+            .as_array_mut()
+            .expect("TEND ValueFlows entities")
+            .push("Claim".into());
+        let errors = check_text(&value.to_string())
+            .expect_err("TEND's exact entity profile must not be silently widened");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unexpected ValueFlows entity set")));
     }
 
     #[test]
