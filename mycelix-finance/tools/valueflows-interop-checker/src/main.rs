@@ -1,7 +1,12 @@
-use serde::Deserialize;
+use serde::{
+    de::{self, MapAccess, SeqAccess, Visitor},
+    Deserialize, Deserializer,
+};
+use serde_json::{Map as JsonMap, Number, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    env, fs, process,
+    env, fmt, fs, process,
 };
 
 const DEFAULT_CORPUS: &str =
@@ -13,6 +18,117 @@ const DEFAULT_PROVENANCE_FIXTURE: &str =
 const EMBEDDED_PROVENANCE_FIXTURE: &str = include_str!(
     "../../../tests/reference/valueflows-interop/provenance-envelope-contract-v1.json"
 );
+
+// Deserialize through a map visitor so duplicate JSON object names are rejected
+// before serde_json::Value could collapse them. JCS requires unique member names.
+struct UniqueJson(Value);
+
+impl<'de> Deserialize<'de> for UniqueJson {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(UniqueJsonVisitor)
+    }
+}
+
+struct UniqueJsonVisitor;
+
+impl<'de> Visitor<'de> for UniqueJsonVisitor {
+    type Value = UniqueJson;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("JSON with unique object member names")
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::Bool(value)))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::Number(Number::from(value))))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::Number(Number::from(value))))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Number::from_f64(value)
+            .map(|number| UniqueJson(Value::Number(number)))
+            .ok_or_else(|| E::custom("non-finite JSON number is not permitted"))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::String(value.to_owned())))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::String(value)))
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::Null))
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E> {
+        Ok(UniqueJson(Value::Null))
+    }
+
+    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut values = Vec::new();
+        while let Some(value) = sequence.next_element::<UniqueJson>()? {
+            values.push(value.0);
+        }
+        Ok(UniqueJson(Value::Array(values)))
+    }
+
+    fn visit_map<A>(self, mut object: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut seen = BTreeSet::new();
+        let mut values = JsonMap::new();
+        while let Some(key) = object.next_key::<String>()? {
+            if !seen.insert(key.clone()) {
+                return Err(de::Error::custom(format!(
+                    "duplicate JSON object key: {key:?}"
+                )));
+            }
+            let value = object.next_value::<UniqueJson>()?;
+            values.insert(key, value.0);
+        }
+        Ok(UniqueJson(Value::Object(values)))
+    }
+}
+
+fn parse_unique_json(input: &str) -> Result<Value, String> {
+    serde_json::from_str::<UniqueJson>(input)
+        .map(|parsed| parsed.0)
+        .map_err(|error| error.to_string())
+}
+
+fn canonical_json_bytes(value: &Value) -> Result<Vec<u8>, String> {
+    serde_json_canonicalizer::to_vec(value)
+        .map_err(|error| format!("RFC 8785/JCS canonicalization failed: {error}"))
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("{digest:x}")
+}
+
+fn canonical_payload_digest(payload: &Value) -> Result<String, String> {
+    let canonical = canonical_json_bytes(payload)?;
+    Ok(sha256_hex(&canonical))
+}
+
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -539,13 +655,13 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
         "digest scope must be explicit canonicalized payload bytes"
     );
     require!(
-        !canonicalization.payload_digest_verification_implemented,
-        "fixture checker must not claim payload digest verification"
+        canonicalization.payload_digest_verification_implemented,
+        "fixture checker must recompute and compare the payload digest"
     );
     require!(
-        canonicalization.note.contains("does not recompute the payload digest")
-            && canonicalization.note.contains("does not validate RFC 8785 conformance"),
-        "canonicalization note must preserve the unimplemented-verification limitation"
+        canonicalization.note.contains("recomputes SHA-256 over RFC 8785/JCS canonical payload bytes")
+            && canonicalization.note.contains("does not verify signatures or establish truth"),
+        "canonicalization note must describe implemented digest verification and retained signature/truth limits"
     );
 
     let example = &fixture.example_observation;
@@ -583,6 +699,13 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
             && example.payload_digest_sha256 == example.payload_digest_sha256.to_ascii_lowercase(),
         "example payload digest must have lowercase 64-character SHA-256 syntax"
     );
+    match canonical_payload_digest(&example.payload) {
+        Ok(actual_digest) => require!(
+            actual_digest == example.payload_digest_sha256,
+            "example payload digest must match SHA-256 of RFC 8785/JCS canonical payload bytes"
+        ),
+        Err(error) => errors.push(error),
+    }
     require!(
         example.evidence_class == "synthetic",
         "reference example must remain synthetic"
@@ -658,7 +781,15 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
 }
 
 fn check_provenance_text(input: &str) -> Result<usize, Vec<String>> {
-    let fixture: ProvenanceFixture = match serde_json::from_str(input) {
+    let value = match parse_unique_json(input) {
+        Ok(value) => value,
+        Err(error) => {
+            return Err(vec![format!(
+                "invalid provenance fixture JSON/shape: {error}"
+            )])
+        }
+    };
+    let fixture: ProvenanceFixture = match serde_json::from_value(value) {
         Ok(fixture) => fixture,
         Err(error) => {
             return Err(vec![format!(
@@ -1161,7 +1292,11 @@ fn validate(corpus: &Corpus) -> Vec<String> {
 }
 
 fn check_text(input: &str) -> Result<usize, Vec<String>> {
-    let corpus: Corpus = match serde_json::from_str(input) {
+    let value = match parse_unique_json(input) {
+        Ok(value) => value,
+        Err(error) => return Err(vec![format!("invalid corpus JSON/shape: {error}")]),
+    };
+    let corpus: Corpus = match serde_json::from_value(value) {
         Ok(corpus) => corpus,
         Err(error) => return Err(vec![format!("invalid corpus JSON/shape: {error}")]),
     };
@@ -1685,7 +1820,7 @@ mod tests {
     }
 
     #[test]
-    fn provenance_fixture_rejects_malformed_digest_syntax_without_claiming_byte_verification() {
+    fn provenance_fixture_rejects_malformed_digest_syntax() {
         let mut value: serde_json::Value =
             serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
         value["example_observation"]["payload_digest_sha256"] = "abc".into();
@@ -1694,7 +1829,57 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("lowercase 64-character SHA-256 syntax")));
-        assert!(!errors.iter().any(|error| error.contains("digest matches the source bytes")));
+        assert!(errors.iter().any(|error| error.contains("canonical payload bytes")));
+    }
+
+    #[test]
+    fn rfc8785_jcs_canonicalizes_member_order_and_number_formats() {
+        let simple = parse_unique_json(r#"{"c":120,"b":false,"a":"Hello!"}"#)
+            .expect("valid JCS input");
+        let canonical = canonical_json_bytes(&simple).expect("canonicalization");
+        assert_eq!(
+            std::str::from_utf8(&canonical).expect("canonical JSON is UTF-8"),
+            r#"{"a":"Hello!","b":false,"c":120}"#
+        );
+
+        let numbers = parse_unique_json(
+            r#"{"numbers":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001]}"#,
+        )
+        .expect("valid JCS number vector");
+        let canonical = canonical_json_bytes(&numbers).expect("canonicalization");
+        assert_eq!(
+            std::str::from_utf8(&canonical).expect("canonical JSON is UTF-8"),
+            r#"{"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]}"#
+        );
+    }
+
+    #[test]
+    fn provenance_payload_tampering_breaks_digest_verification() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        value["example_observation"]["payload"]["value"] = "2".into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("changed payload must no longer match the recorded digest");
+        assert!(errors.iter().any(|error| {
+            error.contains("payload digest must match SHA-256 of RFC 8785/JCS canonical payload bytes")
+        }));
+    }
+
+    #[test]
+    fn duplicate_json_member_names_are_rejected_even_when_escaped() {
+        let duplicate = r#"{"schema_id":"urn:mycelix:provenance-envelope","schema_id":"urn:attacker:override"}"#;
+        let errors = check_provenance_text(duplicate)
+            .expect_err("duplicate object names must be rejected before value construction");
+        assert!(errors.iter().any(|error| {
+            error.contains("duplicate JSON object key")
+        }));
+
+        let escaped_duplicate = r#"{"schema_id":"first","\u0073chema_id":"second"}"#;
+        let errors = check_provenance_text(escaped_duplicate)
+            .expect_err("equivalent escaped names must also be duplicates");
+        assert!(errors.iter().any(|error| {
+            error.contains("duplicate JSON object key")
+        }));
     }
 
     #[test]
