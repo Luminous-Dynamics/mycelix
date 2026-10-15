@@ -80,8 +80,13 @@ def main() -> int:
         "COS-N-013": {"foreign_recognition"},
     }
     required_negative_bindings = {
+        # Invalid claims must be exercised in the presence of the evidence they misuse.
         "COS-N-009": {"local_capability_claim"},
+        "COS-N-010": {"frs_projection"},
+        "COS-N-011": {"source_observation_created"},
+        "COS-N-012": {"itc_projection"},
         "COS-N-013": {"local_origin_claim"},
+        "COS-N-014": {"frs_projection"},
     }
     allowed_decisions = set(corpus.get("decision_enum", []))
     if allowed_decisions != {"Accepted", "Rejected", "Unknown", "Conflicting", "Stale", "Superseded", "Unauthorized", "Unbound"}:
