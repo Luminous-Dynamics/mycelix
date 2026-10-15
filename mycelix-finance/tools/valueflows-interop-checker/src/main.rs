@@ -105,6 +105,7 @@ fn expected_disposition(id: &str) -> Option<&'static str> {
         "VF-UNKNOWN-001" => Some("indeterminate_or_policy_bounded_rejection"),
         "VF-VERSION-001" => Some("reject_unqualified_version_claim"),
         "VF-TEND-F32-001" => Some("block_unqualified_quantity_export"),
+        "VF-TEND-BEARER-001" => Some("reject_bearer_asset_promotion"),
         _ => None,
     }
 }
@@ -115,7 +116,7 @@ fn expected_mapping(
     &'static str,
     &'static str,
     &'static str,
-    bool,
+    &'static str,
     &'static [&'static str],
 )> {
     match instrument {
@@ -123,21 +124,21 @@ fn expected_mapping(
             "mycelix:SAP",
             "decimal_string_micro_sap",
             "mycelix:microSAP",
-            true,
+            "transferable_units_with_domain_rules",
             &["ResourceSpecification", "EconomicResource", "EconomicEvent"],
         )),
         "TEND" => Some((
             "mycelix:TEND",
             "blocked_legacy_f32_needs_quantization_profile",
             "mycelix:TEND-hour",
-            true,
+            "community_scoped_mutual_credit_position",
             &["Commitment", "EconomicEvent"],
         )),
         "MYCEL" => Some((
             "mycelix:MYCEL",
             "none_attestation_only",
             "not_applicable",
-            false,
+            "non_transferable_recognition_attestation",
             &["Claim"],
         )),
         _ => None,
@@ -161,6 +162,7 @@ fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
             "TEND.identity_preserved",
             "TEND.unit_preserved",
             "no_implicit_TEND_to_SAP_conversion",
+            "TEND.transferability=community_scoped_mutual_credit_position",
         ]),
         "VF-AMOUNT-001" => Some(&[
             "canonical_integer_string",
@@ -198,6 +200,11 @@ fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
             "legacy_f32_source_explicitly_blocked",
             "quantization_profile_required",
             "round_trip_error_bound_required",
+        ]),
+        "VF-TEND-BEARER-001" => Some(&[
+            "TEND.transferability=community_scoped_mutual_credit_position",
+            "community_scope_required",
+            "service_obligation_provenance_required",
         ]),
         _ => None,
     }
@@ -445,7 +452,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         }
 
         match expected_mapping(&mapping.mycelix_instrument) {
-            Some((identity, encoding, unit_profile, transferable, entities)) => {
+            Some((identity, encoding, unit_profile, transferability, entities)) => {
                 fail(
                     &mut errors,
                     mapping.mycelix_identity == identity,
@@ -466,7 +473,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 );
                 fail(
                     &mut errors,
-                    mapping.transferable == transferable,
+                    mapping.transferability == transferability,
                     format!("{} has incorrect transferability semantics", mapping.id),
                 );
                 for entity in entities {
@@ -524,6 +531,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         "VF-UNKNOWN-001",
         "VF-VERSION-001",
         "VF-TEND-F32-001",
+        "VF-TEND-BEARER-001",
     ];
     let mut control_ids = BTreeSet::new();
     for control in &corpus.negative_controls {
@@ -644,7 +652,7 @@ mod tests {
     fn checked_in_corpus_satisfies_fail_closed_contract() {
         let raw = EMBEDDED_CORPUS;
         let count = check_text(raw).expect("checked-in corpus must satisfy local contract");
-        assert_eq!(count, 12);
+        assert_eq!(count, 13);
     }
 
     #[test]
@@ -665,8 +673,24 @@ mod tests {
             .iter_mut()
             .find(|mapping| mapping["mycelix_instrument"] == "MYCEL")
             .expect("MYCEL mapping");
-        mycel["transferable"] = true.into();
+        mycel["transferability"] = "transferable_units_with_domain_rules".into();
         let errors = check_text(&value.to_string()).expect_err("MYCEL transferability must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("incorrect transferability semantics")));
+    }
+
+    #[test]
+    fn tend_mutual_credit_cannot_become_bearer_transferable() {
+        let mut value = fixture();
+        let mappings = value["mappings"].as_array_mut().expect("mappings array");
+        let tend = mappings
+            .iter_mut()
+            .find(|mapping| mapping["mycelix_instrument"] == "TEND")
+            .expect("TEND mapping");
+        tend["transferability"] = "transferable_units_with_domain_rules".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("TEND bearer promotion must fail");
         assert!(errors
             .iter()
             .any(|error| error.contains("incorrect transferability semantics")));
