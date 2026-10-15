@@ -1279,28 +1279,20 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
     assert!(
         latest_forbidden
             .iter()
-            .any(|claim| {
-                claim
-                    .as_str()
-                    .unwrap()
-                    .contains("43.4% to 48.2%")
-            }),
+            .any(|claim| { claim.as_str().unwrap().contains("43.4% to 48.2%") }),
         "latest GPSJS control must preserve the reporting-rate trend without a false causal inference"
     );
     assert!(
-        latest_forbidden
-            .iter()
-            .any(|claim| {
-                claim
-                    .as_str()
-                    .unwrap()
-                    .contains("1.493 million to 1.549 million")
-            }),
+        latest_forbidden.iter().any(|claim| {
+            claim
+                .as_str()
+                .unwrap()
+                .contains("1.493 million to 1.549 million")
+        }),
         "latest GPSJS control must keep incident count distinct from affected-household count"
     );
     assert_eq!(
-        corpus["version"],
-        "0.3.0",
+        corpus["version"], "0.3.0",
         "time-series boundary must be part of the versioned current corpus"
     );
 }
