@@ -1812,6 +1812,94 @@ mod tests {
 
 
     #[test]
+    fn multi_aircraft_reports_preserve_unique_pair_attribution() {
+        let set = fixture_set();
+        for scenario in &set.scenarios {
+            let report = evaluate_scenario(scenario);
+            let expected_pair_count = scenario.flights.len()
+                .saturating_mul(scenario.flights.len().saturating_sub(1))
+                / 2;
+            assert_eq!(
+                report.pair_count, expected_pair_count,
+                "pair count mismatch for {}",
+                scenario.scenario_id
+            );
+
+            let flight_ids: std::collections::BTreeSet<&str> = scenario
+                .flights
+                .iter()
+                .map(|flight| flight.flight_id.as_str())
+                .collect();
+            let mut attributed_pairs = std::collections::BTreeSet::<(&str, &str)>::new();
+            for conflict in &report.conflicts {
+                assert_ne!(
+                    conflict.flight_a, conflict.flight_b,
+                    "self-conflict attribution in {}",
+                    scenario.scenario_id
+                );
+                assert!(
+                    flight_ids.contains(conflict.flight_a.as_str())
+                        && flight_ids.contains(conflict.flight_b.as_str()),
+                    "conflict references an unknown flight in {}: {conflict:#?}",
+                    scenario.scenario_id
+                );
+                let pair = if conflict.flight_a.as_str() < conflict.flight_b.as_str() {
+                    (conflict.flight_a.as_str(), conflict.flight_b.as_str())
+                } else {
+                    (conflict.flight_b.as_str(), conflict.flight_a.as_str())
+                };
+                assert!(
+                    attributed_pairs.insert(pair),
+                    "duplicate conflict pair in {}: {pair:?}",
+                    scenario.scenario_id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn three_aircraft_fixture_reports_every_conflicting_pair_once() {
+        let set = fixture_set();
+        let scenario = set.scenarios
+            .iter()
+            .find(|scenario| scenario.scenario_id == "three_aircraft_multiple_pair_conflicts")
+            .expect("multi-pair fixture exists");
+        let report = evaluate_scenario(scenario);
+
+        assert_eq!(report.classification, Classification::Conflict);
+        assert_eq!(report.pair_count, 3);
+        assert_eq!(report.conflicts.len(), 3);
+        let pairs: std::collections::BTreeSet<(&str, &str)> = report.conflicts
+            .iter()
+            .map(|conflict| {
+                if conflict.flight_a.as_str() < conflict.flight_b.as_str() {
+                    (conflict.flight_a.as_str(), conflict.flight_b.as_str())
+                } else {
+                    (conflict.flight_b.as_str(), conflict.flight_a.as_str())
+                }
+            })
+            .collect();
+        assert_eq!(pairs.len(), 3);
+        assert!(pairs.contains(&("A", "B")));
+        assert!(pairs.contains(&("A", "C")));
+        assert!(pairs.contains(&("B", "C")));
+    }
+
+    #[test]
+    fn four_aircraft_clear_fixture_checks_all_six_pairs_without_conflicts() {
+        let set = fixture_set();
+        let scenario = set.scenarios
+            .iter()
+            .find(|scenario| scenario.scenario_id == "four_aircraft_parallel_lanes_clear")
+            .expect("four-aircraft clear fixture exists");
+        let report = evaluate_scenario(scenario);
+
+        assert_eq!(report.classification, Classification::AcceptForPlanningOnly);
+        assert_eq!(report.pair_count, 6);
+        assert!(report.conflicts.is_empty());
+    }
+
+    #[test]
     fn duplicate_trajectory_flight_identity_is_rejected_before_pairwise_checks() {
         let scenario = fixture_set()
             .scenarios
