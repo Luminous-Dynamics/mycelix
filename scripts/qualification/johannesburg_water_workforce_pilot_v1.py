@@ -75,7 +75,7 @@ EXPECTED_PROBES = {
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
-    "same-source-possible-duplicate": {"CandidateDuplicateIsNotProofOfDuplicate", "DoNotInferPreciseLocation"},
+    "same-source-possible-duplicate": {"DuplicateCandidateIsNotProofOfDuplicate", "DoNotInferPreciseLocation"},
     "stale-systemwide-bulletin": {"BulletinDoesNotResolveIndividualCase", "RetrievalDoesNotProveCurrentness"},
     "source-fetch-unavailable": {"FetchFailureIsNotSourceAbsence", "NoInferredCurrentStatus"},
     "response-without-restoration": {"ResponseIsNotRestoration", "NoFalseResolutionClaim"},
