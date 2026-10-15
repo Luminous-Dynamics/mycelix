@@ -24,7 +24,10 @@
     "unknown_behavior_is_unresolved_not_defaulted",
     "contingency_optionality_is_separate_from_nominal_throughput",
     "recovery_capacity_never_relaxes_hard_constraints",
-    "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
+    "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score",
+    "allocation_priority_comes_only_from_authorized_policy",
+    "access_outcomes_are_audited_by_declared_group",
+    "operator_identity_or_reputation_is_not_an_implicit_priority_rule"
   ],
   "benchmarks": [
     {
@@ -387,6 +390,41 @@
         "all_results_bind_exact_inputs_models_rules_and_checker",
         "contingency_optionality_is_separate_from_nominal_throughput",
         "recovery_capacity_never_relaxes_hard_constraints",
+        "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
+      ]
+    },
+    {
+      "id": "AIR-PB-014",
+      "name": "authority_bound_fair_access_and_allocation_audit",
+      "paradigm": "airspace_as_an_auditable_public_commons",
+      "status": "research_backlog",
+      "hypothesis": "A versioned, authority-bound allocation policy plus group-level outcome auditing can make scarce airspace access decisions more explainable and reveal burdens that aggregate throughput hides, without weakening safety eligibility or inventing universal priority rules.",
+      "baseline": "An allocation process whose tie-breaks, priority semantics, or access effects are implicit, unversioned, or visible only through a single system-wide throughput score.",
+      "stimulus": "Create a synthetic capacity-constrained set of otherwise safety-eligible requests with explicitly declared mission classes and service regions. Apply a pinned authorized policy, then permute request ordering and change metadata that the policy does not authorize as a priority input (such as provider brand, operator reputation, network membership, or commercial size). Include unknown group metadata and capacity shortages.",
+      "success_conditions": [
+        "Every accepted, rejected, deferred, or unresolved request has a reason code linked to the exact policy version and authority reference; the policy itself is an explicit input, not inferred from model output.",
+        "Permuting input order or changing metadata not named by the policy leaves allocation outcomes invariant; a change is allowed only where the authorized policy explicitly defines the corresponding field as decision-relevant.",
+        "Outcomes are reported by declared mission/service group with sample counts, service rate, delay distribution, rejection/defer reason, and capacity use; missing classifications remain unknown rather than silently disappearing.",
+        "Safety/model/evidence hard gates run before access-policy optimization; the audit reports disparities but cannot convert an ineligible request into an eligible one."
+      ],
+      "falsifiers": [
+        "Operator identity, reputation, wealth/size, or network membership changes priority without an explicit authorized policy rule.",
+        "A scalar fairness/throughput score hides missing group data or materially adverse per-group outcomes.",
+        "The allocator or report treats its chosen policy as universally lawful, or bypasses a hard feasibility gate to improve an access metric."
+      ],
+      "required_evidence": [
+        "Versioned synthetic allocation policy and authority-reference fixture",
+        "Pinned candidate requests, resource capacity, and policy-eligible field declaration",
+        "Permutation/metamorphic corpus for irrelevant metadata and input order",
+        "Independent hard-eligibility oracle and exact-head replay receipt",
+        "Per-group outcomes with denominators, unknown/missing counts, and capacity accounting"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "allocation_priority_comes_only_from_authorized_policy",
+        "access_outcomes_are_audited_by_declared_group",
+        "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
         "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
       ]
     }
