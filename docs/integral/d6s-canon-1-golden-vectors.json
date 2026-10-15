@@ -210,6 +210,7 @@
       },
       "positive_input": {
         "bindings": [
+          "frs_projection",
           "source_observation_created"
         ],
         "evidence_profile": "current_local"
@@ -232,6 +233,7 @@
       },
       "positive_input": {
         "bindings": [
+          "source_observation_created",
           "itc_projection"
         ],
         "evidence_profile": "current_local"
@@ -254,6 +256,7 @@
       },
       "positive_input": {
         "bindings": [
+          "itc_projection",
           "physical_work_binding"
         ],
         "evidence_profile": "current_local"
