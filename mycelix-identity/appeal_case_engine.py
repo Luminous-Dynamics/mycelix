@@ -609,21 +609,140 @@ def validate_contract(contract: Any) -> list[str]:
     return errors
 
 
+def run_synthetic_demo(source_commit: str, contract: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Run a frozen lifecycle through closure and expiry without external effects."""
+    active_contract = contract or load_contract()
+    if not isinstance(source_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", source_commit):
+        raise ValueError("source_commit must be a 40-character lowercase commit SHA")
+    case = new_case(
+        "CASE-SYN-DEMO-0001",
+        "ACTOR-SYN-DEMO-OWNER",
+        "SERVICE_APPOINTMENT_INTAKE",
+        "ISSUE_RECORD_CORRECTION",
+        active_contract,
+    )
+    events: list[dict[str, Any]] = []
+
+    def apply(action: str, timestamp: str, actor: str, role: str, **kwargs: Any) -> None:
+        nonlocal case, events
+        case, events = append_event(
+            case, events,
+            actor_ref=actor, actor_role=role,
+            action=action, timestamp_utc=timestamp,
+            contract=active_contract, **kwargs,
+        )
+
+    apply("open_case", "2026-01-01T09:00:00Z", "ACTOR-SYN-DEMO-OWNER", "requester")
+    policy = {
+        "status": "approved",
+        "lawful_basis_ref": "POLICY-DEMO-LAWFUL-001",
+        "responsible_party_ref": "ACTOR-SYN-DEMO-CONTROLLER",
+        "max_retention_days": 1,
+        "deletion_procedure_ref": "POLICY-DEMO-DELETE-001",
+        "backup_deletion_policy_ref": "POLICY-DEMO-BACKUP-001",
+        "review_evidence_ref": "POLICY-DEMO-REVIEW-001",
+        "note": "Synthetic demonstration only; this is not a statutory retention period.",
+    }
+    apply(
+        "record_retention_policy", "2026-01-01T09:00:30Z",
+        "ACTOR-SYN-DEMO-PRIVACY", "privacy_officer",
+        policy_ref="POLICY-DEMO-RETENTION-001",
+        retention_policy=policy,
+    )
+    apply(
+        "acknowledge_case", "2026-01-01T09:01:00Z",
+        "ACTOR-SYN-DEMO-INTAKE", "case_steward",
+        target_actor_ref="ACTOR-SYN-DEMO-STEWARD-1",
+    )
+    apply(
+        "assign_steward", "2026-01-01T09:02:00Z",
+        "ACTOR-SYN-DEMO-STEWARD-1", "case_steward",
+        target_actor_ref="ACTOR-SYN-DEMO-STEWARD-2",
+    )
+    apply("submit_correction", "2026-01-01T09:03:00Z", "ACTOR-SYN-DEMO-OWNER", "requester")
+    apply("resume_review", "2026-01-01T09:04:00Z", "ACTOR-SYN-DEMO-STEWARD-2", "case_steward")
+    apply("issue_initial_decision", "2026-01-01T09:05:00Z", "ACTOR-SYN-DEMO-STEWARD-2", "case_steward")
+    apply("request_appeal", "2026-01-01T09:06:00Z", "ACTOR-SYN-DEMO-OWNER", "requester")
+    apply("start_appeal_review", "2026-01-01T09:07:00Z", "ACTOR-SYN-DEMO-REVIEWER", "independent_reviewer")
+    apply("issue_appeal_decision", "2026-01-01T09:08:00Z", "ACTOR-SYN-DEMO-REVIEWER", "independent_reviewer")
+    apply("close_case", "2026-01-01T09:09:00Z", "ACTOR-SYN-DEMO-STEWARD-2", "case_steward")
+    apply("expire_case", "2026-01-02T09:09:00Z", "ACTOR-SYN-DEMO-PRIVACY", "privacy_officer")
+
+    errors = verify_event_chain(case, events, active_contract)
+    if errors:
+        raise ValueError("synthetic lifecycle failed chain verification: " + "; ".join(errors))
+    engine_path = Path(__file__)
+    engine_digest = hashlib.sha256(engine_path.read_bytes()).hexdigest()
+    contract_digest = _hash(active_contract)
+    summaries = [
+        {
+            key: event[key]
+            for key in (
+                "sequence", "timestamp_utc", "actor_role", "action", "from_state",
+                "to_state", "reason_code", "previous_hash", "event_hash",
+            )
+        }
+        for event in events
+    ]
+    return {
+        "report_schema": "org.luminousdynamics.synthetic-appeal-case-report",
+        "report_version": 1,
+        "source_commit": source_commit,
+        "engine_sha256": engine_digest,
+        "contract_sha256": contract_digest,
+        "maturity": "synthetic_only",
+        "production_enabled": False,
+        "durable_case_storage_enabled": False,
+        "public_dht_publication_enabled": False,
+        "external_notifications_enabled": False,
+        "real_identity_data_processed": False,
+        "external_endpoints_contacted": False,
+        "event_count": len(events),
+        "terminal_state": case["current_state"],
+        "retention_review_complete": case["retention_review_complete"],
+        "independent_appeal_reviewer": case["initial_decision_actor_ref"] != case["appeal_reviewer_ref"],
+        "hash_chain_valid": True,
+        "chain_head": events[-1]["event_hash"],
+        "durable_deletion_performed": False,
+        "event_summaries": summaries,
+        "nonclaims": [
+            "The demonstration uses synthetic opaque actor handles and codes, not real identities.",
+            "SHA-256 event chaining is tamper-evident metadata only; it is not a signature or trusted timestamp.",
+            "expired is a workflow state, not evidence that records/backups were physically erased.",
+            "All persistence adapters, external notifications and public-DHT writes remain disabled.",
+        ],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", type=Path, default=CONTRACT_PATH)
+    parser.add_argument("--source-commit", help="exact 40-character source commit for synthetic evidence")
+    parser.add_argument("--report", type=Path, help="write deterministic synthetic lifecycle evidence JSON")
     args = parser.parse_args()
     try:
         contract = load_contract(args.contract)
+        if args.report and not args.source_commit:
+            raise ValueError("--report requires --source-commit")
+        if args.source_commit:
+            report = run_synthetic_demo(args.source_commit, contract)
+            if args.report:
+                args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+            print(
+                "SYNTHETIC_APPEAL_CASE=PASS "
+                f"events={report['event_count']} state={report['terminal_state']} "
+                "hash_chain_valid=true production_enabled=false durable_storage_enabled=false"
+            )
+        else:
+            print(
+                "APPEAL_CASE_CONTRACT=PASS "
+                f"transitions={len(contract['transitions'])} "
+                f"roles={len(contract['role_values'])} "
+                "production_enabled=false durable_storage_enabled=false public_dht=false"
+            )
     except (OSError, ValueError, TypeError) as exc:
         print(f"APPEAL_CASE_CONTRACT=FAIL {exc}", file=sys.stderr)
         return 2
-    print(
-        "APPEAL_CASE_CONTRACT=PASS "
-        f"transitions={len(contract['transitions'])} "
-        f"roles={len(contract['role_values'])} "
-        "production_enabled=false durable_storage_enabled=false public_dht=false"
-    )
     return 0
 
 
