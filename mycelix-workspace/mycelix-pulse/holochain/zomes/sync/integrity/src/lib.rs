@@ -458,8 +458,8 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep -- every "update" is actually a fresh
             // create_entry, e.g. set_online_status) -- reject outright rather than leave the
@@ -470,7 +470,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Sync entries cannot be updated".to_string(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Sync entries cannot be updated".to_string(),
         )),
         _ => Ok(ValidateCallbackResult::Valid),
@@ -479,7 +488,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::SyncState(state) => validate_sync_state(&state, &action),
@@ -498,9 +507,9 @@ fn validate_create_entry(
 /// agent_info() coordinator-side with zero user input (P0 author-binding gap).
 fn validate_sync_checkpoint(
     checkpoint: &SyncCheckpoint,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
-    if checkpoint.agent != action.author {
+    if checkpoint.agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Sync checkpoint agent must match author".to_string(),
         ));
@@ -508,9 +517,9 @@ fn validate_sync_checkpoint(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_sync_state(state: &SyncState, action: &Create) -> ExternResult<ValidateCallbackResult> {
+fn validate_sync_state(state: &SyncState, action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
     // Agent must be author
-    if state.agent != action.author {
+    if state.agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Sync state agent must match author".to_string(),
         ));
@@ -520,10 +529,10 @@ fn validate_sync_state(state: &SyncState, action: &Create) -> ExternResult<Valid
 
 fn validate_sync_operation(
     op: &SyncOperation,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be author
-    if op.agent != action.author {
+    if op.agent != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Operation agent must match author".to_string(),
         ));

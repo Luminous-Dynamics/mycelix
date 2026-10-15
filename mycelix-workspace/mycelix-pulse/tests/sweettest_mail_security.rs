@@ -309,7 +309,7 @@ fn make_email_input(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ed25519_signature_verification_rejects_forged_signature() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -352,7 +352,7 @@ async fn test_ed25519_signature_verification_rejects_forged_signature() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ed25519_signature_verification_accepts_valid_signature() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -435,7 +435,7 @@ async fn test_ed25519_signature_verification_accepts_valid_signature() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_dilithium3_signature_length_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -488,7 +488,7 @@ async fn test_dilithium3_signature_length_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_dilithium2_signature_length_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -535,7 +535,7 @@ async fn test_dilithium2_signature_length_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ephemeral_key_length_x25519_must_be_32_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -572,7 +572,7 @@ async fn test_ephemeral_key_length_x25519_must_be_32_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ephemeral_key_length_kyber1024_must_be_1568_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -619,7 +619,7 @@ async fn test_ephemeral_key_length_kyber1024_must_be_1568_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ephemeral_key_length_kyber768_must_be_1088_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -670,7 +670,7 @@ async fn test_ephemeral_key_length_kyber768_must_be_1088_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_attachment_chunk_size_limit_10mb() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -708,7 +708,7 @@ async fn test_attachment_chunk_size_limit_10mb() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_attachment_content_hash_must_be_32_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -744,7 +744,7 @@ async fn test_attachment_content_hash_must_be_32_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_attachment_total_chunks_capped_at_1000() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -784,7 +784,7 @@ async fn test_attachment_total_chunks_capped_at_1000() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_read_receipt_signature_verified() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -821,7 +821,7 @@ async fn test_read_receipt_signature_verified() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_delivery_receipt_signature_verified() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -861,11 +861,80 @@ async fn test_delivery_receipt_signature_verified() {
 // Phase 1: Capability Revocation
 // =============================================================================
 
-/// Capability grant/revoke lifecycle: revoked capability denies access.
+/// Mirrors the capability coordinator types so Sweettest can exercise the wire contract.
+#[allow(dead_code)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+enum MailboxAccessTypeInput {
+    FullAccess,
+    ReadOnly,
+    SendAs,
+    FolderAccess { folder_hash: ActionHash },
+    ThreadAccess { thread_id: String },
+    OutOfOffice,
+    OrganizationAdmin,
+    Custom(String),
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MailboxCapabilityWire {
+    id: String,
+    grantor: AgentPubKey,
+    grantee: AgentPubKey,
+    access_type: MailboxAccessTypeInput,
+    permissions: MailboxPermissionsInput,
+    restrictions: Option<serde_json::Value>,
+    granted_at: Timestamp,
+    expires_at: Option<Timestamp>,
+    revoked: bool,
+    revocation_reason: Option<String>,
+    system_grant_action_hash: Option<ActionHash>,
+    secret_hash: Vec<u8>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+struct MailboxPermissionsInput {
+    can_read: bool,
+    can_send: bool,
+    can_delete: bool,
+    can_move: bool,
+    can_create_folders: bool,
+    can_manage_labels: bool,
+    can_view_attachments: bool,
+    can_download_attachments: bool,
+    can_manage_rules: bool,
+    can_delegate: bool,
+    can_modify_settings: bool,
+    can_view_trust: bool,
+    can_modify_trust: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct GrantCapabilityInput {
+    grantee: AgentPubKey,
+    access_type: MailboxAccessTypeInput,
+    permissions: MailboxPermissionsInput,
+    restrictions: Option<serde_json::Value>,
+    expires_at: Option<Timestamp>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+enum CapabilityProbeResult {
+    Authorized,
+    Unauthorized,
+    ClaimMissing,
+    FunctionNotGranted,
+}
+
+/// A send-only capability must not report Unauthorized merely because the
+/// inbox-read probe calls a function that was never granted.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_capability_grant_and_revocation_lifecycle() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+#[ignore = "requires Holochain 0.7 conductor (nix develop)"]
+async fn test_capability_probe_reports_function_not_granted_for_send_only_capability() {
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -874,82 +943,277 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         .unwrap()
         .into_tuple();
 
-    // Step 1: Alice grants Bob capability to read her mailbox
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct GrantCapInput {
-        grantee: AgentPubKey,
-        functions: Vec<String>,
-    }
-
-    let grant_input = GrantCapInput {
+    let mut permissions = MailboxPermissionsInput::default();
+    permissions.can_send = true;
+    let grant_input = GrantCapabilityInput {
         grantee: bob.agent_pubkey().clone(),
-        functions: vec!["get_inbox".to_string()],
+        access_type: MailboxAccessTypeInput::SendAs,
+        permissions,
+        restrictions: None,
+        expires_at: None,
     };
 
-    let grant_result: Result<(), _> = conductor
+    let capability_hash: ActionHash = conductor
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "grant_capability",
             grant_input,
         )
-        .await;
-    assert!(grant_result.is_ok(), "Grant should succeed");
+        .await
+        .expect("Alice should create a send-only assigned capability");
 
-    // Step 2: Alice revokes the capability
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct RevokeCapInput {
-        grantee: AgentPubKey,
+    let mut delivered = false;
+    for attempt in 0..30 {
+        let result: Result<(), _> = conductor
+            .call_fallible(
+                &alice.zome("mail_capabilities"),
+                "deliver_capability_grant",
+                capability_hash.clone(),
+            )
+            .await;
+        match result {
+            Ok(()) => {
+                delivered = true;
+                break;
+            }
+            Err(error) if attempt == 29 => {
+                panic!("Send-only capability delivery was not acknowledged: {error:?}");
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+        }
     }
+    assert!(delivered, "recipient must acknowledge the private CapClaim");
 
-    let revoke_input = RevokeCapInput {
+    let probe: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_capability",
+            capability_hash,
+        )
+        .await
+        .expect("an unsupported inbox probe should return a typed result");
+
+    assert_eq!(
+        probe,
+        CapabilityProbeResult::FunctionNotGranted,
+        "send-only authority is different from a revoked inbox-read grant"
+    );
+}
+
+/// Capability grant/revoke lifecycle: prove conductor authorization changes,
+/// not merely an application-level revoked flag. The no-data probe avoids fetching inbox content.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain 0.7 conductor (nix develop)"]
+async fn test_capability_grant_and_revocation_lifecycle() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
+
+    let (alice, bob) = conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let mut permissions = MailboxPermissionsInput::default();
+    permissions.can_read = true;
+    let grant_input = GrantCapabilityInput {
         grantee: bob.agent_pubkey().clone(),
+        access_type: MailboxAccessTypeInput::ReadOnly,
+        permissions,
+        restrictions: None,
+        expires_at: None,
     };
 
-    let revoke_result: Result<(), _> = conductor
+    let capability_hash: ActionHash = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "grant_capability",
+            grant_input,
+        )
+        .await
+        .expect("Alice should create an assigned capability grant");
+
+    // The public record contains only a fixed-size digest and a binding to the
+    // private system CapGrant. deny_unknown_fields makes adding a raw secret to
+    // this application entry a hard test failure.
+    let granted: Vec<(ActionHash, MailboxCapabilityWire)> = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "get_granted_capabilities",
+            (),
+        )
+        .await
+        .expect("grantor should be able to inspect the application projection");
+    let (_, wire_capability) = granted
+        .into_iter()
+        .find(|(hash, _)| hash == &capability_hash)
+        .expect("new capability should be listed by its grantor");
+    assert_eq!(wire_capability.secret_hash.len(), 32, "public record stores only a SHA-256 fingerprint");
+    assert!(wire_capability.system_grant_action_hash.is_some(), "new grant must retain exact conductor grant binding");
+    assert!(!wire_capability.revoked);
+
+    // Delivery is deliberately a second call: the grant's source-chain actions
+    // must commit before the recipient can verify the public metadata and claim.
+    let mut delivered = false;
+    for attempt in 0..30 {
+        let result: Result<(), _> = conductor
+            .call_fallible(
+                &alice.zome("mail_capabilities"),
+                "deliver_capability_grant",
+                capability_hash.clone(),
+            )
+            .await;
+        match result {
+            Ok(()) => {
+                delivered = true;
+                break;
+            }
+            Err(error) if attempt == 29 => {
+                panic!("Capability delivery never received an acknowledgement: {error:?}");
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+        }
+    }
+    assert!(delivered, "recipient must acknowledge storing the private CapClaim");
+
+    let before: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_capability",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("the grantee should be able to make the assigned no-data probe call");
+    assert_eq!(
+        before,
+        CapabilityProbeResult::Authorized,
+        "same authenticated no-data probe call should succeed before revocation"
+    );
+
+    // Also exercise the actual data-bearing read function in this empty-inbox
+    // fixture. The diagnostic returns only the authorization result to the test.
+    let inbox_before: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_inbox_read",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("the actual inbox-read function should be callable before revocation");
+    assert_eq!(
+        inbox_before,
+        CapabilityProbeResult::Authorized,
+        "get_inbox_v2 itself must be granted before revocation"
+    );
+
+    let revoked_hash: ActionHash = conductor
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "revoke_capability",
-            revoke_input,
+            (capability_hash.clone(), Some("Sweettest revocation".to_string())),
         )
-        .await;
-    assert!(revoke_result.is_ok(), "Revoke should succeed");
+        .await
+        .expect("grantor should revoke the system CapGrant");
 
-    // Step 3: Verify Bob can no longer access
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct VerifyCapInput {
-        grantor: AgentPubKey,
-        function: String,
-    }
-
-    let verify_input = VerifyCapInput {
-        grantor: alice.agent_pubkey().clone(),
-        function: "get_inbox".to_string(),
-    };
-
-    let verify_result: Result<bool, _> = conductor
+    let after: CapabilityProbeResult = conductor
         .call_fallible(
             &bob.zome("mail_capabilities"),
-            "verify_capability",
-            verify_input,
+            "probe_remote_capability",
+            capability_hash.clone(),
         )
-        .await;
+        .await
+        .expect("probe should return an authorization result");
+    assert_eq!(
+        after,
+        CapabilityProbeResult::Unauthorized,
+        "the identical no-data probe call must be Unauthorized after conductor grant deletion"
+    );
 
-    match verify_result {
-        Ok(has_cap) => assert!(
-            !has_cap,
-            "Revoked capability must return false from verify_capability"
-        ),
-        Err(_) => {
-            // Error is also acceptable — access denied
+    // The real inbox-read endpoint must be denied too; a working empty-response
+    // probe alone is not sufficient evidence that data-bearing reads are revoked.
+    let inbox_after: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_inbox_read",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("inbox-read probe should return an authorization result");
+    assert_eq!(
+        inbox_after,
+        CapabilityProbeResult::Unauthorized,
+        "get_inbox_v2 itself must be denied after conductor grant deletion"
+    );
+
+    // The conductor-level check above is synchronous; DHT projection convergence
+    // is not. Retry only the app-state assertion while the update integrates.
+    let mut projection_denies = false;
+    for attempt in 0..30 {
+        let app_projection: Result<bool, _> = conductor
+            .call_fallible(
+                &bob.zome("mail_capabilities"),
+                "verify_capability",
+                (capability_hash.clone(), AuditActionInput::ReadEmail),
+            )
+            .await;
+        match app_projection {
+            Ok(false) => {
+                projection_denies = true;
+                break;
+            }
+            Ok(true) => {
+                // A positive projection is still not an authority proof; the
+                // remote conductor call above has already established Unauthorized.
+            }
+            Err(error) if format!("{error:?}").contains("Capability state is unknown") => {
+                // Delayed/missing DHT update evidence must remain unknown, not be
+                // collapsed into an active result. Retry until the projection resolves.
+            }
+            Err(error) => panic!("Unexpected capability projection error: {error:?}"),
+        }
+        if attempt < 29 {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
     }
+    assert!(
+        projection_denies,
+        "application-level projection should converge to revoked even when queried by the original action hash"
+    );
+
+    // Replaying revoke against the original hash must be idempotent. A second
+    // system-grant deletion is neither attempted nor reported as a fresh success.
+    let repeated_revoke: ActionHash = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "revoke_capability",
+            (capability_hash, Some("replayed revoke".to_string())),
+        )
+        .await
+        .expect("repeated revoke against original hash must be idempotent");
+    assert_eq!(repeated_revoke, revoked_hash);
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+enum AuditActionInput {
+    ReadEmail,
+    SendEmail,
+    DeleteEmail,
+    MoveEmail,
+    CreateFolder,
+    AccessAttachment,
+    ModifySettings,
+    GrantCapability,
+    RevokeCapability,
+    ModifyTrust,
+    Custom(String),
 }
 
 /// Shared mailbox update requires owner or admin role.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_shared_mailbox_update_requires_owner_or_admin() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1014,7 +1278,7 @@ async fn test_shared_mailbox_update_requires_owner_or_admin() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_level_must_be_finite() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1047,7 +1311,7 @@ async fn test_trust_level_must_be_finite() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_level_infinity_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1080,7 +1344,7 @@ async fn test_trust_level_infinity_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_score_range_0_to_1() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1115,7 +1379,7 @@ async fn test_trust_score_range_0_to_1() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_network_id_uniqueness() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1159,7 +1423,7 @@ async fn test_federation_network_id_uniqueness() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_route_requires_network_ownership() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     // Genuinely two different agents (not two cells of one agent's app) --
@@ -1213,7 +1477,7 @@ async fn test_federation_route_requires_network_ownership() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_route_priority_capped_at_100() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1274,7 +1538,7 @@ async fn test_federation_route_priority_capped_at_100() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_envelope_loop_detection() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1359,7 +1623,7 @@ async fn test_federation_envelope_loop_detection() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_max_hop_count_enforced() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1441,7 +1705,7 @@ async fn test_federation_max_hop_count_enforced() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_search_sanitizes_control_characters() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1481,7 +1745,7 @@ async fn test_search_sanitizes_control_characters() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_search_query_sanitized() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1536,7 +1800,7 @@ async fn test_search_query_sanitized() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_agent_to_sent_link_requires_author_match() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1577,7 +1841,7 @@ async fn test_agent_to_sent_link_requires_author_match() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_link_deletion_restricted_to_creator() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1626,7 +1890,7 @@ async fn test_mail_bridge_resolves_identity_cross_cluster() {
     // This test requires the unified hApp with both mail and identity roles.
     // The mail-bridge zome calls CallTargetCell::OtherRole("identity") to
     // resolve DIDs to agent public keys.
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
 
     // Load unified hApp with mail + identity DNAs
     let mail_dna = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
@@ -1654,7 +1918,7 @@ async fn test_mail_bridge_resolves_identity_cross_cluster() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires unified hApp conductor"]
 async fn test_mail_bridge_health_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1686,7 +1950,7 @@ async fn test_mail_bridge_health_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_sent_emails_cannot_be_updated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1727,7 +1991,7 @@ async fn test_sent_emails_cannot_be_updated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_read_receipts_cannot_be_updated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1760,7 +2024,7 @@ async fn test_read_receipts_cannot_be_updated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_delivery_receipts_cannot_be_updated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1801,7 +2065,7 @@ async fn test_delivery_receipts_cannot_be_updated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_score_update_only_by_authorized_agent() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1843,7 +2107,7 @@ async fn test_trust_score_update_only_by_authorized_agent() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_send_email_blocked_for_negative_trust() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1899,7 +2163,7 @@ async fn test_send_email_blocked_for_negative_trust() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_send_email_allowed_for_unknown_sender() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1941,7 +2205,7 @@ async fn test_send_email_allowed_for_unknown_sender() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_did_binding_empty_did_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1965,7 +2229,7 @@ async fn test_did_binding_empty_did_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_did_binding_duplicate_registration_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1997,7 +2261,7 @@ async fn test_did_binding_duplicate_registration_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_contact_empty_name_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -2084,7 +2348,7 @@ async fn phase0_two_conductor_harness_smoke() {
 
 async fn phase0_two_conductor_harness_smoke_inner() {
     eprintln!("pulse-smoke: starting two local conductors");
-    let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     eprintln!("pulse-smoke: loading packed DNA");
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
@@ -2162,7 +2426,7 @@ async fn phase0_two_conductor_harness_smoke_inner() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 0.5 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase0_forged_inbox_link_rejected() {
-    let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
@@ -2582,7 +2846,7 @@ where
 async fn phase0_v2_hybrid_pqc_transport() {
     tokio::time::timeout(std::time::Duration::from_secs(1500), async {
         eprintln!("pulse-v2: starting two local conductors");
-        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let mut conductors = SweetConductorBatch::standard(2).await;
         eprintln!("pulse-v2: loading alpha DNA");
         let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
             .await
@@ -2776,7 +3040,7 @@ async fn phase0_v2_hybrid_pqc_transport() {
 async fn phase0_v2_negative_paths() {
     tokio::time::timeout(std::time::Duration::from_secs(1500), async {
         eprintln!("pulse-v2-neg: starting two local conductors");
-        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let mut conductors = SweetConductorBatch::standard(2).await;
         let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
             .await
             .expect("fresh DNA bundle must load");
@@ -2965,7 +3229,7 @@ async fn phase0_v2_negative_paths() {
 async fn phase0_v2_conductor_restart_recovery() {
     tokio::time::timeout(std::time::Duration::from_secs(2700), async {
         eprintln!("pulse-v2-restart: starting two local conductors");
-        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let mut conductors = SweetConductorBatch::standard(2).await;
         let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
             .await
             .expect("fresh DNA bundle must load");
@@ -3223,7 +3487,7 @@ async fn phase0_v2_conductor_restart_recovery() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 0.2 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase0_alice_sends_bob_receives() {
-    let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
@@ -3474,7 +3738,7 @@ fn compute_delivery_receipt_signing_content(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 1.1 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase1_delivery_receipt_roundtrip() {
-    let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");

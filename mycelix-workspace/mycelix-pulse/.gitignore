@@ -2,8 +2,8 @@
 target/
 dist/
 node_modules/
-Cargo.lock
-!holochain/Cargo.lock
+# Cargo.lock files are committed per independently resolved Rust package.
+# The migration workflow regenerates these locks and the exact-head gates use --locked.
 
 # Environment
 .env

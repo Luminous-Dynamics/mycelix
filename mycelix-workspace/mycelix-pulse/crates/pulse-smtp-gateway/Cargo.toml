@@ -104,29 +104,11 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 pqcrypto-dilithium = { version = "0.5", default-features = false }
 pqcrypto-traits = "0.3"
 
-# Optional: real holochain_client for Phase 5B. Gate with `holochain-bridge`
-# feature because the dep tree is heavy and the 0.9-dev version pin floats.
-#
-# INTENTIONAL EXCEPTION to the rest of mycelix-workspace's stable hdk=0.6.1/
-# hdi=0.7.1 pin (see mycelix-workspace/Cargo.toml [workspace.dependencies]):
-# this crate tracks a materially newer, pre-release Holochain generation
-# (holochain_client 0.9.0-dev / holochain_types+holochain_zome_types on the
-# 0.7.0-dev line) because mycelix-pulse/flake.nix intentionally points at
-# unpinned upstream `holochain/holochain` main, ahead of the fixed-commit
-# holonix pin every other cluster uses. This is not drift to "fix" -- it's
-# the Phase 11/12 federated-gateway-mesh track from PULSE_READINESS_PLAN.md.
-# A repo-wide Holochain-version reconciliation pass (2026-07-03) verified
-# every other Holochain-dependent Cargo.lock in the workspace against the
-# stable 0.6.1/0.7.1 baseline and deliberately left this one alone.
-# CORRECTION 2026-07-30: that pass concluded "no stable holochain_client
-# release compatible with 0.6.1 was confirmed to exist". That is FALSE --
-# holochain_client =0.8.1 is exactly that release, cut from the same commit
-# as Holochain 0.6.1. The pin below is therefore now a CHOICE (tracking the
-# 0.7-dev generation for Phase 11/12, consistent with this crate's own
-# 0.7.0-dev holochain_types pins), not a necessity. If Phase 11/12 is ever
-# descoped, move this crate to =0.8.1 with types/zome_types at =0.6.1.
-holochain_client = { version = "0.9.0-dev.10", optional = true }
-holo_hash = { version = "0.6", optional = true }
+# Optional, stable Holochain 0.7 client integration. Kept feature-gated because
+# the conductor client dependency graph is large; version pins are stable and
+# aligned with the rest of Pulse rather than tracking a pre-release branch.
+holochain_client = { version = "=0.9.0", optional = true }
+holo_hash = { version = "=0.7.0", optional = true }
 
 [dev-dependencies]
 # For unit tests that spin up an in-process SMTP client to exercise
@@ -139,3 +121,5 @@ lettre = { version = "0.11", default-features = false, features = [
 ] }
 tempfile = "3"
 tokio-test = "0.4"
+# Standalone daemon nested inside the repository's umbrella source tree.
+[workspace]

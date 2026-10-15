@@ -341,24 +341,33 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(store_record) => match store_record {
-            OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateRecord(store_record) => match store_record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { app_entry, action } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => {
+            validate_update_entry(app_entry, action)
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported trust update variant".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::TrustAttestation(attestation) => validate_attestation(&attestation, &action),
@@ -371,12 +380,12 @@ fn validate_create_entry(
 
 fn validate_update_entry(
     entry: EntryTypes,
-    action: Update,
+    action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         // Attestations can only be updated by truster (to revoke)
         EntryTypes::TrustAttestation(attestation) => {
-            if attestation.truster != action.author {
+            if attestation.truster != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only truster can update attestation".to_string(),
                 ));
@@ -385,23 +394,34 @@ fn validate_update_entry(
         }
         // Disputes can be updated for resolution by disputer only
         EntryTypes::TrustDispute(dispute) => {
-            if dispute.disputer != action.author {
+            if dispute.disputer != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the disputer can update a dispute".to_string(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        _ => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::TrustIntroduction(_) => {
+            let original_action = must_get_action(action.original_action_address.clone())?;
+            if original_action.action().author() != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original author can update a trust introduction".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported trust entry update".to_string(),
+        )),
     }
 }
 
 fn validate_attestation(
     attestation: &TrustAttestation,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Truster must be the author
-    if attestation.truster != action.author {
+    if attestation.truster != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Truster must match action author".to_string(),
         ));
@@ -461,7 +481,7 @@ fn validate_attestation(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_score(score: &TrustScore, _action: &Create) -> ExternResult<ValidateCallbackResult> {
+fn validate_score(score: &TrustScore, _action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
     // Score must be in valid range and finite
     if !score.score.is_finite() || score.score < 0.0 || score.score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -542,10 +562,10 @@ fn validate_score(score: &TrustScore, _action: &Create) -> ExternResult<Validate
 
 fn validate_dispute(
     dispute: &TrustDispute,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Disputer must be author
-    if dispute.disputer != action.author {
+    if dispute.disputer != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Disputer must match action author".to_string(),
         ));
@@ -563,10 +583,10 @@ fn validate_dispute(
 
 fn validate_introduction(
     intro: &TrustIntroduction,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Introducer must be author
-    if intro.introducer != action.author {
+    if intro.introducer != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Introducer must match action author".to_string(),
         ));
@@ -627,7 +647,7 @@ mod tests {
         fn must_get_agent_activity(
             &self,
             _: MustGetAgentActivityInput,
-        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+        ) -> ExternResult<Vec<AgentActivity>> {
             unimplemented!("not exercised by this fix")
         }
         fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
@@ -665,22 +685,25 @@ mod tests {
         <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
     {
         let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
-        let action = Action::Create(Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
+        let action = Action {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 0,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: ActionData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
                 EntryVisibility::Public,
             )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
-        });
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
+        };
         let hashed = HoloHashed::from_content_sync(action);
         let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
-        Record::new(signed_action, Some(entry))
+        Record::new(signed_action, RecordEntry::Present(entry))
     }
 
     fn test_attestation(trustee: AgentPubKey, revoked: bool) -> TrustAttestation {
@@ -714,19 +737,22 @@ mod tests {
         }
     }
 
-    fn test_action() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![99; 36]),
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+    fn test_action() -> TypedAction<EntryCreationData> {
+        TypedAction {
+            header: ActionHeader {
+                author: AgentPubKey::from_raw_36(vec![99; 36]),
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         }
     }
 

@@ -5,11 +5,14 @@
   description = "Mycelix Pulse - Decentralized communication on Holochain";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     # Holochain development tools
     holochain-flake = {
-      url = "github:holochain/holochain";
+      # Holonix 0.7 exports the conductor and hc packages and pins the
+      # released Holochain 0.7.0 / Kitsune2 Iroh / Lair 0.7.1 toolchain.
+      # Keep its nixpkgs graph independent from the app's legacy package set.
+      url = "github:holochain/holonix?ref=main-0.7";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -34,6 +37,8 @@
         };
 
         holochainPkg = holochain-flake.packages.${system}.holochain;
+        hcPkg = holochain-flake.packages.${system}.hc;
+        lairPkg = holochain-flake.packages.${system}.lair-keystore;
 
         # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
         # truth), not stable.latest, so devShell builds can't silently drift from the pin
@@ -48,6 +53,8 @@
         buildInputs = with pkgs; [
           # Rust
           rustToolchain
+          # Holochain 0.7 Sweettest build dependencies invoke Perl.
+          perl
           cargo-watch
           cargo-edit
           cargo-tauri
@@ -55,9 +62,11 @@
 
           # Holochain
           holochainPkg
+          hcPkg
+          lairPkg
 
           # Node.js for frontend
-          nodejs_20
+          nodejs_24
           nodePackages.npm
           nodePackages.typescript
           nodePackages.typescript-language-server
@@ -216,7 +225,7 @@
             version = "0.1.0";
             src = ./happ/dna;
 
-            nativeBuildInputs = [ rustToolchain pkgs.hc ];
+            nativeBuildInputs = [ rustToolchain hcPkg ];
 
             buildPhase = ''
               cd integrity && cargo build --release --target wasm32-unknown-unknown
