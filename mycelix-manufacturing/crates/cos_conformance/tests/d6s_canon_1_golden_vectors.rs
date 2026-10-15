@@ -1,8 +1,8 @@
 use cos_conformance::{
-    bind_assignment_to_observed_work, bind_general_capability, bind_physical_work,
+    bind_general_capability, bind_physical_work,
     bind_plan_to_consumption, bind_plan_to_execution, bind_requirement_to_availability,
     authorize_recommendation, create_source_observation, evaluate_negative,
-    preserve_failure_history, project_to_itc, project_to_frs, qualify_output,
+    preserve_failure_history, project_to_itc, qualify_output,
     record_effect, recognize_foreign_evidence, Bindings, Decision, Evidence, CASES,
 };
 use serde_json::Value;
@@ -47,6 +47,7 @@ fn every_canonical_vector_matches_the_executable_reference_model() {
     let now = 100;
     let current = Evidence::current_local("d6s-canon-1-current", now);
     let stale = Evidence::stale("d6s-canon-1-stale", now);
+    let foreign = Evidence::current_foreign("d6s-canon-1-foreign", "node-b", now);
     for (index, vector) in vectors.iter().enumerate() {
         let test_id = vector["test_id"].as_str().expect("test_id must be a string");
         assert_eq!(test_id, CASES[index].test_id, "canonical ordering drift");
@@ -66,10 +67,15 @@ fn every_canonical_vector_matches_the_executable_reference_model() {
             "{test_id} negative vector changed"
         );
 
+        let positive_evidence = if matches!(test_id, "COS-N-009" | "COS-N-013") {
+            &foreign
+        } else {
+            &current
+        };
         let positive = evaluate_negative(
             test_id,
             &positive_bindings(test_id),
-            Some(&current),
+            Some(positive_evidence),
             now,
         );
         assert_eq!(
