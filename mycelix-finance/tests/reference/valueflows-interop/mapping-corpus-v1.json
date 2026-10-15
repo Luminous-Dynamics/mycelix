@@ -23,7 +23,20 @@
     "hrea_source_commit_url": "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
     "packaged_hrea_artifact_pinned": false,
     "hrea_runtime_qualified_with_mycelix": false,
-    "version_note": "Keep the published ValueFlows ontology version and the hREA source branch's stated VF 1.0 profile as distinct facts. This fixture does not claim full normative conformance or binary/DNA compatibility."
+    "version_note": "Keep three facts distinct: the published ValueFlows ontology page is version 0.17; the pinned sprout source snapshot states ValueFlows 1.0 + Holochain 0.7; and the published happ-0.5.0-beta.1 release (tagged commit and DNA/hApp SHA-256 recorded in release_evidence) claims ValueFlows 1.0 with Holochain 0.7.x and @holochain/client ^0.21.0. The checksummed release is research evidence only and is not selected as a Mycelix integration dependency; no hREA runtime integration with Mycelix is qualified.",
+    "release_evidence": {
+      "release_tag": "happ-0.5.0-beta.1",
+      "release_commit": "79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85",
+      "published_at": "2026-09-10T13:10:58Z",
+      "release_url": "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+      "claimed_valueflows_profile": "1.0",
+      "claimed_holochain_requirement": "0.7.x",
+      "claimed_client_requirement": "^0.21.0",
+      "dna_asset_sha256": "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
+      "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
+      "selected_for_mycelix_integration": false,
+      "evidence_scope": "research_evidence_only"
+    }
   },
   "mapping_contract": {
     "direction": "Mycelix -> external ValueFlows-shaped export",
