@@ -162,7 +162,7 @@ fn expected_mapping(
             "none_attestation_only",
             "not_applicable",
             "non_transferable_recognition_attestation",
-            &["Claim"],
+            &[],
         )),
         _ => None,
     }
@@ -171,7 +171,7 @@ fn expected_mapping(
 fn expected_input_condition(id: &str) -> Option<&'static str> {
     match id {
         "VF-AUTH-001" => Some("Imported EconomicEvent is used directly to increase, decrease, or settle an authoritative Mycelix SAP/TEND balance."),
-        "VF-MYCEL-001" => Some("MYCEL recognition is exported as currency, transferable balance, or spendable entitlement."),
+        "VF-MYCEL-001" => Some("MYCEL recognition is exported as a ValueFlows Claim, currency, transferable balance, or spendable entitlement without a specifically reviewed semantic profile."),
         "VF-TEND-001" => Some("TEND obligation is translated into SAP without an explicit, separately authorized exchange event and conversion profile."),
         "VF-AMOUNT-001" => Some("An authoritative SAP micro-unit amount is parsed through binary floating point or loses its base-10 integer representation."),
         "VF-UNIT-001" => Some("A quantity lacks its unit profile or a receiving adapter substitutes another unit."),
@@ -196,9 +196,10 @@ fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
             "external_import_may_mark_settlement_final=false",
         ]),
         "VF-MYCEL-001" => Some(&[
-            "MYCEL.transferability=non_transferable_recognition_attestation",
+            "MYCEL.valueflows_entities=empty_no_core_mapping",
             "MYCEL.quantity_encoding=none_attestation_only",
             "MYCEL.maps_to_authoritative_balance=false",
+            "MYCEL.transferability=non_transferable_recognition_attestation",
         ]),
         "VF-TEND-001" => Some(&[
             "TEND.identity_preserved",
@@ -609,9 +610,8 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 if mapping.mycelix_instrument == "MYCEL" {
                     fail(
                         &mut errors,
-                        mapping.valueflows_entities.len() == 1
-                            && mapping.valueflows_entities[0] == "Claim",
-                        "MYCEL must map only to a scoped Claim/attestation in this profile".into(),
+                        mapping.valueflows_entities.is_empty(),
+                        "MYCEL recognition has no direct ValueFlows economic entity in corpus v1; do not map a generic attestation to Claim".into(),
                     );
                 }
             }
@@ -818,6 +818,22 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("incorrect transferability semantics")));
+    }
+
+    #[test]
+    fn mycel_recognition_is_not_mapped_to_valueflows_claim() {
+        let mut value = fixture();
+        let mappings = value["mappings"].as_array_mut().expect("mappings array");
+        let mycel = mappings
+            .iter_mut()
+            .find(|mapping| mapping["mycelix_instrument"] == "MYCEL")
+            .expect("MYCEL mapping");
+        mycel["valueflows_entities"] = serde_json::json!(["Claim"]);
+        let errors = check_text(&value.to_string())
+            .expect_err("a generic reputation attestation must not become a VF economic Claim");
+        assert!(errors.iter().any(|error| {
+            error.contains("no direct ValueFlows economic entity")
+        }));
     }
 
     #[test]
