@@ -2,6 +2,7 @@ use serde::{
     de::{self, MapAccess, SeqAccess, Visitor},
     Deserialize, Deserializer, Serialize,
 };
+use ed25519_dalek::{Signature, VerifyingKey};
 use serde_json::{Map as JsonMap, Number, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -18,6 +19,13 @@ const DEFAULT_PROVENANCE_FIXTURE: &str =
 const EMBEDDED_PROVENANCE_FIXTURE: &str = include_str!(
     "../../../tests/reference/valueflows-interop/provenance-envelope-contract-v1.json"
 );
+
+// Synthetic-fixture allowlist only; this is not a production issuer registry.
+const SYNTHETIC_TRUSTED_ISSUER_ID: &str = "urn:mycelix:issuer:synthetic-01";
+const SYNTHETIC_TRUSTED_KEY_ID: &str =
+    "sha256:dfd6251d9330a21b322de85cdf49fa4730ce7d0e8890d677124c4c41e487e197";
+const SYNTHETIC_TRUSTED_PUBLIC_KEY_HEX: &str =
+    "376dbc1327c9e66b5a5eb33343ff5cbe86dc303b59ba0d2be413f7224e8b05a4";
 
 // Deserialize through a map visitor so duplicate JSON object names are rejected
 // before serde_json::Value could collapse them. JCS requires unique member names.
@@ -149,6 +157,103 @@ fn is_lowercase_sha256_hex(value: &str) -> bool {
         && value.bytes().all(|byte| byte.is_ascii_hexdigit())
         && value == value.to_ascii_lowercase()
 }
+
+fn decode_lowercase_hex<const N: usize>(value: &str, label: &str) -> Result<[u8; N], String> {
+    if value.len() != N * 2
+        || !value.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || value != value.to_ascii_lowercase()
+    {
+        return Err(format!("{label} must be lowercase hex encoding of exactly {N} bytes"));
+    }
+    let mut output = [0_u8; N];
+    let bytes = value.as_bytes();
+    for index in 0..N {
+        let high = hex_nibble(bytes[index * 2])
+            .ok_or_else(|| format!("{label} contains invalid hex"))?;
+        let low = hex_nibble(bytes[index * 2 + 1])
+            .ok_or_else(|| format!("{label} contains invalid hex"))?;
+        output[index] = (high << 4) | low;
+    }
+    Ok(output)
+}
+
+fn hex_nibble(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        _ => None,
+    }
+}
+
+fn signature_message_bytes(
+    schema_id: &str,
+    schema_version: &str,
+    envelope_digest_sha256: &str,
+    signature: &ProvenanceSignature,
+) -> Result<Vec<u8>, String> {
+    let preimage = SignaturePreimage {
+        profile: &signature.profile,
+        algorithm: &signature.algorithm,
+        issuer_id: &signature.issuer_id,
+        key_id: &signature.key_id,
+        schema_id,
+        schema_version,
+        envelope_digest_sha256,
+        signed_at: &signature.signed_at,
+    };
+    serde_json_canonicalizer::to_vec(&preimage)
+        .map_err(|error| format!("signature preimage RFC 8785/JCS canonicalization failed: {error}"))
+}
+
+fn verify_provenance_signature(
+    fixture: &ProvenanceFixture,
+    key_status: TrustedKeyStatus,
+) -> Result<(), String> {
+    if key_status != TrustedKeyStatus::Active {
+        return Err(match key_status {
+            TrustedKeyStatus::Revoked =>
+                "trusted issuer key is revoked; self-reported signed_at is not a trusted timestamp".into(),
+            TrustedKeyStatus::Unknown =>
+                "issuer key status is unknown; signature must fail closed".into(),
+            TrustedKeyStatus::Active => unreachable!(),
+        });
+    }
+
+    let signature = &fixture.signature;
+    if signature.profile != "mycelix.provenance-envelope-signature/v1"
+        || signature.algorithm != "Ed25519"
+    {
+        return Err("unsupported or unqualified provenance signature profile/algorithm".into());
+    }
+    if signature.issuer_id != SYNTHETIC_TRUSTED_ISSUER_ID
+        || signature.key_id != SYNTHETIC_TRUSTED_KEY_ID
+        || signature.public_key_hex != SYNTHETIC_TRUSTED_PUBLIC_KEY_HEX
+    {
+        return Err("signature issuer/key does not match the out-of-band synthetic test-key binding".into());
+    }
+
+    let public_key_bytes =
+        decode_lowercase_hex::<32>(&signature.public_key_hex, "Ed25519 public key")?;
+    let computed_key_id = format!("sha256:{}", sha256_hex(&public_key_bytes));
+    if computed_key_id != signature.key_id {
+        return Err("signature key_id does not match SHA-256 of the raw Ed25519 public-key bytes".into());
+    }
+
+    let signature_bytes = decode_lowercase_hex::<64>(&signature.signature_hex, "Ed25519 signature")?;
+    let verifying_key = VerifyingKey::from_bytes(&public_key_bytes)
+        .map_err(|_| "invalid Ed25519 verifying key".to_string())?;
+    let parsed_signature = Signature::from_bytes(&signature_bytes);
+    let message = signature_message_bytes(
+        &fixture.schema_id,
+        &fixture.schema_version,
+        &fixture.example_envelope_digest_sha256,
+        signature,
+    )?;
+    verifying_key
+        .verify_strict(&message, &parsed_signature)
+        .map_err(|_| "Ed25519 strict signature verification failed".to_string())
+}
+
 
 
 #[derive(Debug, Deserialize)]
@@ -431,8 +536,10 @@ struct ProvenanceFixture {
     purpose: String,
     authority_boundary: ProvenanceAuthorityBoundary,
     canonicalization_policy: CanonicalizationPolicy,
+    signature_policy: SignaturePolicy,
     example_observation: ProvenanceObservation,
     example_envelope_digest_sha256: String,
+    signature: ProvenanceSignature,
     negative_controls: Vec<ProvenanceNegativeControl>,
 }
 
@@ -462,6 +569,51 @@ struct CanonicalizationPolicy {
     payload_digest_verification_implemented: bool,
     envelope_digest_verification_implemented: bool,
     note: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SignaturePolicy {
+    algorithm: String,
+    profile: String,
+    key_id_algorithm: String,
+    trust_mode: String,
+    signature_verification_implemented: bool,
+    production_issuer_registry_implemented: bool,
+    key_revocation_registry_implemented: bool,
+    signed_at_is_trusted_timestamp: bool,
+    claim_ceiling: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProvenanceSignature {
+    profile: String,
+    algorithm: String,
+    issuer_id: String,
+    key_id: String,
+    public_key_hex: String,
+    signed_at: String,
+    signature_hex: String,
+}
+
+#[derive(Serialize)]
+struct SignaturePreimage<'a> {
+    profile: &'a str,
+    algorithm: &'a str,
+    issuer_id: &'a str,
+    key_id: &'a str,
+    schema_id: &'a str,
+    schema_version: &'a str,
+    envelope_digest_sha256: &'a str,
+    signed_at: &'a str,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TrustedKeyStatus {
+    Active,
+    Revoked,
+    Unknown,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -589,6 +741,33 @@ fn expected_provenance_control(
                 "out_of_scope_record_non_authoritative",
             ],
         )),
+        "PE-SIG-KEY-001" => Some((
+            "A source supplies a different, self-derived Ed25519 key and claims that key is an authorized issuer.",
+            "reject_untrusted_issuer_key",
+            &[
+                "issuer_key_must_match_out_of_band_trust_binding",
+                "public_key_fingerprint_recomputed",
+                "signature_failure_non_authoritative",
+            ],
+        )),
+        "PE-SIG-TAMPER-001" => Some((
+            "An otherwise valid provenance signature or one of its signed metadata fields is altered after signing.",
+            "reject_invalid_ed25519_signature",
+            &[
+                "ed25519_verify_strict",
+                "signature_preimage_domain_separated",
+                "signature_failure_non_authoritative",
+            ],
+        )),
+        "PE-SIG-REVOKE-001" => Some((
+            "A cryptographically valid signature is presented after the trusted key registry marks its key revoked, without independent trusted timestamp evidence.",
+            "reject_revoked_key_without_trusted_timestamp",
+            &[
+                "revocation_state_external_to_signed_envelope",
+                "self_asserted_signed_at_not_trusted",
+                "revoked_key_rejects_by_default",
+            ],
+        )),
         "PE-REVOCATION-001" => Some((
             "Access revocation is reported as proof that plaintext already copied by another peer has been erased.",
             "reject_false_erasure_claim",
@@ -603,6 +782,13 @@ fn expected_provenance_control(
 }
 
 fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
+    validate_provenance_with_key_status(fixture, TrustedKeyStatus::Active)
+}
+
+fn validate_provenance_with_key_status(
+    fixture: &ProvenanceFixture,
+    key_status: TrustedKeyStatus,
+) -> Vec<String> {
     let mut errors = Vec::new();
     macro_rules! require {
         ($condition:expr, $message:expr) => {
@@ -699,8 +885,33 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
     );
     require!(
         canonicalization.note.contains("recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage")
-            && canonicalization.note.contains("does not verify signatures or establish truth"),
-        "canonicalization note must describe digest verification and retained signature/truth limits"
+            && canonicalization.note.contains("Ed25519 signature verification")
+            && canonicalization.note.contains("does not establish truth"),
+        "canonicalization note must describe digest/signature verification and retained truth limits"
+    );
+
+    let signature_policy = &fixture.signature_policy;
+    require!(
+        signature_policy.algorithm == "Ed25519"
+            && signature_policy.profile == "mycelix.provenance-envelope-signature/v1"
+            && signature_policy.key_id_algorithm == "SHA-256 of raw Ed25519 public-key bytes",
+        "signature algorithm/profile/key fingerprint must remain pinned"
+    );
+    require!(
+        signature_policy.trust_mode == "pinned-synthetic-test-key-only"
+            && signature_policy.signature_verification_implemented,
+        "signature verification must use only the pinned synthetic fixture key"
+    );
+    require!(
+        !signature_policy.production_issuer_registry_implemented
+            && !signature_policy.key_revocation_registry_implemented
+            && !signature_policy.signed_at_is_trusted_timestamp,
+        "fixture must not imply production issuer trust, revocation, or trusted timestamp infrastructure"
+    );
+    require!(
+        signature_policy.claim_ceiling.contains("does not establish truth")
+            && signature_policy.claim_ceiling.contains("does not grant domain authority"),
+        "signature claim ceiling must exclude truth and domain authority"
     );
 
     let example = &fixture.example_observation;
@@ -755,6 +966,10 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
         ),
         Err(error) => errors.push(error),
     }
+
+    if let Err(error) = verify_provenance_signature(fixture, key_status) {
+        errors.push(error);
+    }
     require!(
         example.evidence_class == "synthetic",
         "reference example must remain synthetic"
@@ -771,6 +986,9 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
     let expected_ids = [
         "PE-AUTH-001",
         "PE-SIG-001",
+        "PE-SIG-KEY-001",
+        "PE-SIG-TAMPER-001",
+        "PE-SIG-REVOKE-001",
         "PE-REPLAY-001",
         "PE-CONFLICT-001",
         "PE-SUBJECT-001",
@@ -823,7 +1041,7 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
     }
     require!(
         seen_ids.len() == expected_ids.len(),
-        "provenance contract v1 must contain exactly the 10 registered controls"
+        "provenance contract v1 must contain exactly the 13 registered controls"
     );
 
     errors
@@ -1838,7 +2056,60 @@ mod tests {
     fn checked_in_provenance_fixture_satisfies_fail_closed_contract() {
         let count = check_provenance_text(EMBEDDED_PROVENANCE_FIXTURE)
             .expect("checked-in provenance fixture must satisfy its local contract");
-        assert_eq!(count, 10);
+        assert_eq!(count, 13);
+    }
+
+    #[test]
+    fn checked_in_ed25519_signature_verifies_under_synthetic_allowlist() {
+        let fixture: ProvenanceFixture =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        verify_provenance_signature(&fixture, TrustedKeyStatus::Active)
+            .expect("checked-in synthetic Ed25519 signature must verify strictly");
+    }
+
+    #[test]
+    fn provenance_signature_bit_flip_is_rejected() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        let signature = value["signature"]["signature_hex"]
+            .as_str().expect("signature hex").to_owned();
+        let first = if signature.as_bytes()[0] == b'0' { '1' } else { '0' };
+        value["signature"]["signature_hex"] = format!("{first}{}", &signature[1..]).into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("changed signature bytes must fail");
+        assert!(errors.iter().any(|error| error.contains("Ed25519 strict signature verification failed")));
+    }
+
+    #[test]
+    fn provenance_signature_cannot_choose_its_own_trust_root() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        value["signature"]["issuer_id"] = "urn:attacker:issuer".into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("issuer identity must be bound out of band");
+        assert!(errors.iter().any(|error| error.contains("out-of-band synthetic test-key binding")));
+    }
+
+    #[test]
+    fn revoked_trusted_key_fails_closed_without_a_trusted_timestamp() {
+        let fixture: ProvenanceFixture =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        let errors = validate_provenance_with_key_status(&fixture, TrustedKeyStatus::Revoked);
+        assert!(errors.iter().any(|error| {
+            error.contains("self-reported signed_at is not a trusted timestamp")
+        }));
+        let errors = validate_provenance_with_key_status(&fixture, TrustedKeyStatus::Unknown);
+        assert!(errors.iter().any(|error| error.contains("issuer key status is unknown")));
+    }
+
+    #[test]
+    fn signed_at_tampering_invalidates_the_signature() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+        value["signature"]["signed_at"] = "2026-10-15T17:55:00Z".into();
+        let errors = check_provenance_text(&value.to_string())
+            .expect_err("asserted signed_at is part of the signed preimage");
+        assert!(errors.iter().any(|error| error.contains("Ed25519 strict signature verification failed")));
     }
 
     #[test]
