@@ -231,6 +231,13 @@
     "distributional_coverage": {
       "$ref": "#/$defs/distributionalCoverage",
       "description": "Required for real assessments: records the declared population frame, represented cohort refs, known omissions, intersectional review state, and evidence. It documents coverage; it does not prove no group was missed."
+    },
+    "causal_evaluations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/causalEvaluation"
+      },
+      "description": "Optional review-gated interpretation records. Interaction arithmetic remains descriptive unless an explicitly documented causal design, resolved evidence, falsification checks, and review justify a stronger claim. Schema validity alone never certifies causality."
     }
   },
   "$defs": {
@@ -2133,6 +2140,264 @@
           }
         }
       ]
+    },
+    "causalEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluation_id",
+        "interaction_ref",
+        "claim_level",
+        "design_type",
+        "unit_of_analysis",
+        "treatment_assignment",
+        "counterfactual_strategy",
+        "confounder_strategy",
+        "interference_assumptions",
+        "predeclared_outcomes",
+        "falsification_checks",
+        "evidence_refs",
+        "review_status",
+        "review_ref",
+        "design_rationale",
+        "limitations"
+      ],
+      "properties": {
+        "evaluation_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "interaction_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "claim_level": {
+          "enum": [
+            "descriptive_interaction",
+            "contribution_claim",
+            "causal_effect_claim"
+          ]
+        },
+        "design_type": {
+          "enum": [
+            "not_applicable",
+            "randomized_trial",
+            "cluster_randomized_trial",
+            "difference_in_differences",
+            "interrupted_time_series",
+            "regression_discontinuity",
+            "synthetic_control",
+            "matching_adjustment",
+            "instrumental_variable",
+            "process_tracing",
+            "contribution_analysis",
+            "observational_adjustment",
+            "other"
+          ]
+        },
+        "unit_of_analysis": {
+          "type": "string",
+          "minLength": 8
+        },
+        "treatment_assignment": {
+          "type": "string",
+          "minLength": 12
+        },
+        "counterfactual_strategy": {
+          "type": "string",
+          "minLength": 12
+        },
+        "confounder_strategy": {
+          "type": "string",
+          "minLength": 12
+        },
+        "interference_assumptions": {
+          "type": "string",
+          "minLength": 12
+        },
+        "predeclared_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 4
+          }
+        },
+        "falsification_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/causalFalsificationCheck"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "review_status": {
+          "enum": [
+            "not_assessed",
+            "design_reviewed",
+            "evidence_reviewed",
+            "rejected"
+          ]
+        },
+        "review_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Evidence-catalogue reference to the independent design/evidence review; a status string alone is not proof of review."
+        },
+        "design_rationale": {
+          "type": "string",
+          "minLength": 20
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "claim_level": {
+                "const": "contribution_claim"
+              }
+            },
+            "required": [
+              "claim_level"
+            ]
+          },
+          "then": {
+            "properties": {
+              "design_type": {
+                "enum": [
+                  "process_tracing",
+                  "contribution_analysis"
+                ]
+              },
+              "evidence_refs": {
+                "minItems": 1
+              },
+              "review_status": {
+                "const": "evidence_reviewed"
+              },
+              "review_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "falsification_checks": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_level": {
+                "const": "causal_effect_claim"
+              }
+            },
+            "required": [
+              "claim_level"
+            ]
+          },
+          "then": {
+            "properties": {
+              "design_type": {
+                "enum": [
+                  "randomized_trial",
+                  "cluster_randomized_trial",
+                  "difference_in_differences",
+                  "interrupted_time_series",
+                  "regression_discontinuity",
+                  "synthetic_control",
+                  "matching_adjustment",
+                  "instrumental_variable"
+                ]
+              },
+              "evidence_refs": {
+                "minItems": 1
+              },
+              "review_status": {
+                "const": "evidence_reviewed"
+              },
+              "review_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "falsification_checks": {
+                "minItems": 2
+              }
+            },
+            "required": [
+              "evidence_refs",
+              "review_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "causalFalsificationCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "check_type",
+        "result",
+        "evidence_refs",
+        "description"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "check_type": {
+          "enum": [
+            "negative_control_outcome",
+            "negative_control_exposure",
+            "pretrend",
+            "placebo_timing",
+            "balance",
+            "sensitivity",
+            "spillover",
+            "other"
+          ]
+        },
+        "result": {
+          "enum": [
+            "consistent",
+            "contradicted",
+            "inconclusive",
+            "not_run",
+            "not_applicable"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "description": {
+          "type": "string",
+          "minLength": 12
+        }
+      }
     }
   },
   "allOf": [
@@ -2162,6 +2427,9 @@
             "maxItems": 0
           },
           "distributional_impacts": {
+            "maxItems": 0
+          },
+          "causal_evaluations": {
             "maxItems": 0
           }
         }
