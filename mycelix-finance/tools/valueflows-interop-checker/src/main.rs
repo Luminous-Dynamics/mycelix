@@ -314,19 +314,14 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
     fail(
         &mut errors,
-        source.hrea_source_commit.len() == 40
-            && source
-                .hrea_source_commit
-                .chars()
-                .all(|ch| ch.is_ascii_hexdigit()),
-        "hREA source commit must be a full 40-character hexadecimal SHA".into(),
+        source.hrea_source_commit == "8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
+        "hREA source commit must match the exact reviewed sprout snapshot".into(),
     );
     fail(
         &mut errors,
-        source
-            .hrea_source_commit_url
-            .ends_with(&source.hrea_source_commit),
-        "hREA source commit URL must end with the pinned commit SHA".into(),
+        source.hrea_source_commit_url
+            == "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
+        "hREA source commit URL must match the exact reviewed source location".into(),
     );
     fail(
         &mut errors,
@@ -356,12 +351,8 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
     fail(
         &mut errors,
-        release.release_commit.len() == 40
-            && release
-                .release_commit
-                .chars()
-                .all(|ch| ch.is_ascii_hexdigit()),
-        "hREA release commit must be a full 40-character hexadecimal SHA".into(),
+        release.release_commit == "79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85",
+        "hREA release commit must match the exact published release tag target".into(),
     );
     fail(
         &mut errors,
@@ -377,21 +368,15 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
     fail(
         &mut errors,
-        release.dna_asset_sha256.len() == 64
-            && release
-                .dna_asset_sha256
-                .chars()
-                .all(|ch| ch.is_ascii_hexdigit()),
-        "hREA DNA artifact must have a pinned 64-character SHA-256 digest".into(),
+        release.dna_asset_sha256
+            == "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
+        "hREA DNA artifact digest does not match the pinned release asset".into(),
     );
     fail(
         &mut errors,
-        release.happ_asset_sha256.len() == 64
-            && release
-                .happ_asset_sha256
-                .chars()
-                .all(|ch| ch.is_ascii_hexdigit()),
-        "hREA hApp artifact must have a pinned 64-character SHA-256 digest".into(),
+        release.happ_asset_sha256
+            == "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
+        "hREA hApp artifact digest does not match the pinned release asset".into(),
     );
     fail(
         &mut errors,
@@ -821,6 +806,48 @@ mod tests {
         assert!(errors.iter().any(|error| {
             error.contains("must not be promoted to a selected or qualified Mycelix dependency")
         }));
+    }
+
+    #[test]
+    fn hrea_source_and_release_refs_cannot_drift_to_other_valid_shas() {
+        let mut value = fixture();
+        value["source_profile"]["hrea_source_commit"] =
+            "9c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("a different valid source SHA must not replace the inspected revision");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exact reviewed sprout snapshot")));
+
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["release_commit"] =
+            "89c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("a different valid release SHA must not replace the release target");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exact published release tag target")));
+    }
+
+    #[test]
+    fn hrea_artifact_digests_cannot_drift_to_other_valid_hex_values() {
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["dna_asset_sha256"] =
+            "0000000000000000000000000000000000000000000000000000000000000000".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("a valid-shaped but wrong DNA digest must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("DNA artifact digest does not match")));
+
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["happ_asset_sha256"] =
+            "1111111111111111111111111111111111111111111111111111111111111111".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("a valid-shaped but wrong hApp digest must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("hApp artifact digest does not match")));
     }
 
     #[test]
