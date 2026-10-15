@@ -701,7 +701,14 @@ def main():
         fail("mutation: food-delivery interaction across incomparable periods was accepted")
     print("PASS mutation: food-delivery interaction rejects mismatched beneficiary/period/basis")
 
-    print("PASS: 36 urban-metabolism/synergy controls (30 mutation/parser rejection controls and six positive controls); no composite symtropy score or automatic authorization.")
+    non_operational_food = copy.deepcopy(food_delivery_case)
+    non_operational_flow = next(f for f in non_operational_food["scenarios"][0]["flow_records"] if f["metric_id"] == "edible_food_delivered")
+    non_operational_flow["life_cycle_stage"] = "embodied_construction"
+    if not schema_errors(validator, non_operational_food):
+        fail("mutation: delivered edible food labelled as embodied construction was accepted")
+    print("PASS mutation: delivered-food service outcomes must use the operational life-cycle stage")
+
+    print("PASS: 37 urban-metabolism/synergy controls (31 mutation/parser rejection controls and six positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
