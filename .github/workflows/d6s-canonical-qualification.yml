@@ -85,15 +85,15 @@ jobs:
           # These roots are deliberately repeated here. Updating the corpus,
           # manifest, reference engine, Rust test, or independent verifier requires
           # a visible reviewed update to this pin list in the same change.
-          check_blob "docs/integral/d6s-canon-1-golden-vectors.json" "b8c1e935e2fc5f1046598ac8bda5e35db3c831e5"
-          check_blob "docs/integral/d6s-canon-1-manifest.json" "2d91a5f7baddfb1055fad81f504f81a33fa32840"
-          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "2ef8f33ac48bd4942288cee337d70a8d55354ea5"
-          check_blob "scripts/integral/verify_d6s_canon_1.py" "e7bfebb0057496f296e42b736703fe8476593cf6"
+          check_blob "docs/integral/d6s-canon-1-golden-vectors.json" "419dfc5b5ab8d7aff98502651fd45b6eca4a5dcb"
+          check_blob "docs/integral/d6s-canon-1-manifest.json" "ee4c7851ba375a393e1cbe49f86dacda1d618681"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "703dc7f41718df40fef4e1a29a074e028af4d3ae"
+          check_blob "scripts/integral/verify_d6s_canon_1.py" "13a013d2c112ff97dc50e240d0beca910d978292"
           check_blob "docs/integral/d6s-canon-2-authority-boundary-fixture.json" "aa30f08be279147cf85ecfd64436d1aa546920ba"
           check_blob "docs/integral/d6s-canon-2-manifest.json" "fd43f8255afeba1edaace6519867e20896a3c8f1"
           check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs" "4516f7d72308b05de3ea03945ac550bb4628c80d"
           check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "1a079f3731a485387cf5ead6b5ae8dcbb3782195"
-          check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "e7aafffe0dd2578854eb786052c5b830569d6a3c"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "ede59532d3523d6f0d1fa98d0b34b37dfa68eb39"
           check_blob "docs/integral/cos-reference-node-v1.md" "9037ca3ca53bbe0f786faf972ff207b48e30faec"
 
 
