@@ -2098,8 +2098,8 @@ mod tests {
         (credential, proof_options)
     }
 
-    // W3C VC-DI-EDDSA Example 37: hashData is SHA256(canonical proof options)
-    // followed by SHA256(canonical unsecured credential). The key bytes below
+    // W3C VC-DI-EDDSA Example 36 defines hashData; Example 37 gives the
+    // signature bytes. The key bytes below
     // are the Ed25519 public key from Example 29's publicKeyMultibase after
     // removing its 0xed01 multicodec prefix.
     fn published_w3c_eddsa_jcs_2022_hash_data(
@@ -2132,12 +2132,28 @@ mod tests {
             published_w3c_eddsa_jcs_2022_hash_data(&credential, &proof_options);
 
         assert_eq!(
-            format!("{credential_digest:x}"),
+            sha256_hex(&canonical_json_bytes(&credential).expect("canonical credential")),
             "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
         );
         assert_eq!(
-            format!("{proof_options_digest:x}"),
+            sha256_hex(&canonical_json_bytes(&proof_options).expect("canonical proof options")),
             "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db"
+        );
+        assert_eq!(
+            proof_options_digest.as_slice(),
+            &decode_lowercase_hex::<32>(
+                "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db",
+                "W3C proof-options digest",
+            )
+            .expect("proof-options digest bytes")
+        );
+        assert_eq!(
+            credential_digest.as_slice(),
+            &decode_lowercase_hex::<32>(
+                "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19",
+                "W3C credential digest",
+            )
+            .expect("credential digest bytes")
         );
 
         let public_key = decode_lowercase_hex::<32>(
