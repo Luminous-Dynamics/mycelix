@@ -1,6 +1,6 @@
 {
   "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "source_snapshots": [
     {
       "snapshot_id": "ISO-WD-37120-2026-10",
@@ -84,7 +84,7 @@
       "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856",
       "observed_status": "Latest Victims of Crime Release in the GPSJS series; published 2026-09-01; reference period 2025/26",
       "as_of_date": "2026-10-15",
-      "notes": "For housebreaking, estimated incidents rose from 1.493 million (2024/25) to 1.549 million (2025/26), while households experiencing it fell from 1.123 million to 1.078 million, and the share reporting some/all incidents rose from 43.4% to 48.2%. These indicators have different denominators/constructs and must be kept separate; changes are descriptive national survey estimates, not causal effects or local pilot values."
+      "notes": "For housebreaking, estimated incidents rose from 1.493 million (2024/25) to 1.549 million (2025/26), while households experiencing it fell from 1.123 million to 1.078 million, and the share reporting some/all incidents rose from 43.4% to 48.2%. The technical notes report an 85.57% national response rate, a 76.97% Gauteng response rate (the lowest), and four geographic areas below the cited 80% minimum-acceptable response rate. Keep indicator denominators separate and use the estimate-specific precision/quality tables before significance claims; all reported trends remain descriptive national survey evidence, not causal effects or local pilot values."
     }
   ],
   "cases": [
@@ -558,6 +558,38 @@
         ]
       },
       "rationale": "Stats SA's latest 2025/26 release reports an estimated 1.549 million housebreaking incidents versus 1.493 million in 2024/25; households experiencing housebreaking fell from 1.123 million to 1.078 million; and households reporting some or all housebreaking incidents rose from 43.4% to 48.2%. These are distinct indicators with different denominators. Survey estimates need their definitions, sample design and precision limits preserved, and they do not establish an intervention effect or a Johannesburg baseline.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-017",
+      "title": "Survey response-rate and precision limits must gate year-over-year significance claims",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0341:GPSJS:2025-26:precision",
+        "artifact_kind": "dataset",
+        "version": "GPSJS 2025/26 Victims of Crime Release technical notes; published 2026-09-01",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856"
+      },
+      "context": {
+        "use_case": "interpret national and provincial year-over-year victimization estimates without overstating precision, significance, or local relevance",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-15T11:24:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the rise from 43.4% to 48.2% is statistically significant because rounded point estimates differ",
+          "Gauteng estimates are invalid solely because the province response rate was 76.97%",
+          "the 85.57% national response rate guarantees precision for every province or subgroup",
+          "the cited 80% minimum-acceptable response rate is a statistical-significance threshold or substitutes for estimate-specific confidence intervals",
+          "year-over-year survey point estimates prove that a local robotics or economic intervention caused a crime outcome"
+        ]
+      },
+      "rationale": "Stats SA's 2025/26 GPSJS technical notes report an 85.57% national household response rate and 76.97% for Gauteng, the lowest province; four geographic areas fell below the cited 80% minimum-acceptable level in Stats SA 019:2017 V2.00. These response rates are quality diagnostics, not significance tests and not proof that every estimate from a lower-response area is invalid. Before stating that a difference is statistically meaningful, preserve the indicator's definition and denominator, survey design and weighting, time comparability, and the published estimate-specific standard error, confidence interval, coefficient of variation, or other precision information where available. National descriptive survey changes do not establish a local baseline or causal intervention effect.",
       "synthetic": false
     }
   ]

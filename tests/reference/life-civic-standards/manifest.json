@@ -1,6 +1,6 @@
 {
   "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "status": "research_fixture",
   "created_at": "2026-10-15",
   "purpose": "Adversarial and boundary fixtures for instrument metadata, context-specific applicability, and evidence-claim scope across life/civic domains. These cases are not legal determinations or empirical impact results.",
@@ -27,7 +27,8 @@
     "official_labour_statistics_scope",
     "decent_work_measurement_not_normative_threshold",
     "victimization_vs_police_report_observability",
-    "victimization_vs_reporting_time_series"
+    "victimization_vs_reporting_time_series",
+    "survey_precision_response_rate_boundary"
   ],
   "claim_ceiling": {
     "permitted": [
@@ -56,7 +57,11 @@
       "transferring national offense-specific reporting proportions to a local service area without validation",
       "mixing incident counts, affected-household counts, and reporting proportions as though they were the same outcome",
       "inferring a causal crime effect from national year-over-year victimization survey changes",
-      "transferring national reporting proportions to a Johannesburg intervention without local validation"
+      "transferring national reporting proportions to a Johannesburg intervention without local validation",
+      "claiming a year-over-year point-estimate difference is statistically significant without indicator-specific precision evidence",
+      "assuming a national survey response rate guarantees equal precision for provincial or subgroup estimates",
+      "treating a response rate below a cited quality threshold as proof all estimates from that area are invalid",
+      "treating a survey response-rate quality threshold as a statistical-significance threshold or substitute for confidence intervals"
     ]
   },
   "frozen_inputs": [
@@ -72,7 +77,7 @@
     },
     {
       "path": "tests/reference/life-civic-standards/cases.json",
-      "git_blob_sha1": "be07aaf15741b10e7297b3dc8907cb10670d65b7",
+      "git_blob_sha1": "b5f91391a0c76f3942480b54b4b28c6961cd32d4",
       "purpose": "adversarial and lifecycle fixture corpus"
     }
   ],

@@ -1292,7 +1292,68 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
         "latest GPSJS control must keep incident count distinct from affected-household count"
     );
     assert_eq!(
-        corpus["version"], "0.3.0",
+        corpus["version"], "0.4.0",
         "time-series boundary must be part of the versioned current corpus"
+    );
+}
+
+#[test]
+fn gpsjs_precision_negative_controls_remain_present() {
+    let corpus = read_json(CORPUS_PATH);
+    let cases = corpus["cases"].as_array().expect("cases array");
+    let precision = cases
+        .iter()
+        .find(|case| case["case_id"] == "MYC-LCA-017")
+        .expect("GPSJS survey-precision control missing");
+
+    assert_eq!(precision["expected"]["status"], "unknown");
+    assert_eq!(
+        precision["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert_eq!(
+        precision["input_projection"]["version"],
+        "GPSJS 2025/26 Victims of Crime Release technical notes; published 2026-09-01"
+    );
+    let rationale = precision["rationale"]
+        .as_str()
+        .expect("precision rationale must be a string");
+    assert!(rationale.contains("85.57%"));
+    assert!(rationale.contains("76.97%"));
+    assert!(rationale.contains("80% minimum-acceptable"));
+
+    let forbidden = precision["expected"]["forbidden_claims"]
+        .as_array()
+        .expect("precision prohibited claims must be an array");
+    assert!(
+        forbidden.iter().any(|claim| {
+            claim
+                .as_str()
+                .unwrap()
+                .contains("statistically significant because rounded point estimates differ")
+        }),
+        "precision control must forbid significance claims from rounded point estimates alone"
+    );
+    assert!(
+        forbidden.iter().any(|claim| {
+            claim
+                .as_str()
+                .unwrap()
+                .contains("response rate was 76.97%")
+        }),
+        "precision control must not declare every lower-response-area estimate invalid"
+    );
+    assert!(
+        forbidden.iter().any(|claim| {
+            claim
+                .as_str()
+                .unwrap()
+                .contains("confidence intervals")
+        }),
+        "precision control must preserve estimate-specific uncertainty requirements"
+    );
+    assert_eq!(
+        corpus["version"], "0.4.0",
+        "survey-precision boundary must be part of the versioned current corpus"
     );
 }
