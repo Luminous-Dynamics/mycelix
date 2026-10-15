@@ -1,0 +1,1576 @@
+{
+  "schema": "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1",
+  "schema_version": 1,
+  "research_snapshot_date": "2026-10-15",
+  "claim_ceiling": "ResearchSpecificationOnly",
+  "maturity": "ProposedSyntheticShadowPilot",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5015",
+  "markdown_spec": "mycelix-workspace/docs/civic-resilience/JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md",
+  "pilot": {
+    "id": "JOBURG-WATER-WORKFORCE-PILOT-001",
+    "title": "Water-fault work-coordination shadow pilot",
+    "rationale": "Complement the utility's reported pressure-management and leak-detection investments with source-preserving triage, work coordination, evidence lineage, and independent verification.",
+    "geography": {
+      "status": "NotSelected",
+      "selection_authority": "AuthorizedOperationalPartner",
+      "required_basis": [
+        "aggregated_repeat_faults",
+        "workload",
+        "baseline_availability",
+        "privacy_review",
+        "safety_review"
+      ],
+      "public_sensitive_asset_coordinates_allowed": false
+    },
+    "operating_mode": "SyntheticFirstThenAuthorizedReadOnlyShadow",
+    "live_provider_calls_authorized": false,
+    "external_writes_authorized": false,
+    "automated_dispatch_authorized": false,
+    "automated_closure_authorized": false,
+    "production_sla_calculation_authorized": false,
+    "telemetry_access_authorized": false,
+    "payer_identified": false,
+    "operational_partner_identified": false,
+    "funded_positions_confirmed": false
+  },
+  "source_ledger": [
+    {
+      "source_id": "JW-1",
+      "issuer": "Johannesburg Water SOC",
+      "source_url": "https://www.johannesburgwater.co.za/blog/2026/07/23/johannesburg-water-accelerates-smart-technology-rollout-to-reduce-water-losses/",
+      "source_kind": "OfficialMediaStatement",
+      "publication_date": "2026-07-23",
+      "observation_status": "OfficialPublisherPageObserved",
+      "claims_recorded": [
+        "Statement described smart hydraulic-flow controls for 28 high-consumption reservoirs/towers.",
+        "Statement said 306 additional smart pressure controllers were being installed, with planned completion by end-September 2026.",
+        "Statement reported 225 noise loggers installed and 125 additional loggers planned by October 2026."
+      ],
+      "deployment_completion_status": "NotIndependentlyVerifiedAsOfSnapshot",
+      "telemetry_access_authorized": false,
+      "allowed_use": "Project rationale and source-specific planning context only",
+      "prohibited_inference": [
+        "Rollout completed merely because planned completion date has passed",
+        "Sensor data accessible to Mycelix",
+        "Measured operational effect or causal impact",
+        "Municipal or utility partnership or endorsement"
+      ],
+      "planned_completion_window": "EndOfSeptember2026",
+      "currentness_recheck": {
+        "checked_on": "2026-10-14",
+        "additional_official_notice_source_id": "JW-3",
+        "result": "NoExplicitRolloutCompletionConfirmationObservedInTheSpecificNoticeReviewed",
+        "status": "NotIndependentlyVerified",
+        "absence_of_notice_means_completion_false": false
+      }
+    },
+    {
+      "source_id": "JW-3",
+      "issuer": "Johannesburg Water SOC",
+      "source_url": "https://www.johannesburgwater.co.za/blog/2026/10/06/system-updates-6-october-2026/",
+      "source_kind": "OfficialSystemUpdateNotice",
+      "publication_date": "2026-10-06",
+      "observation_status": "OfficialNoticePageObserved",
+      "extracted_content_scope": "Operational system update/interruption notices",
+      "smart_controller_rollout_completion_status_in_this_notice": "NotObserved",
+      "allowed_use": "Record a recent official notice checked during rollout-currentness research",
+      "prohibited_inference": [
+        "This notice confirms all 306 controllers were installed",
+        "A missing completion statement proves the rollout is incomplete",
+        "A passed planned completion date proves completion",
+        "Mycelix has telemetry or provider access"
+      ]
+    },
+    {
+      "source_id": "COJ-1",
+      "issuer": "City of Johannesburg",
+      "source_url": "https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP-IDP-and-Budget/SDBIP-IDP-And-Budget.aspx",
+      "source_kind": "OfficialDocumentIndex",
+      "publication_date": null,
+      "observation_status": "OfficialIndexObserved",
+      "indexed_documents": [
+        "2026/27 SDBIP",
+        "2026/27 Final IDP",
+        "2025/26 Institutional Service Level Standards Charter"
+      ],
+      "linked_2026_27_sdbip_pdf_fetch_status": "TimedOutOnInitialAttempt;RetrievedOnRetry",
+      "linked_pdf_visual_review_performed": true,
+      "indicators_imported_from_linked_pdf": true,
+      "allowed_use": "Official index and linked artifact identity; detailed observations recorded under COJ-SDBIP-2026-27",
+      "prohibited_inference": [
+        "Case-level customer SLA or provider status from an annual outcome KPI",
+        "Reconciliation of the summary-unit and technical-formula ambiguity without owner clarification",
+        "EPWP work opportunity equated with a durable job",
+        "Any Mycelix funding, placement, endorsement, or integration commitment"
+      ],
+      "visual_reviewed_pdf_printed_pages": [
+        28,
+        58
+      ],
+      "text_layer_observed_but_not_visually_reviewed_printed_pages": [
+        32,
+        33,
+        47
+      ]
+    },
+    {
+      "source_id": "COJ-SDBIP-2026-27",
+      "issuer": "City of Johannesburg",
+      "source_url": "https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf",
+      "source_kind": "OfficialServiceDeliveryBudgetImplementationPlan",
+      "document_title": "SDBIP - Service Delivery and Budget Implementation Plan 2026/27",
+      "fiscal_period": "2026/27",
+      "publication_date": "NotObserved",
+      "pdf_page_count": 151,
+      "source_observation_status": "OfficialPDFTextObserved;PrintedPages28And58VisuallyReviewed",
+      "retrieval_history": {
+        "initial_attempt": "TimedOut",
+        "retry": "Retrieved",
+        "inference_policy": "Initial fetch failure does not imply source absence"
+      },
+      "water_loss_kpi": {
+        "kpi_number": 17,
+        "title": "Total water losses",
+        "summary_table": {
+          "baseline_2024_25": "207 136Ml",
+          "target_2025_26": "204 700Ml",
+          "target_2026_27": "200 293Ml",
+          "quarterly_targets_2026_27": [
+            "204 270Ml",
+            "203 054Ml",
+            "201 839Ml",
+            "200 293Ml"
+          ],
+          "calculation_type": "Cumulative",
+          "reporting_cycle": "Annual",
+          "source_page_printed": 28
+        },
+        "technical_definition": {
+          "text": "Total (apparent and real) losses, expressed in terms of annual volume lost per service connection per day.",
+          "formula_text": "((System input volume - Authorised consumption volume) in m³ × 1000) / (365 × Number of service connections)",
+          "source_page_printed": 58,
+          "visually_reviewed": true
+        },
+        "summary_unit_vs_definition_status": "ConflictOrAmbiguityObserved;NoCrosswalkApplied",
+        "production_loss_calculation_authorized": false,
+        "case_level_sla_equivalence_authorized": false,
+        "policy": "Preserve the literal summary value and technical definition separately. Do not normalize, convert, derive a per-case deadline, or treat this as a repair-response SLA until the responsible metric owner clarifies units/denominator."
+      },
+      "green_economy_job_kpi": {
+        "kpi_number": 55,
+        "title": "Number of green economy projects with measurable job creation",
+        "intervention": "Promotion of the green economy in economic development initiatives",
+        "baseline_2024_25_projects": 2,
+        "target_2025_26_projects": 2,
+        "target_2026_27_projects": 6,
+        "quarterly_targets_2026_27_projects": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "lead_department": "Economic Development",
+        "cluster_lead": "Economic Growth",
+        "supporting_parties": "All departments and entities",
+        "source_page_printed": 47,
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "allowed_use": "Candidate reporting crosswalk and partner-discovery context only",
+        "prohibited_inference": [
+          "Six jobs or six paid placements",
+          "Funding or authority for Mycelix",
+          "Evidence that any project has already achieved employment outcomes"
+        ]
+      },
+      "epwp_context": {
+        "phase": "Phase 5",
+        "phase_period": "2024/25–2028/29",
+        "observation_scope": "Two distinct planning series recorded: national DPWI Phase 5 target apportioned to COJ; City's own SDBIP KPI 24 target.",
+        "evidence_pages": "Text extraction spans printed pages 32–33",
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "documented_limit": "The document says projects can range from one day to 24 months and not all qualify for an exit strategy or skills-development programme.",
+        "work_opportunity_equals_durable_job": false,
+        "mycelix_funding_or_eligibility_confirmed": false,
+        "allowed_use": "Avoid duplicating existing programme reporting; define transition, training, paid-hour and 6/12-month retention measures",
+        "prohibited_inference": [
+          "Available budget for this proposed pilot",
+          "Available placement slots or eligibility",
+          "Durable job count",
+          "Contract award or programme partnership"
+        ],
+        "nationally_set_phase5_target_for_city_work_opportunities": 50030,
+        "nationally_set_target_2026_27_work_opportunities_for_city": 9996,
+        "city_sdbip_kpi24": {
+          "kpi_number": 24,
+          "title": "Number of EPWP work opportunities created City-Wide",
+          "baseline_2024_25": 15724,
+          "target_2025_26": 20000,
+          "target_2026_27": 12500,
+          "quarterly_targets_2026_27": [
+            3500,
+            7000,
+            9800,
+            12500
+          ],
+          "lead_department": "Economic Development",
+          "source_page_printed": 32,
+          "text_layer_observed": true,
+          "visually_reviewed": false,
+          "relation_to_national_target": "City SDBIP target is described as a 25% increment over the national target apportioned to COJ for 2026/27.",
+          "allowed_use": "Keep City operational SDBIP target distinct from nationally set/apportioned Phase 5 target.",
+          "prohibited_inference": [
+            "Target achieved",
+            "Durable jobs equal work opportunities",
+            "Funding or pilot eligibility confirmed"
+          ]
+        }
+      },
+      "review_limit": {
+        "visually_reviewed_printed_pages": [
+          28,
+          58
+        ],
+        "text_layer_observed_but_not_visually_reviewed_printed_pages": [
+          32,
+          33,
+          47
+        ],
+        "reason": "Screenshot requests for the EPWP footnote and green-economy KPI pages timed out; those claims remain text-layer-only observations.",
+        "latest_screenshot_recheck": "TimedOutDuring2026-10-14ResearchPass",
+        "previous_recorded_visual_review": [
+          28,
+          58
+        ],
+        "additional_text_layer_pages_not_visually_rechecked": [
+          27,
+          32,
+          33,
+          47,
+          90
+        ]
+      },
+      "pikitup_cooperative_service_kpi": {
+        "kpi_number": 15,
+        "title": "Percentage of known informal settlements receiving basic removal services",
+        "intervention_text_observed": "Decentralised fleet and depot model to expand reach in informal settlements; incorporation of local cooperatives into basic removal services through new service-level contracts.",
+        "baseline_percent": 100,
+        "target_2025_26_percent": 100,
+        "target_2026_27_percent": 100,
+        "quarterly_targets_2026_27_percent": [
+          100,
+          100,
+          100,
+          100
+        ],
+        "operational_entity": "PIKITUP",
+        "source_page_printed": 27,
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "allowed_use": "Planning-only candidate for comparative partner/procurement discovery; require current operational evidence before any claim about actual service coverage or a service gap",
+        "prohibited_inference": [
+          "Specific tender or contract is open",
+          "Any supplier/cooperative has been awarded a contract",
+          "Budget or work package is available to Mycelix",
+          "100% outcome has been achieved",
+          "Work opportunities equal durable jobs"
+        ]
+      },
+      "water_loss_outcome_indicator": {
+        "indicator_kpi_number": 52,
+        "circular88_reference": "WS5.2",
+        "title": "Total water losses",
+        "source_page_printed": 90,
+        "baseline_2024_25": "838.77",
+        "target_values_as_extracted": [
+          "196 099Ml",
+          "188 163Ml",
+          "180 274Ml",
+          "173 495Ml"
+        ],
+        "table_header_context": "Baseline estimated annual performance 2024/25; target for MTREF (3 years); target for 2029/30 end of term.",
+        "year_to_value_mapping": "NotFullyBoundFromTextLayer",
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "same_title_as_business_plan_kpi17": true,
+        "crosswalk_status": "NotQualified;PreserveSeparateMetricSeries",
+        "allowed_use": "Record a second official planning metric candidate and request authoritative definition/period/denominator mapping",
+        "prohibited_inference": [
+          "KPI 52/WS5.2 is identical to KPI 17 solely because the title matches",
+          "First, second, third or final target maps to a specified financial year without confirmation",
+          "Target values can be averaged or substituted automatically",
+          "Any target series is a case-level response/restoration SLA"
+        ]
+      }
+    },
+    {
+      "source_id": "PIKITUP-BP-2025-26-1",
+      "issuer": "Pikitup Johannesburg SOC Ltd",
+      "source_url": "https://www.pikitup.co.za/wp-content/uploads/2025_2026-Business-Plan_Final_v7.0.pdf",
+      "source_kind": "OfficialBusinessPlanAndPerformanceIndicatorSpecification",
+      "document_title": "Pikitup 2025/26 Business Plan Final v7.0",
+      "publication_date": "2025-05-21 (indexed publication metadata; printed issue date not independently established)",
+      "checked_on": "2026-10-15",
+      "pdf_page_count": 169,
+      "source_observation_status": "OfficialPDFTextLayerObserved;PrintedPage85ScreenshotTimedOut;NotVisuallyReviewed",
+      "indicator": {
+        "kpi_number": 1,
+        "title": "Percentage of Pikitup known informal settlements receiving basic removal services",
+        "responsible_official": "Chief Operating Officer (COO)",
+        "stated_data_sources": [
+          "Collection schedule",
+          "Trip sheets",
+          "Approved list of predetermined Pikitup-known informal settlements"
+        ],
+        "calculation_as_written": "Informal settlement serviced per week as percentage of total pre-determined informal settlement.",
+        "denominator_note_as_written": "201 informal settlements verified.",
+        "denominator_effective_date": "NotObserved",
+        "denominator_current_for_2026_27_confirmed": false,
+        "recordkeeping": "Manual",
+        "calculation_type": "NonCumulative",
+        "reporting_cycle": "Quarterly",
+        "desired_performance_as_written": "100%",
+        "performance_result_for_2025_26_observed": false,
+        "current_2026_27_performance_result_observed": false,
+        "review_ceiling": "Text extraction gives the indicator definition and the note about 201 verified settlements; web screenshot retrieval of printed page 85 timed out, so page layout/columns were not visually checked in this pass."
+      },
+      "allowed_use": "Specify the future evidence contract and identify required manual records for authorized review; use the 201 figure only as a plan-era observation, not as today's denominator or achieved coverage.",
+      "prohibited_inference": [
+        "201 is the current 2026/27 approved settlement roster",
+        "100% target proves actual 2025/26 or 2026/27 performance",
+        "No captured trip sheet proves a settlement was unserviced",
+        "The denominator remains fixed despite updates to the approved list",
+        "The plan identifies a current work package, award, payer, or funding for Mycelix"
+      ]
+    },
+    {
+      "source_id": "GOV-PWR-WTR-1",
+      "issuer": "South African Government",
+      "source_url": "https://www.gov.za/news/media-statements/government-measures-mitigate-water-supply-disruptions-resulting-power-trips",
+      "source_kind": "OfficialJointStatement",
+      "publication_date": "2026-09-10",
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialPublisherStatementObserved",
+      "claims_recorded": [
+        "A multi-stakeholder meeting addressed water-supply disruptions associated with intermittent power trips.",
+        "The statement names Johannesburg Water, City Power, Rand Water, Eskom and national/provincial authorities."
+      ],
+      "allowed_use": "Cross-utility hypothesis generation and public-source discovery only.",
+      "prohibited_inference": [
+        "Current outage or restoration status at a particular site",
+        "Incident-level causal edge without incident-specific evidence",
+        "Authorized access to any utility telemetry or case system",
+        "Installation completion, remediation completion, or measured intervention effect",
+        "An endorsement or partnership with Mycelix"
+      ],
+      "shared_causality_controls": {
+        "platform_contract": "https://github.com/Luminous-Dynamics/luminous-platform/pull/34",
+        "symthaea_negative_control": "https://github.com/Luminous-Dynamics/symthaea/pull/7443",
+        "mycelix_service_corpus": "https://github.com/Luminous-Dynamics/mycelix/pull/5019",
+        "qualification_scope": "Linked contracts/tests are research fixtures and negative controls only; not an authorized operational ingestion path."
+      }
+    },
+    {
+      "source_id": "JW-2",
+      "issuer": "Johannesburg Water SOC",
+      "source_url": "https://www.johannesburgwater.co.za/services/",
+      "source_kind": "OfficialCustomerServiceWebPage",
+      "publication_date": null,
+      "effective_date": "NotObservedInExtractedPageText",
+      "version": "NotObservedInExtractedPageText",
+      "production_sla_use_authorized": false,
+      "companion_work": "https://github.com/Luminous-Dynamics/mycelix/pull/5008",
+      "allowed_use": "Preserve published verbs/clock distinctions as unversioned source observations",
+      "prohibited_inference": [
+        "Current adopted production SLA",
+        "Response equals restoration",
+        "Working days equal calendar days",
+        "Attempt or endeavour equals guaranteed completion",
+        "Contact channel provides API authorization"
+      ]
+    },
+    {
+      "source_id": "SA-1",
+      "issuer": "Statistics South Africa",
+      "source_url": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856",
+      "source_kind": "NationalVictimsOfCrimeStatistics",
+      "reference_period": "2025/26",
+      "geography_scope": "South Africa nationally",
+      "measures": {
+        "personal_property_theft_reported_some_or_all_percent": 37.3,
+        "street_robbery_reported_some_or_all_percent": 41.7,
+        "households_experiencing_housebreaking_reported_some_or_all_percent": 48.2
+      },
+      "allowed_use": "Caveat that police reports are not a complete victimization baseline",
+      "prohibited_inference": [
+        "Johannesburg-specific incidence",
+        "Effect size of a proposed intervention"
+      ]
+    },
+    {
+      "source_id": "JOBS-1",
+      "issuer": "Department of Public Works and Infrastructure",
+      "source_url": "https://www.gov.za/news/speeches/minister-dean-macpherson-public-works-and-infrastructure-dept-budget-vote-202526-09",
+      "source_kind": "OfficialBudgetSpeech",
+      "publication_date": "2025-07-09",
+      "claims_recorded": [
+        "Speech described EPWP reform, including stated concerns about gatekeeping and exploitation.",
+        "Speech described intended pathways from participation to training, continuing work, or entrepreneurship."
+      ],
+      "local_program_slots_verified": false,
+      "local_funding_verified": false,
+      "allowed_use": "Design requirements and programme-discovery lead only",
+      "prohibited_inference": [
+        "Local eligibility",
+        "Available Johannesburg funding",
+        "Funded pilot jobs"
+      ]
+    },
+    {
+      "source_id": "LAW-1",
+      "issuer": "South African Government",
+      "source_url": "https://www.gov.za/documents/second-hand-goods-act",
+      "source_kind": "LegislationLandingPage",
+      "allowed_use": "Legal review lead for stolen-goods and second-hand-trade controls",
+      "legal_advice_or_compliance_certification": false
+    },
+    {
+      "source_id": "SA-JOBS-2",
+      "issuer": "Statistics South Africa",
+      "source_url": "https://www.statssa.gov.za/?p=19526",
+      "source_kind": "QuarterlyLabourForceSurveyNationalSummary",
+      "publication_date": "2026-05-12",
+      "reference_period": "2026-Q1",
+      "geography_scope": "South Africa nationally",
+      "measures": {
+        "unemployment_percent_age_15_24": 60.9,
+        "unemployment_percent_age_25_34": 40.6,
+        "neet_percent_age_15_24": 37.6,
+        "neet_percent_age_15_34": 45.6
+      },
+      "allowed_use": "National labour-market context supporting measurable pathways from paid entry work to recognized skills and sustained employment",
+      "local_johannesburg_estimate_claimed": false,
+      "prohibited_inference": [
+        "Johannesburg-specific unemployment or NEET rate",
+        "Pilot recruitment eligibility",
+        "Funding, positions, partner commitments or causal employment impact"
+      ]
+    },
+    {
+      "source_id": "SA-JOBS-3",
+      "issuer": "Department of Public Works and Infrastructure",
+      "source_url": "https://www.gov.za/news/speeches/minister-dean-macpherson-launch-working-infrastructure-pilot-programme-04-may-2026",
+      "source_kind": "OfficialPilotLaunchSpeech",
+      "publication_date": "2026-05-04",
+      "announced_initial_pilot_provinces": [
+        "KwaZulu-Natal",
+        "Limpopo"
+      ],
+      "joburg_gauteng_participation_explicitly_confirmed": false,
+      "intended_programme_duration_months": {
+        "minimum": 8,
+        "maximum": 10
+      },
+      "recruitment_platform": "SAYouth.mobi",
+      "platform_support_partner": "Harambee",
+      "intended_training_and_transition_elements": [
+        "TVET and accredited partner training",
+        "Work readiness",
+        "Mentorship",
+        "Workplace learning",
+        "Transition support"
+      ],
+      "stated_partner_types": [
+        "Municipalities",
+        "Provincial departments",
+        "SMMEs",
+        "Industry partners"
+      ],
+      "allowed_use": "Programme-design reference for transparent recruitment, mentorship, training and employment transitions; partner-discovery lead only",
+      "local_johannesburg_funding_or_slots_verified": false,
+      "allowed_to_claim_active_joburg_pilot": false,
+      "prohibited_inference": [
+        "Johannesburg/Gauteng is included in the initial pilot",
+        "Local Joburg placement slots or funding exist",
+        "Mycelix is a programme partner",
+        "An announced work opportunity is a durable job",
+        "Mycelix should duplicate SAYouth recruitment or store unnecessary applicant identity data"
+      ]
+    },
+    {
+      "source_id": "SA-WAGE-2026-1",
+      "issuer": "South African Department of Employment and Labour",
+      "source_url": "https://www.labour.gov.za/Media-Desk/Media-Statements/Pages/Minister-of-Employment-and-Labour%2C-Meth-increases-the-statutory-National-Minimum-Wage-to-R30%2C23-per-hour.aspx",
+      "source_kind": "OfficialWageAnnouncement",
+      "publication_date": "2026-02-03",
+      "effective_date": "2026-03-01",
+      "observation_status": "OfficialDepartmentStatementObserved",
+      "associated_legal_instrument_url": "https://www.gov.za/sites/default/files/gcis_document/202602/54075rg11941gon7083.pdf",
+      "claims_recorded": [
+        "The ordinary national minimum wage is R30.23 per hour effective 1 March 2026.",
+        "The statutory EPWP minimum wage is R16.62 per hour under the separate EPWP dispensation."
+      ],
+      "authority_limit": "These rates do not classify a proposed worker or contract. A qualified human must establish the legally applicable arrangement and verify current rules before an offer or budget is issued.",
+      "allowed_use": "Preliminary source pin for a human-reviewed wage and cost model; refresh before contracting.",
+      "prohibited_inference": [
+        "EPWP classification may be selected by software or by whichever rate is cheaper",
+        "The lower EPWP rate applies to a generic cooperative, contractor or technical role without legal classification",
+        "Published wage rate proves funding, employment, eligibility, contract award or compliance",
+        "Gross hourly rate alone is a complete role cost"
+      ]
+    },
+    {
+      "source_id": "COJ-PROC-1",
+      "issuer": "City of Johannesburg",
+      "source_url": "https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Tenders-and-Quotations.aspx",
+      "source_kind": "OfficialProcurementIndex",
+      "publication_date": null,
+      "checked_on": "2026-10-14",
+      "observation_status": "OfficialProcurementHubObserved",
+      "observed_navigation": [
+        "Request for Quotations",
+        "Bid Opening Registers",
+        "Current Bid Proposals",
+        "Closed Bid Proposals",
+        "Canceled Bid Proposals",
+        "List of Awarded Contracts",
+        "City Entities Procurement",
+        "Pikitup Tenders",
+        "Joburg Water Tender Awards"
+      ],
+      "relevant_open_basic_removal_or_water_work_package_identified_in_inspection": false,
+      "search_ceiling": "Navigation/index inspection only; no tender-specific notice for this proposed pilot was captured. This is not proof that no opportunity exists.",
+      "allowed_use": "Route future manual procurement discovery to the issuing entity's actual notice and authoritative current stage.",
+      "prohibited_inference": [
+        "Index membership is an open tender",
+        "A current-proposals landing page is a contract or budget",
+        "Search non-observation proves no tender exists",
+        "Tender status or closing date can be inferred without the tender-specific notice and latest addenda"
+      ]
+    },
+    {
+      "source_id": "PIKITUP-PROC-1",
+      "issuer": "Pikitup Johannesburg SOC Ltd",
+      "source_url": "https://pikitup.co.za/tenders/",
+      "source_kind": "OfficialTenderIndex",
+      "publication_date": null,
+      "checked_on": "2026-10-14",
+      "observation_status": "OfficialTenderIndexObserved",
+      "observed_listing_examples": [
+        "June 2026 notice shown as cancelled: PU147/2025 occupational hygiene survey services",
+        "May 2026 notice shown as awarded: PU127/2023 cleaning tools and materials",
+        "April 2026 notice shown as awarded: PU149/2025 specialised security services",
+        "Older advertised, closed, received and awarded items also remain visible"
+      ],
+      "relevant_open_basic_removal_or_cooperative_work_package_identified_in_inspection": false,
+      "currentness_assessment": "Mixed lifecycle stages appear under a page labelled Current Tenders; no tender-specific open cooperative/basic-removal work package was captured in this inspection.",
+      "search_ceiling": "Inspected index only, checked 2026-10-14. Not a complete procurement audit and not proof of absence.",
+      "allowed_use": "Discovery lead only; resolve the individual tender ID, current notice, addenda, closing date, eligibility, scope and award/contract evidence.",
+      "prohibited_inference": [
+        "The page heading Current Tenders proves all visible entries are open",
+        "Cancelled, closed, awarded or stale notices are available work",
+        "KPI text or a tender index proves a cooperative is eligible or a payer is committed",
+        "No matching item observed proves no future or separately published opportunity exists"
+      ]
+    },
+    {
+      "source_id": "PIKITUP-CURRENT-INDEX-1",
+      "issuer": "City of Johannesburg, Work in Joburg (Pikitup tender navigation)",
+      "source_url": "https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Links/Pikitup%20Tenders/Current-Tenders.aspx",
+      "source_kind": "OfficialCityHostedPikitupCurrentTenderListing",
+      "publication_date": null,
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialCityHostedListingObserved",
+      "page_label": "Current Tenders",
+      "visible_rows": [
+        {
+          "tender_reference": "PIK259/17",
+          "description": "Appointment of an Accredited Service Provider for Servicing Fire Equipment"
+        },
+        {
+          "tender_reference": "PIK255/17",
+          "description": "Appointment of a Supplier for the Supply and Delivery of 4x Drones as Depicted Under Annexure A"
+        }
+      ],
+      "visible_publication_or_closing_dates": false,
+      "visible_lifecycle_status": false,
+      "matching_basic_removal_or_cooperative_work_package_in_visible_rows": false,
+      "allowed_use": "Example that a 'Current Tenders' heading and tender reference alone are insufficient; follow each notice to current dated lifecycle evidence.",
+      "prohibited_inference": [
+        "Assume a tender is open because its parent page is labelled Current Tenders",
+        "Assume the /17 suffix alone proves a publication date or status",
+        "Infer closing date, eligibility, funding, award, or contract from a title row",
+        "Treat two unrelated equipment/service tenders as a basic-removal or cooperative work package"
+      ],
+      "search_ceiling": "The page listing was inspected, not every linked notice or all City/Pikitup procurement channels. Missing date/status on the listing means unqualified, not closed or open. The /17 suffix is not independently interpreted as a date."
+    },
+    {
+      "source_id": "SA-TREASURY-OCDS-REGISTRY-1",
+      "issuer": "Open Contracting Partnership registry, National Treasury of South Africa dataset",
+      "source_url": "https://data.open-contracting.org/en/publication/143",
+      "source_kind": "NationalProcurementDatasetCoverageAndQualityProfile",
+      "checked_on": "2026-10-14",
+      "dataset_date_range": "2017-02 through 2026-09",
+      "last_retrieved_by_registry": "2026-09-20",
+      "procurement_process_identifier_prefix": "ocds-9t57fa",
+      "publication_formats": [
+        "JSON",
+        "CSV",
+        "Excel"
+      ],
+      "coverage_limit": "The published registry explicitly says municipal governments and state-owned entities are excluded unless they voluntarily share data; it is not a complete record of all South African procurement processes.",
+      "known_quality_issues": [
+        "A few duplicate releases with identical release IDs and content",
+        "Empty tender/status values",
+        "Empty arrays and invalid placeholder values in some fields",
+        "Awards without sufficient structured details to assume contract/payment state"
+      ],
+      "allowed_use": "Additional discovery and source-linked cross-check only; prefer specific issuer notice and authoritative addenda/status for a current tender.",
+      "prohibited_inference": [
+        "No registry record means no Johannesburg or Pikitup tender exists",
+        "Registry coverage includes every municipal or state-owned-entity procurement",
+        "A tender object proves award, signed contract, funding, work availability or payment",
+        "An empty or invalid tender status means Open",
+        "A duplicate release means a second independent opportunity"
+      ]
+    },
+    {
+      "source_id": "SA-ETENDER-PORTAL-1",
+      "issuer": "National Treasury, Office of the Chief Procurement Officer",
+      "source_url": "https://data.etenders.gov.za/Home/LearnMore",
+      "source_kind": "OfficialProcurementDataPublicationPolicy",
+      "checked_on": "2026-10-14",
+      "description": "Transparency Portal data user guide for procurement data published using the Open Contracting Data Standard.",
+      "stated_process_identifier": "OCID (Open Contracting ID)",
+      "stated_ocid_prefix": "ocds-9t57fa",
+      "publication_options": [
+        "Monthly bulk JSON",
+        "Monthly bulk CSV",
+        "Excel",
+        "Versioned JSON REST API"
+      ],
+      "stated_data_use_goal": "More transparent procurement, fairer competition, accountability and service delivery.",
+      "limit": "Published-data coverage and field completeness still need to be checked for each process; this policy page is not itself tender-specific evidence.",
+      "allowed_use": "Research and possible future read-only discovery adapter after versioned API, scope and source-currentness review.",
+      "prohibited_inference": [
+        "Publication policy is proof of a specific active tender",
+        "API access grants any separate authority to apply, bid, contact a buyer or alter records",
+        "Public data excludes every form of personal or commercially sensitive risk"
+      ]
+    },
+    {
+      "source_id": "OCDS-STANDARD-1",
+      "issuer": "Open Contracting Partnership",
+      "source_url": "https://standard.open-contracting.org/latest/en/primer/how/",
+      "source_kind": "OpenProcurementDataStandardDocumentation",
+      "standard_version_observed": "1.1.5",
+      "documented_stages": [
+        "Tender",
+        "Award",
+        "Contract",
+        "Implementation"
+      ],
+      "documented_fields_or_evidence": [
+        "Tender notices",
+        "Specifications",
+        "Important dates",
+        "Award details",
+        "Signed contracts",
+        "Amendments",
+        "Payments",
+        "Progress updates",
+        "Completion or termination"
+      ],
+      "process_join_key": "OCID",
+      "allowed_use": "Use stage vocabulary and source linking to separate claims across the procurement lifecycle; record original issuer IDs and document links.",
+      "prohibited_inference": [
+        "The standard is itself an e-procurement system or legal authority",
+        "A later lifecycle field can be inferred from an earlier-stage object",
+        "Every publisher has complete or well-formed records",
+        "A title is a sufficient process identity"
+      ]
+    },
+    {
+      "source_id": "PIKITUP-RFQ-INDEX-1",
+      "issuer": "Pikitup Johannesburg SOC Limited",
+      "source_url": "https://pikitup.co.za/rfq/",
+      "source_kind": "OfficialIssuerProcurementListing",
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialIssuerPageAndLinkedPdfObserved;LifecycleGroupingAmbiguous",
+      "issuer_page_recheck": {
+        "checked_on": "2026-10-15",
+        "visible_current_rfqs_block_contains_this_tender": false,
+        "same_page_lists_tender_elsewhere": true,
+        "same_page_link_id": 57,
+        "official_pdf_opened": true,
+        "official_pdf_pages_1_and_2_visually_reviewed": true,
+        "pikitup_specific_addendum_row_observed_in_page_text": false,
+        "addenda_search_ceiling": "The inspected RFQ index contains addenda entries for other bid numbers but no PIK016-specific addendum row was observed. This page-text observation does not prove that no later addendum exists on the issuer notice board or another source.",
+        "lifecycle_conclusion": "NotQualified;DoNotPromoteToTenderOpenVerified",
+        "visible_current_rfqs_block_examples": [
+          {
+            "tender_reference": "PIK 018/2026-2027",
+            "published_closing_date": "2026-10-08",
+            "observed_block": "Current RFQs",
+            "checked_on": "2026-10-15",
+            "extension_observed": "NotObserved",
+            "interpretation": "Published closing date predates the check date; the inspected page observation does not establish an extension or current open status."
+          },
+          {
+            "tender_reference": "PIK 014/2026-2027",
+            "published_closing_date": "2026-09-17",
+            "observed_block": "Current RFQs",
+            "checked_on": "2026-10-15",
+            "extension_observed": "NotObserved",
+            "interpretation": "Published closing date predates the check date; the inspected page observation does not establish an extension or current open status."
+          }
+        ],
+        "current_block_reliability": "HeadingAndMembershipAreNotReliableLifecycleProof;RowsWithPublishedDeadlinesAlreadyPastRemainVisible"
+      },
+      "listing_entry": {
+        "tender_reference": "PIK 016/2026-2027",
+        "title": "Appointment of a contractor with a CIDB grading of 1GB or higher to do general repairs at Robinson Deep Landfill Site",
+        "published_closing_date": "2026-10-19",
+        "published_closing_time": "11:00",
+        "timezone": "NotSpecifiedInListing",
+        "source_document_url": "https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf"
+      },
+      "relevant_to_basic_removal_cooperative_scope": false,
+      "allowed_use": "Evidence that a specific maintenance procurement lead can be discovered through the issuer's own tender index; follow the linked bid document and recheck currentness/addenda.",
+      "prohibited_inference": [
+        "Tender is automatically suitable for a cooperative or the Mycelix pilot",
+        "Every local worker or cooperative satisfies CIDB, CSD, tax and other bidder requirements",
+        "The notice proves a signed award, a subcontract or any funded Mycelix role",
+        "The listing proves status after the checked snapshot",
+        "The date/time has a timezone not stated by the source"
+      ]
+    },
+    {
+      "source_id": "PIKITUP-PIK016-DOC-1",
+      "issuer": "Pikitup Johannesburg SOC Limited",
+      "source_url": "https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf",
+      "source_kind": "OfficialBidInvitationDocument",
+      "checked_on": "2026-10-15",
+      "publication_date": "NotObserved",
+      "tender_reference": "PIK 016/2026-27",
+      "title": "Appointment of a contractor with a CIDB grading of 1GB or higher to do general repairs at Robinson Deep Landfill Site",
+      "document_type": "FormalWrittenPriceQuotation",
+      "procurement_value_band_as_written": "Above R2,000 up to R750,000 including VAT",
+      "closing_date": "2026-10-19",
+      "closing_time": "11:00",
+      "closing_timezone": "NotSpecifiedInSource",
+      "briefing_meeting": "None",
+      "minimum_cidb_grading": "1GB",
+      "bidder_compliance_items_observed": [
+        "Central Supplier Database registration",
+        "Tax compliance",
+        "MBD and other mandatory returnable declarations/forms",
+        "Municipal rates, taxes and municipal service charges declaration/evidence",
+        "Submission of the original bound hard-copy bid in the specified Pikitup tender box"
+      ],
+      "anti_fraud_instructions_observed": [
+        "Bid/RFQ documents are issued free of charge",
+        "No payment is required for Central Supplier Database registration",
+        "Only bids officially published on the Pikitup website or notice board are considered",
+        "Bidders are warned against bribery and promises of preferential treatment"
+      ],
+      "pdf_extraction_status": "OfficialPdfTextObserved;Pages1And2VisuallyReviewedOn2026-10-15",
+      "open_status_assessment": "Official linked invitation rechecked on 2026-10-15 and printed pages 1-2 visually reviewed: closing deadline is published as 19 October 2026 at 11:00, but timezone is not specified. The issuer page does not include this reference in its visible Current RFQs block although the link appears elsewhere on the same page; current lifecycle and complete addenda status remain unqualified. Do not promote to TenderOpenVerified.",
+      "role_funding_or_mycelix_eligibility_confirmed": false,
+      "allowed_use": "A time-bounded procurement evidence test and potential lead for a suitably qualified construction contractor; revalidate before any reliance.",
+      "prohibited_inference": [
+        "Mycelix or any specific cooperative is eligible",
+        "General repairs tender is a basic-removal work package",
+        "Tender notice is a signed contract or guaranteed award",
+        "Tender value is budget allocated to workforce roles",
+        "Anyone must pay for bid documents, CSD registration, or a promised award",
+        "No PDF screenshot means source is absent"
+      ]
+    },
+    {
+      "source_id": "SA-MUNI-FIN-API-1",
+      "issuer": "National Treasury / Municipal Money with OpenUp",
+      "source_url": "https://municipaldata.treasury.gov.za/docs",
+      "source_kind": "OfficialMunicipalFinanceApiDocumentation",
+      "checked_on": "2026-10-15",
+      "latest_published_data_period": "2026 Q2",
+      "observed_status": "Latest figures announced but still being verified for completeness and integrity",
+      "covered_financial_data": [
+        "Section 71 municipal submissions",
+        "Income and expenditure",
+        "Repairs and maintenance (v2)",
+        "Cash flow and other municipal finance datasets"
+      ],
+      "repairs_maintenance_v2_basis": "Section 71-level aggregation of mSCOA-sourced data from financial year 2019/20 onward",
+      "update_cycle": "Quarterly snapshots; later adjustments can change API output from an earlier published report snapshot",
+      "reported_data_limit": "Only as complete and trustworthy as the data provided by the municipality",
+      "use_limit": "Planning/prioritization context only; not procurement, tender status, contract value, supplier payment, not role-specific funding/budget, and not proof of money available to a pilot.",
+      "allowed_use": "After choosing and pinning municipality, financial year, period, amount type and function, compare published aggregate trends and cross-check against the corresponding Treasury Section 71 reports.",
+      "prohibited_inference": [
+        "Aggregate repairs/maintenance amount proves an open tender or supplier",
+        "Municipal expenditure proves a pilot role is funded",
+        "A contract-value or expenditure total is a role-specific labour budget",
+        "Data not supplied or not displayed proves zero spend",
+        "Quarterly API value is interchangeable with a report generated from a different snapshot",
+        "Financial data confirms incident-level service failure or causality",
+        "The published checksum proves the current CSV payload was downloaded or independently verified",
+        "The bulk snapshot timestamp is a financial reporting period",
+        "The metadata index alone supplies a queried Johannesburg budget or actual value"
+      ],
+      "bulk_snapshot_metadata": {
+        "metadata_url": "https://munimoney-media.s3.eu-west-1.amazonaws.com/munimoney-media/media/bulk_downloads/repairs_maintenance_facts_v2/index.json",
+        "observed_on": "2026-10-15",
+        "published_snapshot_last_updated": "2026-07-30_15-59-35",
+        "csv_file_name": "repairs_maintenance_facts_v2_2026-07-30_15-59-35.csv",
+        "published_md5": "69d3dbe54679a0d1e3ec45c8b62f477f",
+        "published_sha1": "32db68c02d2fd704e60ca95bc2fdb7c65188efb6",
+        "published_file_size_bytes": 4181869,
+        "payload_bytes_observed_in_this_pass": false,
+        "payload_checksum_independently_verified": false,
+        "page_reader_payload_observation": "CSV payload was not returned by the page reader; only the published metadata index was observed.",
+        "interpretation": "The published metadata is a provenance pointer and checksum receipt, not proof the CSV payload was downloaded, hashed locally, or used to produce any displayed value. The timestamp is the bulk snapshot timestamp and must not be substituted for a pinned financial year/period/amount type."
+      }
+    },
+    {
+      "source_id": "SA-TREASURY-REPMAINT-Q2-2025-26-1",
+      "issuer": "National Treasury / MFMA",
+      "source_url": "https://mfma.treasury.gov.za/Publications%20and%20Media%20Releases/Section%2071%20Information%20%28In-year%20Management%2C%20Monitoring%20and%20Reporting%29/2025-26/2nd%20Quarter/PDF/40.%20Repairs%20and%20maintenance%20per%20operational%20expenditure%20Q2%20-%2010%20February%202026.pdf",
+      "source_kind": "OfficialSection71QuarterlyRepairsMaintenanceReport",
+      "checked_on": "2026-10-15",
+      "document_title": "Monthly repairs and maintenance expenditure for the 2nd Quarter ended 31 December 2025",
+      "report_period": "2025-26 second quarter; quarter ended 2025-12-31",
+      "published_file_date": "2026-02-10",
+      "figures_finalized_as": "2026-01-30",
+      "municipality": {
+        "demarcation_code": "JHB",
+        "name": "City of Johannesburg"
+      },
+      "report_table_page": "PDF page 2 (zero-index page 1); visually reviewed",
+      "unit_as_printed": "R thousands",
+      "reported_values_r_thousands": {
+        "original_budget": 3467209,
+        "adjusted_budget": 3467209,
+        "ytd_actual_through_december": 1182846,
+        "ytd_actual_percent_of_budget": 34.1,
+        "july_actual": 217615,
+        "august_actual": 156406,
+        "september_actual": 187932,
+        "quarter_1_july_september_actual": 561953,
+        "october_actual": 217694,
+        "november_actual": 178918,
+        "december_actual": 224282,
+        "quarter_2_october_december_actual_as_published": 620893,
+        "october_december_monthly_arithmetic_sum": 620894,
+        "monthly_sum_minus_published_quarter_total": 1
+      },
+      "arithmetic_note": "Calculated from the three displayed monthly figures: 217694 + 178918 + 224282 = 620894 R-thousands, while the report's printed Quarter 2 total is 620893 R-thousands. Preserve the published total and the calculation separately; the displayed R-thousands values may reflect rounding, and the difference is not resolved by this observation.",
+      "api_snapshot_crosscheck": "NotMatchedInThisPass; the current Municipal Money table view did not have year/period/amount type pinned, and the API/report values were not queried under an identical set of filters and snapshot.",
+      "allowed_use": "A pinned aggregate Section 71 budget/actual baseline for research prioritization and a data-integrity test after preserving reporting period, amount type, report snapshot, unit and published-vs-calculated totals.",
+      "prohibited_inference": [
+        "The aggregate repairs-and-maintenance budget or year-to-date actual is a tender, contract, supplier payment or role-specific labour budget",
+        "Any amount is committed or available to this pilot",
+        "The published report is a same-snapshot substitute for current Municipal Money API output",
+        "Amounts marked R thousands may be presented as individual Rand without an explicit unit conversion",
+        "The arithmetic difference between the displayed monthly sum and printed Quarter 2 total can be silently rewritten or assigned a cause without confirmation",
+        "Repairs-and-maintenance expenditure proves an open work package or named payer"
+      ]
+    },
+    {
+      "source_id": "JHB-REPMAINT-V2-VIEW-1",
+      "issuer": "National Treasury / Municipal Money",
+      "source_url": "https://municipaldata.treasury.gov.za/table/repmaint_v2/?municipalities=JHB",
+      "source_kind": "OfficialJohannesburgRepairsMaintenanceTableView",
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialFilteredTablePageObserved",
+      "selected_municipality": "City of Johannesburg",
+      "selected_financial_year": "NotExposedInStaticTextCapture",
+      "selected_period": "NotExposedInStaticTextCapture",
+      "selected_amount_type": "NotExposedInStaticTextCapture",
+      "numeric_amount_recorded": false,
+      "amount_claimed": false,
+      "interpretation": "The observed artifact is a static text capture, not a fully rendered interactive table. Client-side logic can supply a year and amount type even when those filters are absent from the captured URL, but the selected controls and resulting numeric cells were not captured. This is render-incomplete evidence, not a measured zero, not proof of spend/no spend, and not evidence of pilot funding.",
+      "allowed_use": "Record the query as incomplete and specify required filters before using an aggregate figure.",
+      "prohibited_inference": [
+        "Current actual spend equals zero",
+        "No repairs or maintenance were funded",
+        "The municipality has money available for the proposed pilot",
+        "Budgeted, actual, audited actual and contract value are interchangeable",
+        "This table identifies an open tender or a role-specific payer"
+      ],
+      "page_text_snapshot_kind": "StaticTextCapture;ClientSideJavascriptNotExecutedByReader",
+      "client_rendered_selection_state_observed": false,
+      "rendered_data_cells_observed": false,
+      "visible_page_message_in_static_text_capture": "This year contains no data for the selected amount type.",
+      "rendering_limit_source_url": "https://github.com/OpenUpSA/municipal-data/blob/e841a4539fcb0933cc761434fe69c93de0755c66/municipal_finance/static/javascript/table.js",
+      "rendering_limit_observation_checked_on": "2026-10-15",
+      "client_selection_behavior_as_read": "The JavaScript preloads available financial years and amount types, chooses a year/type from available data when the URL does not pin them, and writes filter state to query parameters. The static text capture did not expose the resulting interactive selection or numeric cells."
+    }
+  ],
+  "event_model": {
+    "record_identity": "InternalServiceIssueIdSeparateFromExternalReferences",
+    "required_event_fields": [
+      "event_id",
+      "issue_id",
+      "event_type",
+      "actor_or_role",
+      "recorded_at",
+      "observed_at_or_unknown",
+      "source_issuer",
+      "source_channel",
+      "source_reference_or_null",
+      "evidence_reference_or_null",
+      "currentness",
+      "correction_of_or_null"
+    ],
+    "states": [
+      {
+        "state": "Reported",
+        "meaning": "Observation or request recorded",
+        "does_not_imply": [
+          "external acceptance",
+          "dispatch",
+          "verified defect"
+        ]
+      },
+      {
+        "state": "SourceAccepted",
+        "meaning": "Acceptance evidenced by the named external source, if known",
+        "does_not_imply": [
+          "entitlement",
+          "assignment",
+          "repair"
+        ]
+      },
+      {
+        "state": "InspectionAuthorized",
+        "meaning": "A human with appropriate authority approved an inspection",
+        "does_not_imply": [
+          "crew dispatched",
+          "inspection completed"
+        ]
+      },
+      {
+        "state": "InspectionRecorded",
+        "meaning": "Inspection evidence recorded with source and timestamp semantics",
+        "does_not_imply": [
+          "repair performed",
+          "problem resolved"
+        ]
+      },
+      {
+        "state": "RepairClaimed",
+        "meaning": "An identified actor claims repair/work completion",
+        "does_not_imply": [
+          "independent verification",
+          "external case closure",
+          "restored service"
+        ]
+      },
+      {
+        "state": "IndependentlyVerified",
+        "meaning": "A suitably independent verifier recorded a bounded check and evidence",
+        "does_not_imply": [
+          "utility's authoritative status updated",
+          "universal service restored beyond verified scope"
+        ]
+      },
+      {
+        "state": "ExternalStatusObserved",
+        "meaning": "A status was observed from an identified external issuer/channel at a timestamp",
+        "does_not_imply": [
+          "status remains current",
+          "same status applies to another source reference"
+        ]
+      },
+      {
+        "state": "ReopenedOrDisputed",
+        "meaning": "Contradictory evidence, repeat fault, or correction requires renewed review",
+        "does_not_imply": [
+          "original evidence deleted"
+        ]
+      }
+    ],
+    "non_equivalence_invariants": [
+      "InternalServiceIssueId != external reference number",
+      "Local mirror != external current status",
+      "Submission != external acceptance",
+      "External acceptance != entitlement",
+      "RepairClaimed != IndependentlyVerified",
+      "Reported != Inspected",
+      "Response != Restoration",
+      "Notification != RepairWindow",
+      "WorkingDays != CalendarDays",
+      "ClosedSupportTicket != VerifiedServiceOutcome",
+      "UnknownOrConflicted != Success"
+    ]
+  },
+  "job_pathways": [
+    {
+      "pathway_id": "field-data-quality",
+      "candidate_roles": [
+        "Field asset/data-quality assistant",
+        "GIS/data-quality technician"
+      ],
+      "tasks": [
+        "Verify permitted labels",
+        "Normalize records",
+        "Document source provenance",
+        "Flag duplicate observations"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false,
+      "safety_and_supervision_required": true
+    },
+    {
+      "pathway_id": "maintenance-logistics",
+      "candidate_roles": [
+        "Maintenance logistics coordinator",
+        "Operations planner"
+      ],
+      "tasks": [
+        "Cluster authorized inspections",
+        "Track parts requests",
+        "Surface repeat faults",
+        "Maintain manual fallback"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false
+    },
+    {
+      "pathway_id": "qualified-repair",
+      "candidate_roles": [
+        "Qualified trade worker",
+        "Supervised apprentice"
+      ],
+      "tasks": [
+        "Perform authorized inspection and repair within competence, supervision, safety and work-order limits"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false,
+      "qualification_and_scope_controls_required": true
+    },
+    {
+      "pathway_id": "independent-quality",
+      "candidate_roles": [
+        "Quality/evidence reviewer",
+        "Compliance technician"
+      ],
+      "tasks": [
+        "Sample work records",
+        "Verify evidence",
+        "Document exceptions",
+        "Prevent unsupported closure"
+      ],
+      "independence_from_repair_claimant_required": true,
+      "payer_status": "Unconfirmed",
+      "roles_funded": false
+    },
+    {
+      "pathway_id": "technical",
+      "candidate_roles": [
+        "Software engineer",
+        "Integration engineer",
+        "Operations analyst"
+      ],
+      "tasks": [
+        "Maintain contracts",
+        "Write deterministic validators",
+        "Maintain authorized adapters",
+        "Monitor reliability and data minimization"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false
+    }
+  ],
+  "payer_and_job_quality_gate": {
+    "payer_must_be_named_before_positions_are_announced": true,
+    "acceptable_route_requires_written_approval": true,
+    "potential_routes_not_commitments": [
+      "Existing authorized utility maintenance procurement",
+      "Appointed service contractor with budget and contractual permission",
+      "Approved public-work or skills programme",
+      "Funded grant covering labour, supervision, safety, evaluation and reporting"
+    ],
+    "prohibited_funding_assumptions": [
+      "Unrealized savings treated as payroll",
+      "Unconfirmed grant treated as awarded",
+      "Worker-paid placement fees",
+      "Unpaid labour counted as a paid job",
+      "Short placement automatically counted as durable employment"
+    ],
+    "required_metrics": [
+      "PaidHours",
+      "FullTimeEquivalentWithDeclaredMethod",
+      "PaymentDelay",
+      "RecognizedCredentialAttainment",
+      "SafetyEvents",
+      "6MonthWorkContinuity",
+      "12MonthWorkContinuity"
+    ],
+    "wage_regime_gate": {
+      "source_id": "SA-WAGE-2026-1",
+      "effective_from": "2026-03-01",
+      "ordinary_national_minimum_zar_per_hour": 30.23,
+      "epwp_minimum_zar_per_hour": 16.62,
+      "classification_status": "QualifiedHumanReviewRequired",
+      "automated_classification_authorized": false,
+      "epwp_rate_is_not_default_for_unknown_classification": true,
+      "current_rate_refresh_required_before_offer_or_contract": true,
+      "hourly_rate_alone_is_complete_cost": false
+    },
+    "required_before_any_role_is_announced": [
+      "Named legal employer or authorized contracting entity",
+      "Written funded scope and lawful engagement route",
+      "Qualified human confirmation of worker and programme classification",
+      "Rate basis, effective date, hours, pay cycle, pay date and lawful deduction/allowance terms",
+      "Full-period committed budget, payroll route and responsible payment owner",
+      "Budget for applicable employer costs, supervision, tools/PPE, transport, training and credentials, safety/insurance, administration and evaluation",
+      "Worker grievance, correction, incident and non-retaliation process",
+      "Written safety plan and competent supervision"
+    ]
+  },
+  "crime_profitability_controls": [
+    {
+      "pathway": "Infrastructure theft for resale",
+      "controls": [
+        "Non-public asset inventory and authorized custody records",
+        "Legitimate material disposition trail",
+        "Preserved evidence for competent authorities",
+        "No public sensitive asset coordinates or response windows",
+        "No resident or worker confrontation/vigilantism workflow"
+      ],
+      "automated_guilt_determination_allowed": false
+    },
+    {
+      "pathway": "False work or procurement leakage",
+      "controls": [
+        "Link work evidence to authorized order, contract version and scope",
+        "Separate approval, inspection, variation and payment events",
+        "Flag duplicate identifiers and unsupported milestones for human review",
+        "Provide correction and appeal path"
+      ],
+      "auto_blacklisting_allowed": false,
+      "model_flag_is_proof_of_fraud": false
+    }
+  ],
+  "evaluation": {
+    "baseline_required": true,
+    "comparison_strategy": "Pre-register partner-approved pre-period and, where feasible, comparable zone or staggered rollout",
+    "thresholds": "Set with responsible partner and independent evaluator after baseline collection and before post-intervention results are observed",
+    "operational_metrics": [
+      "report_to_triage_time",
+      "triage_to_authorized_inspection_time",
+      "inspection_to_repair_time",
+      "repair_claim_to_independent_verification_time",
+      "repeat_fault_rate_with_declared_denominator",
+      "backlog_age",
+      "cost_per_independently_verified_valid_resolution",
+      "avoidable_repeat_trips",
+      "missing_evidence_rate"
+    ],
+    "workforce_metrics": [
+      "paid_hours",
+      "full_time_equivalent",
+      "actual_payment_timeliness",
+      "credential_attainment",
+      "safety_events",
+      "6_month_retention",
+      "12_month_retention"
+    ],
+    "trust_and_rights_metrics": [
+      "unauthorized_inputs_used",
+      "unsupported_status_changes",
+      "sensitive_data_disclosures",
+      "privacy_complaints",
+      "false_positive_anomaly_flags_overturned",
+      "correction_requests_resolved",
+      "service_access_outcomes_by_area"
+    ],
+    "numerical_targets_invented": false,
+    "citywide_causal_effect_claimed": false
+  },
+  "gates": [
+    {
+      "gate": "G0",
+      "name": "Desk research",
+      "required": [
+        "Versioned source/ownership matrix",
+        "Source claim ceiling",
+        "Unknown dates/status explicitly represented"
+      ]
+    },
+    {
+      "gate": "G1",
+      "name": "Synthetic",
+      "required": [
+        "Deterministic corpus",
+        "Duplicate/stale/conflict/false-completion tests",
+        "Fail-closed outputs for unavailable sources"
+      ]
+    },
+    {
+      "gate": "G2",
+      "name": "Partner readiness",
+      "required": [
+        "Named operator",
+        "Named payer",
+        "Written data-use permission",
+        "Privacy/security review",
+        "Worker-safety plan",
+        "Baseline availability",
+        "Manual fallback"
+      ]
+    },
+    {
+      "gate": "G3",
+      "name": "Shadow operation",
+      "required": [
+        "Exact-head qualification",
+        "No external writes",
+        "Complete audit trail",
+        "Agreed quality and safety thresholds"
+      ]
+    },
+    {
+      "gate": "G4",
+      "name": "Controlled field trial",
+      "required": [
+        "Written operating protocol",
+        "Funded paid roles",
+        "Independent evaluation",
+        "Incident and correction processes"
+      ]
+    },
+    {
+      "gate": "G5",
+      "name": "Scale decision",
+      "required": [
+        "Demonstrable benefit",
+        "Acceptable cost and rights outcomes",
+        "Recurring payer",
+        "Independent evaluation report"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "Unauthorized data access or external write",
+    "Material privacy incident",
+    "Unsafe or unqualified work",
+    "Unsupported production SLA claim",
+    "Cannot reconstruct the basis of a decision",
+    "No funded payer or lawful procurement path before field work",
+    "False or skipped qualification test presented as a pass",
+    "No position, wage promise or placement announcement before lawful worker classification, written scope and full-period funding are verified",
+    "No tender availability or cooperative award claim based only on a landing page, annual KPI, stale notice or search non-observation"
+  ],
+  "prohibited_capabilities": [
+    "Automated municipal case submission",
+    "Automated crew dispatch",
+    "Automated case closure",
+    "Facial-recognition expansion",
+    "Public suspect lists or doxxing",
+    "Automated criminality/worker-misconduct determination",
+    "Adverse decisions based solely on model output, poverty, address or association"
+  ],
+  "synthetic_corpus": {
+    "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
+    "git_blob_sha": "f3d7429d8f751756f1d4e9208c5f5ad289220dee",
+    "probe_count": 39,
+    "synthetic_only": true,
+    "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
+    "authoring_preflight": {
+      "json_parse": "Passed",
+      "unique_probe_ids": 39,
+      "all_external_writes_disabled": true,
+      "all_automated_closures_disabled": true,
+      "all_production_sla_calculations_disabled": true
+    },
+    "qualification_status_note": "The exact-head workflow result must be read from GitHub Actions; this committed manifest must not assert its own qualification result. Source-page screenshot retrieval timed out for Pikitup's 2025/26 KPI method, which remains text-layer-only until visually checked."
+  },
+  "pilot_selection_matrix": {
+    "selection_status": "NotSelected;PartnerDiscoveryRequired",
+    "candidates": [
+      {
+        "candidate_id": "water_fault_coordination",
+        "service_owner_candidate": "Johannesburg Water SOC",
+        "rationale": "Directly related to the utility's reported leak detection and pressure-management programme; improves source-preserving triage, inspection coordination and verified repair evidence.",
+        "strongest_evidence": "Official utility source describes existing/planned detection equipment and maintenance-team follow-up.",
+        "key_blockers": [
+          "No authorized telemetry or case API",
+          "No named operator or data-use permission",
+          "Water-loss KPI unit/denominator needs owner clarification"
+        ],
+        "jobs_fit": "Field data quality, maintenance logistics, qualified repair, independent quality assurance, integration engineering",
+        "funding_or_contract_confirmed": false,
+        "readiness": "PartnerDependent"
+      },
+      {
+        "candidate_id": "pikitup_cooperative_basic_removal",
+        "service_owner_candidate": "PIKITUP",
+        "rationale": "City SDBIP KPI 15 explicitly mentions incorporating local cooperatives into basic removal services through new service-level contracts; KPI 55 sets a green-economy project target.",
+        "strongest_evidence": "Official 2026/27 SDBIP text-layer observations of KPI 15 and KPI 55.",
+        "key_blockers": [
+          "No specific open tender or awarded work package identified",
+          "No payer or contract owner confirmed",
+          "Page 27 table not visually reviewed in this pass",
+          "No eligibility or procurement permission established"
+        ],
+        "jobs_fit": "Cooperative route operations, waste collection, sorting/reuse, field service verification, logistics and local enterprise development",
+        "funding_or_contract_confirmed": false,
+        "readiness": "PartnerDiscoveryOnly"
+      }
+    ],
+    "decision_rule": [
+      "Do not select a candidate from public KPI text alone.",
+      "Prefer the candidate with a named operational owner, written data-use permission, a defined work package, a lawful payer/procurement route, usable baseline and independent completion evidence.",
+      "Require a job-quality plan with paid hours, safety, training/credentials, timely payment and 6/12-month retention measures.",
+      "If neither candidate satisfies G2, remain in synthetic/shadow research and do not announce funded positions."
+    ],
+    "selected_candidate": null,
+    "public_citywide_claim_authorized": false
+  },
+  "procurement_discovery_gate": {
+    "source_ids": [
+      "COJ-PROC-1",
+      "PIKITUP-PROC-1",
+      "PIKITUP-CURRENT-INDEX-1",
+      "SA-TREASURY-OCDS-REGISTRY-1",
+      "SA-ETENDER-PORTAL-1",
+      "OCDS-STANDARD-1",
+      "PIKITUP-RFQ-INDEX-1",
+      "PIKITUP-PIK016-DOC-1"
+    ],
+    "required_notice_record_fields": [
+      "issuer_and_tender_id",
+      "notice_url",
+      "lifecycle_status",
+      "published_at",
+      "closing_at_and_timezone",
+      "latest_addenda_and_q_and_a",
+      "scope_and_geography",
+      "supplier_or_cooperative_eligibility",
+      "budget_or_funding_authority",
+      "award_or_signed_contract_evidence",
+      "named_payer_and_payment_terms",
+      "checked_at"
+    ],
+    "listing_page_alone_proves_open_opportunity": false,
+    "current_finding": "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence",
+    "source_search_ceiling": "Portal/index observations only; a tender-specific current notice and its amendments must be reviewed before any eligibility or funding claim.",
+    "status": "PartnerDiscoveryOnly",
+    "current_index_observations": {
+      "source_id": "PIKITUP-CURRENT-INDEX-1",
+      "page_label": "Current Tenders",
+      "visible_tender_references": [
+        "PIK259/17",
+        "PIK255/17"
+      ],
+      "lifecycle_status_or_closing_date_visible": false,
+      "rule": "Listing heading + identifier is not evidence of current open status. The /17 suffix is not independently interpreted as a date.",
+      "relevant_work_package_observed": false,
+      "status": "NoticeSpecificCurrentnessRequired"
+    },
+    "finance_context_source_ids": [
+      "SA-MUNI-FIN-API-1",
+      "SA-TREASURY-REPMAINT-Q2-2025-26-1",
+      "JHB-REPMAINT-V2-VIEW-1"
+    ],
+    "finance_context_claim_ceiling": "Aggregate municipal finance can inform research prioritization only after filters and source snapshot are pinned; it never establishes an open tender, a contractor payment, or role-specific pilot funding."
+  },
+  "procurement_evidence_lifecycle": {
+    "version": 1,
+    "standard_source_id": "OCDS-STANDARD-1",
+    "national_registry_source_id": "SA-TREASURY-OCDS-REGISTRY-1",
+    "portal_policy_source_id": "SA-ETENDER-PORTAL-1",
+    "process_identity_rule": "Use OCID when published; otherwise use a source-issuer-namespaced tender identifier. Title similarity is not identity.",
+    "stages": [
+      {
+        "stage": "IndexOnly",
+        "claim_ceiling": "DiscoveryLeadOnly",
+        "minimum_evidence": [
+          "index_or_search_url",
+          "checked_at"
+        ],
+        "does_not_prove": [
+          "specific current notice",
+          "open status",
+          "eligible scope",
+          "funding",
+          "award",
+          "contract",
+          "payment"
+        ]
+      },
+      {
+        "stage": "TenderNoticeObserved",
+        "claim_ceiling": "NoticeObservedNotNecessarilyOpen",
+        "minimum_evidence": [
+          "issuer_and_tender_id",
+          "specific_notice_url",
+          "published_at_or_unknown",
+          "source_status_as_published",
+          "scope_and_geography_or_unknown",
+          "source_checked_at"
+        ],
+        "does_not_prove": [
+          "still open",
+          "award",
+          "signed contract",
+          "role funding"
+        ]
+      },
+      {
+        "stage": "TenderOpenVerified",
+        "claim_ceiling": "SpecificTenderOpenAtCheckedTime",
+        "minimum_evidence": [
+          "specific_notice_url",
+          "issuer_and_tender_id",
+          "authoritative_open_status",
+          "closing_at_and_timezone",
+          "latest_known_corrigenda_or_addenda_reviewed",
+          "eligibility_checked",
+          "checked_at"
+        ],
+        "does_not_prove": [
+          "award",
+          "contract",
+          "funding",
+          "paid placement"
+        ]
+      },
+      {
+        "stage": "AwardObserved",
+        "claim_ceiling": "AwardClaimOnly",
+        "minimum_evidence": [
+          "issuer_award_notice_or_register",
+          "tender_process_identifier",
+          "supplier_identity_from_authoritative_record",
+          "award_date_or_unknown",
+          "source_checked_at"
+        ],
+        "does_not_prove": [
+          "signed_contract",
+          "specific work order",
+          "funded role",
+          "payment"
+        ]
+      },
+      {
+        "stage": "ContractObserved",
+        "claim_ceiling": "ContractEvidenceOnly",
+        "minimum_evidence": [
+          "signed_contract_or_authoritative_contract_register",
+          "parties",
+          "scope",
+          "effective_period",
+          "value_or_explicitly_unknown",
+          "amendments_checked"
+        ],
+        "does_not_prove": [
+          "a proposed role is in scope",
+          "funding allocated to each role",
+          "payment made"
+        ]
+      },
+      {
+        "stage": "RoleFundingCommitted",
+        "claim_ceiling": "RoleFundingEvidenceOnly",
+        "minimum_evidence": [
+          "named_legal_employer_or_authorized_contracting_entity",
+          "written_role_scope",
+          "named_payer_and_budget_holder",
+          "committed_full_period_budget",
+          "lawful_worker_classification_and_rate_basis",
+          "payroll_route_and_payment_terms",
+          "safety_and_supervision_budget",
+          "checked_at"
+        ],
+        "does_not_prove": [
+          "worker has actually been paid"
+        ]
+      },
+      {
+        "stage": "PaidWorkVerified",
+        "claim_ceiling": "BoundedPaymentEvidenceOnly",
+        "minimum_evidence": [
+          "authorized_payment_or_payroll_evidence",
+          "period_and_amount",
+          "privacy_preserving_worker_confirmation_or_auditable_receipt",
+          "exception_and_correction_path"
+        ],
+        "does_not_prove": [
+          "retention",
+          "durable employment",
+          "worker satisfaction",
+          "service outcome"
+        ]
+      }
+    ],
+    "state_transition_policy": {
+      "automatic_stage_promotion_authorized": false,
+      "missing_fields": "Keep the lowest supported state; record Unknown/Unobserved rather than infer.",
+      "conflicting_sources": "Preserve both observations and require a qualified human to resolve; never overwrite source evidence silently.",
+      "alternate_lawful_routes": "Where procurement is through an incumbent or non-tender route, record the route-specific legal and funding authority; do not force every route into an open-tender path.",
+      "role_funding_is_distinct_from_contract_value": true,
+      "award_is_not_contract": true,
+      "contract_is_not_payment": true,
+      "payment_is_not_durable_employment": true
+    },
+    "national_registry_coverage_gate": {
+      "municipal_and_state_owned_entity_records_may_be_missing_unless_voluntarily_shared": true,
+      "absence_from_registry_proves_no_opportunity": false,
+      "prefer_issuer_specific_notice_and_current_addenda": true,
+      "keep_checked_at_and_source_snapshot": true
+    },
+    "known_data_quality_gate": {
+      "empty_tender_status_may_be_treated_as_open": false,
+      "duplicate_identical_release_counts_as_second_opportunity": false,
+      "conflicting_same_release_identity_is_silently_overwritten": false,
+      "invalid_placeholders_are_authority": false
+    },
+    "privacy_and_integrity": {
+      "automated_bidding_or_supplier_contact_authorized": false,
+      "automated_award_or_contract_claim_authorized": false,
+      "automated_criminality_or_corruption_conclusion_authorized": false,
+      "public_personal_data_or_sensitive_commercial_details_required": false
+    },
+    "research_leads": [
+      {
+        "process_id": {
+          "issuer": "Pikitup Johannesburg SOC Limited",
+          "issuer_tender_id": "PIK 016/2026-27",
+          "ocid": "NotObserved"
+        },
+        "source_ids": [
+          "PIKITUP-RFQ-INDEX-1",
+          "PIKITUP-PIK016-DOC-1"
+        ],
+        "evidence_stage": "TenderNoticeObserved",
+        "snapshot_checked_on": "2026-10-14",
+        "closing_date_as_published": "2026-10-19",
+        "closing_time_as_published": "11:00",
+        "closing_timezone": "NotSpecifiedInSource",
+        "open_status_verified": false,
+        "open_status_blocker": [
+          "Timezone not explicit in document/listing",
+          "Most recent addenda/corrigenda and status need recheck before any action"
+        ],
+        "title": "General repairs at Robinson Deep Landfill Site; CIDB grade 1GB or higher",
+        "work_classification": "Facility maintenance/construction",
+        "basic_removal_or_cooperative_scope": false,
+        "minimum_cidb_grading": "1GB",
+        "published_value_band": "Above R2,000 up to R750,000 including VAT",
+        "role_funding_confirmed": false,
+        "mycelix_or_cooperative_eligibility_assessed": false,
+        "award_or_signed_contract_observed": false,
+        "suggested_use": "Manual discovery/qualification demonstration only; not a selected pilot, bid recommendation, employer, contract or job",
+        "anti_fraud_safeguard": "Bid documents and CSD registration should not require payment; ignore/report bribery or paid-preferential-treatment solicitations through official channels without automatically accusing a named person."
+      }
+    ],
+    "finance_context_source_ids": [
+      "SA-MUNI-FIN-API-1",
+      "SA-TREASURY-REPMAINT-Q2-2025-26-1",
+      "JHB-REPMAINT-V2-VIEW-1"
+    ]
+  }
+}

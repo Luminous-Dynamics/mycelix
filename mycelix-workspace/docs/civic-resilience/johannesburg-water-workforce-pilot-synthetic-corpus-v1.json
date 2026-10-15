@@ -1,0 +1,1228 @@
+{
+  "schema": "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1",
+  "corpus_version": 1,
+  "snapshot_date": "2026-10-15",
+  "maturity": "SyntheticSpecificationOnly",
+  "synthetic_only": true,
+  "no_real_resident_data": true,
+  "no_real_case_references": true,
+  "no_precise_sensitive_asset_locations": true,
+  "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
+  "expected_probe_count": 39,
+  "probes": [
+    {
+      "id": "issuer-reference-collision",
+      "category": "IdentityAndAuthority",
+      "scenario": "Two issuers expose the same visible reference string.",
+      "input": {
+        "records": [
+          {
+            "issuer": "CityOfJohannesburg",
+            "channel": "CityPortal",
+            "external_reference": "SYNTH-001"
+          },
+          {
+            "issuer": "JohannesburgWaterSOC",
+            "channel": "UtilityNotice",
+            "external_reference": "SYNTH-001"
+          }
+        ]
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "KeepSeparate",
+        "issue_status_effect": "NoChange",
+        "required_human_review": true,
+        "source_status": "NamespacedReferencesRemainDistinct"
+      },
+      "guards": [
+        "DoNotMergeByReferenceStringAlone",
+        "ExternalReferenceIsNotInternalIdentity"
+      ]
+    },
+    {
+      "id": "same-source-possible-duplicate",
+      "category": "Deduplication",
+      "scenario": "Two reports from the same source appear close in time with incomplete location precision.",
+      "input": {
+        "records": [
+          {
+            "issuer": "SyntheticResidentReport",
+            "external_reference": null,
+            "observed_at": "2026-10-14T08:00:00+02:00",
+            "location_precision": "CoarseZone"
+          },
+          {
+            "issuer": "SyntheticResidentReport",
+            "external_reference": null,
+            "observed_at": "2026-10-14T08:07:00+02:00",
+            "location_precision": "CoarseZone"
+          }
+        ]
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "CandidateDuplicateOnly",
+        "issue_status_effect": "NoMergeWithoutReview",
+        "required_human_review": true,
+        "source_status": "Ambiguous"
+      },
+      "guards": [
+        "DuplicateCandidateIsNotProofOfDuplicate",
+        "DoNotInferPreciseLocation"
+      ]
+    },
+    {
+      "id": "stale-systemwide-bulletin",
+      "category": "Currentness",
+      "scenario": "An older system-wide bulletin reports an earlier interruption status.",
+      "input": {
+        "issuer": "JohannesburgWaterSOC",
+        "channel": "PublicBulletin",
+        "scope": "SystemWide",
+        "observed_at": "2026-10-10T12:00:00+02:00",
+        "review_time": "2026-10-14T10:00:00+02:00",
+        "freshness_policy": "NotQualified"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordObservationOnly",
+        "issue_status_effect": "NoChange",
+        "required_human_review": true,
+        "source_status": "StaleOrUnqualified"
+      },
+      "guards": [
+        "BulletinDoesNotResolveIndividualCase",
+        "RetrievalDoesNotProveCurrentness"
+      ]
+    },
+    {
+      "id": "source-fetch-unavailable",
+      "category": "Availability",
+      "scenario": "A provider page or authorized source cannot be retrieved.",
+      "input": {
+        "issuer": "JohannesburgWaterSOC",
+        "channel": "PublicWebPage",
+        "fetch_result": "Timeout"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "NeedsHumanReview",
+        "issue_status_effect": "NoChange",
+        "required_human_review": true,
+        "source_status": "UnavailableNotNegative"
+      },
+      "guards": [
+        "FetchFailureIsNotSourceAbsence",
+        "NoInferredCurrentStatus"
+      ]
+    },
+    {
+      "id": "response-without-restoration",
+      "category": "ServiceSemantics",
+      "scenario": "A synthetic emergency case records a response within the published response window, but no restoration evidence exists.",
+      "input": {
+        "published_verb": "Respond",
+        "published_window_value": 12,
+        "published_window_unit": "Hours",
+        "restoration_event": null
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordResponseOnly",
+        "issue_status_effect": "ResponseRecordedRestorationUnknown",
+        "required_human_review": false,
+        "source_status": "ResponseObservedRestorationUnknown"
+      },
+      "guards": [
+        "ResponseIsNotRestoration",
+        "NoFalseResolutionClaim"
+      ]
+    },
+    {
+      "id": "working-days-calendar-conversion",
+      "category": "ServiceSemantics",
+      "scenario": "A two-working-day target is presented but the adopted effective version and applicable working-day calendar are missing.",
+      "input": {
+        "published_window_value": 2,
+        "published_window_unit": "WorkingDays",
+        "effective_version": "Unknown",
+        "holiday_calendar": "Unavailable"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "DoNotCalculateProductionDeadline",
+        "issue_status_effect": "NoSlaBreachClaim",
+        "required_human_review": true,
+        "source_status": "ClockUnqualified"
+      },
+      "guards": [
+        "WorkingDaysAreNotCalendarDays",
+        "MissingClockSemanticsFailsClosed"
+      ]
+    },
+    {
+      "id": "unversioned-web-standard",
+      "category": "ServiceSemantics",
+      "scenario": "A public standards page is readable but no effective date/version is observed.",
+      "input": {
+        "source_kind": "OfficialCustomerServiceWebPage",
+        "effective_date": "NotObserved",
+        "version": "NotObserved"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "SourceObservationOnly",
+        "issue_status_effect": "NoProductionSlaEffect",
+        "required_human_review": true,
+        "source_status": "Unversioned"
+      },
+      "guards": [
+        "PublicSourceDoesNotEstablishAdoption",
+        "NoProductionSlaCalculation"
+      ]
+    },
+    {
+      "id": "repair-claim-without-independent-evidence",
+      "category": "CompletionVerification",
+      "scenario": "A contractor claims a repair is complete but there is no independent check or authoritative external update.",
+      "input": {
+        "repair_claimed": true,
+        "independent_verification": null,
+        "external_status_readback": null
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "ClaimUnverified",
+        "issue_status_effect": "RepairClaimedNotVerified",
+        "required_human_review": true,
+        "source_status": "VerificationMissing"
+      },
+      "guards": [
+        "RepairClaimIsNotVerifiedOutcome",
+        "TicketClosureIsNotAuthority"
+      ]
+    },
+    {
+      "id": "verified-repair-followed-by-repeat-fault",
+      "category": "CorrectionAndReopening",
+      "scenario": "A previously verified repair is followed by a new fault report at the same abstracted asset grouping.",
+      "input": {
+        "prior_verification": "SyntheticVerifiedEvent",
+        "new_report": "SyntheticRepeatFault",
+        "asset_identity": "SYNTH-ASSET-GROUP-1"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "ReopenOrLinkNewEvent",
+        "issue_status_effect": "PreservePriorEvidenceAndReviewNewFault",
+        "required_human_review": true,
+        "source_status": "RepeatFaultUnderReview"
+      },
+      "guards": [
+        "DoNotDeleteEarlierEvidence",
+        "PriorVerificationDoesNotProveCurrentHealth"
+      ]
+    },
+    {
+      "id": "unauthorized-sensor-feed",
+      "category": "DataPermission",
+      "scenario": "A connector offers a pressure or noise-logger feed without a written data-use contract.",
+      "input": {
+        "source_kind": "Telemetry",
+        "written_permission": false,
+        "provider_api_contract": "Unknown"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockIngestion",
+        "issue_status_effect": "NoRecordFromUnauthorizedFeed",
+        "required_human_review": true,
+        "source_status": "Unauthorized"
+      },
+      "guards": [
+        "NoUnauthorizedProviderAccess",
+        "DataAvailabilityDoesNotImplyPermission"
+      ]
+    },
+    {
+      "id": "duplicate-invoice-with-missing-delivery-evidence",
+      "category": "ProcurementIntegrity",
+      "scenario": "Two synthetic invoices share an identifier and one lacks accepted delivery evidence.",
+      "input": {
+        "invoice_ids": [
+          "SYNTH-INV-7",
+          "SYNTH-INV-7"
+        ],
+        "delivery_acceptance_evidence": "Missing"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "HumanAuditReview",
+        "issue_status_effect": "NoAutomaticPaymentOrAccusation",
+        "required_human_review": true,
+        "source_status": "AnomalyNotFinding"
+      },
+      "guards": [
+        "AnomalyIsNotProofOfFraud",
+        "NoAutomaticBlacklisting"
+      ]
+    },
+    {
+      "id": "unfunded-work-pathway",
+      "category": "EmploymentIntegrity",
+      "scenario": "A proposed field role has no identified payer or approved employment/procurement route.",
+      "input": {
+        "candidate_role": "FieldDataQualityAssistant",
+        "payer_identified": false,
+        "budget_approved": false,
+        "terms_approved": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "DoNotAnnounceFundedPosition",
+        "issue_status_effect": "ProposalOnly",
+        "required_human_review": true,
+        "source_status": "Unfunded"
+      },
+      "guards": [
+        "NoSpeculativePayroll",
+        "OpportunityIsNotAJob"
+      ]
+    },
+    {
+      "id": "sensitive-location-publication",
+      "category": "PrivacyAndAssetProtection",
+      "scenario": "A draft public report contains exact coordinates for a vulnerable infrastructure asset.",
+      "input": {
+        "location_precision": "ExactCoordinates",
+        "asset_sensitivity": "Restricted",
+        "publication_target": "Public"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockPublicationOrRedact",
+        "issue_status_effect": "NoSensitiveLocationPublished",
+        "required_human_review": true,
+        "source_status": "DisclosureBlocked"
+      },
+      "guards": [
+        "NoPublicSensitiveAssetCoordinates",
+        "NoExploitableOperationalDetail"
+      ]
+    },
+    {
+      "id": "demographic-risk-proxy",
+      "category": "FairnessAndRights",
+      "scenario": "An anomaly model proposes an adverse action based only on a resident's neighborhood or poverty proxy.",
+      "input": {
+        "model_flag": "SyntheticFlag",
+        "evidence_of_specific_misconduct": false,
+        "features_used": [
+          "NeighborhoodProxy",
+          "PovertyProxy"
+        ],
+        "proposed_action": "AdverseDecision"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RejectAdverseAction",
+        "issue_status_effect": "NoAdverseDecision",
+        "required_human_review": true,
+        "source_status": "UnsupportedAndProhibited"
+      },
+      "guards": [
+        "PovertyIsNotEvidenceOfWrongdoing",
+        "ModelFlagIsNotAdjudication"
+      ]
+    },
+    {
+      "id": "working-on-infrastructure-geography-mismatch",
+      "category": "EmploymentIntegrity",
+      "scenario": "A national Working on Infrastructure pilot is announced for KwaZulu-Natal and Limpopo, but a proposed Joburg/Gauteng pilot treats it as a confirmed local funding or placement route.",
+      "input": {
+        "programme_source": "South African Government speech dated 2026-05-04",
+        "announced_launch_provinces": [
+          "KwaZulu-Natal",
+          "Limpopo"
+        ],
+        "proposed_pilot_province": "Gauteng",
+        "explicit_gauteng_launch_confirmation": false,
+        "local_payer_identified": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "TreatAsPartnerDiscoveryOnly",
+        "issue_status_effect": "NoFundingOrPartnerClaim",
+        "required_human_review": true,
+        "source_status": "GeographyNotInAnnouncedLaunchScope"
+      },
+      "guards": [
+        "DoNotInferGautengPilotEligibility",
+        "NationalProgrammeAnnouncementIsNotLocalFunding",
+        "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "sdbip-cooperative-kpi-is-not-contract-award",
+      "category": "EmploymentIntegrity",
+      "scenario": "A City SDBIP describes incorporating local cooperatives into basic waste-removal services through new service-level contracts, but no tender, award, budget-holder approval or contract is identified for the proposed pilot.",
+      "input": {
+        "source_document": "City of Johannesburg 2026/27 SDBIP",
+        "kpi_number": 15,
+        "intervention_contains_local_cooperative_service_contracts": true,
+        "open_procurement_or_authorized_contract_identified": false,
+        "payer_identified": false,
+        "budget_approval_observed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PartnerDiscoveryOnlyNoContractAward",
+        "issue_status_effect": "NoFundedPositionsOrContractClaim",
+        "required_human_review": true,
+        "source_status": "PlanningTargetNotContract"
+      },
+      "guards": [
+        "SdbipPlanningKpiIsNotProcurementAward",
+        "NoCooperativeContractWithoutOpenAuthorizedProcess",
+        "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "sdbip-coverage-target-is-not-observed-service",
+      "category": "ServiceSemantics",
+      "scenario": "The City of Johannesburg 2026/27 SDBIP lists a 100% target for KPI 15 (known informal settlements receiving basic removal services). The summary row on printed page 27 was observed in the PDF text layer but not visually reviewed; this evidence set contains no current operational coverage result or linked tripsheet/settlement records for the target period. An adapter treats the target/baseline planning fields as proof that current service coverage is 100%, or conversely infers an unmet service gap from the absence of outcome evidence in this research capture.",
+      "input": {
+        "source_document": "City of Johannesburg 2026/27 SDBIP",
+        "kpi_number": 15,
+        "baseline_percent": 100,
+        "target_2025_26_percent": 100,
+        "target_2026_27_percent": 100,
+        "quarterly_targets_2026_27_percent": [
+          100,
+          100,
+          100,
+          100
+        ],
+        "source_page_printed": 27,
+        "source_page_text_layer_observed": true,
+        "source_page_visually_reviewed": false,
+        "current_operational_records_observed": false,
+        "actual_2026_27_performance_result_observed": false,
+        "outcome_evidence_scope": "NotCapturedInThisResearchPass;AbsenceFromCaptureIsNotProofOfServiceFailure"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireIndependentServiceCoverageEvidence",
+        "issue_status_effect": "NoVerifiedCoverageOrServiceNeedClaim",
+        "required_human_review": true,
+        "source_status": "PlanningTargetNotObservedOutcome"
+      },
+      "guards": [
+        "PlanningTargetIsNotActualCoverage",
+        "BaselineOrTargetIsNotCurrentObservation",
+        "TextLayerOnlyPageNeedsVisualReview",
+        "RequireCurrentOperationalEvidenceAndDefinedDenominator",
+        "NoCoverageOrNeedClaimFromTargetAlone"
+      ]
+    },
+    {
+      "id": "prior-plan-settlement-count-is-not-current-roster",
+      "category": "ServiceSemantics",
+      "scenario": "Pikitup's 2025/26 Business Plan technical indicator description says the basic-removal KPI uses collection schedules, trip sheets and an approved list of predetermined Pikitup-known informal settlements; the text layer notes 201 settlements verified. The 2026/27 SDBIP carries a 100% target, but no period-specific current approved settlement roster or matched operational numerator has been captured here. An adapter reuses 201 as the 2026/27 denominator or calculates achieved coverage from a target alone.",
+      "input": {
+        "historical_plan_source": "PIKITUP-BP-2025-26-1",
+        "historical_plan_period": "2025/26",
+        "historical_denominator_text": "201 informal settlements verified",
+        "historical_denominator_effective_date": "NotObserved",
+        "current_sdbip_source": "COJ-SDBIP-2026-27",
+        "current_target_percent": 100,
+        "current_approved_settlement_roster_observed": false,
+        "matched_current_period_trip_sheets_observed": false,
+        "independently_reconciled_current_numerator_observed": false,
+        "historical_denominator_reuse_authorized": false,
+        "source_page_visual_review_completed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequirePeriodSpecificApprovedDenominator",
+        "issue_status_effect": "NoCurrentCoverageRate",
+        "required_human_review": true,
+        "source_status": "PriorPeriodDenominatorNotCurrent"
+      },
+      "guards": [
+        "HistoricalSettlementCountIsNotCurrentDenominator",
+        "RequireApprovedCurrentPeriodRoster",
+        "HistoricalPlanTargetIsNotActualCoverage",
+        "ManualTripSheetsNeedReconciliation",
+        "NoCoverageRateWithoutMatchedNumeratorAndDenominator"
+      ]
+    },
+    {
+      "id": "national-epwp-target-vs-city-sdbip-target",
+      "category": "EmploymentIntegrity",
+      "scenario": "The SDBIP footnote lists a national DPWI Phase 5 target apportioned to the City of 9,996 for 2026/27 while the City's own KPI 24 table target is 12,500 opportunities. An integration attempts to substitute one target for the other.",
+      "input": {
+        "national_department_target_apportioned_to_city_2026_27": 9996,
+        "city_sdbip_kpi24_target_2026_27": 12500,
+        "city_sdbip_quarterly_targets_2026_27": [
+          3500,
+          7000,
+          9800,
+          12500
+        ],
+        "work_opportunity_is_durable_job": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PreserveSeparateTargetSeries",
+        "issue_status_effect": "NoTargetSubstitution",
+        "required_human_review": true,
+        "source_status": "DistinctProgrammeTargets"
+      },
+      "guards": [
+        "NationalTargetIsNotCitySdbipTarget",
+        "WorkOpportunityIsNotDurableJob",
+        "DoNotReplacePublishedTarget"
+      ]
+    },
+    {
+      "id": "same-title-water-kpis-need-crosswalk",
+      "category": "ServiceSemantics",
+      "scenario": "The SDBIP contains two differently located 'Total water losses' rows: top-level KPI 17 with a 2026/27 target of 200 293Ml and outcome indicator WS5.2/KPI 52 with a separate baseline and target sequence. An adapter assumes the titles identify the same measure and auto-substitutes target values.",
+      "input": {
+        "summary_kpi17": {
+          "printed_page": 28,
+          "target_2026_27": "200 293Ml"
+        },
+        "technical_kpi17": {
+          "printed_page": 58,
+          "formula_units": "Litres per service connection per day",
+          "source_visual_review_recorded_from_prior_pass": true
+        },
+        "outcome_kpi52": {
+          "printed_page": 90,
+          "baseline": "838.77",
+          "target_values": [
+            "196 099Ml",
+            "188 163Ml",
+            "180 274Ml",
+            "173 495Ml"
+          ],
+          "year_mapping_from_text_layer": "NotFullyBound"
+        },
+        "authoritative_crosswalk": "NotQualified"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PreserveSeparateMetricSeries",
+        "issue_status_effect": "NoDerivedValueOrSla",
+        "required_human_review": true,
+        "source_status": "MetricCrosswalkUnqualified"
+      },
+      "guards": [
+        "SameTitleDoesNotProveSameMetric",
+        "UnqualifiedMetricCrosswalkFailsClosed",
+        "NoProductionSlaCalculation"
+      ]
+    },
+    {
+      "id": "planned-controller-rollout-date-is-not-completion",
+      "category": "Currentness",
+      "scenario": "An official announcement gave a planned installation completion date that has passed, but the later official notices reviewed in this pass do not independently confirm final installation counts.",
+      "input": {
+        "original_source": "Johannesburg Water media statement dated 2026-07-23",
+        "planned_completion_date": "2026-09-30",
+        "latest_related_notice_reviewed": "Johannesburg Water system updates dated 2026-10-06",
+        "independent_installation_completion_evidence": null
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "KeepRolloutStatusUnverified",
+        "issue_status_effect": "NoCompletionClaim",
+        "required_human_review": true,
+        "source_status": "RolloutCompletionNotObserved"
+      },
+      "guards": [
+        "PlannedCompletionDateIsNotEvidenceOfCompletion",
+        "NoLaterConfirmationMeansUnknown",
+        "SourceSearchScopeMustBeRecorded"
+      ]
+    },
+    {
+      "id": "unknown-wage-regime-cannot-default-to-epwp",
+      "category": "EmploymentIntegrity",
+      "scenario": "A proposed cooperative or technical role has no qualified worker/employment classification. A planner applies the lower EPWP hourly rate by default to make an unfunded cost estimate appear viable.",
+      "input": {
+        "worker_classification": "Unknown",
+        "attempted_rate_selection": "UseEPWPMinimum",
+        "written_work_scope": false,
+        "fully_funded_budget": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockPositionUntilWageReview",
+        "issue_status_effect": "NoWageRateOrPositionClaim",
+        "required_human_review": true,
+        "source_status": "EmploymentClassificationUnqualified"
+      },
+      "guards": [
+        "WageRegimeRequiresQualifiedClassification",
+        "EPWPRateIsNotDefaultForUnknownStatus",
+        "NoSpeculativePayroll",
+        "NoPositionBeforeFullFunding"
+      ]
+    },
+    {
+      "id": "mixed-stage-tender-index-is-not-open-work",
+      "category": "ProcurementIntegrity",
+      "scenario": "A procurement landing page mixes cancelled, awarded, closed and older advertised notices. No matching current tender-specific notice, closing date or award/contract proof for the proposed cooperative/basic-removal work package has been captured.",
+      "input": {
+        "index_heading": "Current Tenders",
+        "visible_lifecycle_stages": [
+          "Cancelled",
+          "Awarded",
+          "Closed",
+          "AdvertisedOlder"
+        ],
+        "tender_specific_notice_id": null,
+        "closing_date": null,
+        "award_or_signed_contract_evidence": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PartnerDiscoveryOnlyNoOpenNotice",
+        "issue_status_effect": "NoAvailableWorkPackageClaim",
+        "required_human_review": true,
+        "source_status": "TenderStatusNotQualified"
+      },
+      "guards": [
+        "TenderLandingPageIsDiscoveryOnly",
+        "CaptureNoticeStageAndClosingDate",
+        "NoAbsenceProofFromListing",
+        "NoContractWithoutAwardAndAuthority",
+        "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "current-tender-header-without-dated-notice",
+      "category": "ProcurementIntegrity",
+      "scenario": "A City-hosted Pikitup page is labelled Current Tenders but its visible rows identify PIK259/17 (fire-equipment servicing) and PIK255/17 (four-drone supply), without publication dates, closing dates or lifecycle status. An integration marks a row or the portal as an open basic-removal/cooperative opportunity.",
+      "input": {
+        "listing_page_label": "Current Tenders",
+        "visible_tender_references": [
+          "PIK259/17",
+          "PIK255/17"
+        ],
+        "visible_publication_or_closing_dates": false,
+        "visible_lifecycle_status": false,
+        "tender_specific_qualifying_scope_observed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireNoticeSpecificCurrentness",
+        "issue_status_effect": "NoOpenTenderOrWorkPackageClaim",
+        "required_human_review": true,
+        "source_status": "ListingOnlyCurrentnessUnqualified"
+      },
+      "guards": [
+        "CurrentTendersHeadingDoesNotProveOpenStatus",
+        "TenderIdSuffixIsNotDateEvidence",
+        "RecordTenderScopeAndLifecycleFromNotice",
+        "NoOpportunityFromUnrelatedTender",
+        "NoAbsenceProofFromListing"
+      ]
+    },
+    {
+      "id": "national-registry-absence-is-not-city-tender-absence",
+      "category": "ProcurementIntegrity",
+      "scenario": "The National Treasury/OCDS registry contains no matching tender for a City or Pikitup work package. The published registry coverage profile says municipal and state-owned-entity data may be absent unless entities voluntarily share records.",
+      "input": {
+        "registry_match": false,
+        "municipal_or_soe_coverage_complete": false,
+        "issuer_specific_search_complete": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "ContinueIssuerSpecificDiscovery",
+        "issue_status_effect": "NoNoTenderOrNoOpportunityClaim",
+        "required_human_review": true,
+        "source_status": "NationalRegistryCoverageIncomplete"
+      },
+      "guards": [
+        "RegistryCoverageExcludesSomeMunicipalAndSoeData",
+        "MissingRecordIsNotEvidenceOfNoTender",
+        "UseIssuerSpecificNotice",
+        "NoAbsenceProofFromListing"
+      ]
+    },
+    {
+      "id": "ocds-empty-status-is-not-open",
+      "category": "ProcurementIntegrity",
+      "scenario": "A discovered OCDS record contains an empty or invalid tender.status and no verifiable closing date. An adapter attempts to map the empty status to Open so the item appears available.",
+      "input": {
+        "tender_status": "",
+        "closing_at": null,
+        "registry_record_found": true
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "HoldStatusUnqualified",
+        "issue_status_effect": "NoOpenTenderClaim",
+        "required_human_review": true,
+        "source_status": "EmptyStatusAndClosingDate"
+      },
+      "guards": [
+        "EmptyTenderStatusIsNotOpen",
+        "UnknownIsNotOpen",
+        "RequireAuthoritativeCurrentNotice",
+        "NoAutomaticStatusPromotion"
+      ]
+    },
+    {
+      "id": "award-is-not-contract-or-funded-role",
+      "category": "EmploymentIntegrity",
+      "scenario": "An authoritative award notice names a supplier, but no signed contract, role-specific budget allocation, lawful worker classification, or payroll/payment route is evidenced.",
+      "input": {
+        "award_notice_observed": true,
+        "signed_contract_observed": false,
+        "role_budget_committed": false,
+        "worker_classification": "Unknown",
+        "payroll_route": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordAwardOnly",
+        "issue_status_effect": "NoFundedPositionOrContractClaim",
+        "required_human_review": true,
+        "source_status": "AwardObservedContractAndRoleFundingUnknown"
+      },
+      "guards": [
+        "AwardIsNotSignedContract",
+        "ContractValueIsNotRoleBudget",
+        "NoPositionBeforeFullFunding",
+        "QualifiedWageReviewRequired",
+        "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "duplicate-ocds-release-is-not-second-opportunity",
+      "category": "ProcurementIntegrity",
+      "scenario": "The National Treasury dataset contains two byte-identical releases with the same release ID and content. A counter increments the number of independent tenders by two.",
+      "input": {
+        "release_ids_equal": true,
+        "content_hashes_equal": true,
+        "tender_process_ocid": "ocds-9t57fa-example",
+        "count_before": 1,
+        "count_after_attempted_increment": 2
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "DeduplicateExactReleaseForCounting",
+        "issue_status_effect": "NoArtificialOpportunityOrVolumeIncrease",
+        "required_human_review": true,
+        "source_status": "IdenticalDuplicateRelease"
+      },
+      "guards": [
+        "DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch",
+        "DoNotCountReleaseAsTenderProcess",
+        "ConflictingContentRequiresHumanReview"
+      ]
+    },
+    {
+      "id": "pikitup-deadline-without-timezone-is-not-open-verified",
+      "category": "ProcurementIntegrity",
+      "scenario": "An official Pikitup invitation states a 19 October 2026 closing date and 11:00 time, but no timezone is stated and the latest addenda/corrigenda and live status have not been independently rechecked. An adapter promotes the record to TenderOpenVerified.",
+      "input": {
+        "issuer_notice_observed": true,
+        "tender_reference": "PIK 016/2026-27",
+        "closing_date": "2026-10-19",
+        "closing_time": "11:00",
+        "closing_timezone": "NotSpecifiedInSource",
+        "latest_addenda_rechecked": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "KeepAtTenderNoticeObserved",
+        "issue_status_effect": "NoTenderOpenVerifiedClaim",
+        "required_human_review": true,
+        "source_status": "TimezoneAndAmendmentCurrentnessUnqualified"
+      },
+      "guards": [
+        "TenderDeadlineNeedsTimezone",
+        "FuturePublishedDeadlineAloneNotFullOpenGate",
+        "CheckLatestAddendaBeforeOpenStatus",
+        "NoAutomaticStagePromotion"
+      ]
+    },
+    {
+      "id": "cidb-tender-requirement-is-not-cooperative-job-eligibility",
+      "category": "EmploymentIntegrity",
+      "scenario": "A facility-repairs tender requires CIDB grade 1GB or higher, CSD registration, tax compliance and other bidder documentation. The pilot has not confirmed that a particular cooperative or person meets the bidder requirements, can legally subcontract, or has a paid role in scope.",
+      "input": {
+        "required_cidb": "1GB",
+        "csd_required": true,
+        "tax_compliance_required": true,
+        "cooperative_eligibility_verified": false,
+        "subcontracting_authorized": false,
+        "role_budget_committed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireBidderAndScopeReview",
+        "issue_status_effect": "NoCooperativeEligibilityOrPaidRoleClaim",
+        "required_human_review": true,
+        "source_status": "BidderAndSubcontractEligibilityUnverified"
+      },
+      "guards": [
+        "SpecificTenderRequirementsControl",
+        "DoNotAssumeCooperativeEligibility",
+        "ContractScopeDoesNotEqualRoleBudget",
+        "NoPositionBeforeFullFunding"
+      ]
+    },
+    {
+      "id": "tender-document-fee-or-bribe-solicitation-is-not-official",
+      "category": "ProcurementIntegrity",
+      "scenario": "A third party asks a supplier to pay for a tender document/CSD registration or promises an award in exchange for money, while the issuer's tender document says its bid documents are free and warns against bribery and preferential-treatment solicitations.",
+      "input": {
+        "issuer_says_documents_free": true,
+        "issuer_says_csd_registration_free": true,
+        "third_party_requests_payment": true,
+        "official_award_observed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockPaymentAndUseOfficialChannel",
+        "issue_status_effect": "NoPaymentOrAutomaticAccusation",
+        "required_human_review": true,
+        "source_status": "SuspectedProcurementScamUnadjudicated"
+      },
+      "guards": [
+        "TenderDocumentsAndCsdRegistrationAreFree",
+        "UseIssuerPublishedChannels",
+        "NoBribeOrPreferentialTreatment",
+        "ReportThroughOfficialChannelOnly",
+        "AllegationIsNotAdjudicatedFinding"
+      ]
+    },
+    {
+      "id": "municipal-repairs-view-without-amount-type-is-not-zero",
+      "category": "FinanceDataIntegrity",
+      "scenario": "A static text capture of the official City of Johannesburg repairs-and-maintenance table includes a generic no-data message but does not expose the interactive client-side year, period, amount-type selection or numeric cells. An adapter treats the incomplete capture as a measured zero-spend assertion.",
+      "input": {
+        "municipality": "JHB",
+        "url_has_municipality_filter": true,
+        "financial_year_exposed_in_static_capture": false,
+        "financial_period_exposed_in_static_capture": false,
+        "amount_type_exposed_in_static_capture": false,
+        "client_side_render_executed_by_capture": false,
+        "numeric_amount_present_in_capture": false,
+        "generic_message_present": true
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "HoldFinancialObservationUnqualified",
+        "issue_status_effect": "NoZeroSpendOrFundingClaim",
+        "required_human_review": true,
+        "source_status": "FinanceFiltersIncomplete"
+      },
+      "guards": [
+        "StaticTextCaptureIsNotRenderedTableState",
+        "ClientSideDefaultsMustBeCapturedForReproducibility",
+        "AmountTypeAndPeriodMustBePinnedForValueClaims",
+        "NoDisplayedCellIsNotMeasuredZero",
+        "AggregateSpendIsNotTenderFunding"
+      ]
+    },
+    {
+      "id": "aggregate-repairs-spend-is-not-role-funding",
+      "category": "EmploymentIntegrity",
+      "scenario": "Municipal Treasury Section 71 reports an aggregate repairs-and-maintenance expenditure value, but no tender, contract, work order, payer, or role-specific funding allocation has been provided.",
+      "input": {
+        "aggregate_repairs_maintenance_value_present": true,
+        "tender_notice": false,
+        "signed_contract": false,
+        "role_budget_committed": false,
+        "named_payer": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "AggregateContextOnly",
+        "issue_status_effect": "NoTenderOrRoleFundingClaim",
+        "required_human_review": true,
+        "source_status": "MunicipalAggregateNotProcurementEvidence"
+      },
+      "guards": [
+        "AggregateFinanceIsNotTenderEvidence",
+        "ContractValueIsNotRoleBudget",
+        "NoPositionBeforeFullFunding",
+        "Section71FunctionAndPeriodMustBePinned"
+      ]
+    },
+    {
+      "id": "joint-water-power-statement-is-not-incident-causality",
+      "category": "CausalityAndAuthority",
+      "scenario": "An official joint government statement discusses water-supply disruptions associated with intermittent power trips and names several utilities. A model generates an incident-level causal edge or labels a particular site currently without water, without incident-specific operational evidence.",
+      "input": {
+        "official_joint_statement_observed": true,
+        "incident_specific_evidence": false,
+        "authorized_telemetry": false,
+        "live_status_source": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "HypothesisOnlyNoIncidentCausalEdge",
+        "issue_status_effect": "NoLiveStatusOrCausalClaim",
+        "required_human_review": true,
+        "source_status": "CrossUtilityHypothesisOnly"
+      },
+      "guards": [
+        "OfficialContextIsNotIncidentEvidence",
+        "NoCausalEdgeWithoutIncidentSpecificEvidence",
+        "NoLiveStatusFromHistoricStatement",
+        "NoUnauthorizedTelemetry"
+      ]
+    },
+    {
+      "id": "latest-api-quarter-is-not-report-period",
+      "category": "FinanceDataIntegrity",
+      "scenario": "Municipal Money documentation reports a latest 2026 Q2 data update still undergoing completeness/integrity checks, while an official Section 71 report covers the 2025-26 second quarter ended 31 December 2025 and was finalized on 30 January 2026. No query has matched the municipality, financial period, amount type and snapshot across the two sources.",
+      "input": {
+        "municipality": "JHB",
+        "api_latest_published_data_period": "2026 Q2",
+        "report_financial_year": "2025-26",
+        "report_period_end": "2025-12-31",
+        "same_period_verified": false,
+        "same_snapshot_verified": false,
+        "amount_type_pinned_in_both": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "required_human_review": true,
+        "disposition": "HoldCrossSnapshotComparison",
+        "issue_status_effect": "NoUnqualifiedTrendOrFundingClaim",
+        "source_status": "SnapshotsNotAligned"
+      },
+      "guards": [
+        "APIAndSection71ReportSnapshotsMayDiffer",
+        "ReportingPeriodAndSnapshotMustMatch",
+        "AmountTypeAndPeriodMustBePinned",
+        "NoAggregateFundingClaim"
+      ]
+    },
+    {
+      "id": "r-thousands-values-are-not-rands",
+      "category": "FinanceDataIntegrity",
+      "scenario": "A published Section 71 repairs-and-maintenance report labels amounts as R thousands. An adapter treats a displayed value such as 1182846 as individual Rands without carrying the unit or applying an explicit, checked conversion.",
+      "input": {
+        "unit_as_printed": "R thousands",
+        "ytd_actual_as_printed": 1182846,
+        "explicit_unit_conversion_performed": false,
+        "cross_source_comparison_requested": true
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "required_human_review": true,
+        "disposition": "RequireUnitNormalization",
+        "issue_status_effect": "NoSilentUnitConversion",
+        "source_status": "SourceReportsValuesInThousands"
+      },
+      "guards": [
+        "ReportedUnitMustTravelWithValue",
+        "DoNotPresentThousandsAsRands",
+        "NormalizeBeforeCrossSourceCompare",
+        "NoFundingInferenceFromUnits"
+      ]
+    },
+    {
+      "id": "monthly-quarter-total-rounding-needs-review",
+      "category": "FinanceDataIntegrity",
+      "scenario": "In a published Section 71 table labeled R thousands, October, November and December actuals are 217694, 178918 and 224282, which sum arithmetically to 620894; the printed Quarter 2 total is 620893. The adapter silently rewrites the official total or labels the discrepancy as fraud/error without clarification.",
+      "input": {
+        "unit_as_printed": "R thousands",
+        "october_actual": 217694,
+        "november_actual": 178918,
+        "december_actual": 224282,
+        "calculated_month_sum": 620894,
+        "printed_quarter_total": 620893,
+        "cause_confirmed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "required_human_review": true,
+        "disposition": "PreservePublishedTotalAndFlagReconciliation",
+        "issue_status_effect": "NoSilentRecomputedQuarterTotal",
+        "source_status": "PublishedTotalAndRoundedMonthSumDifferByOneRThousand"
+      },
+      "guards": [
+        "DoNotOverwritePublishedAggregate",
+        "KeepSourceUnitAttached",
+        "FlagArithmeticDifferenceForReview",
+        "NoSilentReconciliation"
+      ]
+    },
+    {
+      "id": "published-snapshot-checksum-is-not-payload-verification",
+      "category": "FinanceDataIntegrity",
+      "scenario": "The official Municipal Money bulk metadata index publishes a CSV filename, snapshot timestamp, file size, MD5 and SHA-1, but the CSV payload bytes were not observed in the research pass. An adapter treats the metadata digest as proof it downloaded and independently verified those bytes, or uses the timestamp as a substitute for a financial period/query.",
+      "input": {
+        "metadata_index_observed": true,
+        "published_snapshot_last_updated": "2026-07-30_15-59-35",
+        "published_sha1": "32db68c02d2fd704e60ca95bc2fdb7c65188efb6",
+        "published_file_size_bytes": 4181869,
+        "payload_bytes_observed": false,
+        "local_checksum_computed": false,
+        "financial_period_pinned": false,
+        "amount_type_pinned": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordMetadataReceiptOnly",
+        "issue_status_effect": "PayloadAndCurrentValuesUnverified",
+        "required_human_review": true,
+        "source_status": "PublishedChecksumOnly"
+      },
+      "guards": [
+        "PublishedChecksumIsNotLocalChecksumVerification",
+        "RecordSnapshotTimestampSeparatelyFromFinancialPeriod",
+        "NoValueClaimWithoutDataPayload",
+        "PayloadBytesMustMatchPublishedDigest"
+      ]
+    },
+    {
+      "id": "current-rfq-block-with-past-deadline-is-not-open",
+      "category": "ProcurementIntegrity",
+      "scenario": "On 15 October 2026, the issuer page's 'Current RFQs' block still displays PIK 018/2026-2027 with a published closing date of 8 October and PIK 014/2026-2027 with a published closing date of 17 September. PIK 016/2026-2027 with a published 19 October closing date appears elsewhere on the same page. No notice-specific extension or exhaustive addenda status has been established. An adapter treats the heading or page placement as authoritative current open status.",
+      "input": {
+        "check_date": "2026-10-15",
+        "current_block_rows": [
+          {
+            "tender_reference": "PIK 018/2026-2027",
+            "published_closing_date": "2026-10-08",
+            "days_past_deadline_at_check": 7
+          },
+          {
+            "tender_reference": "PIK 014/2026-2027",
+            "published_closing_date": "2026-09-17",
+            "days_past_deadline_at_check": 28
+          }
+        ],
+        "target_reference": "PIK 016/2026-2027",
+        "target_published_closing_date": "2026-10-19",
+        "target_outside_current_rfqs_block": true,
+        "extension_or_addendum_verified": false,
+        "live_lifecycle_status_verified": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireNoticeSpecificCurrentness",
+        "issue_status_effect": "NoOpenTenderOrExtensionClaim",
+        "required_human_review": true,
+        "source_status": "ConflictingIssuerListingCurrentness"
+      },
+      "guards": [
+        "CurrentRfqHeadingDoesNotOverrideClosingDate",
+        "PastPublishedDeadlineIsNotOpenWithoutExtensionEvidence",
+        "ListingPlacementIsNotLifecycleStatus",
+        "LatestAddendaMustBeChecked",
+        "NoAutomaticStagePromotion"
+      ]
+    }
+  ]
+}
