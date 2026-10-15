@@ -162,8 +162,16 @@ def semantic_errors(review, concepts, evidence_ids):
                     errors.append(f"{s['scenario_id']}/{f['flow_id']}: value and uncertainty bounds are inconsistent")
         for check in s["conservation_checks"]:
             expected_unit = {"energy": "Wh", "water": "mL", "mass": "g"}[check["balance_kind"]]
+            check_context = f"{s['scenario_id']}/{check['check_id']}"
             if check["unit"] != expected_unit:
-                errors.append(f"{s['scenario_id']}/{check['check_id']}: {check['balance_kind']} balance requires exact unit {expected_unit!r}")
+                errors.append(f"{check_context}: {check['balance_kind']} balance requires exact unit {expected_unit!r}")
+            for ref in check["evidence_refs"]:
+                if ref not in evidence_ids:
+                    errors.append(f"{check_context}: unresolved conservation evidence reference {ref!r}")
+            if review["record_status"] == "assessment" and not check["evidence_refs"]:
+                errors.append(f"{check_context}: real assessment balance requires evidence references")
+            if review["record_status"] == "synthetic_test_only" and check["evidence_refs"]:
+                errors.append(f"{check_context}: synthetic balance must not cite real-world evidence")
             try:
                 inflow = int(check["inflow"])
                 generated = int(check["generated_or_added"])
@@ -173,13 +181,13 @@ def semantic_errors(review, concepts, evidence_ids):
                 reported = int(check["reported_residual"])
                 tolerance = int(check["tolerance"])
             except (ValueError, TypeError):
-                errors.append(f"{s['scenario_id']}/{check['check_id']}: resource-balance quantities must be decimal integer strings")
+                errors.append(f"{check_context}: resource-balance quantities must be decimal integer strings")
                 continue
             residual = inflow + generated - outflow - loss - storage
             if residual != reported:
-                errors.append(f"{s['scenario_id']}/{check['check_id']}: reported residual does not equal inflow + generated_or_added - outflow - declared_loss - observed_storage_delta")
+                errors.append(f"{check_context}: reported residual does not equal inflow + generated_or_added - outflow - declared_loss - observed_storage_delta")
             if check["status"] == "balanced" and abs(residual) > tolerance:
-                errors.append(f"{s['scenario_id']}/{check['check_id']}: declared balanced but integer residual exceeds tolerance")
+                errors.append(f"{check_context}: declared balanced but integer residual exceeds tolerance")
 
     for item in review["interactions"]:
         for ref in item["evidence_refs"]:
@@ -251,6 +259,17 @@ def main():
     if not schema_errors(validator, floating_balance_quantity):
         fail("mutation: conservation ledger accepted a floating-point/JSON-number quantity")
     print("PASS mutation: conservation ledger rejects JSON-number quantities to preserve exactness")
+
+    missing_balance_evidence = copy.deepcopy(synthetic)
+    missing_balance_evidence["record_status"] = "assessment"
+    evidence_id = next(iter(sorted(evidence_ids)))
+    for scenario in missing_balance_evidence["scenarios"]:
+        for flow in scenario["flow_records"]:
+            flow["evidence_kind"] = "measured"
+            flow["evidence_refs"] = [evidence_id]
+    if not any("real assessment balance requires evidence references" in e for e in semantic_errors(missing_balance_evidence, concepts, evidence_ids)):
+        fail("mutation: a real assessment balance without supporting evidence was accepted")
+    print("PASS mutation: real assessed balances must cite supporting Mycelix evidence")
 
     bad_residual = copy.deepcopy(synthetic)
     bad_residual["scenarios"][0]["conservation_checks"][0]["reported_residual"] = "4"
@@ -336,7 +355,7 @@ def main():
         fail("mutation: model run with unresolved scenario identity accepted")
     print("PASS mutation: model run must link to known scenario IDs")
 
-    print("PASS: 18 urban-metabolism/synergy controls (16 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
+    print("PASS: 19 urban-metabolism/synergy controls (17 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
