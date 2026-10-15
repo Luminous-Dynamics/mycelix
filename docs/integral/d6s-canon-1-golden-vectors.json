@@ -22,6 +22,16 @@
         "COS-FV-007"
       ],
       "input_class": "completed-work-order-without-observed-work",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "plan_execution"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Plan or completion state is not observed execution."
@@ -32,6 +42,16 @@
         "COS-FV-002"
       ],
       "input_class": "planned-bom-without-consumption-evidence",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "plan_consumption"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "A planned BOM is not a material-consumption event."
@@ -42,6 +62,16 @@
         "COS-FV-003"
       ],
       "input_class": "skill-credential-without-current-availability",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "requirement_availability"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Skill qualification does not prove current worker availability."
@@ -52,6 +82,16 @@
         "COS-FV-003"
       ],
       "input_class": "machine-capability-without-current-availability",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "requirement_availability"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Machine capability does not prove present availability."
@@ -62,6 +102,16 @@
         "COS-FV-005"
       ],
       "input_class": "expired-calibration-for-current-qa",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "stale_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "quality_current"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Stale",
       "expected_positive": "Accepted",
       "claim_ceiling": "Expired evidence remains historical and cannot discharge a current requirement."
@@ -72,6 +122,16 @@
         "COS-FV-004"
       ],
       "input_class": "useful-output-without-qualification",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "output_qualification"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Useful output is not safety or quality qualification."
@@ -82,6 +142,16 @@
         "COS-FV-002"
       ],
       "input_class": "single-success-as-general-capability",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "general_capability_evidence"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "One successful run does not establish general capability."
@@ -92,6 +162,16 @@
         "COS-FV-006"
       ],
       "input_class": "later-success-erases-failure",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "failure_history_preserved"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Later success cannot erase historical failure evidence."
@@ -102,6 +182,16 @@
         "COS-FV-009"
       ],
       "input_class": "imported-dependency-as-local-capability",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_foreign_node_b"
+      },
+      "positive_input": {
+        "bindings": [
+          "foreign_recognition"
+        ],
+        "evidence_profile": "current_foreign_node_b"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Foreign or imported dependency provenance must remain explicit."
@@ -112,6 +202,18 @@
         "COS-FV-008"
       ],
       "input_class": "frs-prediction-as-source-observation",
+      "negative_input": {
+        "bindings": [
+          "frs_projection"
+        ],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "source_observation_created"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "A derived finding is not an independently observed source fact."
@@ -122,6 +224,18 @@
         "COS-FV-001"
       ],
       "input_class": "production-event-automatically-mints-itc",
+      "negative_input": {
+        "bindings": [
+          "source_observation_created"
+        ],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "itc_projection"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Production evidence does not automatically create a downstream ledger entry."
@@ -132,6 +246,18 @@
         "COS-FV-001"
       ],
       "input_class": "itc-entry-as-physical-work-proof",
+      "negative_input": {
+        "bindings": [
+          "itc_projection"
+        ],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "physical_work_binding"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "An ITC projection is not physical-work evidence."
@@ -142,6 +268,16 @@
         "COS-FV-010"
       ],
       "input_class": "foreign-attestation-rewritten-as-local",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_foreign_node_b"
+      },
+      "positive_input": {
+        "bindings": [
+          "foreign_recognition"
+        ],
+        "evidence_profile": "current_foreign_node_b"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Recognition never rewrites original evidence provenance."
@@ -152,6 +288,19 @@
         "COS-FV-008"
       ],
       "input_class": "recommendation-without-authorized-effect",
+      "negative_input": {
+        "bindings": [
+          "frs_projection"
+        ],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "recommendation_authorized",
+          "effect_recorded"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Unauthorized",
       "expected_positive": "Accepted",
       "claim_ceiling": "A recommendation cannot directly create an operational effect."
@@ -162,6 +311,16 @@
         "COS-FV-004"
       ],
       "input_class": "distribution-as-quality-certification",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "output_qualification"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "Distribution completion does not establish product qualification."
@@ -172,6 +331,16 @@
         "COS-FV-001"
       ],
       "input_class": "throughput-claim-with-unknown-denominator",
+      "negative_input": {
+        "bindings": [],
+        "evidence_profile": "current_local"
+      },
+      "positive_input": {
+        "bindings": [
+          "denominator_explicit"
+        ],
+        "evidence_profile": "current_local"
+      },
       "expected_negative": "Rejected",
       "expected_positive": "Accepted",
       "claim_ceiling": "A throughput/share assertion requires an explicit denominator."
