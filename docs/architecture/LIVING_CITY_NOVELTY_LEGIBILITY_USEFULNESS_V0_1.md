@@ -1,4 +1,4 @@
-# Living-City: Balancing Novelty, Surprise, Legibility, and Usefulness (v0.1)
+# Living-City: Balancing Novelty, Surprise, Legibility, and Usefulness (review schema v0.1; routing policy v0.2)
 
 **Status:** proposed evaluation protocol, not a calibrated measure or completed community review.  
 **Scope:** concept selection and design exploration for Living-City, with Johannesburg/Highveld as an initial context.  
@@ -10,6 +10,9 @@
 - Guo et al. (2022), *Divergent Thinking and Evaluative Skill: A Meta-Analysis*, synthesizes 96 effect sizes from 20 studies and 3,019 participants. It finds a modest association between divergent thinking and evaluation skill (r = .13, 95% CI [.07, .20]) and reports moderation by task and context. Generating ideas and judging ideas are related but distinct capabilities: https://doi.org/10.1002/jocb.539
 - *Evaluating Creativity: How Idea Context and Rater Personality Affect Considerations of Novelty and Usefulness* (2022) studies both alternative-use responses and real urban-planning suggestions; this supports specifying the idea context and evaluator perspective rather than assuming one universal novelty/usefulness weighting: https://doi.org/10.1080/10400419.2022.2125721
 - Yu et al. (2025), *The Effect of Novelty and Usefulness on Creative Idea Adoption: An S-Shaped Relationships*, reports a positive relationship between usefulness and adoption and a context-dependent, S-shaped relationship for novelty. Adoption should be evaluated separately from perceived creativity: https://doi.org/10.1002/jocb.70059
+- *Rater effects in creativity assessment: A mixed methods investigation* (2015) found inconsistent ratings and low dependability coefficients across three rater groups, supporting explicit attention to disagreement rather than assuming aggregate ratings are stable: https://doi.org/10.1016/j.tsc.2014.10.004
+- Davison & Rowden (2026), *Unjust by design?*, analyses how urban-design governance and design standards can reproduce exclusion and displacement; it reinforces treating justice and affected-group voice as constraints rather than as creativity trade-offs: https://doi.org/10.1016/j.progress.2026.101034
+- A 2026 South African study of placemaking governance reports risks of tokenistic participation; a completed scorecard is not a substitute for meaningful co-production with local participants: https://doi.org/10.1007/s44327-026-00274-4
 
 These studies motivate separation of dimensions; they do not validate the Living-City thresholds below. The initial 1–5 anchors and routing rules are hypotheses to test and revise with local reviewers and outcome data.
 
@@ -29,13 +32,17 @@ The seven dimensions use ordinal 1–5 ratings with written rationales. Do not a
 
 ## The routing policy
 
-Recommendations are non-compensatory. The validator uses group-level median ratings per dimension, not a weighted overall creativity score. A routing label is advisory only.
+Recommendations are non-compensatory. Group-level medians are one summary signal, never a substitute for the individual group profiles. The routing policy is versioned separately from the review schema: this change retains review schema v0.1 and advances routing policy to **v0.2**. A routing label is advisory only.
 
 1. **Any hard-gate failure → stop or reframe.** A high novelty or usefulness rating cannot compensate for life-safety, accessibility, rights/consent, environmental/land feasibility, operations/maintenance, anti-displacement, or privacy failure.
-2. **High surprise plus low legibility at exploration/comparison/prototype stage → prototype for comprehension testing.** This means a paper, diagram, model, simulation, or usability prototype to find out what people understand—not construction or a live public-space trial.
-3. **Any unknown hard gate, incomplete reference set, unresolved evidence reference, insufficient stakeholder perspectives, or low median legibility/usefulness/context fit/feasibility → hold for evidence.**
-4. **Only if hard gates are cleared, the comparison set is ready, evidence references resolve, and required perspectives are represented can the record become eligible for human pilot review.** This is not permission to build. Relevant authorities and affected people still decide whether a reversible pilot is appropriate.
-5. **Contested feedback remains contested.** Preserve reasoning and dissent; do not convert disagreement into a low average or erase minority views.
+2. **Contested reviews or major cross-perspective disagreement → hold for evidence.** In v0.2, if the range between perspective-level group ratings is at least three points on any decision-critical dimension—legibility, usefulness, context fit, or feasibility—the validator returns `hold_for_evidence`, even when the median is favorable. A large cross-perspective range on any scored dimension must be preserved in `dissent_summary`; it may not be smoothed away. This is a deliberately conservative governance tripwire, not a statistically validated cut-off, and it does not imply that the lower-scoring group is wrong.
+3. **Any unknown hard gate → hold for evidence before routing onward.** A failed gate always takes precedence. `not_applicable` is allowed only where the rationale justifies it.
+4. **High surprise plus low legibility, with no higher-priority hold condition, → prototype for comprehension testing.** Use a paper, diagram, model, simulation, or usability prototype to discover what people understand—not construction or a live public-space trial.
+5. **Incomplete reference set, unresolved evidence reference, insufficient stakeholder perspectives, or low median legibility/usefulness/context fit/feasibility → hold for evidence.**
+6. **Only if hard gates are cleared, the comparison set is ready, evidence references resolve, the required perspectives are represented, and the disagreement tripwire is clear can a record become eligible for human pilot review.** This is not permission to build. Relevant authorities and affected people still decide whether a reversible pilot is appropriate.
+7. **Contested feedback remains contested.** Preserve reasoning and dissent; do not turn disagreement into a low average or erase minority views.
+
+The three-point range rule is versioned so it can be changed after real calibration. It is not derived from the cited studies, it is not a claim of statistical significance, and the first deployment must inspect both the group profiles and written rationales. Do not expose sensitive small-panel scores publicly; suppress them where details could identify respondents.
 
 For a concept affecting transport or informal trade, include operators and livelihood stakeholders. For a built intervention, include those responsible for maintenance. Store group summaries without individual names or raw individual response data; suppress public numeric group scores where small panels could make respondents identifiable.
 
@@ -76,9 +83,10 @@ Use embeddings and similarity search only to help discover comparisons. A simila
 Before treating this as stable:
 1. Run the schema and semantic validator on the exact head.
 2. Have diverse reviewers score varied low-risk concepts, including familiar, adjacent, and radical examples; pay affected local participants.
-3. Check inter-rater disagreement and whether scores mean the same thing across groups, revising anchors where needed.
-4. Test whether routing identifies confusing concepts for explanation tests without systematically filtering out ideas that are merely unfamiliar to powerful reviewers.
-5. After any real pilot, compare predicted usefulness and feasibility with observed outcomes, maintenance costs, distributional effects, and resident feedback; retain null and harmful outcomes.
-6. Version changes to rating anchors or route rules; never silently compare scores collected under different versions.
+3. Check inter-rater disagreement and whether scores mean the same thing across groups; report within-group and between-group differences, not only a pooled median.
+4. Run sensitivity checks across plausible disagreement thresholds; review false holds and missed conflicts before changing the provisional three-point tripwire.
+5. Test whether routing identifies confusing concepts for explanation tests without systematically filtering out ideas that are merely unfamiliar to powerful reviewers.
+6. After any real pilot, compare predicted usefulness and feasibility with observed outcomes, maintenance costs, distributional effects, and resident feedback; retain null and harmful outcomes.
+7. Version changes to rating anchors or route rules; never silently compare scores collected under different versions.
 
 The goal is not to maximize novelty or minimize oddity. It is to preserve room for transformative ideas while ensuring that surprise earns explanation, usefulness earns evidence, and no amount of creative appeal overrides dignity, safety, rights, or community agency.
