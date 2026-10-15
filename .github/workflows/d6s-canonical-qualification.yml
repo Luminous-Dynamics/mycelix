@@ -87,7 +87,7 @@ jobs:
           # a visible reviewed update to this pin list in the same change.
           check_blob "docs/integral/d6s-canon-1-golden-vectors.json" "419dfc5b5ab8d7aff98502651fd45b6eca4a5dcb"
           check_blob "docs/integral/d6s-canon-1-manifest.json" "ee4c7851ba375a393e1cbe49f86dacda1d618681"
-          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "703dc7f41718df40fef4e1a29a074e028af4d3ae"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "90f2c4e3fdee1b7e36217d4f14c5dc02c828ce2c"
           check_blob "scripts/integral/verify_d6s_canon_1.py" "13a013d2c112ff97dc50e240d0beca910d978292"
           check_blob "docs/integral/d6s-canon-2-authority-boundary-fixture.json" "aa30f08be279147cf85ecfd64436d1aa546920ba"
           check_blob "docs/integral/d6s-canon-2-manifest.json" "fd43f8255afeba1edaace6519867e20896a3c8f1"
