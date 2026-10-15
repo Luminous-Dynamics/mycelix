@@ -147,6 +147,25 @@ class CivicWorkPackageTests(unittest.TestCase):
         errors = validate_record(record, SCHEMA, "N/A category with cost")
         self.assertIn("CWP_E_NOT_APPLICABLE_CATEGORY_HAS_COST_LINE", errors)
 
+    def test_currency_minor_unit_scale_must_match_currency(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["minor_unit_digits"] = 0
+        errors = validate_record(record, SCHEMA, "currency scale mismatch")
+        self.assertIn("CWP_E_CURRENCY_MINOR_UNIT_DIGITS_MISMATCH", errors)
+
+    def test_unlisted_currency_scale_is_rejected_instead_of_guessed(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["currency"] = "XYZ"
+        errors = validate_record(record, SCHEMA, "unsupported currency")
+        self.assertIn("CWP_E_UNSUPPORTED_CURRENCY_MINOR_UNIT_RULE", errors)
+
+    def test_supported_zero_decimal_currency_scale_is_accepted(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["currency"] = "JPY"
+        record["funding"]["minor_unit_digits"] = 0
+        errors = validate_record(record, SCHEMA, "zero-decimal currency scale")
+        self.assertEqual(errors, [], errors)
+
     def test_provider_cannot_verify_own_work(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
         record["status"] = "independently_verified"
