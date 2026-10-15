@@ -127,7 +127,7 @@ class AppealCaseEngineTests(unittest.TestCase):
         case, events = self.build_appeal_flow()
         self.assertEqual(case["current_state"], "closed")
         self.assertEqual(engine.verify_event_chain(case, events, self.contract), [])
-        self.assertEqual(len(events), 9)
+        self.assertEqual(len(events), 10)
 
     def test_original_decision_maker_cannot_review_the_appeal(self) -> None:
         case = self.make_case()
@@ -268,7 +268,11 @@ class AppealCaseEngineTests(unittest.TestCase):
         events = []
         case, events = self.append_open(case, events)
         with self.assertRaisesRegex(ValueError, "cannot precede previous event"):
-            self.append_acknowledge(case, events)
+            self.append(
+                case, events, actor_ref=INTAKE, actor_role="case_steward",
+                action="acknowledge_case", timestamp_utc="2025-12-31T23:59:59Z",
+                target_actor_ref=STEWARD_1,
+            )
 
     def test_extra_free_text_or_identity_fields_are_rejected(self) -> None:
         case = self.make_case()
