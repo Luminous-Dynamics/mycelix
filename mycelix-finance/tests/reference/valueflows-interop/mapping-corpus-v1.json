@@ -62,8 +62,8 @@
       "preserves_correction_lineage": true,
       "source_event_is_authority_for_ledger_mutation": false,
       "maps_to_authoritative_balance": false,
-      "transferable": true,
-      "notes": "Candidate export representation only. An EconomicEvent describing transfer is not authorization to mutate an SAP balance or proof of external settlement."
+      "notes": "Candidate export representation only. An EconomicEvent describing transfer is not authorization to mutate an SAP balance or proof of external settlement.",
+      "transferability": "transferable_units_with_domain_rules"
     },
     {
       "id": "TEND-COMMITMENT-EVENT-v1",
@@ -81,8 +81,8 @@
       "preserves_correction_lineage": true,
       "source_event_is_authority_for_ledger_mutation": false,
       "maps_to_authoritative_balance": false,
-      "transferable": true,
-      "notes": "The current TendExchange.hours and cumulative hours fields are f32. Export of an authoritative numeric TEND quantity is blocked until a versioned quantization/precision profile, error bound and round-trip test are defined. Do not imply the source float is an exact decimal."
+      "notes": "The current TendExchange.hours and cumulative hours fields are f32. Export of an authoritative numeric TEND quantity is blocked until a versioned quantization/precision profile, error bound and round-trip test are defined. Do not imply the source float is an exact decimal. TEND is a community-scoped mutual-credit position arising from a service exchange, not an assumed bearer token that can be detached from its community/counterparty obligations.",
+      "transferability": "community_scoped_mutual_credit_position"
     },
     {
       "id": "MYCEL-RECOGNITION-CLAIM-v1",
@@ -99,8 +99,8 @@
       "preserves_correction_lineage": true,
       "source_event_is_authority_for_ledger_mutation": false,
       "maps_to_authoritative_balance": false,
-      "transferable": false,
-      "notes": "Represent recognition as an attributable, scoped claim/attestation. Do not project MYCEL into a transferable quantity, currency, or authoritative global reputation score."
+      "notes": "Represent recognition as an attributable, scoped claim/attestation. Do not project MYCEL into a transferable quantity, currency, or authoritative global reputation score.",
+      "transferability": "non_transferable_recognition_attestation"
     }
   ],
   "negative_controls": [
@@ -120,7 +120,7 @@
       "input_condition": "MYCEL recognition is exported as currency, transferable balance, or spendable entitlement.",
       "expected_disposition": "reject_semantic_loss",
       "required_guards": [
-        "MYCEL.transferable=false",
+        "MYCEL.transferability=non_transferable_recognition_attestation",
         "MYCEL.quantity_encoding=none_attestation_only",
         "MYCEL.maps_to_authoritative_balance=false"
       ]
@@ -132,7 +132,8 @@
       "required_guards": [
         "TEND.identity_preserved",
         "TEND.unit_preserved",
-        "no_implicit_TEND_to_SAP_conversion"
+        "no_implicit_TEND_to_SAP_conversion",
+        "TEND.transferability=community_scoped_mutual_credit_position"
       ]
     },
     {
@@ -221,6 +222,16 @@
         "legacy_f32_source_explicitly_blocked",
         "quantization_profile_required",
         "round_trip_error_bound_required"
+      ]
+    },
+    {
+      "id": "VF-TEND-BEARER-001",
+      "input_condition": "A TEND balance/obligation is exported as freely transferable bearer units without the original community, counterparties and service-obligation scope.",
+      "expected_disposition": "reject_bearer_asset_promotion",
+      "required_guards": [
+        "TEND.transferability=community_scoped_mutual_credit_position",
+        "community_scope_required",
+        "service_obligation_provenance_required"
       ]
     }
   ]
