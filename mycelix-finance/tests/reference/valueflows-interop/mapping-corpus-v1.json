@@ -23,7 +23,7 @@
     "hrea_source_commit_url": "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
     "packaged_hrea_artifact_pinned": false,
     "hrea_runtime_qualified_with_mycelix": false,
-    "version_note": "Keep three facts distinct: the published ValueFlows ontology page is version 0.17; the pinned sprout source snapshot states ValueFlows 1.0 + Holochain 0.7; and the published happ-0.5.0-beta.1 release (tagged commit and DNA/hApp SHA-256 recorded in release_evidence) claims ValueFlows 1.0 with Holochain 0.7.x and @holochain/client ^0.21.0. The checksummed release is research evidence only and is not selected as a Mycelix integration dependency; no hREA runtime integration with Mycelix is qualified.",
+    "version_note": "Keep three distinct version labels: the ValueFlows status page describes documentation/specification release 1.0.0; the generated RDF ontology metadata uses version info 0.17 and version IRI https://w3id.org/valueflows/ont/0.17/vf; and hREA release notes claim a ValueFlows 1.0 implementation profile on Holochain 0.7.x. These labels refer to different layers and are not by themselves evidence of incompatibility; the exact schema, adapter, and vocabulary term mapping still require qualification. The checksummed hREA release is research evidence only and is not selected as a Mycelix dependency; no hREA runtime integration with Mycelix is qualified.",
     "release_evidence": {
       "release_tag": "happ-0.5.0-beta.1",
       "release_commit": "79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85",
@@ -40,7 +40,9 @@
       "license_file_url": "https://github.com/h-REA/hREA/blob/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85/LICENSE",
       "license_review_approved_for_reuse": false,
       "migration_boundary": "the happ-0.4.0-beta to happ-0.5.0-beta upgrade changes the DNA hash, has no in-place data migration, and must be treated as a new network"
-    }
+    },
+    "published_specification_release": "1.0.0",
+    "published_specification_status_url": "https://www.valueflo.ws/introduction/status/"
   },
   "mapping_contract": {
     "direction": "Mycelix -> external ValueFlows-shaped export",

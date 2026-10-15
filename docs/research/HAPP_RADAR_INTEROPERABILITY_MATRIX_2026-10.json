@@ -47,7 +47,8 @@
         "https://happradar.com/projects/hrea",
         "https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md",
         "https://www.valueflo.ws/specification/all_vf/",
-        "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1"
+        "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+        "https://www.valueflo.ws/introduction/status/"
       ],
       "useful_capability": "ValueFlows/REA vocabulary and Holochain-backed economic coordination.",
       "mycelix_domains": [
@@ -111,9 +112,18 @@
           "The separately pinned sprout source branch head is a later commit than the release tag; source-tree state must not be substituted for released artifact evidence.",
           "Mycelix Finance's reviewed dependency tuple remains on the Holochain 0.6 line; no native DNA composition or runtime integration is qualified.",
           "The release's root LICENSE is Apache-2.0; reuse remains unapproved pending explicit license/dependency review.",
-          "The hREA 0.4.0-beta to 0.5.0-beta upgrade guide says the DNA hash changes and existing 0.4.0-beta data does not carry over in place."
+          "The hREA 0.4.0-beta to 0.5.0-beta upgrade guide says the DNA hash changes and existing 0.4.0-beta data does not carry over in place.",
+          "ValueFlows status documentation describes a 1.0.0 specification release while generated RDF ontology metadata reports version info 0.17; this is recorded as layered version evidence, not asserted as a compatibility failure."
         ],
-        "use_for_mycelix": "Prefer a read-only, versioned export first. For any native composition experiment, pin the hREA DNA/hApp artifact and full client/adapter/conductor tuple, review license and migrations, and test on an isolated branch with exact round-trip and two-agent controls."
+        "use_for_mycelix": "Prefer a read-only, versioned export first. For any native composition experiment, pin the hREA DNA/hApp artifact and full client/adapter/conductor tuple, review license and migrations, and test on an isolated branch with exact round-trip and two-agent controls.",
+        "valueflows_version_layers": {
+          "documentation_specification_release": "1.0.0",
+          "documentation_status_url": "https://www.valueflo.ws/introduction/status/",
+          "rdf_ontology_version_info": "0.17",
+          "rdf_ontology_version_iri": "https://w3id.org/valueflows/ont/0.17/vf",
+          "hrea_claimed_implementation_profile": "ValueFlows 1.0",
+          "interpretation": "These labels refer to different versioning layers; do not infer incompatibility from the labels alone. Qualify the actual ontology terms, adapter schema, and runtime tuple."
+        }
       }
     },
     {

@@ -40,6 +40,8 @@ struct SourceProfile {
     normative_vocabulary_iri: String,
     published_ontology_version_iri: String,
     published_ontology_version: String,
+    published_specification_release: String,
+    published_specification_status_url: String,
     normative_specification_url: String,
     hrea_repository: String,
     hrea_source_commit: String,
@@ -306,6 +308,14 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
     fail(
         &mut errors,
+        source.published_specification_release == "1.0.0"
+            && source.published_specification_status_url
+                == "https://www.valueflo.ws/introduction/status/",
+        "ValueFlows documentation/specification release label must remain separately pinned to 1.0.0"
+            .into(),
+    );
+    fail(
+        &mut errors,
         source.normative_specification_url == "https://www.valueflo.ws/specification/all_vf/",
         "normative specification URL must be present and pinned".into(),
     );
@@ -339,9 +349,11 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     );
     fail(
         &mut errors,
-        source.version_note.contains("published")
+        source.version_note.contains("documentation/specification release 1.0.0")
+            && source.version_note.contains("ontology metadata uses version info 0.17")
+            && source.version_note.contains("not by themselves evidence of incompatibility")
             && source.version_note.contains("research evidence only"),
-        "source profile must separate published ontology, branch source, and release evidence"
+        "source profile must distinguish the documentation, ontology-metadata and hREA-profile version layers"
             .into(),
     );
 
@@ -902,13 +914,22 @@ mod tests {
     }
 
     #[test]
-    fn valueflows_and_hrea_profile_versions_cannot_be_collapsed() {
+    fn valueflows_version_layers_remain_separate() {
         let mut value = fixture();
         value["source_profile"]["published_ontology_version"] = "1.0".into();
-        let errors = check_text(&value.to_string()).expect_err("version conflation must fail");
+        let errors = check_text(&value.to_string())
+            .expect_err("ontology metadata version must not be rewritten as the docs release");
         assert!(errors
             .iter()
             .any(|error| error.contains("published ontology version")));
+
+        let mut value = fixture();
+        value["source_profile"]["published_specification_release"] = "0.17".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("the documentation release label must remain explicitly pinned");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("documentation/specification release label")));
     }
 
     #[test]

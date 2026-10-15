@@ -15,6 +15,7 @@ This review compared the public hAppRadar directory, hREA's ValueFlows implement
 - Mycelix's root README documents Holochain 0.6.0 / HDK 0.6.0 / HDI 0.7.0. The Finance workspace pins HDK 0.6.1 and HDI 0.7.1 in `mycelix-finance/Cargo.toml`.
 - As of 2026-10-15, hREA's latest listed release is [`happ-0.5.0-beta.1`](https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1), published 2026-09-10. The release notes claim ValueFlows 1.0 + Holochain 0.7.x and require `@holochain/client` `^0.21.0`; the compatible release tuple is HDK 0.7.0, HDI 0.8.0, with the 0.700.x GraphQL adapter line. The release tag points at commit `79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85`. The published `hrea.dna` and `hrea.happ` asset SHA-256 digests are pinned in the corpus and matrix below.
 - The separately pinned `sprout` source snapshot `8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4` is a later source commit, not the release-tag commit. Do not substitute the source branch's code for a versioned release artifact. The checksummed release is tracked as research evidence only; it has **not** been selected as a Mycelix integration dependency, and no hREA/Mycelix runtime compatibility is claimed.
+- Version labels need their own fields: the ValueFlows status page describes documentation/specification release 1.0.0, the generated RDF ontology metadata reports version info 0.17 (`https://w3id.org/valueflows/ont/0.17/vf`), and hREA describes its implementation profile as ValueFlows 1.0. Those are different layers and are not by themselves evidence of an incompatibility. The qualified adapter must still be checked against the exact terms/schema it implements.
 - The Holochain 0.6-to-0.7 upgrade changes validation callback/action APIs and network transport, and has no built-in 0.6 conductor database migration path. Native DNA composition therefore remains a compatibility/migration task, not a packaging-only change.
 - hAppRadar's cached project metadata can describe a released version while repository docs describe a newer development/release line. Record the exact source ref, release artifact, conductor, HDK/HDI, client and adapter versions for every compatibility claim.
 
@@ -29,6 +30,8 @@ Sources:
 - Mycelix root: https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md
 - Finance manifest: https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
 - hREA release guide: https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md
+- ValueFlows specification status page: https://www.valueflo.ws/introduction/status/
+- ValueFlows generated ontology metadata: https://www.valueflo.ws/specification/all_vf.html
 - Exact hREA release tag and public asset checksums: https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1
 - Pinned hREA source branch commit: https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4
 - hREA ValueFlows types: https://github.com/h-REA/hREA/blob/sprout/modules/vf-graphql-holochain/src/types.ts
