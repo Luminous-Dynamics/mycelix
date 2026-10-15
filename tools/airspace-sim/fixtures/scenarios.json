@@ -17,6 +17,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -40,6 +42,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -77,6 +81,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -100,6 +106,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -137,6 +145,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -160,6 +170,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -197,6 +209,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -220,6 +234,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -257,6 +273,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -280,6 +298,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -317,6 +337,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -340,6 +362,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "another-local-frame-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -377,6 +401,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": false,
@@ -400,6 +426,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -437,6 +465,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -460,6 +490,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -497,6 +529,8 @@
       "flights": [
         {
           "flight_id": "EMERGENCY-A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -520,6 +554,8 @@
         },
         {
           "flight_id": "ROUTINE-B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -557,6 +593,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -580,6 +618,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -617,6 +657,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -640,6 +682,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -677,6 +721,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -700,6 +746,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -723,6 +771,8 @@
         },
         {
           "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -760,6 +810,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -783,6 +835,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -806,6 +860,8 @@
         },
         {
           "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -843,6 +899,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -866,6 +924,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -889,6 +949,8 @@
         },
         {
           "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -912,6 +974,8 @@
         },
         {
           "flight_id": "D",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -949,6 +1013,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -972,6 +1038,8 @@
         },
         {
           "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -995,6 +1063,8 @@
         },
         {
           "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -1032,6 +1102,8 @@
       "flights": [
         {
           "flight_id": "DUPLICATE",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -1055,6 +1127,8 @@
         },
         {
           "flight_id": "DUPLICATE",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2501,6 +2575,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2561,6 +2637,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2621,6 +2699,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2707,6 +2787,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2793,6 +2875,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2826,6 +2910,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2886,6 +2972,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -2972,6 +3060,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3084,6 +3174,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3144,6 +3236,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3204,6 +3298,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3264,6 +3360,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3324,6 +3422,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3384,6 +3484,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": false,
@@ -3444,6 +3546,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3530,6 +3634,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3616,6 +3722,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3702,6 +3810,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3762,6 +3872,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3796,6 +3908,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
@@ -3856,6 +3970,8 @@
       "flights": [
         {
           "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
           "reference_frame": "fixture-local-enu-v1",
           "vertical_datum": "fixture-local-millimetres-v1",
           "time_qualified": true,
