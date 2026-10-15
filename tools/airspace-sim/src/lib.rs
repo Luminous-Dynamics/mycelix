@@ -2012,6 +2012,7 @@ mod tests {
             "allocation_priority_comes_only_from_authorized_policy",
             "access_outcomes_are_audited_by_declared_group",
             "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
+            "uncertainty_composition_preserves_dependencies_and_bounds",
         ] {
             assert!(shared_ids.contains(required), "shared invariant is missing: {required}");
         }
@@ -2019,7 +2020,7 @@ mod tests {
         let benchmarks = manifest["benchmarks"]
             .as_array()
             .expect("benchmark cases must be an array");
-        assert_eq!(benchmarks.len(), 14);
+        assert_eq!(benchmarks.len(), 15);
         let mut ids = std::collections::BTreeSet::new();
         let allowed_statuses = [
             "implemented_pending_exact_head_verification",
@@ -2062,7 +2063,7 @@ mod tests {
             "AIR-PB-001", "AIR-PB-002", "AIR-PB-003", "AIR-PB-004",
             "AIR-PB-005", "AIR-PB-006", "AIR-PB-007", "AIR-PB-008",
             "AIR-PB-009", "AIR-PB-010", "AIR-PB-011", "AIR-PB-012",
-            "AIR-PB-013", "AIR-PB-014",
+            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015",
         ] {
             assert!(ids.contains(required), "required research case missing: {required}");
         }
