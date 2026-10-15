@@ -299,7 +299,7 @@ const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.j
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
-const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.5.0.json";
+const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.6.0.json";
 const SERVICE_JOURNEY_POSITIVE: &str =
     "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json";
 
@@ -674,13 +674,88 @@ fn synthetic_johannesburg_project_claims_do_not_prove_live_service_or_verified_o
 }
 
 #[test]
+fn water_response_target_is_not_turnaround_or_restoration_target() {
+    let check = validator(SERVICE_JOURNEY_SCHEMA);
+    let cases = read_json(SERVICE_JOURNEY_CASES);
+    let fixtures = cases["cases"]
+        .as_array()
+        .expect("service reference cases must be an array");
+    let fixture = find_service_fixture(
+        fixtures,
+        "water-response-target-not-restoration-or-turnaround",
+    );
+    assert_eq!(fixture["expected_schema_valid"], true);
+    let instance = &fixture["instance"];
+    assert_eq!(instance["case_id"], "LCSV-WATER-011");
+    assert_eq!(instance["case_state"], "human_review_required");
+    assert_eq!(instance["outcome"]["status"], "unknown");
+    assert_eq!(instance["review_required"], true);
+    assert_eq!(instance["review_status"], "requested");
+    assert_eq!(instance["route"]["status"], "unknown");
+    assert!(instance["source_conflicts"].as_array().unwrap().is_empty());
+    assert!(check.is_valid(instance));
+    assert!(validate_service_claim_semantics(instance).is_ok());
+
+    let evidence = instance["evidence"]
+        .as_array()
+        .expect("clock claims must remain separate evidence entries");
+    assert_eq!(evidence.len(), 2);
+    assert_eq!(
+        evidence[0]["source_uri"],
+        "https://www.johannesburgwater.co.za/services/"
+    );
+    assert!(
+        evidence[0]["claim_scope"]
+            .as_str()
+            .unwrap()
+            .contains("respond within 12 hours")
+    );
+    assert_eq!(
+        evidence[1]["source_uri"],
+        "https://www.johannesburgwater.co.za/daily-water-notices/"
+    );
+    let turnaround = evidence[1]["claim_scope"].as_str().unwrap();
+    for category_value in [
+        "water outage 24 hours",
+        "leaking meter 72 hours",
+        "water leak 48 hours",
+    ] {
+        assert!(
+            turnaround.contains(category_value),
+            "Daily Water Notices evidence is missing {category_value}"
+        );
+    }
+    for record in evidence {
+        assert_eq!(record["retrieval_state"], "synthetic_fixture");
+        assert_eq!(record["retrieved_at"], Value::Null);
+        assert_eq!(record["checked_at"], Value::Null);
+        let limitation = record["limitations"].as_str().unwrap();
+        assert!(
+            limitation.contains("raw-source capture")
+                || limitation.contains("retrieved page bytes"),
+            "synthetic evidence must not be represented as raw-source capture"
+        );
+    }
+
+    let prohibited = instance["claim_ceiling"]["prohibited_inferences"]
+        .as_array()
+        .expect("prohibited inferences must be recorded");
+    assert!(prohibited.iter().any(|claim| claim
+        .as_str()
+        .is_some_and(|text| text.contains("repair-completion or restoration target"))));
+    assert!(prohibited.iter().any(|claim| claim
+        .as_str()
+        .is_some_and(|text| text.contains("metric labels differ"))));
+}
+
+#[test]
 fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
     let check = validator(SERVICE_JOURNEY_SCHEMA);
     let cases = read_json(SERVICE_JOURNEY_CASES);
     let fixtures = cases["cases"]
         .as_array()
         .expect("service reference cases must be an array");
-    assert_eq!(fixtures.len(), 9);
+    assert_eq!(fixtures.len(), 10);
 
     let mut ids = HashSet::new();
     for fixture in fixtures {
