@@ -37,6 +37,22 @@ jobs:
         with:
           components: rustfmt
 
+      - name: Verify pinned hREA release artifact digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_url="https://github.com/h-REA/hREA/releases/download/happ-0.5.0-beta.1"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            "${release_url}/hrea.dna" -o "$RUNNER_TEMP/hrea.dna"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            "${release_url}/hrea.happ" -o "$RUNNER_TEMP/hrea.happ"
+          printf '%s  %s\n' \
+            '18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec' \
+            "$RUNNER_TEMP/hrea.dna" | sha256sum --check --strict
+          printf '%s  %s\n' \
+            'b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7' \
+            "$RUNNER_TEMP/hrea.happ" | sha256sum --check --strict
+
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml -- --check
 

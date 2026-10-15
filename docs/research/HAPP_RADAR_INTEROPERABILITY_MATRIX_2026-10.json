@@ -64,7 +64,7 @@
         "Imported events do not authorize SAP/TEND mutation or settle an obligation by themselves."
       ],
       "blocking_evidence": [
-        "Review the pinned upstream Apache-2.0 license and approve any code reuse explicitly; the release license is evidence, not approval.",
+        "Verify the exact hREA DNA/hApp bytes against the pinned release digests in CI; review the Apache-2.0 license and approve any code reuse explicitly.",
         "Pin the artifact and exact conductor/HDK/HDI/client/adapter tuple.",
         "Account for hREA happ-0.4.0-beta to happ-0.5.0-beta upgrade changing the DNA hash with no in-place migration; test fresh-network installation and any separately designed migration.",
         "Round-trip, malformed/unknown-field and loss-boundary controls.",

@@ -16,7 +16,7 @@ cargo test --manifest-path mycelix-finance/tools/valueflows-interop-checker/Carg
 cargo run --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
 ```
 
-The dedicated GitHub Actions workflow runs the same checks when the contract, checker, or workflow changes.
+The dedicated GitHub Actions workflow runs the same checks when the contract, checker, or workflow changes. It also downloads `hrea.dna` and `hrea.happ` from the pinned `happ-0.5.0-beta.1` release URL and checks their bytes against the recorded SHA-256 digests; this verifies artifact identity only, not compatibility, safety, or license reuse approval.
 
 For pull requests, the workflow explicitly checks out `github.event.pull_request.head.sha` rather than GitHub's synthetic merge ref. The reported result should therefore name the exact proposed source head. A queued/pending/skipped check is not a pass.
 
