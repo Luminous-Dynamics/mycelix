@@ -734,7 +734,7 @@
       "repairs_maintenance_v2_basis": "Section 71-level aggregation of mSCOA-sourced data from financial year 2019/20 onward",
       "update_cycle": "Quarterly snapshots; later adjustments can change API output from an earlier published report snapshot",
       "reported_data_limit": "Only as complete and trustworthy as the data provided by the municipality",
-      "use_limit": "Planning/prioritization context only; not procurement, tender status, contract value, supplier payment, or role-specific funding/budget, and not proof of money available to a pilot.",
+      "use_limit": "Planning/prioritization context only; not procurement, tender status, contract value, supplier payment, not role-specific funding/budget, and not proof of money available to a pilot.",
       "allowed_use": "After choosing and pinning municipality, financial year, period, amount type and function, compare published aggregate trends and cross-check against the corresponding Treasury Section 71 reports.",
       "prohibited_inference": [
         "Aggregate repairs/maintenance amount proves an open tender or supplier",
