@@ -87,6 +87,21 @@ fn every_canonical_vector_executes_its_explicit_negative_and_positive_inputs() {
             assert!(vector[side]["evidence_profile"].is_string(), "{test_id} missing {side} evidence profile");
         }
 
+        let positive_bindings = vector["positive_input"]["bindings"]
+            .as_array().expect("positive bindings array");
+        let must_retain_context: &[&str] = match test_id {
+            "COS-N-010" => &["frs_projection", "source_observation_created"],
+            "COS-N-011" => &["source_observation_created", "itc_projection"],
+            "COS-N-012" => &["itc_projection", "physical_work_binding"],
+            _ => &[],
+        };
+        for required in must_retain_context {
+            assert!(
+                positive_bindings.iter().any(|binding| binding.as_str() == Some(*required)),
+                "{test_id} positive fixture omitted required context binding {required}"
+            );
+        }
+
         let negative = evaluate_input(test_id, &vector["negative_input"], now);
         assert_eq!(
             format!("{negative:?}"),
