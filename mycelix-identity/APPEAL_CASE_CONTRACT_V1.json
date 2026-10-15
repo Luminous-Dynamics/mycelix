@@ -295,7 +295,6 @@
     "deletion_procedure_ref": null,
     "backup_deletion_policy_ref": null,
     "review_evidence_ref": null,
-    "note": "Unknown legal or contractual retention duties must be resolved by the responsible party; this template invents no statutory period.",
     "jurisdiction_code": null,
     "record_class": null
   },
@@ -324,7 +323,8 @@
     "No identity material or case record is published to a public DHT.",
     "The hash-chained policy-review event binds a reference and digest of the approved retention metadata; it does not itself authenticate that approval or create lawful authority.",
     "A completed retention-policy review means the schedule fields are documented in the synthetic case model; it does not enable durable storage or override the top-level disabled-by-default setting.",
-    "An approved retention schedule must name the same jurisdiction and record class as the case. Unknown/unassigned jurisdiction or a mismatched issue-to-record-class mapping fails closed."
+    "An approved retention schedule must name the same jurisdiction and record class as the case. Unknown/unassigned jurisdiction or a mismatched issue-to-record-class mapping fails closed.",
+    "Retention policies use structured fields only; free-text notes are deliberately excluded to avoid accidentally placing case details into policy metadata."
   ],
   "nonclaims": [
     "This is a synthetic design contract, not legal advice, a POPIA compliance determination, a production case-management implementation, or a deployed system.",
