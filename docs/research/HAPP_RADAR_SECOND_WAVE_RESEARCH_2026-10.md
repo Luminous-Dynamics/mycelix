@@ -109,7 +109,7 @@ The v1 reference fixture and Rust checker are now connected to the existing Valu
 4. Ed25519 `verify_strict` checks a signature over a domain-separated, JCS-canonical preimage containing the signature profile/algorithm, issuer ID, key fingerprint, schema identity, envelope digest, and asserted signing time.
 5. The public-key ID is recomputed as SHA-256 of the raw Ed25519 public-key bytes. The fixture verifier also pins the expected issuer/key/public key in checker source, so the envelope cannot nominate its own trust root.
 
-The synthetic fixture signature was independently checked against its public key in a local Python cryptography probe. This is a focused vector check, **not** a Rust compile/test pass or proof that the committed Rust build works. The current Rust source declares 37 test functions; counts indicate intended coverage, not successful execution.
+The synthetic fixture signature was independently checked against its public key in a local Python cryptography probe. This is a focused vector check, **not** a Rust compile/test pass or proof that the committed Rust build works. The Rust source at the snapshot before the W3C vector addition declared 37 test functions; the current branch declares 39 after adding the two W3C EdDSA/JCS vector regressions. Counts indicate intended coverage, not successful execution.
 
 ### What this does not establish
 
