@@ -188,3 +188,17 @@ Research anchors: [W3C Verifiable Credentials 2.0 Recommendation](https://www.w3
 - [in-toto Attestation Framework](https://github.com/in-toto/attestation/blob/main/spec/README.md)
 
 This is a proposed integration architecture. The receipt type, adapter and bridge calls are not implemented. No security audit, independent interoperability test or production readiness is claimed.
+
+
+## Shared benchmark contract
+
+The counterpart OMSI repository now proposes one versioned [benchmark scorecard](https://github.com/Luminous-Dynamics/luminous-platform/blob/feat/omsi-manufacturing-rust-validator/docs/standards/omsi/benchmark-scorecard-0.1.md) and a non-gating local microbenchmark report format. Reuse its semantic-vector and replay mutation catalogue rather than inventing a second set of result semantics here.
+
+Mycelix-specific acceptance targets:
+- **100%** exact OMSI vector agreement before receipt creation; **zero** unexpected accepts in cross-tenant, malformed or contradictory evidence controls.
+- **Zero silent field loss**: each adapter field is preserved, explicitly transformed under a named rule, or recorded as loss/unmapped.
+- **Zero prohibited sensitive fields** in public receipts.
+- At least **two agents** independently verify receipt/envelope references, with explicit negative scenarios for unauthorized issuers/routes, expired or revoked credentials, duplicates, missing DHT dependencies and conflicting claims.
+- Keep performance separate by phase: local OMSI evaluation, credential verification/status checks, receipt creation/resolution, and end-to-end multi-agent flow. Any latency goals remain provisional until corpus, host, Holochain version, compiler and test topology are recorded.
+
+These are acceptance targets, not measured results. Local unit tests and queued CI do not establish multi-agent qualification, security audit or production readiness.
