@@ -23,6 +23,8 @@ _MANIFEST_CONTROL_TESTS = {
     "automated-authorization": "test_automated_authorization_is_rejected",
     "non-monotonic-lifecycle": "test_lifecycle_from_status_must_match_previous_event",
     "underfunded-commitment": "test_commitment_must_cover_full_period_cost",
+    "funded-period-must-cover-full-scope": "test_funded_period_must_cover_full_scope",
+    "funded-work-requires-complete-scope-period": "test_funded_work_requires_complete_scope_period",
     "provider-self-verification": "test_provider_cannot_verify_own_work",
     "cancellation-does-not-erase-historical-funding-and-authorization-gates":
         "test_cancellation_does_not_erase_historical_funding_and_authorization_gates",
@@ -162,6 +164,18 @@ class CivicWorkPackageTests(unittest.TestCase):
         ])
         errors = validate_record(record, SCHEMA, "missing environmental and closeout coverage")
         self.assertIn("CWP_E_COST_COVERAGE_INCOMPLETE", errors)
+
+    def test_funded_period_must_cover_full_scope(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["funded_period_start"] = "2026-12-01"
+        errors = validate_record(record, SCHEMA, "funded period shorter than scope")
+        self.assertIn("CWP_E_FUNDED_PERIOD_DOES_NOT_COVER_SCOPE", errors)
+
+    def test_funded_work_requires_complete_scope_period(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["scope"]["period"]["start_date"] = None
+        errors = validate_record(record, SCHEMA, "funded scope period missing")
+        self.assertIn("CWP_E_FUNDED_SCOPE_PERIOD_MISSING", errors)
 
     def test_paid_role_requires_positive_wage_cost(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
