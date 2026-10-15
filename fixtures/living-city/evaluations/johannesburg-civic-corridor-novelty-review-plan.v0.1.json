@@ -60,7 +60,7 @@
     }
   },
   "recommendation": "not_evaluated",
-  "recommendation_policy_version": "living-city-novelty-routing/0.1",
+  "recommendation_policy_version": "living-city-novelty-routing/0.2",
   "dissent_summary": [],
   "recorded_at": "2026-10-15T08:13:00+02:00",
   "limitations": [
