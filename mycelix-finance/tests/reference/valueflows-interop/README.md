@@ -29,7 +29,9 @@ For pull requests, the workflow explicitly checks out `github.event.pull_request
 - **Identity and provenance:** source system, record ID, action/event ID, revision/sequence, scope, asset identity and claim ceiling are part of the envelope contract.
 - **Corrections:** append a correction referencing the original event; never rewrite the original event's history.
 - **Uncertainty:** stale, unavailable, unsupported or conflicting evidence stays indeterminate unless an explicit policy supplies a narrower disposition.
-- **Version pins:** the published ValueFlows ontology page identifies version 0.17, while the pinned hREA source commit describes its own profile as “ValueFlows 1.0 + Holochain 0.7”. The checker records these as separate claims. It does not imply that this source commit is a packaged compatible artifact or that hREA has been integrated with Mycelix.
+- **Version pins:** the published ValueFlows ontology page identifies version 0.17. The pinned hREA `sprout` source commit describes its profile as “ValueFlows 1.0 + Holochain 0.7”, while the latest listed upstream release as checked on 2026-10-15 is `happ-0.5.0-beta.1`, published 2026-09-10 and claiming ValueFlows 1.0 + Holochain 0.7.x. The corpus records the release commit and SHA-256 digests for both `hrea.dna` and `hrea.happ`; this pins external release evidence, **not** a Mycelix dependency selection. The upstream release and current source branch are distinct refs, and neither constitutes runtime qualification with Mycelix.
+
+The checker currently declares 15 Rust unit-test functions. These are source inventory counts, not a claim that the latest exact-head workflow has passed. Inspect the result and logs for the exact SHA before treating any contract as qualified.
 
 ## Verification trust boundary
 
