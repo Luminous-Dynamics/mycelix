@@ -1,0 +1,771 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/schemas/life-civic/service-journey-reference.schema.json",
+  "title": "Mycelix Life/Civic Service Journey Reference",
+  "description": "Effects-disabled reference contract for service reports, route assessment, evidence, and outcome claims. It does not authorize external submissions or establish service performance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "schema_version",
+    "scope",
+    "need",
+    "route",
+    "case_state",
+    "evidence",
+    "outcome",
+    "review_required",
+    "review_status",
+    "effects",
+    "claim_ceiling",
+    "source_conflicts"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "0.3.0"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_class",
+        "jurisdiction",
+        "service_area_ref",
+        "urgency"
+      ],
+      "properties": {
+        "service_class": {
+          "enum": [
+            "water_sanitation",
+            "electricity",
+            "housing",
+            "shelter_referral",
+            "general_municipal"
+          ]
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service_area_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque, purpose-scoped location reference; do not put a person's full address in this reference record."
+        },
+        "urgency": {
+          "enum": [
+            "informational",
+            "routine",
+            "urgent",
+            "emergency"
+          ]
+        }
+      }
+    },
+    "need": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "source_kind",
+        "reported_on",
+        "description",
+        "personal_data_minimized",
+        "privacy_class"
+      ],
+      "properties": {
+        "report_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_kind": {
+          "enum": [
+            "user_report",
+            "community_report",
+            "sensor_alert",
+            "provider_notice"
+          ]
+        },
+        "reported_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "personal_data_minimized": {
+          "const": true
+        },
+        "privacy_class": {
+          "enum": [
+            "public",
+            "ordinary",
+            "restricted"
+          ]
+        },
+        "consent_basis_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "institution_ref",
+        "source_references",
+        "checked_on",
+        "source_evidence_ids"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unknown",
+            "candidate_found",
+            "official_contact_source_found",
+            "conflicted"
+          ]
+        },
+        "institution_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_references": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "checked_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source_evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Evidence-record identifiers supporting the referenced route/contact sources. These do not by themselves prove that the route is legally applicable or operationally authoritative."
+        }
+      }
+    },
+    "case_state": {
+      "enum": [
+        "received",
+        "triaged",
+        "routing_conflict",
+        "submitted",
+        "acknowledged",
+        "in_progress",
+        "work_reported_complete",
+        "verified_resolved",
+        "closed_unresolved",
+        "human_review_required",
+        "source_conflict"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "kind",
+          "source_uri",
+          "observed_on",
+          "independence",
+          "claim_scope",
+          "retrieved_at",
+          "retrieval_state",
+          "checked_at"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "community_report",
+              "official_notice",
+              "provider_statement",
+              "direct_observation",
+              "independent_observation",
+              "independent_measurement"
+            ]
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "observed_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "independence": {
+            "enum": [
+              "unknown",
+              "same_origin",
+              "independent"
+            ]
+          },
+          "claim_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limitations": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Exact retrieval time for a captured source; null when the source is only synthetic or was unavailable."
+          },
+          "retrieval_state": {
+            "enum": [
+              "captured",
+              "synthetic_fixture",
+              "unavailable"
+            ],
+            "description": "Whether the referenced source was actually retrieved for this record or exists only as synthetic test data."
+          },
+          "checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Time a retrieval was attempted. Null for synthetic fixtures that were never fetched."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "retrieval_state": {
+                  "const": "captured"
+                }
+              },
+              "required": [
+                "retrieval_state"
+              ]
+            },
+            "then": {
+              "required": [
+                "retrieved_at",
+                "checked_at"
+              ],
+              "properties": {
+                "retrieved_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "checked_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "retrieval_state": {
+                  "const": "synthetic_fixture"
+                }
+              },
+              "required": [
+                "retrieval_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retrieved_at": {
+                  "type": "null"
+                },
+                "checked_at": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "retrieval_state": {
+                  "const": "unavailable"
+                }
+              },
+              "required": [
+                "retrieval_state"
+              ]
+            },
+            "then": {
+              "required": [
+                "checked_at"
+              ],
+              "properties": {
+                "retrieved_at": {
+                  "type": "null"
+                },
+                "checked_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "summary",
+        "verification_evidence_ids",
+        "verified_at"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unknown",
+            "reported_complete",
+            "provider_attested_complete",
+            "independently_verified_complete",
+            "not_resolved",
+            "conflicted"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "verified_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "review_required": {
+      "type": "boolean"
+    },
+    "review_status": {
+      "enum": [
+        "not_required",
+        "not_started",
+        "requested",
+        "completed"
+      ]
+    },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "effects_requested",
+        "external_action_status"
+      ],
+      "properties": {
+        "mode": {
+          "const": "effects_disabled"
+        },
+        "effects_requested": {
+          "const": false
+        },
+        "external_action_status": {
+          "const": "not_attempted"
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permitted_claims",
+        "prohibited_inferences"
+      ],
+      "properties": {
+        "permitted_claims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prohibited_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_conflicts": {
+      "type": "array",
+      "description": "Explicit source-claim contradictions. Keep this distinct from conflicting service destinations/routes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conflict_id",
+          "topic",
+          "evidence_ids",
+          "status",
+          "summary"
+        ],
+        "properties": {
+          "conflict_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ids": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "status": {
+            "enum": [
+              "unresolved",
+              "resolved"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_evidence_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "route": {
+            "properties": {
+              "status": {
+                "const": "official_contact_source_found"
+              }
+            }
+          }
+        },
+        "required": [
+          "route"
+        ]
+      },
+      "then": {
+        "properties": {
+          "route": {
+            "properties": {
+              "institution_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_references": {
+                "minItems": 1
+              },
+              "source_evidence_ids": {
+                "minItems": 1
+              },
+              "checked_on": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_state": {
+            "const": "routing_conflict"
+          }
+        },
+        "required": [
+          "case_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "route": {
+            "properties": {
+              "status": {
+                "const": "conflicted"
+              },
+              "source_references": {
+                "minItems": 2
+              }
+            }
+          },
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "conflicted"
+              }
+            }
+          },
+          "review_required": {
+            "const": true
+          },
+          "review_status": {
+            "enum": [
+              "not_started",
+              "requested",
+              "completed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_state": {
+            "const": "work_reported_complete"
+          }
+        },
+        "required": [
+          "case_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "provider_attested_complete"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "provider_attested_complete"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "case_state": {
+            "const": "work_reported_complete"
+          },
+          "evidence": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "provider_statement"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_state": {
+            "const": "verified_resolved"
+          }
+        },
+        "required": [
+          "case_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "independently_verified_complete"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "independently_verified_complete"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "required": [
+          "review_required",
+          "review_status"
+        ],
+        "properties": {
+          "case_state": {
+            "const": "verified_resolved"
+          },
+          "review_required": {
+            "const": true
+          },
+          "review_status": {
+            "const": "completed"
+          },
+          "outcome": {
+            "properties": {
+              "verification_evidence_ids": {
+                "minItems": 1
+              },
+              "verified_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "evidence": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "independent_observation",
+                    "independent_measurement"
+                  ]
+                },
+                "independence": {
+                  "const": "independent"
+                }
+              },
+              "required": [
+                "kind",
+                "independence"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_state": {
+            "const": "source_conflict"
+          }
+        },
+        "required": [
+          "case_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_conflicts": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "unresolved"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            }
+          },
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "conflicted"
+              }
+            }
+          },
+          "review_required": {
+            "const": true
+          },
+          "review_status": {
+            "enum": [
+              "not_started",
+              "requested",
+              "completed"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

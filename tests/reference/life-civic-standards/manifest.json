@@ -1,0 +1,91 @@
+{
+  "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
+  "version": "0.5.0",
+  "status": "research_fixture",
+  "created_at": "2026-10-15",
+  "purpose": "Adversarial and boundary fixtures for instrument metadata, context-specific applicability, and evidence-claim scope across life/civic domains. These cases are not legal determinations or empirical impact results.",
+  "schemas": [
+    "schemas/life-civic/standard-instrument.schema.json",
+    "schemas/life-civic/applicability-assessment.schema.json",
+    "schemas/life-civic/gpsjs-survey-quality.schema.json"
+  ],
+  "cases_file": "tests/reference/life-civic-standards/cases.json",
+  "requires_human_review_for_real_use": true,
+  "fixture_classes": [
+    "positive_shape",
+    "missing_evidence",
+    "draft_status",
+    "jurisdiction_mismatch",
+    "stale_source",
+    "authority_boundary",
+    "model_law_boundary",
+    "supersession_boundary",
+    "ot_security_draft_lifecycle",
+    "crime_prevention_guidance_scope",
+    "employment_crime_evidence_scope",
+    "robotics_safety_boundary",
+    "industrial_robot_vs_service_robot_scope",
+    "official_labour_statistics_scope",
+    "decent_work_measurement_not_normative_threshold",
+    "victimization_vs_police_report_observability",
+    "victimization_vs_reporting_time_series",
+    "survey_precision_response_rate_boundary"
+  ],
+  "claim_ceiling": {
+    "permitted": [
+      "check schema shape and expected dispositions",
+      "detect prohibited inferences",
+      "confirm unknown and indeterminate outcomes remain explicit"
+    ],
+    "prohibited": [
+      "legal advice",
+      "compliance certification",
+      "official endorsement",
+      "current status beyond each recorded source snapshot",
+      "production readiness",
+      "robot or intervention safety qualification",
+      "causal crime-prevention efficacy",
+      "universal employment-crime effect",
+      "cross-jurisdiction generalization without local evidence",
+      "universal industrial-robot-standard applicability to public-facing service robots",
+      "robot safety qualification from catalogue membership alone",
+      "using national labour-market statistics as a causal crime coefficient without evidence",
+      "using national statistics as a local service-area baseline without local data",
+      "universal numeric viability thresholds inferred from measurement frameworks",
+      "decent-work indicators presented as proof of crime-reduction efficacy",
+      "treating police-recorded incidents as a complete census of victimization",
+      "using changes in police-report counts alone as causal outcome evidence",
+      "transferring national offense-specific reporting proportions to a local service area without validation",
+      "mixing incident counts, affected-household counts, and reporting proportions as though they were the same outcome",
+      "inferring a causal crime effect from national year-over-year victimization survey changes",
+      "transferring national reporting proportions to a Johannesburg intervention without local validation",
+      "claiming a year-over-year point-estimate difference is statistically significant without indicator-specific precision evidence",
+      "assuming a national survey response rate guarantees equal precision for provincial or subgroup estimates",
+      "treating a response rate below a cited quality threshold as proof all estimates from that area are invalid",
+      "treating a survey response-rate quality threshold as a statistical-significance threshold or substitute for confidence intervals"
+    ]
+  },
+  "frozen_inputs": [
+    {
+      "path": "schemas/life-civic/standard-instrument.schema.json",
+      "git_blob_sha1": "a4c87f4e7ca27140af590cf353b252c3ceee2ed3",
+      "purpose": "instrument metadata schema"
+    },
+    {
+      "path": "schemas/life-civic/applicability-assessment.schema.json",
+      "git_blob_sha1": "241d4c4abbd765c05e56ddfae3391cead0f26dbc",
+      "purpose": "context-bound applicability schema"
+    },
+    {
+      "path": "tests/reference/life-civic-standards/cases.json",
+      "git_blob_sha1": "4aab141469b0b2f9971a2d2761e91ea2d5a884af",
+      "purpose": "adversarial and lifecycle fixture corpus"
+    },
+    {
+      "path": "schemas/life-civic/gpsjs-survey-quality.schema.json",
+      "git_blob_sha1": "5c79019dac237174015c169e3b893ffdc7e56cf7",
+      "purpose": "structured GPSJS survey-quality and indicator-scope schema"
+    }
+  ],
+  "integrity_semantics": "git_blob_sha1 binds exact repository object bytes to detect accidental or unreviewed drift. It is a Git object identity, not a signature, source-authenticity proof, or independent collision-resistant trust claim."
+}

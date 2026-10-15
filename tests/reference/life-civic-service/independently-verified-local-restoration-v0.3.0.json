@@ -1,0 +1,100 @@
+{
+  "fixture_id": "independently-verified-local-restoration",
+  "expected_schema_valid": true,
+  "instance": {
+    "case_id": "LCSV-WATER-005",
+    "schema_version": "0.3.0",
+    "scope": {
+      "service_class": "water_sanitation",
+      "jurisdiction": "ZA-GP-JHB",
+      "service_area_ref": "synthetic-service-area-005",
+      "urgency": "routine"
+    },
+    "need": {
+      "report_id": "REPORT-SYN-005",
+      "source_kind": "community_report",
+      "reported_on": "2026-10-14",
+      "description": "Synthetic water interruption case with a limited independent observation of restoration.",
+      "personal_data_minimized": true,
+      "privacy_class": "ordinary",
+      "consent_basis_ref": null
+    },
+    "route": {
+      "status": "official_contact_source_found",
+      "institution_ref": "provider-ref-jwater-example",
+      "source_references": [
+        "https://www.johannesburgwater.co.za/contact-us/"
+      ],
+      "checked_on": "2026-10-14",
+      "notes": "Synthetic route metadata only; not a live integration.",
+      "source_evidence_ids": [
+        "EV-CONTACT-005"
+      ]
+    },
+    "case_state": "verified_resolved",
+    "evidence": [
+      {
+        "evidence_id": "EV-REPORT-005",
+        "kind": "community_report",
+        "source_uri": "https://example.invalid/reports/REPORT-SYN-005",
+        "observed_on": "2026-10-14",
+        "independence": "unknown",
+        "claim_scope": "Initial report of an interruption.",
+        "limitations": "Community report only. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
+        "retrieved_at": null,
+        "retrieval_state": "synthetic_fixture",
+        "checked_at": null
+      },
+      {
+        "evidence_id": "EV-INDEP-005",
+        "kind": "independent_measurement",
+        "source_uri": "https://example.invalid/inspection/EV-INDEP-005",
+        "observed_on": "2026-10-14",
+        "independence": "independent",
+        "claim_scope": "Synthetic independent check observed water supply at one sampling point at this time.",
+        "limitations": "Confirms only this point and observation time; it does not establish restoration across the wider service area. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
+        "retrieved_at": null,
+        "retrieval_state": "synthetic_fixture",
+        "checked_at": null
+      },
+      {
+        "evidence_id": "EV-CONTACT-005",
+        "kind": "official_notice",
+        "source_uri": "https://www.johannesburgwater.co.za/contact-us/",
+        "observed_on": "2026-10-14",
+        "retrieved_at": "2026-10-14T19:54:08+02:00",
+        "independence": "same_origin",
+        "claim_scope": "The official contact page publishes contact information for Johannesburg Water.",
+        "limitations": "Identifies an official contact source only; does not prove this is the correct channel for this specific case or establish an applicable legal/service obligation. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
+        "retrieval_state": "captured",
+        "checked_at": "2026-10-14T19:54:08+02:00"
+      }
+    ],
+    "outcome": {
+      "status": "independently_verified_complete",
+      "summary": "Independent evidence supports restoration only at the recorded sampling point and time.",
+      "verification_evidence_ids": [
+        "EV-INDEP-005"
+      ],
+      "verified_at": "2026-10-14T10:00:00Z"
+    },
+    "review_required": true,
+    "review_status": "completed",
+    "effects": {
+      "mode": "effects_disabled",
+      "effects_requested": false,
+      "external_action_status": "not_attempted"
+    },
+    "claim_ceiling": {
+      "permitted_claims": [
+        "Independent evidence supports restoration at the specified sampling point and time in this synthetic fixture."
+      ],
+      "prohibited_inferences": [
+        "All affected households have water restored.",
+        "The entire network is restored.",
+        "The fixture represents a real service inspection or submitted service request."
+      ]
+    },
+    "source_conflicts": []
+  }
+}

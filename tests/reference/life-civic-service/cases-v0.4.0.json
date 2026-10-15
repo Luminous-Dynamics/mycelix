@@ -1,0 +1,527 @@
+{
+  "dataset_id": "MYC-LIFE-CIVIC-SERVICE-001",
+  "version": "0.4.0",
+  "status": "research_fixture",
+  "purpose": "Exercise an effects-disabled municipal service journey and preserve distinctions among reports, provider statements, official source claims, cross-utility causal hypotheses, conflicting guidance, and independently verified resolution.",
+  "schema_file": "schemas/life-civic/service-journey-reference.schema.json",
+  "cases": [
+    {
+      "fixture_id": "water-report-received",
+      "expected_schema_valid": true,
+      "instance": {
+        "case_id": "LCSV-WATER-001",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-001",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-001",
+          "source_kind": "community_report",
+          "reported_on": "2026-10-14",
+          "description": "Several households report that supply has stopped in the specified synthetic service area.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "unknown",
+          "institution_ref": null,
+          "source_references": [],
+          "checked_on": null,
+          "notes": "Responsible route has not yet been confirmed from current local official sources.",
+          "source_evidence_ids": []
+        },
+        "case_state": "received",
+        "evidence": [
+          {
+            "evidence_id": "EV-REPORT-001",
+            "kind": "community_report",
+            "source_uri": "https://example.invalid/reports/REPORT-SYN-001",
+            "observed_on": "2026-10-14",
+            "independence": "unknown",
+            "claim_scope": "Community report of absent water supply in synthetic service area.",
+            "limitations": "Not independently verified; reports may share a common origin. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
+            "retrieved_at": null,
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
+          }
+        ],
+        "outcome": {
+          "status": "unknown",
+          "summary": "No restoration claim has been made.",
+          "verification_evidence_ids": [],
+          "verified_at": null
+        },
+        "review_required": false,
+        "review_status": "not_required",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "A community report has been recorded in the reference fixture."
+          ],
+          "prohibited_inferences": [
+            "The outage is independently confirmed.",
+            "A real service request has been submitted.",
+            "Water service is restored."
+          ]
+        },
+        "source_conflicts": []
+      }
+    },
+    {
+      "fixture_id": "provider-reported-complete-not-verified",
+      "expected_schema_valid": true,
+      "instance": {
+        "case_id": "LCSV-WATER-002",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-002",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-002",
+          "source_kind": "community_report",
+          "reported_on": "2026-10-14",
+          "description": "Synthetic water supply interruption reported by community members.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "official_contact_source_found",
+          "institution_ref": "provider-ref-jwater-example",
+          "source_references": [
+            "https://www.johannesburgwater.co.za/contact-us/"
+          ],
+          "checked_on": "2026-10-14",
+          "notes": "Synthetic route value for schema tests only; not a live integration.",
+          "source_evidence_ids": [
+            "EV-CONTACT-002"
+          ]
+        },
+        "case_state": "work_reported_complete",
+        "evidence": [
+          {
+            "evidence_id": "EV-REPORT-002",
+            "kind": "community_report",
+            "source_uri": "https://example.invalid/reports/REPORT-SYN-002",
+            "observed_on": "2026-10-14",
+            "independence": "unknown",
+            "claim_scope": "Initial report of interruption.",
+            "limitations": "Community report only. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
+            "retrieved_at": null,
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
+          },
+          {
+            "evidence_id": "EV-PROVIDER-002",
+            "kind": "provider_statement",
+            "source_uri": "https://example.invalid/provider/notice-002",
+            "observed_on": "2026-10-14",
+            "independence": "same_origin",
+            "claim_scope": "Provider states that repair work is complete.",
+            "limitations": "No independent observation of restoration is present. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
+            "retrieved_at": null,
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
+          },
+          {
+            "evidence_id": "EV-CONTACT-002",
+            "kind": "official_notice",
+            "source_uri": "https://www.johannesburgwater.co.za/contact-us/",
+            "observed_on": "2026-10-14",
+            "retrieved_at": "2026-10-14T19:54:08+02:00",
+            "independence": "same_origin",
+            "claim_scope": "The official Contact Us page lists fault@jwater.co.za for logging water-related incidents only and +27 (0)10 061 4470 for logging calls/queries.",
+            "limitations": "This is captured contact information, not evidence that a real request was submitted or that the candidate route is applicable to every case.",
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
+          }
+        ],
+        "outcome": {
+          "status": "provider_attested_complete",
+          "summary": "Provider reports the work complete; restoration remains independently unverified.",
+          "verification_evidence_ids": [],
+          "verified_at": null
+        },
+        "review_required": true,
+        "review_status": "requested",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "The provider has reported work complete."
+          ],
+          "prohibited_inferences": [
+            "Water supply is independently verified as restored.",
+            "The service case can be represented as independently resolved."
+          ]
+        },
+        "source_conflicts": []
+      }
+    },
+    {
+      "fixture_id": "conflicting-official-water-guidance",
+      "expected_schema_valid": true,
+      "instance": {
+        "case_id": "LCSV-WATER-003",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-003",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-003",
+          "source_kind": "user_report",
+          "reported_on": "2026-10-14",
+          "description": "Synthetic scenario testing water-outage guidance when official sources conflict.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "candidate_found",
+          "institution_ref": null,
+          "source_references": [
+            "https://www.johannesburgwater.co.za/emergencies/",
+            "https://www.johannesburgwater.co.za/daily-water-notices/",
+            "https://www.johannesburgwater.co.za/contact-us/"
+          ],
+          "checked_on": "2026-10-14",
+          "notes": "The official Contact Us page publishes fault@jwater.co.za for water-related incidents and +27 (0)10 061 4470 for logging calls/queries. This is a candidate contact pathway, not an action or universal routing rule. The /emergencies/ page also displays a different logging-call email and phone in its top section, with further numbers in its footer. Preserve each channel with its stated purpose; the 12-hour versus 24-hour target remains unresolved.",
+          "source_evidence_ids": [
+            "EV-OFFICIAL-003C"
+          ]
+        },
+        "case_state": "source_conflict",
+        "evidence": [
+          {
+            "evidence_id": "EV-OFFICIAL-003A",
+            "kind": "official_notice",
+            "source_uri": "https://www.johannesburgwater.co.za/emergencies/",
+            "observed_on": "2026-10-14",
+            "independence": "same_origin",
+            "claim_scope": "The URL labelled /emergencies/ renders a Daily water Notices heading, lists a 12-hour water-outage turnaround, and its top Logging calls section lists customerserviceemails@jwater.co.za and +27 (0)11 375 5555.",
+            "limitations": "The same page footer separately lists fault@jwater.co.za for water-related incidents and other contact-centre numbers. The page bytes were not cryptographically hashed; preserve each section and stated purpose instead of collapsing channels.",
+            "retrieved_at": "2026-10-14T19:54:08+02:00",
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
+          },
+          {
+            "evidence_id": "EV-OFFICIAL-003B",
+            "kind": "official_notice",
+            "source_uri": "https://www.johannesburgwater.co.za/daily-water-notices/",
+            "observed_on": "2026-10-14",
+            "independence": "same_origin",
+            "claim_scope": "The Daily Water Notices page lists a 24-hour water-outage turnaround and shows fault@jwater.co.za with +27 (0)10 061 4470 in its logging section.",
+            "limitations": "The page footer repeats fault@jwater.co.za as water-incident-only and lists other contact-centre numbers. The content may distinguish purposes; do not assume every listed channel is interchangeable.",
+            "retrieved_at": "2026-10-14T19:54:08+02:00",
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
+          },
+          {
+            "evidence_id": "EV-OFFICIAL-003C",
+            "kind": "official_notice",
+            "source_uri": "https://www.johannesburgwater.co.za/contact-us/",
+            "observed_on": "2026-10-14",
+            "independence": "same_origin",
+            "claim_scope": "The official Contact Us page lists fault@jwater.co.za for logging water-related incidents only and +27 (0)10 061 4470 for logging calls/queries; it separately lists sms@jwater.co.za for interruption notifications.",
+            "limitations": "Contact details were captured from the page at retrieved_at. This does not mean this reference case submitted a service request, prove a route is applicable in every situation, or resolve the turnaround-target conflict.",
+            "retrieved_at": "2026-10-14T19:54:08+02:00",
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
+          }
+        ],
+        "outcome": {
+          "status": "conflicted",
+          "summary": "Conflicting official service guidance requires human review before any exact target or submission route is presented as definitive.",
+          "verification_evidence_ids": [],
+          "verified_at": null
+        },
+        "review_required": true,
+        "review_status": "requested",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "The checked official pages disagree on a stated water-outage turnaround target.",
+            "The exact applicable target is unresolved in this reference case."
+          ],
+          "prohibited_inferences": [
+            "A 12-hour or 24-hour turnaround is the unambiguously applicable current target.",
+            "A real service request has been submitted.",
+            "The assistant may silently override a source conflict."
+          ]
+        },
+        "source_conflicts": [
+          {
+            "conflict_id": "SC-WATER-TURNAROUND-001",
+            "topic": "water-outage turnaround target",
+            "evidence_ids": [
+              "EV-OFFICIAL-003A",
+              "EV-OFFICIAL-003B"
+            ],
+            "status": "unresolved",
+            "summary": "The URL labelled /emergencies/ renders a Daily water Notices heading and lists 12 hours; /daily-water-notices/ lists 24 hours. Neither claim is silently selected as the applicable current target.",
+            "resolution_evidence_ids": []
+          }
+        ]
+      }
+    },
+    {
+      "fixture_id": "unavailable-current-source-requires-review",
+      "expected_schema_valid": true,
+      "instance": {
+        "case_id": "LCSV-WATER-006",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-006",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-006",
+          "source_kind": "user_report",
+          "reported_on": "2026-10-14",
+          "description": "Synthetic case where a previously referenced official source cannot be re-fetched during the current check.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "unknown",
+          "institution_ref": null,
+          "source_references": [],
+          "checked_on": null,
+          "source_evidence_ids": [],
+          "notes": "No current route source was captured; do not rely on a historic claim as current."
+        },
+        "case_state": "human_review_required",
+        "evidence": [
+          {
+            "evidence_id": "EV-UNAVAILABLE-006",
+            "kind": "official_notice",
+            "source_uri": "https://example.invalid/unavailable-source",
+            "observed_on": "2026-10-01",
+            "retrieved_at": null,
+            "checked_at": "2026-10-14T19:54:08+02:00",
+            "retrieval_state": "unavailable",
+            "independence": "unknown",
+            "claim_scope": "Synthetic example of a prior official-source reference that cannot be refreshed.",
+            "limitations": "The example.invalid URI is a test placeholder. This fixture makes no claim that Johannesburg Water or any real official site was unavailable."
+          }
+        ],
+        "source_conflicts": [],
+        "outcome": {
+          "status": "unknown",
+          "summary": "The current source state is unavailable; the previous claim must not be presented as current.",
+          "verification_evidence_ids": [],
+          "verified_at": null
+        },
+        "review_required": true,
+        "review_status": "requested",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "A source refresh is unavailable in this synthetic fixture."
+          ],
+          "prohibited_inferences": [
+            "The old claim remains current.",
+            "A real service request has been submitted.",
+            "An unavailable source proves that no service route exists."
+          ]
+        }
+      }
+    },
+    {
+      "fixture_id": "invalid-verified-outcome-with-provider-evidence-only",
+      "expected_schema_valid": false,
+      "instance": {
+        "case_id": "LCSV-WATER-004",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-004",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-004",
+          "source_kind": "community_report",
+          "reported_on": "2026-10-14",
+          "description": "Negative-control fixture: provider-only evidence is promoted to a verified outcome.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "official_contact_source_found",
+          "institution_ref": "provider-ref-jwater-example",
+          "source_references": [
+            "https://www.johannesburgwater.co.za/contact-us/"
+          ],
+          "checked_on": "2026-10-14",
+          "notes": "Synthetic route value for schema tests only.",
+          "source_evidence_ids": [
+            "EV-CONTACT-004"
+          ]
+        },
+        "case_state": "verified_resolved",
+        "evidence": [
+          {
+            "evidence_id": "EV-PROVIDER-004",
+            "kind": "provider_statement",
+            "source_uri": "https://example.invalid/provider/notice-004",
+            "observed_on": "2026-10-14",
+            "independence": "same_origin",
+            "claim_scope": "Provider states the repair is complete.",
+            "limitations": "No independent observation or measurement exists. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
+            "retrieved_at": null,
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
+          },
+          {
+            "evidence_id": "EV-CONTACT-004",
+            "kind": "official_notice",
+            "source_uri": "https://www.johannesburgwater.co.za/contact-us/",
+            "observed_on": "2026-10-14",
+            "retrieved_at": "2026-10-14T19:54:08+02:00",
+            "independence": "same_origin",
+            "claim_scope": "The official Contact Us page lists fault@jwater.co.za for logging water-related incidents only and +27 (0)10 061 4470 for logging calls/queries.",
+            "limitations": "This is captured contact information, not evidence that a real request was submitted or that the candidate route is applicable to every case.",
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
+          }
+        ],
+        "outcome": {
+          "status": "independently_verified_complete",
+          "summary": "Deliberately invalid: provider statement only, no independent verification.",
+          "verification_evidence_ids": [
+            "EV-PROVIDER-004"
+          ],
+          "verified_at": "2026-10-14T10:00:00Z"
+        },
+        "review_required": true,
+        "review_status": "completed",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "This fixture intentionally exercises a schema rejection."
+          ],
+          "prohibited_inferences": [
+            "Provider statement alone proves restoration."
+          ]
+        },
+        "source_conflicts": []
+      }
+    },
+    {
+      "fixture_id": "cross-utility-statement-not-incident-cause",
+      "expected_schema_valid": true,
+      "instance": {
+        "case_id": "LCSV-WATER-007",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-007",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-007",
+          "source_kind": "user_report",
+          "reported_on": "2026-10-14",
+          "description": "Synthetic question asking whether a dated public statement proves that a particular water interruption was caused by a power trip and whether supply is restored now.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "unknown",
+          "institution_ref": null,
+          "source_references": [],
+          "checked_on": null,
+          "notes": "No case-specific routing or current status has been established by the synthetic public-statement fixture.",
+          "source_evidence_ids": []
+        },
+        "case_state": "human_review_required",
+        "evidence": [
+          {
+            "evidence_id": "EV-GOV-PWR-WTR-007",
+            "kind": "official_notice",
+            "source_uri": "https://www.gov.za/news/media-statements/government-measures-mitigate-water-supply-disruptions-resulting-power-trips",
+            "observed_on": "2026-09-10",
+            "independence": "unknown",
+            "claim_scope": "The South African Government's 10 September 2026 statement describes a multi-stakeholder meeting to address water-supply disruptions associated with intermittent power trips. This fixture records a synthetic summary of the statement topic; the page was not captured as evidence for this case.",
+            "limitations": "Synthetic fixture only: no source retrieval timestamps or source-content digest are present. The statement is cross-utility context, not evidence that a specific resident's interruption was caused by electricity, not live outage/restoration status, and not proof of an intervention outcome.",
+            "retrieved_at": null,
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
+          }
+        ],
+        "outcome": {
+          "status": "unknown",
+          "summary": "No incident-specific causal evidence or current restoration observation is included.",
+          "verification_evidence_ids": [],
+          "verified_at": null
+        },
+        "review_required": true,
+        "review_status": "requested",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "The synthetic fixture describes the topic of a dated public statement about cross-utility coordination."
+          ],
+          "prohibited_inferences": [
+            "The resident's specific interruption was caused by a power trip based only on this statement.",
+            "Water supply is restored now based on the historical statement.",
+            "The statement proves live outage status, completed repair, or measured intervention effect.",
+            "All Johannesburg water outages are caused by electricity interruptions.",
+            "The fixture timestamp or null digest is actual source-retrieval evidence."
+          ]
+        },
+        "source_conflicts": []
+      }
+    }
+  ],
+  "claim_ceiling": {
+    "permitted": [
+      "Validate schema-level effects-off and outcome-evidence boundaries."
+    ],
+    "prohibited": [
+      "A benchmark pass establishes municipal service reliability.",
+      "Listed contact details or target times are authoritative beyond each dated source snapshot.",
+      "The fixtures submit a real service request."
+    ]
+  }
+}

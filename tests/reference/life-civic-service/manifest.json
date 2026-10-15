@@ -1,0 +1,38 @@
+{
+  "dataset_id": "MYC-LIFE-CIVIC-SERVICE-001",
+  "version": "0.6.0",
+  "status": "research_fixture",
+  "cases_file": "tests/reference/life-civic-service/cases-v0.6.0.json",
+  "schemas": [
+    "schemas/life-civic/service-journey-reference.schema.json"
+  ],
+  "requires_human_review_for_real_use": true,
+  "frozen_inputs": [
+    {
+      "path": "schemas/life-civic/service-journey-reference.schema.json",
+      "git_blob_sha1": "7e2b8b3d963c9c5598c78927121fcf60203591f9",
+      "purpose": "service journey schema v0.3.0; retrieval timestamps, failed refreshes, and evidence-linked official contact status"
+    },
+    {
+      "path": "tests/reference/life-civic-service/cases-v0.6.0.json",
+      "git_blob_sha1": "875fa72478ccd609b83d218bbae9b9facae8fd2e",
+      "purpose": "ten effects-disabled service fixtures; adds a synthetic response-versus-turnaround clock-semantics control without representing source text as a pinned capture; service schema remains v0.3.0"
+    },
+    {
+      "path": "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json",
+      "git_blob_sha1": "e592487f8f58d00d0658e07cf44e7a8e9b059f3f",
+      "purpose": "positive control requiring independent evidence scoped to observation point and time"
+    }
+  ],
+  "integrity_semantics": "Git blob SHA-1 binds exact checked-out repository bytes to detect fixture drift. It is not a signature, source authenticity proof, or independent collision-resistance claim. Captured official pages in this fixture were reviewed at 2026-10-14T19:54:08+02:00 but rendered page content was not cryptographically hashed; synthetic example.invalid records are not represented as retrieved sources. Purpose-labelled contact fields should remain separate where the issuer's page gives different stated roles; a difference alone does not prove the channels conflict. Corpus v0.4.0 adds a synthetic cross-utility statement control: a historical public statement is context only, synthetic evidence has null retrieved_at/checked_at and no source digest, and neither incident-level power causality nor current restoration may be inferred. Corpus v0.5.0 adds three synthetic summaries of dated City project announcements (water depot, Braamfontein traffic/accessibility upgrades and Malvern Clinic reopening); each has retrieval_state synthetic_fixture, null retrieval/check timestamps and no source-content digest. They are public-claim boundary examples, not current service availability, independent inspections or operational work orders. Corpus v0.6.0 adds a synthetic clock-semantics fixture using the Services and Daily Water Notices URLs as provenance references; the statements have null retrieval/check timestamps and no captured page bytes or source digest. It distinguishes the Services page's response wording from the Daily Water Notices category turnaround list, explicitly avoiding an automatic conflict or a claim that either value is an observed service outcome or established contractual SLA.",
+  "claim_ceiling": {
+    "permitted": [
+      "validate schema-level lifecycle and evidence boundaries"
+    ],
+    "prohibited": [
+      "legal determination",
+      "service submission or service closure",
+      "production-readiness or benchmark-pass claims"
+    ]
+  }
+}
