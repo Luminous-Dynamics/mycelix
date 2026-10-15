@@ -20,6 +20,7 @@ from typing import Any
 
 CONTRACT_PATH = Path(__file__).with_name("APPEAL_CASE_CONTRACT_V1.json")
 GENESIS_HASH = "0" * 64
+IMMUTABLE_CASE_FIELDS = ("case_ref", "case_owner_ref", "service_code", "issue_code")
 HANDLE_RE = re.compile(r"^[A-Z0-9][A-Z0-9._-]{2,95}$")
 CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,63}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -51,6 +52,15 @@ def _canonical(value: Any) -> bytes:
 
 def _hash(value: Any) -> str:
     return hashlib.sha256(_canonical(value)).hexdigest()
+
+
+def _genesis_hash(case: dict[str, Any], contract: dict[str, Any]) -> str:
+    # Bind the chain to the case envelope so a valid event list cannot be
+    # transplanted to a different case/owner/service.
+    return _hash({
+        "contract_id": contract["contract_id"],
+        **{key: case.get(key) for key in IMMUTABLE_CASE_FIELDS},
+    })
 
 
 def _is_handle(value: Any) -> bool:
@@ -247,7 +257,8 @@ def _apply_event_state(
         raise ValueError(f"event from_state mismatch: expected {from_state}")
     matched = [
         t for t in _transitions(contract, action, from_state)
-        if t["actor_role"] == actor_role and t["to_state"] == event["to_state"]
+        if t["actor_role"] == actor_role
+        and (t["to_state"] == event["to_state"] or t["to_state"] == "SAME" and event["to_state"] == from_state)
         and t["reason_code"] == event["reason_code"]
     ]
     if len(matched) != 1:
@@ -260,6 +271,8 @@ def _apply_event_state(
     target = event["target_actor_ref"]
     if target is not None and not _is_handle(target):
         raise ValueError("target_actor_ref must be null or an opaque local handle")
+    if action not in {"acknowledge_case", "assign_steward"} and target is not None:
+        raise ValueError("target_actor_ref is only permitted for steward assignment events")
     if actor_role == "requester" and actor_ref != base_case["case_owner_ref"]:
         raise ValueError("requester must match the case owner")
     if transition.get("requires_owner_match") and actor_ref != base_case["case_owner_ref"]:
@@ -309,7 +322,7 @@ def _apply_event_state(
         raise ValueError("policy references are only permitted on record_retention_policy")
 
     updated = copy.deepcopy(state)
-    updated["current_state"] = event["to_state"]
+    updated["current_state"] = from_state if transition["to_state"] == "SAME" else event["to_state"]
     if action == "acknowledge_case":
         updated["assigned_steward_ref"] = target
     elif action == "assign_steward":
@@ -340,7 +353,7 @@ def verify_event_chain(
     active_contract = contract or load_contract()
     errors: list[str] = []
     state = _initial_state(active_contract)
-    previous_hash = GENESIS_HASH
+    previous_hash = _genesis_hash(case, active_contract)
     previous_time: datetime | None = None
     policy_doc = case.get("retention_policy")
     policy_event_digest: str | None = None
@@ -455,10 +468,10 @@ def append_event(
         "actor_role": actor_role,
         "action": action,
         "from_state": state["current_state"],
-        "to_state": transition["to_state"],
+        "to_state": state["current_state"] if transition["to_state"] == "SAME" else transition["to_state"],
         "reason_code": transition["reason_code"],
         "target_actor_ref": target_actor_ref,
-        "previous_hash": events[-1]["event_hash"] if events else GENESIS_HASH,
+        "previous_hash": events[-1]["event_hash"] if events else _genesis_hash(case, active_contract),
         "event_hash": "",
         "policy_ref": policy_ref if action == "record_retention_policy" else None,
         "policy_digest": new_policy_digest,
@@ -532,8 +545,18 @@ def validate_contract(contract: Any) -> list[str]:
     for key in ("production_enabled", "durable_case_storage_enabled", "public_dht_publication_enabled", "external_notifications_enabled", "legal_compliance_claimed"):
         if contract.get(key) is not False:
             errors.append(f"{key} must remain false")
-    if not isinstance(contract.get("case_fields"), list) or len(contract["case_fields"]) != len(set(contract["case_fields"])):
-        errors.append("case_fields must be a unique string list")
+    required_case_fields = {
+        "case_ref", "case_owner_ref", "service_code", "issue_code", "current_state",
+        "assigned_steward_ref", "initial_decision_actor_ref", "appeal_reviewer_ref",
+        "retention_policy_status", "retention_policy", "retention_review_complete", "closed_at_utc",
+    }
+    if (
+        not isinstance(contract.get("case_fields"), list)
+        or any(not isinstance(value, str) for value in contract["case_fields"])
+        or set(contract["case_fields"]) != required_case_fields
+        or len(contract["case_fields"]) != len(required_case_fields)
+    ):
+        errors.append("case_fields must match the closed v1 case schema")
     if not isinstance(contract.get("event_fields"), list) or set(contract["event_fields"]) != EVENT_FIELDS:
         errors.append("event_fields must match the closed v1 event schema")
     for key in ("state_values", "role_values", "reason_codes", "prohibited_fields_and_payloads", "security_invariants", "nonclaims"):
