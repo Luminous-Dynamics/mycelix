@@ -1803,6 +1803,37 @@ mod tests {
         );
     }
     #[test]
+    fn synthetic_only_obligation_evidence_cannot_be_committed() {
+        let mut contract = authorized_contract("tx-synthetic-obligation", 1);
+        let mut capacity = CapacityBook::default();
+        capacity
+            .declare_capacity("repair-hours", "hour", "week-42", 1)
+            .unwrap();
+        contract.reserve(&mut capacity, 2).unwrap();
+
+        let result = contract.commit(
+            ObligationTerms {
+                id: "obligation-tx-synthetic-obligation".to_owned(),
+                debtor_id: "household-a".to_owned(),
+                creditor_id: "repair-coop".to_owned(),
+                debit_account: "household-wallet".to_owned(),
+                credit_account: "coop-wallet".to_owned(),
+                instrument_id: INSTRUMENT.to_owned(),
+                atomic_unit: ATOMIC_UNIT.to_owned(),
+                amount_atomic: 30,
+                due_at: 9,
+                policy_digest: "policy-digest-a".to_owned(),
+                evidence_status: EvidenceStatus::SyntheticOnly,
+            },
+            3,
+        );
+
+        assert_eq!(result, Err(ContractError::EvidenceNotVerified));
+        assert_eq!(contract.lifecycle(), Lifecycle::Reserved);
+        assert!(contract.obligation().is_none());
+    }
+
+    #[test]
     fn delivery_claim_must_come_from_the_authorized_provider() {
         let (mut contract, _) = committed_contract("tx-untrusted-delivery-source", 1);
         let result = contract.record_delivery(DeliveryClaim {
