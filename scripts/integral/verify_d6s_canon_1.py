@@ -70,6 +70,12 @@ def main() -> int:
         "source_observation_created", "physical_work_binding",
     }
     allowed_evidence_profiles = {"current_local", "stale_local", "current_foreign_node_b"}
+    required_positive_bindings = {
+        # The valid counterexample must retain the context it is refining.
+        "COS-N-010": {"frs_projection", "source_observation_created"},
+        "COS-N-011": {"source_observation_created", "itc_projection"},
+        "COS-N-012": {"itc_projection", "physical_work_binding"},
+    }
     allowed_decisions = set(corpus.get("decision_enum", []))
     if allowed_decisions != {"Accepted", "Rejected", "Unknown", "Conflicting", "Stale", "Superseded", "Unauthorized", "Unbound"}:
         raise ValueError("DECISION_ENUM_MISMATCH")
@@ -97,6 +103,9 @@ def main() -> int:
         if test_id in {"COS-N-009", "COS-N-013"}:
             if vector["negative_input"]["evidence_profile"] != "current_foreign_node_b" or vector["positive_input"]["evidence_profile"] != "current_foreign_node_b":
                 raise ValueError(f"FOREIGN_ORIGIN_FIXTURE_LOST {test_id}")
+        required = required_positive_bindings.get(test_id)
+        if required is not None and not required <= set(vector["positive_input"]["bindings"]):
+            raise ValueError(f"POSITIVE_CONTEXT_BINDING_MISSING {test_id}: {sorted(required - set(vector['positive_input']['bindings']))}")
         if not vector.get("input_class") or not vector.get("claim_ceiling"):
             raise ValueError(f"INCOMPLETE_VECTOR_METADATA {vector.get('test_id')}")
     if covered != required:
