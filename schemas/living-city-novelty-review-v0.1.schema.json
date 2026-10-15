@@ -100,7 +100,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^(source:|evidence:)?[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+            "pattern": "^(?:source:|evidence:)[a-z0-9]+(?:[.-][a-z0-9]+)*$"
           }
         },
         "source_refs": {
