@@ -247,22 +247,37 @@ mod tests {
         for case in fixture.cases {
             match AffineUncertainty::new(case.terms) {
                 Ok(model) => {
-                    assert!(
-                        case.expected_error.is_none(),
-                        "{} expected error {}, but was accepted",
-                        case.id,
-                        case.expected_error.as_deref().unwrap_or("")
-                    );
-                    let expected = case.expected_bounds_mm
-                        .unwrap_or_else(|| panic!("{} missing expected bounds", case.id));
-                    let actual = model.bounds()
-                        .unwrap_or_else(|error| panic!("{} unexpected bounds error: {:?}", case.id, error));
-                    assert_eq!(
-                        [actual.lower_mm, actual.upper_mm],
-                        expected,
-                        "unexpected conservative bounds for {}",
-                        case.id
-                    );
+                    match model.bounds() {
+                        Ok(actual) => {
+                            assert!(
+                                case.expected_error.is_none(),
+                                "{} expected error {}, but bounds were produced",
+                                case.id,
+                                case.expected_error.as_deref().unwrap_or("")
+                            );
+                            let expected = case.expected_bounds_mm
+                                .unwrap_or_else(|| panic!("{} missing expected bounds", case.id));
+                            assert_eq!(
+                                [actual.lower_mm, actual.upper_mm],
+                                expected,
+                                "unexpected conservative bounds for {}",
+                                case.id
+                            );
+                        }
+                        Err(error) => {
+                            assert_eq!(
+                                case.expected_error.as_deref(),
+                                Some(error_code(error)),
+                                "unexpected bounds error for {}",
+                                case.id
+                            );
+                            assert!(
+                                case.expected_bounds_mm.is_none(),
+                                "{} has both expected error and expected bounds",
+                                case.id
+                            );
+                        }
+                    }
                 }
                 Err(error) => {
                     assert_eq!(
