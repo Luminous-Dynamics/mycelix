@@ -240,6 +240,18 @@ def main():
     if not schema_errors(validator, bad_unit): fail("mutation: water metric with energy unit accepted")
     print("PASS mutation: metric/unit incompatibility rejected")
 
+    wrong_balance_unit = copy.deepcopy(synthetic)
+    wrong_balance_unit["scenarios"][0]["conservation_checks"][0]["unit"] = "m3"
+    if not schema_errors(validator, wrong_balance_unit):
+        fail("mutation: conservation ledger accepted a non-canonical water unit")
+    print("PASS mutation: conservation ledger requires canonical integer water units")
+
+    floating_balance_quantity = copy.deepcopy(synthetic)
+    floating_balance_quantity["scenarios"][0]["conservation_checks"][0]["inflow"] = 100000000
+    if not schema_errors(validator, floating_balance_quantity):
+        fail("mutation: conservation ledger accepted a floating-point/JSON-number quantity")
+    print("PASS mutation: conservation ledger rejects JSON-number quantities to preserve exactness")
+
     bad_residual = copy.deepcopy(synthetic)
     bad_residual["scenarios"][0]["conservation_checks"][0]["reported_residual"] = "4"
     if not any("reported residual does not equal" in e for e in semantic_errors(bad_residual, concepts, evidence_ids)):
@@ -324,7 +336,7 @@ def main():
         fail("mutation: model run with unresolved scenario identity accepted")
     print("PASS mutation: model run must link to known scenario IDs")
 
-    print("PASS: 16 urban-metabolism/synergy controls (14 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
+    print("PASS: 18 urban-metabolism/synergy controls (16 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
