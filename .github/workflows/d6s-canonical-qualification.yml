@@ -11,8 +11,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "mycelix-manufacturing/Cargo.toml"
-      - "mycelix-manufacturing/crates/cos_conformance/Cargo.toml"
       - "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs"
       - "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs"
       - "docs/integral/d6s-canon-1-golden-vectors.json"
