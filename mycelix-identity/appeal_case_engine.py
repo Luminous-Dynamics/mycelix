@@ -563,7 +563,7 @@ def validate_contract(contract: Any) -> list[str]:
         "legal_compliance_claimed", "case_fields", "event_fields", "state_values",
         "role_values", "reason_codes", "transitions", "access_policy",
         "retention_policy_template", "issue_code_values", "record_class_values",
-        "issue_record_classes", "prohibited_fields_and_payloads",
+        "issue_record_classes", "not_implemented_issue_codes", "prohibited_fields_and_payloads",
         "security_invariants", "nonclaims", "references",
     }
     if set(contract) != required:
@@ -675,6 +675,14 @@ def validate_contract(contract: Any) -> list[str]:
         or any(not isinstance(value, str) or value not in (record_classes if isinstance(record_classes, list) else []) for value in issue_mapping.values())
     ):
         errors.append("issue_record_classes must map every issue code to a declared record class")
+    unsupported_codes = contract.get("not_implemented_issue_codes")
+    if (
+        not isinstance(unsupported_codes, list)
+        or any(not isinstance(value, str) or not value.strip() for value in unsupported_codes)
+        or len(unsupported_codes) != len(set(unsupported_codes))
+        or set(unsupported_codes).intersection(set(issue_codes if isinstance(issue_codes, list) else []))
+    ):
+        errors.append("not_implemented_issue_codes must be a unique disjoint string list")
     references = contract.get("references")
     if not isinstance(references, list) or not references:
         errors.append("references must be a non-empty array")
