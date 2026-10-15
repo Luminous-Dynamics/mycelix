@@ -195,6 +195,7 @@ jobs:
             echo "rustfmt=$(rustfmt --version)"
             echo "python=$(python3 --version)"
             echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "cargo_lock_git_blob_sha=$(git hash-object mycelix-manufacturing/Cargo.lock)"
             echo "cos_report_sha256=$(sha256sum cos-reference-conformance-report.json | cut -d' ' -f1)"
             echo "cos_report_git_blob_sha=$(git hash-object cos-reference-conformance-report.json)"
             echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
@@ -226,3 +227,4 @@ jobs:
           path: |
             d6s-canonical-reference-qualification.txt
             cos-reference-conformance-report.json
+            mycelix-manufacturing/Cargo.lock
