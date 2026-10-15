@@ -23,8 +23,8 @@
     "algorithm": "RFC8785-JCS",
     "digest_algorithm": "SHA-256",
     "digest_scope": "canonicalized_payload_bytes",
-    "payload_digest_verification_implemented": false,
-    "note": "The checker validates digest syntax only. It does not recompute the payload digest, validate RFC 8785 conformance, verify signatures, or establish that the digest matches the source bytes."
+    "payload_digest_verification_implemented": true,
+    "note": "The checker parses JSON while rejecting duplicate member names, canonicalizes the payload using the pinned RFC 8785/JCS library, and recomputes SHA-256 over those canonical bytes. It does not verify signatures, establish source-file correspondence, or establish the truth of the observation. Large precise quantities must be represented as strings, not JSON numbers."
   },
   "example_observation": {
     "source_app": "mycelix.synthetic-fixture",
