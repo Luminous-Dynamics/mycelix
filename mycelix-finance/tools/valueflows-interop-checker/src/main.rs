@@ -168,6 +168,25 @@ fn expected_mapping(
     }
 }
 
+fn expected_input_condition(id: &str) -> Option<&'static str> {
+    match id {
+        "VF-AUTH-001" => Some("Imported EconomicEvent is used directly to increase, decrease, or settle an authoritative Mycelix SAP/TEND balance."),
+        "VF-MYCEL-001" => Some("MYCEL recognition is exported as currency, transferable balance, or spendable entitlement."),
+        "VF-TEND-001" => Some("TEND obligation is translated into SAP without an explicit, separately authorized exchange event and conversion profile."),
+        "VF-AMOUNT-001" => Some("An authoritative SAP micro-unit amount is parsed through binary floating point or loses its base-10 integer representation."),
+        "VF-UNIT-001" => Some("A quantity lacks its unit profile or a receiving adapter substitutes another unit."),
+        "VF-SCOPE-001" => Some("Community/issuer scope is omitted and records from separate economic networks become indistinguishable."),
+        "VF-ORIGIN-001" => Some("An exported record loses its source system, source record, source action/event, or revision identity."),
+        "VF-REPLAY-001" => Some("The same imported observation is replayed and counted as a second economic effect."),
+        "VF-CORRECTION-001" => Some("A correction overwrites the original event or removes its provenance from historical exports."),
+        "VF-UNKNOWN-001" => Some("Stale, missing, conflicting or unsupported evidence is represented as settled, valid, or definitively false without a policy basis."),
+        "VF-VERSION-001" => Some("hREA source's stated VF 1.0 profile is silently treated as identical to the published ontology page version 0.17, or a source branch is treated as a packaged compatible artifact."),
+        "VF-TEND-F32-001" => Some("TEND service hours sourced from the legacy f32 fields are exported as an exact decimal quantity without a versioned quantization/precision profile."),
+        "VF-TEND-BEARER-001" => Some("A TEND balance/obligation is exported as freely transferable bearer units without the original community, counterparties and service-obligation scope."),
+        _ => None,
+    }
+}
+
 fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
     match id {
         "VF-AUTH-001" => Some(&[
@@ -648,6 +667,17 @@ fn validate(corpus: &Corpus) -> Vec<String> {
             !control.required_guards.is_empty(),
             format!("negative control {} must name required guards", control.id),
         );
+        match expected_input_condition(&control.id) {
+            Some(expected) => fail(
+                &mut errors,
+                control.input_condition == expected,
+                format!("negative control {} has drifted input condition", control.id),
+            ),
+            None => errors.push(format!(
+                "negative control {} has no registered input-condition contract",
+                control.id
+            )),
+        }
         match expected_disposition(&control.id) {
             Some(expected) => fail(
                 &mut errors,
@@ -674,6 +704,18 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                         ),
                     );
                 }
+                fail(
+                    &mut errors,
+                    control
+                        .required_guards
+                        .iter()
+                        .map(String::as_str)
+                        .eq(required.iter().copied()),
+                    format!(
+                        "negative control {} must use exactly the registered ordered guard set",
+                        control.id
+                    ),
+                );
             }
             None => errors.push(format!(
                 "negative control {} has no registered guard contract",
@@ -996,6 +1038,64 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("incorrect expected disposition")));
+    }
+
+    #[test]
+    fn negative_control_conditions_cannot_drift_without_review() {
+        let mut value = fixture();
+        let controls = value["negative_controls"]
+            .as_array_mut()
+            .expect("controls array");
+        let replay = controls
+            .iter_mut()
+            .find(|control| control["id"] == "VF-REPLAY-001")
+            .expect("replay control");
+        replay["input_condition"] = "duplicate reads are always harmless".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("a weakened negative-control condition must fail");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("drifted input condition")));
+    }
+
+    #[test]
+    fn negative_control_guard_sets_cannot_be_extended_or_reordered() {
+        let mut value = fixture();
+        let controls = value["negative_controls"]
+            .as_array_mut()
+            .expect("controls array");
+        let amount = controls
+            .iter_mut()
+            .find(|control| control["id"] == "VF-AMOUNT-001")
+            .expect("amount control");
+        amount["required_guards"]
+            .as_array_mut()
+            .expect("guard list")
+            .push("unreviewed_guard".into());
+        let errors = check_text(&value.to_string())
+            .expect_err("unreviewed guards must fail closed");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exactly the registered ordered guard set")));
+
+        let mut value = fixture();
+        let controls = value["negative_controls"]
+            .as_array_mut()
+            .expect("controls array");
+        let amount = controls
+            .iter_mut()
+            .find(|control| control["id"] == "VF-AMOUNT-001")
+            .expect("amount control");
+        amount["required_guards"] = serde_json::json!([
+            "round_trip_exact",
+            "unit_profile_preserved",
+            "canonical_integer_string"
+        ]);
+        let errors = check_text(&value.to_string())
+            .expect_err("guard ordering must remain canonical for corpus v1");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exactly the registered ordered guard set")));
     }
 
     #[test]
