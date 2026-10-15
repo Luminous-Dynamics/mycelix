@@ -21,7 +21,10 @@
     "source_integrity_authority_freshness_and_physical_truth_are_distinct",
     "producer_output_is_checked_independently",
     "all_results_bind_exact_inputs_models_rules_and_checker",
-    "unknown_behavior_is_unresolved_not_defaulted"
+    "unknown_behavior_is_unresolved_not_defaulted",
+    "contingency_optionality_is_separate_from_nominal_throughput",
+    "recovery_capacity_never_relaxes_hard_constraints",
+    "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
   ],
   "benchmarks": [
     {
@@ -351,6 +354,40 @@
       "hard_invariants": [
         "producer_output_is_checked_independently",
         "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-013",
+      "name": "contingency_option_value_and_recovery_reserve",
+      "paradigm": "adaptive_capacity_and_recovery_optionality",
+      "status": "research_backlog",
+      "hypothesis": "A policy that preserves eligible recovery options under declared disruptions can reduce recovery delay and unserved high-priority/community missions versus a nominal-throughput-only baseline, without weakening hard gates.",
+      "baseline": "A schedule selected only for nominal demand and throughput, without explicit accounting for the continued availability of alternate time windows, routes, or landing resources.",
+      "stimulus": "Replay identical pinned synthetic demand under paired policies: nominal-throughput-first, explicitly reserved contingency capacity, and adaptive option-preserving capacity. Apply predeclared vertiport/route closures, weather restrictions, stale capacity evidence, provider partition, and emergency insertion at fixed simulation times.",
+      "success_conditions": [
+        "Hard eligibility and independent-check outcomes are reported before any performance comparison, and no policy can convert a rejected or unresolved candidate into an eligible one.",
+        "Each policy reports the number of eligible recovery options remaining before and after each disruption, recovery time, delay distributions, unserved missions by declared service class/region, and reserve utilization/cost.",
+        "Paired results bind the same demand, disruption sequence, candidate set, constraints, and oracle; trade-offs and worst-case results remain visible rather than being collapsed into one score."
+      ],
+      "falsifiers": [
+        "A policy improves nominal throughput by weakening, bypassing, or hiding a hard gate.",
+        "A claimed recovery improvement cannot be reproduced from the same pinned inputs, or results count unavailable/stale resources as live options.",
+        "An aggregate improvement masks a material deterioration in a predeclared emergency or community-access outcome without making that trade-off explicit."
+      ],
+      "required_evidence": [
+        "Paired baseline/counterfactual scenario manifests and disruption timelines",
+        "Candidate-pool completeness declaration and independent hard-feasibility oracle",
+        "Exact-head replay outputs with source, constraint, model, and checker identities",
+        "Per-class/per-region outcome distributions, recovery-option counts, and reserve utilization",
+        "Sensitivity results for disruption timing and declared capacity assumptions"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "contingency_optionality_is_separate_from_nominal_throughput",
+        "recovery_capacity_never_relaxes_hard_constraints",
+        "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
       ]
     }
   ]
