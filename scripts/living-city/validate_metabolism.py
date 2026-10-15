@@ -334,6 +334,14 @@ def main():
         fail("mutation: interaction interpretation conflicts with direction/uncertainty")
     print("PASS mutation: interpretation respects uncertainty and metric direction")
 
+    interval_crosses_zero = copy.deepcopy(synthetic)
+    interval_crosses_zero["interactions"][0]["uncertainty"]["lower_bound"] = -20
+    interval_crosses_zero["interactions"][0]["uncertainty"]["upper_bound"] = 2
+    interval_crosses_zero["interactions"][0]["interpreted_result"] = "inconclusive"
+    if semantic_errors(interval_crosses_zero, concepts, evidence_ids):
+        fail("positive control: a propagated interaction interval crossing zero should be accepted as inconclusive")
+    print("PASS control: uncertainty spanning both signs remains inconclusive despite a favorable point estimate")
+
     understated_interval = copy.deepcopy(synthetic)
     understated_interval["interactions"][0]["uncertainty"]["lower_bound"] = -17
     if not any("understates propagated scenario uncertainty" in e for e in semantic_errors(understated_interval, concepts, evidence_ids)):
@@ -391,7 +399,7 @@ def main():
         fail("mutation: model run without an exact source revision was accepted")
     print("PASS mutation: model runs require an exact 40-character source revision SHA")
 
-    print("PASS: 22 urban-metabolism/synergy controls (20 mutation controls and two positive baselines); no composite symtropy score or automatic authorization.")
+    print("PASS: 23 urban-metabolism/synergy controls (20 mutation controls and three positive controls); no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
