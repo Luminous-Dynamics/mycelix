@@ -78,7 +78,7 @@ struct Mapping {
     preserves_correction_lineage: bool,
     source_event_is_authority_for_ledger_mutation: bool,
     maps_to_authoritative_balance: bool,
-    transferable: bool,
+    transferability: String,
     notes: String,
 }
 
@@ -154,7 +154,7 @@ fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
             "external_import_may_mark_settlement_final=false",
         ]),
         "VF-MYCEL-001" => Some(&[
-            "MYCEL.transferable=false",
+            "MYCEL.transferability=non_transferable_recognition_attestation",
             "MYCEL.quantity_encoding=none_attestation_only",
             "MYCEL.maps_to_authoritative_balance=false",
         ]),
@@ -593,7 +593,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     fail(
         &mut errors,
         control_ids.len() == expected_controls.len(),
-        "negative-control corpus v1 must contain exactly the 11 registered cases".into(),
+        "negative-control corpus v1 must contain exactly the 13 registered cases".into(),
     );
 
     errors
@@ -689,8 +689,7 @@ mod tests {
             .find(|mapping| mapping["mycelix_instrument"] == "TEND")
             .expect("TEND mapping");
         tend["transferability"] = "transferable_units_with_domain_rules".into();
-        let errors = check_text(&value.to_string())
-            .expect_err("TEND bearer promotion must fail");
+        let errors = check_text(&value.to_string()).expect_err("TEND bearer promotion must fail");
         assert!(errors
             .iter()
             .any(|error| error.contains("incorrect transferability semantics")));
@@ -722,7 +721,9 @@ mod tests {
         tend["quantity_encoding"] = "canonical_integer_tend_units".into();
         let errors = check_text(&value.to_string())
             .expect_err("unqualified exact TEND amount export must remain blocked");
-        assert!(errors.iter().any(|error| error.contains("unsafe or unexpected quantity encoding")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unsafe or unexpected quantity encoding")));
     }
 
     #[test]
@@ -765,7 +766,9 @@ mod tests {
     #[test]
     fn required_negative_control_guards_cannot_be_removed() {
         let mut value = fixture();
-        let controls = value["negative_controls"].as_array_mut().expect("controls array");
+        let controls = value["negative_controls"]
+            .as_array_mut()
+            .expect("controls array");
         let amount = controls
             .iter_mut()
             .find(|control| control["id"] == "VF-AMOUNT-001")
@@ -836,7 +839,9 @@ mod tests {
     #[test]
     fn all_required_negative_controls_are_present_exactly_once() {
         let mut value = fixture();
-        let controls = value["negative_controls"].as_array_mut().expect("controls array");
+        let controls = value["negative_controls"]
+            .as_array_mut()
+            .expect("controls array");
         controls.pop();
         let errors =
             check_text(&value.to_string()).expect_err("missing negative control must fail");
