@@ -30,7 +30,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Authorization fails closed if authority, rights, or ecological evidence is not verified, or if a required gate denies the request.
 - A commitment must bind the policy digest that authorized it.
 - Capacity reservation is bounded in this serial reference model, and pre-commit cancellation releases its reservation.
-- Delivery is only a claim until an independent verifier confirms the exact resource, unit, quantity, and deadline.
+- Only the contract's named provider may submit its delivery claim; an unrelated source cannot enter the verification path. Delivery remains a claim until an independent verifier confirms the exact resource, unit, quantity, and deadline.
 - Independent verification binds to the exact provider delivery-claim ID as well as a separate verifier evidence ID.
 - Unknown/stale/contested verification stays indeterminate; short or mismatched delivery becomes disputed.
 - A dispute may be reassessed only by a different independent resolver bound to the exact delivery-claim ID. A resolver can contribute only one reassessment per dispute; only confirmation of full delivery resolves it to Verified. Adverse/incomplete reassessment is journaled and leaves the obligation disputed without erasing the obligation. When reassessment resolves the dispute, the primary verification accessor points to the accepted decision while the append-only verification history retains the earlier verdict and all later review decisions.
@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The reference model currently contains **27 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
+The reference model currently contains **28 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Explicit limitations
 
