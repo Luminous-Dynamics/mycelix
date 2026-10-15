@@ -2067,6 +2067,134 @@ mod tests {
             .expect("checked-in synthetic Ed25519 signature must verify strictly");
     }
 
+    fn published_w3c_eddsa_jcs_2022_vector() -> (Value, Value) {
+        let credential = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+        let proof_options = serde_json::json!({
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod",
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ]
+        });
+        (credential, proof_options)
+    }
+
+    // W3C VC-DI-EDDSA Example 37: hashData is SHA256(canonical proof options)
+    // followed by SHA256(canonical unsecured credential). The key bytes below
+    // are the Ed25519 public key from Example 29's publicKeyMultibase after
+    // removing its 0xed01 multicodec prefix.
+    fn published_w3c_eddsa_jcs_2022_hash_data(
+        credential: &Value,
+        proof_options: &Value,
+    ) -> ([u8; 64], [u8; 32], [u8; 32]) {
+        let credential_digest =
+            decode_lowercase_hex::<32>(
+                &canonical_payload_digest(credential).expect("canonical credential"),
+                "W3C credential digest",
+            )
+            .expect("W3C credential digest bytes");
+        let proof_options_digest = decode_lowercase_hex::<32>(
+            &sha256_hex(
+                &canonical_json_bytes(proof_options).expect("canonical proof options"),
+            ),
+            "W3C proof configuration digest",
+        )
+        .expect("W3C proof configuration digest bytes");
+        let mut hash_data = [0_u8; 64];
+        hash_data[..32].copy_from_slice(&proof_options_digest);
+        hash_data[32..].copy_from_slice(&credential_digest);
+        (hash_data, proof_options_digest, credential_digest)
+    }
+
+    #[test]
+    fn published_w3c_eddsa_jcs_2022_vector_verifies() {
+        let (credential, proof_options) = published_w3c_eddsa_jcs_2022_vector();
+        let (hash_data, proof_options_digest, credential_digest) =
+            published_w3c_eddsa_jcs_2022_hash_data(&credential, &proof_options);
+
+        assert_eq!(
+            format!("{credential_digest:x}"),
+            "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+        assert_eq!(
+            format!("{proof_options_digest:x}"),
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db"
+        );
+
+        let public_key = decode_lowercase_hex::<32>(
+            "b00d8d938e7f773d51565aad36a623f5344f7f5d1960f9cf3e8e12620ea2810f",
+            "W3C example Ed25519 public key",
+        )
+        .expect("valid public key bytes");
+        let signature = decode_lowercase_hex::<64>(
+            "407cd12654b33d718ecbb99179a1506daaa849450bf3fc523cce3e1c96f8b80351da3f253d725c6f00b07c9e5448d50b3ef78012b9ab54255116d069c6dd2808",
+            "W3C example Ed25519 signature",
+        )
+        .expect("valid signature bytes");
+        let verifying_key = VerifyingKey::from_bytes(&public_key).expect("W3C public key");
+        verifying_key
+            .verify_strict(&hash_data, &Signature::from_bytes(&signature))
+            .expect("the published W3C eddsa-jcs-2022 vector must verify");
+    }
+
+    #[test]
+    fn published_w3c_eddsa_jcs_2022_vector_rejects_payload_and_proof_tampering() {
+        let (credential, proof_options) = published_w3c_eddsa_jcs_2022_vector();
+        let (hash_data, _, _) =
+            published_w3c_eddsa_jcs_2022_hash_data(&credential, &proof_options);
+        let public_key = decode_lowercase_hex::<32>(
+            "b00d8d938e7f773d51565aad36a623f5344f7f5d1960f9cf3e8e12620ea2810f",
+            "W3C example Ed25519 public key",
+        )
+        .expect("valid public key bytes");
+        let signature = decode_lowercase_hex::<64>(
+            "407cd12654b33d718ecbb99179a1506daaa849450bf3fc523cce3e1c96f8b80351da3f253d725c6f00b07c9e5448d50b3ef78012b9ab54255116d069c6dd2808",
+            "W3C example Ed25519 signature",
+        )
+        .expect("valid signature bytes");
+        let verifying_key = VerifyingKey::from_bytes(&public_key).expect("W3C public key");
+        let parsed_signature = Signature::from_bytes(&signature);
+
+        let mut changed_credential = credential.clone();
+        changed_credential["name"] = "Altered Alumni Credential".into();
+        let (changed_payload_hash_data, _, _) =
+            published_w3c_eddsa_jcs_2022_hash_data(&changed_credential, &proof_options);
+        assert!(verifying_key
+            .verify_strict(&changed_payload_hash_data, &parsed_signature)
+            .is_err());
+
+        let mut changed_proof_options = proof_options.clone();
+        changed_proof_options["proofPurpose"] = "authentication".into();
+        let (changed_proof_hash_data, _, _) =
+            published_w3c_eddsa_jcs_2022_hash_data(&credential, &changed_proof_options);
+        assert!(verifying_key
+            .verify_strict(&changed_proof_hash_data, &parsed_signature)
+            .is_err());
+
+        // Keep the baseline live so the test cannot pass solely because every
+        // constructed hashData value is invalid.
+        assert!(verifying_key.verify_strict(&hash_data, &parsed_signature).is_ok());
+    }
+
     #[test]
     fn provenance_signature_bit_flip_is_rejected() {
         let mut value: serde_json::Value =
