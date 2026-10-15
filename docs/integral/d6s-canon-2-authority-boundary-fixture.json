@@ -1,0 +1,118 @@
+{
+  "schema_version": "d6s-canon-2-authority-boundary-fixture/1",
+  "fixture_id": "D6S-CANON-2",
+  "status": "ReferenceModelOnly",
+  "basis": [
+    "docs/integral/cos-reference-node-v1.md",
+    "docs/integral/cos-five-system-adversarial-v1.md",
+    "issues #3332, #3333, #3334"
+  ],
+  "cases": [
+    {
+      "case_id": "production-observation-is-not-itc-mint",
+      "formal_obligations": [
+        "COS-FV-001"
+      ],
+      "expected_without_projection": "Rejected",
+      "expected_after_explicit_projection": "Accepted",
+      "claim_ceiling": "Reference transition only; no ITC ledger or entitlement is actually created.",
+      "initial_bindings": [
+        "source_observation_created"
+      ],
+      "evidence_profile": "current_local",
+      "additional_bindings": [
+        "itc_projection"
+      ]
+    },
+    {
+      "case_id": "frs-projection-is-not-source-observation",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "expected_without_source_observation": "Rejected",
+      "expected_after_explicit_source_observation": "Accepted",
+      "claim_ceiling": "Reference transition only; does not prove any real-world observation.",
+      "initial_bindings": [
+        "frs_projection"
+      ],
+      "evidence_profile": "current_local",
+      "additional_bindings": [
+        "source_observation_created"
+      ]
+    },
+    {
+      "case_id": "recommendation-does-not-create-effect",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "expected_without_authority": "Unauthorized",
+      "expected_with_authority_but_without_effect": "Unauthorized",
+      "expected_after_authorized_effect_receipt": "Accepted",
+      "claim_ceiling": "Reference authority/effect boundary only; no operational action occurs.",
+      "initial_bindings": [],
+      "evidence_profile": "current_local",
+      "authority_bindings": [
+        "recommendation_authorized"
+      ],
+      "effect_bindings": [
+        "effect_recorded"
+      ]
+    },
+    {
+      "case_id": "foreign-recognition-preserves-origin",
+      "formal_obligations": [
+        "COS-FV-010"
+      ],
+      "expected_decision": "Accepted",
+      "expected_origin_before": "foreign",
+      "expected_origin_after": "foreign",
+      "claim_ceiling": "Recognition may admit foreign evidence under policy; it never rewrites source origin.",
+      "initial_bindings": [],
+      "evidence_profile": "current_foreign_node_b",
+      "expected_without_recognition": "Rejected",
+      "additional_bindings": [
+        "foreign_recognition"
+      ]
+    },
+    {
+      "case_id": "qualified-output-is-not-physical-work",
+      "formal_obligations": [
+        "COS-FV-001",
+        "COS-FV-004"
+      ],
+      "expected_without_physical_work_binding": "Rejected",
+      "expected_after_physical_work_binding": "Accepted",
+      "claim_ceiling": "Reference binding only; output qualification is not proof physical work occurred.",
+      "initial_bindings": [
+        "itc_projection",
+        "output_qualification"
+      ],
+      "evidence_profile": "current_local",
+      "additional_bindings": [
+        "physical_work_binding"
+      ]
+    },
+    {
+      "case_id": "stale-evidence-does-not-satisfy-current-requirement",
+      "formal_obligations": [
+        "COS-FV-005"
+      ],
+      "expected_decision": "Stale",
+      "claim_ceiling": "Temporal reference check only; no calibration or QA authenticity is established.",
+      "initial_bindings": [],
+      "evidence_profile": "stale_local",
+      "positive_evidence_profile": "current_local",
+      "expected_current_decision": "Accepted"
+    },
+    {
+      "case_id": "unknown-transition-remains-unknown",
+      "formal_obligations": [
+        "COS-FV-008"
+      ],
+      "expected_decision": "Unknown",
+      "claim_ceiling": "Unknown inputs are preserved rather than coerced into success or failure.",
+      "initial_bindings": [],
+      "evidence_profile": "current_local"
+    }
+  ]
+}

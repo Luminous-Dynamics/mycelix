@@ -1,0 +1,1507 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/civic-work-package-v0.1.schema.json",
+  "title": "Civic Work Package Contract",
+  "description": "A fail-closed record for proposed or authorized civic work. Structural validity does not prove funding, legal compliance, authority, identity, or delivery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_package_id",
+    "revision",
+    "status",
+    "scope",
+    "linked_records",
+    "deliverables",
+    "commissioning",
+    "procurement",
+    "funding",
+    "labor_plan",
+    "authorization",
+    "protections",
+    "community_review",
+    "verification",
+    "lifecycle_events",
+    "timestamps",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "civic-work-package/0.1"
+    },
+    "work_package_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "discovery",
+        "proposed",
+        "classification_review",
+        "funding_committed",
+        "authorized",
+        "announced",
+        "active",
+        "completion_claimed",
+        "independently_verified",
+        "closed_or_cancelled"
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "service_domains",
+        "area",
+        "period"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "service_domains": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]{1,80}$"
+          }
+        },
+        "area": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "area_ref",
+            "public_granularity",
+            "privacy_classification"
+          ],
+          "properties": {
+            "area_ref": {
+              "type": "string",
+              "minLength": 3
+            },
+            "public_granularity": {
+              "enum": [
+                "city_region",
+                "ward",
+                "precinct",
+                "aggregate_only",
+                "restricted"
+              ]
+            },
+            "privacy_classification": {
+              "enum": [
+                "public",
+                "redacted_public",
+                "restricted",
+                "sensitive"
+              ]
+            }
+          }
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_date",
+            "end_date"
+          ],
+          "properties": {
+            "start_date": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "end_date": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            }
+          }
+        }
+      }
+    },
+    "linked_records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_refs",
+        "scenario_refs",
+        "analysis_refs",
+        "evidence_refs"
+      ],
+      "properties": {
+        "case_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/record_ref"
+          }
+        },
+        "scenario_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record_ref"
+          }
+        },
+        "analysis_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record_ref"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record_ref"
+          }
+        }
+      }
+    },
+    "deliverables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deliverable_id",
+          "description",
+          "acceptance_criteria"
+        ],
+        "properties": {
+          "deliverable_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 5
+            }
+          }
+        }
+      }
+    },
+    "commissioning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "commissioning_body_ref",
+        "payer_ref",
+        "authority_basis",
+        "decision_ref"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unknown",
+            "identified",
+            "authorized"
+          ]
+        },
+        "commissioning_body_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "payer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "authority_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 5
+        },
+        "decision_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        }
+      }
+    },
+    "procurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "lifecycle_stage",
+        "issuer_ref",
+        "process_ref",
+        "source_ref",
+        "retrieved_at",
+        "closing_date",
+        "rationale"
+      ],
+      "properties": {
+        "route": {
+          "enum": [
+            "unknown",
+            "open_tender",
+            "awarded_contract",
+            "direct_authorized_employment",
+            "partner_agreement",
+            "not_required"
+          ]
+        },
+        "lifecycle_stage": {
+          "enum": [
+            "unknown",
+            "discovery",
+            "tender_open",
+            "tender_closed",
+            "cancelled",
+            "awarded",
+            "contracted",
+            "implementation",
+            "completed",
+            "not_applicable"
+          ]
+        },
+        "issuer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "process_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "retrieved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "closing_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 5
+        }
+      }
+    },
+    "funding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "currency",
+        "price_year",
+        "whole_period_fully_costed",
+        "commitment_evidence_ref",
+        "funded_period_start",
+        "funded_period_end",
+        "payer_ref",
+        "committed_amount_minor_units",
+        "full_period_cost_estimate_minor_units",
+        "minor_unit_digits",
+        "cost_breakdown"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unknown",
+            "estimated",
+            "committed"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "price_year": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1900,
+          "maximum": 2200
+        },
+        "whole_period_fully_costed": {
+          "type": "boolean"
+        },
+        "commitment_evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "funded_period_start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "funded_period_end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "payer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "committed_amount_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Committed amount in integer minor units, using the declared currency scale."
+        },
+        "full_period_cost_estimate_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Whole-period cost estimate in integer minor units; must equal the sum of cost line items."
+        },
+        "minor_unit_digits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "cost_breakdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cost_items",
+            "category_coverage",
+            "reviewed_by_ref",
+            "reviewed_at"
+          ],
+          "properties": {
+            "cost_items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "line_item_id",
+                  "category",
+                  "description",
+                  "amount_minor_units",
+                  "basis_method",
+                  "basis_ref",
+                  "source_refs",
+                  "period_start",
+                  "period_end"
+                ],
+                "properties": {
+                  "line_item_id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+                  },
+                  "category": {
+                    "enum": [
+                      "wages",
+                      "employer_statutory_costs",
+                      "supervision",
+                      "training",
+                      "tools_equipment",
+                      "protective_equipment",
+                      "accessibility",
+                      "transport",
+                      "insurance",
+                      "materials",
+                      "maintenance",
+                      "independent_verification",
+                      "administration_overheads",
+                      "community_engagement",
+                      "environmental_mitigation",
+                      "end_of_life_disposal",
+                      "permits_taxes_fees",
+                      "contingency",
+                      "other"
+                    ]
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 5
+                  },
+                  "amount_minor_units": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Integer minor units using funding.currency and funding.minor_unit_digits; exact sums are recomputed by the reference validator."
+                  },
+                  "basis_method": {
+                    "enum": [
+                      "quoted_rate",
+                      "published_rate",
+                      "historical_actual",
+                      "expert_estimate",
+                      "contingency_allowance",
+                      "other"
+                    ]
+                  },
+                  "basis_ref": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "source_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 3
+                    }
+                  },
+                  "period_start": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "period_end": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            },
+            "category_coverage": {
+              "type": "array",
+              "minItems": 14,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "disposition",
+                  "rationale"
+                ],
+                "properties": {
+                  "category": {
+                    "enum": [
+                      "wages",
+                      "employer_statutory_costs",
+                      "supervision",
+                      "training",
+                      "tools_equipment",
+                      "protective_equipment",
+                      "accessibility",
+                      "transport",
+                      "insurance",
+                      "materials",
+                      "maintenance",
+                      "independent_verification",
+                      "administration_overheads",
+                      "community_engagement",
+                      "environmental_mitigation",
+                      "end_of_life_disposal",
+                      "permits_taxes_fees",
+                      "contingency",
+                      "other"
+                    ]
+                  },
+                  "disposition": {
+                    "enum": [
+                      "included",
+                      "not_applicable"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "minLength": 5
+                  }
+                }
+              }
+            },
+            "reviewed_by_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 3
+            },
+            "reviewed_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "labor_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_actor_refs",
+        "roles"
+      ],
+      "properties": {
+        "execution_actor_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/role"
+          }
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "authorizer_ref",
+        "authority_basis",
+        "decision_ref",
+        "decided_at",
+        "approved_by_human"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "approved",
+            "denied",
+            "revoked"
+          ]
+        },
+        "authorizer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "authority_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 5
+        },
+        "decision_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "decided_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "approved_by_human": {
+          "type": "boolean"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "protections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "written_terms_ref",
+        "payment_schedule",
+        "safety_plan_ref",
+        "grievance_route_ref",
+        "accessibility_review_ref",
+        "no_adverse_automated_decisions"
+      ],
+      "properties": {
+        "written_terms_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "payment_schedule": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "safety_plan_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "grievance_route_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "accessibility_review_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "no_adverse_automated_decisions": {
+          "const": true
+        }
+      }
+    },
+    "community_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "evidence_ref",
+        "rationale"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_started",
+            "planned",
+            "completed",
+            "not_required"
+          ]
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 5
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "completion_criteria_ref",
+        "method_ref",
+        "reviewer_ref",
+        "reviewed_at",
+        "reviewer_is_independent",
+        "evidence"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "defined",
+            "claimed",
+            "completed"
+          ]
+        },
+        "completion_criteria_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "reviewer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "reviewer_is_independent": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "record_ref",
+              "sha256",
+              "reviewed_by_ref",
+              "visibility"
+            ],
+            "properties": {
+              "record_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reviewed_by_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "visibility": {
+                "enum": [
+                  "public",
+                  "redacted_public",
+                  "restricted",
+                  "private"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "lifecycle_events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "from_status",
+          "to_status",
+          "actor_ref",
+          "actor_kind",
+          "happened_at",
+          "evidence_refs"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 3
+          },
+          "from_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "discovery",
+              "proposed",
+              "classification_review",
+              "funding_committed",
+              "authorized",
+              "announced",
+              "active",
+              "completion_claimed",
+              "independently_verified",
+              "closed_or_cancelled",
+              null
+            ]
+          },
+          "to_status": {
+            "enum": [
+              "discovery",
+              "proposed",
+              "classification_review",
+              "funding_committed",
+              "authorized",
+              "announced",
+              "active",
+              "completion_claimed",
+              "independently_verified",
+              "closed_or_cancelled"
+            ]
+          },
+          "actor_ref": {
+            "type": "string",
+            "minLength": 3
+          },
+          "actor_kind": {
+            "enum": [
+              "human",
+              "automated"
+            ]
+          },
+          "happened_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 3
+            }
+          }
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      }
+    }
+  },
+  "$defs": {
+    "record_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "record_id",
+        "revision",
+        "sha256"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "minLength": 2
+        },
+        "record_id": {
+          "type": "string",
+          "minLength": 2
+        },
+        "revision": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "minLength": 1
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role_id",
+        "arrangement",
+        "paid",
+        "positions_count",
+        "classification",
+        "terms_ref"
+      ],
+      "properties": {
+        "role_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "arrangement": {
+          "enum": [
+            "employee",
+            "contractor",
+            "cooperative_member",
+            "volunteer",
+            "other"
+          ]
+        },
+        "paid": {
+          "type": "boolean"
+        },
+        "positions_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "classification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "classification_code",
+            "wage_basis_ref",
+            "source_ref",
+            "reviewer_ref",
+            "reviewed_at"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "unknown",
+                "under_review",
+                "reviewed",
+                "not_applicable"
+              ]
+            },
+            "classification_code": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 3
+            },
+            "wage_basis_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 3
+            },
+            "source_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 3
+            },
+            "reviewer_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 3
+            },
+            "reviewed_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
+        },
+        "terms_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "paid": {
+                "const": true
+              }
+            },
+            "required": [
+              "paid"
+            ]
+          },
+          "then": {}
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "funding_committed",
+              "authorized",
+              "announced",
+              "active",
+              "completion_claimed",
+              "independently_verified"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "funding": {
+            "properties": {
+              "status": {
+                "const": "committed"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "price_year": {
+                "type": "integer",
+                "minimum": 1900,
+                "maximum": 2200
+              },
+              "whole_period_fully_costed": {
+                "const": true
+              },
+              "commitment_evidence_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "funded_period_start": {
+                "type": "string",
+                "format": "date"
+              },
+              "funded_period_end": {
+                "type": "string",
+                "format": "date"
+              },
+              "payer_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "committed_amount_minor_units": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "full_period_cost_estimate_minor_units": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minor_unit_digits": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "cost_breakdown": {
+                "type": "object",
+                "required": [
+                  "cost_items",
+                  "category_coverage",
+                  "reviewed_by_ref",
+                  "reviewed_at"
+                ],
+                "properties": {
+                  "cost_items": {
+                    "type": "array",
+                    "minItems": 1
+                  },
+                  "category_coverage": {
+                    "type": "array",
+                    "minItems": 14
+                  },
+                  "reviewed_by_ref": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "reviewed_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            },
+            "required": [
+              "status",
+              "currency",
+              "price_year",
+              "committed_amount_minor_units",
+              "full_period_cost_estimate_minor_units",
+              "whole_period_fully_costed",
+              "commitment_evidence_ref",
+              "funded_period_start",
+              "funded_period_end",
+              "payer_ref",
+              "minor_unit_digits",
+              "cost_breakdown"
+            ]
+          },
+          "labor_plan": {
+            "properties": {
+              "roles": {
+                "items": {
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "paid": {
+                            "const": true
+                          }
+                        },
+                        "required": [
+                          "paid"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "classification": {
+                            "properties": {
+                              "status": {
+                                "const": "reviewed"
+                              },
+                              "classification_code": {
+                                "type": "string",
+                                "minLength": 3
+                              },
+                              "wage_basis_ref": {
+                                "type": "string",
+                                "minLength": 3
+                              },
+                              "source_ref": {
+                                "type": "string",
+                                "minLength": 3
+                              },
+                              "reviewer_ref": {
+                                "type": "string",
+                                "minLength": 3
+                              },
+                              "reviewed_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "status",
+                              "classification_code",
+                              "wage_basis_ref",
+                              "source_ref",
+                              "reviewer_ref",
+                              "reviewed_at"
+                            ]
+                          },
+                          "terms_ref": {
+                            "type": "string",
+                            "minLength": 3
+                          }
+                        },
+                        "required": [
+                          "classification",
+                          "terms_ref"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "roles"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "authorized",
+              "announced",
+              "active",
+              "completion_claimed",
+              "independently_verified"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "commissioning": {
+            "properties": {
+              "status": {
+                "const": "authorized"
+              },
+              "commissioning_body_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "payer_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "authority_basis": {
+                "type": "string",
+                "minLength": 5
+              },
+              "decision_ref": {
+                "type": "string",
+                "minLength": 3
+              }
+            },
+            "required": [
+              "status",
+              "commissioning_body_ref",
+              "payer_ref",
+              "authority_basis",
+              "decision_ref"
+            ]
+          },
+          "authorization": {
+            "properties": {
+              "status": {
+                "const": "approved"
+              },
+              "authorizer_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "authority_basis": {
+                "type": "string",
+                "minLength": 5
+              },
+              "decision_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "decided_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "approved_by_human": {
+                "const": true
+              }
+            },
+            "required": [
+              "status",
+              "authorizer_ref",
+              "authority_basis",
+              "decision_ref",
+              "decided_at",
+              "approved_by_human"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "authorized",
+              "announced",
+              "active",
+              "completion_claimed",
+              "independently_verified"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "procurement": {
+            "properties": {
+              "lifecycle_stage": {
+                "enum": [
+                  "contracted",
+                  "implementation",
+                  "completed",
+                  "not_applicable"
+                ]
+              },
+              "source_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "route": {
+                "enum": [
+                  "awarded_contract",
+                  "direct_authorized_employment",
+                  "partner_agreement",
+                  "not_required"
+                ]
+              }
+            },
+            "required": [
+              "lifecycle_stage",
+              "source_ref",
+              "route"
+            ]
+          },
+          "protections": {
+            "properties": {
+              "written_terms_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "payment_schedule": {
+                "type": "string",
+                "minLength": 3
+              },
+              "safety_plan_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "grievance_route_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "accessibility_review_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "no_adverse_automated_decisions": {
+                "const": true
+              }
+            },
+            "required": [
+              "written_terms_ref",
+              "payment_schedule",
+              "safety_plan_ref",
+              "grievance_route_ref",
+              "accessibility_review_ref",
+              "no_adverse_automated_decisions"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "independently_verified"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verification": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              },
+              "completion_criteria_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "method_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "reviewer_ref": {
+                "type": "string",
+                "minLength": 3
+              },
+              "reviewed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "reviewer_is_independent": {
+                "const": true
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "required": [
+              "status",
+              "completion_criteria_ref",
+              "method_ref",
+              "reviewer_ref",
+              "reviewed_at",
+              "reviewer_is_independent",
+              "evidence"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

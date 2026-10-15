@@ -338,6 +338,21 @@ The negative corpus must execute before positive conformance.
 
 Positive fixtures should mirror each negative case and demonstrate the missing explicit binding or authorization.
 
+### Executable corpus bindings
+
+The current executable reference harness is tied to two versioned, hash-pinned corpora:
+
+- [D6S-CANON-1 vectors](d6s-canon-1-golden-vectors.json) and [manifest](d6s-canon-1-manifest.json): all COS-N-001..016 negative expectations, explicit positive counterparts, and mapping to COS-FV-001..010. Rust target: `mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs`; independent integrity verifier: `scripts/integral/verify_d6s_canon_1.py`.
+- [D6S-CANON-2 authority-boundary fixture](d6s-canon-2-authority-boundary-fixture.json) and [manifest](d6s-canon-2-manifest.json): explicit ITC projection, FRS/source-observation separation, authority/effect receipts, foreign-origin preservation, physical-work binding, stale evidence, and unknown transitions. Rust target: `mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs`; independent integrity verifier: `scripts/integral/verify_d6s_canon_2_authority_boundary.py`.
+
+The manifests pin the Git blob identity of the corpus/fixture bytes, reject duplicate JSON keys, and check the expected case census and formal-obligation mappings. Rust tests exercise the executable reference model; the Python scripts independently check corpus integrity and metadata. These are complementary gates, not independent proof of the real-world truth of an input.
+
+Generated conformance reports include both expected and actual negative/positive decisions, input evidence classes, provenance/origin, temporal-validity state, the concrete refinement subject, the `ReferenceModelOnly` status, and a per-case claim ceiling. The canonical integration test checks that each report row contains non-empty evidence/refinement metadata and that all actual decisions match the declared expectations. This report remains a summary of the executable reference harness, not an attestation about production systems.
+
+The foreign-dependency cases are deliberately distinct in the executable model. COS-N-009 rejects a claim that an imported dependency is local capability; its positive path requires explicit external-dependency classification and foreign recognition while retaining the foreign evidence origin. COS-N-013 rejects a direct claim that foreign-origin evidence originated locally; recognition permits using the evidence under the reference policy but never mutates `Evidence.origin`. The conformance report uses foreign evidence profiles for both cases, and each has a dedicated adversarial Rust test.
+
+**Qualification boundary:** a green workflow run with `status=not-applicable` is not D6S qualification. Qualification requires the exact-head Rust targets and both independent verifiers to pass. Even then, the claim remains `ReferenceModelOnly`; no production runtime, safety, productivity, ecological/economic outcome, or Integral endorsement is established.
+
 ## 8. Formal refinement map
 
 The reference node is intended to supply concrete subjects for #3333:

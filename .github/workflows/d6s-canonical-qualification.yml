@@ -35,14 +35,100 @@ jobs:
 
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+      - name: Determine whether D6S qualification is in scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "D6S qualification is explicitly requested or running on its dedicated branch."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA" "$QUALIFIED_SHA")"
+          required=false
+          while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            case "$path" in
+              docs/integral/*|scripts/integral/*|.github/workflows/d6s-canonical-qualification.yml|mycelix-manufacturing/Cargo.toml|mycelix-manufacturing/Cargo.lock|mycelix-manufacturing/**/Cargo.toml|mycelix-manufacturing/.cargo/*|.cargo/*|mycelix-manufacturing/crates/cos_conformance/src/*|mycelix-manufacturing/crates/cos_conformance/tests/*)
+                required=true
+                echo "D6S-relevant change: $path"
+                ;;
+            esac
+          done <<< "$changed"
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          echo "d6s_scope_changed=$required"
+          if [[ "$required" != true ]]; then
+            echo "No D6S corpus, verifier, target, workspace manifest, lockfile, or cargo configuration changed; do not claim D6S qualification."
+          fi
+
+      - name: Test dependency scope and manifest pin contract
+        if: steps.scope.outputs.required == 'true'
+        run: python3 scripts/integral/test_d6s_workflow_contract.py
+
+      - name: Verify pinned D6S reference assets
+        if: steps.scope.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_blob() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(git hash-object -- "$path")"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "D6S_BLOB_PIN_MISMATCH path=$path expected=$expected actual=$actual" >&2
+              exit 1
+            fi
+            echo "D6S_BLOB_PIN_OK path=$path blob=$actual"
+          }
+          # These roots are deliberately repeated here. Updating the corpus,
+          # manifest, reference engine, Rust test, or independent verifier requires
+          # a visible reviewed update to this pin list in the same change.
+          check_blob "docs/integral/d6s-canon-1-golden-vectors.json" "419dfc5b5ab8d7aff98502651fd45b6eca4a5dcb"
+          check_blob "docs/integral/d6s-canon-1-manifest.json" "ee4c7851ba375a393e1cbe49f86dacda1d618681"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs" "3854e7b318203171deb150e61e30e0c78e918487"
+          check_blob "scripts/integral/verify_d6s_canon_1.py" "09c143d3e069e4e3f373c0730dbbdaca04965238"
+          check_blob "docs/integral/d6s-canon-2-authority-boundary-fixture.json" "aa30f08be279147cf85ecfd64436d1aa546920ba"
+          check_blob "docs/integral/d6s-canon-2-manifest.json" "fd43f8255afeba1edaace6519867e20896a3c8f1"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs" "4516f7d72308b05de3ea03945ac550bb4628c80d"
+          check_blob "scripts/integral/verify_d6s_canon_2_authority_boundary.py" "1d9fef4e615279e88526012593f8e0798494a0c6"
+          check_blob "scripts/integral/verify_cos_conformance_report.py" "82456ec449253710210cc6780fc301fcce0ff020"
+          check_blob "scripts/integral/test_verify_cos_conformance_report.py" "3ae836fc1c5dea7b85b2ffdd3a0f66665d28f2a7"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/src/bin/cos_report.rs" "3bfd6e8e2b80c4eec1bdffea0d0fdbd951c6394a"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/src/lib.rs" "2aa9d885b7b555eb1ea203560e096b06989f19f5"
+          check_blob "docs/integral/cos-reference-node-v1.md" "ce0cf19ef76ad64417b26386913c803654030757"
+          check_blob "mycelix-manufacturing/Cargo.toml" "cb71136c20f067c609d360510c5497e225893f84"
+          check_blob "mycelix-manufacturing/crates/cos_conformance/Cargo.toml" "54dbd6b59cc52e95cd0c4823766c610f7a18d931"
+          check_blob "scripts/integral/test_d6s_workflow_contract.py" "5ae37005f02b88bdb98ed33879a359061bc757e2"
+          check_blob "mycelix-manufacturing/crates/manufacturing_common/Cargo.toml" "6e6fe2b5cbf7714904b052554e5c2954c33d49ef"
+          check_blob "mycelix-manufacturing/zomes/workorders/coordinator/Cargo.toml" "d046bdc386face6e17465b46afd04be1c3ac9996"
+          check_blob "mycelix-manufacturing/zomes/workorders/integrity/Cargo.toml" "b430f1d97ed2065d4db4a00528d5e967d051186f"
+          check_blob "mycelix-manufacturing/zomes/bom/coordinator/Cargo.toml" "160cb178843af03b03c76d236d2e5e0f11c3503d"
+          check_blob "mycelix-manufacturing/zomes/bom/integrity/Cargo.toml" "9c9765bead8eca8a83b9b76577b8efa90fc05b01"
+          check_blob "mycelix-manufacturing/zomes/operations/coordinator/Cargo.toml" "7f03f7d1265f80c3f0f26d45a787aac066ba3731"
+          check_blob "mycelix-manufacturing/zomes/operations/integrity/Cargo.toml" "2f0b145562e977be1aa5fa9ea429c09c3bd65876"
+          check_blob "mycelix-manufacturing/zomes/machines/coordinator/Cargo.toml" "16847b67b4e82ed321431adc653593d9652ddc9d"
+          check_blob "mycelix-manufacturing/zomes/machines/integrity/Cargo.toml" "da7cad7f5b2490c3ceae1c641960eab5c215e953"
+          check_blob "mycelix-manufacturing/zomes/planning/coordinator/Cargo.toml" "8de74774e425f4216bd65986a2bd0560782fef0b"
+          check_blob "mycelix-manufacturing/zomes/planning/integrity/Cargo.toml" "f668b4e93654a06c17087077064314a11709272e"
+          check_blob "mycelix-manufacturing/zomes/bridge/coordinator/Cargo.toml" "f771f3d929a658e04a6c176cb404031daa3db130"
+          check_blob "mycelix-manufacturing/zomes/bridge/integrity/Cargo.toml" "6e4eb8a3e6f02dd49a8d1a94c98a892316018af6"
+
 
       - name: Install pinned Rust
+        if: steps.scope.outputs.required == 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
         with:
           toolchain: 1.96.0
           components: rustfmt
 
       - name: Assert Rust toolchain identity
+        if: steps.scope.outputs.required == 'true'
         run: |
           test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
           rustfmt +1.96.0 --version
@@ -53,16 +139,64 @@ jobs:
       # subject; semantic/reference qualification is provided by the locked
       # corpus and independent CANON verifiers below.
 
-      - name: Generate reference-test dependency lock
-        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+      - name: Resolve or validate reference-test dependency lock
+        id: dependency_lock
+        if: steps.scope.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="mycelix-manufacturing/Cargo.toml"
+          lockfile="mycelix-manufacturing/Cargo.lock"
+          if [[ -f "$lockfile" ]]; then
+            echo "D6S_CARGO_LOCK_MODE=committed" >> "$GITHUB_ENV"
+            cargo metadata --manifest-path "$manifest" --locked --format-version 1 > /dev/null
+          else
+            echo "D6S_CARGO_LOCK_MODE=generated-per-run" >> "$GITHUB_ENV"
+            echo "NOTICE: no committed Cargo.lock; this run records its resolved graph but does not pin the graph across runs." >&2
+            cargo generate-lockfile --manifest-path "$manifest"
+            cargo metadata --manifest-path "$manifest" --locked --format-version 1 > /dev/null
+          fi
 
-      - name: Assert resolved reference-test dependency graph
-        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+      - name: Capture dependency graph provenance
+        if: ${{ always() && steps.scope.outputs.required == 'true' && hashFiles('mycelix-manufacturing/Cargo.lock') != '' }}
+        env:
+          LOCK_STEP_OUTCOME: ${{ steps.dependency_lock.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          lockfile="mycelix-manufacturing/Cargo.lock"
+          {
+            echo "commit=$QUALIFIED_SHA"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "lock_resolution_step_outcome=$LOCK_STEP_OUTCOME"
+            echo "cargo_lock_mode=${D6S_CARGO_LOCK_MODE:-unknown}"
+            echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "target=$(rustc -vV | sed -n 's/^host: //p')"
+            echo "cargo=$(cargo --version)"
+            echo "workspace_manifest_blob=$(git hash-object mycelix-manufacturing/Cargo.toml)"
+            mapfile -t manifests < <(git ls-files | grep -E '^mycelix-manufacturing/(Cargo\.toml|.*/Cargo\.toml)$' | LC_ALL=C sort)
+            echo "workspace_manifest_count=${#manifests[@]}"
+            for path in "${manifests[@]}"; do
+              echo "manifest_blob[$path]=$(git hash-object -- "$path")"
+            done
+            echo "cargo_lock_sha256=$(sha256sum "$lockfile" | cut -d' ' -f1)"
+            echo "cargo_lock_git_blob_sha=$(git hash-object -- "$lockfile")"
+          } | tee d6s-dependency-resolution.txt
 
       # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
       - name: Run D6S canonical integration suites
+        if: steps.scope.outputs.required == 'true'
         run: >-
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
@@ -72,12 +206,165 @@ jobs:
           --test d6s_canon_2_authority_boundary
 
       - name: Run independent D6S-CANON-1 verifier
+        if: steps.scope.outputs.required == 'true'
         run: python3 scripts/integral/verify_d6s_canon_1.py
 
       - name: Run D6S-CANON-2 authority-boundary fixture verifier
+        if: steps.scope.outputs.required == 'true'
         run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
 
+      - name: Generate and independently verify COS conformance report
+        if: steps.scope.outputs.required == 'true'
+        run: |
+          cargo run --manifest-path mycelix-manufacturing/Cargo.toml --locked -p cos_conformance --bin cos-report > cos-reference-conformance-report.json
+          python3 scripts/integral/verify_cos_conformance_report.py cos-reference-conformance-report.json
+
+      - name: Run adversarial report-verifier controls
+        if: steps.scope.outputs.required == 'true'
+        run: python3 scripts/integral/test_verify_cos_conformance_report.py cos-reference-conformance-report.json
+
+      - name: Preserve dependency graph when qualification fails
+        if: ${{ always() && steps.scope.outputs.required == 'true' && hashFiles('mycelix-manufacturing/Cargo.lock') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-dependency-resolution-${{ env.QUALIFIED_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            d6s-dependency-resolution.txt
+            mycelix-manufacturing/Cargo.lock
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record non-applicability without qualifying D6S
+        if: steps.scope.outputs.required != 'true'
+        run: |
+          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=not-applicable"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "d6s_scope_changed=false"
+            echo "claim_ceiling=NotQualified"
+          } | tee d6s-canonical-reference-not-applicable.txt
+
       - name: Emit qualification record
+        if: steps.scope.outputs.required == 'true'
+        run: |
+          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=reference-gate-passed"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
+            echo "rust_action_toolchain=1.96.0"
+            echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
+            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "python=$(python3 --version)"
+            echo "cargo_lock_mode=${D6S_CARGO_LOCK_MODE:-unknown}"
+            echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "cargo_lock_git_blob_sha=$(git hash-object mycelix-manufacturing/Cargo.lock)"
+            echo "cos_report_sha256=$(sha256sum cos-reference-conformance-report.json | cut -d' ' -f1)"
+            echo "cos_report_git_blob_sha=$(git hash-object cos-reference-conformance-report.json)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
+            echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
+            echo "canon2_fixture_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
+            echo "canon2_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-manifest.json)"
+            echo "canon1_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-manifest.json)"
+            echo "canon1_corpus_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-golden-vectors.json)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "d6s_authority_ledger_schema=v1"
+            echo "d6s_runtime_evidence_status=NotExecuted"
+            echo "canon2_runtime_binding_status=ReferenceMappingOnly"
+            echo "rust_corpus=PASSED"
+            echo "d6s_canon_1_golden_vectors_rust=PASSED"
+            echo "d6s_canon_2_authority_boundary_rust=PASSED"
+            echo "canon1_independent_verifier=PASSED"
+            echo "canon2_authority_boundary_fixture=PASSED"
+            echo "cos_conformance_report=PASSED"
+            echo "cos_report_independent_verifier=PASSED"
+            echo "claim_ceiling=ReferenceModelOnly"
+          } | tee d6s-canonical-reference-qualification.txt
+
+      - name: Upload qualification record
+        if: steps.scope.outputs.required == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+          path: |
+            d6s-canonical-reference-qualification.txt
+            d6s-dependency-resolution.txt
+            cos-reference-conformance-report.json
+            mycelix-manufacturing/Cargo.lock
+ | LC_ALL=C sort)
+            echo "workspace_manifest_count=${#manifests[@]}"
+            for path in "${manifests[@]}"; do
+              echo "manifest_blob[$path]=$(git hash-object -- "$path")"
+            done
+            echo "cargo_lock_sha256=$(sha256sum "$lockfile" | cut -d' ' -f1)"
+            echo "cargo_lock_git_blob_sha=$(git hash-object -- "$lockfile")"
+          } | tee d6s-dependency-resolution.txt
+
+      # D6S qualification is scoped to the D6S reference contracts. The
+      # broader COS workspace contains unrelated suites whose baseline state
+      # must not gate this specific reference qualification.
+      - name: Run D6S canonical integration suites
+        if: steps.scope.outputs.required == 'true'
+        run: >-
+          cargo test
+          --manifest-path mycelix-manufacturing/Cargo.toml
+          --locked
+          -p cos_conformance
+          --test d6s_canon_1_golden_vectors
+          --test d6s_canon_2_authority_boundary
+
+      - name: Run independent D6S-CANON-1 verifier
+        if: steps.scope.outputs.required == 'true'
+        run: python3 scripts/integral/verify_d6s_canon_1.py
+
+      - name: Run D6S-CANON-2 authority-boundary fixture verifier
+        if: steps.scope.outputs.required == 'true'
+        run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
+
+      - name: Generate and independently verify COS conformance report
+        if: steps.scope.outputs.required == 'true'
+        run: |
+          cargo run --manifest-path mycelix-manufacturing/Cargo.toml --locked -p cos_conformance --bin cos-report > cos-reference-conformance-report.json
+          python3 scripts/integral/verify_cos_conformance_report.py cos-reference-conformance-report.json
+
+      - name: Run adversarial report-verifier controls
+        if: steps.scope.outputs.required == 'true'
+        run: python3 scripts/integral/test_verify_cos_conformance_report.py cos-reference-conformance-report.json
+
+      - name: Record non-applicability without qualifying D6S
+        if: steps.scope.outputs.required != 'true'
+        run: |
+          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=not-applicable"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "d6s_scope_changed=false"
+            echo "claim_ceiling=NotQualified"
+          } | tee d6s-canonical-reference-not-applicable.txt
+
+      - name: Emit qualification record
+        if: steps.scope.outputs.required == 'true'
         run: |
           {
             echo "D6S CANONICAL REFERENCE GATE"
@@ -102,6 +389,9 @@ jobs:
             echo "rustfmt=$(rustfmt --version)"
             echo "python=$(python3 --version)"
             echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "cargo_lock_git_blob_sha=$(git hash-object mycelix-manufacturing/Cargo.lock)"
+            echo "cos_report_sha256=$(sha256sum cos-reference-conformance-report.json | cut -d' ' -f1)"
+            echo "cos_report_git_blob_sha=$(git hash-object cos-reference-conformance-report.json)"
             echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
             echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
@@ -114,13 +404,21 @@ jobs:
             echo "d6s_runtime_evidence_status=NotExecuted"
             echo "canon2_runtime_binding_status=ReferenceMappingOnly"
             echo "rust_corpus=PASSED"
+            echo "d6s_canon_1_golden_vectors_rust=PASSED"
+            echo "d6s_canon_2_authority_boundary_rust=PASSED"
             echo "canon1_independent_verifier=PASSED"
             echo "canon2_authority_boundary_fixture=PASSED"
+            echo "cos_conformance_report=PASSED"
+            echo "cos_report_independent_verifier=PASSED"
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6s-canonical-reference-qualification.txt
 
       - name: Upload qualification record
+        if: steps.scope.outputs.required == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
-          path: d6s-canonical-reference-qualification.txt
+          path: |
+            d6s-canonical-reference-qualification.txt
+            cos-reference-conformance-report.json
+            mycelix-manufacturing/Cargo.lock

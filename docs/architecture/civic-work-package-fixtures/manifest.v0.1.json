@@ -1,0 +1,52 @@
+{
+  "manifest_version": "civic-work-package-fixture-manifest/0.1",
+  "schema_path": "docs/architecture/civic-work-package-v0.1.schema.json",
+  "fixtures": [
+    {
+      "path": "docs/architecture/civic-work-package-fixtures/proposed.synthetic.v0.1.json",
+      "expect_valid": true,
+      "status": "proposed",
+      "git_blob_sha": "5bf213e8b314157806ad2d57c385d6e68618b272"
+    },
+    {
+      "path": "docs/architecture/civic-work-package-fixtures/authorized.synthetic.v0.1.json",
+      "expect_valid": true,
+      "status": "authorized",
+      "git_blob_sha": "9f176a284be03662d8b901ab0328f3005da15ffd"
+    }
+  ],
+  "required_negative_controls": [
+    "missing-funding-commitment-evidence",
+    "unknown-wage-regime-after-funding",
+    "open-tender-treated-as-active",
+    "automated-authorization",
+    "non-monotonic-lifecycle",
+    "underfunded-commitment",
+    "provider-self-verification",
+    "cancellation-does-not-erase-historical-funding-and-authorization-gates",
+    "cancellation-after-execution-retains-worker-protection-gates",
+    "closure-does-not-erase-independent-verification-checks",
+    "duplicate-json-keys",
+    "open-tender-route-mismatch",
+    "cost-total-mismatch",
+    "missing-cost-category-assessment",
+    "duplicate-cost-item-id",
+    "cost-period-out-of-scope",
+    "not-applicable-category-has-cost-line",
+    "missing-environment-and-closeout-costs",
+    "paid-role-with-zero-wage-cost",
+    "currency-minor-unit-scale-mismatch",
+    "unsupported-currency-minor-unit-rule",
+    "funded-period-must-cover-full-scope",
+    "funded-work-requires-complete-scope-period"
+  ],
+  "required_positive_boundary_controls": [
+    "supported-zero-decimal-currency-scale"
+  ],
+  "limitations": [
+    "Fixtures are synthetic only and must not be used as real contracts or employment evidence.",
+    "A valid schema is not evidence of truth, funding, legal compliance, authority, or delivery.",
+    "Currency minor-unit scales use a bounded explicit ISO 4217 allowlist; unknown currency codes fail closed until verified against current Maintenance Agency data."
+  ],
+  "schema_git_blob_sha": "e939265af66c70ad16f399203853ba1c8284ddbf"
+}

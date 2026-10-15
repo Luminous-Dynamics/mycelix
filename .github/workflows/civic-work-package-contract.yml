@@ -1,0 +1,52 @@
+name: Civic work-package contract
+
+on:
+  pull_request:
+    paths:
+      - "docs/architecture/civic-work-package-v0.1.schema.json"
+      - "docs/architecture/civic-work-package-fixtures/**"
+      - "scripts/qualification/validate_civic_work_package_v0_1.py"
+      - "scripts/qualification/test_validate_civic_work_package_v0_1.py"
+      - ".github/workflows/civic-work-package-contract.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/architecture/civic-work-package-v0.1.schema.json"
+      - "docs/architecture/civic-work-package-fixtures/**"
+      - "scripts/qualification/validate_civic_work_package_v0_1.py"
+      - "scripts/qualification/test_validate_civic_work_package_v0_1.py"
+      - ".github/workflows/civic-work-package-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civic-work-package-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install pinned JSON Schema validator
+        run: python -m pip install --disable-pip-version-check "jsonschema==4.26.0"
+      - name: Print exact revision
+        run: |
+          expected_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          printf 'event.sha=%s\n' "$GITHUB_SHA"
+          printf 'expected.subject.sha=%s\n' "$expected_sha"
+          printf 'checkout.sha=%s\n' "$(git rev-parse HEAD)"
+          test "$expected_sha" = "$(git rev-parse HEAD)"
+      - name: Validate schema and positive fixtures
+        run: python scripts/qualification/validate_civic_work_package_v0_1.py
+      - name: Run adversarial controls
+        run: python scripts/qualification/test_validate_civic_work_package_v0_1.py -v
