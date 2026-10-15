@@ -14,6 +14,24 @@ if not REPORT_PATH.is_absolute():
 
 EXPECTED_IDS = [f"COS-N-{number:03d}" for number in range(1, 17)]
 EXPECTED_OBLIGATIONS = {f"COS-FV-{number:03d}" for number in range(1, 11)}
+EXPECTED_CLAIM_CEILINGS = {
+    "COS-N-001": "Plan/execution semantic conformance only.",
+    "COS-N-002": "Planned-vs-consumed evidence separation only.",
+    "COS-N-003": "Temporal availability binding only.",
+    "COS-N-004": "Machine capability/availability separation only.",
+    "COS-N-005": "Freshness semantics only.",
+    "COS-N-006": "Output qualification boundary only.",
+    "COS-N-007": "Single-run/general-capability separation only.",
+    "COS-N-008": "Historical failure immutability only.",
+    "COS-N-009": "External dependency provenance only.",
+    "COS-N-010": "FRS projection/source-observation separation only.",
+    "COS-N-011": "Production/ITC projection separation only.",
+    "COS-N-012": "ITC/physical-work separation only.",
+    "COS-N-013": "Foreign/local provenance separation only.",
+    "COS-N-014": "Authorization/effect separation only.",
+    "COS-N-015": "Distribution/quality separation only.",
+    "COS-N-016": "Explicit-denominator arithmetic claim only.",
+}
 ALLOWED_DECISIONS = {
     "Accepted", "Rejected", "Unknown", "Conflicting",
     "Stale", "Superseded", "Unauthorized", "Unbound",
@@ -100,6 +118,8 @@ def main() -> int:
             require_nonempty_string(record[field], f"{label}.{field}")
         if record["refinement_status"] != "ReferenceModelOnly":
             raise ValueError(f"REPORT_REFINEMENT_CLAIM_EXCEEDS_REFERENCE_MODEL {test_id}")
+        if record["claim_ceiling"] != EXPECTED_CLAIM_CEILINGS.get(test_id):
+            raise ValueError(f"REPORT_ROW_CLAIM_CEILING_MISMATCH {test_id}")
         if test_id in {"COS-N-009", "COS-N-013"}:
             if "foreign" not in record["provenance_origin"].lower():
                 raise ValueError(f"REPORT_FOREIGN_ORIGIN_BOUNDARY_MISSING {test_id}")
