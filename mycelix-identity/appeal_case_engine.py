@@ -576,6 +576,9 @@ def validate_contract(contract: Any) -> list[str]:
                 errors.append(f"transitions[{index}] must be an object")
                 continue
             marker = (item.get("action"), item.get("from_state"), item.get("to_state"), item.get("actor_role"))
+            if any(not isinstance(value, str) for value in marker):
+                errors.append(f"transitions[{index}] action/from_state/to_state/actor_role must be strings")
+                continue
             if marker in seen:
                 errors.append(f"duplicate transition: {marker}")
             seen.add(marker)
@@ -589,8 +592,35 @@ def validate_contract(contract: Any) -> list[str]:
                 errors.append(f"transitions[{index}] has an unknown to_state")
     else:
         errors.append("transitions must be a list")
-    if not isinstance(contract.get("access_policy"), list) or not contract["access_policy"]:
+    valid_scopes = {
+        "case_owner_only", "owner_or_assigned_case_role", "assigned_case_only",
+        "intake_assignment_only", "assigned_appeal_only", "metadata_only",
+        "policy_metadata_only", "retention_metadata_only",
+    }
+    access_policy = contract.get("access_policy")
+    if not isinstance(access_policy, list) or not access_policy:
         errors.append("access_policy must be a non-empty array")
+    else:
+        seen_actions: set[str] = set()
+        for index, rule in enumerate(access_policy):
+            if not isinstance(rule, dict) or set(rule) != {"action", "roles", "scope"}:
+                errors.append(f"access_policy[{index}] must contain exactly action, roles and scope")
+                continue
+            action = rule.get("action")
+            roles = rule.get("roles")
+            if not isinstance(action, str) or not action.strip() or action in seen_actions:
+                errors.append(f"access_policy[{index}].action must be unique non-empty text")
+            elif isinstance(action, str):
+                seen_actions.add(action)
+            if (
+                not isinstance(roles, list)
+                or not roles
+                or any(not isinstance(role, str) or role not in contract.get("role_values", []) for role in roles)
+                or len(roles) != len(set(roles)) if isinstance(roles, list) and all(isinstance(role, str) for role in roles) else True
+            ):
+                errors.append(f"access_policy[{index}].roles must be unique declared roles")
+            if not isinstance(rule.get("scope"), str) or rule["scope"] not in valid_scopes:
+                errors.append(f"access_policy[{index}].scope must use the closed v1 enum")
     template = contract.get("retention_policy_template")
     if not isinstance(template, dict) or set(template) != RETENTION_FIELDS or template.get("status") != "not_assessed":
         errors.append("retention_policy_template must remain unassessed and use the closed schema")
