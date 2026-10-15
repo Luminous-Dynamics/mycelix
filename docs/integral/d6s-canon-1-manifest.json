@@ -2,7 +2,7 @@
   "manifest_version": "d6s-canon-1-manifest/1",
   "corpus_id": "D6S-CANON-1",
   "corpus_path": "docs/integral/d6s-canon-1-golden-vectors.json",
-  "corpus_git_blob_sha": "816a4efcaae4768789ca89b4283f923eaed89076",
+  "corpus_git_blob_sha": "bc47805d9715a8bea23109d3843c4f1a4f646735",
   "vector_count": 16,
   "required_test_ids": [
     "COS-N-001",
