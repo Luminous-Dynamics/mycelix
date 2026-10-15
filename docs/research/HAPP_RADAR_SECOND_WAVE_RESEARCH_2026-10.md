@@ -119,6 +119,22 @@ The synthetic fixture signature was independently checked against its public key
 - A valid signature confirms only that the holder of the corresponding private key signed the covered message. It does not prove the observation is true, independently corroborated, safe to disclose, licensed for reuse, authorized, eligible, or settled.
 - The signature is for the checked-in synthetic fixture, not for all future incoming hApps. No Finance mutation path was changed.
 
+### Published W3C EdDSA/JCS vector regression
+
+The checker now declares two regression tests derived from the W3C Recommendation's [Example 29 and Examples 30–39](https://www.w3.org/TR/vc-di-eddsa/#example-29): one reconstructs the unsecured Alumni Credential and its eddsa-jcs-2022 proof options, asserts the normative SHA-256 values, and checks the published Ed25519 signature; the other asserts that changing either the credential payload or proofPurpose makes that signature fail.
+
+Pinned values from the W3C example:
+
+- Canonical unsecured credential digest: `59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19`.
+- Canonical proof-options digest: `66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db`.
+- hashData order: proof-options digest first, followed by the unsecured-credential digest.
+- Expected signature bytes: `407cd12654b33d718ecbb99179a1506daaa849450bf3fc523cce3e1c96f8b80351da3f253d725c6f00b07c9e5448d50b3ef78012b9ab54255116d069c6dd2808`.
+- Public key bytes are the Ed25519 key material represented by the W3C example's publicKeyMultibase, after its 0xed01 multicodec prefix.
+
+Independent Python verification reproduced both published digests and verified the signature against the exact concatenated 64-byte hashData. This is a local independent vector probe—not a Rust test run. The two Rust regression tests are committed but have not been compiled or executed in this environment.
+
+**Scope limitation:** this vector checks the canonicalization/hash order and Ed25519 signature primitive for one normative example. It is not full eddsa-jcs-2022 processor conformance: the checker does not yet implement Data Integrity proof extraction, base58-btc proofValue processing, general Multikey/verificationMethod resolution, @context prefix handling, proofPurpose authorization, DID/key controller checks, or the W3C test-suite API. Keep the custom Mycelix envelope profile separate until those semantics are implemented and the [W3C EdDSA interoperability suite](https://w3c.github.io/vc-di-eddsa-test-suite/) is run against an actual issuer/verifier endpoint.
+
 ### Qualification boundary
 
 The checker manifest pins `serde_json_canonicalizer = 0.3.2`, `sha2 = 0.10.9`, and `ed25519-dalek = 2.2.0`. Static lockfile inspection shows 38 distinct package records, no duplicate name/version pair, sorted package entries, and no unresolved dependency references. Because no local Rust toolchain is available, `cargo metadata --locked`, formatting, compilation, and the Rust tests have **not** been run locally. At the latest observed exact-head query, the qualification workflows were queued/pending or skipped; queued is not PASS. No runtime integration, production trust, or security-audit pass is claimed.
