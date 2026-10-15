@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "ec98502c4023a2ac94036a52689730e90b2bb258"
-EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","JHB-REPMAINT-V2-VIEW-1"]
+EXPECTED_CORPUS_BLOB_SHA = "25295fe39662e0c80c4767322d5ca29f63a00dca"
+EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","SA-TREASURY-REPMAINT-Q2-2025-26-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -68,6 +68,9 @@ EXPECTED_PROBES = {
     "tender-document-fee-or-bribe-solicitation-is-not-official": ("ProcurementIntegrity", "BlockPaymentAndUseOfficialChannel", "SuspectedProcurementScamUnadjudicated"),
     "municipal-repairs-view-without-amount-type-is-not-zero": ("FinanceDataIntegrity", "HoldFinancialObservationUnqualified", "FinanceFiltersIncomplete"),
     "aggregate-repairs-spend-is-not-role-funding": ("EmploymentIntegrity", "AggregateContextOnly", "MunicipalAggregateNotProcurementEvidence"),
+    "latest-api-quarter-is-not-report-period": ("FinanceDataIntegrity", "HoldCrossSnapshotComparison", "SnapshotsNotAligned"),
+    "r-thousands-values-are-not-rands": ("FinanceDataIntegrity", "RequireUnitNormalization", "SourceReportsValuesInThousands"),
+    "monthly-quarter-total-rounding-needs-review": ("FinanceDataIntegrity", "PreservePublishedTotalAndFlagReconciliation", "PublishedTotalAndRoundedMonthSumDifferByOneRThousand"),
     "joint-water-power-statement-is-not-incident-causality": ("CausalityAndAuthority", "HypothesisOnlyNoIncidentCausalEdge", "CrossUtilityHypothesisOnly"),
 }
 REQUIRED_GUARDS = {
@@ -102,6 +105,9 @@ REQUIRED_GUARDS = {
     "tender-document-fee-or-bribe-solicitation-is-not-official": {"TenderDocumentsAndCsdRegistrationAreFree", "UseIssuerPublishedChannels", "NoBribeOrPreferentialTreatment", "ReportThroughOfficialChannelOnly", "AllegationIsNotAdjudicatedFinding"},
     "municipal-repairs-view-without-amount-type-is-not-zero": {"AmountTypeIsRequired", "FinancialYearAndPeriodMustBePinned", "NoDisplayedCellIsNotMeasuredZero", "AggregateSpendIsNotTenderFunding"},
     "aggregate-repairs-spend-is-not-role-funding": {"AggregateFinanceIsNotTenderEvidence", "ContractValueIsNotRoleBudget", "NoPositionBeforeFullFunding", "Section71FunctionAndPeriodMustBePinned"},
+    "latest-api-quarter-is-not-report-period": {"APIAndSection71ReportSnapshotsMayDiffer", "ReportingPeriodAndSnapshotMustMatch", "AmountTypeAndPeriodMustBePinned", "NoAggregateFundingClaim"},
+    "r-thousands-values-are-not-rands": {"ReportedUnitMustTravelWithValue", "DoNotPresentThousandsAsRands", "NormalizeBeforeCrossSourceCompare", "NoFundingInferenceFromUnits"},
+    "monthly-quarter-total-rounding-needs-review": {"DoNotOverwritePublishedAggregate", "KeepSourceUnitAttached", "FlagArithmeticDifferenceForReview", "NoSilentReconciliation"},
     "joint-water-power-statement-is-not-incident-causality": {"OfficialContextIsNotIncidentEvidence", "NoCausalEdgeWithoutIncidentSpecificEvidence", "NoLiveStatusFromHistoricStatement", "NoUnauthorizedTelemetry"},
 }
 
@@ -383,8 +389,20 @@ def validate() -> None:
         fail("Johannesburg repairs-finance view must preserve missing filter and no-number observation")
     if "not a measured zero" not in finance_view.get("interpretation", "").lower():
         fail("unselected financial view must not be treated as measured zero")
-    if procurement.get("finance_context_source_ids") != ["SA-MUNI-FIN-API-1", "JHB-REPMAINT-V2-VIEW-1"]:
+    if procurement.get("finance_context_source_ids") != ["SA-MUNI-FIN-API-1", "SA-TREASURY-REPMAINT-Q2-2025-26-1", "JHB-REPMAINT-V2-VIEW-1"]:
         fail("aggregate municipal finance context source pin drift")
+    q2_report = source_by_id["SA-TREASURY-REPMAINT-Q2-2025-26-1"]
+    values = q2_report.get("reported_values_r_thousands", {})
+    if q2_report.get("checked_on") != "2026-10-15" or q2_report.get("figures_finalized_as") != "2026-01-30" or q2_report.get("report_period") != "2025-26 second quarter; quarter ended 2025-12-31":
+        fail("Treasury Section 71 report date/period pin drift")
+    if q2_report.get("municipality", {}).get("demarcation_code") != "JHB" or q2_report.get("unit_as_printed") != "R thousands":
+        fail("Treasury report municipality/unit pin drift")
+    if values.get("original_budget") != 3467209 or values.get("adjusted_budget") != 3467209 or values.get("ytd_actual_through_december") != 1182846 or values.get("quarter_2_october_december_actual_as_published") != 620893:
+        fail("Treasury report published budget/actual values drift")
+    if values.get("october_december_monthly_arithmetic_sum") != 620894 or values.get("monthly_sum_minus_published_quarter_total") != 1:
+        fail("Treasury report month-versus-published-quarter arithmetic observation drift")
+    if q2_report.get("api_snapshot_crosscheck") != "NotMatchedInThisPass; the current Municipal Money table view did not have year/period/amount type pinned, and the API/report values were not queried under an identical set of filters and snapshot.":
+        fail("Treasury report must remain explicitly unmatched to the API snapshot")
 
     treasury_registry = source_by_id["SA-TREASURY-OCDS-REGISTRY-1"]
     if treasury_registry.get("dataset_date_range") != "2017-02 through 2026-09" or treasury_registry.get("last_retrieved_by_registry") != "2026-09-20":
@@ -570,6 +588,15 @@ def validate() -> None:
     aggregate_funding_probe = by_id["aggregate-repairs-spend-is-not-role-funding"]
     if aggregate_funding_probe["expected"]["disposition"] != "AggregateContextOnly" or aggregate_funding_probe["expected"]["issue_status_effect"] != "NoTenderOrRoleFundingClaim":
         fail("aggregate repairs/maintenance expenditure cannot establish tender or role funding")
+    snapshot_alignment_probe = by_id["latest-api-quarter-is-not-report-period"]
+    if snapshot_alignment_probe["expected"]["disposition"] != "HoldCrossSnapshotComparison" or snapshot_alignment_probe["expected"]["issue_status_effect"] != "NoUnqualifiedTrendOrFundingClaim":
+        fail("unaligned Treasury report/API snapshots cannot support an unqualified trend or funding claim")
+    unit_probe = by_id["r-thousands-values-are-not-rands"]
+    if unit_probe["expected"]["disposition"] != "RequireUnitNormalization" or unit_probe["expected"]["issue_status_effect"] != "NoSilentUnitConversion":
+        fail("R-thousand report values must not be silently interpreted as individual Rands")
+    reconciliation_probe = by_id["monthly-quarter-total-rounding-needs-review"]
+    if reconciliation_probe["expected"]["disposition"] != "PreservePublishedTotalAndFlagReconciliation" or reconciliation_probe["expected"]["issue_status_effect"] != "NoSilentRecomputedQuarterTotal":
+        fail("published quarter total/month arithmetic difference must be preserved for review")
     cross_utility_probe = by_id["joint-water-power-statement-is-not-incident-causality"]
     if cross_utility_probe["expected"]["disposition"] != "HypothesisOnlyNoIncidentCausalEdge" or cross_utility_probe["expected"]["issue_status_effect"] != "NoLiveStatusOrCausalClaim":
         fail("joint government statement cannot establish incident-level causality or current outage")

@@ -1,14 +1,14 @@
 {
   "schema": "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1",
   "corpus_version": 1,
-  "snapshot_date": "2026-10-14",
+  "snapshot_date": "2026-10-15",
   "maturity": "SyntheticSpecificationOnly",
   "synthetic_only": true,
   "no_real_resident_data": true,
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 32,
+  "expected_probe_count": 35,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -969,6 +969,99 @@
         "NoCausalEdgeWithoutIncidentSpecificEvidence",
         "NoLiveStatusFromHistoricStatement",
         "NoUnauthorizedTelemetry"
+      ]
+    },
+    {
+      "id": "latest-api-quarter-is-not-report-period",
+      "category": "FinanceDataIntegrity",
+      "scenario": "Municipal Money documentation reports a latest 2026 Q2 data update still undergoing completeness/integrity checks, while an official Section 71 report covers the 2025-26 second quarter ended 31 December 2025 and was finalized on 30 January 2026. No query has matched the municipality, financial period, amount type and snapshot across the two sources.",
+      "input": {
+        "municipality": "JHB",
+        "api_latest_published_data_period": "2026 Q2",
+        "report_financial_year": "2025-26",
+        "report_period_end": "2025-12-31",
+        "same_period_verified": false,
+        "same_snapshot_verified": false,
+        "amount_type_pinned_in_both": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "required_human_review": true,
+        "disposition": "HoldCrossSnapshotComparison",
+        "issue_status_effect": "NoUnqualifiedTrendOrFundingClaim",
+        "source_status": "SnapshotsNotAligned"
+      },
+      "guards": [
+        "APIAndSection71ReportSnapshotsMayDiffer",
+        "ReportingPeriodAndSnapshotMustMatch",
+        "AmountTypeAndPeriodMustBePinned",
+        "NoAggregateFundingClaim"
+      ]
+    },
+    {
+      "id": "r-thousands-values-are-not-rands",
+      "category": "FinanceDataIntegrity",
+      "scenario": "A published Section 71 repairs-and-maintenance report labels amounts as R thousands. An adapter treats a displayed value such as 1182846 as individual Rands without carrying the unit or applying an explicit, checked conversion.",
+      "input": {
+        "unit_as_printed": "R thousands",
+        "ytd_actual_as_printed": 1182846,
+        "explicit_unit_conversion_performed": false,
+        "cross_source_comparison_requested": true
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "required_human_review": true,
+        "disposition": "RequireUnitNormalization",
+        "issue_status_effect": "NoSilentUnitConversion",
+        "source_status": "SourceReportsValuesInThousands"
+      },
+      "guards": [
+        "ReportedUnitMustTravelWithValue",
+        "DoNotPresentThousandsAsRands",
+        "NormalizeBeforeCrossSourceCompare",
+        "NoFundingInferenceFromUnits"
+      ]
+    },
+    {
+      "id": "monthly-quarter-total-rounding-needs-review",
+      "category": "FinanceDataIntegrity",
+      "scenario": "In a published Section 71 table labeled R thousands, October, November and December actuals are 217694, 178918 and 224282, which sum arithmetically to 620894; the printed Quarter 2 total is 620893. The adapter silently rewrites the official total or labels the discrepancy as fraud/error without clarification.",
+      "input": {
+        "unit_as_printed": "R thousands",
+        "october_actual": 217694,
+        "november_actual": 178918,
+        "december_actual": 224282,
+        "calculated_month_sum": 620894,
+        "printed_quarter_total": 620893,
+        "cause_confirmed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "required_human_review": true,
+        "disposition": "PreservePublishedTotalAndFlagReconciliation",
+        "issue_status_effect": "NoSilentRecomputedQuarterTotal",
+        "source_status": "PublishedTotalAndRoundedMonthSumDifferByOneRThousand"
+      },
+      "guards": [
+        "DoNotOverwritePublishedAggregate",
+        "KeepSourceUnitAttached",
+        "FlagArithmeticDifferenceForReview",
+        "NoSilentReconciliation"
       ]
     }
   ]
