@@ -299,7 +299,7 @@ const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.j
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
-const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.4.0.json";
+const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.5.0.json";
 const SERVICE_JOURNEY_POSITIVE: &str =
     "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json";
 
@@ -591,13 +591,83 @@ fn scoped_independent_restoration_requires_captured_evidence() {
 }
 
 #[test]
+fn synthetic_johannesburg_project_claims_do_not_prove_live_service_or_verified_outcomes() {
+    let check = validator(SERVICE_JOURNEY_SCHEMA);
+    let cases = read_json(SERVICE_JOURNEY_CASES);
+    let fixtures = cases["cases"]
+        .as_array()
+        .expect("service reference cases must be an array");
+
+    for (fixture_id, case_id, source_uri, source_date, prohibited_probe) in [
+        (
+            "city-water-depot-closeout-not-operational-acceptance",
+            "LCSV-JHB-008",
+            "https://joburg.org.za/media_/Newsroom/Pages/2026-News-Articles/Joburg-Water-depot-upgrade-to-strengthen-service-delivery.aspx",
+            "2026-10-12",
+            "fully commissioned",
+        ),
+        (
+            "city-braamfontein-traffic-upgrade-not-live-uptime",
+            "LCSV-JHB-009",
+            "https://joburg.org.za/media_/Newsroom/Pages/2026-News-Articles/Braamfontein-traffic-upgrades-set-to-make-journeys-safer-and-smoother.aspx",
+            "2026-10-02",
+            "operating correctly today",
+        ),
+        (
+            "city-malvern-clinic-reopening-not-current-availability",
+            "LCSV-JHB-010",
+            "https://joburg.org.za/media_/Newsroom/Pages/2026-News-Articles/Refurbished-Malvern-Clinic-restores-access-to-healthcare.aspx",
+            "2026-10-14",
+            "fully staffed today",
+        ),
+    ] {
+        let fixture = find_service_fixture(fixtures, fixture_id);
+        assert_eq!(fixture["expected_schema_valid"], true);
+        let instance = &fixture["instance"];
+        assert_eq!(instance["case_id"], case_id);
+        assert_eq!(instance["scope"]["service_class"], "general_municipal");
+        assert_eq!(instance["case_state"], "human_review_required");
+        assert_eq!(instance["outcome"]["status"], "unknown");
+        assert!(instance["outcome"]["verification_evidence_ids"].as_array().unwrap().is_empty());
+        assert_eq!(instance["outcome"]["verified_at"], Value::Null);
+        assert_eq!(instance["effects"]["mode"], "effects_disabled");
+        assert_eq!(instance["effects"]["effects_requested"], false);
+        assert!(check.is_valid(instance), "{fixture_id} must satisfy service journey schema");
+        assert!(
+            validate_service_claim_semantics(instance).is_ok(),
+            "{fixture_id} must satisfy service claim semantics"
+        );
+
+        let evidence = &instance["evidence"][0];
+        assert_eq!(evidence["kind"], "official_notice");
+        assert_eq!(evidence["source_uri"], source_uri);
+        assert_eq!(evidence["observed_on"], source_date);
+        assert_eq!(evidence["independence"], "unknown");
+        assert_eq!(evidence["retrieval_state"], "synthetic_fixture");
+        assert_eq!(evidence["retrieved_at"], Value::Null);
+        assert_eq!(evidence["checked_at"], Value::Null);
+        assert!(
+            evidence["limitations"].as_str().unwrap().contains("not captured as evidence"),
+            "{fixture_id} must retain its non-capture limitation"
+        );
+        let prohibited = instance["claim_ceiling"]["prohibited_inferences"]
+            .as_array()
+            .expect("prohibited inferences must be an array");
+        assert!(
+            prohibited.iter().any(|claim| claim.as_str().is_some_and(|text| text.contains(prohibited_probe))),
+            "{fixture_id} is missing its key prohibited inference"
+        );
+    }
+}
+
+#[test]
 fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
     let check = validator(SERVICE_JOURNEY_SCHEMA);
     let cases = read_json(SERVICE_JOURNEY_CASES);
     let fixtures = cases["cases"]
         .as_array()
         .expect("service reference cases must be an array");
-    assert_eq!(fixtures.len(), 6);
+    assert_eq!(fixtures.len(), 9);
 
     let mut ids = HashSet::new();
     for fixture in fixtures {
