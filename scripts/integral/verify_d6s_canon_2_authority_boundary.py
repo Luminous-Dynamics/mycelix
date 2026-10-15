@@ -67,12 +67,12 @@ def main() -> int:
     }
     allowed_profiles = {"current_local", "stale_local", "current_foreign_node_b"}
     required_fields = {
-        "production-observation-is-not-itc-mint": ("expected_without_projection", "expected_after_explicit_projection"),
-        "frs-projection-is-not-source-observation": ("expected_without_source_observation", "expected_after_explicit_source_observation"),
-        "recommendation-does-not-create-effect": ("expected_without_authority", "expected_with_authority_but_without_effect", "expected_after_authorized_effect_receipt"),
-        "foreign-recognition-preserves-origin": ("expected_decision", "expected_origin_before", "expected_origin_after"),
-        "qualified-output-is-not-physical-work": ("expected_without_physical_work_binding", "expected_after_physical_work_binding"),
-        "stale-evidence-does-not-satisfy-current-requirement": ("expected_decision",),
+        "production-observation-is-not-itc-mint": ("expected_without_projection", "expected_after_explicit_projection", "additional_bindings"),
+        "frs-projection-is-not-source-observation": ("expected_without_source_observation", "expected_after_explicit_source_observation", "additional_bindings"),
+        "recommendation-does-not-create-effect": ("expected_without_authority", "expected_with_authority_but_without_effect", "expected_after_authorized_effect_receipt", "authority_bindings", "effect_bindings"),
+        "foreign-recognition-preserves-origin": ("expected_decision", "expected_origin_before", "expected_origin_after", "additional_bindings"),
+        "qualified-output-is-not-physical-work": ("expected_without_physical_work_binding", "expected_after_physical_work_binding", "additional_bindings"),
+        "stale-evidence-does-not-satisfy-current-requirement": ("expected_decision", "positive_evidence_profile", "expected_current_decision"),
         "unknown-transition-remains-unknown": ("expected_decision",),
     }
     for item in cases:
