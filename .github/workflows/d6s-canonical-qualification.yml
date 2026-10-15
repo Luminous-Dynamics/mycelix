@@ -171,7 +171,16 @@ jobs:
             echo "cargo_lock_mode=${D6S_CARGO_LOCK_MODE:-unknown}"
             echo "cargo=$(cargo --version)"
             echo "workspace_manifest_blob=$(git hash-object mycelix-manufacturing/Cargo.toml)"
-            mapfile -t manifests < <(git ls-files | grep -E '^mycelix-manufacturing/(Cargo\\.toml|.*/Cargo\\.toml)      # D6S qualification is scoped to the D6S reference contracts. The
+            mapfile -t manifests < <(git ls-files | grep -E '^mycelix-manufacturing/(Cargo\.toml|.*/Cargo\.toml)$' | LC_ALL=C sort)
+            echo "workspace_manifest_count=${#manifests[@]}"
+            for path in "${manifests[@]}"; do
+              echo "manifest_blob[$path]=$(git hash-object -- "$path")"
+            done
+            echo "cargo_lock_sha256=$(sha256sum "$lockfile" | cut -d' ' -f1)"
+            echo "cargo_lock_git_blob_sha=$(git hash-object -- "$lockfile")"
+          } | tee d6s-dependency-resolution.txt
+
+      # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
       - name: Run D6S canonical integration suites
