@@ -166,6 +166,112 @@ class CivicWorkPackageTests(unittest.TestCase):
         errors = validate_record(record, SCHEMA, "zero-decimal currency scale")
         self.assertEqual(errors, [], errors)
 
+    def test_cancellation_does_not_erase_historical_funding_and_authorization_gates(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["status"] = "closed_or_cancelled"
+        record["lifecycle_events"].append({
+            "event_id": "event:SYNTH-005",
+            "from_status": "authorized",
+            "to_status": "closed_or_cancelled",
+            "actor_ref": "person:synthetic-closer",
+            "actor_kind": "human",
+            "happened_at": "2026-10-14T12:11:00Z",
+            "evidence_refs": ["evidence:SYNTH-CLOSEOUT"],
+        })
+        record["timestamps"]["updated_at"] = "2026-10-14T12:11:00Z"
+        # A terminal status must not hide missing evidence or invalidate the
+        # historical human-authorization decision.
+        record["funding"]["commitment_evidence_ref"] = None
+        record["authorization"]["approved_by_human"] = False
+        errors = validate_record(record, SCHEMA, "closed after authorization")
+        self.assertIn("CWP_E_FUNDING_NOT_COMMITTED", errors)
+        self.assertIn("CWP_E_HUMAN_AUTHORIZATION_MISSING", errors)
+
+    def test_cancellation_after_execution_retains_worker_protection_gates(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["status"] = "closed_or_cancelled"
+        record["lifecycle_events"].extend([
+            {
+                "event_id": "event:SYNTH-005", "from_status": "authorized",
+                "to_status": "announced", "actor_ref": "person:synthetic-authorizer",
+                "actor_kind": "human", "happened_at": "2026-10-14T12:11:00Z",
+                "evidence_refs": ["evidence:SYNTH-CONTRACT"],
+            },
+            {
+                "event_id": "event:SYNTH-006", "from_status": "announced",
+                "to_status": "active", "actor_ref": "person:synthetic-site-lead",
+                "actor_kind": "human", "happened_at": "2026-10-14T12:12:00Z",
+                "evidence_refs": ["evidence:SYNTH-START"],
+            },
+            {
+                "event_id": "event:SYNTH-007", "from_status": "active",
+                "to_status": "closed_or_cancelled", "actor_ref": "person:synthetic-closer",
+                "actor_kind": "human", "happened_at": "2026-10-14T12:13:00Z",
+                "evidence_refs": ["evidence:SYNTH-CLOSEOUT"],
+            },
+        ])
+        record["timestamps"]["updated_at"] = "2026-10-14T12:13:00Z"
+        record["protections"]["safety_plan_ref"] = None
+        errors = validate_record(record, SCHEMA, "closed after execution")
+        self.assertIn("CWP_E_WORKER_PROTECTION_MISSING", errors)
+
+    def test_closure_does_not_erase_independent_verification_checks(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["status"] = "closed_or_cancelled"
+        execution_actor = "org:synthetic-repair-cooperative"
+        record["procurement"]["lifecycle_stage"] = "implementation"
+        record["labor_plan"]["execution_actor_refs"] = [execution_actor]
+        record["verification"].update({
+            "status": "completed",
+            "completion_criteria_ref": "criteria:SYNTH-001",
+            "method_ref": "method:SYNTH-independent-inspection",
+            "reviewer_ref": execution_actor,
+            "reviewed_at": "2026-10-14T12:14:00Z",
+            "reviewer_is_independent": True,
+            "evidence": [{
+                "record_ref": "evidence:SYNTH-INDEPENDENT-REPORT",
+                "sha256": "a" * 64,
+                "reviewed_by_ref": execution_actor,
+                "visibility": "restricted",
+            }],
+        })
+        record["lifecycle_events"].extend([
+            {
+                "event_id": "event:SYNTH-005", "from_status": "authorized",
+                "to_status": "announced", "actor_ref": "person:synthetic-authorizer",
+                "actor_kind": "human", "happened_at": "2026-10-14T12:11:00Z",
+                "evidence_refs": ["evidence:SYNTH-CONTRACT"],
+            },
+            {
+                "event_id": "event:SYNTH-006", "from_status": "announced",
+                "to_status": "active", "actor_ref": "person:synthetic-site-lead",
+                "actor_kind": "human", "happened_at": "2026-10-14T12:12:00Z",
+                "evidence_refs": ["evidence:SYNTH-START"],
+            },
+            {
+                "event_id": "event:SYNTH-007", "from_status": "active",
+                "to_status": "completion_claimed", "actor_ref": execution_actor,
+                "actor_kind": "human", "happened_at": "2026-10-14T12:13:00Z",
+                "evidence_refs": ["evidence:SYNTH-COMPLETION-CLAIM"],
+            },
+            {
+                "event_id": "event:SYNTH-008", "from_status": "completion_claimed",
+                "to_status": "independently_verified", "actor_ref": execution_actor,
+                "actor_kind": "human", "happened_at": "2026-10-14T12:14:00Z",
+                "evidence_refs": ["evidence:SYNTH-INDEPENDENT-REPORT"],
+            },
+            {
+                "event_id": "event:SYNTH-009", "from_status": "independently_verified",
+                "to_status": "closed_or_cancelled", "actor_ref": "person:synthetic-closer",
+                "actor_kind": "human", "happened_at": "2026-10-14T12:15:00Z",
+                "evidence_refs": ["evidence:SYNTH-CLOSEOUT"],
+            },
+        ])
+        record["timestamps"]["updated_at"] = "2026-10-14T12:15:00Z"
+        errors = validate_record(record, SCHEMA, "closed after verification")
+        self.assertIn("CWP_E_PROVIDER_SELF_VERIFICATION", errors)
+        self.assertIn("CWP_E_REVIEWER_WAS_EXECUTION_ACTOR", errors)
+
     def test_provider_cannot_verify_own_work(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
         record["status"] = "independently_verified"
