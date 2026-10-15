@@ -202,7 +202,7 @@
       ]
     },
     "recommendation_policy_version": {
-      "const": "living-city-novelty-routing/0.1"
+      "const": "living-city-novelty-routing/0.2"
     },
     "dissent_summary": {
       "type": "array",
