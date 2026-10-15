@@ -98,16 +98,33 @@ def main() -> int:
                     raise ValueError(f"TRANSITION_BINDINGS_INVALID {case_id}/{transition_field}")
                 if len(values) != len(set(values)) or not set(values) <= allowed_bindings:
                     raise ValueError(f"TRANSITION_BINDINGS_UNKNOWN_OR_DUPLICATE {case_id}/{transition_field}")
+        initial = set(item["initial_bindings"])
+        if case_id == "production-observation-is-not-itc-mint":
+            additional = set(item.get("additional_bindings", []))
+            if "source_observation_created" not in initial or "itc_projection" in initial:
+                raise ValueError("ITC_NEGATIVE_CONTEXT_INCOMPLETE")
+            if "itc_projection" not in additional:
+                raise ValueError("ITC_POSITIVE_BINDING_MISSING")
+        if case_id == "frs-projection-is-not-source-observation":
+            additional = set(item.get("additional_bindings", []))
+            if "frs_projection" not in initial or "source_observation_created" in initial:
+                raise ValueError("FRS_NEGATIVE_CONTEXT_INCOMPLETE")
+            if "source_observation_created" not in additional:
+                raise ValueError("FRS_POSITIVE_BINDING_MISSING")
         if case_id == "qualified-output-is-not-physical-work":
-            if not {"itc_projection", "output_qualification"} <= set(item["initial_bindings"]):
+            if not {"itc_projection", "output_qualification"} <= initial or "physical_work_binding" in initial:
                 raise ValueError("PHYSICAL_WORK_NEGATIVE_CONTEXT_INCOMPLETE")
             if "physical_work_binding" not in item.get("additional_bindings", []):
                 raise ValueError("PHYSICAL_WORK_POSITIVE_BINDING_MISSING")
         if case_id == "recommendation-does-not-create-effect":
-            if "recommendation_authorized" not in item.get("authority_bindings", []) or "effect_recorded" not in item.get("effect_bindings", []):
+            authority = set(item.get("authority_bindings", []))
+            effect = set(item.get("effect_bindings", []))
+            if {"recommendation_authorized", "effect_recorded"} & initial:
+                raise ValueError("RECOMMENDATION_NEGATIVE_CONTEXT_NOT_NEGATIVE")
+            if "recommendation_authorized" not in authority or "effect_recorded" in authority or "effect_recorded" not in effect:
                 raise ValueError("AUTHORITY_EFFECT_SEQUENCE_INCOMPLETE")
         if case_id == "foreign-recognition-preserves-origin":
-            if item["evidence_profile"] != "current_foreign_node_b" or "foreign_recognition" not in item.get("additional_bindings", []):
+            if item["evidence_profile"] != "current_foreign_node_b" or "foreign_recognition" in initial or "foreign_recognition" not in item.get("additional_bindings", []):
                 raise ValueError("FOREIGN_PROVENANCE_SEQUENCE_INCOMPLETE")
         if case_id == "stale-evidence-does-not-satisfy-current-requirement":
             if item["evidence_profile"] != "stale_local" or item.get("positive_evidence_profile") != "current_local":
