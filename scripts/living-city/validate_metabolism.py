@@ -454,6 +454,55 @@ def semantic_errors(review, concepts, evidence_ids):
             if item["evidence_refs"]: errors.append(f"{item['interaction_id']}: synthetic interaction must not cite real evidence")
             if any(f["evidence_kind"] != "synthetic_only" for f in flows):
                 errors.append(f"{item['interaction_id']}: synthetic interaction must use synthetic flows only")
+    impacts = review.get("distributional_impacts", [])
+    impact_ids = [item["impact_id"] for item in impacts]
+    if len(impact_ids) != len(set(impact_ids)):
+        errors.append("distributional impact_id values must be unique")
+    comparison_keys = [
+        (item["scenario_id"], item["baseline_scenario_ref"], item["affected_group_ref"], item["metric_id"])
+        for item in impacts
+    ]
+    if len(comparison_keys) != len(set(comparison_keys)):
+        errors.append("distributional scenario/baseline/group/metric comparisons must be unique")
+    for impact in impacts:
+        iid = impact["impact_id"]
+        scenario_id = impact["scenario_id"]
+        baseline_id = impact["baseline_scenario_ref"]
+        scenario = by_scenario.get(scenario_id)
+        baseline = by_scenario.get(baseline_id)
+        if scenario is None:
+            errors.append(f"{iid}: unresolved distributional scenario_id {scenario_id!r}")
+        if baseline is None:
+            errors.append(f"{iid}: unresolved distributional baseline_scenario_ref {baseline_id!r}")
+        elif baseline["role"] != "baseline":
+            errors.append(f"{iid}: distributional baseline_scenario_ref must resolve to a baseline-role scenario")
+        if scenario_id == baseline_id:
+            errors.append(f"{iid}: intervention and baseline scenario references must differ")
+        if impact["affected_group_ref"].strip() == "":
+            errors.append(f"{iid}: affected_group_ref cannot be empty")
+        for ref in impact["evidence_refs"]:
+            if ref not in evidence_ids:
+                errors.append(f"{iid}: unresolved distributional evidence reference {ref!r}")
+        metric_units = UNIT_BY_METRIC.get(impact["metric_id"])
+        if metric_units is not None and impact["unit"] not in metric_units:
+            errors.append(f"{iid}: unit {impact['unit']!r} incompatible with distributional metric {impact['metric_id']!r}")
+        if status == "assessment" and impact["assessment_status"] in {"quantified", "qualitative"} and not impact["evidence_refs"]:
+            errors.append(f"{iid}: real distributional impact requires evidence references")
+        if impact["assessment_status"] == "quantified":
+            baseline_value = exact_fraction(impact["baseline_value"])
+            scenario_value = exact_fraction(impact["scenario_value"])
+            delta = exact_fraction(impact["reported_delta"])
+            expected_delta = scenario_value - baseline_value
+            if delta != expected_delta:
+                errors.append(f"{iid}: reported_delta must equal scenario_value - baseline_value exactly")
+            uncertainty = impact["uncertainty"]
+            lower, upper = exact_fraction(uncertainty["lower_bound"]), exact_fraction(uncertainty["upper_bound"])
+            if lower > upper or not lower <= delta <= upper:
+                errors.append(f"{iid}: uncertainty interval must be ordered and enclose reported_delta")
+        if impact["constraint_status"] != "not_evaluated" and not impact["constraint_ref"]:
+            errors.append(f"{iid}: evaluated non-compensatory floor needs a constraint reference")
+        if impact["constraint_status"] in {"within_declared_floor", "breach", "indeterminate"} and not impact["evidence_refs"]:
+            errors.append(f"{iid}: evaluated non-compensatory floor needs evidence references")
     errors.extend(nutrient_assessment_errors(review, evidence_ids))
     return errors
 
@@ -915,7 +964,69 @@ def main():
         fail("mutation: real Symtropy receipt without producer revision/payload commitment was accepted")
     print("PASS mutation: a real Symtropy receipt requires a pinned producer revision and payload hash")
 
-    print("PASS: 47 urban-metabolism/synergy controls (39 mutation/parser rejection controls and eight positive controls); no composite symtropy score or automatic authorization.")
+
+    distributional_case = copy.deepcopy(food_delivery_case)
+    distributional_case["distributional_impacts"] = [{
+        "impact_id": "synthetic-renter-access-change",
+        "scenario_id": "bioswale-and-canopy",
+        "baseline_scenario_ref": "baseline",
+        "affected_group_ref": "synthetic-renters-cohort",
+        "metric_id": "accessible_person_hours",
+        "assessment_status": "quantified",
+        "baseline_value": 100,
+        "scenario_value": 112,
+        "reported_delta": 12,
+        "unit": "person_hour",
+        "direction": "higher_is_better",
+        "uncertainty": {"lower_bound": 8, "upper_bound": 16,
+                        "method": "Synthetic interval for the cohort-level delta only; not a real access finding."},
+        "evidence_refs": [],
+        "limitations": ["Synthetic cohort-level control only; not evidence about actual residents or a real intervention."],
+        "constraint_status": "not_evaluated",
+        "constraint_ref": None
+    }]
+    if schema_errors(validator, distributional_case) or semantic_errors(distributional_case, concepts, evidence_ids):
+        fail("positive control: valid cohort-disaggregated impact receipt was rejected")
+    print("PASS control: cohort impact retains baseline, exact delta, uncertainty and independent floor status")
+
+    wrong_distribution_delta = copy.deepcopy(distributional_case)
+    wrong_distribution_delta["distributional_impacts"][0]["reported_delta"] = Decimal("12.0000000000000001")
+    if not any("reported_delta must equal" in e for e in semantic_errors(wrong_distribution_delta, concepts, evidence_ids)):
+        fail("mutation: sub-ULP distributional delta mismatch accepted")
+    print("PASS mutation: distributional change must equal exact scenario minus baseline")
+
+    distribution_interval_excludes_delta = copy.deepcopy(distributional_case)
+    distribution_interval_excludes_delta["distributional_impacts"][0]["uncertainty"]["lower_bound"] = 13
+    if not any("uncertainty interval must be ordered and enclose reported_delta" in e for e in semantic_errors(distribution_interval_excludes_delta, concepts, evidence_ids)):
+        fail("mutation: cohort uncertainty interval not enclosing delta accepted")
+    print("PASS mutation: cohort uncertainty must enclose the exact change")
+
+    unknown_distribution_baseline = copy.deepcopy(distributional_case)
+    unknown_distribution_baseline["distributional_impacts"][0]["baseline_scenario_ref"] = "missing-baseline"
+    if not any("unresolved distributional baseline_scenario_ref" in e for e in semantic_errors(unknown_distribution_baseline, concepts, evidence_ids)):
+        fail("mutation: distributional result with unresolved baseline accepted")
+    print("PASS mutation: distributional comparison requires a resolvable baseline")
+
+    duplicate_distribution_id = copy.deepcopy(distributional_case)
+    duplicated_impact = copy.deepcopy(duplicate_distribution_id["distributional_impacts"][0])
+    duplicated_impact["limitations"] = ["Distinct synthetic limitation so duplicate content does not trigger JSON Schema uniqueItems."]
+    duplicate_distribution_id["distributional_impacts"].append(duplicated_impact)
+    if not any("distributional impact_id values must be unique" in e for e in semantic_errors(duplicate_distribution_id, concepts, evidence_ids)):
+        fail("mutation: duplicate distributional impact ID accepted")
+    print("PASS mutation: distributional impact receipt IDs must be unique")
+
+    floor_breach_without_reference = copy.deepcopy(distributional_case)
+    floor_breach_without_reference["distributional_impacts"][0]["constraint_status"] = "breach"
+    if not any(list(error.path)[-1:] == ["constraint_ref"] for error in schema_errors(validator, floor_breach_without_reference)):
+        fail("mutation: declared floor breach without a sourceable constraint reference accepted")
+    print("PASS mutation: an evaluated hard-floor state requires a named constraint reference")
+
+    real_distribution_without_evidence = copy.deepcopy(distributional_case)
+    real_distribution_without_evidence["record_status"] = "assessment"
+    if not any("real distributional impact requires evidence references" in e for e in semantic_errors(real_distribution_without_evidence, concepts, evidence_ids)):
+        fail("mutation: quantified real-world distributional impact without evidence accepted")
+    print("PASS mutation: assessed cohort-level outcomes need real evidence")
+    print("PASS: 54 urban-metabolism/synergy controls (45 mutation/parser rejection controls and nine positive controls); distributional outcomes remain disaggregated; no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()

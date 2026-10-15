@@ -220,6 +220,13 @@
       "items": {
         "$ref": "#/$defs/nutrientAssessment"
       }
+    },
+    "distributional_impacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/distributionalImpact"
+      },
+      "description": "Optional cohort-disaggregated outcome changes against an explicit baseline. Assessment records require at least one entry. These records expose incidence and declared-floor breaches; they are not a permission to optimize away harms."
     }
   },
   "$defs": {
@@ -1667,6 +1674,303 @@
           }
         }
       ]
+    },
+    "distributionalImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "impact_id",
+        "scenario_id",
+        "baseline_scenario_ref",
+        "affected_group_ref",
+        "metric_id",
+        "assessment_status",
+        "baseline_value",
+        "scenario_value",
+        "reported_delta",
+        "unit",
+        "direction",
+        "uncertainty",
+        "evidence_refs",
+        "limitations",
+        "constraint_status",
+        "constraint_ref"
+      ],
+      "properties": {
+        "impact_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Intervention scenario whose outcome is being compared."
+        },
+        "baseline_scenario_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Must resolve to the explicitly designated baseline scenario."
+        },
+        "affected_group_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Stable aggregate or pseudonymous cohort reference; do not embed a person's name or direct identifier."
+        },
+        "metric_id": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "edible_food_delivered",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area",
+            "precipitation_input"
+          ]
+        },
+        "assessment_status": {
+          "enum": [
+            "quantified",
+            "qualitative",
+            "not_assessed",
+            "blocked"
+          ]
+        },
+        "baseline_value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "scenario_value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "reported_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better",
+            "threshold_only",
+            "not_interpreted"
+          ]
+        },
+        "uncertainty": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "lower_bound",
+            "upper_bound",
+            "method"
+          ],
+          "properties": {
+            "lower_bound": {
+              "type": "number"
+            },
+            "upper_bound": {
+              "type": "number"
+            },
+            "method": {
+              "type": "string",
+              "minLength": 12
+            }
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        },
+        "constraint_status": {
+          "enum": [
+            "not_evaluated",
+            "within_declared_floor",
+            "breach",
+            "indeterminate"
+          ]
+        },
+        "constraint_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024,
+          "description": "Source or governance reference for the non-compensatory floor. Required and evidence-backed when the floor has been evaluated."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "quantified"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "baseline_value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "scenario_value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "reported_delta": {
+                "type": "number"
+              },
+              "uncertainty": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "enum": [
+                  "qualitative",
+                  "not_assessed",
+                  "blocked"
+                ]
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "baseline_value": {
+                "type": "null"
+              },
+              "scenario_value": {
+                "type": "null"
+              },
+              "reported_delta": {
+                "type": "null"
+              },
+              "uncertainty": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "constraint_status": {
+                "const": "not_evaluated"
+              }
+            },
+            "required": [
+              "constraint_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "constraint_ref": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "constraint_status": {
+                "enum": [
+                  "within_declared_floor",
+                  "breach",
+                  "indeterminate"
+                ]
+              }
+            },
+            "required": [
+              "constraint_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "constraint_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "constraint_ref"
+            ]
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -1693,6 +1997,9 @@
             "maxItems": 0
           },
           "nutrient_assessments": {
+            "maxItems": 0
+          },
+          "distributional_impacts": {
             "maxItems": 0
           }
         }
@@ -1738,8 +2045,15 @@
         "properties": {
           "scenarios": {
             "minItems": 2
+          },
+          "distributional_impacts": {
+            "minItems": 1
           }
-        }
+        },
+        "required": [
+          "scenarios",
+          "distributional_impacts"
+        ]
       }
     }
   ]

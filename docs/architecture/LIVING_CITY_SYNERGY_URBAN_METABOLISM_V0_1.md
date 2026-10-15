@@ -267,3 +267,11 @@ A simulation should inform a decision, not authorize procurement, benefits, zoni
 5. **Pilot gate:** require local source licensing, community co-design, calibrated field evidence, privacy review, maintenance ownership, and independent exact-head verification. Protocol-only and synthetic fixtures remain prohibited as evidence of Johannesburg outcomes.
 
 These are proposed engineering gates, not a claim that the latter stages already exist or that a city deployment has been validated.
+
+### 5. Make distributional incidence a first-class outcome
+
+Aggregate city improvement can hide a harmed neighborhood, a displaced tenant group, unpaid maintenance work, or uneven access. The schema now adds an optional \`distributional_impacts\` contract comparing a specified intervention scenario with an explicit baseline for a stable aggregate/pseudonymous affected-group reference. Quantified entries carry baseline value, scenario value, exact change, unit, uncertainty interval, evidence references, limitations, and a separate non-compensatory constraint status.
+
+The validator recomputes \`scenario_value - baseline_value\` using exact decimal arithmetic, requires the uncertainty interval to contain that change, resolves both scenario references, rejects duplicate cohort/metric comparison identities, and requires a sourceable constraint reference when a hard floor is evaluated. For real assessments, quantified and qualitative incidence claims need evidence. Missing/not-assessed values remain null rather than being coerced to zero. A declared \`breach\` is surfaced as a decision boundary; it is not silently offset by another cohort's improvement.
+
+This contract reduces the risk of an aggregate Pareto analysis hiding unequal incidence, but it does not prove all affected groups have been identified. A pilot still needs a documented coverage statement, community-defined cohort categories, privacy safeguards, and independent review of omissions. A single record per cohort is not an adequate substitute for intersectional analysis where impacts differ by sex, age, disability, tenure, income, location or other locally legitimate categories. Cohort references should be pseudonymous and must not include personal identifiers.
