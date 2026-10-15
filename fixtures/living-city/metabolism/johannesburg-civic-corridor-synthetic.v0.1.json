@@ -49,6 +49,26 @@
             "upper_bound": 101.25,
             "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
           }
+        },
+        {
+          "flow_id": "baseline-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "baseline-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 0,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
         }
       ],
       "conservation_checks": [
@@ -65,7 +85,19 @@
           "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
-          "evidence_refs": []
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "baseline-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "baseline-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [],
+            "storage_decrease_refs": []
+          }
         }
       ],
       "limitations": [
@@ -93,6 +125,26 @@
             "upper_bound": 91.25,
             "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
           }
+        },
+        {
+          "flow_id": "bioswale-only-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "bioswale-only-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 10,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
         }
       ],
       "conservation_checks": [
@@ -109,7 +161,21 @@
           "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
-          "evidence_refs": []
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "bioswale-only-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "bioswale-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [
+              "bioswale-only-retained-water"
+            ],
+            "storage_decrease_refs": []
+          }
         }
       ],
       "limitations": [
@@ -137,6 +203,26 @@
             "upper_bound": 99.25,
             "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
           }
+        },
+        {
+          "flow_id": "canopy-only-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "canopy-only-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 2,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
         }
       ],
       "conservation_checks": [
@@ -153,7 +239,21 @@
           "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
-          "evidence_refs": []
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "canopy-only-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "canopy-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [
+              "canopy-only-retained-water"
+            ],
+            "storage_decrease_refs": []
+          }
         }
       ],
       "limitations": [
@@ -182,6 +282,26 @@
             "upper_bound": 76.25,
             "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
           }
+        },
+        {
+          "flow_id": "bioswale-and-canopy-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "bioswale-and-canopy-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 25,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
         }
       ],
       "conservation_checks": [
@@ -198,7 +318,21 @@
           "unit": "mL",
           "status": "balanced",
           "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
-          "evidence_refs": []
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "bioswale-and-canopy-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "combined-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [
+              "bioswale-and-canopy-retained-water"
+            ],
+            "storage_decrease_refs": []
+          }
         }
       ],
       "limitations": [
