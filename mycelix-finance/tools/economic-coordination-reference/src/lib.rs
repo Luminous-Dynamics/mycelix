@@ -14,12 +14,18 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EvidenceStatus {
     Verified,
-    /// Verification outcome derived exclusively from a synthetic simulation.
-    /// It is never sufficient to clear a real coordination or settlement gate.
-    SyntheticOnly,
     Unknown,
     Stale,
     Contested,
+}
+
+/// Origin is orthogonal to verification status: verified synthetic output is
+/// still synthetic and cannot stand in for evidence from the live domain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EvidenceOrigin {
+    LiveDomain,
+    SyntheticSimulation,
+    Unknown,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,6 +125,12 @@ pub struct AuthorityProof {
     pub actor_id: String,
     pub policy_digest: String,
     pub evidence_status: EvidenceStatus,
+    pub origin: EvidenceOrigin,
+    pub origin: EvidenceOrigin,
+    pub origin: EvidenceOrigin,
+    pub origin: EvidenceOrigin,
+    pub origin: EvidenceOrigin,
+    pub origin: EvidenceOrigin,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -529,8 +541,11 @@ impl CoordinationContract {
             return Err(ContractError::InvalidRequest);
         }
         if authority.evidence_status != EvidenceStatus::Verified
+            || authority.origin != EvidenceOrigin::LiveDomain
             || rights.evidence_status != EvidenceStatus::Verified
+            || rights.origin != EvidenceOrigin::LiveDomain
             || ecological.evidence_status != EvidenceStatus::Verified
+            || ecological.origin != EvidenceOrigin::LiveDomain
         {
             return Err(ContractError::EvidenceNotVerified);
         }
@@ -595,7 +610,9 @@ impl CoordinationContract {
         {
             return Err(ContractError::InvalidObligation);
         }
-        if obligation.evidence_status != EvidenceStatus::Verified {
+        if obligation.evidence_status != EvidenceStatus::Verified
+            || obligation.origin != EvidenceOrigin::LiveDomain
+        {
             return Err(ContractError::EvidenceNotVerified);
         }
         let evidence_ref = Some(format!("obligation:{}", obligation.id));
@@ -653,6 +670,8 @@ impl CoordinationContract {
         }
 
         let next = if result.evidence_status != EvidenceStatus::Verified
+            || result.origin != EvidenceOrigin::LiveDomain
+            || delivery.origin != EvidenceOrigin::LiveDomain
             || result.accepted_quantity.is_none()
         {
             Lifecycle::Indeterminate
@@ -713,6 +732,8 @@ impl CoordinationContract {
         }
 
         let resolves = reassessment.evidence_status == EvidenceStatus::Verified
+            && reassessment.origin == EvidenceOrigin::LiveDomain
+            && delivery.origin == EvidenceOrigin::LiveDomain
             && reassessment.accepted_quantity == Some(self.request.quantity)
             && delivery.resource_id == self.request.resource_id
             && delivery.unit == self.request.unit
@@ -731,6 +752,7 @@ impl CoordinationContract {
             claim_evidence_id: reassessment.claim_evidence_id.clone(),
             evidence_id: reassessment.decision_evidence_id.clone(),
             evidence_status: reassessment.evidence_status,
+            origin: reassessment.origin,
             accepted_quantity: reassessment.accepted_quantity,
             decided_at: reassessment.decided_at,
         };
@@ -1038,6 +1060,7 @@ mod tests {
             policy_id: policy_id.to_owned(),
             permitted: true,
             evidence_status: EvidenceStatus::Verified,
+            origin: EvidenceOrigin::LiveDomain,
         }
     }
 
@@ -1047,6 +1070,7 @@ mod tests {
             actor_id: "steward-7".to_owned(),
             policy_digest: "policy-digest-a".to_owned(),
             evidence_status: EvidenceStatus::Verified,
+            origin: EvidenceOrigin::LiveDomain,
         }
     }
 
@@ -1079,6 +1103,7 @@ mod tests {
                     due_at: 9,
                     policy_digest: "policy-digest-a".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                 },
                 3,
             )
@@ -1095,6 +1120,7 @@ mod tests {
                 unit: "hour".to_owned(),
                 quantity,
                 evidence_status: EvidenceStatus::Unknown,
+                origin: EvidenceOrigin::LiveDomain,
                 observed_at: 5,
             })
             .unwrap();
@@ -1109,6 +1135,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 evidence_id: "independent-delivery-check-1".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(quantity),
                 decided_at: 6,
             })
@@ -1154,10 +1181,10 @@ mod tests {
     }
 
     #[test]
-    fn synthetic_only_policy_evidence_blocks_authorization() {
+    fn synthetic_origin_policy_evidence_blocks_authorization() {
         let mut contract = CoordinationContract::new(request("tx-synthetic-rights", 1)).unwrap();
         let mut rights = gate("rights-v1");
-        rights.evidence_status = EvidenceStatus::SyntheticOnly;
+        rights.origin = EvidenceOrigin::SyntheticSimulation;
 
         assert_eq!(
             contract.authorize(authority(), rights, gate("ecology-v1"), 1),
@@ -1260,6 +1287,7 @@ mod tests {
                     due_at: 9,
                     policy_digest: "different-policy".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                 },
                 3,
             ),
@@ -1277,6 +1305,7 @@ mod tests {
             claim_evidence_id: "provider-delivery-claim-1".to_owned(),
             evidence_id: "same-party-check".to_owned(),
             evidence_status: EvidenceStatus::Verified,
+            origin: EvidenceOrigin::LiveDomain,
             accepted_quantity: Some(2),
             decided_at: 6,
         };
@@ -1289,7 +1318,7 @@ mod tests {
     }
 
     #[test]
-    fn synthetic_only_delivery_verification_cannot_confirm_real_fulfilment() {
+    fn synthetic_origin_verification_cannot_confirm_real_fulfilment() {
         let (mut contract, _) = committed_contract("tx-synthetic-delivery", 1);
         record_full_delivery(&mut contract, 1);
 
@@ -1298,7 +1327,8 @@ mod tests {
                 verifier_id: "synthetic-evaluator".to_owned(),
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 evidence_id: "simulation-result-1".to_owned(),
-                evidence_status: EvidenceStatus::SyntheticOnly,
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::SyntheticSimulation,
                 accepted_quantity: Some(1),
                 decided_at: 6,
             }),
@@ -1320,6 +1350,7 @@ mod tests {
                     claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "incomplete-check".to_owned(),
                     evidence_status: EvidenceStatus::Unknown,
+                    origin: EvidenceOrigin::LiveDomain,
                     accepted_quantity: None,
                     decided_at: 6,
                 })
@@ -1333,6 +1364,7 @@ mod tests {
                     claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "reconciled-check".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                     accepted_quantity: Some(2),
                     decided_at: 7,
                 })
@@ -1353,6 +1385,7 @@ mod tests {
                     claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "short-delivery-check".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                     accepted_quantity: Some(3),
                     decided_at: 6,
                 })
@@ -1505,6 +1538,7 @@ mod tests {
                 claim_evidence_id: "different-provider-claim".to_owned(),
                 evidence_id: "independent-check".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(1),
                 decided_at: 6,
             }),
@@ -1604,6 +1638,7 @@ mod tests {
                     claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     evidence_id: "first-check".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                     accepted_quantity: Some(3),
                     decided_at: 6,
                 })
@@ -1618,6 +1653,7 @@ mod tests {
                     claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     decision_evidence_id: "review-check".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                     accepted_quantity: Some(4),
                     decided_at: 7,
                 })
@@ -1656,6 +1692,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 evidence_id: "first-check".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(3),
                 decided_at: 6,
             })
@@ -1668,6 +1705,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 decision_evidence_id: "still-short".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(3),
                 decided_at: 7,
             }),
@@ -1695,6 +1733,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 evidence_id: "first-check".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(3),
                 decided_at: 6,
             })
@@ -1706,6 +1745,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 decision_evidence_id: "same-reviewer".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(4),
                 decided_at: 7,
             }),
@@ -1725,6 +1765,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 evidence_id: "first-check".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(3),
                 decided_at: 6,
             })
@@ -1736,6 +1777,7 @@ mod tests {
                     claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                     decision_evidence_id: "still-short".to_owned(),
                     evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
                     accepted_quantity: Some(3),
                     decided_at: 7,
                 })
@@ -1748,6 +1790,7 @@ mod tests {
                 claim_evidence_id: "provider-delivery-claim-1".to_owned(),
                 decision_evidence_id: "same-reviewer-again".to_owned(),
                 evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::LiveDomain,
                 accepted_quantity: Some(4),
                 decided_at: 8,
             }),
@@ -1803,7 +1846,7 @@ mod tests {
         );
     }
     #[test]
-    fn synthetic_only_obligation_evidence_cannot_be_committed() {
+    fn synthetic_origin_obligation_evidence_cannot_be_committed() {
         let mut contract = authorized_contract("tx-synthetic-obligation", 1);
         let mut capacity = CapacityBook::default();
         capacity
@@ -1823,7 +1866,8 @@ mod tests {
                 amount_atomic: 30,
                 due_at: 9,
                 policy_digest: "policy-digest-a".to_owned(),
-                evidence_status: EvidenceStatus::SyntheticOnly,
+                evidence_status: EvidenceStatus::Verified,
+                origin: EvidenceOrigin::SyntheticSimulation,
             },
             3,
         );
@@ -1843,6 +1887,7 @@ mod tests {
             unit: "hour".to_owned(),
             quantity: 1,
             evidence_status: EvidenceStatus::Unknown,
+            origin: EvidenceOrigin::LiveDomain,
             observed_at: 5,
         });
 
