@@ -1072,7 +1072,7 @@ def main():
         fail("mutation: distributional coverage with unresolved evidence was accepted")
     print("PASS mutation: distributional coverage evidence references must resolve")
 
-    print("PASS: 58 urban-metabolism/synergy controls (48 mutation/parser rejection controls and ten positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
+    print("PASS: 57 urban-metabolism/synergy controls (48 mutation/parser rejection controls and nine positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()
