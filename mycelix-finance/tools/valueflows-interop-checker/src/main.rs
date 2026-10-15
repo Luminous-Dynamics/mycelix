@@ -1,6 +1,6 @@
 use serde::{
     de::{self, MapAccess, SeqAccess, Visitor},
-    Deserialize, Deserializer,
+    Deserialize, Deserializer, Serialize,
 };
 use serde_json::{Map as JsonMap, Number, Value};
 use sha2::{Digest, Sha256};
@@ -127,6 +127,27 @@ fn sha256_hex(bytes: &[u8]) -> String {
 fn canonical_payload_digest(payload: &Value) -> Result<String, String> {
     let canonical = canonical_json_bytes(payload)?;
     Ok(sha256_hex(&canonical))
+}
+
+fn canonical_envelope_digest(
+    schema_id: &str,
+    schema_version: &str,
+    observation: &ProvenanceObservation,
+) -> Result<String, String> {
+    let preimage = EnvelopeDigestPreimage {
+        schema_id,
+        schema_version,
+        observation,
+    };
+    let canonical = serde_json_canonicalizer::to_vec(&preimage)
+        .map_err(|error| format!("RFC 8785/JCS envelope canonicalization failed: {error}"))?;
+    Ok(sha256_hex(&canonical))
+}
+
+fn is_lowercase_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+        && value == value.to_ascii_lowercase()
 }
 
 
@@ -411,6 +432,7 @@ struct ProvenanceFixture {
     authority_boundary: ProvenanceAuthorityBoundary,
     canonicalization_policy: CanonicalizationPolicy,
     example_observation: ProvenanceObservation,
+    example_envelope_digest_sha256: String,
     negative_controls: Vec<ProvenanceNegativeControl>,
 }
 
@@ -436,11 +458,13 @@ struct CanonicalizationPolicy {
     algorithm: String,
     digest_algorithm: String,
     digest_scope: String,
+    envelope_digest_scope: String,
     payload_digest_verification_implemented: bool,
+    envelope_digest_verification_implemented: bool,
     note: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ProvenanceObservation {
     source_app: String,
@@ -462,6 +486,13 @@ struct ProvenanceObservation {
     privacy_class: String,
     license_id: String,
     claim_ceiling: String,
+}
+
+#[derive(Serialize)]
+struct EnvelopeDigestPreimage<'a> {
+    schema_id: &'a str,
+    schema_version: &'a str,
+    observation: &'a ProvenanceObservation,
 }
 
 #[derive(Debug, Deserialize)]
@@ -652,16 +683,24 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
     );
     require!(
         canonicalization.digest_scope == "canonicalized_payload_bytes",
-        "digest scope must be explicit canonicalized payload bytes"
+        "payload digest scope must be canonicalized payload bytes"
+    );
+    require!(
+        canonicalization.envelope_digest_scope == "canonicalized_envelope_preimage",
+        "envelope digest scope must be the canonicalized, domain-separated preimage"
     );
     require!(
         canonicalization.payload_digest_verification_implemented,
         "fixture checker must recompute and compare the payload digest"
     );
     require!(
-        canonicalization.note.contains("recomputes SHA-256 over RFC 8785/JCS canonical payload bytes")
+        canonicalization.envelope_digest_verification_implemented,
+        "fixture checker must recompute and compare the envelope digest"
+    );
+    require!(
+        canonicalization.note.contains("recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage")
             && canonicalization.note.contains("does not verify signatures or establish truth"),
-        "canonicalization note must describe implemented digest verification and retained signature/truth limits"
+        "canonicalization note must describe digest verification and retained signature/truth limits"
     );
 
     let example = &fixture.example_observation;
@@ -691,18 +730,28 @@ fn validate_provenance(fixture: &ProvenanceFixture) -> Vec<String> {
         "example payload canonicalization must agree with the declared algorithm"
     );
     require!(
-        example.payload_digest_sha256.len() == 64
-            && example
-                .payload_digest_sha256
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
-            && example.payload_digest_sha256 == example.payload_digest_sha256.to_ascii_lowercase(),
+        is_lowercase_sha256_hex(&example.payload_digest_sha256),
         "example payload digest must have lowercase 64-character SHA-256 syntax"
+    );
+    require!(
+        is_lowercase_sha256_hex(&fixture.example_envelope_digest_sha256),
+        "example envelope digest must have lowercase 64-character SHA-256 syntax"
     );
     match canonical_payload_digest(&example.payload) {
         Ok(actual_digest) => require!(
             actual_digest == example.payload_digest_sha256,
             "example payload digest must match SHA-256 of RFC 8785/JCS canonical payload bytes"
+        ),
+        Err(error) => errors.push(error),
+    }
+    match canonical_envelope_digest(
+        &fixture.schema_id,
+        &fixture.schema_version,
+        example,
+    ) {
+        Ok(actual_digest) => require!(
+            actual_digest == fixture.example_envelope_digest_sha256,
+            "example envelope digest must bind schema, identity, scope, timestamps, evidence class, claim ceiling, and payload digest"
         ),
         Err(error) => errors.push(error),
     }
@@ -1880,6 +1929,29 @@ mod tests {
         assert!(errors.iter().any(|error| {
             error.contains("duplicate JSON object key")
         }));
+    }
+
+    #[test]
+    fn provenance_metadata_mutation_breaks_envelope_digest_even_when_payload_is_unchanged() {
+        for (field, replacement) in [
+            ("source_app", "mycelix.synthetic-fixture-altered"),
+            ("subject_id", "synthetic:subject-02"),
+            ("scope_id", "synthetic:scope-02"),
+            ("observed_at", "2026-10-15T10:00:01Z"),
+            ("claim_ceiling", "This observation proves settlement."),
+        ] {
+            let mut value: serde_json::Value =
+                serde_json::from_str(EMBEDDED_PROVENANCE_FIXTURE).expect("fixture JSON");
+            value["example_observation"][field] = replacement.into();
+            let errors = check_provenance_text(&value.to_string())
+                .expect_err("changed envelope metadata must invalidate the envelope digest");
+            assert!(
+                errors.iter().any(|error| {
+                    error.contains("example envelope digest must bind schema, identity, scope")
+                }),
+                "{field}: {errors:?}"
+            );
+        }
     }
 
     #[test]
