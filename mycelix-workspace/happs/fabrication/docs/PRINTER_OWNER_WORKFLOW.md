@@ -55,7 +55,7 @@ The intent should cover function, envelope/dimensions, fit and interfaces, inten
 
 Any AI-generated geometry or repair suggestion is an editable candidate. Preserve original source, requested constraints, generated changes and reviewer decisions. Do not claim fatigue, pressure, heat, electrical, food-contact, medical or other fitness solely because a mesh is watertight or a print succeeds.
 
-For parts used in the computer-repair/productive-closure programme, prioritize non-critical, inspectable enclosures, cable guides, fans/ducts and fixtures where appropriate. Do not treat a printed part as an automatically qualified substitute for semiconductor, mains-voltage, fire-safety, pressure-containing or load-critical components.
+For parts used in the computer-repair/productive-closure programme ([Symthaea #5796](https://github.com/Luminous-Dynamics/symthaea/issues/5796), with a first measurable memory-efficiency task in [#7515](https://github.com/Luminous-Dynamics/symthaea/issues/7515)), prioritize non-critical, inspectable enclosures, cable guides, fans/ducts and fixtures where appropriate. Do not treat a printed part as an automatically qualified substitute for semiconductor, mains-voltage, fire-safety, pressure-containing or load-critical components.
 
 ### 3. Prepare a portable project
 
