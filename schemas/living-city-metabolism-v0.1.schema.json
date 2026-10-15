@@ -1512,6 +1512,12 @@
             "type": "string",
             "minLength": 12
           }
+        },
+        "payload_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Location or immutable artifact identifier from which the exact serialized Symtropy receipt payload can be retrieved for hash verification."
         }
       },
       "allOf": [
@@ -1529,6 +1535,7 @@
           "then": {
             "required": [
               "producer_revision",
+              "payload_ref",
               "payload_sha256"
             ]
           }
