@@ -253,7 +253,8 @@
             "thermal_exposure_degree_hours",
             "accessible_person_hours",
             "essential_service_uptime",
-            "tree_canopy_area"
+            "tree_canopy_area",
+            "precipitation_input"
           ]
         },
         "value": {
@@ -450,7 +451,8 @@
                   "potable_water_withdrawal",
                   "reclaimed_water_use",
                   "stormwater_runoff",
-                  "stormwater_retained"
+                  "stormwater_retained",
+                  "precipitation_input"
                 ]
               }
             },
@@ -619,7 +621,8 @@
         "unit",
         "status",
         "rationale",
-        "evidence_refs"
+        "evidence_refs",
+        "flow_bindings"
       ],
       "properties": {
         "check_id": {
@@ -684,6 +687,68 @@
           "items": {
             "type": "string",
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "flow_bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inflow_refs",
+            "generated_or_added_refs",
+            "outflow_refs",
+            "loss_refs",
+            "storage_increase_refs",
+            "storage_decrease_refs"
+          ],
+          "properties": {
+            "inflow_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "generated_or_added_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "outflow_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "loss_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "storage_increase_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "storage_decrease_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            }
           }
         }
       },
@@ -848,7 +913,8 @@
             "thermal_exposure_degree_hours",
             "accessible_person_hours",
             "essential_service_uptime",
-            "tree_canopy_area"
+            "tree_canopy_area",
+            "precipitation_input"
           ]
         },
         "direction": {
