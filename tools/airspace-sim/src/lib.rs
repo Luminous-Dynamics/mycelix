@@ -298,6 +298,7 @@ pub enum DynamicConstraintError {
     TimeBasisChanged,
     IllegalStateTransition,
     EmptyFlightIdentity,
+    DuplicateFlightIdentity,
     InvalidFlightWindow,
     InvalidFlightGeometry,
     UnqualifiedFlightTime,
@@ -1302,9 +1303,14 @@ pub fn evaluate_dynamic_constraint_case(case: &DynamicConstraintCase) -> Dynamic
         .collect();
 
     let mut current_flights: Vec<&FlightIntent> = Vec::new();
+    let mut seen_flight_ids = BTreeMap::<&str, ()>::new();
     for flight in &case.flights {
         if flight.flight_id.trim().is_empty() {
             errors.push(DynamicConstraintError::EmptyFlightIdentity);
+        } else if seen_flight_ids.insert(flight.flight_id.as_str(), ()).is_some() {
+            // Duplicate identifiers make it impossible to attribute impacts
+            // unambiguously; reject the entire case before intersection work.
+            errors.push(DynamicConstraintError::DuplicateFlightIdentity);
         }
         if flight.valid_until_s <= flight.valid_from_s
             || flight.valid_until_s.checked_sub(flight.valid_from_s)
@@ -1430,6 +1436,7 @@ fn dynamic_constraint_error_outcome(errors: &[DynamicConstraintError]) -> Dynami
             | DynamicConstraintError::InvalidBounds
             | DynamicConstraintError::InvalidMargin
             | DynamicConstraintError::EmptyFlightIdentity
+            | DynamicConstraintError::DuplicateFlightIdentity
             | DynamicConstraintError::InvalidFlightWindow
             | DynamicConstraintError::InvalidFlightGeometry
             | DynamicConstraintError::WorkBudgetExceeded
@@ -1829,6 +1836,18 @@ mod tests {
         let report = evaluate_dynamic_constraint_case(&dynamic_constraint_fixture("invalid_constraint_sample_step_rejected"));
         assert_eq!(report.actual_outcome, DynamicConstraintOutcome::Reject);
         assert!(report.errors.contains(&DynamicConstraintError::InvalidUncertaintyHorizon));
+    }
+
+    #[test]
+    fn duplicate_dynamic_flight_identity_is_rejected_before_intersection() {
+        let mut case = dynamic_constraint_fixture("new_restriction_intersects_accepted_intent");
+        let duplicate = case.flights[0].clone();
+        case.flights.push(duplicate);
+
+        let report = evaluate_dynamic_constraint_case(&case);
+        assert_eq!(report.actual_outcome, DynamicConstraintOutcome::Reject);
+        assert!(report.errors.contains(&DynamicConstraintError::DuplicateFlightIdentity));
+        assert_eq!(report.intersection_checks, 0);
     }
 
     #[test]
