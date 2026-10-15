@@ -244,7 +244,9 @@ def main() -> None:
 
     subthreshold_split = copy.deepcopy(synthetic)
     subthreshold_split["ratings"][0]["scores"]["usefulness"]["score"] = 3
-    if perspective_score_range(subthreshold_split, "usefulness") != DISAGREEMENT_RANGE - 1:
+    for rating in subthreshold_split["ratings"][1:]:
+        rating["scores"]["usefulness"]["score"] = 5
+    if median_score(subthreshold_split, "usefulness") != 5 or perspective_score_range(subthreshold_split, "usefulness") != DISAGREEMENT_RANGE - 1:
         fail("mutation setup: subthreshold control must have a two-point usefulness range")
     if recommend(subthreshold_split, evidence_ids) != "eligible_for_human_pilot_review" or semantic_errors(subthreshold_split, concepts, source_ids, evidence_ids):
         fail("mutation: disagreement tripwire incorrectly triggers below its provisional threshold")
