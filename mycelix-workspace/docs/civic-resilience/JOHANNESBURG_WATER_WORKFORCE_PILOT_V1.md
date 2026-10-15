@@ -161,6 +161,14 @@ This is a real maintenance-procurement discovery lead, but it is **not** a basic
 
 The same official document warns that bid documents and Central Supplier Database registration are free, and advises bidders to use issuer-published channels and reject bribes or paid promises of preferential treatment. Mycelix should surface those official safeguards as contextual warnings, not accept payments, contact suppliers, place bids, or automatically accuse a person. A report or anomaly is not an adjudicated finding.
 
+### Municipal financial data can prioritize research, not fund a job
+
+The National Treasury / Municipal Money documentation says its repairs-and-maintenance v2 dataset uses municipal Section 71/mSCOA data from 2019/20 onward. The site currently reports data through 2026 Q2 while warning that the figures are still being checked for completeness and integrity. The data are quarterly snapshots; the documentation advises cross-checking API figures against published Section 71 reports because later municipal adjustments can make snapshots differ.
+
+I inspected the [City of Johannesburg repairs-and-maintenance table view](https://municipaldata.treasury.gov.za/table/repmaint_v2/?municipalities=JHB) on 15 October 2026. It showed the generic notice “This year contains no data for the selected amount type,” but the observed view had no specific amount type, year or period selected and exposed no numeric amount. The observation is therefore **filter-incomplete**, not a finding that Johannesburg spent zero or has no money available.
+
+For a future baseline, pin municipality, financial year-end, period/month, amount type (budget, actual or audited actual), item and government function; preserve the query and snapshot date; then compare the corresponding Treasury Section 71 report. Use aggregate repairs/maintenance trends only to prioritize which service gaps merit further investigation. They cannot show that a tender is open, that a contractor was paid, that a specific contract has available labour funds, or that a Mycelix role has been funded.
+
 ### Reuse the procurement standard, but do not trust missing fields
 
 South Africa's National Treasury Transparency Portal publishes monthly bulk and API data in Open Contracting Data Standard (OCDS) formats. The OCDS joins tendering, award, contract and implementation evidence through a contracting-process identifier (OCID). This is a strong interoperability starting point for Mycelix: reuse the stage vocabulary and source-linking rather than inventing another procurement lifecycle. It is not proof that Mycelix conforms to OCDS today, nor is the standard an e-procurement system.
@@ -296,5 +304,7 @@ If these questions cannot be answered, remain in synthetic/shadow research. Do n
 15. Open Contracting Data Standard v1.1.5, lifecycle model: https://standard.open-contracting.org/latest/en/primer/how/
 16. Pikitup issuer RFQ listing (checked 14 October 2026): https://pikitup.co.za/rfq/
 17. Pikitup official PIK 016/2026-27 bid document (text-layer observed; screenshot fetch timed out): https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf
+18. National Treasury / Municipal Money API documentation and Repairs and Maintenance v2 (checked 15 October 2026): https://municipaldata.treasury.gov.za/docs
+19. City of Johannesburg Municipal Money repairs-and-maintenance v2 view (filters incomplete; no numeric amount recorded, checked 15 October 2026): https://municipaldata.treasury.gov.za/table/repmaint_v2/?municipalities=JHB
 18. South African Government, joint statement on power trips and water-supply disruptions, 10 September 2026: https://www.gov.za/news/media-statements/government-measures-mitigate-water-supply-disruptions-resulting-power-trips
 19. Luminous Platform public-source catalogue PR #34 (draft branch, source entries intentionally catalogue-only): https://github.com/Luminous-Dynamics/luminous-platform/tree/docs/public-service-operations-profile-rfc-001/contracts/public-source-catalogue-v1/

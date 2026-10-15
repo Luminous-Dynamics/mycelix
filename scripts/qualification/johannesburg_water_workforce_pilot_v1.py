@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "a5a1ad647accd693c8cbccff7da63970aae90131"
-EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1", "PIKITUP-RFQ-INDEX-1", "PIKITUP-PIK016-DOC-1"]
+EXPECTED_CORPUS_BLOB_SHA = "79c8f83280eb12ab4031de035816eafc3fe0ad61"
+EXPECTED_SOURCE_IDS = ["JW-1","JW-3","COJ-1","COJ-SDBIP-2026-27","GOV-PWR-WTR-1","JW-2","SA-1","JOBS-1","LAW-1","SA-JOBS-2","SA-JOBS-3","SA-WAGE-2026-1","COJ-PROC-1","PIKITUP-PROC-1","PIKITUP-CURRENT-INDEX-1","SA-TREASURY-OCDS-REGISTRY-1","SA-ETENDER-PORTAL-1","OCDS-STANDARD-1","PIKITUP-RFQ-INDEX-1","PIKITUP-PIK016-DOC-1","SA-MUNI-FIN-API-1","JHB-REPMAINT-V2-VIEW-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -66,6 +66,9 @@ EXPECTED_PROBES = {
     "pikitup-deadline-without-timezone-is-not-open-verified": ("ProcurementIntegrity", "KeepAtTenderNoticeObserved", "TimezoneAndAmendmentCurrentnessUnqualified"),
     "cidb-tender-requirement-is-not-cooperative-job-eligibility": ("EmploymentIntegrity", "RequireBidderAndScopeReview", "BidderAndSubcontractEligibilityUnverified"),
     "tender-document-fee-or-bribe-solicitation-is-not-official": ("ProcurementIntegrity", "BlockPaymentAndUseOfficialChannel", "SuspectedProcurementScamUnadjudicated"),
+    "municipal-repairs-view-without-amount-type-is-not-zero": ("FinanceDataIntegrity", "HoldFinancialObservationUnqualified", "FinanceFiltersIncomplete"),
+    "aggregate-repairs-spend-is-not-role-funding": ("EmploymentIntegrity", "AggregateContextOnly", "MunicipalAggregateNotProcurementEvidence"),
+    "joint-water-power-statement-is-not-incident-causality": ("CausalityAndAuthority", "HypothesisOnlyNoIncidentCausalEdge", "CrossUtilityHypothesisOnly"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -97,6 +100,9 @@ REQUIRED_GUARDS = {
     "pikitup-deadline-without-timezone-is-not-open-verified": {"TenderDeadlineNeedsTimezone", "FuturePublishedDeadlineAloneNotFullOpenGate", "CheckLatestAddendaBeforeOpenStatus", "NoAutomaticStagePromotion"},
     "cidb-tender-requirement-is-not-cooperative-job-eligibility": {"SpecificTenderRequirementsControl", "DoNotAssumeCooperativeEligibility", "ContractScopeDoesNotEqualRoleBudget", "NoPositionBeforeFullFunding"},
     "tender-document-fee-or-bribe-solicitation-is-not-official": {"TenderDocumentsAndCsdRegistrationAreFree", "UseIssuerPublishedChannels", "NoBribeOrPreferentialTreatment", "ReportThroughOfficialChannelOnly", "AllegationIsNotAdjudicatedFinding"},
+    "municipal-repairs-view-without-amount-type-is-not-zero": {"AmountTypeIsRequired", "FinancialYearAndPeriodMustBePinned", "NoDisplayedCellIsNotMeasuredZero", "AggregateSpendIsNotTenderFunding"},
+    "aggregate-repairs-spend-is-not-role-funding": {"AggregateFinanceIsNotTenderEvidence", "ContractValueIsNotRoleBudget", "NoPositionBeforeFullFunding", "Section71FunctionAndPeriodMustBePinned"},
+    "joint-water-power-statement-is-not-incident-causality": {"OfficialContextIsNotIncidentEvidence", "NoCausalEdgeWithoutIncidentSpecificEvidence", "NoLiveStatusFromHistoricStatement", "NoUnauthorizedTelemetry"},
 }
 
 EXPECTED_BASE_KEYS = {
@@ -344,7 +350,7 @@ def validate() -> None:
     if "not proof of absence" not in pikitup_proc.get("search_ceiling", "").lower():
         fail("tender listing non-observation must not be reported as proof no tender exists")
 
-    current_index = source_by_id["PIKITUP-CURRENT-INDEX-1", "PIKITUP-RFQ-INDEX-1", "PIKITUP-PIK016-DOC-1"]
+    current_index = source_by_id["PIKITUP-CURRENT-INDEX-1"]
     if current_index.get("page_label") != "Current Tenders" or current_index.get("checked_on") != "2026-10-14":
         fail("City-hosted Pikitup current-tender listing identity/date drift")
     if current_index.get("visible_rows") != [
@@ -361,6 +367,24 @@ def validate() -> None:
     current_obs = procurement.get("current_index_observations", {})
     if current_obs.get("source_id") != "PIKITUP-CURRENT-INDEX-1" or current_obs.get("lifecycle_status_or_closing_date_visible") is not False or current_obs.get("relevant_work_package_observed") is not False:
         fail("procurement current-index observation must require notice-specific currentness")
+
+    cross_utility = source_by_id["GOV-PWR-WTR-1"]
+    if cross_utility.get("publication_date") != "2026-09-10" or cross_utility.get("source_kind") != "OfficialJointStatement":
+        fail("joint water/power government statement source identity/date drift")
+    if not any("Incident-level causal edge" in str(x) for x in cross_utility.get("prohibited_inference", [])):
+        fail("cross-utility context cannot be promoted to incident-level causality")
+    municipal_finance = source_by_id["SA-MUNI-FIN-API-1"]
+    if municipal_finance.get("latest_published_data_period") != "2026 Q2" or "Repairs and maintenance (v2)" not in municipal_finance.get("covered_financial_data", []):
+        fail("Municipal Money currentness/dataset scope drift")
+    if "not procurement" not in municipal_finance.get("use_limit", "").lower() or "not role-specific" not in municipal_finance.get("use_limit", "").lower():
+        fail("aggregate municipal finance data must not be promoted to tender or role funding")
+    finance_view = source_by_id["JHB-REPMAINT-V2-VIEW-1"]
+    if finance_view.get("checked_on") != "2026-10-15" or finance_view.get("selected_amount_type") != "NotSelectedInObservedView" or finance_view.get("numeric_amount_recorded") is not False:
+        fail("Johannesburg repairs-finance view must preserve missing filter and no-number observation")
+    if "not a measured zero" not in finance_view.get("interpretation", "").lower():
+        fail("unselected financial view must not be treated as measured zero")
+    if procurement.get("finance_context_source_ids") != ["SA-MUNI-FIN-API-1", "JHB-REPMAINT-V2-VIEW-1"]:
+        fail("aggregate municipal finance context source pin drift")
 
     treasury_registry = source_by_id["SA-TREASURY-OCDS-REGISTRY-1"]
     if treasury_registry.get("dataset_date_range") != "2017-02 through 2026-09" or treasury_registry.get("last_retrieved_by_registry") != "2026-09-20":
@@ -529,6 +553,15 @@ def validate() -> None:
         fail("same-title water-loss metrics must not auto-crosswalk")
     if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
         fail("unqualified water metric crosswalk cannot create a derived value or SLA")
+    municipal_finance_probe = by_id["municipal-repairs-view-without-amount-type-is-not-zero"]
+    if municipal_finance_probe["expected"]["disposition"] != "HoldFinancialObservationUnqualified" or municipal_finance_probe["expected"]["issue_status_effect"] != "NoZeroSpendOrFundingClaim":
+        fail("municipal finance view with unselected amount type cannot establish zero spend or funding")
+    aggregate_funding_probe = by_id["aggregate-repairs-spend-is-not-role-funding"]
+    if aggregate_funding_probe["expected"]["disposition"] != "AggregateContextOnly" or aggregate_funding_probe["expected"]["issue_status_effect"] != "NoTenderOrRoleFundingClaim":
+        fail("aggregate repairs/maintenance expenditure cannot establish tender or role funding")
+    cross_utility_probe = by_id["joint-water-power-statement-is-not-incident-causality"]
+    if cross_utility_probe["expected"]["disposition"] != "HypothesisOnlyNoIncidentCausalEdge" or cross_utility_probe["expected"]["issue_status_effect"] != "NoLiveStatusOrCausalClaim":
+        fail("joint government statement cannot establish incident-level causality or current outage")
     timezone_tender_probe = by_id["pikitup-deadline-without-timezone-is-not-open-verified"]
     if timezone_tender_probe["expected"]["disposition"] != "KeepAtTenderNoticeObserved" or timezone_tender_probe["expected"]["issue_status_effect"] != "NoTenderOpenVerifiedClaim":
         fail("specific Pikitup notice must stay below verified-open stage until timezone/currentness gates pass")

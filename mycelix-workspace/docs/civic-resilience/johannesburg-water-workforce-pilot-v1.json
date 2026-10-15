@@ -304,6 +304,33 @@
       }
     },
     {
+      "source_id": "GOV-PWR-WTR-1",
+      "issuer": "South African Government",
+      "source_url": "https://www.gov.za/news/media-statements/government-measures-mitigate-water-supply-disruptions-resulting-power-trips",
+      "source_kind": "OfficialJointStatement",
+      "publication_date": "2026-09-10",
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialPublisherStatementObserved",
+      "claims_recorded": [
+        "A multi-stakeholder meeting addressed water-supply disruptions associated with intermittent power trips.",
+        "The statement names Johannesburg Water, City Power, Rand Water, Eskom and national/provincial authorities."
+      ],
+      "allowed_use": "Cross-utility hypothesis generation and public-source discovery only.",
+      "prohibited_inference": [
+        "Current outage or restoration status at a particular site",
+        "Incident-level causal edge without incident-specific evidence",
+        "Authorized access to any utility telemetry or case system",
+        "Installation completion, remediation completion, or measured intervention effect",
+        "An endorsement or partnership with Mycelix"
+      ],
+      "shared_causality_controls": {
+        "platform_contract": "https://github.com/Luminous-Dynamics/luminous-platform/pull/34",
+        "symthaea_negative_control": "https://github.com/Luminous-Dynamics/symthaea/pull/7443",
+        "mycelix_service_corpus": "https://github.com/Luminous-Dynamics/mycelix/pull/5019",
+        "qualification_scope": "Linked contracts/tests are research fixtures and negative controls only; not an authorized operational ingestion path."
+      }
+    },
+    {
       "source_id": "JW-2",
       "issuer": "Johannesburg Water SOC",
       "source_url": "https://www.johannesburgwater.co.za/services/",
@@ -689,6 +716,58 @@
         "Anyone must pay for bid documents, CSD registration, or a promised award",
         "No PDF screenshot means source is absent"
       ]
+    },
+    {
+      "source_id": "SA-MUNI-FIN-API-1",
+      "issuer": "National Treasury / Municipal Money with OpenUp",
+      "source_url": "https://municipaldata.treasury.gov.za/docs",
+      "source_kind": "OfficialMunicipalFinanceApiDocumentation",
+      "checked_on": "2026-10-15",
+      "latest_published_data_period": "2026 Q2",
+      "observed_status": "Latest figures announced but still being verified for completeness and integrity",
+      "covered_financial_data": [
+        "Section 71 municipal submissions",
+        "Income and expenditure",
+        "Repairs and maintenance (v2)",
+        "Cash flow and other municipal finance datasets"
+      ],
+      "repairs_maintenance_v2_basis": "Section 71-level aggregation of mSCOA-sourced data from financial year 2019/20 onward",
+      "update_cycle": "Quarterly snapshots; later adjustments can change API output from an earlier published report snapshot",
+      "reported_data_limit": "Only as complete and trustworthy as the data provided by the municipality",
+      "use_limit": "Planning/prioritization context only; not procurement, tender status, a contract value, supplier payment, role-specific budget, or proof of money available to a pilot.",
+      "allowed_use": "After choosing and pinning municipality, financial year, period, amount type and function, compare published aggregate trends and cross-check against the corresponding Treasury Section 71 reports.",
+      "prohibited_inference": [
+        "Aggregate repairs/maintenance amount proves an open tender or supplier",
+        "Municipal expenditure proves a pilot role is funded",
+        "A contract-value or expenditure total is a role-specific labour budget",
+        "Data not supplied or not displayed proves zero spend",
+        "Quarterly API value is interchangeable with a report generated from a different snapshot",
+        "Financial data confirms incident-level service failure or causality"
+      ]
+    },
+    {
+      "source_id": "JHB-REPMAINT-V2-VIEW-1",
+      "issuer": "National Treasury / Municipal Money",
+      "source_url": "https://municipaldata.treasury.gov.za/table/repmaint_v2/?municipalities=JHB",
+      "source_kind": "OfficialJohannesburgRepairsMaintenanceTableView",
+      "checked_on": "2026-10-15",
+      "observation_status": "OfficialFilteredTablePageObserved",
+      "selected_municipality": "City of Johannesburg",
+      "selected_financial_year": "NotObserved",
+      "selected_period": "NotObserved",
+      "selected_amount_type": "NotSelectedInObservedView",
+      "visible_page_message": "This year contains no data for the selected amount type.",
+      "numeric_amount_recorded": false,
+      "amount_claimed": false,
+      "interpretation": "The observed view did not specify the amount type or a year/period for a numeric record. The page message is not a measured zero, not a complete-spend assertion, and not evidence that municipal funding exists or is absent.",
+      "allowed_use": "Record the query as incomplete and specify required filters before using an aggregate figure.",
+      "prohibited_inference": [
+        "Current actual spend equals zero",
+        "No repairs or maintenance were funded",
+        "The municipality has money available for the proposed pilot",
+        "Budgeted, actual, audited actual and contract value are interchangeable",
+        "This table identifies an open tender or a role-specific payer"
+      ]
     }
   ],
   "event_model": {
@@ -1059,8 +1138,8 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "a5a1ad647accd693c8cbccff7da63970aae90131",
-    "probe_count": 29,
+    "git_blob_sha": "79c8f83280eb12ab4031de035816eafc3fe0ad61",
+    "probe_count": 32,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
@@ -1154,7 +1233,12 @@
       "rule": "Listing heading + identifier is not evidence of current open status. The /17 suffix is not independently interpreted as a date.",
       "relevant_work_package_observed": false,
       "status": "NoticeSpecificCurrentnessRequired"
-    }
+    },
+    "finance_context_source_ids": [
+      "SA-MUNI-FIN-API-1",
+      "JHB-REPMAINT-V2-VIEW-1"
+    ],
+    "finance_context_claim_ceiling": "Aggregate municipal finance can inform research prioritization only after filters and source snapshot are pinned; it never establishes an open tender, a contractor payment, or role-specific pilot funding."
   },
   "procurement_evidence_lifecycle": {
     "version": 1,
