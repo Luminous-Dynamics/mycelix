@@ -72,6 +72,8 @@ def _is_string_list(value: Any, *, non_empty: bool = False) -> bool:
 def _contains_forbidden_key(value: Any) -> bool:
     if isinstance(value, dict):
         for key, child in value.items():
+            if not isinstance(key, str):
+                return True
             normalized = key.strip().lower()
             if normalized in FORBIDDEN_KEYS or _contains_forbidden_key(child):
                 return True
@@ -90,7 +92,8 @@ def validate_request(request: Any) -> list[str]:
     for field in ("service_id", "purpose", "requested_outcome"):
         if not isinstance(request.get(field), str) or not request[field].strip():
             errors.append(f"request.{field} must be non-empty text")
-    if request.get("requested_outcome") not in {"proof_only", "benefits_eligibility", "citizenship_decision", "residency_decision"}:
+    outcome_value = request.get("requested_outcome")
+    if not isinstance(outcome_value, str) or outcome_value not in {"proof_only", "benefits_eligibility", "citizenship_decision", "residency_decision"}:
         errors.append("request.requested_outcome must use the closed v1 enum")
     if not _is_string_list(request.get("requested_claims"), non_empty=True):
         errors.append("request.requested_claims must be a non-empty list of unique claim names")
