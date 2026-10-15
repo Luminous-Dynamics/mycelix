@@ -708,6 +708,18 @@ impl CoordinationContract {
         } else {
             Lifecycle::Disputed
         };
+        if resolves {
+            // Keep the primary verification accessor aligned with the accepted
+            // state. The earlier decision remains preserved in this journal.
+            self.verification = Some(VerificationResult {
+                verifier_id: reassessment.resolver_id.clone(),
+                claim_evidence_id: reassessment.claim_evidence_id.clone(),
+                evidence_id: reassessment.decision_evidence_id.clone(),
+                evidence_status: reassessment.evidence_status,
+                accepted_quantity: reassessment.accepted_quantity,
+                decided_at: reassessment.decided_at,
+            });
+        }
         self.dispute_reassessments.push(reassessment);
         self.transition(next, at, evidence_ref);
 
@@ -1559,6 +1571,10 @@ mod tests {
         );
         assert_eq!(contract.dispute_reassessments().len(), 1);
         assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        let accepted_verification = contract.verification().unwrap();
+        assert_eq!(accepted_verification.verifier_id, "independent-reviewer");
+        assert_eq!(accepted_verification.accepted_quantity, Some(4));
+        assert_eq!(accepted_verification.evidence_id, "review-check");
         contract.consume_verified_capacity(&mut capacity, 7).unwrap();
         let mut ledger = Ledger::default();
         ledger
