@@ -126,6 +126,13 @@ def semantic_errors(review: dict, concepts: dict, source_ids: set[str], evidence
             errors.append(f"unresolved evidence reference in comparison set {reference!r}")
         if reference.startswith("source:") and reference.removeprefix("source:") not in source_ids:
             errors.append(f"unresolved source reference in comparison set {reference!r}")
+    for gate_name in GATE_KEYS:
+        gate = review["hard_gates"][gate_name]
+        if gate["status"] == "pass" and not gate.get("evidence_refs"):
+            errors.append(f"passed hard gate {gate_name!r} has no supporting evidence references")
+        for ref in gate.get("evidence_refs", []):
+            if ref not in evidence_ids:
+                errors.append(f"unresolved evidence reference in hard gate {gate_name!r}: {ref!r}")
     if review["status"] == "contested" and not review["dissent_summary"]:
         errors.append("contested review must preserve dissent_summary")
     large_disagreements = [dimension for dimension in DIMENSIONS if perspective_score_range(review, dimension) >= DISAGREEMENT_RANGE]
@@ -160,7 +167,7 @@ def make_synthetic_review(plan: dict, evidence_id: str) -> dict:
             "perspective":perspective,"sample_size_band":"3-5","scores":scores,
             "notes":"Synthetic group aggregate; no real respondent or community assessment.","dissent_notes":[]
         })
-    value["hard_gates"] = {key:{"status":"pass","rationale":"Synthetic pass solely for deterministic validator testing; not an actual clearance."} for key in GATE_KEYS}
+    value["hard_gates"] = {key:{"status":"pass","rationale":"Synthetic pass solely for deterministic validator testing; not an actual clearance.","evidence_refs":[evidence_id]} for key in GATE_KEYS}
     value["recommendation"] = "eligible_for_human_pilot_review"
     value["dissent_summary"] = []
     value["limitations"] = ["Synthetic test object generated in memory for CI only.","Not a real review, community endorsement, safety assessment, or authorization to build."]
@@ -276,7 +283,19 @@ def main() -> None:
         fail("mutation: comparator reference without source/evidence type prefix was accepted")
     print("PASS mutation: comparator references must declare source: or evidence: type")
 
-    print("PASS: 12 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
+    missing_gate_evidence = copy.deepcopy(synthetic)
+    missing_gate_evidence["hard_gates"]["accessibility"].pop("evidence_refs")
+    if not list(validator.iter_errors(missing_gate_evidence)):
+        fail("mutation: passed hard gate without evidence references was accepted")
+    print("PASS mutation: every passed hard gate must include supporting evidence references")
+
+    unresolved_gate_evidence = copy.deepcopy(synthetic)
+    unresolved_gate_evidence["hard_gates"]["accessibility"]["evidence_refs"] = ["evidence-does-not-exist"]
+    if not any("unresolved evidence reference in hard gate" in error for error in semantic_errors(unresolved_gate_evidence, concepts, source_ids, evidence_ids)):
+        fail("mutation: unresolved hard-gate evidence reference was accepted")
+    print("PASS mutation: unresolved hard-gate evidence references are rejected")
+
+    print("PASS: 14 novelty/legibility routing controls; no single composite creativity score; no automatic approval.")
 
 
 if __name__ == "__main__":
