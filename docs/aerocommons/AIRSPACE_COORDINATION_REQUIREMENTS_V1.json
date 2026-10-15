@@ -352,7 +352,7 @@
       "sequence_scope": "strict per-reservation stream; starts at sequence 1 and must be contiguous",
       "predecessor_link": "opaque prior-event identifier; this prototype does not compute or authenticate digests",
       "event_order": "arrival order is ignored; sequence is sorted, but gaps and forks are unresolved",
-      "retransmission": "only byte-for-byte identical complete event records are deduplicated",
+      "retransmission": "only field-for-field identical typed event records after schema parsing are deduplicated",
       "mutable_fields": "resource, trajectory, time basis, interval, expiry, priority, and provider remain fixed within one reservation stream",
       "active_projection": "latest Accepted or Activated event when not expired or ended",
       "cross_provider": "conflicts are surfaced; no winner, global causal order, or reservation grant",
