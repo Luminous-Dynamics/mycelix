@@ -1157,4 +1157,24 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
                 .contains("universal 0.80 fair-pay adequacy threshold")),
         "ILO measurement framework must not be treated as a source for the synthetic numeric threshold"
     );
+
+    let victimization_reporting = by_id
+        .get("MYC-LCA-015")
+        .expect("victimization-versus-police-report observability control missing");
+    assert_eq!(victimization_reporting["expected"]["status"], "unknown");
+    assert_eq!(
+        victimization_reporting["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert!(
+        victimization_reporting["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim
+                .as_str()
+                .unwrap()
+                .contains("lower police-report counts alone")),
+        "police-record changes alone must not be treated as proof of reduced victimization"
+    );
 }

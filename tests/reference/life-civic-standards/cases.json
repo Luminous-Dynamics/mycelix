@@ -1,6 +1,6 @@
 {
   "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "source_snapshots": [
     {
       "snapshot_id": "ISO-WD-37120-2026-10",
@@ -71,6 +71,13 @@
       "observed_status": "published measurement framework; publication date 2013-12-18",
       "as_of_date": "2026-10-14",
       "notes": "Supports multidimensional measurement of decent work, including earnings, work safety, stability/security, and social protection. Does not set the viability fixture's numeric gates, create local legal requirements, or establish an effect on crime."
+    },
+    {
+      "snapshot_id": "STATSSA-GPSJS-2024-25-2025-08",
+      "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74041&page_id=1856",
+      "observed_status": "Governance, Public Safety and Justice Survey 2024/25 published on 2025-08-26; descriptive national victimization and reporting evidence",
+      "as_of_date": "2026-10-15",
+      "notes": "Victimization-survey reports and SAPS administrative reports are different observation processes. Offense-specific national reporting proportions help identify an observability problem but are not a local pilot rate or causal model coefficient."
     }
   ],
   "cases": [
@@ -482,6 +489,37 @@
         ]
       },
       "rationale": "The ILO source helps structure a multidimensional measurement plan. Local legal duties, community-approved adequacy benchmarks, data operationalization, and causal claims require separate evidence and review.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-015",
+      "title": "Stats SA victimization and police-reporting measures must not be conflated with underlying harm",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0341:GPSJS:2024-25",
+        "artifact_kind": "other",
+        "version": "Governance, Public Safety and Justice Survey 2024/25; published 2025-08-26",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74041&page_id=1856"
+      },
+      "context": {
+        "use_case": "evaluate whether a decline in police-recorded incidents establishes a decline in victimization or a causal effect for an economic or robotics intervention",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-15T09:45:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "police-recorded incident counts measure all victimization",
+          "lower police-report counts alone prove fewer harmful incidents or a causal intervention effect",
+          "national offense-specific reporting proportions are a local service-area reporting rate without validation",
+          "the survey supplies a universal crime-effect coefficient or an individual risk signal"
+        ]
+      },
+      "rationale": "Stats SA's 2024/25 publication reports offense-specific reporting patterns: 43.4% of households that experienced housebreaking reported some or all incidents, while 31% of people experiencing personal theft reported some or all incidents. These differing proportions show why police counts and victimization are not interchangeable. The survey is national context; local measurement, reporting dynamics, denominator compatibility, and a credible counterfactual remain necessary for evaluation.",
       "synthetic": false
     }
   ]

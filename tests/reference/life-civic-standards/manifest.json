@@ -1,8 +1,8 @@
 {
   "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "research_fixture",
-  "created_at": "2026-10-14",
+  "created_at": "2026-10-15",
   "purpose": "Adversarial and boundary fixtures for instrument metadata, context-specific applicability, and evidence-claim scope across life/civic domains. These cases are not legal determinations or empirical impact results.",
   "schemas": [
     "schemas/life-civic/standard-instrument.schema.json",
@@ -25,7 +25,8 @@
     "robotics_safety_boundary",
     "industrial_robot_vs_service_robot_scope",
     "official_labour_statistics_scope",
-    "decent_work_measurement_not_normative_threshold"
+    "decent_work_measurement_not_normative_threshold",
+    "victimization_vs_police_report_observability"
   ],
   "claim_ceiling": {
     "permitted": [
@@ -48,7 +49,10 @@
       "using national labour-market statistics as a causal crime coefficient without evidence",
       "using national statistics as a local service-area baseline without local data",
       "universal numeric viability thresholds inferred from measurement frameworks",
-      "decent-work indicators presented as proof of crime-reduction efficacy"
+      "decent-work indicators presented as proof of crime-reduction efficacy",
+      "treating police-recorded incidents as a complete census of victimization",
+      "using changes in police-report counts alone as causal outcome evidence",
+      "transferring national offense-specific reporting proportions to a local service area without validation"
     ]
   },
   "frozen_inputs": [
@@ -64,7 +68,7 @@
     },
     {
       "path": "tests/reference/life-civic-standards/cases.json",
-      "git_blob_sha1": "84b841b8ad1424eb479417a46f80b5b3d0bc9bb7",
+      "git_blob_sha1": "124c901d1204bdd2fcdf2e6b3b2dd7a2e24accfc",
       "purpose": "adversarial and lifecycle fixture corpus"
     }
   ],
