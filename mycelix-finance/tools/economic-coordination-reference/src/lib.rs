@@ -14,6 +14,9 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EvidenceStatus {
     Verified,
+    /// Verification outcome derived exclusively from a synthetic simulation.
+    /// It is never sufficient to clear a real coordination or settlement gate.
+    SyntheticOnly,
     Unknown,
     Stale,
     Contested,
@@ -1151,6 +1154,20 @@ mod tests {
     }
 
     #[test]
+    fn synthetic_only_policy_evidence_blocks_authorization() {
+        let mut contract = CoordinationContract::new(request("tx-synthetic-rights", 1)).unwrap();
+        let mut rights = gate("rights-v1");
+        rights.evidence_status = EvidenceStatus::SyntheticOnly;
+
+        assert_eq!(
+            contract.authorize(authority(), rights, gate("ecology-v1"), 1),
+            Err(ContractError::EvidenceNotVerified)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Proposed);
+        assert!(contract.obligation().is_none());
+    }
+
+    #[test]
     fn unknown_rights_evidence_blocks_authorization() {
         let mut contract = CoordinationContract::new(request("tx-rights-unknown", 1)).unwrap();
         let mut rights = gate("rights-v1");
@@ -1269,6 +1286,26 @@ mod tests {
             Err(ContractError::NotIndependentVerifier)
         );
         assert_eq!(contract.lifecycle(), Lifecycle::Delivered);
+    }
+
+    #[test]
+    fn synthetic_only_delivery_verification_cannot_confirm_real_fulfilment() {
+        let (mut contract, _) = committed_contract("tx-synthetic-delivery", 1);
+        record_full_delivery(&mut contract, 1);
+
+        assert_eq!(
+            contract.verify_delivery(VerificationResult {
+                verifier_id: "synthetic-evaluator".to_owned(),
+                claim_evidence_id: "provider-delivery-claim-1".to_owned(),
+                evidence_id: "simulation-result-1".to_owned(),
+                evidence_status: EvidenceStatus::SyntheticOnly,
+                accepted_quantity: Some(1),
+                decided_at: 6,
+            }),
+            Ok(Lifecycle::Indeterminate)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Indeterminate);
+        assert!(contract.verification().is_some());
     }
 
     #[test]
