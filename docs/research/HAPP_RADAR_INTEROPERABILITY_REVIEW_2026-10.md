@@ -18,6 +18,11 @@ This review compared the public hAppRadar directory, hREA's ValueFlows implement
 - The Holochain 0.6-to-0.7 upgrade changes validation callback/action APIs and network transport, and has no built-in 0.6 conductor database migration path. Native DNA composition therefore remains a compatibility/migration task, not a packaging-only change.
 - hAppRadar's cached project metadata can describe a released version while repository docs describe a newer development/release line. Record the exact source ref, release artifact, conductor, HDK/HDI, client and adapter versions for every compatibility claim.
 
+
+
+- The pinned hREA release tree's root `LICENSE` identifies Apache License 2.0. The corpus now records the exact license-file URL, but keeps `license_review_approved_for_reuse=false`; identifying a license is not a code-reuse approval or proof that every dependency/artifact obligation has been satisfied.
+- The pinned release guide explicitly says the `happ-0.4.0-beta` → `happ-0.5.0-beta` upgrade changes the DNA hash and has no in-place data migration; treat it as a new network. This is distinct from the Holochain conductor 0.6→0.7 database migration limitation. A composition spike must not silently promise continuity of existing hREA state.
+
 **Decision:** do not treat hREA zomes as drop-in dependencies for current Mycelix Finance. The release tag and SHA-256 asset digests are now pinned as evidence, but an artifact is not a Mycelix dependency until it is deliberately selected, license-reviewed, and tested against a fully pinned conductor/HDK/HDI/client/adapter tuple. Start with a loss-aware read-only export. Native DNA composition requires an explicit compatibility/migration plan; a separate-process/API integration is a different trust and networking boundary and does not make 0.6 and 0.7 DHTs one network.
 
 Sources:

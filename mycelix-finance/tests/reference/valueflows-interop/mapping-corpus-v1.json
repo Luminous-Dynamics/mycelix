@@ -35,7 +35,11 @@
       "dna_asset_sha256": "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
       "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
       "selected_for_mycelix_integration": false,
-      "evidence_scope": "research_evidence_only"
+      "evidence_scope": "research_evidence_only",
+      "upstream_license": "Apache-2.0",
+      "license_file_url": "https://github.com/h-REA/hREA/blob/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85/LICENSE",
+      "license_review_approved_for_reuse": false,
+      "migration_boundary": "the happ-0.4.0-beta to happ-0.5.0-beta upgrade changes the DNA hash, has no in-place data migration, and must be treated as a new network"
     }
   },
   "mapping_contract": {

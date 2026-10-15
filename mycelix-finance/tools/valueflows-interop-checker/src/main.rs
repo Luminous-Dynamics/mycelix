@@ -64,6 +64,10 @@ struct ReleaseEvidence {
     claimed_client_requirement: String,
     dna_asset_sha256: String,
     happ_asset_sha256: String,
+    upstream_license: String,
+    license_file_url: String,
+    license_review_approved_for_reuse: bool,
+    migration_boundary: String,
     selected_for_mycelix_integration: bool,
     evidence_scope: String,
 }
@@ -377,6 +381,24 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         release.happ_asset_sha256
             == "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
         "hREA hApp artifact digest does not match the pinned release asset".into(),
+    );
+    fail(
+        &mut errors,
+        release.upstream_license == "Apache-2.0"
+            && release.license_file_url
+                == "https://github.com/h-REA/hREA/blob/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85/LICENSE",
+        "hREA upstream license evidence must remain pinned to the release commit".into(),
+    );
+    fail(
+        &mut errors,
+        !release.license_review_approved_for_reuse,
+        "hREA license reuse must remain unapproved pending explicit review".into(),
+    );
+    fail(
+        &mut errors,
+        release.migration_boundary
+            == "the happ-0.4.0-beta to happ-0.5.0-beta upgrade changes the DNA hash, has no in-place data migration, and must be treated as a new network",
+        "hREA DNA migration boundary must remain explicit and fail closed".into(),
     );
     fail(
         &mut errors,
@@ -848,6 +870,35 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("hApp artifact digest does not match")));
+    }
+
+    #[test]
+    fn hrea_license_and_upgrade_boundary_remain_unqualified() {
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["upstream_license"] = "MIT".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("a different upstream license must not replace the pinned license");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("license evidence must remain pinned")));
+
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["license_review_approved_for_reuse"] =
+            true.into();
+        let errors = check_text(&value.to_string())
+            .expect_err("recording the license does not constitute reuse approval");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("license reuse must remain unapproved")));
+
+        let mut value = fixture();
+        value["source_profile"]["release_evidence"]["migration_boundary"] =
+            "in-place migration is supported".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("unsupported in-place migration must not be implied");
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("DNA migration boundary must remain explicit")));
     }
 
     #[test]

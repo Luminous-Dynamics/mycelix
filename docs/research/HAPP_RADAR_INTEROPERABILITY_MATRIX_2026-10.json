@@ -64,9 +64,10 @@
         "Imported events do not authorize SAP/TEND mutation or settle an obligation by themselves."
       ],
       "blocking_evidence": [
-        "Pinned artifact and license review.",
-        "Exact conductor/HDK/HDI/client/adapter tuple.",
-        "Round-trip and malformed/unknown-field controls.",
+        "Review the pinned upstream Apache-2.0 license and approve any code reuse explicitly; the release license is evidence, not approval.",
+        "Pin the artifact and exact conductor/HDK/HDI/client/adapter tuple.",
+        "Account for hREA happ-0.4.0-beta to happ-0.5.0-beta upgrade changing the DNA hash with no in-place migration; test fresh-network installation and any separately designed migration.",
+        "Round-trip, malformed/unknown-field and loss-boundary controls.",
         "Two-agent test on the qualified stack."
       ],
       "compatibility_verified_with_mycelix": false,
@@ -99,12 +100,18 @@
           "holochain_client": "^0.21.0",
           "graphql_adapter": "0.700.x",
           "dna_asset_sha256": "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
-          "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7"
+          "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
+          "upstream_license": "Apache-2.0",
+          "license_file_url": "https://github.com/h-REA/hREA/blob/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85/LICENSE",
+          "license_review_approved_for_reuse": false,
+          "upgrade_boundary": "happ-0.4.0-beta to happ-0.5.0-beta changes DNA hash; no in-place data migration; treat as a new network"
         },
         "caveats": [
           "The release tag and its two asset digests are pinned as research evidence, but neither artifact has been selected as a Mycelix dependency.",
           "The separately pinned sprout source branch head is a later commit than the release tag; source-tree state must not be substituted for released artifact evidence.",
-          "Mycelix Finance's reviewed dependency tuple remains on the Holochain 0.6 line; no native DNA composition or runtime integration is qualified."
+          "Mycelix Finance's reviewed dependency tuple remains on the Holochain 0.6 line; no native DNA composition or runtime integration is qualified.",
+          "The release's root LICENSE is Apache-2.0; reuse remains unapproved pending explicit license/dependency review.",
+          "The hREA 0.4.0-beta to 0.5.0-beta upgrade guide says the DNA hash changes and existing 0.4.0-beta data does not carry over in place."
         ],
         "use_for_mycelix": "Prefer a read-only, versioned export first. For any native composition experiment, pin the hREA DNA/hApp artifact and full client/adapter/conductor tuple, review license and migrations, and test on an isolated branch with exact round-trip and two-agent controls."
       }
