@@ -36,7 +36,9 @@
     "missing-environment-and-closeout-costs",
     "paid-role-with-zero-wage-cost",
     "currency-minor-unit-scale-mismatch",
-    "unsupported-currency-minor-unit-rule",
+    "unsupported-currency-minor-unit-rule"
+  ],
+  "required_positive_boundary_controls": [
     "supported-zero-decimal-currency-scale"
   ],
   "limitations": [
