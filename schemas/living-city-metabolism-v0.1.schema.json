@@ -319,6 +319,19 @@
           "type": "string",
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
+        "beneficiary_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Stable aggregate or pseudonymous beneficiary-scope ID; never embed a person's name or direct identifier."
+        },
+        "delivery_period_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Stable reporting-period ID used to compare delivered edible food on the same temporal basis."
+        },
+        "delivery_basis": {
+          "const": "edible_portion_received_by_beneficiary"
+        },
         "uncertainty": {
           "type": "object",
           "additionalProperties": false,
@@ -601,6 +614,30 @@
             "properties": {
               "unit": {
                 "const": "m2"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "edible_food_delivered"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "required": [
+              "beneficiary_scope_ref",
+              "delivery_period_ref",
+              "delivery_basis"
+            ],
+            "properties": {
+              "delivery_basis": {
+                "const": "edible_portion_received_by_beneficiary"
               }
             }
           }
