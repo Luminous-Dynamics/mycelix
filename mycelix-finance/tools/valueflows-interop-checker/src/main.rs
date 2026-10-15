@@ -2140,16 +2140,16 @@ mod tests {
             "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db"
         );
         assert_eq!(
-            proof_options_digest.as_slice(),
-            &decode_lowercase_hex::<32>(
+            proof_options_digest,
+            decode_lowercase_hex::<32>(
                 "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db",
                 "W3C proof-options digest",
             )
             .expect("proof-options digest bytes")
         );
         assert_eq!(
-            credential_digest.as_slice(),
-            &decode_lowercase_hex::<32>(
+            credential_digest,
+            decode_lowercase_hex::<32>(
                 "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19",
                 "W3C credential digest",
             )
