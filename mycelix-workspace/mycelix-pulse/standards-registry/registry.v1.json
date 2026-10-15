@@ -1,5 +1,4 @@
 {
-  "$schema": "./schema.v1.json",
   "schema_version": "1.0.0",
   "as_of": "2026-10-15",
   "inventory_scope": "Seed records verified against the linked public source during this pass. This is not an exhaustive standards inventory or a claim of Pulse interoperability.",
@@ -14,11 +13,20 @@
       "published_on": "2026-05-05",
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["physical", "link", "network", "security"],
-      "region_scope": ["regional spectrum rules and device certifications apply"],
+      "layers": [
+        "physical",
+        "link",
+        "network",
+        "security"
+      ],
+      "region_scope": [
+        "regional spectrum rules and device certifications apply"
+      ],
       "relations": [],
-      "errata_urls": ["https://www.bluetooth.com/specifications/specs/"],
-      "review_flags": ["check-adopted-specification-list-and-mandatory-errata-before-implementation"],
+      "errata_urls": [],
+      "review_flags": [
+        "check-adopted-specification-list-and-mandatory-errata-before-implementation"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -42,8 +50,13 @@
       "published_on": "2024-12-12",
       "last_checked": "2026-10-15",
       "source_status": "active",
-      "layers": ["physical", "link"],
-      "region_scope": ["PHYs and permitted operating modes vary by region"],
+      "layers": [
+        "physical",
+        "link"
+      ],
+      "region_scope": [
+        "PHYs and permitted operating modes vary by region"
+      ],
       "relations": [
         {
           "type": "amended_by",
@@ -58,8 +71,10 @@
           "notes": "The active standard page lists 802.15.4ae-2026 among amendments."
         }
       ],
-      "errata_urls": ["https://standards.ieee.org/ieee/802.15.4/11041/"],
-      "review_flags": ["review-listed-2026-amendments-before-choosing-a-device-profile"],
+      "errata_urls": [],
+      "review_flags": [
+        "review-listed-2026-amendments-before-choosing-a-device-profile"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -83,7 +98,10 @@
       "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["physical", "link"],
+      "layers": [
+        "physical",
+        "link"
+      ],
       "region_scope": [],
       "relations": [
         {
@@ -94,7 +112,9 @@
         }
       ],
       "errata_urls": [],
-      "review_flags": ["normative-document-and-publication-date-not-yet-captured"],
+      "review_flags": [
+        "normative-document-and-publication-date-not-yet-captured"
+      ],
       "support_status": "unreviewed",
       "evidence": [],
       "next_review_due": "2027-04-13",
@@ -110,7 +130,10 @@
       "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["physical", "link"],
+      "layers": [
+        "physical",
+        "link"
+      ],
       "region_scope": [],
       "relations": [
         {
@@ -121,7 +144,9 @@
         }
       ],
       "errata_urls": [],
-      "review_flags": ["normative-document-and-publication-date-not-yet-captured"],
+      "review_flags": [
+        "normative-document-and-publication-date-not-yet-captured"
+      ],
       "support_status": "unreviewed",
       "evidence": [],
       "next_review_due": "2027-04-13",
@@ -137,11 +162,26 @@
       "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["physical", "link", "security", "provisioning"],
-      "region_scope": ["EU868", "AS923", "IN865", "KR920", "RU864", "US915", "AU915 and other regional variants as defined by the applicable profile"],
+      "layers": [
+        "physical",
+        "link",
+        "security",
+        "provisioning"
+      ],
+      "region_scope": [
+        "EU868",
+        "AS923",
+        "IN865",
+        "KR920",
+        "RU864",
+        "US915",
+        "AU915 and other regional variants as defined by the applicable profile"
+      ],
       "relations": [],
-      "errata_urls": ["https://lora-alliance.org/lorawan-for-developers/"],
-      "review_flags": ["verify-current-package-and-regional-parameters-before-implementation"],
+      "errata_urls": [],
+      "review_flags": [
+        "verify-current-package-and-regional-parameters-before-implementation"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -165,11 +205,16 @@
       "published_on": "2026-08-04",
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["provisioning", "application"],
+      "layers": [
+        "provisioning",
+        "application"
+      ],
       "region_scope": [],
       "relations": [],
       "errata_urls": [],
-      "review_flags": ["announcement-reviewed-normative-document-and-edition-not-yet-captured"],
+      "review_flags": [
+        "announcement-reviewed-normative-document-and-edition-not-yet-captured"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -193,11 +238,16 @@
       "published_on": "2026-08-04",
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["provisioning", "application"],
+      "layers": [
+        "provisioning",
+        "application"
+      ],
       "region_scope": [],
       "relations": [],
       "errata_urls": [],
-      "review_flags": ["announcement-reviewed-normative-document-and-edition-not-yet-captured"],
+      "review_flags": [
+        "announcement-reviewed-normative-document-and-edition-not-yet-captured"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -221,11 +271,16 @@
       "published_on": "2026-08-04",
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["link", "network"],
+      "layers": [
+        "link",
+        "network"
+      ],
       "region_scope": [],
       "relations": [],
       "errata_urls": [],
-      "review_flags": ["announcement-reviewed-normative-document-and-edition-not-yet-captured"],
+      "review_flags": [
+        "announcement-reviewed-normative-document-and-edition-not-yet-captured"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -246,10 +301,14 @@
       "artifact_kind": "rfc",
       "canonical_url": "https://www.rfc-editor.org/info/rfc9171",
       "version": "RFC 9171",
-      "published_on": "2022-01-01",
+      "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["delay_tolerant", "application", "routing"],
+      "layers": [
+        "delay_tolerant",
+        "application",
+        "routing"
+      ],
       "region_scope": [],
       "relations": [
         {
@@ -265,8 +324,12 @@
           "notes": "RFC Editor lists RFC 9758 as updating RFC 9171."
         }
       ],
-      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9171"],
-      "review_flags": ["read-with-rfc-9713-and-rfc-9758-not-in-isolation"],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9171"
+      ],
+      "review_flags": [
+        "read-with-rfc-9713-and-rfc-9758-not-in-isolation"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -278,7 +341,8 @@
         }
       ],
       "next_review_due": "2027-01-13",
-      "notes": "Strong architectural candidate for outage-tolerant messaging, but Pulse has not thereby implemented BPv7 or any convergence-layer adapter. RFC status does not imply deployed interoperability."
+      "notes": "Strong architectural candidate for outage-tolerant messaging, but Pulse has not thereby implemented BPv7 or any convergence-layer adapter. RFC status does not imply deployed interoperability.",
+      "publication_period": "January 2022"
     },
     {
       "id": "ietf.rfc-9172",
@@ -287,10 +351,13 @@
       "artifact_kind": "rfc",
       "canonical_url": "https://www.rfc-editor.org/info/rfc9172",
       "version": "RFC 9172",
-      "published_on": "2022-01-01",
+      "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published_errata_review",
-      "layers": ["delay_tolerant", "security"],
+      "layers": [
+        "delay_tolerant",
+        "security"
+      ],
       "region_scope": [],
       "relations": [
         {
@@ -300,8 +367,12 @@
           "notes": "BPSec specifies security services for Bundle Protocol bundles."
         }
       ],
-      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9172"],
-      "review_flags": ["rfc-editor-displays-reported-errata-impact-review-required"],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9172"
+      ],
+      "review_flags": [
+        "rfc-editor-displays-reported-errata-impact-review-required"
+      ],
       "support_status": "unreviewed",
       "evidence": [
         {
@@ -313,7 +384,8 @@
         }
       ],
       "next_review_due": "2027-01-13",
-      "notes": "The RFC Editor errata page showed reported errata during this review. Track reported versus verified errata distinctly and assess impact on the exact profile being implemented."
+      "notes": "The RFC Editor errata page showed reported errata during this review. Track reported versus verified errata distinctly and assess impact on the exact profile being implemented.",
+      "publication_period": "January 2022"
     },
     {
       "id": "ietf.rfc-9713",
@@ -322,10 +394,13 @@
       "artifact_kind": "rfc",
       "canonical_url": "https://www.rfc-editor.org/info/rfc9713",
       "version": "RFC 9713",
-      "published_on": "2025-01-01",
+      "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["delay_tolerant", "application"],
+      "layers": [
+        "delay_tolerant",
+        "application"
+      ],
       "region_scope": [],
       "relations": [
         {
@@ -335,7 +410,9 @@
           "notes": "Clarifies use of the IANA Bundle Administrative Record Types registry for BPv7."
         }
       ],
-      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9713"],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9713"
+      ],
       "review_flags": [],
       "support_status": "unreviewed",
       "evidence": [
@@ -348,7 +425,8 @@
         }
       ],
       "next_review_due": "2027-01-13",
-      "notes": "Read together with BPv7 and the relevant IANA registry. This seed does not record application implementation support."
+      "notes": "Read together with BPv7 and the relevant IANA registry. This seed does not record application implementation support.",
+      "publication_period": "January 2025"
     },
     {
       "id": "ietf.rfc-9758",
@@ -357,10 +435,14 @@
       "artifact_kind": "rfc",
       "canonical_url": "https://www.rfc-editor.org/info/rfc9758",
       "version": "RFC 9758",
-      "published_on": "2025-05-01",
+      "published_on": null,
       "last_checked": "2026-10-15",
       "source_status": "published",
-      "layers": ["delay_tolerant", "application", "identity"],
+      "layers": [
+        "delay_tolerant",
+        "application",
+        "identity"
+      ],
       "region_scope": [],
       "relations": [
         {
@@ -370,7 +452,9 @@
           "notes": "Updates encoding and decoding of 'ipn' URIs when used as BPv7 endpoint identifiers."
         }
       ],
-      "errata_urls": ["https://www.rfc-editor.org/errata/rfc9758"],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9758"
+      ],
       "review_flags": [],
       "support_status": "unreviewed",
       "evidence": [
@@ -383,7 +467,9 @@
         }
       ],
       "next_review_due": "2027-01-13",
-      "notes": "Endpoint identifier normalization must follow the normative update. Do not treat different encoded representations as different logical endpoints if the standard defines them as equivalent."
+      "notes": "Endpoint identifier normalization must follow the normative update. Do not treat different encoded representations as different logical endpoints if the standard defines them as equivalent.",
+      "publication_period": "May 2025"
     }
-  ]
+  ],
+  "schema_uri": "./schema.v1.json"
 }
