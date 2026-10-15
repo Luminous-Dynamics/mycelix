@@ -455,6 +455,13 @@ def semantic_errors(review, concepts, evidence_ids):
             if any(f["evidence_kind"] != "synthetic_only" for f in flows):
                 errors.append(f"{item['interaction_id']}: synthetic interaction must use synthetic flows only")
     impacts = review.get("distributional_impacts", [])
+    coverage = review.get("distributional_coverage")
+    covered_group_refs = set()
+    if coverage is not None:
+        covered_group_refs = set(coverage["included_group_refs"])
+        for ref in coverage["evidence_refs"]:
+            if ref not in evidence_ids:
+                errors.append(f"distributional coverage: unresolved evidence reference {ref!r}")
     impact_ids = [item["impact_id"] for item in impacts]
     if len(impact_ids) != len(set(impact_ids)):
         errors.append("distributional impact_id values must be unique")
@@ -480,6 +487,8 @@ def semantic_errors(review, concepts, evidence_ids):
             errors.append(f"{iid}: intervention and baseline scenario references must differ")
         if impact["affected_group_ref"].strip() == "":
             errors.append(f"{iid}: affected_group_ref cannot be empty")
+        if status == "assessment" and coverage is not None and impact["affected_group_ref"] not in covered_group_refs:
+            errors.append(f"{iid}: distributional impact group is missing from coverage declaration")
         for ref in impact["evidence_refs"]:
             if ref not in evidence_ids:
                 errors.append(f"{iid}: unresolved distributional evidence reference {ref!r}")
@@ -985,6 +994,19 @@ def main():
         "constraint_status": "not_evaluated",
         "constraint_ref": None
     }]
+    distributional_case["distributional_coverage"] = {
+        "coverage_schema_version": "living-city-distributional-coverage/0.1",
+        "coverage_status": "not_assessed",
+        "population_frame": "Synthetic cohort only; this fixture has no real population frame.",
+        "group_identification_method": "Fixed synthetic test value; no real-world group identification was performed.",
+        "included_group_refs": ["synthetic-renters-cohort"],
+        "known_omissions": ["All real-world cohorts and actual population sampling are intentionally omitted."],
+        "omission_review_method": "Synthetic fixture declaration only; no assessment of actual population omissions.",
+        "intersectional_review_status": "not_performed",
+        "intersectional_dimensions_considered": [],
+        "evidence_refs": [],
+        "limitations": ["Synthetic coverage metadata only; not proof of population completeness."]
+    }
     if schema_errors(validator, distributional_case) or semantic_errors(distributional_case, concepts, evidence_ids):
         fail("positive control: valid cohort-disaggregated impact receipt was rejected")
     print("PASS control: cohort impact retains baseline, exact delta, uncertainty and independent floor status")
@@ -1026,7 +1048,31 @@ def main():
     if not any("real distributional impact requires evidence references" in e for e in semantic_errors(real_distribution_without_evidence, concepts, evidence_ids)):
         fail("mutation: quantified real-world distributional impact without evidence accepted")
     print("PASS mutation: assessed cohort-level outcomes need real evidence")
-    print("PASS: 54 urban-metabolism/synergy controls (45 mutation/parser rejection controls and nine positive controls); distributional outcomes remain disaggregated; no composite symtropy score or automatic authorization.")
+
+    assessment_without_coverage = copy.deepcopy(distributional_case)
+    assessment_without_coverage["record_status"] = "assessment"
+    assessment_without_coverage.pop("distributional_coverage")
+    if not any(error.validator == "required" and "distributional_coverage" in error.message
+               for error in schema_errors(validator, assessment_without_coverage)):
+        fail("mutation: real assessment without a distributional coverage declaration was accepted")
+    print("PASS mutation: real assessment requires an explicit distributional coverage declaration")
+
+    group_missing_from_coverage = copy.deepcopy(distributional_case)
+    group_missing_from_coverage["record_status"] = "assessment"
+    group_missing_from_coverage["distributional_coverage"]["included_group_refs"] = ["different-reported-group"]
+    if not any("distributional impact group is missing from coverage declaration" in e
+               for e in semantic_errors(group_missing_from_coverage, concepts, evidence_ids)):
+        fail("mutation: distributional outcome for an undeclared group was accepted")
+    print("PASS mutation: each reported cohort must be listed in the coverage declaration")
+
+    unresolved_coverage_evidence = copy.deepcopy(distributional_case)
+    unresolved_coverage_evidence["distributional_coverage"]["evidence_refs"] = ["missing-coverage-evidence"]
+    if not any("distributional coverage: unresolved evidence reference" in e
+               for e in semantic_errors(unresolved_coverage_evidence, concepts, evidence_ids)):
+        fail("mutation: distributional coverage with unresolved evidence was accepted")
+    print("PASS mutation: distributional coverage evidence references must resolve")
+
+    print("PASS: 58 urban-metabolism/synergy controls (48 mutation/parser rejection controls and ten positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
 
 if __name__ == "__main__":
     main()

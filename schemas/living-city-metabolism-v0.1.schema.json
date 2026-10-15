@@ -227,6 +227,10 @@
         "$ref": "#/$defs/distributionalImpact"
       },
       "description": "Optional cohort-disaggregated outcome changes against an explicit baseline. Assessment records require at least one entry. These records expose incidence and declared-floor breaches; they are not a permission to optimize away harms."
+    },
+    "distributional_coverage": {
+      "$ref": "#/$defs/distributionalCoverage",
+      "description": "Required for real assessments: records the declared population frame, represented cohort refs, known omissions, intersectional review state, and evidence. It documents coverage; it does not prove no group was missed."
     }
   },
   "$defs": {
@@ -1971,6 +1975,164 @@
           }
         }
       ]
+    },
+    "distributionalCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_schema_version",
+        "coverage_status",
+        "population_frame",
+        "group_identification_method",
+        "included_group_refs",
+        "known_omissions",
+        "omission_review_method",
+        "intersectional_review_status",
+        "intersectional_dimensions_considered",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "coverage_schema_version": {
+          "const": "living-city-distributional-coverage/0.1"
+        },
+        "coverage_status": {
+          "enum": [
+            "reviewed",
+            "provisional",
+            "not_assessed",
+            "blocked"
+          ]
+        },
+        "population_frame": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Defined population/area/service frame for this distributional review; include period and scope."
+        },
+        "group_identification_method": {
+          "type": "string",
+          "minLength": 20,
+          "description": "How potentially affected groups were identified, including participation or data limitations."
+        },
+        "included_group_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "description": "Stable cohort refs represented in the distributional impact ledger. References must not encode personal identifiers."
+        },
+        "known_omissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          },
+          "description": "Known groups, impacts, or intersections not covered. An empty array means none identified by the declared review method, not proof of completeness."
+        },
+        "omission_review_method": {
+          "type": "string",
+          "minLength": 20,
+          "description": "How likely omissions and unrepresented populations were considered."
+        },
+        "intersectional_review_status": {
+          "enum": [
+            "performed",
+            "partial",
+            "not_performed",
+            "blocked"
+          ]
+        },
+        "intersectional_dimensions_considered": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "age",
+              "disability",
+              "income",
+              "tenure",
+              "geography",
+              "sex_gender",
+              "race_ethnicity",
+              "migration_status",
+              "occupation",
+              "household_composition",
+              "language",
+              "informal_settlement_status",
+              "other"
+            ]
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "coverage_status": {
+                "enum": [
+                  "reviewed",
+                  "provisional"
+                ]
+              }
+            },
+            "required": [
+              "coverage_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "minItems": 1
+              },
+              "included_group_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "intersectional_review_status": {
+                "enum": [
+                  "performed",
+                  "partial"
+                ]
+              }
+            },
+            "required": [
+              "intersectional_review_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "intersectional_dimensions_considered": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -2052,7 +2214,8 @@
         },
         "required": [
           "scenarios",
-          "distributional_impacts"
+          "distributional_impacts",
+          "distributional_coverage"
         ]
       }
     }
