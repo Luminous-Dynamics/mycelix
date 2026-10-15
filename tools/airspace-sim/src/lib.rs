@@ -1877,6 +1877,26 @@ mod tests {
     }
 
     #[test]
+    fn omitted_model_fields_deserialize_to_unresolved_not_an_implicit_default() {
+        let mut value: serde_json::Value = serde_json::from_str(include_str!(
+            "../fixtures/scenarios.json"
+        )).expect("the scenario fixture must parse as JSON");
+        let first_flight = value["scenarios"][0]["flights"][0]
+            .as_object_mut()
+            .expect("first scenario flight must be an object");
+        first_flight.remove("traffic_profile_id");
+        first_flight.remove("model_profile_id");
+
+        let set: ScenarioSet = serde_json::from_value(value)
+            .expect("missing model fields are retained as blank for fail-closed evaluation");
+        let report = evaluate_scenario(&set.scenarios[0]);
+        assert_eq!(report.classification, Classification::Unresolved);
+        assert_eq!(report.pair_sample_checks, 0);
+        assert!(report.conflicts.is_empty());
+        assert!(report.reasons.iter().any(|reason| reason.contains("traffic_profile_id is missing")));
+    }
+
+    #[test]
     fn dynamic_constraint_evaluator_fails_closed_for_unsupported_model_pairs() {
         let mut case = fixture_set()
             .dynamic_constraint_cases
