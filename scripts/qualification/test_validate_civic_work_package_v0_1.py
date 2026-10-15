@@ -14,7 +14,60 @@ SCHEMA = load_json(SCHEMA_PATH)
 FIXTURES = ROOT / "docs/architecture/civic-work-package-fixtures"
 
 
+# Keep the manifest's control inventory tied to real, named tests. This prevents
+# the manifest from claiming a regression control that the workflow never runs.
+_MANIFEST_CONTROL_TESTS = {
+    "missing-funding-commitment-evidence": "test_missing_commitment_evidence_is_rejected",
+    "unknown-wage-regime-after-funding": "test_unknown_paid_role_classification_cannot_advance",
+    "open-tender-treated-as-active": "test_open_tender_cannot_be_active_work",
+    "automated-authorization": "test_automated_authorization_is_rejected",
+    "non-monotonic-lifecycle": "test_lifecycle_from_status_must_match_previous_event",
+    "underfunded-commitment": "test_commitment_must_cover_full_period_cost",
+    "provider-self-verification": "test_provider_cannot_verify_own_work",
+    "cancellation-does-not-erase-historical-funding-and-authorization-gates":
+        "test_cancellation_does_not_erase_historical_funding_and_authorization_gates",
+    "cancellation-after-execution-retains-worker-protection-gates":
+        "test_cancellation_after_execution_retains_worker_protection_gates",
+    "closure-does-not-erase-independent-verification-checks":
+        "test_closure_does_not_erase_independent_verification_checks",
+    "duplicate-json-keys": "test_duplicate_json_keys_are_rejected",
+    "open-tender-route-mismatch": "test_open_tender_route_cannot_hide_as_not_applicable",
+    "cost-total-mismatch": "test_cost_breakdown_total_must_match_declared_estimate",
+    "missing-cost-category-assessment": "test_every_cost_category_must_be_assessed_once",
+    "duplicate-cost-item-id": "test_duplicate_cost_line_ids_are_rejected",
+    "cost-period-out-of-scope": "test_cost_period_cannot_exceed_work_scope",
+    "not-applicable-category-has-cost-line": "test_not_applicable_category_cannot_have_a_cost_line",
+    "missing-environment-and-closeout-costs": "test_environment_and_closeout_categories_cannot_be_omitted",
+    "paid-role-with-zero-wage-cost": "test_paid_role_requires_positive_wage_cost",
+    "currency-minor-unit-scale-mismatch": "test_currency_minor_unit_scale_must_match_currency",
+    "unsupported-currency-minor-unit-rule": "test_unlisted_currency_scale_is_rejected_instead_of_guessed",
+    "supported-zero-decimal-currency-scale": "test_supported_zero_decimal_currency_scale_is_accepted",
+}
+
+
 class CivicWorkPackageTests(unittest.TestCase):
+    def test_manifest_control_inventory_matches_executable_tests(self) -> None:
+        manifest = load_json(ROOT / "docs/architecture/civic-work-package-fixtures/manifest.v0.1.json")
+        negative = set(manifest.get("required_negative_controls", []))
+        positive_boundaries = set(manifest.get("required_positive_boundary_controls", []))
+        self.assertFalse(negative & positive_boundaries, "a control cannot be both negative and positive")
+        self.assertEqual(
+            positive_boundaries,
+            {"supported-zero-decimal-currency-scale"},
+            "positive boundary cases must not be labelled as negative controls",
+        )
+        self.assertEqual(
+            negative | positive_boundaries,
+            set(_MANIFEST_CONTROL_TESTS),
+            "manifest control inventory must match the reviewed registry exactly",
+        )
+        missing_tests = {
+            control: method
+            for control, method in _MANIFEST_CONTROL_TESTS.items()
+            if not callable(getattr(self, method, None))
+        }
+        self.assertEqual(missing_tests, {}, "every manifest control must have an executable test")
+
     def test_positive_fixtures_pass_schema_and_semantics(self) -> None:
         for name in ("proposed.synthetic.v0.1.json", "authorized.synthetic.v0.1.json"):
             with self.subTest(fixture=name):
