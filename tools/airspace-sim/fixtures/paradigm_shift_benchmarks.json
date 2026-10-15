@@ -503,6 +503,42 @@
         "all_results_bind_exact_inputs_models_rules_and_checker",
         "unknown_behavior_is_unresolved_not_defaulted"
       ]
+    },
+    {
+      "id": "AIR-PB-017",
+      "name": "bounded_source_aware_affine_uncertainty_primitive",
+      "paradigm": "compositional_uncertainty_and_evidence_frontiers",
+      "status": "implemented_pending_exact_head_verification",
+      "scope": "test_only_scalar_additive_integer_affine_error_form; not flight dynamics, multi-axis geometry, a probability model, a validated reachable set, or operational qualification",
+      "hypothesis": "A small explicit affine error algebra can preserve declared shared-source dependencies and conservatively bound additive scalar uncertainty without assuming different source IDs are independent in the physical world or silently treating missing uncertainty as zero.",
+      "baseline": "Scalar margins are commonly passed between stages without a compositional contract for source identity, sign, bounds, overflow, or missing inputs.",
+      "stimulus": "Compose hand-derived synthetic scalar error terms with positive and negative integer coefficients, repeated stable source identities, distinct source identities, mismatched bounds for the same source, reversed input order, absent inputs, excess terms, coefficient limits, and output-bound overflow.",
+      "success_conditions": [
+        "Repeated contributions with the same source identity and identical declared bounds combine by explicit coefficient arithmetic; opposite coefficients cancel only under that explicit identity contract.",
+        "Contributions with different source IDs are not merged or cancelled by assumption, and interval endpoints are reversed correctly for negative coefficients.",
+        "Analytical expected bounds and canonical source order are stable under equivalent input permutations.",
+        "Missing models, mismatched bounds for a shared source, excess terms, out-of-range coefficients, and excessive output bounds fail closed.",
+        "The implementation is compiled only for tests and does not change the production geometry decision path."
+      ],
+      "falsifiers": [
+        "A different-source pair is silently merged or cancelled.",
+        "A repeated source ID with incompatible declared bounds is accepted.",
+        "A missing uncertainty model yields an implicit zero interval.",
+        "An overflow or configured work-bound violation returns a normal bounded result.",
+        "The prototype is described as multi-axis reachability, validated flight uncertainty, or operational safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust unit-test output",
+        "Hand-derived expected interval vectors for positive, negative, shared and distinct sources",
+        "Negative-control output for source mismatch, absent model, excessive terms, coefficient overflow, and excessive bounds",
+        "Source/build identity and a scope statement separating this primitive from the full AIR-PB-015 pipeline",
+        "Independent review of source-identity semantics before adding transformation or physical-model adapters"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
     }
   ]
 }
