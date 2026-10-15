@@ -9,6 +9,10 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Leptos CSR frontend for Mycelix Music — zero-cost streaming with Holochain"
 
+# Resolve this browser frontend independently from unrelated Holochain conductor/test
+# packages in mycelix-workspace. The shared Leptos crates remain ordinary path dependencies.
+[workspace]
+
 [features]
 default = []
 # Enables clearly-labelled sample catalog data and mock connection status for
@@ -48,7 +52,7 @@ console_error_panic_hook = "0.1"
 gloo-timers = { version = "0.3", features = ["futures"] }
 
 # Real consciousness-driven synthesis engine
-symthaea-muse = { git = "https://github.com/Luminous-Dynamics/symthaea", package = "symthaea-muse", default-features = false }
+symthaea-muse = { git = "https://github.com/Luminous-Dynamics/symthaea", rev = "004f83bade699aa8823dd42b393f01ad872c9596", package = "symthaea-muse", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
 uuid = { version = "1", features = ["js"] }
 
