@@ -1715,6 +1715,132 @@
         ]
       },
       "expected_outcome": "reject"
+    },
+    {
+      "case_id": "vertical_entry_while_horizontally_inside_is_impact",
+      "now_s": 0,
+      "flight": {
+        "flight_id": "POLY-FLIGHT-A",
+        "state": "accepted",
+        "reference_frame": "fixture-local-planar-mm-v1",
+        "vertical_datum": "fixture-local-vertical-mm-v1",
+        "time_basis": "fixture-tai-epoch-v1",
+        "time_qualified": true,
+        "valid_from_s": 0,
+        "valid_until_s": 20,
+        "position_at_valid_from_mm": {
+          "x": -1000,
+          "y": 5000,
+          "z": 19000
+        },
+        "velocity_mm_s": {
+          "x": 1000,
+          "y": 0,
+          "z": -1000
+        },
+        "horizontal_uncertainty_mm": 0,
+        "vertical_uncertainty_mm": 0,
+        "priority": "routine"
+      },
+      "volume": {
+        "constraint_id": "POLY-C-1",
+        "authority_id": "SYNTHETIC-AUTHORITY",
+        "source_digest": "fixture-source-digest-v1",
+        "reference_frame": "fixture-local-planar-mm-v1",
+        "vertical_datum": "fixture-local-vertical-mm-v1",
+        "time_basis": "fixture-tai-epoch-v1",
+        "valid_from_s": 0,
+        "valid_until_s": 20,
+        "floor_z_mm": 1000,
+        "ceiling_z_mm": 9000,
+        "exterior_ring": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 10000,
+            "y": 0
+          },
+          {
+            "x": 10000,
+            "y": 10000
+          },
+          {
+            "x": 0,
+            "y": 10000
+          },
+          {
+            "x": 0,
+            "y": 0
+          }
+        ],
+        "holes": []
+      },
+      "expected_outcome": "impact_candidate"
+    },
+    {
+      "case_id": "vertical_entry_after_horizontal_exit_is_not_impact",
+      "now_s": 0,
+      "flight": {
+        "flight_id": "POLY-FLIGHT-A",
+        "state": "accepted",
+        "reference_frame": "fixture-local-planar-mm-v1",
+        "vertical_datum": "fixture-local-vertical-mm-v1",
+        "time_basis": "fixture-tai-epoch-v1",
+        "time_qualified": true,
+        "valid_from_s": 0,
+        "valid_until_s": 20,
+        "position_at_valid_from_mm": {
+          "x": -1000,
+          "y": 5000,
+          "z": 21000
+        },
+        "velocity_mm_s": {
+          "x": 1000,
+          "y": 0,
+          "z": -1000
+        },
+        "horizontal_uncertainty_mm": 0,
+        "vertical_uncertainty_mm": 0,
+        "priority": "routine"
+      },
+      "volume": {
+        "constraint_id": "POLY-C-1",
+        "authority_id": "SYNTHETIC-AUTHORITY",
+        "source_digest": "fixture-source-digest-v1",
+        "reference_frame": "fixture-local-planar-mm-v1",
+        "vertical_datum": "fixture-local-vertical-mm-v1",
+        "time_basis": "fixture-tai-epoch-v1",
+        "valid_from_s": 0,
+        "valid_until_s": 20,
+        "floor_z_mm": 1000,
+        "ceiling_z_mm": 9000,
+        "exterior_ring": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 10000,
+            "y": 0
+          },
+          {
+            "x": 10000,
+            "y": 10000
+          },
+          {
+            "x": 0,
+            "y": 10000
+          },
+          {
+            "x": 0,
+            "y": 0
+          }
+        ],
+        "holes": []
+      },
+      "expected_outcome": "no_intersection_in_provided_geometry"
     }
   ]
 }
