@@ -36,12 +36,14 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - A dispute may be reassessed only by a different independent resolver bound to the exact delivery-claim ID. A resolver can contribute only one reassessment per dispute; only confirmation of full delivery resolves it to Verified. Adverse/incomplete reassessment is journaled and leaves the obligation disputed without erasing the obligation.
 - Reassessment returns the resulting lifecycle state whether it resolves or leaves the dispute open, avoiding an error return after an already-recorded state change.
 - Lifecycle event times cannot move backwards.
-- Settlement is attempted only after verified delivery; account identity, denomination, arithmetic, and both balance bounds are checked before either balance mutates.
+- Verified delivery must first consume its reserved physical capacity, producing a distinct `CapacityConsumed` lifecycle state. Consumption remains recorded even if a later financial posting fails.
+- Consumed capacity is not made available to another reservation; the reference tracks reserved and consumed quantities separately.
+- Settlement is attempted only after verified delivery and capacity consumption; account identity, denomination, arithmetic, and both balance bounds are checked before either balance mutates.
 - Transaction IDs are single-use for reservations, including after cancellation; obligation IDs are single-use for ledger postings.
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The reference model currently contains **25 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
+The reference model currently contains **27 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Explicit limitations
 
