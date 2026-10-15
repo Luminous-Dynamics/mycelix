@@ -1528,7 +1528,7 @@ mod tests {
 
     #[test]
     fn disputed_delivery_can_be_confirmed_by_a_distinct_independent_resolver() {
-        let (mut contract, _) = committed_contract("tx-dispute-reassess", 4);
+        let (mut contract, mut capacity) = committed_contract("tx-dispute-reassess", 4);
         record_full_delivery(&mut contract, 4);
         assert_eq!(
             contract
@@ -1559,6 +1559,7 @@ mod tests {
         );
         assert_eq!(contract.dispute_reassessments().len(), 1);
         assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
         let mut ledger = Ledger::default();
         ledger
             .register_account("household-wallet", INSTRUMENT, ATOMIC_UNIT, 100, 0, 100)
