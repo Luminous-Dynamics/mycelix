@@ -110,12 +110,23 @@ class CivicWorkPackageTests(unittest.TestCase):
         self.assertTrue(any("route" in error for error in errors), errors)
 
     def test_automated_authorization_is_rejected(self) -> None:
+        # Attack 1: a structurally valid authorization that disclaims human
+        # approval must fail the semantic authorization gate.
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
-        # Keep the record schema-valid so the semantic authorization gate is
-        # exercised; a null authorizer would stop at schema validation first.
         record["authorization"]["approved_by_human"] = False
-        errors = validate_record(record, SCHEMA, "automated authorization")
+        errors = validate_record(record, SCHEMA, "automated authorization without human approval")
         self.assertIn("CWP_E_HUMAN_AUTHORIZATION_MISSING", errors)
+
+        # Attack 2: a human-approval field must not legitimize an automated
+        # lifecycle actor advancing the package into an authorization-gated state.
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        authorization_event = next(
+            event for event in record["lifecycle_events"]
+            if event["to_status"] == "authorized"
+        )
+        authorization_event["actor_kind"] = "automated"
+        errors = validate_record(record, SCHEMA, "automated lifecycle authorization")
+        self.assertIn("CWP_E_AUTOMATED_GATED_TRANSITION", errors)
 
     def test_lifecycle_from_status_must_match_previous_event(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
