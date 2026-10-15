@@ -278,9 +278,12 @@
       "active_constraint_volume_intersection_against_current_flight_intents",
       "constraint_update_sequence_predecessor_and_source_identity_validation",
       "constraint_activation_volume_revision_and_withdrawal_replay",
-      "uncertainty_and_full_sample_step_motion_expansion_for_axis_aligned_constraints",
       "known_constraint_impact_requires_reassessment_even_when_snapshot_stale",
-      "stale_or_partitioned_constraint_snapshot_cannot_yield_no_impact"
+      "stale_or_partitioned_constraint_snapshot_cannot_yield_no_impact",
+      "continuous_time_axis_aligned_constraint_intersection_for_constant_velocity",
+      "half_open_constraint_validity_intersection_and_exact_boundary_semantics",
+      "bounded_constraint_flight_pair_intersection_work",
+      "synthetic_velocity_scaled_uncertainty_horizon_for_constraint_guard_band"
     ],
     "not_yet_implemented": [
       "networked provider federation, authenticated peer exchange, and replicated snapshot/event-log reconciliation",
@@ -296,7 +299,8 @@
       "authenticated provider-to-provider event exchange and cryptographic payload/signature verification",
       "cross-provider causal ordering, replicated event-log merge, reservation supersession, and jurisdiction-specific resolution policy",
       "authoritative dynamic restriction ingestion/signature validation and jurisdiction-specific geometry/transformation",
-      "dynamic weather/wind/terrain modeling and validated continuous reachable-set intersection"
+      "dynamic weather/wind/terrain modeling and validated continuous reachable-set intersection",
+      "validated continuous reachability for maneuvering trajectories, time-varying uncertainty envelopes, and polygon/polyhedron geometry"
     ],
     "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
     "lifecycle_transition_cases": [
@@ -392,20 +396,22 @@
       "constraint_frame_mismatch_unresolved",
       "future_constraint_update_unresolved",
       "expired_constraint_does_not_intersect",
-      "conservative_margin_catches_between_sample_pass",
+      "continuous_intersection_catches_between_integer_seconds",
       "unqualified_flight_time_unresolved",
       "exact_constraint_update_retransmission_idempotent",
       "same_constraint_digest_different_payload_unresolved",
       "constraint_authority_change_unresolved",
       "constraint_vertical_datum_mismatch_unresolved",
-      "invalid_constraint_sample_step_rejected"
+      "invalid_constraint_uncertainty_horizon_rejected",
+      "continuous_spatial_tangent_at_start_is_impact",
+      "constraint_valid_until_boundary_is_exclusive"
     ],
     "dynamic_constraint_semantics": {
       "volume_model": "synthetic axis-aligned box in explicit local frame, vertical datum and time basis",
-      "temporal_semantics": "half-open [valid_from_s, valid_until_s)",
+      "temporal_semantics": "half-open [valid_from_s, valid_until_s); an intersection exactly at valid_until_s is excluded",
       "update_order": "per-constraint contiguous sequence with predecessor linkage; arrival order is not authoritative",
       "withdrawal": "latest withdrawn version removes the constraint from the current synthetic view; does not restore flight authorization or certify safety",
-      "intersection": "integer constant-velocity trajectories screened by a bounded sample loop; volume is expanded by declared uncertainty, constraint margin, and one full sample-step of absolute motion",
+      "intersection": "continuous-time analytical slab intersection for constant-velocity trajectories against expanded axis-aligned boxes, bounded by constraint/flight pair checks",
       "stale_snapshot": "known intersections remain reassessment_required; absence of observed intersection in stale/partitioned view is degraded",
       "authority_ceiling": "impact evidence only; competent service decides how to update or withdraw authorizations",
       "additional_negative_controls": [
@@ -414,6 +420,13 @@
         "constraint_authority_change_unresolved",
         "constraint_vertical_datum_mismatch_unresolved",
         "invalid_constraint_sample_step_rejected"
+      ],
+      "uncertainty_envelope": "declared flight uncertainty + constraint margin + absolute velocity scaled by a caller-specified synthetic uncertainty horizon",
+      "sampling": "no temporal point-sampling to detect geometric intersection; report records intersection checks, not sample checks",
+      "additional_cases": [
+        "continuous_intersection_catches_between_integer_seconds",
+        "continuous_spatial_tangent_at_start_is_impact",
+        "constraint_valid_until_boundary_is_exclusive"
       ]
     }
   }

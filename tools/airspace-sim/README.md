@@ -4,7 +4,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 
 ## What it does
 
-- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, 16 reservation-event-stream fixtures, and 19 dynamic airspace-constraint fixtures.
+- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, 14 reservation-snapshot fixtures, 16 reservation-event-stream fixtures, and 21 dynamic airspace-constraint fixtures.
 - Uses explicit millimetre / millimetre-per-second integer units and a fixed simulation window.
 - Refuses to compare coordinates across unqualified clocks, incompatible reference frames, or vertical datums.
 - Rejects expired, withdrawn, ended, malformed, out-of-bounds, or over-budget flight-intent fixtures.
@@ -19,7 +19,8 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Replays provider-local reservation updates by explicit sequence, detecting gaps, forks, broken predecessor links, time reversal, changed reservation semantics, and illegal state transitions.
 - Reconciles versioned airspace-constraint updates, including activation, changed volumes, withdrawal, exact retransmission, contradictory digest reuse, source identity changes, and stale/partitioned views.
 - Screens current flight-intent envelopes against active 4D axis-aligned restriction volumes with explicit coordinate frame, vertical datum, time basis and validity.
-- Expands each volume by declared uncertainty and one full sample-step of trajectory motion to conservatively reduce missed between-sample intersections; this is still not formal reachability analysis.
+- Uses continuous-time slab intersection for constant-velocity trajectories against expanded axis-aligned 4D restriction boxes; no temporal point samples are used to discover intersections.
+- Uses a bounded synthetic uncertainty horizon to expand the box by velocity-scaled guard margins. This reduces dependence on sample rate but is not a validated flight uncertainty or reachable-set model.
 - Reports known impacts as `reassessment_required` even when the input view is stale, and uses `degraded` rather than no-impact when no hit is observed in an incomplete view.
 - Treats input arrival order as non-semantic when a complete sequence chain is available; idempotently deduplicates only exact full-event retransmissions and counts them in the report.
 - Projects only accepted/activated, unexpired reservation streams into the conflict screen; proposals are not accepted slots.
@@ -46,6 +47,7 @@ Or pass a specific scenario-set JSON path after `--verify`.
 - `unresolved`: missing time qualification or incompatible coordinate frame / vertical datum.
 - `requires_authority_review`: an emergency-priority intent/claim remains subject to competent operational review.
 - `no_conflict_in_provided_snapshot`: no overlap was found in the supplied complete snapshot; this is not a slot grant, proof of globally conflict-free airspace, or flight authorization.
+- `reassessment_required`: the continuous synthetic screen found a trajectory/constraint intersection; this requests competent-service reassessment, not a maneuver or authorization decision.
 
 ## Reservation snapshot semantics
 
