@@ -88,7 +88,7 @@ Do not count avoided emissions without an explicit counterfactual. Do not count 
 
 Symtropy's own Phi-coupled engine has a model-specific energy ledger and experimental J/Phi metric. Those quantities should not be silently mixed with measured city joules or treated as established physical laws. Phi is not an SI energy unit, and any proposed connection to physical energy needs a derivation, unit analysis, calibration, and independent tests.
 
-Landauer's bound concerns heat dissipation associated with logically irreversible information erasure under specified thermodynamic conditions; it is not a generic measured minimum for every computation, organism, agent, or urban activity. The validator therefore records Symtropy model outputs with version, seed, time step, input-manifest hash, calibration/validation status, and evidence links. It never infers city-scale thermodynamic truth from a Phi value alone.
+Landauer's bound concerns heat dissipation associated with logically irreversible information erasure under specified thermodynamic conditions; it is not a generic measured minimum for every computation, organism, agent, or urban activity. The validator therefore records Symtropy model outputs with a human-readable engine version plus an exact 40-character source revision SHA, seed, time step, input-manifest hash, calibration/validation status, and evidence links. It never infers city-scale thermodynamic truth from a Phi value alone.
 
 ## 3. Measuring synergy rather than merely claiming co-benefits
 
@@ -148,7 +148,7 @@ Each system has a bounded role. Integration occurs through versioned artifacts a
 1. **Concept/hypothesis ID** — what question is being evaluated.
 2. **Boundary and functional unit** — what, where, when, and which service is counted.
 3. **Scenario manifest** — baseline, single interventions, combined bundle; stable IDs and assumptions.
-4. **Evidence/model receipt** — source claim IDs or model engine/version, input hash, seed, time step, calibration status, and uncertainty.
+4. **Evidence/model receipt** — source claim IDs or model engine/version plus exact source revision SHA, input hash, seed, time step, calibration status, and uncertainty.
 5. **Result ledger** — same units and metric definitions, conservation residuals, interaction estimates, distributional outcomes, limitations.
 6. **Decision record** — who reviewed it, dissent, consent/rights status, remaining hard gates, pilot owner/funding, stop criteria.
 
