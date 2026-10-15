@@ -43,7 +43,12 @@
           "evidence_kind": "synthetic_only",
           "life_cycle_stage": "operational",
           "evidence_refs": [],
-          "rationale": "Synthetic test datum only; not observed rainfall or runoff."
+          "rationale": "Synthetic test datum only; not observed rainfall or runoff.",
+          "uncertainty": {
+            "lower_bound": 98.75,
+            "upper_bound": 101.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
         }
       ],
       "conservation_checks": [
@@ -82,7 +87,12 @@
           "evidence_kind": "synthetic_only",
           "life_cycle_stage": "operational",
           "evidence_refs": [],
-          "rationale": "Synthetic test datum only; not measured bioswale performance."
+          "rationale": "Synthetic test datum only; not measured bioswale performance.",
+          "uncertainty": {
+            "lower_bound": 88.75,
+            "upper_bound": 91.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
         }
       ],
       "conservation_checks": [
@@ -121,7 +131,12 @@
           "evidence_kind": "synthetic_only",
           "life_cycle_stage": "operational",
           "evidence_refs": [],
-          "rationale": "Synthetic test datum only; not measured tree-canopy performance."
+          "rationale": "Synthetic test datum only; not measured tree-canopy performance.",
+          "uncertainty": {
+            "lower_bound": 96.75,
+            "upper_bound": 99.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
         }
       ],
       "conservation_checks": [
@@ -161,7 +176,12 @@
           "evidence_kind": "synthetic_only",
           "life_cycle_stage": "operational",
           "evidence_refs": [],
-          "rationale": "Synthetic test datum only; not an actual intervention result."
+          "rationale": "Synthetic test datum only; not an actual intervention result.",
+          "uncertainty": {
+            "lower_bound": 73.75,
+            "upper_bound": 76.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
         }
       ],
       "conservation_checks": [
@@ -202,7 +222,7 @@
       "uncertainty": {
         "lower_bound": -18,
         "upper_bound": -8,
-        "method": "Synthetic interval set solely to test sign handling; not a statistical confidence interval."
+        "method": "Conservative interval arithmetic on the four synthetic scenario intervals; not a statistical confidence interval."
       },
       "interpreted_result": "positive_synergy",
       "evidence_refs": [],
