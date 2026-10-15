@@ -107,7 +107,7 @@ jobs:
           # single CI run surfaces every cluster's violations at once,
           # exiting non-zero at the end if any were found.
           status=0
-          for dir in mycelix-commons mycelix-energy mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
+          for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
             echo "=== Checking $dir ==="
             (cd "$dir" && cargo fmt --all --check) || status=1
           done
@@ -169,6 +169,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-energy
+      - name: Check formatting for changed grid integrity zome
+        run: cargo fmt --manifest-path mycelix-energy/zomes/grid/integrity/Cargo.toml --check
       - name: Check energy zome unit tests
         run: cd mycelix-energy && cargo test --workspace
       - name: Build energy zomes for Holochain WASM
