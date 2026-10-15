@@ -183,11 +183,14 @@
       ],
       "input_class": "imported-dependency-as-local-capability",
       "negative_input": {
-        "bindings": [],
+        "bindings": [
+          "local_capability_claim"
+        ],
         "evidence_profile": "current_foreign_node_b"
       },
       "positive_input": {
         "bindings": [
+          "external_dependency_classified",
           "foreign_recognition"
         ],
         "evidence_profile": "current_foreign_node_b"
@@ -272,7 +275,9 @@
       ],
       "input_class": "foreign-attestation-rewritten-as-local",
       "negative_input": {
-        "bindings": [],
+        "bindings": [
+          "local_origin_claim"
+        ],
         "evidence_profile": "current_foreign_node_b"
       },
       "positive_input": {
