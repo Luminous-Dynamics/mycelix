@@ -1,0 +1,152 @@
+# Beyond Trajectory Clearance: An Airspace Coordination Research Programme V1
+
+**Status:** Research thesis and benchmark contract; not an operational design approval  
+**Authority ceiling:** Research simulation, candidate planning, interoperability, and assurance evidence only  
+**Date:** 2026-10-15  
+**Parent:** Mycelix AeroCommons [PR #5024](https://github.com/Luminous-Dynamics/mycelix/pull/5024)
+
+## Executive thesis
+
+The opportunity is not to train one smarter air-traffic controller. It is to build an **open, verifiable coordination fabric for heterogeneous airspace users**: one in which independently built models, operators, infrastructure providers, evidence services, and competent authorities can exchange intentions and constraints without pretending that every vehicle shares one dynamics model or that coordination software is the source of safety authority.
+
+The potential differentiator for Luminous Dynamics is the composition of five capabilities under one testable contract:
+
+1. explicit model applicability and uncertainty boundaries;
+2. source-pinned, time-qualified spatial evidence;
+3. independently recomputed hard constraints;
+4. federated, time-dependent resource planning;
+5. reproducible scenario, counterfactual, and adversarial evidence.
+
+None of these ideas alone is new to aviation. FAA UTM concepts already describe distributed flight-intent sharing and strategic deconfliction; ICAO calls for interoperability with ATM; EUROCONTROL ECHO 2 addresses integration with higher-altitude and space-linked operations; NASA research highlights the difficulty of conflict resolution when corridor constraints reduce maneuvering options. The research opportunity is to make the handoffs between those concerns explicit, composable, and independently testable—not claim to replace them.
+
+## Paradigm shifts
+
+### 1. From aircraft points and predicted lines to qualified reachable volumes
+
+A point estimate and nominal trajectory are not a complete description of a future aircraft state. Position error, stale reports, wind, control limitations, turn/acceleration bounds and intent changes can cause the actual state to diverge from the nominal path.
+
+**New abstraction:** an intent is evaluated against a model-qualified space-time envelope over an explicit horizon. It carries uncertainty semantics, assumptions, validity, and a precise model version. When a model cannot bound the relevant behavior, the answer is unresolved—not a smaller guessed buffer.
+
+**Research question:** for a declared vehicle/regime and input domain, can a model construct a conservative envelope with explicit error bounds, and can an independent oracle detect any envelope under-approximation in the benchmark domain?
+
+**First step:** preserve the current toy kernel as a synthetic baseline and define the envelope interface separately. Do not label a caller-supplied margin, velocity-scaled guard band, or empirical confidence score as a validated reachable set.
+
+### 2. From static airspace lanes to a dynamic space-time resource fabric
+
+A corridor can reduce one kind of coordination complexity while removing options needed to resolve conflicts. NASA's 2025 strategic path-planning flight evaluation reported less successful maneuvers in tightly constrained flow-corridor conditions, where available degrees of freedom were reduced. A fixed lane cannot be the only conflict-management answer.
+
+**New abstraction:** represent qualified route segments, temporary restrictions, arrival/departure windows, landing/charging resources, weather-dependent availability and contingency options as separate typed resources with explicit time intervals and provenance.
+
+A plan requests a set of compatible space-time resources; a planning service proposes assignments; an independent verifier checks resource conservation, constraint eligibility and evidence freshness. The system must be able to compare corridor-based and less-constrained alternatives.
+
+**Research question:** does adaptive topology increase the number of feasible conflict-free plans without violating any hard constraint, and under what traffic densities or disruption regimes does it stop helping?
+
+### 3. From a single controller to federated coordination with bounded authority
+
+Distributed information exchange is already a foundational part of UTM concepts. The paradigm shift is not “put air traffic on a ledger.” It is to make each handoff's authority, freshness, identity, sequence and failure semantics machine-checkable.
+
+**New abstraction:** each provider publishes versioned intent/constraint claims with bounded validity; participants reconcile conflicts explicitly; stale or partitioned views can surface known impacts but cannot prove that no impact exists. Local planners may continue generating proposals during a partition, but a proposal must not become an authorization merely because peers agree.
+
+**Research question:** when providers disagree, restart, replay messages, lose connectivity or present forked histories, can all conforming implementations converge on the same safe-to-report classification—or return unresolved/degraded rather than manufacture agreement?
+
+**Boundary:** Mycelix can preserve coordination records, verifiable receipts and governance around the protocol. DIDs, consensus, signatures and reputation do not establish physical truth, airworthiness or legal clearance.
+
+### 4. From optimizing a scalar score to safety-first feasible-set planning
+
+A weighted sum can hide unacceptable tradeoffs: a cheap or fast plan may numerically compensate for a violated hard constraint. Hard aviation restrictions and model applicability cannot be treated as another cost term.
+
+**New abstraction:** apply constraints in lexicographic stages:
+
+1. input/evidence admission;
+2. model applicability and uncertainty qualification;
+3. authoritative restrictions and hard feasibility gates;
+4. independent verification;
+5. optimization only among eligible candidates;
+6. performance, access, environmental and recovery reporting.
+
+Cost, throughput, energy, emissions, noise, delay and equitable access remain useful objectives **inside** the feasible set. They cannot turn an infeasible candidate into an eligible one.
+
+**Research question:** can adversarial tests demonstrate that no choice of performance weights ever admits a candidate already rejected by a hard gate?
+
+### 5. From one universal dynamics model to a model federation
+
+Fixed-wing aircraft, multirotors, rotorcraft, powered-lift aircraft, gliders, high-altitude balloons and high-speed vehicles have meaningfully different dynamics and operating regimes. A taxonomy does not implement those dynamics; neither does a general AI model.
+
+**New abstraction:** each trajectory model advertises a versioned applicability domain: valid profile/regime, state variables, coordinate/time basis, uncertainty behavior, known omissions, limits, evidence basis and failure modes. The shared coordinator chooses from qualified models or returns unresolved. Independent monitors check the outputs that matter to the hard constraints.
+
+Symthaea can rank hypotheses, find inconsistent evidence, propose candidate alternatives and explain why a monitor disagrees. It must not widen a model's domain, fill absent source fields, or overrule the independent checker.
+
+**Research question:** when two models apply to the same declared domain, do their output envelopes and disagreement bounds behave as expected under a differential corpus? When only one model applies, is the scope explicit? When neither applies, is geometric clearance impossible to obtain?
+
+### 6. From a simulation result to a reproducible assurance artifact
+
+A green scenario result only means the implementation matched an expected result under the supplied assumptions. It does not show that the input was authentic, that the assumptions cover reality, or that the oracle is independent.
+
+**New abstraction:** every experiment produces a receipt binding repository commit, model/build identity, scenario manifest, source snapshots, ruleset, toolchain, checker/oracle identity, outputs, and exit status. Expected results are checked by an independently implemented oracle or by properties that do not simply repeat the implementation.
+
+Tests should include negative controls, permutation invariance, exact time-boundary tests, replay/idempotency tests, model-domain boundary tests, mutation tests, and adversarial missing/stale/contradictory data. The corpus itself has a version and digest.
+
+**Research question:** can a third party reproduce the same classification and independently verify the result from pinned artifacts without trusting the plan producer?
+
+### 7. From airspace-only optimization to joint air/ground/community systems
+
+Airspace capacity is coupled to runways, vertiports, charging, energy availability, emergency landing options, weather, ground exposure and the communities below. FAA AAM materials likewise emphasize infrastructure—not just the aircraft—and ICAO's UTM framework treats ground risk, interoperability and environmental/economic effects as part of the broader problem.
+
+**New abstraction:** Sol-Atlas provides a read-only spatial projection of source-qualified infrastructure and context; Symtropy explores capacity/resource allocations; Mycelix preserves intent and evidence lineage; Symthaea can generate advisory forecasts and explanations. Keep observed state, inferred state, scenario forecasts and candidate decisions as separate layers.
+
+**Research question:** can feasible plans reduce delay, energy use, noise/ground exposure and emergency recovery time while keeping all hard gates intact and reporting who bears the costs and benefits?
+
+## Cross-project reference architecture
+
+| Layer | Primary responsibility | Project fit | Forbidden shortcut |
+|---|---|---|---|
+| Evidence ingress | Pin source bytes/version, rights, freshness, time/datum, quality and authenticity state | Sol-Atlas contracts plus future reusable receipt verifier | “The URL parsed, therefore the data are true/current/licensed” |
+| Spatial/temporal adapter | Explicit frame, axis, units, vertical datum, time scale, transform direction and bounded error | Sol-Atlas geometry boundary; Symtropy qualified transforms | “Same numeric coordinates means same place” |
+| Model admission | Select an explicit versioned model only within its qualified domain | Mycelix AeroCommons registry | “Vehicle label or plausible velocity means the toy model applies” |
+| Prediction and advisory | Produce hypotheses, candidate paths, uncertainty summaries and explanations | Symthaea, advisory only | “AI confidence can replace evidence or hard checks” |
+| Hard-constraint monitor | Recompute eligibility/impact independently and retain unresolved reasons | Mycelix research kernel, eventually independently implemented oracle | “Optimizer or producer self-certifies its own plan” |
+| Resource planner | Assign time-bounded route/infrastructure capacity among eligible candidates | Symtropy optimization behind gates | “Static edge capacity equals time-dependent airspace capacity” |
+| Coordination log | Versioned intent/constraint changes, expiry, conflicts, replay and audit | Mycelix, with explicit authority ceiling | “Consensus/ledger receipt grants flight clearance” |
+| Assurance/evaluation | Adversarial corpora, counterfactuals, differential checks and exact-head receipts | All four, with independently reproducible results | “Queued checks or matching expected values prove real-world safety” |
+
+## Falsifiable benchmark programme
+
+A machine-readable benchmark profile lives at `tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json`. The initial cases are **research backlog**, not completed simulations. Each case specifies a hypothesis, baseline, required evidence, hard invariants and a falsifier.
+
+The first qualification ladder is:
+
+1. **Admission tests:** unsupported, missing and mismatched models perform zero geometry work. This is the first implemented slice, pending exact-head test results.
+2. **Metamorphic tests:** input order, exact duplicate deliveries and irrelevant record additions must not alter classification except where the contract explicitly says otherwise.
+3. **Model tests:** compare nominal paths with conservative envelopes, test applicability boundaries, and verify that the independent oracle detects deliberate under-approximations.
+4. **Resource tests:** test contention, shared capacity, half-open time intervals, expiry, recovery options and the invariant that optimization cannot rescue a hard-ineligible plan.
+5. **Federation tests:** partitions, stale snapshots, reordering, forks, contradictory authorities and revocation.
+6. **Counterfactual system tests:** compare corridor-first and topology-flexible planning under identical demand and constraints; report feasibility, delay, compute cost and externalities without hiding infeasible runs.
+7. **Independent reproducibility:** generate pinned evidence receipts and re-run with a separately implemented checker.
+
+No case may describe a synthetic win as a safety validation or operational clearance.
+
+## Research and interoperability grounding
+
+- [FAA UTM Concept of Operations v2.0](https://www.faa.gov/researchdevelopment/trafficmanagement/utm-concept-operations-version-20-utm-conops-v20): distributed flight-intent sharing, operation volumes, coordination and conflict management.
+- [FAA UTM overview](https://www.faa.gov/uas/advanced_operations/traffic_management): UTM is complementary to air traffic services and depends on interoperable operational capabilities.
+- [ICAO UTM Framework](https://www.icao.int/utm-guidance): interoperability, safety, security, environmental and economic considerations, and integration with ATM.
+- [EUROCONTROL ECHO 2](https://www.eurocontrol.int/project/european-concept-higher-altitude-operations): higher-altitude platforms and space launch/re-entry integration research.
+- [NASA/TP-20250003243, published July 2025](https://ntrs.nasa.gov/citations/20250003243): flight evaluation of strategic path planning; reports difficulties when tight flow corridors reduce conflict-resolution degrees of freedom.
+- [NASA Runtime Assurance of Aeronautical Products, published January 2023](https://ntrs.nasa.gov/citations/20220015734): explains runtime-assurance challenges and that the monitor itself must be fit for purpose.
+
+## What would constitute a real breakthrough?
+
+Not a more impressive demo or a single high utilization score. A meaningful breakthrough would be a **publicly reproducible, independently checked benchmark** showing that heterogeneous candidate models, stale/conflicting data, provider partitions and time-dependent capacity can be composed while:
+
+- every unsupported model remains unresolved;
+- hard constraints cannot be traded away by optimization;
+- independent checking finds intentionally injected plan/evidence faults;
+- eligible alternatives and their tradeoffs are explainable;
+- recovery and ground/community impacts are measured, not hidden;
+- another implementation can replay the same corpus and reproduce the same scoped result.
+
+That would be an extensible research infrastructure others can challenge and build on—not a claim to replace an air navigation service provider or civil aviation authority.
+
+## Explicit non-claims
+
+This profile does not implement certified reachable sets, aircraft dynamics, geodetic transformations, authenticated operational feeds, legal authorization, approved separation minima, or real-time air traffic control. The next engineering milestones must earn each capability through dedicated models, independent oracles and evidence from the exact revision being assessed.
