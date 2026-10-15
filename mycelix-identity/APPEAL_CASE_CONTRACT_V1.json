@@ -234,7 +234,7 @@
       "roles": [
         "case_steward"
       ],
-      "scope": "assigned_case_only"
+      "scope": "intake_assignment_only"
     },
     {
       "action": "assign_steward",
