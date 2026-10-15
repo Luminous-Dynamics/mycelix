@@ -3,6 +3,8 @@
 - **Status:** Proposed architecture; not implementation or conformance evidence
 - **Scope:** Public Mycelix repository, Pulse transport architecture, shared standards knowledge for Pulse/Mycelix/Symthaea
 - **Related work:** Pulse Holochain 0.7 migration PR #4891; Pulse V2 crypto specification; existing Pulse fail-closed delivery/evidence contracts
+- **Benchmark gates:** [Transport Benchmarks and Acceptance Gates](TRANSPORT_BENCHMARKS.md)
+- **Machine-readable catalogue:** [Standards registry](../standards-registry/README.md), [registry seed](../standards-registry/registry.v1.json), and [JSON Schema](../standards-registry/schema.v1.json)
 - **Design principle:** One authenticated, end-to-end encrypted message model; many independently qualified delivery paths
 
 ## 1. Executive summary
@@ -199,14 +201,18 @@ Every adapter release must include exact source commit, registry revision/hash, 
 These are starting points for a maintained registry. Before claiming conformance, consult the exact specification, applicable amendments/errata, and implementation test requirements—not just these summaries.
 
 - IEEE 802.15.4 low-rate wireless networks: https://standards.ieee.org/ieee/802.15.4/11041/
+- Bluetooth Core Specification 6.3 (2026-05-05): https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/index-en.html
 - IEEE 802.11 working group: https://www.ieee802.org/11/
 - Bluetooth SIG specification catalogue: https://www.bluetooth.com/specifications/specs/
 - Thread Group overview: https://www.threadgroup.org/What-is-Thread/Overview
 - Connectivity Standards Alliance / Matter: https://csa-iot.org/all-solutions/matter/
 - LoRa Alliance developer/standard catalogue: https://lora-alliance.org/lorawan-for-developers/
+- LoRa Alliance TS014, TS018 and TR016 announcement (2026-08-04; normative documents still need direct review): https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable
 - 3GPP non-terrestrial networks overview: https://www.3gpp.org/technologies/ntn-overview
 - IETF QUIC RFC 9000: https://www.rfc-editor.org/rfc/rfc9000
 - IETF Bundle Protocol v7 RFC 9171 (check updates and errata): https://www.rfc-editor.org/rfc/rfc9171
+- IETF RFC 9713, Bundle Protocol Version 7 Administrative Record Types Registry (updates RFC 9171): https://www.rfc-editor.org/info/rfc9713
+- IETF RFC 9758, Updates to the 'ipn' URI Scheme (updates RFC 9171 endpoint-identifier handling): https://www.rfc-editor.org/info/rfc9758
 - IETF Bundle Protocol Security RFC 9172: https://www.rfc-editor.org/rfc/rfc9172
 - IETF Babel RFC 8966: https://www.rfc-editor.org/rfc/rfc8966
 - IETF OLSRv2 RFC 7181: https://www.rfc-editor.org/rfc/rfc7181
