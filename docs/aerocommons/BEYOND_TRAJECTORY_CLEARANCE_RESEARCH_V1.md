@@ -139,7 +139,9 @@ This is not a claim that uncertainty propagation is new. Set-propagation and rea
 
 **Falsifiers:** an oracle state falls outside an envelope advertised as conservative; shared errors are treated as independent without justification; a missing component defaults to zero; or a result cannot be reconstructed from exact source, transform, model, rule and checker identities. An “uncertainty budget” is not a safety guarantee unless its semantics and domain are qualified.
 
-The machine-readable case [AIR-PB-015](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) is a research contract only. The current airspace toy kernel does **not** implement this uncertainty algebra or a validated reachable set.
+The machine-readable case [AIR-PB-015](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json) remains the full-pipeline research contract. A deliberately narrow, test-only first slice now exists in [uncertainty.rs](../../tools/airspace-sim/src/uncertainty.rs) and is tracked by [AIR-PB-017](../../tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json): a scalar additive integer-affine error form with stable source IDs, explicit coefficients, interval bounds, deterministic canonicalization, and bounded failure modes. Its unit tests cover common-source coefficient cancellation, distinct-source non-cancellation, endpoint reversal, mismatched source bounds, order invariance, absent input, and work/overflow limits.
+
+This is **not** the full AIR-PB-015 pipeline. It is not connected to the trajectory geometry path, does not transform coordinate frames or propagate clock latency, does not model multi-axis or nonlinear dynamics, and does not authenticate source IDs or establish that declared bounds cover physical reality. It is compiled only under `cfg(test)`; the exact-head CI result is still required before reporting it verified.
 
 
 ### 11. From multiple green checks to evidence of assurance diversity
@@ -170,7 +172,7 @@ The machine-readable case [AIR-PB-016](../../tools/airspace-sim/fixtures/paradig
 
 ## Falsifiable benchmark programme
 
-A machine-readable benchmark profile lives at `tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json`. The initial cases are **research backlog**, not completed simulations. Each case specifies a hypothesis, baseline, required evidence, hard invariants and a falsifier.
+A machine-readable benchmark profile lives at `tools/airspace-sim/fixtures/paradigm_shift_benchmarks.json`. Most cases remain **research backlog**, not completed simulations; AIR-PB-017 has a narrow test-only implementation pending exact-head verification, while AIR-PB-015 and AIR-PB-016 remain full research backlogs. Each case specifies a hypothesis, baseline, required evidence, hard invariants and a falsifier.
 
 The first qualification ladder is:
 
@@ -192,6 +194,7 @@ No case may describe a synthetic win as a safety validation or operational clear
 - [EUROCONTROL ECHO 2](https://www.eurocontrol.int/project/european-concept-higher-altitude-operations): higher-altitude platforms and space launch/re-entry integration research.
 - [NASA/TP-20250003243, published July 2025](https://ntrs.nasa.gov/citations/20250003243): flight evaluation of strategic path planning; reports difficulties when tight flow corridors reduce conflict-resolution degrees of freedom.
 - [NASA Runtime Assurance of Aeronautical Products, published January 2023](https://ntrs.nasa.gov/citations/20220015734): explains runtime-assurance challenges and that the monitor itself must be fit for purpose.
+- [NASA Software Assurance and IV&V, published 8 April 2026](https://sma.nasa.gov/news/articles/newsitem/2026/04/08/reducing-risk-in-software-driven-hazards-across-nasa-programs-how-software-assurance-and-iv-v-strengthens-mission-safety): discusses common-cause failure, dissimilar redundancy, targeted fault injection, and time/data-validity assurance.
 
 ## What would constitute a real breakthrough?
 
