@@ -27,7 +27,8 @@
     "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score",
     "allocation_priority_comes_only_from_authorized_policy",
     "access_outcomes_are_audited_by_declared_group",
-    "operator_identity_or_reputation_is_not_an_implicit_priority_rule"
+    "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
+    "uncertainty_composition_preserves_dependencies_and_bounds"
   ],
   "benchmarks": [
     {
@@ -426,6 +427,43 @@
         "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
         "all_results_bind_exact_inputs_models_rules_and_checker",
         "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
+      ]
+    },
+    {
+      "id": "AIR-PB-015",
+      "name": "uncertainty_composition_across_provenance_boundaries",
+      "paradigm": "compositional_uncertainty_and_evidence_frontiers",
+      "status": "research_backlog",
+      "hypothesis": "An end-to-end uncertainty contract detects under-bounded predictions caused by hidden common-mode errors, coordinate/time transforms, evidence age, model residuals, and correlated inputs that each local adapter may appear to handle.",
+      "baseline": "Pipeline components emit unrelated scalar confidence values or locally valid bounds but discard units, dependency identity, correlation, source age, or transformation error before downstream composition.",
+      "stimulus": "Replay pinned synthetic truth cases through observation, source-age/latency, coordinate/time transformation, and model-prediction stages. Compare independent and correlated/common-mode error scenarios, reorder equivalent inputs, duplicate shared-provenance inputs, cross validity boundaries, and inject missing or unsupported uncertainty semantics.",
+      "success_conditions": [
+        "Every uncertainty component declares its represented quantity, units/reference frame/time basis, validity horizon, bound or distribution semantics, provenance, and dependence/correlation assumptions needed by the selected composition rule.",
+        "A separate analytic or set-based oracle finds no in-domain state outside any envelope advertised as conservative for the declared benchmark assumptions.",
+        "Known shared/common-mode dependencies are preserved; independence-based covariance or probabilistic composition is used only when the required assumptions and evidence are explicit.",
+        "Unknown, unbounded, stale, dimensionally incompatible, or unsupported uncertainty inputs produce unresolved or degraded results and cannot yield a positive geometric eligibility result.",
+        "Per-component contributions and the composition rule remain inspectable; the final output does not collapse uncertainty into an unqualified confidence score."
+      ],
+      "falsifiers": [
+        "Any oracle state falls outside an envelope declared conservative for the test domain.",
+        "A shared datum, clock, source, or model error is treated as independent or allowed to cancel without a justified dependency rule.",
+        "A missing or unsupported uncertainty component silently defaults to zero, or confidence is converted into a bound without a qualified mapping.",
+        "Input permutation or duplicate provenance changes an envelope in a way not allowed by the declared dependency semantics, or results cannot be reproduced from the pinned pipeline manifest."
+      ],
+      "required_evidence": [
+        "Versioned typed uncertainty-component and composition-rule contract",
+        "Pinned source/transform/model pipeline manifest and dependency graph",
+        "Independent analytic or set-based oracle with common-mode and correlation controls",
+        "Seeded fixtures covering latency, clock skew, frame transformation, stale evidence, and model residuals",
+        "Envelope outputs, under-approximation counterexamples, and component-wise contribution report",
+        "Exact-head implementation and independent-checker receipts"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unsupported_model_never_yields_geometry_clearance"
       ]
     }
   ]
