@@ -236,6 +236,82 @@ mod tests {
         }
     }
 
+    fn enumerate_exact_bounds(
+        terms: &[SourceContribution],
+        index: usize,
+        current: i128,
+        extrema: &mut Option<(i128, i128)>,
+    ) {
+        if index == terms.len() {
+            match extrema {
+                Some((lower, upper)) => {
+                    *lower = (*lower).min(current);
+                    *upper = (*upper).max(current);
+                }
+                None => *extrema = Some((current, current)),
+            }
+            return;
+        }
+
+        let term = &terms[index];
+        for value in term.lower_mm..=term.upper_mm {
+            enumerate_exact_bounds(
+                terms,
+                index + 1,
+                current + i128::from(term.coefficient) * i128::from(value),
+                extrema,
+            );
+        }
+    }
+
+    fn next_deterministic(seed: &mut u64) -> u64 {
+        *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        *seed
+    }
+
+    #[test]
+    fn exhaustive_integer_oracle_checks_one_thousand_generated_affine_domains() {
+        let mut seed = 0xA17E_2026_D15C_A11Eu64;
+        for case_index in 0..1_000 {
+            let count = (next_deterministic(&mut seed) % 4 + 1) as usize;
+            let mut terms = Vec::with_capacity(count);
+            for source_index in 0..count {
+                let lower_mm = -((next_deterministic(&mut seed) % 3) as i64);
+                let upper_mm = (next_deterministic(&mut seed) % 3) as i64;
+                let coefficient = (next_deterministic(&mut seed) % 11) as i64 - 5;
+                terms.push(contribution(
+                    &format!("oracle-{case_index}-source-{source_index}"),
+                    lower_mm,
+                    upper_mm,
+                    coefficient,
+                ));
+            }
+
+            let model = AffineUncertainty::new(terms.clone())
+                .unwrap_or_else(|error| panic!("generated case {case_index} rejected: {error:?}"));
+            let mut extrema = None;
+            enumerate_exact_bounds(&terms, 0, 0, &mut extrema);
+            let (oracle_lower, oracle_upper) = extrema.expect("at least one concrete assignment");
+            let actual = model.bounds().unwrap_or_else(|error| {
+                panic!("generated case {case_index} failed to bound: {error:?}")
+            });
+            assert_eq!(
+                (i128::from(actual.lower_mm), i128::from(actual.upper_mm)),
+                (oracle_lower, oracle_upper),
+                "interval bound disagreed with exhaustive point oracle for case {case_index}: {terms:?}"
+            );
+
+            let mut reversed = terms;
+            reversed.reverse();
+            let permuted = AffineUncertainty::new(reversed)
+                .unwrap_or_else(|error| panic!("permuted case {case_index} rejected: {error:?}"));
+            assert_eq!(
+                model,
+                permuted,
+                "canonical uncertainty form changed under reversal for case {case_index}"
+            );
+        }
+    }
     #[test]
     fn hand_derived_json_vectors_match_affine_uncertainty_contract() {
         let fixture: FixtureSet = serde_json::from_str(include_str!("../fixtures/uncertainty_vectors.json"))
