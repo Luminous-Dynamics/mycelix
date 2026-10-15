@@ -1680,6 +1680,44 @@ mod tests {
     }
 
     #[test]
+    fn settlement_requires_consumed_resource_capacity() {
+        let (mut contract, mut capacity, mut ledger) = verified_contract("tx-capacity-before-settlement", 1);
+
+        assert_eq!(
+            contract.settle(&mut ledger, 7),
+            Err(ContractError::InvalidTransition)
+        );
+        assert_eq!(contract.lifecycle(), Lifecycle::Verified);
+        assert!(!contract.capacity_consumed());
+        assert_eq!(
+            capacity.remaining("repair-hours", "hour", "week-42"),
+            Some(1)
+        );
+        assert_eq!(capacity.consumed("repair-hours", "hour", "week-42"), Some(0));
+        assert_eq!(
+            ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT),
+            Some(100)
+        );
+    }
+
+    #[test]
+    fn consumed_capacity_cannot_be_reserved_again_by_another_transaction() {
+        let (mut contract, mut capacity, _) = verified_contract("tx-capacity-consumed", 1);
+        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        let mut next = authorized_contract("tx-capacity-next", 1);
+
+        assert_eq!(
+            next.reserve(&mut capacity, 8),
+            Err(ContractError::CapacityUnavailable)
+        );
+        assert_eq!(
+            capacity.remaining("repair-hours", "hour", "week-42"),
+            Some(0)
+        );
+        assert_eq!(capacity.consumed("repair-hours", "hour", "week-42"), Some(1));
+    }
+
+    #[test]
     fn malformed_zero_quantity_request_is_rejected() {
         assert_eq!(
             CoordinationContract::new(request("tx-zero", 0)).err(),
