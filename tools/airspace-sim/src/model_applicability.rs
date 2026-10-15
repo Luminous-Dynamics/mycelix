@@ -21,6 +21,7 @@ struct ModelApplicabilityRegistryV1 {
     schema: String,
     status: String,
     default_on_unmatched: String,
+    authority_ceiling: String,
     supported_pairs: Vec<ModelApplicabilityPairV1>,
 }
 
@@ -43,6 +44,8 @@ fn registry() -> Result<&'static ModelApplicabilityRegistryV1, String> {
         if value.schema != REGISTRY_SCHEMA
             || value.status != REGISTRY_STATUS
             || value.default_on_unmatched != "unresolved"
+            || value.authority_ceiling
+                != "synthetic_fixture_admission_only_not_operational_model_support"
         {
             return Err("model-applicability registry header is unsupported".to_owned());
         }
