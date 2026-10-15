@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 
 mod polygon;
 mod model_applicability;
+#[cfg(test)]
+mod uncertainty;
 pub use polygon::{
     evaluate_polygon_intersection, PolygonEvaluationReport, PolygonExclusionVolume,
     PolygonGeometryError, PolygonIntersectionOutcome, PolygonPointMm,
@@ -2021,7 +2023,7 @@ mod tests {
         let benchmarks = manifest["benchmarks"]
             .as_array()
             .expect("benchmark cases must be an array");
-        assert_eq!(benchmarks.len(), 16);
+        assert_eq!(benchmarks.len(), 17);
         let mut ids = std::collections::BTreeSet::new();
         let allowed_statuses = [
             "implemented_pending_exact_head_verification",
@@ -2064,7 +2066,7 @@ mod tests {
             "AIR-PB-001", "AIR-PB-002", "AIR-PB-003", "AIR-PB-004",
             "AIR-PB-005", "AIR-PB-006", "AIR-PB-007", "AIR-PB-008",
             "AIR-PB-009", "AIR-PB-010", "AIR-PB-011", "AIR-PB-012",
-            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016",
+            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017",
         ] {
             assert!(ids.contains(required), "required research case missing: {required}");
         }
@@ -2074,6 +2076,18 @@ mod tests {
         assert_eq!(
             admission["status"].as_str(),
             Some("implemented_pending_exact_head_verification")
+        );
+
+        let uncertainty_prototype = benchmarks.iter()
+            .find(|benchmark| benchmark["id"] == "AIR-PB-017")
+            .expect("bounded affine uncertainty prototype benchmark must exist");
+        assert_eq!(
+            uncertainty_prototype["status"].as_str(),
+            Some("implemented_pending_exact_head_verification")
+        );
+        assert_eq!(
+            uncertainty_prototype["scope"].as_str(),
+            Some("test_only_scalar_additive_integer_affine_error_form; not flight dynamics, multi-axis geometry, a probability model, a validated reachable set, or operational qualification")
         );
         assert!(
             benchmarks.iter().all(|benchmark| {
