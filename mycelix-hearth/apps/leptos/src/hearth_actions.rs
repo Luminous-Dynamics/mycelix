@@ -12,6 +12,7 @@ use wasm_bindgen_futures::spawn_local;
 
 use crate::hearth_context::{use_hearth, mock_now};
 use crate::action_feedback::{feedback_copy, ActionFeedbackKind};
+use crate::record_bridge::{self, WireRecord};
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{use_toasts, ToastKind};
 use hearth_leptos_types::*;
@@ -47,7 +48,6 @@ pub fn tend_bond(bond_hash: String) {
     let toasts = use_toasts();
 
     if hc.is_mock() {
-        // Mock: mutate local state but keep it visibly preview-only.
         let mut changed = false;
         hearth.bonds.update(|bonds| {
             if let Some(bond) = bonds.iter_mut().find(|b| b.hash == bond_hash) {
@@ -56,71 +56,58 @@ pub fn tend_bond(bond_hash: String) {
                 changed = true;
             }
         });
-        if changed {
-            toasts.push(
-                feedback_copy(ActionFeedbackKind::PreviewOnly, "the bond update"),
-                ToastKind::Custom("bond".into()),
-            );
-        } else {
-            toasts.push(
-                "Preview only: bond not found in sample data; nothing changed.",
-                ToastKind::Custom("bond".into()),
-            );
-        }
-    } else {
-        // Real: call zome, then update signal on success
-        let hc = hc.clone();
-        spawn_local(async move {
-            // NOTE: bond_hash is a String in our types but ActionHash on the wire.
-            // The Holochain conductor accepts base64-encoded ActionHash bytes
-            // via MessagePack. This will work if the hash string was originally
-            // obtained from a conductor response (which it will be in Phase 6).
-            #[derive(serde::Serialize)]
-            struct TendBondInput {
-                bond_hash: String,
-                description: String,
-                quality_bp: u32,
-            }
-
-            match hc.call_zome_default::<TendBondInput, ()>(
-                "hearth_kinship",
-                "tend_bond",
-                &TendBondInput {
-                    bond_hash: bond_hash.clone(),
-                    description: "tended with care".into(),
-                    quality_bp: 500,
-                },
-            ).await {
-                Ok(_) => {
-                    match hc.call_zome_default::<(), Vec<BondView>>(
-                        "hearth_kinship", "get_kinship_graph", &()
-                    ).await {
-                        Ok(bonds) => {
-                            hearth.bonds.set(bonds);
-                            toasts.push(
-                                feedback_copy(ActionFeedbackKind::Confirmed, "Bond update"),
-                                ToastKind::Custom("bond".into()),
-                            );
-                        }
-                        Err(e) => {
-                            web_sys::console::log_1(&format!("bond update succeeded but refresh failed: {e}").into());
-                            toasts.push(
-                                "Bond update confirmed, but the view could not refresh. Displayed details may be stale.",
-                                ToastKind::Custom("bond".into()),
-                            );
-                        }
-                    }
-                }
-                Err(e) => {
-                    web_sys::console::log_1(&format!("tend_bond outcome unknown: {e}").into());
-                    toasts.push(
-                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the bond update"),
-                        ToastKind::Custom("bond".into()),
-                    );
-                }
-            }
-        });
+        toasts.push(
+            if changed {
+                feedback_copy(ActionFeedbackKind::PreviewOnly, "the bond update")
+            } else {
+                "Preview only: bond not found in sample data; nothing changed.".into()
+            },
+            ToastKind::Custom("bond".into()),
+        );
+        return;
     }
+
+    let Some(bond_hash_bytes) = record_bridge::decode_holo_hash_b64(&bond_hash) else {
+        toasts.push(
+            "Bond update not sent: a verified Holochain bond identity is required.",
+            ToastKind::Custom("bond".into()),
+        );
+        return;
+    };
+
+    let hc = hc.clone();
+    spawn_local(async move {
+        #[derive(serde::Serialize)]
+        struct TendBondInput {
+            bond_hash: Vec<u8>,
+            description: String,
+            quality_bp: u32,
+        }
+
+        match hc.call_zome_default::<TendBondInput, WireRecord>(
+            "hearth_kinship",
+            "tend_bond",
+            &TendBondInput {
+                bond_hash: bond_hash_bytes,
+                description: "tended with care".into(),
+                quality_bp: 500,
+            },
+        ).await {
+            Ok(_updated_record) => {
+                toasts.push(
+                    "Bond update confirmed. The displayed details may be stale until this view is refreshed.",
+                    ToastKind::Custom("bond".into()),
+                );
+            }
+            Err(e) => {
+                web_sys::console::log_1(&format!("tend_bond outcome unknown: {e}").into());
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the bond update"),
+                    ToastKind::Custom("bond".into()),
+                );
+            }
+        }
+    });
 }
 
 // ============================================================================
@@ -138,7 +125,7 @@ pub fn express_gratitude(to_agent: String, message: String) {
             g.insert(0, GratitudeExpressionView {
                 hash: format!("grat_user_{}", g.len()),
                 from_agent: from,
-                to_agent: to_agent.clone(),
+                to_agent,
                 message,
                 gratitude_type: GratitudeType::Appreciation,
                 visibility: HearthVisibility::AllMembers,
@@ -149,51 +136,61 @@ pub fn express_gratitude(to_agent: String, message: String) {
             feedback_copy(ActionFeedbackKind::PreviewOnly, "the gratitude expression"),
             ToastKind::Custom("gratitude".into()),
         );
-    } else {
-        let hc = hc.clone();
-        spawn_local(async move {
-            #[derive(serde::Serialize)]
-            struct ExpressGratitudeInput {
-                hearth_hash: String,
-                to_agent: String,
-                message: String,
-                gratitude_type: GratitudeType,
-                visibility: HearthVisibility,
-            }
+        return;
+    }
 
-            let Some(hearth_hash) = hearth.current_hearth.get_untracked().map(|h| h.hash) else {
+    let Some(hearth_hash) = hearth.current_hearth.get_untracked()
+        .and_then(|h| record_bridge::decode_holo_hash_b64(&h.hash))
+    else {
+        toasts.push(
+            "Gratitude not sent: the current household identity is not verified.",
+            ToastKind::Custom("gratitude".into()),
+        );
+        return;
+    };
+    let Some(to_agent_bytes) = record_bridge::decode_holo_hash_b64(&to_agent) else {
+        toasts.push(
+            "Gratitude not sent: choose a verified household member.",
+            ToastKind::Custom("gratitude".into()),
+        );
+        return;
+    };
+
+    let hc = hc.clone();
+    spawn_local(async move {
+        #[derive(serde::Serialize)]
+        struct ExpressGratitudeInput {
+            hearth_hash: Vec<u8>,
+            to_agent: Vec<u8>,
+            message: String,
+            gratitude_type: GratitudeType,
+            visibility: HearthVisibility,
+        }
+
+        match hc.call_zome_default::<ExpressGratitudeInput, WireRecord>(
+            "hearth_gratitude",
+            "express_gratitude",
+            &ExpressGratitudeInput {
+                hearth_hash,
+                to_agent: to_agent_bytes,
+                message,
+                gratitude_type: GratitudeType::Appreciation,
+                visibility: HearthVisibility::AllMembers,
+            },
+        ).await {
+            Ok(_record) => toasts.push(
+                feedback_copy(ActionFeedbackKind::Confirmed, "Gratitude expression"),
+                ToastKind::Custom("gratitude".into()),
+            ),
+            Err(e) => {
+                web_sys::console::log_1(&format!("express_gratitude outcome unknown: {e}").into());
                 toasts.push(
-                    "Gratitude not sent: no current household is selected.",
+                    feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the gratitude expression"),
                     ToastKind::Custom("gratitude".into()),
                 );
-                return;
-            };
-
-            match hc.call_zome_default::<ExpressGratitudeInput, ()>(
-                "hearth_gratitude",
-                "express_gratitude",
-                &ExpressGratitudeInput {
-                    hearth_hash,
-                    to_agent,
-                    message,
-                    gratitude_type: GratitudeType::Appreciation,
-                    visibility: HearthVisibility::AllMembers,
-                },
-            ).await {
-                Ok(_) => toasts.push(
-                    feedback_copy(ActionFeedbackKind::Confirmed, "Gratitude expression"),
-                    ToastKind::Custom("gratitude".into()),
-                ),
-                Err(e) => {
-                    web_sys::console::log_1(&format!("express_gratitude outcome unknown: {e}").into());
-                    toasts.push(
-                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the gratitude expression"),
-                        ToastKind::Custom("gratitude".into()),
-                    );
-                }
             }
-        });
-    }
+        }
+    });
 }
 
 // ============================================================================
@@ -210,7 +207,7 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
         hearth.votes.update(|votes| {
             votes.retain(|v| !(v.decision_hash == decision_hash && v.voter == my_agent));
             votes.push(VoteView {
-                decision_hash: decision_hash.clone(),
+                decision_hash,
                 voter: my_agent,
                 choice,
                 weight_bp,
@@ -222,35 +219,44 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
             feedback_copy(ActionFeedbackKind::PreviewOnly, "the vote"),
             ToastKind::Custom("decision".into()),
         );
-    } else {
-        let hc = hc.clone();
-        spawn_local(async move {
-            #[derive(serde::Serialize)]
-            struct CastVoteInput {
-                decision_hash: String,
-                choice: u32,
-                reasoning: Option<String>,
-            }
-
-            match hc.call_zome_default::<CastVoteInput, ()>(
-                "hearth_decisions",
-                "cast_vote",
-                &CastVoteInput { decision_hash, choice, reasoning },
-            ).await {
-                Ok(_) => toasts.push(
-                    feedback_copy(ActionFeedbackKind::Confirmed, "Vote submission"),
-                    ToastKind::Custom("decision".into()),
-                ),
-                Err(e) => {
-                    web_sys::console::log_1(&format!("cast_vote outcome unknown: {e}").into());
-                    toasts.push(
-                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the vote submission"),
-                        ToastKind::Custom("decision".into()),
-                    );
-                }
-            }
-        });
+        return;
     }
+
+    let Some(decision_hash_bytes) = record_bridge::decode_holo_hash_b64(&decision_hash) else {
+        toasts.push(
+            "Vote not sent: a verified decision identity is required.",
+            ToastKind::Custom("decision".into()),
+        );
+        return;
+    };
+
+    let hc = hc.clone();
+    spawn_local(async move {
+        #[derive(serde::Serialize)]
+        struct CastVoteInput {
+            decision_hash: Vec<u8>,
+            choice: u32,
+            reasoning: Option<String>,
+        }
+
+        match hc.call_zome_default::<CastVoteInput, WireRecord>(
+            "hearth_decisions",
+            "cast_vote",
+            &CastVoteInput { decision_hash: decision_hash_bytes, choice, reasoning },
+        ).await {
+            Ok(_record) => toasts.push(
+                feedback_copy(ActionFeedbackKind::Confirmed, "Vote submission"),
+                ToastKind::Custom("decision".into()),
+            ),
+            Err(e) => {
+                web_sys::console::log_1(&format!("cast_vote outcome unknown: {e}").into());
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the vote submission"),
+                    ToastKind::Custom("decision".into()),
+                );
+            }
+        }
+    });
 }
 
 // ============================================================================
@@ -272,58 +278,58 @@ pub fn change_presence(new_status: PresenceStatusType) {
                 changed = true;
             }
         });
-        if changed {
-            toasts.push(
-                feedback_copy(ActionFeedbackKind::PreviewOnly, "the presence update"),
-                ToastKind::Custom("presence".into()),
-            );
-        } else {
-            toasts.push(
-                "Preview only: no matching sample presence record was found; nothing changed.",
-                ToastKind::Custom("presence".into()),
-            );
-        }
-    } else {
-        let hc = hc.clone();
-        spawn_local(async move {
-            #[derive(serde::Serialize)]
-            struct SetPresenceInput {
-                hearth_hash: String,
-                status: PresenceStatusType,
-                expected_return: Option<i64>,
-            }
+        toasts.push(
+            if changed {
+                feedback_copy(ActionFeedbackKind::PreviewOnly, "the presence update")
+            } else {
+                "Preview only: no matching sample presence record was found; nothing changed.".into()
+            },
+            ToastKind::Custom("presence".into()),
+        );
+        return;
+    }
 
-            let Some(hearth_hash) = hearth.current_hearth.get_untracked().map(|h| h.hash) else {
+    let Some(hearth_hash) = hearth.current_hearth.get_untracked()
+        .and_then(|h| record_bridge::decode_holo_hash_b64(&h.hash))
+    else {
+        toasts.push(
+            "Presence update not sent: the current household identity is not verified.",
+            ToastKind::Custom("presence".into()),
+        );
+        return;
+    };
+
+    let hc = hc.clone();
+    spawn_local(async move {
+        #[derive(serde::Serialize)]
+        struct SetPresenceInput {
+            hearth_hash: Vec<u8>,
+            status: PresenceStatusType,
+            expected_return: Option<i64>,
+        }
+
+        match hc.call_zome_default::<SetPresenceInput, WireRecord>(
+            "hearth_rhythms",
+            "set_presence",
+            &SetPresenceInput {
+                hearth_hash,
+                status: new_status,
+                expected_return: None,
+            },
+        ).await {
+            Ok(_record) => toasts.push(
+                feedback_copy(ActionFeedbackKind::Confirmed, "Presence update"),
+                ToastKind::Custom("presence".into()),
+            ),
+            Err(e) => {
+                web_sys::console::log_1(&format!("set_presence outcome unknown: {e}").into());
                 toasts.push(
-                    "Presence update not sent: no current household is selected.",
+                    feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the presence update"),
                     ToastKind::Custom("presence".into()),
                 );
-                return;
-            };
-
-            match hc.call_zome_default::<SetPresenceInput, ()>(
-                "hearth_rhythms",
-                "set_presence",
-                &SetPresenceInput {
-                    hearth_hash,
-                    status: new_status,
-                    expected_return: None,
-                },
-            ).await {
-                Ok(_) => toasts.push(
-                    feedback_copy(ActionFeedbackKind::Confirmed, "Presence update"),
-                    ToastKind::Custom("presence".into()),
-                ),
-                Err(e) => {
-                    web_sys::console::log_1(&format!("set_presence outcome unknown: {e}").into());
-                    toasts.push(
-                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the presence update"),
-                        ToastKind::Custom("presence".into()),
-                    );
-                }
             }
-        });
-    }
+        }
+    });
 }
 
 // ============================================================================
@@ -361,31 +367,40 @@ pub fn complete_care_task(task_hash: String) {
             feedback_copy(ActionFeedbackKind::PreviewOnly, "the care task completion"),
             ToastKind::Custom("care".into()),
         );
-    } else {
-        let hc = hc.clone();
-        spawn_local(async move {
-            #[derive(serde::Serialize)]
-            struct CompleteTaskInput { schedule_hash: String }
-
-            match hc.call_zome_default::<CompleteTaskInput, ()>(
-                "hearth_care",
-                "complete_task",
-                &CompleteTaskInput { schedule_hash: task_hash },
-            ).await {
-                Ok(_) => toasts.push(
-                    feedback_copy(ActionFeedbackKind::Confirmed, "Care task completion"),
-                    ToastKind::Custom("care".into()),
-                ),
-                Err(e) => {
-                    web_sys::console::log_1(&format!("complete_task outcome unknown: {e}").into());
-                    toasts.push(
-                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the care task completion"),
-                        ToastKind::Custom("care".into()),
-                    );
-                }
-            }
-        });
+        return;
     }
+
+    let Some(schedule_hash_bytes) = record_bridge::decode_holo_hash_b64(&task_hash) else {
+        toasts.push(
+            "Care completion not sent: a verified care-schedule identity is required.",
+            ToastKind::Custom("care".into()),
+        );
+        return;
+    };
+
+    let hc = hc.clone();
+    spawn_local(async move {
+        #[derive(serde::Serialize)]
+        struct CompleteTaskInput { schedule_hash: Vec<u8> }
+
+        match hc.call_zome_default::<CompleteTaskInput, WireRecord>(
+            "hearth_care",
+            "complete_task",
+            &CompleteTaskInput { schedule_hash: schedule_hash_bytes },
+        ).await {
+            Ok(_record) => toasts.push(
+                feedback_copy(ActionFeedbackKind::Confirmed, "Care task completion"),
+                ToastKind::Custom("care".into()),
+            ),
+            Err(e) => {
+                web_sys::console::log_1(&format!("complete_task outcome unknown: {e}").into());
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the care task completion"),
+                    ToastKind::Custom("care".into()),
+                );
+            }
+        }
+    });
 }
 
 // ============================================================================
