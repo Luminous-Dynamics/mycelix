@@ -75,6 +75,30 @@
       "url": "https://ich.unesco.org/en/transmission-00078",
       "use": "Guidance on knowledge and skills transfer across generations.",
       "limits": "Not a technical process specification; practitioners remain active knowledge holders."
+    },
+    {
+      "id": "S6",
+      "type": "open_hardware_project_documentation",
+      "title": "RepRap Development Pathway",
+      "url": "https://reprap.org/wiki/Development_Pathway",
+      "use": "Engineering analogy for replication factors and externally supplied non-printed components ('vitamins').",
+      "limits": "Project documentation, not a validated computer-manufacturing process or universal replication metric."
+    },
+    {
+      "id": "S7",
+      "type": "industry_supply_chain_analysis",
+      "title": "Understanding Dependencies in the U.S. Semiconductor Supply Chain",
+      "url": "https://www.semiconductors.org/understanding-dependencies-in-the-u-s-semiconductor-supply-chain/",
+      "use": "Motivates explicit multi-tier supplier and materials/equipment dependency records.",
+      "limits": "Sector-level supply-chain analysis, not local availability evidence."
+    },
+    {
+      "id": "S8",
+      "type": "government_metrology_program",
+      "title": "NIST CHIPS R&D Metrology Program",
+      "url": "https://www.nist.gov/chips/research-development-programs/metrology-program",
+      "use": "Motivates explicit measurement, materials provenance, standards and test evidence in electronics manufacturing.",
+      "limits": "Program overview; does not qualify this pilot's processes or equipment."
     }
   ],
   "nodes": [
@@ -497,6 +521,307 @@
         "S4",
         "S5"
       ]
+    },
+    {
+      "id": "N17_computer_assembled_from_qualified_modules",
+      "label": "Assemble a working computer from qualified modules and an exact BOM",
+      "family": "computer_systems",
+      "requires_all": [
+        "N01_observation_and_shared_records",
+        "N11_usable_electrical_supply",
+        "N13_computation_and_communication_use",
+        "qualified_compute_module",
+        "qualified_memory_storage",
+        "qualified_board_or_backplane",
+        "qualified_power_module",
+        "qualified_interconnect_set",
+        "qualified_cooling_module",
+        "qualified_boot_artifact",
+        "assembly_and_electrical_test_capability"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "replaceable_module"
+      ],
+      "not_implied": [
+        "locally manufactured compute die",
+        "local memory manufacture",
+        "local PCB manufacture",
+        "local productive-equipment reproduction"
+      ],
+      "questions": [
+        "Is the exact BOM revision complete and all parts physically available?",
+        "Can a separate operator assemble and cold-boot it from the transfer packet?",
+        "Which modules remain imported and which are replaceable?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S1",
+        "S6"
+      ]
+    },
+    {
+      "id": "N18_local_computer_mechanical_subsystems",
+      "label": "Fabricate selected computer enclosure, brackets, cooling ducts and fixtures locally",
+      "family": "computer_mechanics",
+      "requires_all": [
+        "N03_manual_tools_and_workholding",
+        "N05_repeatable_measurement_and_references",
+        "N04_material_processing_routes"
+      ],
+      "requires_any": [
+        "qualified_local_additive_or_subtractive_fabrication"
+      ],
+      "separate_capabilities": [
+        "replacement_part_production",
+        "local_mechanical_subsystem_reproduction"
+      ],
+      "not_implied": [
+        "PCB manufacture",
+        "electronic component manufacture",
+        "semiconductor fabrication"
+      ],
+      "questions": [
+        "Are the material, dimensions, thermal properties and mechanical loads qualified for this exact part?",
+        "What tooling, consumables and inspection evidence remain external?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796"
+      ],
+      "source_refs": [
+        "S1",
+        "S6"
+      ]
+    },
+    {
+      "id": "N19_local_board_assembly_from_purchased_PCB_and_components",
+      "label": "Populate and test a board using purchased bare PCB and qualified electronic components",
+      "family": "computer_electronics",
+      "requires_all": [
+        "N05_repeatable_measurement_and_references",
+        "N11_usable_electrical_supply",
+        "qualified_bare_pcb_inventory",
+        "qualified_semiconductor_ic_inventory",
+        "qualified_passive_and_connector_inventory",
+        "qualified_board_assembly_rework_tools",
+        "qualified_board_test_capability"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "board_assembly",
+        "board_rework",
+        "board_test"
+      ],
+      "not_implied": [
+        "local bare-PCB fabrication",
+        "local semiconductor fabrication",
+        "board conformity without test evidence"
+      ],
+      "questions": [
+        "Is the BOM and board revision frozen?",
+        "Can assembly quality and electrical behaviour be verified independently?",
+        "Which imported components are single points of failure?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S6",
+        "S7",
+        "S8"
+      ]
+    },
+    {
+      "id": "N20_local_simple_PCB_fabrication",
+      "label": "Fabricate a bounded simple PCB locally under a qualified process",
+      "family": "computer_electronics",
+      "requires_all": [
+        "N03_manual_tools_and_workholding",
+        "N04_material_processing_routes",
+        "N05_repeatable_measurement_and_references"
+      ],
+      "requires_any": [
+        "qualified_local_simple_pcb_fabrication_process"
+      ],
+      "separate_capabilities": [
+        "bare_PCB_fabrication_under_profile"
+      ],
+      "not_implied": [
+        "multilayer PCB capability",
+        "high-frequency board qualification",
+        "semiconductor die fabrication"
+      ],
+      "questions": [
+        "Which board stack-up, conductor geometry, finish, insulation and test criteria are covered by this profile?",
+        "Are process wastes, safety, inspection and repeatability accounted for?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S6",
+        "S7"
+      ]
+    },
+    {
+      "id": "N21_offline_reproducible_firmware_and_build_toolchain",
+      "label": "Build firmware and required software from versioned offline sources",
+      "family": "computer_software",
+      "requires_all": [
+        "N01_observation_and_shared_records",
+        "N16_durable_technical_knowledge_packet",
+        "N17_computer_assembled_from_qualified_modules",
+        "qualified_source_archive",
+        "qualified_offline_compiler_and_build_toolchain",
+        "qualified_firmware_programming_interface",
+        "software_license_and_dependency_manifest"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "reproducible_software_build",
+        "offline_recovery",
+        "firmware_programming"
+      ],
+      "not_implied": [
+        "hardware manufacture",
+        "reproducibility of all upstream toolchain binaries unless separately tested"
+      ],
+      "questions": [
+        "Are source, dependency versions, build tools, firmware, licenses and recovery docs all preserved?",
+        "Does an independent rebuild match the declared reproducibility properties?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796"
+      ],
+      "source_refs": [
+        "S1",
+        "S6"
+      ]
+    },
+    {
+      "id": "N22_computer_assisted_manufacturing_cell",
+      "label": "Host computer orchestrates a bounded, human-authorized cell that makes and tests computer subsystems",
+      "family": "computer_manufacturing",
+      "requires_all": [
+        "N17_computer_assembled_from_qualified_modules",
+        "N18_local_computer_mechanical_subsystems",
+        "N19_local_board_assembly_from_purchased_PCB_and_components",
+        "N21_offline_reproducible_firmware_and_build_toolchain",
+        "qualified_fabrication_workcell",
+        "qualified_programming_and_test_interface",
+        "qualified_machine_interface_and_operator_authority"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "computer_assisted_manufacturing",
+        "subsystem_production",
+        "test_and_provisioning"
+      ],
+      "not_implied": [
+        "autonomous machine control",
+        "local bare-PCB manufacture unless N20 closes",
+        "local semiconductor manufacture"
+      ],
+      "questions": [
+        "Can the host create or select the revision-pinned artifacts, program the target, and produce a complete test receipt?",
+        "Which physical operations still require a human, vendor, or external service?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/4689"
+      ],
+      "source_refs": [
+        "S6",
+        "S7",
+        "S8"
+      ]
+    },
+    {
+      "id": "N23_first_clone_independently_boots_and_passes_tests",
+      "label": "First copy is independently assembled, booted and qualified against the declared profile",
+      "family": "computer_replication",
+      "requires_all": [
+        "N22_computer_assisted_manufacturing_cell",
+        "qualified_complete_clone_BOM_stock",
+        "independent_computer_acceptance_test_suite",
+        "revision_bound_build_and_test_receipt"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "generation_1_computer_copy"
+      ],
+      "not_implied": [
+        "replication by the clone",
+        "independence from imported ICs and tooling"
+      ],
+      "questions": [
+        "Did the copy cold boot and pass CPU/memory/storage/I-O tests after power removal?",
+        "Were every failed build, rework event and human intervention recorded?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S6",
+        "S7"
+      ]
+    },
+    {
+      "id": "N24_second_generation_clone_reproduces_computer",
+      "label": "The first clone independently operates the preserved workflow to build and qualify another copy",
+      "family": "computer_replication",
+      "requires_all": [
+        "N22_computer_assisted_manufacturing_cell",
+        "N23_first_clone_independently_boots_and_passes_tests",
+        "qualified_second_clone_BOM_stock",
+        "independent_host_removal_reproduction_test"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "generation_2_computer_copy",
+        "independent_transfer_under_profile"
+      ],
+      "not_implied": [
+        "zero external dependencies",
+        "local semiconductor fabrication",
+        "indefinite self-sufficiency"
+      ],
+      "verification_protocol": [
+        "power down or disconnect the original host from the active production workflow",
+        "start the documented workflow from the first clone",
+        "build, program, cold-boot and independently test a second copy",
+        "record every external service, human intervention, imported component and consumable",
+        "repeat with a separately operated node before making an E5 claim"
+      ],
+      "questions": [
+        "Does the copy possess the source, build tools, programming interfaces and process knowledge to repeat the workflow?",
+        "What exact imported items still bound the number of generations?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/4689"
+      ],
+      "source_refs": [
+        "S6",
+        "S7",
+        "S8"
+      ]
     }
   ],
   "profiles": [
@@ -640,7 +965,196 @@
     {
       "id": "site_suitable_water_or_wind_power",
       "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_compute_module",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_memory_storage",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_board_or_backplane",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_power_module",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_interconnect_set",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_cooling_module",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_boot_artifact",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "assembly_and_electrical_test_capability",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_local_additive_or_subtractive_fabrication",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_bare_pcb_inventory",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_semiconductor_ic_inventory",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_passive_and_connector_inventory",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_board_assembly_rework_tools",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_board_test_capability",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_local_simple_pcb_fabrication_process",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_source_archive",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_offline_compiler_and_build_toolchain",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_firmware_programming_interface",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "software_license_and_dependency_manifest",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_fabrication_workcell",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_programming_and_test_interface",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_machine_interface_and_operator_authority",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_complete_clone_BOM_stock",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "independent_computer_acceptance_test_suite",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "revision_bound_build_and_test_receipt",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_second_clone_BOM_stock",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "independent_host_removal_reproduction_test",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
     }
   ],
-  "external_token_policy": "Unknown or unsupported token stays unresolved. A token naming imported/salvaged/qualified equipment does not imply local maintenance, repair, replacement-part production, or reproductive closure."
+  "external_token_policy": "Unknown or unsupported token stays unresolved. A token naming imported/salvaged/qualified equipment does not imply local maintenance, repair, replacement-part production, or reproductive closure.",
+  "computer_replication_benchmark": {
+    "id": "COMPUTE-REPLICA-001",
+    "canonical_semantics_owner": "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+    "canonical_fixture_owner": "https://github.com/Luminous-Dynamics/symthaea/issues/5798",
+    "integration_owner": "https://github.com/Luminous-Dynamics/mycelix/issues/4689",
+    "target": "A modest, repairable computer/controller profile whose documented manufacturing cell can build a tested copy, then use the copy to build another copy under the same bounded profile.",
+    "levels": [
+      {
+        "id": "C0",
+        "node": "N17_computer_assembled_from_qualified_modules",
+        "acceptance": "Exact BOM, version-pinned documentation, cold boot, declared diagnostic suite."
+      },
+      {
+        "id": "C1",
+        "node": "N17_computer_assembled_from_qualified_modules",
+        "acceptance": "Component-level repair and post-repair independent test; stock and imported replacement parts reported."
+      },
+      {
+        "id": "C2",
+        "node": "N18_local_computer_mechanical_subsystems",
+        "acceptance": "Specified enclosures, brackets, ducts and fixtures manufactured and inspected against declared criteria."
+      },
+      {
+        "id": "C3",
+        "node": "N19_local_board_assembly_from_purchased_PCB_and_components",
+        "acceptance": "Assemble/rework and electrically test boards using bought bare PCBs and ICs; imported parts remain explicit."
+      },
+      {
+        "id": "C4",
+        "node": "N23_first_clone_independently_boots_and_passes_tests",
+        "acceptance": "Host runs the production workflow to build, program, cold-boot and qualify one copy."
+      },
+      {
+        "id": "C5",
+        "node": "N24_second_generation_clone_reproduces_computer",
+        "acceptance": "Disconnect original host; first clone operates the documented workflow and builds/tests another copy."
+      },
+      {
+        "id": "C6",
+        "node": "N20_local_simple_PCB_fabrication",
+        "acceptance": "A specific simple PCB route is locally demonstrated and inspected; no multilayer or silicon-fab inference."
+      },
+      {
+        "id": "C7",
+        "node": "N15_semiconductor_manufacturing_unresolved",
+        "acceptance": "Not achieved by the present pilot. Remains blocked until every critical semiconductor process dependency is modeled, sourced and independently qualified."
+      }
+    ],
+    "independent_metrics": [
+      "BOM lines complete / unresolved; by count, sourced cost, mass where meaningful, and criticality—never one combined replication percentage",
+      "component classes still externally sourced and minimum-stock runway under declared production demand",
+      "conforming copies, failed builds, rework, scrap and operator interventions",
+      "cold-boot and CPU/memory/storage/I-O acceptance-test outcomes",
+      "repeatable-build properties for software/firmware artifacts",
+      "energy, consumables, labor time, cycle time and equipment maintenance per accepted copy",
+      "number of complete reproduction generations demonstrated",
+      "capabilities and outputs that become blocked when each critical imported class is removed",
+      "source/build/toolchain/firmware availability without network access",
+      "independent evaluator agreement and separately operated-node reproduction"
+    ],
+    "adversarial_tests": [
+      "remove compute module or memory; system must not claim a complete computer was built",
+      "keep case and PCB but remove IC stock; no computer clone may be counted",
+      "invalid calibration or failed electrical acceptance test blocks qualification",
+      "source archive or required build toolchain missing; offline reproducibility claim is blocked",
+      "original host remains hidden in the C5 workflow; host-removal test must fail",
+      "missing failed-build records or unreported external service invalidates the result",
+      "change BOM revision between builds without requalification; result must show a revision mismatch",
+      "exhaust a critical imported IC stock; projections must show production blocked unless a qualified substitute route exists",
+      "successful board assembly cannot upgrade N15 semiconductor manufacturing closure",
+      "a second-generation copy that boots but cannot execute the manufacturing workflow does not pass C5"
+    ],
+    "invariants": [
+      "No single local/self-replication boolean or composite score.",
+      "Design, source generation, board assembly, bare-PCB fabrication, chip/package test and semiconductor die fabrication are distinct evidence-bearing claims.",
+      "Imported or salvaged hardware may satisfy use or assembly requirements but never automatically receives local repair/reproduction credit.",
+      "A simulation, netlist, PCB layout or firmware image is not evidence of a physically functioning computer.",
+      "No autonomous purchase, resource allocation or manufacturing actuation authority is implied."
+    ],
+    "claim_ceiling": "The current graph is E0 conceptual. C4/C5 remain proposed physical acceptance targets, not achieved results. This pilot does not imply local semiconductor die fabrication or indefinite industrial self-sufficiency."
+  }
 }
