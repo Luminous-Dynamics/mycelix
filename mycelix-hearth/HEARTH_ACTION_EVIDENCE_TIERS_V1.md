@@ -28,7 +28,7 @@ Do not collapse operation lifecycle, replication evidence, and observed state in
 | Current state observed | A correctly scoped read returned the expected current state | Only the queried view at that point in time; other peers or views may differ |
 | Explicitly rejected | A typed domain contract proves the operation was rejected without applying the effect | Must not be inferred from generic timeout/transport/decode errors |
 
-The first four statuses can be used now in feedback. The current client action path does **not** read validation receipts in this tranche, so it must not emit Peer validation receipt observed from a successful action return. A future propagation status requires a real API/evidence source.
+The first four statuses can be used now in feedback. The current client action path does **not** read validation receipts in this tranche, so it must not emit receipt-observed status from a successful action return. Holochain's official guide documents the `get_validation_receipts` host function, but the current Hearth workspace declares `hdk = "0.6.0"`; verify the resolved 0.6 API and the DNA assembly before wiring the function into a coordinator. [HTH-UX-007 / issue #5077](https://github.com/Luminous-Dynamics/mycelix/issues/5077) owns that version and authoring-conductor audit.
 
 ## Resident-facing copy rules
 
@@ -81,8 +81,8 @@ All numeric gates are targets; this change does not claim any have passed. The p
 ## Next engineering tranche
 
 1. Keep the immediate zome return labelled SourceChainCommitted.
-2. Audit the current Holochain version and zomes for a supported validation-receipt query / observation surface before writing adapter code.
-3. If receipt monitoring is supported, add an explicit operation/action-hash-to-DHT-op mapping with freshness and partial-result semantics; do not assume a source-chain ActionHash alone implies all expected DHT ops are integrated.
+2. Audit the exact resolved Holochain 0.6 dependency and DNA assembly; HTH-UX-007 tracks this.
+3. If the receipt host function is supported by that resolved version, add an authoring-conductor-only receipt query returning per-operation receipt counts, configured-threshold completion, rejection evidence, and observation time. Treat empty/unavailable as unknown, never vacuously complete.
 4. Model lifecycle outcome and propagation evidence independently in a journal/event record.
 5. Qualify with a deterministic multi-agent Tryorama corpus, including no-peer, one-peer, lagging-peer, invalid-op, restart, and partition cases.
 6. Keep the status UI useful when propagation cannot be measured: honest "saved locally; sharing may still be in progress" is better than a false green "synced".
