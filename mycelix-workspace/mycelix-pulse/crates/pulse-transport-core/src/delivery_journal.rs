@@ -233,11 +233,8 @@ impl JournalSnapshot {
         self.attempts.len()
     }
 
-    pub const fn active_attempt_id(&self) -> Option<&str> {
-        match self.active_attempt_id.as_deref() {
-            Some(id) => Some(id),
-            None => None,
-        }
+    pub fn active_attempt_id(&self) -> Option<&str> {
+        self.active_attempt_id.as_deref()
     }
 
     pub const fn next_attempt_at(&self) -> Option<UnixMillis> {
@@ -411,19 +408,19 @@ fn initial_snapshot(event: &JournalEvent) -> Result<JournalSnapshot, JournalErro
     let JournalEventKind::Queued {
         expires_at,
         policy_generation,
-    } = event.kind
+    } = &event.kind
     else {
         return Err(JournalError::MissingQueueAcceptance);
     };
-    if event.actor != JournalActor::System || event.occurred_at >= expires_at {
+    if event.actor != JournalActor::System || event.occurred_at >= *expires_at {
         return Err(JournalError::InvalidTransition);
     }
     Ok(JournalSnapshot {
         identity: event.identity.clone(),
         revision: 0,
         status: DurableDeliveryStatus::Queued,
-        expires_at,
-        policy_generation,
+        expires_at: *expires_at,
+        policy_generation: *policy_generation,
         worker_epoch: 0,
         attempts: BTreeMap::new(),
         active_attempt_id: None,
@@ -451,6 +448,18 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
             }
             if *new_epoch <= snapshot.worker_epoch {
                 return Err(JournalError::WorkerEpochMustIncrease);
+            }
+            // A takeover fences the old worker. If it had an active attempt,
+            // recovery must treat it as possibly sent rather than lose the
+            // attempt or accept a later callback from the stale epoch.
+            if let Some(attempt_id) = snapshot.active_attempt_id.take() {
+                snapshot.attempts.insert(
+                    attempt_id,
+                    Some(AttemptOutcome::OutcomeUnknown),
+                );
+                snapshot.may_have_reached_recipient = true;
+                snapshot.status = DurableDeliveryStatus::OutcomeUnknown;
+                snapshot.next_attempt_at = None;
             }
             snapshot.worker_epoch = *new_epoch;
             Ok(())
@@ -837,7 +846,7 @@ mod tests {
         );
         assert_eq!(
             journal.snapshot(&identity).unwrap().status(),
-            DurableDeliveryStatus::InFlight
+            DurableDeliveryStatus::OutcomeUnknown
         );
     }
 
