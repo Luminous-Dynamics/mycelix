@@ -37,6 +37,9 @@
         "policy_input_sha256",
         "policy_build_sha256",
         "policy_config_sha256",
+        "observation_contract_sha256",
+        "action_space_sha256",
+        "runner_image_sha256",
         "disposition",
         "receipt_sha256",
         "receipt_payload",
@@ -192,6 +195,21 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of unsupported or unknown signature suites accepted as authenticated evidence. Hard safety gate: zero."
+        },
+        "runner_image_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "Runner image digest must match the frozen execution-lock pin for this arm."
+        },
+        "action_space_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "Action-space contract digest must match the frozen execution-lock pin for this arm."
+        },
+        "observation_contract_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "Policy-visible observation contract digest must match the frozen execution-lock pin for this arm."
         }
       },
       "allOf": [
