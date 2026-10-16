@@ -30,6 +30,8 @@ pub struct PortfolioRequest {
     pub deliver_by: u64,
     pub allow_split: bool,
     pub max_suppliers: usize,
+    /// Minimum number of suppliers with pairwise-disjoint declared failure-domain sets.
+    pub minimum_independent_sources: usize,
     /// Maximum share of the requested quantity assigned to any one supplier, in basis points.
     pub max_supplier_share_bps: u16,
     pub max_quote_age_secs: u64,
@@ -68,6 +70,9 @@ impl PortfolioRequest {
             || self.required_quantity == 0
             || self.deliver_by < self.evaluated_at
             || self.max_suppliers == 0
+            || self.minimum_independent_sources == 0
+            || self.minimum_independent_sources > if self.allow_split { self.max_suppliers } else { 1 }
+            || self.minimum_independent_sources > MAX_EXACT_OFFERS
             || self.max_supplier_share_bps == 0
             || u64::from(self.max_supplier_share_bps) > BPS_SCALE
             || self.max_search_nodes == 0
@@ -237,6 +242,7 @@ pub struct PortfolioReport {
     pub currency: String,
     pub required_quantity: u32,
     pub required_evidence_origin: EvidenceOrigin,
+    pub minimum_independent_sources: usize,
     pub policy_id: String,
     pub policy_digest: String,
     pub scenario_set_id: String,
@@ -271,7 +277,7 @@ fn non_empty(value: &str) -> bool {
 fn offer_rejection(
     request: &PortfolioRequest,
     offer: &PortfolioOffer,
-    resilience_assessed: bool,
+    dependency_evidence_required: bool,
 ) -> Option<RejectionReason> {
     if !non_empty(&offer.offer_id)
         || !non_empty(&offer.supplier_id)
@@ -359,7 +365,7 @@ fn offer_rejection(
         return Some(RejectionReason::CannotMeetDeadline);
     }
 
-    if resilience_assessed {
+    if dependency_evidence_required {
         if offer.failure_domain_status != EvidenceStatus::Verified {
             return Some(RejectionReason::DependencyEvidenceNotVerified);
         }
@@ -508,7 +514,35 @@ impl SearchState<'_> {
         }
     }
 
+    fn minimum_independent_sources_hold(&self, allocations: &[u32]) -> bool {
+        if self.request.minimum_independent_sources <= 1 {
+            return true;
+        }
+        let mut groups: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for (offer, quantity) in self.offers.iter().zip(allocations.iter()) {
+            if *quantity == 0 {
+                continue;
+            }
+            let domains = groups.entry(offer.supplier_id.clone()).or_default();
+            // Supplier and capacity-pool identities are always common-cause domains,
+            // even if upstream mapping omits these obvious links.
+            domains.insert(format!("supplier:{}", offer.supplier_id));
+            domains.insert(format!("capacity-pool:{}", offer.capacity_pool_id));
+            domains.extend(offer.failure_domains.iter().cloned());
+        }
+        let group_sets: Vec<BTreeSet<String>> = groups.into_values().collect();
+        can_choose_independent_groups(
+            &group_sets,
+            0,
+            self.request.minimum_independent_sources,
+            &BTreeSet::new(),
+        )
+    }
+
     fn portfolio_constraints_hold(&self, allocations: &[u32]) -> Result<bool, PortfolioError> {
+        if !self.minimum_independent_sources_hold(allocations) {
+            return Ok(false);
+        }
         let mut total_cost = 0u64;
         for (offer, quantity) in self.offers.iter().zip(allocations.iter()) {
             if *quantity == 0 {
@@ -573,7 +607,9 @@ impl SearchState<'_> {
                 if *quantity == 0 {
                     continue;
                 }
-                if offer.failure_domains.iter().any(|domain| failed.contains(domain.as_str())) {
+                if failed.contains(format!("supplier:{}", offer.supplier_id).as_str())
+                    || failed.contains(format!("capacity-pool:{}", offer.capacity_pool_id).as_str())
+                    || offer.failure_domains.iter().any(|domain| failed.contains(domain.as_str())) {
                     unavailable = unavailable
                         .checked_add(*quantity)
                         .ok_or(PortfolioError::ArithmeticOverflow)?;
@@ -597,6 +633,30 @@ impl SearchState<'_> {
             scenario_shortages,
         }))
     }
+}
+
+fn can_choose_independent_groups(
+    groups: &[BTreeSet<String>],
+    start: usize,
+    remaining: usize,
+    occupied: &BTreeSet<String>,
+) -> bool {
+    if remaining == 0 {
+        return true;
+    }
+    if groups.len().saturating_sub(start) < remaining {
+        return false;
+    }
+    for index in start..groups.len() {
+        if groups[index].is_disjoint(occupied) {
+            let mut next_occupied = occupied.clone();
+            next_occupied.extend(groups[index].iter().cloned());
+            if can_choose_independent_groups(groups, index + 1, remaining - 1, &next_occupied) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn dominates(left: &Portfolio, right: &Portfolio) -> bool {
@@ -659,10 +719,11 @@ pub fn evaluate_portfolios(
     }
 
     let resilience_assessed = !scenarios.is_empty();
+    let dependency_evidence_required = resilience_assessed || request.minimum_independent_sources > 1;
     let mut eligible = Vec::new();
     let mut rejected_offers = Vec::new();
     for offer in offers {
-        if let Some(reason) = offer_rejection(request, offer, resilience_assessed) {
+        if let Some(reason) = offer_rejection(request, offer, dependency_evidence_required) {
             rejected_offers.push(RejectedOffer {
                 offer_id: offer.offer_id.clone(),
                 supplier_id: offer.supplier_id.clone(),
@@ -759,6 +820,7 @@ mod tests {
             allow_split: true,
             max_suppliers: 2,
             max_supplier_share_bps: 6_000,
+            minimum_independent_sources: 2,
             max_quote_age_secs: 20,
             max_capacity_age_secs: 20,
             max_qualification_age_secs: 50,
@@ -849,6 +911,8 @@ mod tests {
     fn single_supplier_policy_rejects_a_required_split() {
         let mut request = request();
         request.allow_split = false;
+        request.max_suppliers = 1;
+        request.minimum_independent_sources = 1;
         request.max_supplier_share_bps = 10_000;
         let offers = vec![
             offer("offer-a", "supplier-a", "pool-a", 6, 1, 110, "region-a"),
