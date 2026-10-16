@@ -86,7 +86,8 @@
         "last_checked",
         "relations",
         "evidence",
-        "notes"
+        "notes",
+        "source_digest_sha256"
       ],
       "properties": {
         "id": {
@@ -264,6 +265,14 @@
             "string",
             "null"
           ]
+        },
+        "source_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 of the captured canonical source bytes or normalized source artifact; null means not captured and must not be treated as verified."
         }
       }
     }
