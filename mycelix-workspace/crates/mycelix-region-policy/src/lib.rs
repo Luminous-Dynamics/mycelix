@@ -179,9 +179,8 @@ pub struct RegionalProfile {
     pub valid_from_unix_ms: u64,
     pub valid_until_unix_ms: u64,
     pub rules: Vec<PlacementRule>,
-    /// Lowercase hex digest of canonical_payload(), using the deployment's
-    /// declared digest algorithm (the first production profile version should
-    /// fix one algorithm rather than negotiate it per request).
+    /// Lowercase hex BLAKE3-256 digest of canonical_payload(). The digest
+    /// algorithm is fixed for schema version 1 and is not negotiated per request.
     pub content_digest: String,
     pub signing_key_id: String,
     /// Opaque bytes interpreted only by the configured verifier.
@@ -843,6 +842,7 @@ mod tests {
     fn denies_asymmetric_destination_policy() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &[]);
+        let classification = verified_classification("record:education-credential", 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
