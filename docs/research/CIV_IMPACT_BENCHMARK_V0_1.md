@@ -266,7 +266,7 @@ If any registered incumbent/full-stack pair is incomplete, the analyzer withhold
 - Protocol: authored proposal.
 - Preregistration, run-census, and comparison-report schema files: authored and fetched back from the branch; JSON parsing confirmed. Rust unit tests are authored to validate each schema against its JSON Schema meta-schema, validate serialized run/report instances, and enforce schema/code field-set alignment. These tests remain unexecuted until the exact-head Rust workflow runs.
 - Rust `1.99.1` toolchain and direct dependency versions (including the `jsonschema` validator) are pinned in the standalone crate; a generated and committed `Cargo.lock` remains outstanding for transitive dependency reproducibility.
-- Rust schedule/census prototype and 29 unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
+- Rust schedule/census prototype and 30 unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
 - Draft 2020-12 validation is implemented in the test harness via the pinned Rust `jsonschema` crate; schema meta-validation and instance-validation have not yet been executed in this environment.
 - Benchmark runs: none claimed.
 - Physical/economic outcomes: none claimed.
