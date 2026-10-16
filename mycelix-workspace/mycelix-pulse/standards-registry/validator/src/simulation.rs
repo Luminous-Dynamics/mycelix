@@ -1,7 +1,8 @@
 //! Deterministic trace-replay model for Pulse routing-policy comparisons.
 //!
-//! This deliberately models only route eligibility, independent synthetic link
-//! outcomes, latency, attempt cost, and energy estimates. It provides no evidence
+//! This deliberately models route eligibility, synthetic link outcomes shared
+//! within declared failure domains, latency, attempt cost, and energy estimates.
+//! It provides no evidence
 //! of cryptography, authenticated delivery, RF behavior, or real hardware.
 
 use serde_json::{Value, json};
@@ -14,6 +15,7 @@ const MAX_MESSAGES: u64 = 1_000_000;
 #[derive(Clone, Debug)]
 struct Path {
     id: String,
+    failure_domain_id: String,
     priority: u64,
     available: bool,
     permitted: bool,
@@ -236,7 +238,7 @@ pub fn simulate_corpus(
         "hardware_qualification": false,
         "cryptographic_security_evaluated": false,
         "limitations": [
-            "Synthetic independent per-path outcomes, not measured network reliability.",
+            "Synthetic outcomes share draws within failure domains and are independent across domain IDs; this is not measured network reliability.",
             "No RF propagation, interference, radio duty-cycle, congestion, or real hardware is simulated.",
             "Success means only that the route model predicts a path success before the deadline; it is not an authenticated recipient receipt.",
             "No fragmentation is modelled; envelopes larger than a path's payload budget are ineligible on that path.",
@@ -315,6 +317,11 @@ fn parse_path(value: &Value, scenario_prefix: &str, index: usize) -> Result<Path
     };
 
     let id = string_field(object.get("id"), &format!("{prefix}.id"), &mut errors);
+    let failure_domain_id = string_field(
+        object.get("failure_domain_id"),
+        &format!("{prefix}.failure_domain_id"),
+        &mut errors,
+    );
     let priority = integer_field(
         object.get("priority"),
         &format!("{prefix}.priority"),
@@ -367,6 +374,7 @@ fn parse_path(value: &Value, scenario_prefix: &str, index: usize) -> Result<Path
     if errors.is_empty() {
         Ok(Path {
             id: id.expect("validated path ID"),
+            failure_domain_id: failure_domain_id.expect("validated failure domain"),
             priority: priority.expect("validated priority"),
             available: available.expect("validated availability"),
             permitted: permitted.expect("validated permission"),
@@ -552,7 +560,7 @@ fn path_succeeds(scenario: &Scenario, path: &Path, seed: u64, message_index: u64
         .id
         .bytes()
         .chain([0xff])
-        .chain(path.id.bytes())
+        .chain(path.failure_domain_id.bytes())
         .chain([0xfe])
         .chain(message_index.to_le_bytes())
     {
@@ -625,7 +633,7 @@ mod tests {
         assert_eq!(report["simulation_only"], true);
         assert_eq!(report["authenticated_delivery_established"], false);
         assert_eq!(report["hardware_qualification"], false);
-        assert_eq!(report["scenario_count"], 10);
+        assert_eq!(report["scenario_count"], 11);
         assert_eq!(report["messages_per_scenario"], 10_000);
     }
 
@@ -661,6 +669,36 @@ mod tests {
             .unwrap();
         assert!(failover > single, "single={single}, failover={failover}");
         assert_eq!(report["authenticated_delivery_established"], false);
+    }
+
+    #[test]
+    fn paths_in_same_failure_domain_share_the_synthetic_draw() {
+        let corpus = corpus();
+        let value = corpus["scenarios"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|scenario| scenario["id"] == "shared-carrier-failure-domain")
+            .expect("shared failure-domain scenario exists");
+        let scenario = parse_scenario(value, 10).expect("scenario parses");
+        let path_a = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-a")
+            .expect("first carrier path exists");
+        let path_b = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-b")
+            .expect("second carrier path exists");
+
+        for message_index in 0..1_000 {
+            assert_eq!(
+                path_succeeds(&scenario, path_a, 20261016, message_index),
+                path_succeeds(&scenario, path_b, 20261016, message_index),
+                "same-domain paths must share the same synthetic uniform draw"
+            );
+        }
     }
 
     #[test]
