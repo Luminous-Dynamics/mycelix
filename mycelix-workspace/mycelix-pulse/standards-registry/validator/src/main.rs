@@ -26,7 +26,10 @@ fn main() -> ExitCode {
             }
             "--json" => json_output = true,
             "--help" | "-h" => {
-                println!("Usage: standards-registry-check [--registry PATH] [--schema PATH] [--json]");
+                println!(concat!(
+                    "Usage: standards-registry-check ",
+                    "[--registry PATH] [--schema PATH] [--json]"
+                ));
                 println!();
                 println!("Default paths are relative to the Pulse workspace root.");
                 return ExitCode::SUCCESS;
