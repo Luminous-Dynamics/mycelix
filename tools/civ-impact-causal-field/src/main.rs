@@ -344,7 +344,6 @@ fn run() -> Result<(), String> {
                 let observed = array(&outcomes, "entries").iter()
                     .filter(|row| {
                         string(row, "outcome_status") == Some("observed")
-                            && assigned_ids(&assignment).contains(string(row, "unit_id").unwrap_or(""))
                             && string_for_unit(&assignment, string(row, "unit_id").unwrap_or("")) == Some(arm)
                     }).count();
                 json!({"assigned": assigned, "observed": observed, "missing_or_not_observed": assigned.saturating_sub(observed)})
@@ -374,10 +373,6 @@ fn run() -> Result<(), String> {
         }
         _ => Err(usage().to_owned()),
     }
-}
-
-fn assigned_ids(assignment: &Value) -> BTreeSet<&str> {
-    array(assignment, "entries").iter().filter_map(|row| string(row, "unit_id")).collect()
 }
 
 fn string_for_unit<'a>(assignment: &'a Value, unit_id: &str) -> Option<&'a str> {
@@ -600,7 +595,7 @@ mod tests {
         fixture.plan["assignment"]["randomization_unit"] = json!("cluster");
         fixture.plan["estimand"]["unit_of_assignment"] = json!("cluster");
         fixture.plan["analysis"]["cluster_adjustment"] = json!(true);
-        fixture.plan["sample_plan"]["minimum_clusters_per_arm"] = json!(1);
+        fixture.plan["sample_plan"]["minimum_clusters_per_arm"] = json!(2);
         fixture.assignment["entries"][0]["cluster_id"] = json!("c1");
         fixture.assignment["entries"][1]["cluster_id"] = json!("c2");
         fixture.assignment["entries"][2]["cluster_id"] = json!("c1");
