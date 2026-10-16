@@ -79,7 +79,9 @@ fn main() {
                 black_box(&destination),
                 black_box(&request),
             );
-            allowed_total += usize::from(decision.allowed);
+            if decision.allowed {
+                allowed_total += 1;
+            }
             black_box(decision);
         }
         let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
