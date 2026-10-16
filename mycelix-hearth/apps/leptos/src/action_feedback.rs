@@ -33,25 +33,35 @@ pub(crate) fn feedback_copy(kind: ActionFeedbackKind, subject: &str) -> String {
     }
 }
 
-/// Evidence about propagation/current-view state, separate from operation outcome.
-///
-/// Current runtime action handlers do not yet fetch this evidence. In
-/// particular, a successful zome response must not construct ReceiptsObserved.
+/// A snapshot of independently queried publication evidence. These states never
+/// authorize actions and must not be inferred from a successful mutation result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PublicationEvidence {
-    NotChecked,
+    Checking,
     Unavailable,
+    NotAvailableToCaller,
+    NoOperationData {
+        checked_at_unix_seconds: u64,
+    },
     ReceiptsObserved {
         operation_count: u32,
         receipt_count: u32,
+        valid_receipt_count: u32,
+        rejected_receipt_count: u32,
+        abandoned_receipt_count: u32,
         complete_operation_count: u32,
         rejected_operation_count: u32,
+        abandoned_operation_count: u32,
         checked_at_unix_seconds: u64,
     },
-    CurrentStateObserved {
-        source: &'static str,
-        checked_at_unix_seconds: u64,
-    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PublicationEvidenceNotice {
+    pub subject: String,
+    /// Short display-only prefix of the action hash; never used for dispatch.
+    pub action_hash_prefix: String,
+    pub evidence: PublicationEvidence,
 }
 
 fn age_description(checked_at: u64, now: u64) -> String {
@@ -63,57 +73,62 @@ fn age_description(checked_at: u64, now: u64) -> String {
     format!("Checked {age} {unit} ago.")
 }
 
-/// Copy for a separately observed publication/read state. The caller supplies
-/// an observed clock, allowing tests and UI freshness displays to be deterministic.
+/// Resident-friendly copy from a timestamped publication evidence snapshot.
 pub(crate) fn publication_evidence_copy(
     evidence: PublicationEvidence,
     now_unix_seconds: u64,
 ) -> String {
     match evidence {
-        PublicationEvidence::NotChecked => {
-            "Peer sharing status has not been checked.".into()
+        PublicationEvidence::Checking => {
+            "Checking the authoring conductor for publication evidence…".into()
         }
         PublicationEvidence::Unavailable => {
-            "Peer sharing status is unavailable here; remote availability is unknown.".into()
+            "Publication evidence is unavailable. The action's saved result is unchanged; peer availability is unknown.".into()
         }
+        PublicationEvidence::NotAvailableToCaller => {
+            "Publication evidence is not available to this caller. No peer-sharing conclusion can be drawn.".into()
+        }
+        PublicationEvidence::NoOperationData { checked_at_unix_seconds } => format!(
+            "The conductor returned no DHT operation receipt data. Peer availability is unknown. {}",
+            age_description(checked_at_unix_seconds, now_unix_seconds)
+        ),
         PublicationEvidence::ReceiptsObserved {
             operation_count: 0,
+            checked_at_unix_seconds,
             ..
-        } => {
-            "No publication-operation evidence was returned; peer availability is unknown.".into()
-        }
+        } => format!(
+            "No publication-operation evidence was available. Peer availability is unknown. {}",
+            age_description(checked_at_unix_seconds, now_unix_seconds)
+        ),
         PublicationEvidence::ReceiptsObserved {
             operation_count,
             receipt_count,
+            valid_receipt_count,
+            rejected_receipt_count,
+            abandoned_receipt_count,
             complete_operation_count,
             rejected_operation_count,
+            abandoned_operation_count,
             checked_at_unix_seconds,
         } => {
-            let state = if rejected_operation_count > 0 {
+            let progress = if rejected_operation_count > 0 || abandoned_operation_count > 0 {
                 format!(
-                    "Holochain reports rejection evidence for {rejected_operation_count} DHT operation(s). This is not proof that every operation was rejected."
+                    "{complete_operation_count} of {operation_count} DHT operations reached their receipt threshold; rejection evidence affects {rejected_operation_count} operation(s), and abandoned evidence affects {abandoned_operation_count} operation(s)."
                 )
             } else if complete_operation_count == operation_count {
                 format!(
-                    "Holochain reported the required validation receipts for all {operation_count} DHT operation(s) at the last check."
+                    "The conductor reports the required receipt threshold for all {operation_count} DHT operation(s) at the last check."
                 )
             } else {
                 format!(
-                    "{receipt_count} validation receipt(s) were observed across {operation_count} DHT operation(s); {complete_operation_count} operation(s) reached their receipt threshold at the last check."
+                    "{complete_operation_count} of {operation_count} DHT operations reached their receipt threshold at the last check."
                 )
             };
             format!(
-                "{state} This does not prove every peer currently has the update. {}",
+                "{progress} Observed {receipt_count} receipt record(s): {valid_receipt_count} valid, {rejected_receipt_count} rejected, {abandoned_receipt_count} abandoned. This is evidence from the authoring conductor, not proof every peer currently has the update. {}",
                 age_description(checked_at_unix_seconds, now_unix_seconds)
             )
         }
-        PublicationEvidence::CurrentStateObserved {
-            source,
-            checked_at_unix_seconds,
-        } => format!(
-            "The current state was observed by {source}. This confirms that query view only; other peers may have a different view. {}",
-            age_description(checked_at_unix_seconds, now_unix_seconds)
-        ),
     }
 }
 
@@ -129,7 +144,6 @@ mod tests {
         assert!(copy.starts_with("Preview only:"));
         assert!(copy.contains("local demo state"));
         assert!(copy.contains("nothing was synced"));
-        assert!(!copy.ends_with("confirmed."));
     }
 
     #[test]
@@ -141,7 +155,6 @@ mod tests {
         assert!(copy.contains("Care task completion saved."));
         assert!(copy.contains("Sharing with other peers may still be in progress"));
         assert!(!copy.to_lowercase().contains("globally synchronized"));
-        assert!(!copy.contains("every peer has the update"));
     }
 
     #[test]
@@ -179,10 +192,7 @@ mod tests {
         let variants = [
             (ActionFeedbackKind::PreviewOnly, "Preview only:"),
             (ActionFeedbackKind::SourceChainCommitted, "saved."),
-            (
-                ActionFeedbackKind::OutcomeUnknown,
-                "couldn't confirm whether",
-            ),
+            (ActionFeedbackKind::OutcomeUnknown, "couldn't confirm whether"),
             (
                 ActionFeedbackKind::NotSent {
                     requirement: "sufficient information",
@@ -204,118 +214,102 @@ mod tests {
     }
 
     #[test]
-    fn one_peer_receipt_never_claims_global_synchronization() {
+    fn checking_and_unavailable_are_distinct_from_receipt_results() {
+        assert!(publication_evidence_copy(PublicationEvidence::Checking, 200).contains("Checking"));
+        let unavailable = publication_evidence_copy(PublicationEvidence::Unavailable, 200);
+        assert!(unavailable.contains("unavailable"));
+        assert!(unavailable.contains("peer availability is unknown"));
+        assert!(!unavailable.contains("failed"));
+        assert!(publication_evidence_copy(PublicationEvidence::NotAvailableToCaller, 200)
+            .contains("not available to this caller"));
+    }
+
+    #[test]
+    fn checked_but_empty_is_explicitly_unknown_not_complete() {
+        let copy = publication_evidence_copy(
+            PublicationEvidence::NoOperationData {
+                checked_at_unix_seconds: 100,
+            },
+            104,
+        );
+        assert!(copy.contains("no DHT operation receipt data"));
+        assert!(copy.contains("Peer availability is unknown"));
+        assert!(copy.contains("Checked 4 seconds ago."));
+        assert!(!copy.contains("threshold for all"));
+    }
+
+    #[test]
+    fn single_receipt_does_not_claim_global_synchronization() {
         let copy = publication_evidence_copy(
             PublicationEvidence::ReceiptsObserved {
                 operation_count: 3,
                 receipt_count: 1,
+                valid_receipt_count: 1,
+                rejected_receipt_count: 0,
+                abandoned_receipt_count: 0,
                 complete_operation_count: 0,
                 rejected_operation_count: 0,
+                abandoned_operation_count: 0,
                 checked_at_unix_seconds: 100,
             },
             103,
         );
-        assert!(copy.contains("1 validation receipt"));
-        assert!(copy.contains("does not prove every peer currently has the update"));
-        assert!(copy.contains("Checked 3 seconds ago."));
-        assert!(!copy.to_lowercase().contains("globally synchronized"));
+        assert!(copy.contains("0 of 3 DHT operations"));
+        assert!(copy.contains("Observed 1 receipt record"));
+        assert!(copy.contains("not proof every peer currently has the update"));
     }
 
     #[test]
-    fn all_operations_receipt_complete_still_does_not_claim_global_availability() {
+    fn all_thresholds_complete_still_has_global_scope_caveat() {
         let copy = publication_evidence_copy(
             PublicationEvidence::ReceiptsObserved {
                 operation_count: 4,
                 receipt_count: 20,
+                valid_receipt_count: 20,
+                rejected_receipt_count: 0,
+                abandoned_receipt_count: 0,
                 complete_operation_count: 4,
                 rejected_operation_count: 0,
+                abandoned_operation_count: 0,
                 checked_at_unix_seconds: 100,
             },
             160,
         );
-        assert!(copy.contains("required validation receipts for all 4 DHT operation(s)"));
-        assert!(copy.contains("does not prove every peer currently has the update"));
+        assert!(copy.contains("receipt threshold for all 4 DHT operation"));
+        assert!(copy.contains("not proof every peer currently has the update"));
         assert!(copy.contains("Checked 60 seconds ago."));
     }
 
     #[test]
-    fn no_operation_data_or_zero_receipts_are_not_inferred_as_success() {
-        let no_ops = publication_evidence_copy(
-            PublicationEvidence::ReceiptsObserved {
-                operation_count: 0,
-                receipt_count: 0,
-                complete_operation_count: 0,
-                rejected_operation_count: 0,
-                checked_at_unix_seconds: 100,
-            },
-            100,
-        );
-        assert!(no_ops.contains("peer availability is unknown"));
-
-        let pending = publication_evidence_copy(
-            PublicationEvidence::ReceiptsObserved {
-                operation_count: 2,
-                receipt_count: 0,
-                complete_operation_count: 0,
-                rejected_operation_count: 0,
-                checked_at_unix_seconds: 100,
-            },
-            100,
-        );
-        assert!(pending.contains("0 validation receipt(s)"));
-        assert!(pending.contains("does not prove every peer currently has the update"));
-    }
-
-    #[test]
-    fn rejected_operation_receipt_does_not_overstate_action_level_rejection() {
+    fn rejection_and_abandonment_remain_visible() {
         let copy = publication_evidence_copy(
             PublicationEvidence::ReceiptsObserved {
-                operation_count: 2,
-                receipt_count: 5,
+                operation_count: 3,
+                receipt_count: 7,
+                valid_receipt_count: 4,
+                rejected_receipt_count: 2,
+                abandoned_receipt_count: 1,
                 complete_operation_count: 1,
                 rejected_operation_count: 1,
+                abandoned_operation_count: 1,
                 checked_at_unix_seconds: 100,
             },
             100,
         );
-        assert!(copy.contains("rejection evidence for 1 DHT operation(s)"));
-        assert!(copy.contains("not proof that every operation was rejected"));
-    }
-
-    #[test]
-    fn current_state_read_is_scoped_and_timestamped() {
-        let copy = publication_evidence_copy(
-            PublicationEvidence::CurrentStateObserved {
-                source: "the selected-Hearth read",
-                checked_at_unix_seconds: 90,
-            },
-            92,
-        );
-        assert!(copy.contains("observed by the selected-Hearth read"));
-        assert!(copy.contains("query view only"));
-        assert!(copy.contains("other peers may have a different view"));
-        assert!(copy.contains("Checked 2 seconds ago."));
+        assert!(copy.contains("rejection evidence affects 1 operation"));
+        assert!(copy.contains("abandoned evidence affects 1 operation"));
+        assert!(copy.contains("4 valid, 2 rejected, 1 abandoned"));
     }
 
     #[test]
     fn invalid_future_timestamp_never_appears_fresh() {
         let copy = publication_evidence_copy(
-            PublicationEvidence::CurrentStateObserved {
-                source: "the selected-Hearth read",
+            PublicationEvidence::NoOperationData {
                 checked_at_unix_seconds: 200,
             },
             199,
         );
         assert!(copy.contains("timestamp is invalid"));
         assert!(copy.contains("freshness is unknown"));
-    }
-
-    #[test]
-    fn absent_or_unavailable_receipt_sources_do_not_imply_remote_failure() {
-        assert!(publication_evidence_copy(PublicationEvidence::NotChecked, 200).contains("not been checked"));
-        let unavailable = publication_evidence_copy(PublicationEvidence::Unavailable, 200);
-        assert!(unavailable.contains("is unavailable here"));
-        assert!(unavailable.contains("remote availability is unknown"));
-        assert!(!unavailable.contains("failed"));
     }
 }
