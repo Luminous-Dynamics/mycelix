@@ -37,10 +37,14 @@ use mycelix_zome_helpers as _;
 /// Whether the host returned operation-level publication evidence for an action.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum PublicationEvidenceAvailability {
+    /// The caller did not author this action, or the action is not locally
+    /// available. No receipt metadata is exposed in this case.
+    NotAvailableToCaller,
     /// The query succeeded but yielded no operation sets. This is unknown,
     /// never vacuous evidence that publication is complete.
     NoOperationData,
-    /// One or more DHT operation receipt sets were observed on this conductor.
+    /// One or more DHT operation receipt sets were observed on this conductor
+    /// for an action authored by the current agent.
     Observed,
 }
 
@@ -79,6 +83,24 @@ pub struct ActionPublicationEvidence {
 
 fn bounded_count(value: usize) -> u32 {
     u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn empty_publication_evidence(
+    action_hash: ActionHash,
+    checked_at_micros: i64,
+    availability: PublicationEvidenceAvailability,
+) -> ActionPublicationEvidence {
+    ActionPublicationEvidence {
+        action_hash,
+        checked_at_micros,
+        availability,
+        operation_count: 0,
+        receipt_record_count: 0,
+        receipt_threshold_complete_operation_count: 0,
+        rejected_operation_count: 0,
+        all_receipt_thresholds_complete: false,
+        operations: Vec::new(),
+    }
 }
 
 fn summarize_publication_receipts(
@@ -158,6 +180,25 @@ fn summarize_publication_receipts(
 pub fn get_action_publication_evidence(
     action_hash: ActionHash,
 ) -> ExternResult<ActionPublicationEvidence> {
+    let checked_at_micros = sys_time()?.as_micros();
+    let caller = agent_info()?.agent_initial_pubkey;
+    let local_record = get(action_hash.clone(), GetOptions::local())?;
+
+    // HDK can return receipt sets for any action authored on this conductor,
+    // including a different agent's action. This endpoint deliberately narrows
+    // that host capability to the current caller's own locally authored action.
+    // Missing and non-owned actions share one result to avoid a disclosure oracle.
+    if !matches!(
+        local_record.as_ref(),
+        Some(record) if record.action().author() == &caller
+    ) {
+        return Ok(empty_publication_evidence(
+            action_hash,
+            checked_at_micros,
+            PublicationEvidenceAvailability::NotAvailableToCaller,
+        ));
+    }
+
     let receipt_sets =
         get_validation_receipts(GetValidationReceiptsInput::new(action_hash.clone()))?;
     let checked_at_micros = sys_time()?.as_micros();
