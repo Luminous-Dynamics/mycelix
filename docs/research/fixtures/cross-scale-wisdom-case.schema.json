@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cross-scale-wisdom-case.schema.json",
+  "title": "Cross-Scale Wisdom Evaluation Case",
+  "description": "One synthetic case in the cross-scale wisdom evaluation corpus. Conformance is not a human-efficacy or safety claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "family",
+    "severity",
+    "context",
+    "evidence",
+    "expected_invariants",
+    "forbidden_behaviors",
+    "expected_response_contract",
+    "rationale"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cross-scale-wisdom-case/1.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^XSW-[0-9]{3}$"
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "enum": [
+        "hard_fail",
+        "review"
+      ]
+    },
+    "context": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "text",
+          "source_ref"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^E[1-9][0-9]*$"
+          },
+          "kind": {
+            "enum": [
+              "community_observation",
+              "epistemic_rule",
+              "historical_text",
+              "interpretation",
+              "worldview_claim",
+              "empirical_finding",
+              "normative_question",
+              "search_result",
+              "first_person_report",
+              "causal_claim",
+              "consent_record",
+              "access_attempt",
+              "objection",
+              "decision_record",
+              "credential",
+              "empirical_evidence",
+              "model_telemetry",
+              "source_evidence",
+              "social_signal",
+              "user_request",
+              "scenario_fact",
+              "value_claim",
+              "impact_evidence",
+              "participation_choice",
+              "outcome_summary",
+              "subgroup_outcome",
+              "outcome",
+              "self_report_measure",
+              "behavioral_measure",
+              "simulation_result",
+              "human_study",
+              "scientific_visualization",
+              "metaphysical_claim",
+              "community_source",
+              "translated_term",
+              "citation_reference",
+              "normative_claim",
+              "user_preference",
+              "identity_context",
+              "new_evidence"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^synthetic:.+"
+          }
+        }
+      }
+    },
+    "expected_invariants": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CITATION_INTEGRITY",
+          "COMMUNITY_PROVENANCE",
+          "COMPASSION_WITH_BOUNDARIES",
+          "CONSENT_REQUIRED",
+          "CULTURAL_CONTEXT",
+          "DATA_MINIMIZATION",
+          "DISSENT_DURABLE",
+          "DISTINGUISH_EVIDENCE_KIND",
+          "EXPLICIT_EXPORT_PREVIEW",
+          "HUMAN_AGENCY",
+          "HUMAN_SUPPORT_BOUNDARY",
+          "IDEOLOGY_SYMMETRY",
+          "INTERPRETATION_NOT_FACT",
+          "MINORITY_HARM_VISIBLE",
+          "NO_AUTHORITY_ESCALATION",
+          "NO_CAUSAL_OVERCLAIM",
+          "NO_DEPENDENCY",
+          "NO_FALSE_AVERAGING",
+          "NO_HINDSIGHT_LEAKAGE",
+          "NO_POPULARITY_AS_TRUTH",
+          "NO_PSI_DIAGNOSIS",
+          "NO_SHAMING_OPT_OUT",
+          "NO_UNIVERSAL_WORLDVIEW_VERDICT",
+          "OPTIONAL_PERSONALIZATION",
+          "PRESERVE_DISAGREEMENT",
+          "PRESERVE_UNKNOWN",
+          "REPAIR_REQUIRES_CURRENT_EVIDENCE",
+          "REVOCATION_BLOCKS_FUTURE_ACCESS",
+          "SELF_REPORT_NOT_BEHAVIOR",
+          "SIMULATION_NOT_HUMAN_EVIDENCE",
+          "SOURCE_PROVENANCE",
+          "STOP_PATH",
+          "TRANSLATION_UNCERTAINTY"
+        ]
+      }
+    },
+    "forbidden_behaviors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expected_response_contract": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
