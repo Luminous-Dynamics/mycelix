@@ -222,6 +222,66 @@ fn base64_encode(bytes: &[u8]) -> String {
     result
 }
 
+
+/// Decode a base64-encoded Holochain ActionHash/AgentPubKey into its raw 39-byte
+/// wire representation. Invalid base64, wrong padding, noncanonical trailing
+/// bits, or a non-Holochain length are rejected before a live zome call.
+pub fn decode_holo_hash_b64(encoded: &str) -> Option<Vec<u8>> {
+    let input = encoded.as_bytes();
+    if input.is_empty() || input.len() % 4 != 0 {
+        return None;
+    }
+
+    fn value(byte: u8) -> Option<u8> {
+        match byte {
+            b'A'..=b'Z' => Some(byte - b'A'),
+            b'a'..=b'z' => Some(byte - b'a' + 26),
+            b'0'..=b'9' => Some(byte - b'0' + 52),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+
+    let chunks: Vec<&[u8]> = input.chunks_exact(4).collect();
+    let mut decoded = Vec::with_capacity(input.len() / 4 * 3);
+
+    for (index, chunk) in chunks.iter().enumerate() {
+        let is_last = index + 1 == chunks.len();
+        let a = value(chunk[0])?;
+        let b = value(chunk[1])?;
+        let pad_c = chunk[2] == b'=';
+        let pad_d = chunk[3] == b'=';
+
+        if pad_c && (!pad_d || !is_last) {
+            return None;
+        }
+        if pad_d && !is_last {
+            return None;
+        }
+
+        let c = if pad_c { 0 } else { value(chunk[2])? };
+        let d = if pad_d { 0 } else { value(chunk[3])? };
+
+        if pad_c && b & 0x0f != 0 {
+            return None;
+        }
+        if !pad_c && pad_d && c & 0x03 != 0 {
+            return None;
+        }
+
+        decoded.push((a << 2) | (b >> 4));
+        if !pad_c {
+            decoded.push((b << 4) | (c >> 2));
+        }
+        if !pad_d {
+            decoded.push((c << 6) | d);
+        }
+    }
+
+    (decoded.len() == 39).then_some(decoded)
+}
+
 fn hex_encode(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
@@ -236,4 +296,18 @@ mod tests {
         assert_eq!(base64_encode(b""), "");
         assert_eq!(base64_encode(b"a"), "YQ==");
     }
+    #[test]
+    fn holo_hash_decoder_round_trips_canonical_39_byte_values() {
+        let source: Vec<u8> = (0..39).collect();
+        let encoded = base64_encode(&source);
+        assert_eq!(decode_holo_hash_b64(&encoded), Some(source));
+    }
+
+    #[test]
+    fn holo_hash_decoder_rejects_invalid_or_non_hash_inputs() {
+        assert_eq!(decode_holo_hash_b64("not-a-hash"), None);
+        assert_eq!(decode_holo_hash_b64(""), None);
+        assert_eq!(decode_holo_hash_b64(&base64_encode(b"too short")), None);
+    }
+
 }
