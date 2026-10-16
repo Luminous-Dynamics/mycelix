@@ -1,5 +1,5 @@
 use mycelix_pulse_standards_registry_check::{
-    evaluation::evaluate_paired_seeds,
+    evaluation::{evaluate_correlation_sweep, evaluate_paired_seeds},
     simulation::simulate_corpus,
 };
 use serde_json::Value;
@@ -12,6 +12,7 @@ fn main() -> ExitCode {
     let mut seed_count = 30_u64;
     let mut candidate = String::from("sequential_failover");
     let mut evaluate = false;
+    let mut correlation_sweep = false;
     let mut subject_sha = None::<String>;
     let mut input_manifest_sha256 = None::<String>;
     let mut seed_count_explicit = false;
@@ -53,6 +54,7 @@ fn main() -> ExitCode {
                 }
             }
             "--evaluate" => evaluate = true,
+            "--correlation-sweep" => correlation_sweep = true,
             "--seed-count" => {
                 let Some(value) = args.next() else {
                     eprintln!("error: --seed-count requires a number");
@@ -97,6 +99,7 @@ fn main() -> ExitCode {
                     "                 [--seed FIRST] ",
                     "[--seed-count COUNT] [--candidate STRATEGY]"
                 ));
+                println!("                 [--correlation-sweep]");
                 println!("                 --subject-sha SHA --input-manifest-sha256 SHA256");
                 println!();
                 println!(concat!(
@@ -121,10 +124,13 @@ fn main() -> ExitCode {
     }
 
     if !evaluate
-        && (seed_count_explicit || subject_sha.is_some() || input_manifest_sha256.is_some())
+        && (seed_count_explicit
+            || correlation_sweep
+            || subject_sha.is_some()
+            || input_manifest_sha256.is_some())
     {
         eprintln!(concat!(
-            "error: --seed-count, --subject-sha and ",
+            "error: --seed-count, --correlation-sweep, --subject-sha and ",
             "--input-manifest-sha256 require --evaluate"
         ));
         return ExitCode::from(2);
@@ -167,13 +173,24 @@ fn main() -> ExitCode {
         }
 
         let first_seed = seed.or_else(|| corpus.get("seed").and_then(Value::as_u64)).unwrap_or(0);
-        let mut report = match evaluate_paired_seeds(
-            &corpus,
-            messages,
-            first_seed,
-            seed_count,
-            &candidate,
-        ) {
+        let evaluation = if correlation_sweep {
+            evaluate_correlation_sweep(
+                &corpus,
+                messages,
+                first_seed,
+                seed_count,
+                &candidate,
+            )
+        } else {
+            evaluate_paired_seeds(
+                &corpus,
+                messages,
+                first_seed,
+                seed_count,
+                &candidate,
+            )
+        };
+        let mut report = match evaluation {
             Ok(report) => report,
             Err(errors) => {
                 eprintln!("INVALID evaluation inputs:");
