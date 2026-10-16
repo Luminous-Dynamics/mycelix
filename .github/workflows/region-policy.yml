@@ -1,0 +1,44 @@
+name: Regional policy kernel
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/crates/mycelix-region-policy/**"
+      - "mycelix-workspace/Cargo.toml"
+      - ".github/workflows/region-policy.yml"
+  push:
+    branches:
+      - "feat/region-policy-core-v1"
+    paths:
+      - "mycelix-workspace/crates/mycelix-region-policy/**"
+      - "mycelix-workspace/Cargo.toml"
+      - ".github/workflows/region-policy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regional-policy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mycelix-workspace/crates/mycelix-region-policy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Unit and adversarial policy tests
+        run: cargo test --locked
+      - name: Warnings-denied Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Compile native benchmark
+        run: cargo bench --bench policy_eval --no-run --locked
