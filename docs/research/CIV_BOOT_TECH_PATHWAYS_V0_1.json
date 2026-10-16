@@ -1126,16 +1126,6 @@
         "id": "C5",
         "node": "N24_second_generation_clone_reproduces_computer",
         "acceptance": "Acceptance test: disconnect the original host, then have the first copy run the archived workflow to build, cold-boot and independently test the next copy."
-      },
-      {
-        "id": "C6",
-        "node": "N20_local_simple_PCB_fabrication",
-        "acceptance": "A specific simple PCB route is locally demonstrated and inspected; no multilayer or silicon-fab inference."
-      },
-      {
-        "id": "C7",
-        "node": "N15_semiconductor_manufacturing_unresolved",
-        "acceptance": "Not achieved by the present pilot. Remains blocked until every critical semiconductor process dependency is modeled, sourced and independently qualified."
       }
     ],
     "independent_metrics": [
@@ -1168,7 +1158,9 @@
       "Design, source generation, board assembly, bare-PCB fabrication, chip/package test and semiconductor die fabrication are distinct evidence-bearing claims.",
       "Imported or salvaged hardware may satisfy use or assembly requirements but never automatically receives local repair/reproduction credit.",
       "A simulation, netlist, PCB layout or firmware image is not evidence of a physically functioning computer.",
-      "No autonomous purchase, resource allocation or manufacturing actuation authority is implied."
+      "No autonomous purchase, resource allocation or manufacturing actuation authority is implied.",
+      "C0-C5 describe bounded computer reproduction/repair capabilities; bare-PCB fabrication and semiconductor die fabrication are independent branches, not ordered prerequisites or rewards.",
+      "C5 may pass for an imported-PCB/imported-IC design when the host-removal reproduction test passes; it still does not imply PCB-local or die-local closure."
     ],
     "claim_ceiling": "The current graph is E0 conceptual. C4/C5 remain proposed physical acceptance targets, not achieved results. This pilot does not imply local semiconductor die fabrication or indefinite industrial self-sufficiency.",
     "candidate_platform_notes": [
@@ -1190,6 +1182,20 @@
         "proposed_use": "Select a separate modest computer/controller profile that can run the archived production-control workflow needed to build and test another copy.",
         "gate": "Choose only after checking legal reuse, BOM completeness, runtime/toolchain fit, component availability, programming/debug interface, test fixture, energy needs and documented acceptance tests.",
         "fallback": "If no existing candidate passes, create a minimal original design from components/design artifacts with permission-cleared licenses and preserve a reproducible source history."
+      }
+    ],
+    "independent_closure_branches": [
+      {
+        "id": "PCB_LOCAL",
+        "node": "N20_local_simple_PCB_fabrication",
+        "relationship_to_reproduction_ladder": "independent branch",
+        "acceptance": "A specific simple bare-PCB fabrication route is locally demonstrated and inspected under a bounded profile; no multilayer/high-frequency or semiconductor-fab inference."
+      },
+      {
+        "id": "DIE_LOCAL",
+        "node": "N15_semiconductor_manufacturing_unresolved",
+        "relationship_to_reproduction_ladder": "deep industrial branch; blocked/unresolved",
+        "acceptance": "Every critical die-fabrication dependency is separately modeled, sourced and independently qualified; this pilot has not achieved this branch."
       }
     ]
   }
