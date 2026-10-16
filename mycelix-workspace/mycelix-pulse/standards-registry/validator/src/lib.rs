@@ -27,6 +27,7 @@ const ENTRY_KEYS: &[&str] = &[
     "publication_period",
     "last_checked",
     "source_status",
+    "source_digest_sha256",
     "layers",
     "region_scope",
     "relations",
@@ -158,6 +159,7 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
             "canonical_url",
             "source_status",
             "support_status",
+            "source_digest_sha256",
             "layers",
             "last_checked",
             "relations",
@@ -227,6 +229,12 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
             object.get("support_status"),
             SUPPORT_STATUSES,
             &format!("{label}.support_status"),
+            &mut errors,
+        );
+
+        check_optional_sha256(
+            object.get("source_digest_sha256"),
+            &format!("{label}.source_digest_sha256"),
             &mut errors,
         );
 
@@ -306,6 +314,15 @@ fn validate_schema_contract(schema: &Value, errors: &mut Vec<String>) {
     if root.pointer("/$defs/entry").and_then(Value::as_object).is_none() {
         errors.push("schema: missing $defs.entry object".to_owned());
     }
+    let entry_required = root.pointer("/$defs/entry/required").and_then(Value::as_array);
+    if !entry_required.is_some_and(|list| {
+        list.iter().any(|value| value.as_str() == Some("source_digest_sha256"))
+    }) {
+        errors.push("schema: entry required list is missing source_digest_sha256".to_owned());
+    }
+    if root.pointer("/$defs/entry/properties/source_digest_sha256").is_none() {
+        errors.push("schema: missing source_digest_sha256 property".to_owned());
+    }
     if root.pointer("/$defs/relation").and_then(Value::as_object).is_none() {
         errors.push("schema: missing $defs.relation object".to_owned());
     }
@@ -337,6 +354,21 @@ fn check_optional_string(value: Option<&Value>, label: &str, errors: &mut Vec<St
         Some(Value::String(_)) => {}
         Some(_) => errors.push(format!("{label}: must be a string or null")),
         None => {}
+    }
+}
+
+fn check_optional_sha256(value: Option<&Value>, label: &str, errors: &mut Vec<String>) {
+    match value {
+        Some(Value::Null) => {}
+        Some(Value::String(text))
+            if text.len() == 64
+                && text
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) => {}
+        Some(_) => errors.push(format!(
+            "{label}: must be null or a lowercase 64-character SHA-256 hex digest"
+        )),
+        None => errors.push(format!("{label}: field is required; use null when not captured")),
     }
 }
 
@@ -654,6 +686,14 @@ mod tests {
         }]);
         let errors = validate_registry(&registry, &schema());
         assert!(errors.iter().any(|e| e.contains("requires test_report")));
+    }
+
+    #[test]
+    fn malformed_source_digest_is_rejected() {
+        let mut registry = seed();
+        registry["entries"][0]["source_digest_sha256"] = json!("abc123");
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| error.contains("source_digest_sha256")));
     }
 
     #[test]
