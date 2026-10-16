@@ -783,7 +783,7 @@ mod tests {
                             }
                         }
                     }
-                    6 => {
+                    5 | 6 => {
                         item.advance_time(now);
                     }
                     7 => {
