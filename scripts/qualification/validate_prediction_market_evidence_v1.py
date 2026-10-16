@@ -107,7 +107,8 @@ def validate_resolution_event_record(
         errors.append("semantic:contract digest mismatch")
     if event["attestation"]["signed_event_digest_sha256"].lower() != event["event_digest_sha256"].lower():
         errors.append("semantic:attestation digest does not match declared event digest")
-    if _parse_utc(event["recorded_at"]) > _parse_utc(contract["resolution_policy"]["resolution_deadline_at"]):
+    recorded_at = _parse_utc(event["recorded_at"])
+    if recorded_at > _parse_utc(contract["resolution_policy"]["resolution_deadline_at"]):
         errors.append("semantic:event recorded after resolution deadline")
 
     for i, artifact in enumerate(event["evidence_artifacts"]):
