@@ -454,6 +454,30 @@ mod tests {
     }
 
     #[test]
+    fn same_external_claim_replayed_across_replicas_is_a_known_idempotency_counterexample() {
+        // The local claim-ID set is per replica. Quantity escrow still bounds
+        // the request, but it does not deduplicate a single external delivery
+        // identity across replicas. A successor must bind each delivery to a
+        // unique, single-use reservation/evidence identity.
+        let mut world = model();
+        world.reserve("replica-a", "external-delivery-42", 3).unwrap();
+        world.finalize("replica-a", "external-delivery-42", 3).unwrap();
+        world.reserve("replica-b", "external-delivery-42", 3).unwrap();
+        world.finalize("replica-b", "external-delivery-42", 3).unwrap();
+
+        assert_eq!(world.accepted_quantity(), Ok(6));
+        assert!(world.invariants_hold());
+        assert_eq!(
+            world.journal().iter().filter(|entry| match entry {
+                ReplicaJournalEntry::Finalized { claim_id, accepted_quantity, .. } =>
+                    claim_id == "external-delivery-42" && *accepted_quantity == 3,
+                _ => false,
+            }).count(),
+            2
+        );
+    }
+
+    #[test]
     fn deterministic_interleaving_campaign_preserves_global_conservation() {
         for seed in 1_u64..=1_000 {
             let total = seed % 97 + 1;
