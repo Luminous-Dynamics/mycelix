@@ -331,6 +331,7 @@ pub enum JournalError {
     InvalidEventId,
     InvalidAttemptId,
     RevisionConflict { expected: u64, actual: u64 },
+    RevisionExhausted,
     EventIdConflict,
     MessageIdentityConflict,
     MissingQueueAcceptance,
@@ -417,11 +418,18 @@ impl DeliveryJournal for InMemoryDeliveryJournal {
         }
 
         let mut next = match self.streams.get(&event.identity) {
-            Some((snapshot, _)) => snapshot.clone(),
+            Some((snapshot, _)) => {
+                let mut next = snapshot.clone();
+                apply_event(&mut next, &event)?;
+                next
+            }
+            // initial_snapshot validates the first QueueAccepted event; do not
+            // apply the same event a second time to an already-created stream.
             None => initial_snapshot(&event)?,
         };
-        apply_event(&mut next, &event)?;
-        next.revision = actual_revision.saturating_add(1);
+        next.revision = actual_revision
+            .checked_add(1)
+            .ok_or(JournalError::RevisionExhausted)?;
         next.last_event_id = event.event_id.clone();
 
         let revision = next.revision;
