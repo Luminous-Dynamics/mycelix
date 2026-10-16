@@ -68,3 +68,22 @@ The allocation idea has established prior art in escrow techniques and bounded-c
 The complementary framework of [invariant confluence / coordination avoidance](https://arxiv.org/abs/1402.2237) asks whether independently valid states remain valid after allowed operations and merges. That is the correct lens for a future replicated Mycelix protocol: define the quantity, authority, evidence and finality invariants first, then identify which transitions need coordination.
 
 The novelty claim here is deliberately narrower than inventing escrow or CRDTs. The experiment applies finite escrow rights to staged economic fulfilment while keeping accepted physical quantity, pending reservations, evidence decisions and external settlement authority explicitly separate. It is not yet a CRDT: there is no defined merge operator, causal metadata, or proof that merged replica states preserve the invariants.
+
+
+## Added multi-replica accounting model
+
+The companion `fulfillment_escrow_partition.rs` models separate replica-local reservation states with disjoint fixed grants and no transfer/timeout-release API during a simulated partition. Its deterministic generated campaign is 1,000 seeds × 128 operation steps = 128,000 attempted transitions, using 2–8 replicas and request totals from 1 to 97.
+
+Add these qualification gates before considering any later replicated implementation:
+
+| Gate | Proposed target |
+|---|---|
+| Replica-local conservation | Every replica's available + pending + accepted always equals its allocated share |
+| Global conservation | Sum of all replica shares always equals the request quantity |
+| Interleaving | Zero invariant failures across 128,000 generated steps |
+| Disjoint rights | Zero replica may reserve another replica's rights |
+| Timeout behavior | No transition releases pending rights without an explicit accepted disposition |
+| Duplicate initial grants | A forked/stale grant must be detected by a durable issuer or rejected by protocol design; the local accounting model alone cannot prove this |
+| Crash/restart rollback | Zero re-spends after restart or stale snapshot restoration in a future persistent replica model |
+
+The generated state campaign is an authored test, not an observed pass. The wrapper's per-replica objects are simulated in one process; it does not create true network concurrency. Grant issuance uniqueness, persistence, non-forking local state and cryptographic evidence remain explicit preconditions, not conclusions.
