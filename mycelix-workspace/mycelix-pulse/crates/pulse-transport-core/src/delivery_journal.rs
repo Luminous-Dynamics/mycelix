@@ -600,7 +600,7 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
             if snapshot.active_attempt_id.as_deref() != Some(attempt_id.as_str()) {
                 return Err(JournalError::NoMatchingActiveAttempt);
             }
-            if snapshot.attempts.get(attempt_id).is_some_and(Option::is_some) {
+            if snapshot.attempts.get(attempt_id).is_some_and(|outcome| outcome.is_some()) {
                 return Err(JournalError::ConflictingDuplicateOutcome);
             }
             if event.occurred_at >= snapshot.expires_at {
