@@ -45,3 +45,5 @@ jobs:
         run: python scripts/living-city/test_verify_nutrient_payloads.py
       - name: Validate urban metabolism, conservation balances, and synergy counterfactuals
         run: python scripts/living-city/validate_metabolism.py
+      - name: Smoke-test synthetic scale benchmark
+        run: python scripts/living-city/benchmark_metabolism.py --sizes 1000 --repeats 1 --warmups 0 --runner-label "ubuntu-latest smoke run"

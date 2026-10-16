@@ -323,3 +323,10 @@ The scale targets must first be benchmarked with a versioned generator and measu
 ### Independent review must be more than a second label
 
 For contribution or causal-effect claims, the review receipt must resolve separately from the outcome-source evidence references. Causal-effect claims must declare an `independent_reviewer` role; contribution claims require an independent or community reviewer role. This detects a simple but important self-attestation failure mode: reusing the same evidence identifier as both outcome support and review. The reviewer-role field is still a declaration, not cryptographic identity proof; the review record itself must be scrutinized under the host governance process.
+
+
+### 9. Calibrate the digital twin throughout its lifecycle
+
+A model's uncertainty should not be one static confidence badge. Recent built-environment digital-twin research proposes linking uncertainty to data quality, model form, calibration, benchmark residuals, lifecycle stage and level of detail, then updating against physical observations rather than treating uncertainty as post-hoc prose ([Malihi, 2026, *Towards Uncertainty-Aware Digital Twins in the Built Environment*](https://doi.org/10.1016/j.dte.2026.100140)). This motivates a future calibration receipt per metric/model/boundary: versioned calibration dataset, held-out split, level-of-detail, residual distribution, nominal-vs-empirical interval coverage, measurement uncertainty, decision tolerance and recalibration triggers.
+
+The standardisation landscape is also active: ISO lists IEC/DTS 63526, a draft technical specification on standards related to City Information Modelling and Urban Digital Twins, as under development and in the approval phase (https://www.iso.org/standard/87250.html). Living-City should maintain versioned crosswalks and explicit conformance status instead of hard-coding an assumed stable standard. Neither the draft nor the research validates this schema; they are reasons to keep interoperability and calibration evidence explicit.

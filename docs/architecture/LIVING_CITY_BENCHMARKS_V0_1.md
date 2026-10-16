@@ -33,3 +33,16 @@ A digest match proves byte identity relative to a declared digest, not producer 
 ## Independent review separation
 
 For contribution/causal-effect claims, the review receipt must resolve and must not reuse an outcome evidence reference. The causal-effect path also declares an independent-review role; contribution claims need independent or community review. This is a referential-integrity guard, not identity proof: deployments need authenticated reviewer credentials and accountable review procedures if reviewer independence itself must be verified.
+
+
+## Executable benchmark harness
+
+Run the harness using the same pinned environment as the schema workflow:
+
+```sh
+python scripts/living-city/benchmark_metabolism.py --sizes 1000,10000,100000 --repeats 5 --warmups 1 --runner-label "4 vCPU / 8 GiB pinned reference runner" --output /tmp/living-city-benchmark.json
+```
+
+Each sample runs in a fresh subprocess, first builds a larger synthetic-only fixture, then separately times schema validation and semantic validation. Fixture expansion and catalogue loading are excluded from the validation timing. Output includes raw sample measurements, median/p95 by size, process peak RSS, Python/jsonschema version, environment label, exact workflow commit when `GITHUB_SHA` is set, and a report digest. The label is user-declared rather than hardware-probed; record actual runner CPU and memory externally. A 1,000-flow smoke run is wired into the Living-City workflow. Full 1k/10k/100k benchmark remains an explicit command because it is more expensive than a correctness gate.
+
+The harness validates only synthetic records and never emits predictions about Johannesburg. Timing comparisons are meaningful only on the same pinned reference runner; the public CI smoke result is not a performance qualification.
