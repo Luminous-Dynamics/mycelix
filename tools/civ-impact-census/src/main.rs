@@ -131,6 +131,7 @@ struct ResultsFile {
     manifest_version: String,
     benchmark_id: String,
     scenario_set_sha256: String,
+    schedule_artifact_sha256: String,
     runs: Vec<RunResult>,
 }
 
@@ -583,13 +584,20 @@ fn checked_cost_total(metrics: &RunMetrics) -> Result<u64, String> {
     .ok_or_else(|| "cost-component sum overflow".to_string())
 }
 
-fn verify_census(schedule: &Schedule, result_file: &ResultsFile) -> Result<BTreeMap<String, usize>, String> {
+fn verify_census(
+    schedule: &Schedule,
+    result_file: &ResultsFile,
+    schedule_artifact_sha256: &str,
+) -> Result<BTreeMap<String, usize>, String> {
     validate_schedule(schedule)?;
     if result_file.manifest_version != MANIFEST_VERSION {
         return Err("unsupported results manifest_version".into());
     }
     if result_file.benchmark_id != schedule.benchmark_id {
         return Err("results benchmark_id does not match schedule".into());
+    }
+    if result_file.schedule_artifact_sha256 != schedule_artifact_sha256 {
+        return Err("results schedule_artifact_sha256 does not match exact schedule bytes".into());
     }
     if result_file.scenario_set_sha256 != schedule.scenario_set_sha256 {
         return Err("results scenario_set_sha256 does not match schedule".into());
@@ -863,11 +871,12 @@ fn stratified_scenario_cluster_bootstrap(
 fn make_comparison(
     schedule: &Schedule,
     result_file: &ResultsFile,
+    schedule_artifact_sha256: &str,
     bootstrap_seed: u64,
     bootstrap_seed_digest: &str,
 ) -> Result<ComparisonReport, String> {
     // This also proves the census is complete and all included metric rows are internally consistent.
-    verify_census(schedule, result_file)?;
+    verify_census(schedule, result_file, schedule_artifact_sha256)?;
 
     let results_by_id: HashMap<&str, &RunResult> = result_file
         .runs
@@ -1041,12 +1050,6 @@ fn make_comparison(
     })
 }
 
-fn write_json(path: &Path, value: &impl Serialize) -> Result<(), Box<dyn Error>> {
-    let bytes = serde_json::to_vec_pretty(value)?;
-    fs::write(path, bytes)?;
-    Ok(())
-}
-
 fn command_generate(args: &[String]) -> Result<(), Box<dyn Error>> {
     if args.len() < 3 || args.len() > 5 {
         return Err("usage: civ-impact-census generate <output-dir> [scenario-count=100] [seed-count=30]".into());
@@ -1063,7 +1066,9 @@ fn command_generate(args: &[String]) -> Result<(), Box<dyn Error>> {
     let schedule_path = out_dir.join("schedule.json");
     let scenario_bytes = serde_json::to_vec(&schedule.scenarios)?;
     fs::write(&scenarios_path, &scenario_bytes)?;
-    write_json(&schedule_path, &schedule)?;
+    let schedule_bytes = serde_json::to_vec_pretty(&schedule)?;
+    fs::write(&schedule_path, &schedule_bytes)?;
+    let schedule_artifact_sha256 = sha256_hex(&schedule_bytes);
 
     println!(
         "{}",
@@ -1077,6 +1082,7 @@ fn command_generate(args: &[String]) -> Result<(), Box<dyn Error>> {
             "arm_count": schedule.arms.len(),
             "scheduled_runs": schedule.runs.len(),
             "scenario_set_sha256": schedule.scenario_set_sha256,
+            "schedule_artifact_sha256": schedule_artifact_sha256,
             "scenarios_path": scenarios_path.display().to_string(),
             "schedule_path": schedule_path.display().to_string(),
             "economic_benefit_established": false,
@@ -1094,7 +1100,8 @@ fn command_verify(args: &[String]) -> Result<(), Box<dyn Error>> {
     let results_bytes = fs::read(&args[3])?;
     let schedule: Schedule = serde_json::from_slice(&schedule_bytes)?;
     let result_file: ResultsFile = serde_json::from_slice(&results_bytes)?;
-    let dispositions = verify_census(&schedule, &result_file)
+    let schedule_artifact_sha256 = sha256_hex(&schedule_bytes);
+    let dispositions = verify_census(&schedule, &result_file, &schedule_artifact_sha256)
         .map_err(|error| format!("census verification failed: {error}"))?;
     let completed_runs = *dispositions.get("completed").unwrap_or(&0);
     let total_runs = result_file.runs.len();
@@ -1139,8 +1146,15 @@ fn command_analyze(args: &[String]) -> Result<(), Box<dyn Error>> {
     let mut seed_prefix = [0u8; 8];
     seed_prefix.copy_from_slice(&seed_digest_bytes[..8]);
     let bootstrap_seed = u64::from_be_bytes(seed_prefix);
-    let report = make_comparison(&schedule, &results, bootstrap_seed, &seed_digest)
-        .map_err(|error| format!("paired analysis failed: {error}"))?;
+    let schedule_artifact_sha256 = sha256_hex(&schedule_bytes);
+    let report = make_comparison(
+        &schedule,
+        &results,
+        &schedule_artifact_sha256,
+        bootstrap_seed,
+        &seed_digest,
+    )
+    .map_err(|error| format!("paired analysis failed: {error}"))?;
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -1174,11 +1188,41 @@ mod tests {
         build_schedule(5, 2).expect("small deterministic schedule")
     }
 
+    fn test_schedule_artifact_sha256(schedule: &Schedule) -> String {
+        let bytes = serde_json::to_vec_pretty(schedule).expect("serialize test schedule");
+        sha256_hex(&bytes)
+    }
+
+    fn verify_test_census(
+        schedule: &Schedule,
+        result_file: &ResultsFile,
+    ) -> Result<BTreeMap<String, usize>, String> {
+        let schedule_digest = test_schedule_artifact_sha256(schedule);
+        verify_census(schedule, result_file, &schedule_digest)
+    }
+
+    fn make_test_comparison(
+        schedule: &Schedule,
+        result_file: &ResultsFile,
+        bootstrap_seed: u64,
+        bootstrap_seed_digest: &str,
+    ) -> Result<ComparisonReport, String> {
+        let schedule_digest = test_schedule_artifact_sha256(schedule);
+        make_comparison(
+            schedule,
+            result_file,
+            &schedule_digest,
+            bootstrap_seed,
+            bootstrap_seed_digest,
+        )
+    }
+
     fn complete_noncompleted_census(schedule: &Schedule) -> ResultsFile {
         ResultsFile {
             manifest_version: MANIFEST_VERSION.into(),
             benchmark_id: schedule.benchmark_id.clone(),
             scenario_set_sha256: schedule.scenario_set_sha256.clone(),
+            schedule_artifact_sha256: test_schedule_artifact_sha256(schedule),
             runs: schedule
                 .runs
                 .iter()
@@ -1350,7 +1394,7 @@ mod tests {
     fn complete_run_census_is_not_a_benefit_claim() {
         let schedule = small_schedule();
         let results = complete_noncompleted_census(&schedule);
-        let counts = verify_census(&schedule, &results).expect("complete census");
+        let counts = verify_test_census(&schedule, &results).expect("complete census");
         assert_eq!(counts.get("non_converged"), Some(&70));
         assert_eq!(counts.get("completed"), None);
     }
@@ -1360,7 +1404,7 @@ mod tests {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
         results.runs.pop();
-        assert!(verify_census(&schedule, &results).unwrap_err().contains("length mismatch"));
+        assert!(verify_test_census(&schedule, &results).unwrap_err().contains("length mismatch"));
     }
 
     #[test]
@@ -1368,7 +1412,7 @@ mod tests {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
         results.runs[1] = results.runs[0].clone();
-        assert!(verify_census(&schedule, &results).unwrap_err().contains("duplicate result run_id"));
+        assert!(verify_test_census(&schedule, &results).unwrap_err().contains("duplicate result run_id"));
     }
 
     #[test]
@@ -1376,7 +1420,7 @@ mod tests {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
         results.scenario_set_sha256 = "0".repeat(64);
-        assert!(verify_census(&schedule, &results).unwrap_err().contains("scenario_set_sha256"));
+        assert!(verify_test_census(&schedule, &results).unwrap_err().contains("scenario_set_sha256"));
     }
 
     #[test]
@@ -1405,7 +1449,7 @@ mod tests {
             total_cost_microcredits: 59,
             completion_latency_ms: 100,
         });
-        assert!(verify_census(&schedule, &results).unwrap_err().contains("total cost mismatch"));
+        assert!(verify_test_census(&schedule, &results).unwrap_err().contains("total cost mismatch"));
     }
 
     #[test]
@@ -1428,7 +1472,7 @@ mod tests {
             total_cost_microcredits: total,
             completion_latency_ms: 100,
         });
-        assert!(verify_census(&schedule, &results).unwrap_err().contains("served_units exceeds"));
+        assert!(verify_test_census(&schedule, &results).unwrap_err().contains("served_units exceeds"));
     }
 
     #[test]
@@ -1456,7 +1500,7 @@ mod tests {
             total_cost_microcredits: 21,
             completion_latency_ms: 100,
         });
-        let counts = verify_census(&schedule, &results).expect("valid completed result");
+        let counts = verify_test_census(&schedule, &results).expect("valid completed result");
         assert_eq!(counts.get("completed"), Some(&1));
         assert_eq!(counts.get("non_converged"), Some(&(schedule.runs.len() - 1)));
     }
@@ -1503,6 +1547,7 @@ mod tests {
             manifest_version: MANIFEST_VERSION.into(),
             benchmark_id: schedule.benchmark_id.clone(),
             scenario_set_sha256: schedule.scenario_set_sha256.clone(),
+            schedule_artifact_sha256: test_schedule_artifact_sha256(schedule),
             runs,
         }
     }
@@ -1511,7 +1556,7 @@ mod tests {
     fn reports_paired_cost_and_service_tradeoff_without_claiming_benefit() {
         let schedule = small_schedule();
         let results = complete_results_with_known_cost_tradeoff(&schedule);
-        let report = make_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("paired descriptive comparison");
+        let report = make_test_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("paired descriptive comparison");
         assert_eq!(report.expected_pairs, 10);
         assert_eq!(report.complete_pairs, 10);
         assert_eq!(report.incomplete_pairs, 0);
@@ -1585,9 +1630,9 @@ mod tests {
             }
         }
         let seed_digest = "b".repeat(64);
-        let first = make_comparison(&schedule, &results, 12345, &seed_digest)
+        let first = make_test_comparison(&schedule, &results, 12345, &seed_digest)
             .expect("first analysis");
-        let second = make_comparison(&schedule, &results, 12345, &seed_digest)
+        let second = make_test_comparison(&schedule, &results, 12345, &seed_digest)
             .expect("repeat analysis");
         let first_interval = first.stratified_scenario_cluster_bootstrap_95
             .expect("bootstrap interval");
@@ -1607,7 +1652,7 @@ mod tests {
     fn incomplete_pair_census_is_reported_not_silently_dropped() {
         let schedule = small_schedule();
         let results = complete_noncompleted_census(&schedule);
-        let report = make_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("valid but uncompleted census");
+        let report = make_test_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("valid but uncompleted census");
         assert_eq!(report.complete_pairs, 0);
         assert_eq!(report.incomplete_pairs, report.expected_pairs);
         assert_eq!(report.candidate_mean_cost_per_demand_unit_microcredits, None);
@@ -1642,7 +1687,7 @@ mod tests {
                 completion_latency_ms: 10,
             });
         }
-        let report = make_comparison(&schedule, &results, 42, &"d".repeat(64))
+        let report = make_test_comparison(&schedule, &results, 42, &"d".repeat(64))
             .expect("partial-census report");
         assert_eq!(report.complete_pairs, 1);
         assert_eq!(report.incomplete_pairs, report.expected_pairs - 1);
@@ -1664,7 +1709,7 @@ mod tests {
         }).expect("full-stack row");
         let metrics = results.runs[row_index].metrics.as_mut().expect("metrics");
         metrics.served_units = 0;
-        let report = make_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("valid zero-service outcome");
+        let report = make_test_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("valid zero-service outcome");
         assert_eq!(report.zero_service_pairs, 1);
         assert!(!report.cost_per_served_unit_defined_for_all_pairs);
         assert_eq!(report.candidate_mean_cost_per_served_unit_microcredits, None);
@@ -1687,7 +1732,7 @@ mod tests {
                 metrics.total_cost_microcredits = 0;
             }
         }
-        let report = make_comparison(&schedule, &results, 42, &"c".repeat(64))
+        let report = make_test_comparison(&schedule, &results, 42, &"c".repeat(64))
             .expect("zero-baseline-cost records remain internally consistent");
         assert!(report.cost_per_served_unit_defined_for_all_pairs);
         assert_eq!(report.relative_pooled_cost_per_served_unit_change_percent, None);
@@ -1699,6 +1744,6 @@ mod tests {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
         results.runs[0].failure_reason = None;
-        assert!(verify_census(&schedule, &results).unwrap_err().contains("failure_reason"));
+        assert!(verify_test_census(&schedule, &results).unwrap_err().contains("failure_reason"));
     }
 }
