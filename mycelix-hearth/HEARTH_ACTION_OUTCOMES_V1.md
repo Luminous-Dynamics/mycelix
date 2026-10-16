@@ -23,6 +23,8 @@ Do not derive a "rejected" result from an untyped transport error. Until a struc
 - Added a pure Rust copy-policy module with tests for Preview only, Confirmed, Outcome unknown, and Not sent.
 - Replaced ordinary success phrasing in mock-only branches for bond tending, gratitude, votes, presence, care completion, and invitation with explicit preview/local-only copy.
 - Removed the live care path's unconditional "task completed" feedback; it now checks the call result.
+- Fixed a wire-contract mismatch found by inspecting the actual zome signatures: the five mutation zomes return a Record, while the frontend was deserializing their return into unit (()). The Leptos calls now decode a WireRecord.
+- Fixed the matching input shape for those zomes: ActionHash/AgentPubKey fields are decoded from strict base64 form into validated 39-byte Holochain hash byte vectors before dispatch. Invalid/missing identities are Not sent, not guessed.
 - Added resident-facing unknown-outcome feedback for live gratitude, vote, presence, care, and bond failures.
 - If the bond update succeeds but the follow-up read fails, feedback says the write was confirmed while the displayed details may remain stale.
 - Live invitation now fails closed: the current function accepts only a display name but would previously submit it in a field requiring an AgentPubKey. It sends no live zome call until the UI/API accepts a verified recipient identity.
