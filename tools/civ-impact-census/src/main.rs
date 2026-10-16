@@ -739,7 +739,8 @@ mod tests {
     #[test]
     fn rejects_rehashed_schedule_with_unbalanced_regimes() {
         let mut schedule = build_schedule(10, 1).expect("balanced schedule");
-        schedule.scenarios[0].regime = schedule.scenarios[1].regime.clone();
+        schedule.scenarios[0].regime = "demand_shock".into();
+        schedule.scenarios[0].demand_shock_bps = 3_000;
         let bytes = serde_json::to_vec(&schedule.scenarios).expect("serialize changed scenarios");
         schedule.scenario_set_sha256 = sha256_hex(&bytes);
         assert!(validate_schedule(&schedule).unwrap_err().contains("balance all five"));
