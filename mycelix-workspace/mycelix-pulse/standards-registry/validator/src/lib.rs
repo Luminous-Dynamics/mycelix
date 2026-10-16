@@ -400,7 +400,13 @@ fn check_date(
 
 fn valid_iso_date(text: &str) -> bool {
     let bytes = text.as_bytes();
-    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+    if bytes.len() != 10
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || !bytes[0..4].iter().all(u8::is_ascii_digit)
+        || !bytes[5..7].iter().all(u8::is_ascii_digit)
+        || !bytes[8..10].iter().all(u8::is_ascii_digit)
+    {
         return false;
     }
     let (Ok(year), Ok(month), Ok(day)) = (
