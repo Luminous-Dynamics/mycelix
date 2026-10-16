@@ -31,6 +31,9 @@ The numerical values below are engineering targets for the first qualification p
 |---|---|---|
 | Security invariants | **Zero** plaintext fallback; zero unauthorized send/receive; zero crypto downgrade; zero fabricated recipient-delivery receipts | Deterministic negative tests plus verifier-produced results. Any violation blocks release. |
 | Envelope integrity | 100% of tampered, truncated, reordered-invalid, expired, replayed, or wrongly addressed fixture cases are rejected or explicitly classified; no partial plaintext reaches the UI | Golden vectors, mutation tests, adversarial fragment corpus |
+| Transport-neutral envelope portability | **100%** of declared-compatible adapters can carry the same opaque Pulse envelope while selecting distinct framing profiles; no adapter silently changes the envelope profile or sees plaintext | Contract test carries one envelope profile across at least two different transport-profile IDs with exact-head evidence |
+| Clock-domain separation | **100%** of fixtures use monotonic time for link freshness and Unix-epoch time for durable envelope expiry; neither clock can be substituted for the other in the API | Typed-time API tests, expired-message boundary tests, stale/future link-observation fixtures |
+| Receipt-token binding | **100%** of wrong-message, wrong-recipient, invalid-signature, and missing-receipt fixtures remain non-delivered | Trusted-verifier tests; a verified-receipt token must bind the exact logical message ID and recipient |
 | Logical idempotency | 100% of duplicate-path/retry trials produce at most one visible logical message; all duplicate evidence remains inspectable | Multi-adapter deterministic simulation and restart tests |
 | Outbox durability | 100% of accepted queued ciphertext survives process restart and is either delivered, expired, or surfaced as failed/unknown; never silently lost | Crash/restart tests at each state transition |
 | Truthful receipts | 100% of outcomes distinguish local queue acceptance, link acknowledgement, gateway receipt, recipient cryptographic receipt, and unknown outcome | State-machine tests plus user-visible contract checks |
@@ -84,7 +87,7 @@ For pull-request-speed local checks, use a fixed seed and a short corpus. For qu
 
 The checked-in starter corpus is `benchmarks/traces.v1.json`; the Rust model is `standards-registry/validator/src/simulation.rs` and the CLI is `standards-registry/validator/src/bin/route-sim.rs`.
 
-The first adapter contract is in `crates/pulse-transport-core/`. Its isolated tests exercise stale observations, unknown/denied policies, payload and profile bounds, expiry, declared failure domains, and the rule that adapter/link/gateway acknowledgements are not recipient delivery. It remains a standalone prototype and is not wired into the live Pulse send path.
+The first adapter contract is in `crates/pulse-transport-core/`. Its isolated tests exercise stale observations, unknown/denied policies, payload and profile bounds, expiry, declared failure domains, symmetric opaque send/receive, and the rule that adapter/link/gateway acknowledgements are not recipient delivery. It separates message-envelope version from transport framing and uses distinct types for monotonic freshness versus Unix-epoch expiry. It remains a standalone prototype and is not wired into the live Pulse send path.
 
 Run from the Pulse workspace root:
 
@@ -102,6 +105,10 @@ The corpus starts with eleven explicit synthetic scenarios and 10,000 logical me
 **Important limitation:** this is a route-policy smoke model, not a radio simulator. It uses synthetic success thresholds correlated within declared failure domains and fixed latency/cost inputs; it does not model RF propagation, interference, congestion, fragmentation, hardware, real joules, end-to-end cryptography or authenticated recipient receipts. Its modeled-success metrics mean only a synthetic path success before deadline; report field names deliberately avoid calling this real delivery. The JSON report hard-codes these non-claims.
 
 Any model-level relative improvement is useful only as a harness sanity check. It cannot establish that the real Pulse adapter will produce the same improvement. Qualification must later replay measured traces, exercise the actual transport contract, and verify cryptographic recipient receipts.
+
+- QUIC (RFC 9000): https://www.rfc-editor.org/rfc/rfc9000
+- QUIC DATAGRAM Extension (RFC 9221): https://www.rfc-editor.org/rfc/rfc9221
+- Bundle Protocol v7 (RFC 9171), including its delivery-status semantics and statement that end-to-end delivery assurance needs application-level mechanisms: https://www.rfc-editor.org/rfc/rfc9171
 
 ## 4. Required baselines
 
