@@ -35,6 +35,8 @@ Symthaea may estimate delivery probability, link stability, energy/cost trade-of
 
 Model context is not a source of standards truth. Symthaea should retrieve versioned entries from the standards registry, cite their source and revision, report missing evidence as unknown, and never invent support claims.
 
+The first query surface is a bounded Rust registry API and `standards-search` CLI. It filters source-linked entries by text, layer, source publication status, Pulse support state, and errata disposition, with a strict result limit of 1–100. Results preserve the exact registry record and its source URLs and include an explicit `inventory_only` / `support_conformance_claim=false` ceiling. This is intended as an integration seam for a future Symthaea retrieval adapter; it is not yet wired into Symthaea runtime, does not fetch external sites at query time, and cannot activate adapters or upgrade support status.
+
 ### Transport adapters and radio hardware
 
 Adapters bridge Pulse's encrypted frames to operating-system network APIs, approved device interfaces, or authenticated gateways. Adapters do not receive plaintext message content or private message keys. Drivers that require special privileges run outside the core application and expose a narrow, typed IPC boundary.
