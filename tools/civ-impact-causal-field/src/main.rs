@@ -131,6 +131,11 @@ fn plan_gate_errors(plan: &Value) -> Vec<String> {
             errors.push("confirmatory_causal claim requires participant burden to be recorded in the cost boundary".into());
         }
         if design == "randomized_cluster"
+            && nested_string(plan, "interference", "cluster_field").unwrap_or("").trim().is_empty()
+        {
+            errors.push("cluster-randomized confirmatory design must declare the cluster field used for interference analysis".into());
+        }
+        if design == "randomized_cluster"
             && !plan.get("analysis").and_then(|v| v.get("cluster_adjustment")).and_then(Value::as_bool).unwrap_or(false)
         {
             errors.push("cluster-randomized confirmatory design requires cluster-adjusted analysis".into());
@@ -333,7 +338,7 @@ fn run() -> Result<(), String> {
         Some("verify-trial") if args.len() == 4 => {
             let (plan_bytes, plan) = read_json(&args[1])?;
             let (assignment_bytes, assignment) = read_json(&args[2])?;
-            let (_outcome_bytes, outcomes) = read_json(&args[3])?;
+            let (outcome_bytes, outcomes) = read_json(&args[3])?;
             let errors = verify_trial(&plan, &assignment, &outcomes, &plan_bytes, &assignment_bytes);
             if !errors.is_empty() {
                 return Err(errors.join("\n"));
@@ -360,6 +365,7 @@ fn run() -> Result<(), String> {
                 },
                 "trial_plan_sha256": sha256(&plan_bytes),
                 "assignment_manifest_sha256": sha256(&assignment_bytes),
+                "outcome_ledger_sha256": sha256(&outcome_bytes),
                 "outcome_census": {
                     "intervention": counts("intervention"),
                     "comparator": counts("comparator"),
@@ -367,7 +373,7 @@ fn run() -> Result<(), String> {
                     "total_outcome_rows": array(&outcomes, "entries").len()
                 },
                 "claim_ceiling": "No treatment effect is estimated. Internal artifact consistency is not proof of randomization, valid measurement, absence of confounding/interference, or causal impact.",
-                "not_proven": ["allocation authenticity", "signature provenance", "outcome validity", "causal effect", "statistical significance", "transportability"]
+                "not_proven": ["allocation authenticity", "signature provenance or external freeze anchoring", "outcome validity", "causal effect", "statistical significance", "transportability"]
             }));
             Ok(())
         }
@@ -595,6 +601,7 @@ mod tests {
         fixture.plan["assignment"]["randomization_unit"] = json!("cluster");
         fixture.plan["estimand"]["unit_of_assignment"] = json!("cluster");
         fixture.plan["analysis"]["cluster_adjustment"] = json!(true);
+        fixture.plan["interference"]["cluster_field"] = json!("cluster_id");
         fixture.plan["sample_plan"]["minimum_clusters_per_arm"] = json!(2);
         fixture.assignment["entries"][0]["cluster_id"] = json!("c1");
         fixture.assignment["entries"][1]["cluster_id"] = json!("c2");
