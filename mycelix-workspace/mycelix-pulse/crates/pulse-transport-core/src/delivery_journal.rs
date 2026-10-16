@@ -1140,6 +1140,38 @@ mod tests {
     }
 
     #[test]
+    fn persisted_event_schema_versions_fail_closed() {
+        assert_eq!(
+            PersistedJournalEvent::new_versioned(
+                99,
+                "event-queue",
+                identity(),
+                UnixMillis::new(1),
+                JournalActor::System,
+                PersistedJournalEventKind::QueueAccepted {
+                    expires_at: UnixMillis::new(10_000),
+                    policy_generation: 1,
+                },
+            ),
+            Err(JournalError::UnsupportedEventSchemaVersion)
+        );
+        let persisted = PersistedJournalEvent::new(
+            "event-queue",
+            identity(),
+            UnixMillis::new(1),
+            JournalActor::System,
+            PersistedJournalEventKind::QueueAccepted {
+                expires_at: UnixMillis::new(10_000),
+                policy_generation: 1,
+            },
+        ).unwrap();
+        assert_eq!(
+            persisted.schema_version(),
+            PersistedJournalEvent::CURRENT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
     fn persisted_receipt_event_round_trips_only_after_verifier_rechecks_it() {
         let evidence = VerifiedReceiptEvidence::verify(
             &TestVerifier,
