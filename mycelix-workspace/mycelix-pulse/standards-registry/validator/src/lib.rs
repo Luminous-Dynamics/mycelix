@@ -256,11 +256,7 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
             &mut errors,
         );
 
-        check_optional_sha256(
-            object.get("source_digest_sha256"),
-            &format!("{label}.source_digest_sha256"),
-            &mut errors,
-        );
+        check_source_digest_provenance(object, &label, &mut errors);
 
         check_string_array(
             object.get("layers"),
@@ -389,6 +385,39 @@ fn check_optional_string(value: Option<&Value>, label: &str, errors: &mut Vec<St
         Some(Value::String(_)) => {}
         Some(_) => errors.push(format!("{label}: must be a string or null")),
         None => {}
+    }
+}
+
+fn check_source_digest_provenance(
+    entry: &serde_json::Map<String, Value>,
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    let digest = entry.get("source_digest_sha256");
+    check_optional_sha256(
+        digest,
+        &format!("{label}.source_digest_sha256"),
+        errors,
+    );
+    let digest_missing = matches!(digest, Some(Value::Null) | None);
+    let has_missing_digest_flag = entry
+        .get("review_flags")
+        .and_then(Value::as_array)
+        .is_some_and(|flags| {
+            flags.iter().any(|flag| {
+                flag.as_str() == Some("source-content-digest-not-captured")
+            })
+        });
+
+    if digest_missing && !has_missing_digest_flag {
+        errors.push(format!(
+            "{label}: null source_digest_sha256 requires review flag 'source-content-digest-not-captured'"
+        ));
+    }
+    if !digest_missing && has_missing_digest_flag {
+        errors.push(format!(
+            "{label}: source digest exists but stale 'source-content-digest-not-captured' flag remains"
+        ));
     }
 }
 
@@ -721,6 +750,27 @@ mod tests {
         }]);
         let errors = validate_registry(&registry, &schema());
         assert!(errors.iter().any(|e| e.contains("requires test_report")));
+    }
+
+    #[test]
+    fn missing_source_digest_requires_explicit_review_flag() {
+        let mut registry = seed();
+        registry["entries"][0]["review_flags"] = json!([]);
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| {
+            error.contains("null source_digest_sha256 requires review flag")
+        }));
+    }
+
+    #[test]
+    fn captured_source_digest_cannot_keep_missing_digest_flag() {
+        let mut registry = seed();
+        registry["entries"][0]["source_digest_sha256"] =
+            json!("a".repeat(64));
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| {
+            error.contains("stale 'source-content-digest-not-captured' flag")
+        }));
     }
 
     #[test]
