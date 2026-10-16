@@ -95,9 +95,9 @@ VerifyReceipt ==
   /\ inboxCommitted
   /\ delivered' = TRUE
   /\ outboxState' = "delivered"
+  /\ recoveryRequired' = FALSE
   /\ UNCHANGED <<inboxCommitted, inFlight, receiptEvidence, revoked,
-                 expired, workerEpoch, leaseEpoch, workerRunning,
-                 recoveryRequired>>
+                 expired, workerEpoch, leaseEpoch, workerRunning>>
 
 RecoverInterruptedAttempt ==
   /\ workerRunning
