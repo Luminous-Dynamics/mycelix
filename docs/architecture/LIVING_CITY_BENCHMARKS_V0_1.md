@@ -58,3 +58,10 @@ The scale fixture cycles through all existing synthetic flow shapes rather than 
 The Actions job summary exposes workload-composition counts beside timing and memory: distinct metric types, flows with uncertainty, distributional impact/coverage records, causal-evaluation records, and conservation checks. This prevents a fast measurement from being misread without knowing which validator paths the fixture exercised.
 
 The benchmark worker now fails closed if its generated fixture loses minimum workload coverage (at least three metric types, four uncertain flows, one distributional impact, one coverage record, one causal-evaluation record, and a conservation check). A smoke run that becomes faster because a tested validator path disappeared is therefore a failure, not a performance improvement.
+
+
+## Calibration evidence contract
+
+A metric may be called calibrated only when an assessment references a calibration receipt bound to a specific model run, metric, training-data digest, disjoint evaluation-data digest, evaluation window, independent-unit definition and source evidence. Empirical interval coverage and the Wilson interval are recomputed from integer hit/sample counts. The interval must lie entirely within a tolerance band declared before evaluation to earn a pass; an underpowered or boundary-overlapping result is inconclusive. The v0.1 Wilson mode requires one observation per independent unit; it must not be applied naively to autocorrelated time series or clustered spatial samples.
+
+A minimum target of 100 independent evaluation cases per metric is useful for planning, not a universal scientific sufficiency rule. Power, independence, seasonality, site coverage, decision risk, and tolerance must determine the actual preregistered sample floor. Calibration must be tested on held-out or out-of-time data and reported per metric and intended use. Passing coverage is necessary evidence for probabilistic calibration, not proof of causal validity or physical model truth.

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fail-closed CI checks for the Living-City metabolism/synergy contract. No network calls."""
 from __future__ import annotations
-import copy, json, sys
+import copy, json, sys, math
+from statistics import NormalDist
 from decimal import Decimal
 from fractions import Fraction
 from datetime import date
@@ -234,6 +235,123 @@ def nutrient_assessment_errors(review, evidence_ids):
         if count != 1:
             errors.append(f"{rid}: nutrient assessment receipt must be linked to exactly one food-delivery flow (found {count})")
     return errors
+
+def wilson_interval_bp(covered: int, sample_count: int, confidence_bp: int) -> tuple[int, int]:
+    """Conservative Wilson score interval in basis points for independent Bernoulli hits."""
+    z = NormalDist().inv_cdf(0.5 + confidence_bp / 20000.0)
+    p = covered / sample_count
+    z2 = z * z
+    denominator = 1.0 + z2 / sample_count
+    center = (p + z2 / (2.0 * sample_count)) / denominator
+    half = z * math.sqrt((p * (1.0 - p) / sample_count) + (z2 / (4.0 * sample_count * sample_count))) / denominator
+    lower = max(0, math.floor((center - half) * 10000.0))
+    upper = min(10000, math.ceil((center + half) * 10000.0))
+    return lower, upper
+
+
+def calibration_receipt_errors(review, evidence_ids):
+    """Validate per-metric interval calibration claims without treating hashes as science."""
+    errors = []
+    receipts = review.get("calibration_receipts", [])
+    runs = review.get("model_runs", [])
+    receipt_ids = [receipt["calibration_id"] for receipt in receipts]
+    if len(receipt_ids) != len(set(receipt_ids)):
+        errors.append("calibration_id values must be unique")
+    by_receipt = {receipt["calibration_id"]: receipt for receipt in receipts}
+    by_run = {run["model_run_id"]: run for run in runs}
+    identity_keys = [
+        (receipt["model_run_ref"], receipt["metric_id"], receipt["nominal_coverage_bp"], receipt["evaluation_dataset_sha256"])
+        for receipt in receipts
+    ]
+    if len(identity_keys) != len(set(identity_keys)):
+        errors.append("model/metric/nominal-coverage/evaluation-dataset calibration identities must be unique")
+
+    for receipt in receipts:
+        cid = receipt["calibration_id"]
+        rid = receipt["model_run_ref"]
+        run = by_run.get(rid)
+        if run is None:
+            errors.append(f"{cid}: unresolved calibration model_run_ref {rid!r}")
+        elif run["calibration_status"] == "uncalibrated":
+            errors.append(f"{cid}: calibration receipt cannot bind to a run marked uncalibrated")
+        if receipt["training_dataset_sha256"] == receipt["evaluation_dataset_sha256"]:
+            errors.append(f"{cid}: training and evaluation dataset digests must differ")
+        if set(receipt["training_evidence_refs"]) & set(receipt["evaluation_evidence_refs"]):
+            errors.append(f"{cid}: training and evaluation evidence references must be disjoint")
+        for ref in receipt["training_evidence_refs"]:
+            if ref not in evidence_ids:
+                errors.append(f"{cid}: unresolved training evidence reference {ref!r}")
+        for ref in receipt["evaluation_evidence_refs"]:
+            if ref not in evidence_ids:
+                errors.append(f"{cid}: unresolved evaluation evidence reference {ref!r}")
+        if date.fromisoformat(receipt["evaluation_window_start"]) > date.fromisoformat(receipt["evaluation_window_end"]):
+            errors.append(f"{cid}: calibration evaluation window starts after it ends")
+        allowed_units = UNIT_BY_METRIC.get(receipt["metric_id"])
+        if allowed_units is not None and receipt["unit"] not in allowed_units:
+            errors.append(f"{cid}: calibration unit {receipt['unit']!r} incompatible with metric {receipt['metric_id']!r}")
+        n, independent_n, hits = receipt["sample_count"], receipt["independent_unit_count"], receipt["covered_count"]
+        if hits > n:
+            errors.append(f"{cid}: covered_count cannot exceed sample_count")
+            continue
+        if n != independent_n:
+            errors.append(f"{cid}: Wilson v0.1 requires exactly one scored observation per independent unit")
+        computed_bp = (hits * 20000 + n) // (2 * n)
+        if computed_bp != receipt["reported_coverage_bp"]:
+            errors.append(f"{cid}: reported_coverage_bp does not match covered_count/sample_count (nearest basis point)")
+        expected_lower, expected_upper = wilson_interval_bp(hits, n, receipt["coverage_confidence_bp"])
+        if (receipt["coverage_lower_bp"], receipt["coverage_upper_bp"]) != (expected_lower, expected_upper):
+            errors.append(f"{cid}: Wilson coverage interval does not match counts and confidence level")
+        nominal, tolerance = receipt["nominal_coverage_bp"], receipt["tolerance_bp"]
+        acceptable_lower, acceptable_upper = max(0, nominal - tolerance), min(10000, nominal + tolerance)
+        adequately_sampled = (
+            n >= receipt["minimum_sample_count"]
+            and independent_n >= receipt["minimum_independent_unit_count"]
+        )
+        if not adequately_sampled:
+            expected_result = "inconclusive"
+        elif expected_lower >= acceptable_lower and expected_upper <= acceptable_upper:
+            expected_result = "pass"
+        elif expected_upper < acceptable_lower or expected_lower > acceptable_upper:
+            expected_result = "fail"
+        else:
+            expected_result = "inconclusive"
+        if receipt["calibration_result"] != expected_result:
+            errors.append(f"{cid}: calibration_result must be {expected_result!r} under the predeclared sample floor and coverage tolerance")
+
+    # Bidirectional linkage: a run claiming calibrated/validated needs a receipt,
+    # and all references must point back to the same model run.
+    for run in runs:
+        rid = run["model_run_id"]
+        linked_ids = run.get("calibration_receipt_refs", [])
+        if run["calibration_status"] in {"calibrated", "validated"} and not linked_ids:
+            errors.append(f"{rid}: calibrated/validated model run needs calibration_receipt_refs")
+        for cid in linked_ids:
+            receipt = by_receipt.get(cid)
+            if receipt is None:
+                errors.append(f"{rid}: unresolved calibration_receipt_ref {cid!r}")
+            elif receipt["model_run_ref"] != rid:
+                errors.append(f"{rid}: calibration receipt {cid!r} points to a different model run")
+        if run["calibration_status"] in {"calibrated", "validated"}:
+            linked = [by_receipt[cid] for cid in linked_ids if cid in by_receipt]
+            passing = {item["metric_id"] for item in linked if item["calibration_result"] == "pass"}
+            scenario_refs = set(run["scenario_refs"])
+            required_metrics = {
+                flow["metric_id"]
+                for scenario in review.get("scenarios", [])
+                if scenario["scenario_id"] in scenario_refs
+                for flow in scenario["flow_records"]
+                if flow.get("evidence_kind") == "model_output" and flow.get("model_run_ref") == rid
+            }
+            required_metrics = required_metrics or passing
+            if not passing:
+                errors.append(f"{rid}: calibrated/validated model run needs at least one passing calibration receipt")
+            missing_metrics = required_metrics - passing
+            if missing_metrics:
+                errors.append(f"{rid}: calibrated/validated model run lacks passing receipts for metrics {sorted(missing_metrics)!r}")
+    if review.get("record_status") != "assessment" and receipts:
+        errors.append("only real assessment records may contain calibration receipts; synthetic calibration controls run isolated")
+    return errors
+
 
 def semantic_errors(review, concepts, evidence_ids):
     errors = []
@@ -571,6 +689,7 @@ def semantic_errors(review, concepts, evidence_ids):
             if any(not check["evidence_refs"] for check in checks):
                 errors.append(f"{eid}: every causal falsification check needs its own evidence references")
     errors.extend(nutrient_assessment_errors(review, evidence_ids))
+    errors.extend(calibration_receipt_errors(review, evidence_ids))
     return errors
 
 def main():
@@ -1219,7 +1338,107 @@ def main():
         fail("mutation: outcome evidence reused as independent review receipt was accepted")
     print("PASS mutation: independent review receipt must be distinct from outcome evidence")
 
-    print("PASS: 63 urban-metabolism/synergy controls (53 mutation/parser rejection controls and ten positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
+    calibration_model_run = {
+        "model_run_id": "synthetic-calibration-model-run",
+        "calibration_status": "validated",
+        "scenario_refs": ["baseline"],
+        "calibration_receipt_refs": ["synthetic-calibration-receipt"]
+    }
+    calibration_receipt = {
+        "calibration_id": "synthetic-calibration-receipt",
+        "model_run_ref": "synthetic-calibration-model-run",
+        "metric_id": "stormwater_runoff",
+        "unit": "m3",
+        "training_dataset_sha256": "a" * 64,
+        "evaluation_dataset_sha256": "b" * 64,
+        "training_evidence_refs": [ordered_evidence_ids_for_causal_controls[0]],
+        "evaluation_evidence_refs": [ordered_evidence_ids_for_causal_controls[1]],
+        "evaluation_design": "out_of_time",
+        "evaluation_window_start": "2025-01-01",
+        "evaluation_window_end": "2025-12-31",
+        "independent_unit_definition": "One independently scored storm-event outcome per site-event unit.",
+        "sample_count": 1000,
+        "independent_unit_count": 1000,
+        "minimum_sample_count": 100,
+        "minimum_independent_unit_count": 100,
+        "nominal_coverage_bp": 9500,
+        "tolerance_bp": 500,
+        "covered_count": 944,
+        "reported_coverage_bp": (944 * 20000 + 1000) // (2 * 1000),
+        "coverage_confidence_bp": 9500,
+        "coverage_lower_bp": 0,
+        "coverage_upper_bp": 10000,
+        "interval_method": "wilson_independent_units",
+        "calibration_result": "pass",
+        "recalibration_trigger": "Recalibrate when monitored held-out coverage exits the registered tolerance band.",
+        "limitations": ["Synthetic receipt for validator controls; not evidence that any city model is calibrated."]
+    }
+    calibration_receipt["coverage_lower_bp"], calibration_receipt["coverage_upper_bp"] = wilson_interval_bp(
+        calibration_receipt["covered_count"], calibration_receipt["sample_count"],
+        calibration_receipt["coverage_confidence_bp"]
+    )
+    calibration_review = {
+        "record_status": "assessment",
+        "model_runs": [calibration_model_run],
+        "scenarios": [{"scenario_id": "baseline", "flow_records": []}],
+        "calibration_receipts": [calibration_receipt]
+    }
+    calibration_schema = {
+        "$schema": schema["$schema"],
+        "$defs": schema["$defs"],
+        "$ref": "#/$defs/calibrationReceipt"
+    }
+    calibration_validator = Draft202012Validator(calibration_schema, format_checker=FormatChecker())
+    calibration_schema_errors = list(calibration_validator.iter_errors(calibration_receipt))
+    if calibration_schema_errors:
+        fail("positive control: well-formed calibration receipt rejected by schema: " + describe(calibration_schema_errors))
+    if calibration_receipt_errors(calibration_review, evidence_ids):
+        fail("positive control: internally consistent held-out calibration receipt rejected: " + "; ".join(calibration_receipt_errors(calibration_review, evidence_ids)))
+    print("PASS control: calibration receipt recomputes interval coverage, Wilson uncertainty and predeclared tolerance")
+
+    reused_dataset = copy.deepcopy(calibration_review)
+    reused_dataset["calibration_receipts"][0]["evaluation_dataset_sha256"] = reused_dataset["calibration_receipts"][0]["training_dataset_sha256"]
+    if not any("training and evaluation dataset digests must differ" in e for e in calibration_receipt_errors(reused_dataset, evidence_ids)):
+        fail("mutation: calibration receipt reusing training dataset accepted")
+    print("PASS mutation: calibration evaluation dataset must be disjoint by digest from training")
+
+    false_reported_coverage = copy.deepcopy(calibration_review)
+    false_reported_coverage["calibration_receipts"][0]["reported_coverage_bp"] = 9500
+    if not any("reported_coverage_bp does not match covered_count/sample_count" in e for e in calibration_receipt_errors(false_reported_coverage, evidence_ids)):
+        fail("mutation: false reported empirical coverage accepted")
+    print("PASS mutation: reported empirical coverage must recompute exactly from integer counts")
+
+    false_wilson_interval = copy.deepcopy(calibration_review)
+    false_wilson_interval["calibration_receipts"][0]["coverage_lower_bp"] += 1
+    if not any("Wilson coverage interval does not match counts and confidence level" in e for e in calibration_receipt_errors(false_wilson_interval, evidence_ids)):
+        fail("mutation: falsified calibration uncertainty interval accepted")
+    print("PASS mutation: calibration uncertainty interval must recompute from counts and confidence level")
+
+    underpowered_pass = copy.deepcopy(calibration_review)
+    underpowered_receipt = underpowered_pass["calibration_receipts"][0]
+    underpowered_receipt["sample_count"] = 50
+    underpowered_receipt["independent_unit_count"] = 50
+    underpowered_receipt["covered_count"] = 47
+    underpowered_receipt["reported_coverage_bp"] = (47 * 20000 + 50) // (2 * 50)
+    underpowered_receipt["coverage_lower_bp"], underpowered_receipt["coverage_upper_bp"] = wilson_interval_bp(47, 50, 9500)
+    underpowered_receipt["calibration_result"] = "pass"
+    if not any("calibration_result must be 'inconclusive'" in e for e in calibration_receipt_errors(underpowered_pass, evidence_ids)):
+        fail("mutation: underpowered calibration declared passed")
+    print("PASS mutation: sample below the preregistered minimum cannot be called calibrated")
+
+    unresolved_calibration_run = copy.deepcopy(calibration_review)
+    unresolved_calibration_run["calibration_receipts"][0]["model_run_ref"] = "missing-model-run"
+    if not any("unresolved calibration model_run_ref" in e for e in calibration_receipt_errors(unresolved_calibration_run, evidence_ids)):
+        fail("mutation: calibration receipt with unresolved model run accepted")
+    print("PASS mutation: calibration receipt must resolve its model-run identity")
+
+    unresolved_calibration_evidence = copy.deepcopy(calibration_review)
+    unresolved_calibration_evidence["calibration_receipts"][0]["evaluation_evidence_refs"] = ["missing-evaluation-evidence"]
+    if not any("unresolved evaluation evidence reference" in e for e in calibration_receipt_errors(unresolved_calibration_evidence, evidence_ids)):
+        fail("mutation: calibration receipt with unresolved evaluation evidence accepted")
+    print("PASS mutation: calibration evaluation dataset needs resolvable evidence references")
+
+        print("PASS: 70 urban-metabolism/synergy controls (59 mutation/parser rejection controls and eleven positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
 
 
 if __name__ == "__main__":
