@@ -411,26 +411,48 @@ impl MonitoringEngine {
     /// timestamp gap is reported as unknown and is not scored.
     pub fn observe(&mut self, frame: &SensorFrame) -> ObservationReport {
         if frame.profile != self.baseline.process_profile {
-            return self.report(frame, ObservationDisposition::ProcessProfileMismatch, vec![], vec![]);
+            return self.report(
+                frame,
+                ObservationDisposition::ProcessProfileMismatch,
+                vec![],
+                vec![],
+            );
         }
         if frame.session_id != self.session_id {
             return self.report(frame, ObservationDisposition::SessionMismatch, vec![], vec![]);
         }
         if let Err(reason) = validate_frame(frame) {
-            return self.report(frame, ObservationDisposition::InvalidObservation(reason), vec![], vec![]);
+            return self.report(
+                frame,
+                ObservationDisposition::InvalidObservation(reason),
+                vec![],
+                vec![],
+            );
         }
 
         if let Some((last_sequence, last_timestamp_ms)) = self.last_position {
             if frame.sequence <= last_sequence {
-                return self.report(frame, ObservationDisposition::NonMonotonicSequence, vec![], vec![]);
+                return self.report(
+                    frame,
+                    ObservationDisposition::NonMonotonicSequence,
+                    vec![],
+                    vec![],
+                );
             }
             if frame.timestamp_ms <= last_timestamp_ms {
-                return self.report(frame, ObservationDisposition::NonMonotonicTimestamp, vec![], vec![]);
+                return self.report(
+                    frame,
+                    ObservationDisposition::NonMonotonicTimestamp,
+                    vec![],
+                    vec![],
+                );
             }
 
             let missing_sequences = frame.sequence.saturating_sub(last_sequence).saturating_sub(1);
             let elapsed_ms = frame.timestamp_ms - last_timestamp_ms;
-            if missing_sequences > 0 || elapsed_ms > self.baseline.detector_config.maximum_sample_gap_ms {
+            if missing_sequences > 0
+                || elapsed_ms > self.baseline.detector_config.maximum_sample_gap_ms
+            {
                 self.last_position = Some((frame.sequence, frame.timestamp_ms));
                 return self.report(
                     frame,
@@ -567,7 +589,9 @@ fn median(values: &mut [f64]) -> f64 {
 const fn deviation_kind(signal: Signal) -> DeviationKind {
     match signal {
         Signal::HotendTemperature | Signal::BedTemperature => DeviationKind::TemperatureDeviation,
-        Signal::XCurrent | Signal::YCurrent | Signal::ZCurrent => DeviationKind::MotorCurrentDeviation,
+        Signal::XCurrent | Signal::YCurrent | Signal::ZCurrent => {
+            DeviationKind::MotorCurrentDeviation
+        }
         Signal::ExtruderCurrent => DeviationKind::ExtrusionCurrentDeviation,
         Signal::VibrationRms => DeviationKind::VibrationDeviation,
         Signal::FilamentTension => DeviationKind::FilamentTensionDeviation,
@@ -671,12 +695,17 @@ mod tests {
         let mut engine = engine("live");
         let mut sample = frame("live", 1, 100);
         sample.vibration_rms_g = 0.8;
-        assert!(engine.observe(&sample).deviations.iter().any(|d| d.signal == Signal::VibrationRms));
+        assert!(engine
+            .observe(&sample)
+            .deviations
+            .iter()
+            .any(|d| d.signal == Signal::VibrationRms));
     }
 
     #[test]
     fn baseline_requires_minimum_reference_count() {
-        let error = ReferenceBaseline::fit(profile(), config(), &healthy_frames()[..4]).unwrap_err();
+        let error =
+            ReferenceBaseline::fit(profile(), config(), &healthy_frames()[..4]).unwrap_err();
         assert_eq!(error, BaselineError::InsufficientSamples { found: 4, required: 5 });
     }
 
@@ -688,7 +717,9 @@ mod tests {
         let report = engine.observe(&sample);
         assert_eq!(
             report.disposition,
-            ObservationDisposition::InvalidObservation(InputError::NonFinite(Signal::HotendTemperature))
+            ObservationDisposition::InvalidObservation(InputError::NonFinite(
+                Signal::HotendTemperature
+            ))
         );
         assert!(report.deviations.is_empty());
     }
@@ -698,14 +729,23 @@ mod tests {
         let mut engine = engine("live");
         let mut sample = frame("live", 1, 100);
         sample.profile.recipe_revision = "recipe:changed".into();
-        assert_eq!(engine.observe(&sample).disposition, ObservationDisposition::ProcessProfileMismatch);
+        assert_eq!(
+            engine.observe(&sample).disposition,
+            ObservationDisposition::ProcessProfileMismatch
+        );
     }
 
     #[test]
     fn duplicate_or_reordered_sequence_is_rejected() {
         let mut engine = engine("live");
-        assert_eq!(engine.observe(&frame("live", 10, 1_000)).disposition, ObservationDisposition::Evaluated);
-        assert_eq!(engine.observe(&frame("live", 9, 1_100)).disposition, ObservationDisposition::NonMonotonicSequence);
+        assert_eq!(
+            engine.observe(&frame("live", 10, 1_000)).disposition,
+            ObservationDisposition::Evaluated
+        );
+        assert_eq!(
+            engine.observe(&frame("live", 9, 1_100)).disposition,
+            ObservationDisposition::NonMonotonicSequence
+        );
     }
 
     #[test]
@@ -713,8 +753,17 @@ mod tests {
         let mut engine = engine("live");
         engine.observe(&frame("live", 1, 100));
         let gap = engine.observe(&frame("live", 3, 300));
-        assert_eq!(gap.disposition, ObservationDisposition::DataGap { missing_sequences: 1, elapsed_ms: 200 });
-        assert_eq!(engine.observe(&frame("live", 4, 400)).disposition, ObservationDisposition::Evaluated);
+        assert_eq!(
+            gap.disposition,
+            ObservationDisposition::DataGap {
+                missing_sequences: 1,
+                elapsed_ms: 200
+            }
+        );
+        assert_eq!(
+            engine.observe(&frame("live", 4, 400)).disposition,
+            ObservationDisposition::Evaluated
+        );
     }
 
     #[test]
