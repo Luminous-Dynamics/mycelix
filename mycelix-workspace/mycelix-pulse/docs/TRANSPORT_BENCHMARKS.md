@@ -3,6 +3,7 @@
 - **Status:** Proposed targets; not measured performance claims
 - **Applies to:** Pulse transport-neutral contracts, Mycelix relay coordination, future Symthaea route advice
 - **Parent RFC:** [Multi-Transport Communications and Standards Registry RFC](MULTI_TRANSPORT_INTEROPERABILITY_RFC.md)
+- **Next-generation routing agenda:** [From Path Selection to Delivery Economics](ROUTING_RESEARCH_AGENDA.md)
 - **Rule:** Local deterministic work proceeds independently of hosted CI queue state. A queued, cancelled, missing, or wrong-head workflow is never a pass.
 
 ## 1. Paradigm shift: measure useful delivery, not radio count
@@ -172,3 +173,19 @@ A release/qualification process can later run the extended corpus and real hardw
 - External certification may be claimed only with verifiable certification evidence.
 
 A green CI badge is not a substitute for these distinctions. A queued runner is not a pass.
+
+
+## 9. Next-generation qualification: paired evidence, bounded optimization
+
+The research agenda in [ROUTING_RESEARCH_AGENDA.md](ROUTING_RESEARCH_AGENDA.md) proposes the next step beyond protocol-count metrics: optimize verified recipient receipt before deadline over *independent failure domains*, under hard policy constraints and explicit energy, cost, privacy, storage, and fairness budgets.
+
+Before changing the simulator or routing objective, agree on these reporting rules:
+
+- Run baseline and candidate on the same scenario, logical-message sequence, policy, seed, and failure-domain schedule; publish paired absolute and relative deltas.
+- Use at least 30 predeclared seeds and 10,000 messages per scenario for model-level qualification, with holdout scenarios/seeds not used to tune the candidate. Keep the current short fixed-seed run as a smoke test, not a qualification result.
+- Calculate uncertainty at independent trace-window/failure-epoch level where outcomes are correlated. Counting each correlated message as an independent sample yields overconfident intervals.
+- Publish per-scenario metrics, a macro-average, and a workload-weighted aggregate only when weights were predeclared. Retain all negative controls and failed outcomes.
+- Require the 20% relative improvement target and a paired 95% interval excluding zero before calling the resilience target met; also report absolute percentage-point improvement and stable-network non-regression. All remain proposed gates until actually measured.
+- A safety, authorization, privacy, or false-delivery violation is a hard failure regardless of mean latency or delivery rate.
+
+The existing Rust simulator does not yet implement this full qualification protocol. In particular, a single fixed-seed synthetic path-success count is not a confidence interval, is not a verified recipient receipt, and does not establish RF or hardware performance. The next coding tranche is paired multi-seed evaluation plus a documented held-out split and manifest-bound reports.
