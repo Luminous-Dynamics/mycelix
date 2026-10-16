@@ -498,47 +498,88 @@ mod tests {
             );
         }
     }
-    fn enumerate_grouped_source_bounds(
-        groups: &[(i64, i64, i128)],
-        index: usize,
-        current: i128,
+    /// Exhaustively assigns one value per declared latent dependency, then evaluates
+    /// the original contributions one-by-one. Unlike the production evaluator, this
+    /// test oracle does not coalesce sensitivities or use a dependency-keyed map.
+    /// Callers intentionally use tiny finite domains so enumeration is tractable.
+    fn enumerate_dependency_assignments(
+        terms: &[SourceContribution],
+        dependencies: &[(String, i64, i64)],
+        dependency_index: usize,
+        assigned_values: &mut Vec<i64>,
         extrema: &mut Option<(i128, i128)>,
     ) {
-        if index == groups.len() {
+        if dependency_index == dependencies.len() {
+            let mut total = 0_i128;
+            for term in terms {
+                let value_index = dependencies
+                    .iter()
+                    .position(|(dependency_id, _, _)| dependency_id == &term.dependency_id)
+                    .expect("every contribution must name one enumerated dependency");
+                let contribution = i128::from(term.coefficient)
+                    .checked_mul(i128::from(assigned_values[value_index]))
+                    .expect("small finite oracle product must fit in i128");
+                total = total
+                    .checked_add(contribution)
+                    .expect("small finite oracle sum must fit in i128");
+            }
             match extrema {
                 Some((lower, upper)) => {
-                    *lower = (*lower).min(current);
-                    *upper = (*upper).max(current);
+                    *lower = (*lower).min(total);
+                    *upper = (*upper).max(total);
                 }
-                None => *extrema = Some((current, current)),
+                None => *extrema = Some((total, total)),
             }
             return;
         }
 
-        let (lower, upper, coefficient) = groups[index];
-        for value in lower..=upper {
-            enumerate_grouped_source_bounds(
-                groups,
-                index + 1,
-                current + coefficient * i128::from(value),
+        let (_, lower, upper) = &dependencies[dependency_index];
+        for value in *lower..=*upper {
+            assigned_values.push(value);
+            enumerate_dependency_assignments(
+                terms,
+                dependencies,
+                dependency_index + 1,
+                assigned_values,
                 extrema,
             );
+            assigned_values.pop();
         }
     }
 
-    fn grouped_source_oracle(terms: &[SourceContribution]) -> (i128, i128) {
-        let mut sources: BTreeMap<String, (i64, i64, i128)> = BTreeMap::new();
+    fn exhaustive_dependency_assignment_oracle(
+        terms: &[SourceContribution],
+    ) -> (i128, i128) {
+        let mut dependencies: Vec<(String, i64, i64)> = Vec::new();
         for term in terms {
-            let entry = sources.entry(term.dependency_id.clone()).or_insert((
-                term.lower_mm, term.upper_mm, 0
-            ));
-            assert_eq!((entry.0, entry.1), (term.lower_mm, term.upper_mm));
-            entry.2 += i128::from(term.coefficient);
+            if let Some((_, lower, upper)) = dependencies
+                .iter()
+                .find(|(dependency_id, _, _)| dependency_id == &term.dependency_id)
+            {
+                assert_eq!(
+                    (*lower, *upper),
+                    (term.lower_mm, term.upper_mm),
+                    "one dependency cannot have conflicting finite domains"
+                );
+            } else {
+                dependencies.push((
+                    term.dependency_id.clone(),
+                    term.lower_mm,
+                    term.upper_mm,
+                ));
+            }
         }
-        let groups: Vec<_> = sources.into_values().collect();
+
+        assert!(!dependencies.is_empty(), "oracle input must not be empty");
         let mut extrema = None;
-        enumerate_grouped_source_bounds(&groups, 0, 0, &mut extrema);
-        extrema.expect("at least one distinct source assignment")
+        enumerate_dependency_assignments(
+            terms,
+            &dependencies,
+            0,
+            &mut Vec::with_capacity(dependencies.len()),
+            &mut extrema,
+        );
+        extrema.expect("each finite dependency has at least one assigned value")
     }
 
     #[test]
@@ -558,7 +599,7 @@ mod tests {
 
             let model = AffineUncertainty::new(terms.clone())
                 .unwrap_or_else(|error| panic!("shared case {case_index} rejected: {error:?}"));
-            let expected = grouped_source_oracle(&terms);
+            let expected = exhaustive_dependency_assignment_oracle(&terms);
             let actual = model.bounds_at(0).unwrap_or_else(|error| {
                 panic!("shared case {case_index} failed to bound: {error:?}")
             });
@@ -579,6 +620,36 @@ mod tests {
     }
 
     #[test]
+    fn independent_list_oracle_detects_shared_dependency_under_approximation() {
+        let terms = vec![
+            contribution_with_dependency("sensor-east", "shared-datum", -2, 2, 1),
+            contribution_with_dependency("sensor-west", "shared-datum", -2, 2, -1),
+            contribution_with_dependency("navigation", "independent-noise", -1, 3, 2),
+        ];
+        let model = AffineUncertainty::new(terms.clone()).unwrap();
+        let exact = exhaustive_dependency_assignment_oracle(&terms);
+        let actual = model.bounds_at(0).unwrap();
+        assert_eq!(
+            (i128::from(actual.lower_mm), i128::from(actual.upper_mm)),
+            exact,
+            "the evaluator must agree with a structurally different point-assignment oracle"
+        );
+        assert_eq!(exact, (-2, 6));
+
+        // A narrowed producer report is a fail-closed disagreement, not a weaker pass.
+        let mutated = IntervalBounds {
+            lower_mm: actual.lower_mm + 1,
+            upper_mm: actual.upper_mm - 1,
+        };
+        let oracle_detects_mutant =
+            i128::from(mutated.lower_mm) > exact.0 || i128::from(mutated.upper_mm) < exact.1;
+        assert!(
+            oracle_detects_mutant,
+            "the independent oracle accepted an under-approximated output"
+        );
+    }
+
+    #[test]
     fn independent_point_oracle_rejects_deliberately_under_approximated_bounds() {
         let terms = vec![
             contribution("shared-x", -2, 2, 1),
@@ -586,7 +657,7 @@ mod tests {
             contribution("independent-y", -1, 3, 2),
         ];
         let model = AffineUncertainty::new(terms.clone()).unwrap();
-        let (exact_lower, exact_upper) = grouped_source_oracle(&terms);
+        let (exact_lower, exact_upper) = exhaustive_dependency_assignment_oracle(&terms);
         let sound = model.bounds_at(0).unwrap();
         assert!(i128::from(sound.lower_mm) <= exact_lower);
         assert!(i128::from(sound.upper_mm) >= exact_upper);
@@ -850,7 +921,7 @@ mod tests {
 
         assert_eq!(composed.bounds_at(0).unwrap(), IntervalBounds { lower_mm: 0, upper_mm: 0 });
         assert_eq!(composed.terms.len(), 2, "retain both source origins for audit");
-        assert_eq!(grouped_source_oracle(&terms), (0, 0));
+        assert_eq!(exhaustive_dependency_assignment_oracle(&terms), (0, 0));
     }
 
     #[test]
