@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+/// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
+pub mod fulfillment_tranches;
+
 //! A small, deterministic reference model for one need-to-fulfilment lifecycle.
 //!
 //! This crate is intentionally NOT a Holochain zome, production ledger, payment
