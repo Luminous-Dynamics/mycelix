@@ -361,6 +361,120 @@ fn error_code(error: LineageError) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
+
+    const ADAPTER_SCHEMA_V1: &str = "airspace-typed-lineage-adapter-v1";
+    const ADAPTER_AUTHORITY_CEILING: &str =
+        "offline_synthetic_research_only_no_operational_aviation_authority";
+
+    // A required wrapper around Option: serialized null is valid, but omitting
+    // the field is not. This prevents "missing" from being silently normalized
+    // to "explicitly absent" at this adapter boundary.
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(transparent)]
+    struct ExplicitOption<T>(Option<T>);
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct AdapterTermV1 {
+        origin_ref: String,
+        dependency_key: String,
+        input_quantity: String,
+        input_unit: String,
+        input_frame: String,
+        validity_clock: String,
+        valid_start_s: i64,
+        valid_end_s: i64,
+        input_low: i64,
+        input_high: i64,
+        output_sensitivity_x1000: i64,
+        sensitivity_mapping: String,
+        transform_ref: ExplicitOption<String>,
+        transform_from_frame: ExplicitOption<String>,
+        transform_to_frame: ExplicitOption<String>,
+        sensitivity_model_ref: ExplicitOption<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct AdapterEnvelopeV1 {
+        schema: String,
+        fixture_ref: String,
+        evaluation_time_s: i64,
+        authority_ceiling: String,
+        terms: Vec<AdapterTermV1>,
+    }
+
+    impl From<&TypedErrorTerm> for AdapterTermV1 {
+        fn from(term: &TypedErrorTerm) -> Self {
+            Self {
+                origin_ref: term.source_id.clone(),
+                dependency_key: term.dependency_id.clone(),
+                input_quantity: term.quantity_kind.clone(),
+                input_unit: term.unit.clone(),
+                input_frame: term.reference_frame.clone(),
+                validity_clock: term.validity_time_basis.clone(),
+                valid_start_s: term.valid_from_s,
+                valid_end_s: term.valid_until_s,
+                input_low: term.lower_value,
+                input_high: term.upper_value,
+                output_sensitivity_x1000: term.sensitivity_scaled,
+                sensitivity_mapping: term.sensitivity_basis.clone(),
+                transform_ref: ExplicitOption(term.transform_id.clone()),
+                transform_from_frame: ExplicitOption(term.transform_source_frame.clone()),
+                transform_to_frame: ExplicitOption(term.transform_target_frame.clone()),
+                sensitivity_model_ref: ExplicitOption(term.sensitivity_model_id.clone()),
+            }
+        }
+    }
+
+    impl From<AdapterTermV1> for TypedErrorTerm {
+        fn from(term: AdapterTermV1) -> Self {
+            Self {
+                source_id: term.origin_ref,
+                dependency_id: term.dependency_key,
+                quantity_kind: term.input_quantity,
+                unit: term.input_unit,
+                reference_frame: term.input_frame,
+                validity_time_basis: term.validity_clock,
+                valid_from_s: term.valid_start_s,
+                valid_until_s: term.valid_end_s,
+                lower_value: term.input_low,
+                upper_value: term.input_high,
+                sensitivity_scaled: term.output_sensitivity_x1000,
+                sensitivity_basis: term.sensitivity_mapping,
+                transform_id: term.transform_ref.0,
+                transform_source_frame: term.transform_from_frame.0,
+                transform_target_frame: term.transform_to_frame.0,
+                sensitivity_model_id: term.sensitivity_model_ref.0,
+            }
+        }
+    }
+
+    impl AdapterEnvelopeV1 {
+        fn from_terms(fixture_ref: &str, evaluation_time_s: i64, terms: &[TypedErrorTerm]) -> Self {
+            Self {
+                schema: ADAPTER_SCHEMA_V1.to_owned(),
+                fixture_ref: fixture_ref.to_owned(),
+                evaluation_time_s,
+                authority_ceiling: ADAPTER_AUTHORITY_CEILING.to_owned(),
+                terms: terms.iter().map(AdapterTermV1::from).collect(),
+            }
+        }
+
+        fn into_core_terms(self) -> Result<Vec<TypedErrorTerm>, &'static str> {
+            if self.schema != ADAPTER_SCHEMA_V1 {
+                return Err("unsupported_adapter_schema");
+            }
+            if self.fixture_ref.trim().is_empty() {
+                return Err("missing_fixture_identity");
+            }
+            if self.authority_ceiling != ADAPTER_AUTHORITY_CEILING {
+                return Err("authority_ceiling_mismatch");
+            }
+            Ok(self.terms.into_iter().map(TypedErrorTerm::from).collect())
+        }
+    }
 
     #[test]
     fn typed_lineage_fixture_matches_units_conversions_and_negative_controls() {
@@ -793,6 +907,132 @@ mod tests {
             !bounds_enclose(narrowed_mutant, widened),
             "the metamorphic containment control failed to detect a narrowed-output mutant"
         );
+    }
+
+
+    #[test]
+    fn versioned_adapter_round_trip_preserves_fixtures_and_500_generated_domains() {
+        let fixture: FixtureSet = serde_json::from_str(include_str!(
+            "../fixtures/typed_uncertainty_lineage.json"
+        )).expect("typed lineage fixture must parse");
+        for case in &fixture.cases {
+            let expected = TypedLineageModel::new(case.terms.clone())
+                .and_then(|model| model.bounds_at(case.evaluation_time_s));
+            let adapter = AdapterEnvelopeV1::from_terms(
+                &case.id, case.evaluation_time_s, &case.terms
+            );
+            let encoded = serde_json::to_vec(&adapter)
+                .expect("adapter contract must serialize deterministically");
+            let decoded: AdapterEnvelopeV1 = serde_json::from_slice(&encoded)
+                .expect("versioned adapter contract must deserialize strictly");
+            assert_eq!(adapter, decoded, "adapter envelope drift for {}", case.id);
+            assert_eq!(decoded.evaluation_time_s, case.evaluation_time_s);
+            let reconstructed = decoded.into_core_terms()
+                .expect("known v1 envelope must satisfy its adapter contract");
+            assert_eq!(case.terms, reconstructed, "typed metadata changed on adapter round-trip for {}", case.id);
+            let actual = TypedLineageModel::new(reconstructed)
+                .and_then(|model| model.bounds_at(case.evaluation_time_s));
+            assert_eq!(expected, actual, "outcome changed on adapter round-trip for {}", case.id);
+        }
+
+        // Repeat the round-trip on generated inputs to exercise different term
+        // counts, dependency sharing, signs, dimensions and sensitivity values.
+        let mut seed = 0xA026_2026_1016_5EED_u64;
+        for case_index in 0..500 {
+            let dependency_count = (next_oracle_seed(&mut seed) % 3 + 1) as usize;
+            let mut terms = Vec::new();
+            for dependency_index in 0..dependency_count {
+                let kind = if next_oracle_seed(&mut seed) % 2 == 0 {
+                    "position_error"
+                } else {
+                    "clock_offset_error"
+                };
+                let lower = -((next_oracle_seed(&mut seed) % 3) as i64);
+                let upper = (next_oracle_seed(&mut seed) % 3) as i64;
+                let contribution_count = (next_oracle_seed(&mut seed) % 3 + 1) as usize;
+                for contribution_index in 0..contribution_count {
+                    let sensitivity = (next_oracle_seed(&mut seed) % 5_001) as i64 - 2_500;
+                    terms.push(generated_lineage_term(
+                        format!("adapter-{case_index}-source-{dependency_index}-{contribution_index}"),
+                        format!("adapter-{case_index}-dependency-{dependency_index}"),
+                        kind,
+                        lower,
+                        upper,
+                        sensitivity,
+                    ));
+                }
+            }
+
+            let original = TypedLineageModel::new(terms.clone())
+                .unwrap_or_else(|error| panic!("adapter source case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("adapter source case {case_index} failed: {error:?}"));
+            let adapter = AdapterEnvelopeV1::from_terms(
+                &format!("generated-adapter-{case_index}"), 10, &terms
+            );
+            let bytes = serde_json::to_vec(&adapter)
+                .unwrap_or_else(|error| panic!("adapter case {case_index} did not serialize: {error}"));
+            let decoded: AdapterEnvelopeV1 = serde_json::from_slice(&bytes)
+                .unwrap_or_else(|error| panic!("adapter case {case_index} did not deserialize: {error}"));
+            let round_trip_terms = decoded.into_core_terms()
+                .unwrap_or_else(|error| panic!("adapter case {case_index} failed envelope checks: {error}"));
+            assert_eq!(terms, round_trip_terms,
+                "contract metadata changed for generated adapter case {case_index}");
+            let replayed = TypedLineageModel::new(round_trip_terms)
+                .unwrap_or_else(|error| panic!("adapter replay case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("adapter replay case {case_index} failed: {error:?}"));
+            assert_eq!(original, replayed,
+                "typed bounds changed through adapter for generated case {case_index}");
+        }
+    }
+
+    #[test]
+    fn versioned_adapter_rejects_omissions_and_detects_metadata_mutation() {
+        let fixture: FixtureSet = serde_json::from_str(include_str!(
+            "../fixtures/typed_uncertainty_lineage.json"
+        )).expect("typed lineage fixture must parse");
+        let case = &fixture.cases[0];
+        let adapter = AdapterEnvelopeV1::from_terms(&case.id, case.evaluation_time_s, &case.terms);
+        let original_bounds = TypedLineageModel::new(case.terms.clone())
+            .unwrap().bounds_at(case.evaluation_time_s).unwrap();
+
+        let mut missing_dependency: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        missing_dependency["terms"][0].as_object_mut().unwrap().remove("dependency_key");
+        assert!(
+            serde_json::from_value::<AdapterEnvelopeV1>(missing_dependency).is_err(),
+            "a missing dependency identity must not deserialize"
+        );
+
+        let mut missing_optional: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        missing_optional["terms"][0].as_object_mut().unwrap().remove("transform_to_frame");
+        assert!(
+            serde_json::from_value::<AdapterEnvelopeV1>(missing_optional).is_err(),
+            "an omitted nullable transform field must be distinguished from explicit null"
+        );
+
+        let mut unknown: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        unknown.as_object_mut().unwrap().insert("dependecy_contract_typo".to_owned(), serde_json::json!(true));
+        assert!(
+            serde_json::from_value::<AdapterEnvelopeV1>(unknown).is_err(),
+            "unknown adapter envelope fields must fail closed"
+        );
+
+        let mut mutated: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        mutated["terms"][0]["dependency_key"] = serde_json::json!("silently-relabelled-dependency");
+        let decoded: AdapterEnvelopeV1 = serde_json::from_value(mutated)
+            .expect("well-typed but changed identity is syntactically valid");
+        let changed_terms = decoded.into_core_terms().unwrap();
+        assert_ne!(case.terms, changed_terms,
+            "the contract comparison must notice a changed dependency identity");
+        let changed_bounds = TypedLineageModel::new(changed_terms)
+            .unwrap().bounds_at(case.evaluation_time_s).unwrap();
+        assert_eq!(original_bounds, changed_bounds,
+            "negative control should show why numeric bounds alone do not prove metadata preservation");
     }
 
 }
