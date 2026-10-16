@@ -12,6 +12,7 @@ invariants. Timings exclude fixture expansion and catalog loading.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 from importlib.metadata import version
@@ -68,25 +69,85 @@ def expand_synthetic_record(module, target_flow_count: int):
         raise ValueError(
             f"target flow count {target_flow_count} is below fixture baseline {current_count}"
         )
-    template = next(
+    # Cycle across all source fixture flow shapes, not just a single simple metric.
+    # This gives the schema and semantic validator a more representative synthetic workload.
+    templates = [
         flow for scenario in scenarios for flow in scenario["flow_records"]
-        if flow["metric_id"] == "precipitation_input"
-    )
+    ]
     remaining = target_flow_count - current_count
     quotient, remainder = divmod(remaining, len(scenarios))
     generated = 0
     for scenario_index, scenario in enumerate(scenarios):
         amount = quotient + (1 if scenario_index < remainder else 0)
         for local_index in range(amount):
-            flow = dict(template)
+            flow = copy.deepcopy(templates[generated % len(templates)])
             flow["flow_id"] = f"bench-{scenario['scenario_id']}-{generated:07d}"
             flow["rationale"] = (
-                "Seeded synthetic scale-benchmark flow; deliberately not bound "
-                "to a balance, not an observation, and not a city outcome."
+                "Deterministic synthetic scale-benchmark flow; deliberately not "
+                "bound to a balance, not an observation, and not a city outcome."
             )
-            flow.pop("uncertainty", None)
             scenario["flow_records"].append(flow)
             generated += 1
+
+    # Exercise cohort and causal metadata on every timed schema/semantic pass.
+    # These are synthetic declarations only; they are not findings about a city.
+    scenario_ids = {scenario["scenario_id"] for scenario in scenarios}
+    if {"baseline", "bioswale-and-canopy"}.issubset(scenario_ids):
+        record["distributional_impacts"] = [{
+            "impact_id": "synthetic-benchmark-cohort-delta",
+            "scenario_id": "bioswale-and-canopy",
+            "baseline_scenario_ref": "baseline",
+            "affected_group_ref": "synthetic-benchmark-cohort",
+            "metric_id": "accessible_person_hours",
+            "assessment_status": "quantified",
+            "baseline_value": 100,
+            "scenario_value": 112,
+            "reported_delta": 12,
+            "unit": "person_hour",
+            "direction": "higher_is_better",
+            "uncertainty": {
+                "lower_bound": 8,
+                "upper_bound": 16,
+                "method": "Synthetic benchmark interval; not an observed effect or confidence interval."
+            },
+            "evidence_refs": [],
+            "limitations": ["Synthetic benchmark metadata only; no real cohort outcome is asserted."],
+            "constraint_status": "not_evaluated",
+            "constraint_ref": None
+        }]
+        record["distributional_coverage"] = {
+            "coverage_schema_version": "living-city-distributional-coverage/0.1",
+            "coverage_status": "not_assessed",
+            "population_frame": "Synthetic benchmark cohort only; no real population frame is defined.",
+            "group_identification_method": "Fixed synthetic identifier; no real group identification was performed.",
+            "included_group_refs": ["synthetic-benchmark-cohort"],
+            "known_omissions": ["All real-world cohorts and population coverage are omitted."],
+            "omission_review_method": "No real population omission review was conducted for this benchmark.",
+            "intersectional_review_status": "not_performed",
+            "intersectional_dimensions_considered": [],
+            "evidence_refs": [],
+            "limitations": ["Synthetic coverage metadata only; not proof of completeness."]
+        }
+        if record.get("interactions"):
+            record["causal_evaluations"] = [{
+                "evaluation_id": "synthetic-benchmark-descriptive-interaction",
+                "interaction_ref": record["interactions"][0]["interaction_id"],
+                "claim_level": "descriptive_interaction",
+                "design_type": "not_applicable",
+                "unit_of_analysis": "Synthetic scenario comparison only",
+                "treatment_assignment": "Synthetic fixture values; no real assignment occurred.",
+                "counterfactual_strategy": "Four synthetic values test arithmetic only.",
+                "confounder_strategy": "Not applicable to a synthetic benchmark fixture.",
+                "interference_assumptions": "No real units exist; spillovers are not assessed.",
+                "predeclared_outcomes": ["synthetic interaction arithmetic"],
+                "falsification_checks": [],
+                "evidence_refs": [],
+                "review_status": "not_assessed",
+                "review_ref": None,
+                "reviewer_role": "not_applicable",
+                "design_rationale": "Benchmark only that interaction arithmetic remains descriptive.",
+                "limitations": ["Synthetic fixture only; it cannot establish a causal effect."]
+            }]
     observed = sum(len(s["flow_records"]) for s in scenarios)
     if observed != target_flow_count:
         raise AssertionError(f"generated {observed} flows; expected {target_flow_count}")
@@ -125,9 +186,17 @@ def run_one_size(target_flows: int, warmups: int):
     semantic_check()
     semantic_ms = (time.perf_counter() - started) * 1000.0
 
+    all_flows = [flow for scenario in record["scenarios"] for flow in scenario["flow_records"]]
     return {
         "requested_flows": target_flows,
         "observed_flows": observed_flows,
+        "distinct_metric_count": len({flow["metric_id"] for flow in all_flows}),
+        "flows_with_uncertainty_count": sum("uncertainty" in flow for flow in all_flows),
+        "distributional_impact_count": len(record.get("distributional_impacts", [])),
+        "distributional_coverage_count": int("distributional_coverage" in record),
+        "causal_evaluation_count": len(record.get("causal_evaluations", [])),
+        "referenced_evidence_count": sum(len(flow.get("evidence_refs", [])) for flow in all_flows),
+        "conservation_check_count": sum(len(scenario["conservation_checks"]) for scenario in record["scenarios"]),
         "preparation_ms_excluded_from_validation": round(preparation_ms, 3),
         "schema_validation_ms": round(schema_ms, 3),
         "semantic_validation_ms": round(semantic_ms, 3),

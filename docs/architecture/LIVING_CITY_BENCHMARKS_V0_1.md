@@ -51,3 +51,6 @@ The harness validates only synthetic records and never emits predictions about J
 ## CI benchmark evidence retention
 
 The schema workflow writes the 1,000-flow smoke measurement to a JSON report, publishes the measured values and report digest in the Actions job summary, and uploads the report as a 30-day workflow artifact. The report is keyed to the pull-request head SHA, so timings should not be attributed to a different commit. A successful smoke step proves that the harness ran and emitted a report; it does not establish the 10k/100k performance targets or scientific calibration.
+
+
+The scale fixture cycles through all existing synthetic flow shapes rather than multiplying one simple metric, and adds a synthetic cohort-impact/coverage record plus a descriptive-only causal-evaluation record. Each result reports the number of distinct metrics, flows with uncertainty, cohort impact/coverage records, causal-evaluation records, evidence references and conservation checks. It still makes no real city or cohort claim. Evidence references on synthetic flow rows intentionally remain empty; the benchmark is not a test of high-volume evidence-catalogue joins.
