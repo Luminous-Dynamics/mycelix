@@ -9,7 +9,8 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    delivery_state::AttemptOutcome, UnixMillis, VerifiedRecipientReceipt,
+    delivery_state::AttemptOutcome, ReceiptVerificationError,
+    TrustedRecipientReceiptVerifier, UnixMillis, VerifiedRecipientReceipt,
 };
 
 const MAX_MESSAGE_ID_BYTES: usize = 128;
@@ -75,6 +76,57 @@ pub enum JournalActor {
     Worker { epoch: u64 },
 }
 
+/// Authenticated receipt material plus a verifier-issued capability. A
+/// persistent backend should store the encoded receipt and verifier version,
+/// then rerun verification on replay instead of serializing a success flag.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedReceiptEvidence {
+    encoded_receipt: Vec<u8>,
+    verifier_version: String,
+    receipt: VerifiedRecipientReceipt,
+}
+
+impl VerifiedReceiptEvidence {
+    pub fn verify<V: TrustedRecipientReceiptVerifier>(
+        verifier: &V,
+        encoded_receipt: &[u8],
+        expected_logical_message_id: &str,
+        expected_recipient_id: &str,
+        verifier_version: impl Into<String>,
+    ) -> Result<Self, ReceiptVerificationError> {
+        let verifier_version = verifier_version.into();
+        if verifier_version.trim().is_empty()
+            || verifier_version.len() > 64
+            || verifier_version.chars().any(char::is_control)
+        {
+            return Err(ReceiptVerificationError::InvalidContext);
+        }
+        let evidence = VerifiedReceiptEvidence::verify(
+            verifier,
+            encoded_receipt,
+            expected_logical_message_id,
+            expected_recipient_id,
+        )?;
+        Ok(Self {
+            encoded_receipt: encoded_receipt.to_vec(),
+            verifier_version,
+            receipt,
+        })
+    }
+
+    pub fn encoded_receipt(&self) -> &[u8] {
+        &self.encoded_receipt
+    }
+
+    pub fn verifier_version(&self) -> &str {
+        &self.verifier_version
+    }
+
+    fn matches(&self, logical_message_id: &str, recipient_id: &str) -> bool {
+        self.receipt.matches(logical_message_id, recipient_id)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum JournalEventKind {
     /// First event for a logical message. Must precede every other event.
@@ -111,7 +163,7 @@ pub enum JournalEventKind {
     /// Persistent implementations must save the signed receipt material and
     /// re-verify it on replay; this in-memory capability is not a disk format.
     RecipientReceiptVerified {
-        receipt: VerifiedRecipientReceipt,
+        evidence: VerifiedReceiptEvidence,
     },
 }
 
@@ -434,6 +486,11 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
     if snapshot.status == DurableDeliveryStatus::Expired {
         return Err(JournalError::MessageExpired);
     }
+    if event.occurred_at >= snapshot.expires_at
+        && !matches!(&event.kind, JournalEventKind::Expired)
+    {
+        return Err(JournalError::MessageExpired);
+    }
     if snapshot.status == DurableDeliveryStatus::Revoked
         || snapshot.status == DurableDeliveryStatus::Failed
     {
@@ -627,14 +684,14 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
             snapshot.status = DurableDeliveryStatus::Expired;
             Ok(())
         }
-        JournalEventKind::RecipientReceiptVerified { receipt } => {
+        JournalEventKind::RecipientReceiptVerified { evidence } => {
             if event.actor != JournalActor::System {
                 return Err(JournalError::InvalidTransition);
             }
             if event.occurred_at >= snapshot.expires_at {
                 return Err(JournalError::MessageExpired);
             }
-            if !receipt.matches(
+            if !evidence.matches(
                 snapshot.identity.logical_message_id(),
                 snapshot.identity.recipient_id(),
             ) {
@@ -855,11 +912,12 @@ mod tests {
         let mut journal = InMemoryDeliveryJournal::default();
         let identity = queued(&mut journal);
         let verifier = TestVerifier;
-        let receipt = VerifiedRecipientReceipt::verify(
+        let evidence = VerifiedReceiptEvidence::verify(
             &verifier,
             b"receipt-ok",
             "message-1",
             "recipient-1",
+            "pulse-test-v1",
         ).unwrap();
 
         journal.append(1, event(
@@ -867,7 +925,7 @@ mod tests {
             identity.clone(),
             2,
             JournalActor::System,
-            JournalEventKind::RecipientReceiptVerified { receipt },
+            JournalEventKind::RecipientReceiptVerified { evidence },
         )).unwrap();
         assert_eq!(
             journal.snapshot(&identity).unwrap().status(),
@@ -941,11 +999,12 @@ mod tests {
             JournalEventKind::Expired,
         )).unwrap();
 
-        let receipt = VerifiedRecipientReceipt::verify(
+        let evidence = VerifiedReceiptEvidence::verify(
             &TestVerifier,
             b"receipt-ok",
             "message-1",
             "recipient-1",
+            "pulse-test-v1",
         ).unwrap();
         assert_eq!(
             journal.append(2, event(
@@ -953,7 +1012,7 @@ mod tests {
                 identity.clone(),
                 10_001,
                 JournalActor::System,
-                JournalEventKind::RecipientReceiptVerified { receipt },
+                JournalEventKind::RecipientReceiptVerified { evidence },
             )),
             Err(JournalError::MessageExpired)
         );
