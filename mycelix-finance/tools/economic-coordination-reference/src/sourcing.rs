@@ -327,6 +327,125 @@ fn evaluate_offer(
     })
 }
 
+/// Prefix-min Fenwick tree over compressed arrival-time coordinates.
+/// Each node retains the lowest risk value observed in its prefix. Combined
+/// with the cost/arrival/risk sweep below, this answers whether any already-seen
+/// offer dominates the current objective point in O(log n).
+struct PrefixMinFenwick {
+    tree: Vec<Option<u16>>,
+}
+
+impl PrefixMinFenwick {
+    fn new(coordinate_count: usize) -> Self {
+        Self {
+            tree: vec![None; coordinate_count + 1],
+        }
+    }
+
+    fn update(&mut self, coordinate_index: usize, value: u16) {
+        let mut index = coordinate_index + 1;
+        while index < self.tree.len() {
+            self.tree[index] = Some(match self.tree[index] {
+                Some(previous) => previous.min(value),
+                None => value,
+            });
+            index += index & (!index + 1);
+        }
+    }
+
+    fn query_prefix_min(&self, coordinate_index: usize) -> Option<u16> {
+        let mut index = coordinate_index + 1;
+        let mut minimum = None;
+        while index > 0 {
+            minimum = Some(match (minimum, self.tree[index]) {
+                (Some(previous), Some(value)) => previous.min(value),
+                (Some(previous), None) => previous,
+                (None, Some(value)) => value,
+                (None, None) => continue,
+            });
+            index &= index - 1;
+        }
+        minimum
+    }
+}
+
+/// Classifies a minimization frontier in O(n log n) after sorting.
+///
+/// Sweep order is landed cost, arrival, then risk, all ascending. For the
+/// current objective point, the Fenwick prefix minimum answers whether any
+/// previously processed point has arrival <= the current arrival and risk <=
+/// the current risk. Such a point also has cost <= current cost due to sweep
+/// order. Exact objective duplicates are processed as a group before updating
+/// the tree, so duplicate suppliers with identical objectives do not dominate
+/// one another arbitrarily.
+fn classify_frontier(
+    mut eligible: Vec<EvaluatedOffer>,
+) -> (Vec<EvaluatedOffer>, Vec<EvaluatedOffer>) {
+    if eligible.len() < 2 {
+        return (eligible, Vec::new());
+    }
+
+    let mut arrival_coordinates: Vec<u64> =
+        eligible.iter().map(|offer| offer.arrival_at).collect();
+    arrival_coordinates.sort_unstable();
+    arrival_coordinates.dedup();
+
+    eligible.sort_by(|left, right| {
+        left.landed_cost_minor
+            .cmp(&right.landed_cost_minor)
+            .then_with(|| left.arrival_at.cmp(&right.arrival_at))
+            .then_with(|| left.risk_bps.cmp(&right.risk_bps))
+            .then_with(|| left.offer_id.cmp(&right.offer_id))
+    });
+
+    let mut index_by_arrival = Vec::with_capacity(eligible.len());
+    for offer in &eligible {
+        // The value was collected from this same eligible set.
+        let index = arrival_coordinates
+            .binary_search(&offer.arrival_at)
+            .expect("every eligible arrival has a compressed coordinate");
+        index_by_arrival.push(index);
+    }
+
+    let mut tree = PrefixMinFenwick::new(arrival_coordinates.len());
+    let mut frontier = Vec::new();
+    let mut dominated = Vec::new();
+    let mut start = 0;
+
+    while start < eligible.len() {
+        let first = &eligible[start];
+        let mut end = start + 1;
+        while end < eligible.len()
+            && eligible[end].landed_cost_minor == first.landed_cost_minor
+            && eligible[end].arrival_at == first.arrival_at
+            && eligible[end].risk_bps == first.risk_bps
+        {
+            end += 1;
+        }
+
+        let arrival_index = index_by_arrival[start];
+        let is_dominated = tree
+            .query_prefix_min(arrival_index)
+            .is_some_and(|minimum_risk| minimum_risk <= first.risk_bps);
+
+        if is_dominated {
+            dominated.extend(eligible[start..end].iter().cloned());
+        } else {
+            frontier.extend(eligible[start..end].iter().cloned());
+        }
+
+        // Insert the whole exact-objective group only after classification.
+        for index in start..end {
+            tree.update(index_by_arrival[index], eligible[index].risk_bps);
+        }
+        start = end;
+    }
+
+    frontier.sort_by(|left, right| left.offer_id.cmp(&right.offer_id));
+    dominated.sort_by(|left, right| left.offer_id.cmp(&right.offer_id));
+    (frontier, dominated)
+}
+
 fn dominates(left: &EvaluatedOffer, right: &EvaluatedOffer) -> bool {
     let no_worse = left.landed_cost_minor <= right.landed_cost_minor
         && left.arrival_at <= right.arrival_at
@@ -385,26 +504,13 @@ pub fn evaluate_sourcing(
         }
     }
 
-    eligible.sort_by(|left, right| left.offer_id.cmp(&right.offer_id));
     rejected.sort_by(|left, right| left.offer_id.cmp(&right.offer_id));
 
-    let mut pareto_frontier = Vec::new();
-    let mut dominated_offers = Vec::new();
-    for (index, candidate) in eligible.iter().enumerate() {
-        let is_dominated = eligible
-            .iter()
-            .enumerate()
-            .any(|(other_index, other)| other_index != index && dominates(other, candidate));
-        if is_dominated {
-            dominated_offers.push(candidate.clone());
-        } else {
-            pareto_frontier.push(candidate.clone());
-        }
-    }
+    let (pareto_frontier, dominated) = classify_frontier(eligible);
 
     Ok(SourcingReport {
         pareto_frontier,
-        dominated: dominated_offers,
+        dominated,
         rejected,
     })
 }
