@@ -3,7 +3,11 @@ use mycelix_pulse_standards_registry_check::{
     simulation::simulate_corpus,
 };
 use serde_json::Value;
-use std::{env, fs, path::PathBuf, process::ExitCode};
+use std::{
+    env, fs,
+    path::PathBuf,
+    process::{Command, ExitCode},
+};
 
 fn main() -> ExitCode {
     let mut trace_path = PathBuf::from("benchmarks/traces.v1.json");
@@ -15,6 +19,7 @@ fn main() -> ExitCode {
     let mut correlation_sweep = false;
     let mut subject_sha = None::<String>;
     let mut input_manifest_sha256 = None::<String>;
+    let mut input_manifest_path = None::<PathBuf>;
     let mut seed_count_explicit = false;
 
     let mut args = env::args().skip(1);
@@ -92,6 +97,13 @@ fn main() -> ExitCode {
                 };
                 input_manifest_sha256 = Some(value);
             }
+            "--input-manifest" => {
+                let Some(value) = args.next() else {
+                    eprintln!("error: --input-manifest requires a manifest path");
+                    return ExitCode::from(2);
+                };
+                input_manifest_path = Some(PathBuf::from(value));
+            }
             "--help" | "-h" => {
                 println!("Usage: route-sim [--traces PATH] [--messages COUNT] [--seed N]");
                 println!("       route-sim --evaluate [--correlation-sweep] [--traces PATH] [--messages COUNT]");
@@ -100,7 +112,10 @@ fn main() -> ExitCode {
                     "[--seed-count COUNT] [--candidate STRATEGY]"
                 ));
                 println!("                 [--correlation-sweep]");
-                println!("                 --subject-sha SHA --input-manifest-sha256 SHA256");
+                println!(concat!(
+                    "                 --subject-sha SHA --input-manifest PATH ",
+                    "--input-manifest-sha256 SHA256"
+                ));
                 println!();
                 println!(concat!(
                     "Strategies: preferred_single_path, ",
@@ -131,11 +146,12 @@ fn main() -> ExitCode {
         && (seed_count_explicit
             || correlation_sweep
             || subject_sha.is_some()
-            || input_manifest_sha256.is_some())
+            || input_manifest_sha256.is_some()
+            || input_manifest_path.is_some())
     {
         eprintln!(concat!(
             "error: --seed-count, --correlation-sweep, --subject-sha and ",
-            "--input-manifest-sha256 require --evaluate"
+            "--input-manifest, --input-manifest-sha256 require --evaluate"
         ));
         return ExitCode::from(2);
     }
@@ -164,6 +180,10 @@ fn main() -> ExitCode {
             eprintln!("error: --evaluate requires --input-manifest-sha256");
             return ExitCode::from(2);
         };
+        let Some(input_manifest_path) = input_manifest_path else {
+            eprintln!("error: --evaluate requires --input-manifest PATH");
+            return ExitCode::from(2);
+        };
         if !valid_subject_sha(&subject_sha) {
             eprintln!("error: --subject-sha must be a 40- or 64-character hexadecimal commit SHA");
             return ExitCode::from(2);
@@ -175,6 +195,19 @@ fn main() -> ExitCode {
             ));
             return ExitCode::from(2);
         }
+
+        let (verified_subject_sha, verified_manifest_sha256) =
+            match verify_evidence_binding(
+                &subject_sha,
+                &input_manifest_path,
+                &input_manifest_sha256,
+            ) {
+                Ok(binding) => binding,
+                Err(error) => {
+                    eprintln!("INVALID evidence binding: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
 
         let first_seed = seed.or_else(|| corpus.get("seed").and_then(Value::as_u64)).unwrap_or(0);
         let evaluation = if correlation_sweep {
@@ -204,9 +237,11 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        report["subject_sha"] = Value::String(subject_sha);
-        report["input_manifest_sha256"] = Value::String(input_manifest_sha256);
-        report["evidence_manifest_bound"] = Value::Bool(true);
+        report["subject_sha"] = Value::String(verified_subject_sha);
+        report["input_manifest_path"] =
+            Value::String(input_manifest_path.display().to_string());
+        report["input_manifest_sha256"] = Value::String(verified_manifest_sha256);
+        report["evidence_manifest_verified_by_cli"] = Value::Bool(true);
         println!("{}", serde_json::to_string_pretty(&report).expect("report serializes"));
         return ExitCode::SUCCESS;
     }
@@ -223,6 +258,61 @@ fn main() -> ExitCode {
     };
     println!("{}", serde_json::to_string_pretty(&report).expect("report serializes"));
     ExitCode::SUCCESS
+}
+
+fn verify_evidence_binding(
+    requested_subject_sha: &str,
+    manifest_path: &PathBuf,
+    requested_manifest_sha256: &str,
+) -> Result<(String, String), String> {
+    let head = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map_err(|error| format!("cannot execute git rev-parse HEAD: {error}"))?;
+    if !head.status.success() {
+        return Err("git rev-parse HEAD failed; run evidence mode inside a Git checkout".to_owned());
+    }
+    let actual_subject = String::from_utf8_lossy(&head.stdout).trim().to_owned();
+    if !actual_subject.eq_ignore_ascii_case(requested_subject_sha) {
+        return Err(format!(
+            "supplied subject SHA does not match checked-out HEAD (actual {actual_subject})"
+        ));
+    }
+
+    let check = Command::new("sha256sum")
+        .arg("--check")
+        .arg("--strict")
+        .arg(manifest_path)
+        .output()
+        .map_err(|error| format!("cannot execute sha256sum --check: {error}"))?;
+    if !check.status.success() {
+        let stdout = String::from_utf8_lossy(&check.stdout);
+        let stderr = String::from_utf8_lossy(&check.stderr);
+        return Err(format!(
+            "input manifest did not verify all listed inputs: {}{}",
+            stdout, stderr
+        ));
+    }
+
+    let digest_output = Command::new("sha256sum")
+        .arg(manifest_path)
+        .output()
+        .map_err(|error| format!("cannot execute sha256sum on input manifest: {error}"))?;
+    if !digest_output.status.success() {
+        return Err("sha256sum could not digest the input manifest".to_owned());
+    }
+    let digest_line = String::from_utf8_lossy(&digest_output.stdout);
+    let actual_digest = digest_line
+        .split_whitespace()
+        .next()
+        .ok_or_else(|| "sha256sum returned an empty manifest digest".to_owned())?
+        .to_owned();
+    if !actual_digest.eq_ignore_ascii_case(requested_manifest_sha256) {
+        return Err(format!(
+            "supplied manifest digest does not match the manifest file (actual {actual_digest})"
+        ));
+    }
+    Ok((actual_subject, actual_digest))
 }
 
 fn valid_subject_sha(value: &str) -> bool {
