@@ -5,11 +5,13 @@ Qualification tooling only; not cryptographic, identity, authority, source-truth
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import rfc8785
 from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +49,22 @@ def make_validator(path: Path) -> Draft202012Validator:
 def _parse_utc(value: str) -> datetime:
     return datetime.fromisoformat(value[:-1] + "+00:00")
 
+def contract_content_digest(record: dict[str, Any]) -> str:
+    """Recompute the contract commitment using RFC 8785 JCS, omitting its digest field."""
+    payload = dict(record)
+    payload.pop("contract_digest_sha256", None)
+    return hashlib.sha256(rfc8785.dumps(payload)).hexdigest()
+
+
+def event_content_digest(event: dict[str, Any]) -> str:
+    """Recompute the event commitment, omitting its digest and separate attestation envelope."""
+    payload = dict(event)
+    payload.pop("event_digest_sha256", None)
+    payload.pop("attestation", None)
+    return hashlib.sha256(rfc8785.dumps(payload)).hexdigest()
+
+
+
 
 def validate_contract_record(record: dict[str, Any], validator: Draft202012Validator) -> list[str]:
     errors = [
@@ -55,6 +73,8 @@ def validate_contract_record(record: dict[str, Any], validator: Draft202012Valid
     ]
     if errors:
         return sorted(errors)
+    if contract_content_digest(record).lower() != record["contract_digest_sha256"].lower():
+        errors.append("semantic:contract_digest_sha256 does not match RFC 8785 canonical bytes")
     created = _parse_utc(record["created_at"])
     event_deadline = _parse_utc(record["event_deadline_at"])
     resolution_deadline = _parse_utc(record["resolution_policy"]["resolution_deadline_at"])
@@ -75,6 +95,8 @@ def validate_resolution_event_record(
     if errors:
         return sorted(errors)
 
+    if event_content_digest(event).lower() != event["event_digest_sha256"].lower():
+        errors.append("semantic:event_digest_sha256 does not match RFC 8785 canonical bytes")
     if event["contract_id"] != contract["contract_id"]:
         errors.append("semantic:contract_id mismatch")
     if event["contract_revision"] != contract["revision"]:
@@ -113,8 +135,8 @@ def main() -> int:
             return 1
         print(f"PASS {label}")
     print("PASS both schemas satisfy Draft 2020-12 meta-schema")
-    print("PASS cross-record contract, digest-envelope, and timestamp relations")
-    print("CLAIM CEILING: signatures, digest-to-bytes correctness, identity, authority, source truth, and settlement are not verified")
+    print("PASS RFC 8785/SHA-256 content commitments and cross-record digest-envelope/timestamp relations")
+    print("CLAIM CEILING: source-artifact bytes, signatures, identity, authority, source truth, and settlement are not verified")
     return 0
 
 

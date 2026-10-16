@@ -23,5 +23,5 @@
   },
   "jurisdiction_policy_id": "synthetic-only-not-eligible-for-trading",
   "canonicalization_profile": "RFC8785-JCS-SHA256-omit-contract_digest_sha256-v1",
-  "contract_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  "contract_digest_sha256": "f1c69733145a4316d317a4b3ad293652bed325541bfbc28eb41e44ba73777fb1"
 }

@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from validate_prediction_market_evidence_v1 import (  # noqa: E402
     CONTRACT_INVALID_PATH, CONTRACT_SCHEMA_PATH, CONTRACT_VALID_PATH,
     EVENT_INVALID_PATH, EVENT_SCHEMA_PATH, EVENT_VALID_PATH, DuplicateJsonKey,
-    load_json, make_validator, validate_contract_record, validate_resolution_event_record,
+    contract_content_digest, event_content_digest, load_json, make_validator,
+    validate_contract_record, validate_resolution_event_record,
 )
 
 CONTRACT = load_json(CONTRACT_VALID_PATH)
@@ -56,6 +57,36 @@ class PredictionMarketEvidenceTests(unittest.TestCase):
         event["final_truth"] = True
         self.assertTrue(validate_contract_record(contract, CV))
         self.assertTrue(validate_resolution_event_record(event, CONTRACT, EV))
+
+    def test_contract_digest_matches_canonical_jcs_bytes(self):
+        self.assertEqual(contract_content_digest(CONTRACT), CONTRACT["contract_digest_sha256"])
+
+    def test_contract_change_without_digest_update_is_rejected(self):
+        candidate = copy.deepcopy(CONTRACT)
+        candidate["event_statement"] += " altered"
+        self.assertTrue(validate_contract_record(candidate, CV))
+
+    def test_contract_change_with_recomputed_digest_is_admitted(self):
+        candidate = copy.deepcopy(CONTRACT)
+        candidate["event_statement"] += " revised under a synthetic new revision"
+        candidate["revision"] = 2
+        candidate["supersedes_contract_digest_sha256"] = CONTRACT["contract_digest_sha256"]
+        candidate["contract_digest_sha256"] = contract_content_digest(candidate)
+        self.assertEqual(validate_contract_record(candidate, CV), [])
+
+    def test_event_digest_matches_canonical_jcs_bytes(self):
+        self.assertEqual(event_content_digest(EVENT), EVENT["event_digest_sha256"])
+
+    def test_event_change_without_digest_update_is_rejected(self):
+        candidate = copy.deepcopy(EVENT)
+        candidate["rationale"] += " altered after digest commitment"
+        self.assertTrue(validate_resolution_event_record(candidate, CONTRACT, EV))
+
+    def test_event_digest_recomputation_does_not_hide_old_attestation(self):
+        candidate = copy.deepcopy(EVENT)
+        candidate["rationale"] += " changed"
+        candidate["event_digest_sha256"] = event_content_digest(candidate)
+        self.assertTrue(validate_resolution_event_record(candidate, CONTRACT, EV))
 
     def test_revision_two_requires_predecessor_contract_digest(self):
         candidate = copy.deepcopy(CONTRACT)

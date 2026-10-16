@@ -43,7 +43,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install pinned JSON Schema validator
-        run: python -m pip install --disable-pip-version-check "jsonschema==4.26.0"
+        run: python -m pip install --disable-pip-version-check "jsonschema==4.26.0" "rfc8785==0.1.4"
 
       - name: Assert exact head
         env:

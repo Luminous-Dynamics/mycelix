@@ -3,7 +3,7 @@
   "event_id": "pm-resolution-event-example-1",
   "contract_id": "pm-contract-example-2030-event-x",
   "contract_revision": 1,
-  "contract_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "contract_digest_sha256": "f1c69733145a4316d317a4b3ad293652bed325541bfbc28eb41e44ba73777fb1",
   "event_index": 1,
   "event_kind": "resolution_proposed",
   "recorded_at": "2030-01-02T12:00:00Z",
@@ -26,13 +26,14 @@
       "provenance_family_id": "example-source-family-x"
     }
   ],
-  "event_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "event_digest_sha256": "9c2da8a316bcc62e08fafeb39523c44e599284d8bbe29efd8cd65085c5dd2149",
   "attestation": {
     "signer_principal_ref": "did:example:resolver-1",
     "credential_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "signature_suite_id": "example-signature-v1",
-    "signed_event_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "signed_event_digest_sha256": "9c2da8a316bcc62e08fafeb39523c44e599284d8bbe29efd8cd65085c5dd2149",
     "signature_base64": "c2lnbmF0dXJlLWZpeHR1cmU="
   },
-  "predecessor_event_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  "predecessor_event_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "canonicalization_profile": "RFC8785-JCS-SHA256-omit-event_digest_sha256-and-attestation-v1"
 }

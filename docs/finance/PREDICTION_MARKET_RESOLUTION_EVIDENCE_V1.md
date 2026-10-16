@@ -48,13 +48,14 @@ A content digest verifies byte identity only when the bytes are separately obtai
 
 An independent conformance checker must fail closed unless all applicable requirements hold:
 
-1. Compute RFC 8785 JSON Canonicalization Scheme bytes for the contract with `contract_digest_sha256` omitted, then recompute SHA-256 and compare exact lowercase/uppercase-normalized hex. The hash does not include external signatures/receipts.
-2. Verify each source artifact digest against retained/captured bytes, not just its declaration. Capture time and source revision are preserved; newer publications are successor evidence, not retroactive deletion of older publications.
-3. Check semantic time ordering (event cutoff, source publication, source capture, resolution deadline, challenge window) under one declared UTC/time policy. JSON Schema's `format` is structural, not a cross-field temporal proof.
-4. Verify issuer, signer credential, signature scheme and signature cryptographically; bind the signature to the canonical event digest.
-5. Verify `authority_policy_id` and `authorization_evidence_ref` against the exact contract's allowed resolver/adjudicator roles and jurisdiction profile. Policy IDs and refs are not self-authenticating.
-6. Check event indices are contiguous, predecessor digests match the preceding verified record, one contract digest is used consistently, and no fork/duplicate terminal finalization exists.
-7. Distinguish proposal, challenge, decision, finalization and void states. A schema-valid proposal is not final truth. A decision without verified authority cannot finalize a market.
+1. Compute RFC 8785 JSON Canonicalization Scheme bytes for the contract with `contract_digest_sha256` omitted, then recompute SHA-256 and compare the declared digest.
+2. Compute the resolution-event digest from RFC 8785 canonical bytes with `event_digest_sha256` and the separate `attestation` envelope omitted. The attestation must name that recomputed digest. This avoids circularly hashing a signature which itself signs the digest.
+3. Verify each source artifact digest against retained/captured bytes, not just its declaration. Capture time and source revision are preserved; newer publications are successor evidence, not retroactive deletion of older publications.
+4. Check semantic time ordering (event cutoff, source publication, source capture, resolution deadline, challenge window) under one declared UTC/time policy. JSON Schema's `format` is structural, not a cross-field temporal proof.
+5. Verify issuer, signer credential, signature scheme and signature cryptographically; bind the signature to the recomputed canonical event digest.
+6. Verify `authority_policy_id` and `authorization_evidence_ref` against the exact contract's allowed resolver/adjudicator roles and jurisdiction profile. Policy IDs and refs are not self-authenticating.
+7. Check event indices are contiguous, predecessor digests match the preceding verified record, one contract digest is used consistently, and no fork/duplicate terminal finalization exists.
+8. Distinguish proposal, challenge, decision, finalization and void states. A schema-valid proposal is not final truth. A decision without verified authority cannot finalize a market.
 
 ## Symthaea integration
 
@@ -81,7 +82,7 @@ Mycelix may provide issuer identity references, policy-bound attestations, appen
 - v1 intentionally limits the outcome space to a fully specified binary event. Categorical, interval, conditional, composite and scalar outcomes need separately versioned schemas and scoring semantics.
 - Unknown data remains unknown; it is not coerced to `false`, zero, non-violation, or finalized.
 - Unsupported or ambiguous contracts should not enter a qualified market book until the contract or jurisdiction profile has a declared interpretation.
-- The JSON schemas are normative structure only. Do not claim implementation, signature verification, venue interoperability, fairness, anti-manipulation effectiveness or compliance from their existence alone.
+- JSON Schema defines the structural contract. The focused reference validator additionally recomputes the RFC 8785/SHA-256 contract and event commitments. It still does not verify signatures, source-artifact bytes, signer credentials, authority, venue interoperability, fairness, anti-manipulation effectiveness or compliance.
 
 ## Benchmark gates
 
