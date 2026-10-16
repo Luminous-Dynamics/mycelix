@@ -19,6 +19,9 @@ pub mod fulfillment_claim_identity;
 /// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
 pub mod fulfillment_tranches;
 
+/// Capability-first, evidence-gated sourcing comparison; no purchasing authority.
+pub mod sourcing;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
