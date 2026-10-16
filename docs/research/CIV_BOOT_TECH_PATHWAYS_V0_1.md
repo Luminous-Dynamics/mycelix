@@ -137,10 +137,14 @@ A computer that does this **can produce more computers under a bounded profile**
 | C3 — Board production | Assemble/rework a board from a purchased bare PCB and stocked ICs/passives, then electrically test it | Local bare-PCB fabrication or semiconductor closure |
 | C4 — Computer-assisted clone | Host controls the qualified cell, programs and tests a second computer; the second computer independently boots its required software | A self-sustaining toolchain or chips made locally |
 | C5 — Second-generation reproduction | Remove the original host from the active workflow. The first copy runs the archived toolchain and cell workflow to build and qualify another copy | Independence from imported components and manufacturing equipment |
-| C6 — Dependency reduction | Demonstrate specific new local routes for a previously imported class, such as a bounded PCB, connector, enclosure, or test fixture | Any other closure dimension not tested |
-| C7 — Semiconductor localization | Separately qualified semiconductor process chain with materials, process equipment, metrology, packaging/test and maintenance closure | Not an early milestone; a different industrial program |
-
 C4/C5 must be demonstrated on real assemblies in the relevant test environment before they may be labeled physically demonstrated. Graph closure or simulation alone is insufficient.
+
+**Important: this is not one linear ladder past C5.** Local bare-PCB manufacture and semiconductor die manufacture are independent capability branches. Neither is required to claim C5 for a computer assembled from purchased boards and imported chips, and neither may be inferred from C5 success.
+
+| Independent branch | Demonstrated capability | What it does not prove |
+|---|---|---|
+| PCB-local | A specific bare-PCB process is locally demonstrated, inspected and qualified for a bounded board profile | Multilayer/high-frequency PCB qualification or semiconductor die fabrication |
+| DIE-local | A separately qualified semiconductor process chain covers the declared die profile, including critical materials, equipment, process control, metrology, packaging/test and maintenance dependencies | Any broader fab-node capability or indefinite industrial independence beyond the evidenced profile |
 
 #### The “vitamin” ledger
 
@@ -193,7 +197,7 @@ Select the final hardware target only after auditing: design/BOM completeness, f
 11. **Independent replication:** a separate operator or node reproduces the declared C4/C5 outcome using the transfer packet and qualified inventory, with undocumented intervention explicitly counted as a failure or unresolved dependency.
 12. **No hidden closure:** the report explicitly separates local mechanical fabrication, local board assembly, local bare-PCB manufacture, local IC packaging/test, and local semiconductor-die fabrication.
 
-Initial target: **C4, followed by C5**, for one modest, repairable controller or computer profile. That is an ambitious but testable definition of “a computer that can make more computers.” C7 should remain a distinct long-range program.
+Initial target: **C4, followed by C5**, for one modest, repairable controller or computer profile. That is an ambitious but testable definition of “a computer that can make more computers.” Semiconductor die localization remains a separate long-range program, not the next rung in the computer-reproduction ladder.
 
 ## 4. Starting profiles to compare
 
