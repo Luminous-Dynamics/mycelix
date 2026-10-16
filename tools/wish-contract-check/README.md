@@ -16,6 +16,8 @@ cargo run --manifest-path tools/wish-contract-check/Cargo.toml
 - Date/time formats are checked rather than treated as annotations.
 - Every file in the versioned fixture manifest has the declared expected disposition.
 - JSON input with duplicate object keys is rejected before schema validation or digest computation.
+- Snapshot digests are checked before assigning semantic rejection classes, so a bad digest cannot be hidden by a separate semantic error.
+- Fixture file paths are checked lexically and canonicalized before reading, preventing symlinks from escaping the fixture root.
 - Required stable IDs in success criteria, constraints and resource needs are unique.
 - Revision 1 snapshots must have no predecessor; revision 2+ snapshots must name a predecessor, and the semantic checker rejects self-superseding snapshots.
 - `provenance.content_sha256` matches SHA-256 over RFC 8785 canonical JSON with only that digest field omitted.
