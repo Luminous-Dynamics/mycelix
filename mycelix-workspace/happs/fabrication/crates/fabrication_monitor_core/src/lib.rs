@@ -132,6 +132,8 @@ pub struct DetectorConfig {
     pub detector_id: String,
     /// Detector implementation/configuration version.
     pub detector_version: String,
+    /// Exact healthy-reference trace/corpus identifier, preferably a content digest.
+    pub reference_dataset_id: String,
     /// Robust-z threshold at which a deviation is reported.
     pub robust_z_threshold: f64,
     /// Unit-specific minimum scales, indexed by Signal::index().
@@ -150,6 +152,9 @@ impl DetectorConfig {
         }
         if self.detector_version.trim().is_empty() {
             return Err(ConfigError::EmptyDetectorVersion);
+        }
+        if self.reference_dataset_id.trim().is_empty() {
+            return Err(ConfigError::EmptyReferenceDatasetId);
         }
         if !self.robust_z_threshold.is_finite() || self.robust_z_threshold <= 0.0 {
             return Err(ConfigError::InvalidThreshold);
@@ -177,6 +182,8 @@ pub enum ConfigError {
     EmptyDetectorId,
     /// Detector version was empty.
     EmptyDetectorVersion,
+    /// Exact reference dataset identity was empty.
+    EmptyReferenceDatasetId,
     /// Robust-z threshold was non-finite or non-positive.
     InvalidThreshold,
     /// Required minimum baseline size was below three.
@@ -395,6 +402,8 @@ pub enum ObservationDisposition {
 /// Complete deterministic output for one observation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObservationReport {
+    /// Exact healthy-reference dataset or corpus identifier used by the baseline.
+    pub reference_dataset_id: String,
     /// Session identity to which this report belongs.
     pub session_id: String,
     /// Incoming observation sequence.
@@ -542,6 +551,7 @@ impl MonitoringEngine {
         uncalibrated_signals: Vec<Signal>,
     ) -> ObservationReport {
         ObservationReport {
+            reference_dataset_id: self.baseline.detector_config.reference_dataset_id.clone(),
             session_id: frame.session_id.clone(),
             sequence: frame.sequence,
             timestamp_ms: frame.timestamp_ms,
@@ -593,11 +603,7 @@ fn validate_frame(frame: &SensorFrame) -> Result<(), InputError> {
             }
             if value < 0.0 && matches!(
                 signal,
-                Signal::XCurrent | Signal::YCurrent | Signal::ZCurrent
-                    | Signal::ExtruderCurrent
-                    | Signal::VibrationRms
-                    | Signal::FilamentTension
-                    | Signal::Humidity
+                Signal::VibrationRms | Signal::FilamentTension | Signal::Humidity
             ) {
                 return Err(InputError::Negative(signal));
             }
@@ -667,6 +673,7 @@ mod tests {
         DetectorConfig {
             detector_id: "cincinnati.robust-reference".into(),
             detector_version: "1.0.0".into(),
+            reference_dataset_id: "sha256:synthetic-healthy-reference-v1".into(),
             robust_z_threshold: 3.5,
             minimum_scale_by_signal: [
                 0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0, 0.5, 2.0,
@@ -864,13 +871,13 @@ mod tests {
     }
 
     #[test]
-    fn negative_current_is_rejected() {
+    fn negative_vibration_rms_is_rejected() {
         let mut engine = engine("live");
         let mut sample = frame("live", 1, 100);
-        sample.stepper_current_ma[0] = -1.0;
+        sample.vibration_rms_g = -1.0;
         assert_eq!(
             engine.observe(&sample).disposition,
-            ObservationDisposition::InvalidObservation(InputError::Negative(Signal::XCurrent))
+            ObservationDisposition::InvalidObservation(InputError::Negative(Signal::VibrationRms))
         );
     }
 
