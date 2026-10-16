@@ -70,11 +70,15 @@ jobs:
               summary.write(f"- Environment label: {report['target_cpu_ram']}\n")
               summary.write(f"- Python / jsonschema: {report['python']} / {report['jsonschema']}\n")
               summary.write("- Synthetic fixture only; this is a smoke measurement, not a city result or full performance qualification.\n\n")
-              summary.write("| Flows | Schema ms | Semantic ms | Combined ms | Peak RSS MiB |\n|---:|---:|---:|---:|---:|\n")
+              summary.write("| Flows | Metrics | Flows with uncertainty | Cohort impacts | Coverage records | Causal records | Balances | Schema ms | Semantic ms | Combined ms | Peak RSS MiB |\\n")
+              summary.write("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\\n")
               for row in report["targets"]:
                   summary.write(
-                      f"| {row['flows']} | {row['schema_ms_median']} | {row['semantic_ms_median']} "
-                      f"| {row['combined_ms_median']} | {row['peak_rss_mib_max']} |\n"
+                      f"| {row['flows']} | {row['distinct_metric_count']} | {row['flows_with_uncertainty_count']} "
+                      f"| {row['distributional_impact_count']} | {row['distributional_coverage_count']} "
+                      f"| {row['causal_evaluation_count']} | {row['conservation_check_count']} "
+                      f"| {row['schema_ms_median']} | {row['semantic_ms_median']} "
+                      f"| {row['combined_ms_median']} | {row['peak_rss_mib_max']} |\\n"
                   )
               summary.write(f"\nReport SHA-256: `{report['report_sha256']}`\n")
           PY

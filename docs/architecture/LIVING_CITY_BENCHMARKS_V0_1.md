@@ -13,7 +13,7 @@ Status: **target specification, not measured results**. Benchmark output must id
 
 ## Proposed engineering performance targets
 
-Measure schema + semantic validation separately from the full mutation-control harness. Use seeded synthetic cases with 1,000, 10,000, and 100,000 flows; include linked balances, evidence references, interventions, and cohort impacts. On a pinned 4-vCPU/8-GiB reference runner, target p95 below 2 seconds at 1,000 flows, below 10 seconds at 10,000 flows, and below 60 seconds at 100,000 flows, with peak RSS below 1 GiB. Run each size at least five times after a recorded warm-up policy. Save raw durations and peak-RSS observations; report median/p95. These are goals awaiting a benchmark harness and baseline, not claims about current performance.
+Measure schema + semantic validation separately from the full mutation-control harness. Use deterministic generated synthetic cases with 1,000, 10,000, and 100,000 flows; include linked balances, evidence references, interventions, and cohort impacts. On a pinned 4-vCPU/8-GiB reference runner, target p95 below 2 seconds at 1,000 flows, below 10 seconds at 10,000 flows, and below 60 seconds at 100,000 flows, with peak RSS below 1 GiB. Run each size at least five times after a recorded warm-up policy. Save raw durations and peak-RSS observations; report median/p95. These are goals awaiting a benchmark harness and baseline, not claims about current performance.
 
 For payload boundary tests, preserve the current 16 MiB ceiling and exercise sizes immediately below, at, and above the limit. Hash and parse the same byte buffer. Continue rejecting duplicate keys, non-standard numeric constants, path traversal, absolute paths, symlink escape and envelope/payload disagreement.
 
@@ -54,3 +54,5 @@ The schema workflow writes the 1,000-flow smoke measurement to a JSON report, pu
 
 
 The scale fixture cycles through all existing synthetic flow shapes rather than multiplying one simple metric, and adds a synthetic cohort-impact/coverage record plus a descriptive-only causal-evaluation record. Each result reports the number of distinct metrics, flows with uncertainty, cohort impact/coverage records, causal-evaluation records, evidence references and conservation checks. It still makes no real city or cohort claim. Evidence references on synthetic flow rows intentionally remain empty; the benchmark is not a test of high-volume evidence-catalogue joins.
+
+The Actions job summary exposes workload-composition counts beside timing and memory: distinct metric types, flows with uncertainty, distributional impact/coverage records, causal-evaluation records, and conservation checks. This prevents a fast measurement from being misread without knowing which validator paths the fixture exercised.
