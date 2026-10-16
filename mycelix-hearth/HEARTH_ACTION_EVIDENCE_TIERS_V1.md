@@ -35,7 +35,7 @@ The first four statuses can be used now in feedback. The current client action p
 - **Preview only:** "Preview only: the action changed local demo state; nothing was synced."
 - **Not sent:** identify the missing requirement and say no request was sent.
 - **Outcome unknown:** ask the resident to check current state before retrying.
-- **Source-chain committed:** "Saved to your Holochain source chain. Sharing with other peers may still be in progress." Keep this compact; expose the technical explanation in detail UI/help.
+- **Source-chain committed:** "Saved. Sharing with other peers may still be in progress." Keep this compact; explain in detail UI/help that this reflects a returned source-chain commit, not proof of peer validation or universal availability.
 - **Peer validation receipts observed:** show the actual observed receipt count only if an authoritative API returns it. Explain that this is evidence from those peers, not universal synchronization.
 - **Current state observed:** name the read/source in details and say this confirms the current query view only.
 - **No observed propagation evidence:** say pending/unknown, not failed or synchronized.
