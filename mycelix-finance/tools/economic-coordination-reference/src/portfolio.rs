@@ -894,6 +894,74 @@ mod tests {
     }
 
     #[test]
+    fn two_supplier_frontier_matches_independent_exhaustive_oracle() {
+        let req = request();
+        let offers = vec![
+            offer("offer-a", "supplier-a", "pool-a", 6, 1, 110, "region-a"),
+            offer("offer-b", "supplier-b", "pool-b", 6, 2, 120, "region-b"),
+        ];
+        let scenarios = vec![
+            DisruptionScenario { scenario_id: "fail-a".into(), failed_domains: vec!["region-a".into()] },
+            DisruptionScenario { scenario_id: "fail-b".into(), failed_domains: vec!["region-b".into()] },
+        ];
+
+        // Independent brute-force oracle for this two-source fixture. It directly
+        // enumerates q_a + q_b = demand and computes the three objective values;
+        // it does not call the production enumerator or dominance helper.
+        let mut all_objectives: Vec<(u64, u64, u32)> = Vec::new();
+        for q_a in 0..=6u32 {
+            for q_b in 0..=6u32 {
+                if q_a + q_b != req.required_quantity {
+                    continue;
+                }
+                if q_a > 0 && q_a * 10_000 > req.required_quantity * u32::from(req.max_supplier_share_bps) {
+                    continue;
+                }
+                if q_b > 0 && q_b * 10_000 > req.required_quantity * u32::from(req.max_supplier_share_bps) {
+                    continue;
+                }
+                let cost = u64::from(q_a) + 2 * u64::from(q_b);
+                if cost > req.max_total_cost_minor {
+                    continue;
+                }
+                let latest = if q_a > 0 && q_b > 0 { 120 } else if q_a > 0 { 110 } else { 120 };
+                let worst_unavailable = q_a.max(q_b);
+                all_objectives.push((cost, latest, worst_unavailable));
+            }
+        }
+        let mut expected: Vec<(u64, u64, u32)> = all_objectives
+            .iter()
+            .copied()
+            .filter(|candidate| {
+                !all_objectives.iter().any(|other| {
+                    let no_worse = other.0 <= candidate.0
+                        && other.1 <= candidate.1
+                        && other.2 <= candidate.2;
+                    let strictly_better = other.0 < candidate.0
+                        || other.1 < candidate.1
+                        || other.2 < candidate.2;
+                    no_worse && strictly_better
+                })
+            })
+            .collect();
+        expected.sort();
+
+        let report = evaluate_portfolios(&req, &offers, &scenarios).unwrap();
+        let mut actual: Vec<(u64, u64, u32)> = report
+            .pareto_frontier
+            .iter()
+            .map(|portfolio| (
+                portfolio.total_cost_minor,
+                portfolio.latest_arrival_at,
+                portfolio.worst_case_unavailable_quantity,
+            ))
+            .collect();
+        actual.sort();
+        assert_eq!(actual, expected);
+        assert_eq!(expected, vec![(14, 120, 6), (15, 120, 5)]);
+    }
+
+    #[test]
     fn duplicate_offer_ids_fail_closed() {
         let request = request();
         let candidate = offer("duplicate", "supplier-a", "pool-a", 10, 1, 110, "region-a");
