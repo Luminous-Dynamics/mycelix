@@ -73,26 +73,6 @@ fn hearth_dna_path() -> PathBuf {
     path
 }
 
-async fn create_test_hearth(
-    conductor: &SweetConductor,
-    cell: &SweetCell,
-    name: &str,
-) -> ActionHash {
-    let record: Record = conductor
-        .call(
-            &cell.zome("hearth_kinship"),
-            "create_hearth",
-            CreateHearthInput {
-                name: name.to_string(),
-                description: "Publication evidence integration fixture".to_string(),
-                hearth_type: HearthType::Nuclear,
-                max_members: Some(10),
-            },
-        )
-        .await;
-    record.action_address().clone()
-}
-
 fn assert_summary_is_self_consistent(report: &ActionPublicationEvidence) {
     assert_eq!(report.operation_count as usize, report.operations.len());
     assert_eq!(
@@ -163,7 +143,19 @@ async fn publication_evidence_summarizes_an_action_on_its_authoring_conductor() 
         .unwrap()
         .into_tuple();
 
-    let action_hash = create_test_hearth(&conductor, &alice, "Publication Evidence Hearth").await;
+    let created_record: Record = conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Publication Evidence Hearth".to_string(),
+                description: "Publication evidence integration fixture".to_string(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(10),
+            },
+        )
+        .await;
+    let action_hash = created_record.action_address().clone();
     let report: ActionPublicationEvidence = conductor
         .call(
             &alice.zome("hearth_bridge"),
@@ -198,8 +190,19 @@ async fn publication_evidence_does_not_claim_receipts_for_another_conductor() {
         .unwrap()
         .into_tuple();
 
-    let remote_action_hash =
-        create_test_hearth(&author_conductor, &author, "Remote Author Hearth").await;
+    let remote_record: Record = author_conductor
+        .call(
+            &author.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Remote Author Hearth".to_string(),
+                description: "Publication evidence remote-author fixture".to_string(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(10),
+            },
+        )
+        .await;
+    let remote_action_hash = remote_record.action_address().clone();
     let report: ActionPublicationEvidence = observer_conductor
         .call(
             &observer.zome("hearth_bridge"),
