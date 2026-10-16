@@ -1,0 +1,38 @@
+{
+  "schema_version": "mycelix.prediction_market_resolution_event.v1",
+  "event_id": "pm-resolution-event-example-1",
+  "contract_id": "pm-contract-example-2030-event-x",
+  "contract_revision": 1,
+  "contract_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "event_index": 1,
+  "event_kind": "resolution_proposed",
+  "recorded_at": "2030-01-02T12:00:00Z",
+  "actor_principal_ref": "did:example:resolver-1",
+  "authority_policy_id": "synthetic-independent-review-v1",
+  "authorization_evidence_ref": "urn:example:authorization:resolver-1",
+  "outcome": "affirmative",
+  "rationale": "Synthetic fixture only; the cited source is not real evidence.",
+  "evidence_artifacts": [
+    {
+      "artifact_id": "source-artifact-x1",
+      "role": "primary_source",
+      "source_profile_id": "example-official-source-v1",
+      "source_uri": "https://example.invalid/source/event-x",
+      "content_digest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "media_type": "text/plain",
+      "published_at": "2030-01-02T10:00:00Z",
+      "retrieved_at": "2030-01-02T11:00:00Z",
+      "source_revision_ref": null,
+      "provenance_family_id": "example-source-family-x"
+    }
+  ],
+  "event_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "attestation": {
+    "signer_principal_ref": "did:example:resolver-1",
+    "credential_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "signature_suite_id": "example-signature-v1",
+    "signed_event_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "signature_base64": "c2lnbmF0dXJlLWZpeHR1cmU="
+  },
+  "predecessor_event_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+}

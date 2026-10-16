@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:schema:prediction-market-resolution-event:v1",
+  "title": "Mycelix Prediction Market Resolution Event v1",
+  "description": "One append-only event in a resolution lineage. JSON Schema does not verify signatures, digest correctness, authority, or chain completeness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "contract_id",
+    "contract_revision",
+    "contract_digest_sha256",
+    "event_index",
+    "event_kind",
+    "recorded_at",
+    "actor_principal_ref",
+    "authority_policy_id",
+    "authorization_evidence_ref",
+    "evidence_artifacts",
+    "event_digest_sha256",
+    "attestation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.prediction_market_resolution_event.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "contract_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "contract_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "contract_digest_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "event_index": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_kind": {
+      "enum": [
+        "resolution_proposed",
+        "resolution_challenged",
+        "resolution_decided",
+        "market_voided"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "actor_principal_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "authority_policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "authorization_evidence_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "predecessor_event_digest_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "outcome": {
+      "enum": [
+        "affirmative",
+        "negative",
+        "void",
+        "undetermined"
+      ]
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "challenge_basis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "decision_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "decision_policy_digest_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "void_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "void_rule_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "evidence_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "role",
+          "source_profile_id",
+          "source_uri",
+          "content_digest_sha256",
+          "media_type",
+          "published_at",
+          "retrieved_at",
+          "provenance_family_id"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "role": {
+            "enum": [
+              "primary_source",
+              "fallback_source",
+              "source_correction",
+              "challenge_evidence",
+              "adjudication_report",
+              "context"
+            ]
+          },
+          "source_profile_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "content_digest_sha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          },
+          "source_revision_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1024
+          },
+          "provenance_family_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "event_digest_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer_principal_ref",
+        "credential_digest_sha256",
+        "signature_suite_id",
+        "signed_event_digest_sha256",
+        "signature_base64"
+      ],
+      "properties": {
+        "signer_principal_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "credential_digest_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "signature_suite_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "signed_event_digest_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "signature_base64": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192,
+          "contentEncoding": "base64"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "resolution_proposed"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "outcome",
+          "rationale"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "resolution_challenged"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "challenge_basis"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "resolution_decided"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "outcome",
+          "decision_reason",
+          "decision_policy_digest_sha256"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "market_voided"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "void_reason",
+          "void_rule_reference"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_index": {
+            "const": 1
+          }
+        },
+        "required": [
+          "event_index"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "predecessor_event_digest_sha256"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "predecessor_event_digest_sha256"
+        ]
+      }
+    }
+  ]
+}
