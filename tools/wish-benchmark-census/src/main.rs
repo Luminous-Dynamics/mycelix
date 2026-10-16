@@ -788,6 +788,14 @@ fn validate_result_schema(value: &Value) -> Result<(), String> {
     validator.validate(value).map_err(|e| format!("run-result schema validation: {e}"))
 }
 
+fn result_matches_execution_pin(result: &RunResult, pin: &ArmExecutionPin) -> bool {
+    pin.policy_build_sha256 == result.policy_build_sha256
+        && pin.policy_config_sha256 == result.policy_config_sha256
+        && pin.runner_image_sha256 == result.runner_image_sha256
+        && pin.action_space_sha256 == result.action_space_sha256
+        && pin.observation_contract_sha256 == result.observation_contract_sha256
+}
+
 fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path, results_path: &Path, report_path: &Path) -> Result<(), String> {
     let manifest_raw = fs::read_to_string(manifest_path).map_err(|e| format!("read pinned manifest: {e}"))?;
     let manifest = parse_strict(&manifest_raw).map_err(|e| format!("parse pinned manifest: {e}"))?;
@@ -847,12 +855,7 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
         };
         let mut valid = validate_run_result(result, plan).is_ok();
         match locked_pins.get(&result.arm_id) {
-            Some(pin)
-                if pin.policy_build_sha256 == result.policy_build_sha256
-                    && pin.policy_config_sha256 == result.policy_config_sha256
-                    && pin.runner_image_sha256 == result.runner_image_sha256
-                    && pin.action_space_sha256 == result.action_space_sha256
-                    && pin.observation_contract_sha256 == result.observation_contract_sha256 => {},
+            Some(pin) if result_matches_execution_pin(result, pin) => {},
             _ => valid = false,
         }
         if let Some((first_build,first_config,first_run)) = arm_configs.get(&result.arm_id) {
@@ -1092,6 +1095,25 @@ mod tests {
     }
 
     #[test]
+    fn result_must_match_all_frozen_execution_environment_pins() {
+        let (_, result) = test_result_pair(RunDisposition::Completed);
+        let pin = ArmExecutionPin {
+            policy_build_sha256: result.policy_build_sha256.clone(),
+            policy_config_sha256: result.policy_config_sha256.clone(),
+            runner_image_sha256: result.runner_image_sha256.clone(),
+            action_space_sha256: result.action_space_sha256.clone(),
+            observation_contract_sha256: result.observation_contract_sha256.clone(),
+        };
+        assert!(result_matches_execution_pin(&result, &pin));
+        let mut tampered = result.clone();
+        tampered.action_space_sha256 = "9".repeat(64);
+        assert!(!result_matches_execution_pin(&tampered, &pin));
+        let mut tampered = result.clone();
+        tampered.runner_image_sha256 = "8".repeat(64);
+        assert!(!result_matches_execution_pin(&tampered, &pin));
+    }
+
+    #[test]
     fn completed_result_and_receipt_payload_digests_are_recomputed() {
         let (plan, result) = test_result_pair(RunDisposition::Completed);
         assert!(validate_run_result(&result, &plan).is_ok());
@@ -1117,6 +1139,9 @@ mod tests {
         let schema = parse_strict(RESULT_SCHEMA_TEXT).expect("run-result schema JSON");
         assert!(draft202012::meta::is_valid(&schema));
         assert!(validate_result_schema(&json!({"schema_version":"wish-run-results/0.1","schedule_sha256":"0".repeat(64),"results":[]})).is_ok());
+        let (_, result) = test_result_pair(RunDisposition::Completed);
+        let result_value = serde_json::to_value(result).unwrap();
+        assert!(validate_result_schema(&json!({"schema_version":"wish-run-results/0.1","schedule_sha256":"0".repeat(64),"results":[result_value]})).is_ok());
     }
 
     #[test]
