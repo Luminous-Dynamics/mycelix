@@ -20,6 +20,16 @@ The engine reports robust-z deviations, not defect diagnoses. Temperature/curren
 
 Optional filament tension can be omitted during fitting. If a later observation contains tension without reference coverage, the report explicitly marks it uncalibrated while retaining results for the other covered signals. Missing sequence numbers or excessive sample intervals are not scored.
 
+## Frozen synthetic corpus
+
+- Corpus ID: CINCINNATI-MONITOR-SYNTHETIC-V1
+- Fixture: tests/fixtures/cincinnati_v1.tsv
+- SHA-256: e1206515e6a7c03b9e6fbdd077b7ab4ca470bb9abb02beb78e17241231739eaa
+- 15 cases: nominal trace, four signal deviations, uncalibrated optional signal, profile mismatch, invalid input, sequence/timestamp gaps, ordering violations and session mismatch.
+- The independent integration evaluator in tests/frozen_corpus.rs checks disposition and signal-level expected outputs against the frozen fixture.
+
+This hash identifies the TSV bytes only. The corpus remains synthetic and is not evidence of physical defect sensitivity, production yield, safety, cost improvement or generalized cross-process performance.
+
 ## Run tests
 
 From mycelix-workspace/happs/fabrication:
