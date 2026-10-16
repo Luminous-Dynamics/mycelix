@@ -54,15 +54,19 @@ fn data_trust_copy(
 #[component]
 pub fn DataTrustNotice() -> impl IntoView {
     let hc = use_holochain();
+    // ReadSignal handles are Copy, so each reactive closure observes the same
+    // provider state without moving the provider context into one closure.
+    let status = hc.status;
+    let signing_ready = hc.zome_call_signing_ready;
 
     // The shared provider already displays an unmissable alert when a live
     // strategy degrades into Mock. Avoid duplicating that alert here.
     view! {
-        <Show when=move || hc.status.get() != ConnectionStatus::Mock>
+        <Show when=move || status.get() != ConnectionStatus::Mock>
             <aside
                 class=move || {
                     let (_, _, modifier) =
-                        data_trust_copy(hc.status.get(), hc.zome_call_signing_ready.get());
+                        data_trust_copy(status.get(), signing_ready.get());
                     format!("data-trust-notice {modifier}")
                 }
                 role="status"
@@ -73,16 +77,10 @@ pub fn DataTrustNotice() -> impl IntoView {
                 <span class="data-trust-mark" aria-hidden="true">"i"</span>
                 <div class="data-trust-copy">
                     <strong>
-                        {move || data_trust_copy(
-                            hc.status.get(),
-                            hc.zome_call_signing_ready.get()
-                        ).0}
+                        {move || data_trust_copy(status.get(), signing_ready.get()).0}
                     </strong>
                     <p>
-                        {move || data_trust_copy(
-                            hc.status.get(),
-                            hc.zome_call_signing_ready.get()
-                        ).1}
+                        {move || data_trust_copy(status.get(), signing_ready.get()).1}
                     </p>
                 </div>
             </aside>
