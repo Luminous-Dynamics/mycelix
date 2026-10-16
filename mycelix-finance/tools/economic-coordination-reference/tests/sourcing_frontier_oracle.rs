@@ -33,6 +33,7 @@ fn request() -> SourcingRequest {
         max_landed_cost_minor: u64::MAX,
         deliver_by: 10_000,
         max_quote_age_secs: 60,
+        max_inventory_age_secs: 60,
         risk_model_digest: "fixture-risk-model-v1".into(),
     }
 }
@@ -55,6 +56,10 @@ fn offers_for_case(case_seed: u64) -> Vec<SupplierOffer> {
                 unit: "each".into(),
                 currency: "USD".into(),
                 available_quantity: 1_000,
+                inventory_observed_at: AS_OF,
+                inventory_valid_until: AS_OF + 100,
+                inventory_evidence_status: EvidenceStatus::Verified,
+                inventory_evidence_origin: EvidenceOrigin::SyntheticSimulation,
                 unit_price_minor: 1 + next(&mut seed) % 10_000,
                 shipping_minor: next(&mut seed) % 500,
                 taxes_minor: next(&mut seed) % 250,
