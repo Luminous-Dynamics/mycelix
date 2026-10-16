@@ -628,6 +628,47 @@
         "all_results_bind_exact_inputs_models_rules_and_checker"
       ],
       "scope": "test-only scalar affine uncertainty with one synthetic unit/frame/time contract; validity is checked against caller-supplied evaluation time; provenance remains declared_unverified and unauthenticated"
+    },
+    {
+      "id": "AIR-PB-020",
+      "name": "separate_set_containment_from_probabilistic_calibration",
+      "paradigm": "two_evidence_channels_for_bounded_uncertainty_and_probability",
+      "status": "research_backlog",
+      "hypothesis": "Deterministic set-containment claims and probabilistic conflict-risk estimates require different assumptions, oracles and scorecards; neither may be used as a substitute for the other.",
+      "baseline": "A single scalar risk/confidence output can hide that interval coverage is a hard-set claim while a probability estimate depends on a distribution, calibration data, encounter geometry and evaluation horizon.",
+      "stimulus": "Generate independent synthetic holdout encounters across geometry, uncertainty magnitude, look-ahead horizon and source-quality strata; compare exact finite-set extrema with separately generated probabilistic outcomes; inject distribution misspecification and near-look-ahead-boundary cases.",
+      "success_conditions": [
+        "Set-containment results are tested against exact finite-domain or qualified reachability oracles and remain a separate report.",
+        "Probability estimates are evaluated with reliability diagrams, Brier score and calibration error on a pinned holdout corpus with uncertainty intervals and predeclared strata.",
+        "The first synthetic calibration target is expected calibration error <= 0.05 on the held-out synthetic corpus, subject to declared binning/sample-size rules; this is not an operational aviation threshold.",
+        "A missing or misspecified probability distribution cannot be turned into a hard bound or authorization.",
+        "No low probability, average calibration score or risk score can waive a failed hard constraint, missing model qualification or stale-evidence gate."
+      ],
+      "falsifiers": [
+        "An interval containing all declared states is described as a probability distribution without additional assumptions.",
+        "A probabilistic estimate is described as a guaranteed outer bound.",
+        "Calibration is reported only in aggregate while predeclared encounter-geometry or horizon strata fail materially.",
+        "A low estimated risk converts hard-gate failure or unknown state into eligible-for-planning.",
+        "The near-look-ahead-boundary cases are omitted or receive materially optimistic calibration without an explicit caveat."
+      ],
+      "required_evidence": [
+        "Pinned scenario generator, random seeds, distributions and holdout split",
+        "Exact set-containment oracle report distinct from probability calibration",
+        "Reliability diagram, Brier score, calibration error and confidence intervals by predeclared stratum",
+        "Distribution-misspecification and near-look-ahead-boundary fault injections",
+        "Exact-head reproducibility receipt and independent checker result"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "hard_constraints_precede_optimization",
+        "producer_output_is_checked_independently",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "research backlog; synthetic probabilistic calibration only; no operational risk threshold, aircraft safety claim, authorization or substitution for bounded-set reasoning",
+      "research_basis": [
+        "May 2026 study of uncertainty quantification in state-based conflict detection and resolution: https://doi.org/10.1016/j.ress.2025.112111",
+        "Its reported setup explores Gaussian position/velocity error propagated using Monte Carlo and analytical approximations; this motivates a distinct calibration benchmark, not a flight-safety guarantee."
+      ]
     }
   ]
 }

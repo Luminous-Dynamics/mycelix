@@ -37,6 +37,8 @@ Proposed targets:
 
 Important: these are targets for the scalar affine subset only. They do not validate nonlinear transformations, clocks, multi-axis geometry, stochastic assumptions, aircraft reachability, or physical sensor coverage.
 
+**Separate deterministic set evidence from probabilistic calibration (AIR-PB-020).** A finite-set interval answers which values are admitted by the declared bounds; a probability estimate answers how likely outcomes are under a specified distribution. These are different evidence products. For the first synthetic calibration study, aim for expected calibration error <= 0.05 on a pinned holdout corpus (with predeclared binning and minimum sample counts), and report reliability diagrams, Brier score, uncertainty intervals and results stratified by encounter geometry, look-ahead horizon, uncertainty magnitude and source-quality class. This is a research-only target, not an operational aviation threshold. No probability estimate can establish a guaranteed outer bound, and no low risk score can waive a hard gate. A May 2026 study of state-based U-space conflict detection examines Gaussian position/velocity errors using Monte Carlo and analytical approximations, and reports sensitivity to uncertainty and encounter geometry; this reinforces the need for a separately calibrated probability track, not a blended safety score. [Study](https://doi.org/10.1016/j.ress.2025.112111).
+
 ## Tier 2 — Independent checker and mutation resistance
 
 Scope: AIR-PB-002 and AIR-PB-016.

@@ -2023,7 +2023,7 @@ mod tests {
         let benchmarks = manifest["benchmarks"]
             .as_array()
             .expect("benchmark cases must be an array");
-        assert_eq!(benchmarks.len(), 19);
+        assert_eq!(benchmarks.len(), 20);
         let mut ids = std::collections::BTreeSet::new();
         let allowed_statuses = [
             "implemented_pending_exact_head_verification",
@@ -2066,7 +2066,7 @@ mod tests {
             "AIR-PB-001", "AIR-PB-002", "AIR-PB-003", "AIR-PB-004",
             "AIR-PB-005", "AIR-PB-006", "AIR-PB-007", "AIR-PB-008",
             "AIR-PB-009", "AIR-PB-010", "AIR-PB-011", "AIR-PB-012",
-            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017", "AIR-PB-018", "AIR-PB-019",
+            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017", "AIR-PB-018", "AIR-PB-019", "AIR-PB-020",
         ] {
             assert!(ids.contains(required), "required research case missing: {required}");
         }
@@ -2113,6 +2113,19 @@ mod tests {
         assert!(
             typed_contract["scope"].as_str().unwrap_or("").contains(
                 "provenance remains declared_unverified and unauthenticated"
+            )
+        );
+
+        let probability_contract = benchmarks.iter()
+            .find(|benchmark| benchmark["id"] == "AIR-PB-020")
+            .expect("set-containment versus probability benchmark must exist");
+        assert_eq!(
+            probability_contract["status"].as_str(),
+            Some("research_backlog")
+        );
+        assert!(
+            probability_contract["scope"].as_str().unwrap_or("").contains(
+                "no operational risk threshold"
             )
         );
         assert!(

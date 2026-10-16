@@ -143,6 +143,17 @@ The machine-readable case [AIR-PB-015](../../tools/airspace-sim/fixtures/paradig
 
 The test-only module now declares 23 Rust test functions and uses 22 hand-derived vectors in `airspace-affine-uncertainty-v3`, covering unsupported units/frames/time bases, provenance-label rejection and temporal boundaries in addition to origin/dependency arithmetic. Independent host-side checks are not Rust compilation or execution evidence. The primitive is not connected to trajectory geometry; it does not transform coordinate frames, propagate clock latency, model multi-axis/nonlinear dynamics, authenticate sources or prove declared bounds cover physical reality. The next full-pipeline gate is to propagate typed contract records across adapters and challenge them with a separately implemented verifier before any real-world model admission.
 
+
+### 10A. Separate bounded-set containment from probabilistic risk calibration
+
+AIR-PB-020 is a new research backlog item prompted by the May 2026 paper [Uncertainty quantification on state-based conflict detection and resolution algorithms](https://doi.org/10.1016/j.ress.2025.112111). That study models navigation-position and velocity errors with Gaussian assumptions and compares Monte Carlo with analytical approximations. Its findings emphasize that detection probability can vary with uncertainty and encounter geometry over the look-ahead horizon. A scalar affine interval and a calibrated probability are therefore not interchangeable:
+
+- **Set containment:** prove that all states in the declared finite-domain or qualified reachable set fall inside the reported interval. A result outside the envelope is a critical falsifier.
+- **Probability calibration:** test a stated distribution against a pinned holdout corpus using reliability diagrams, Brier score, calibration error and uncertainty intervals, stratified by encounter geometry, uncertainty magnitude, horizon and source-quality class.
+- **Policy separation:** calibration scores and risk estimates remain advisory metrics. They cannot waive a hard constraint, qualify an unvalidated model or turn stale/unknown evidence into a normal result.
+
+The proposed first synthetic target is expected calibration error <= 0.05 with predeclared binning and minimum sample-size rules. This target is for the synthetic benchmark only; it does not imply an acceptable aviation risk level. AIR-PB-020 requires a misspecified-distribution control and explicit cases at the look-ahead boundary before any claim of probabilistic utility.
+
 ### 11. From multiple green checks to evidence of assurance diversity
 
 Two checkers that share a parser, transformation function, model assumptions, or generated expected outputs may reproduce the same defect. Agreement is evidence only to the extent that the verification paths are capable of failing differently and have actually been challenged. NASA's [runtime-assurance recommendations](https://ntrs.nasa.gov/citations/20220015734) explicitly warn that the monitor must itself be fit for purpose; redundant labels alone do not establish this.
