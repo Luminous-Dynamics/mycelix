@@ -24,7 +24,7 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019.
+Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks.
 
 Proposed targets:
 
@@ -58,6 +58,7 @@ These are research acceptance thresholds, not universal aviation standards. The 
 Proposed targets:
 
 - 100% of receipts bind exact scenario/source bytes or manifest digests, model and rules versions, toolchain/build identity, checker identity, and output digest.
+- 100% rejection across predeclared receipt-tamper controls when fixture bytes, contract bytes, outcome bytes, digest formatting, case count, or signature-status claims are mutated; explicitly distinguish unsigned integrity receipts from authenticated attestations.
 - 100% of required metadata (units, frame/datum, time basis, validity, source provenance, uncertainty semantics and authority ceiling) survives serialization and each tested adapter boundary.
 - Two separately implemented consumers must agree on every normalized outcome and required metadata field in the declared shared corpus; any disagreement yields an explicit differential report, not a majority-vote approval.
 - Same inputs, declared versions and deterministic settings must produce byte-identical normalized reports, or explicitly document and test why byte identity is not part of the contract.
