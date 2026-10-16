@@ -54,7 +54,7 @@ An independent conformance checker must fail closed unless all applicable requir
 4. Check semantic time ordering (event cutoff, source publication, source capture, resolution deadline, challenge window) under one declared UTC/time policy. JSON Schema's `format` is structural, not a cross-field temporal proof.
 5. Verify issuer, signer credential, signature scheme and signature cryptographically; bind the signature to the recomputed canonical event digest.
 6. Verify `authority_policy_id` and `authorization_evidence_ref` against the exact contract's allowed resolver/adjudicator roles and jurisdiction profile. Policy IDs and refs are not self-authenticating.
-7. Check event indices are contiguous, predecessor digests match the preceding verified record, one contract digest is used consistently, and no fork/duplicate terminal finalization exists.
+7. Validate a supplied event lineage as a whole: non-empty sequence, unique event IDs and indices, contiguous indexes from one, matching predecessor digests, increasing record times, and consistent contract binding. A single valid event record alone cannot establish chain completeness or absence of unseen forks.
 8. Distinguish proposal, challenge, decision, finalization and void states. A schema-valid proposal is not final truth. A decision without verified authority cannot finalize a market.
 
 ## Symthaea integration

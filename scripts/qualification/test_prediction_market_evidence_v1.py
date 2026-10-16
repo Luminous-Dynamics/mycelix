@@ -14,13 +14,28 @@ from validate_prediction_market_evidence_v1 import (  # noqa: E402
     CONTRACT_INVALID_PATH, CONTRACT_SCHEMA_PATH, CONTRACT_VALID_PATH,
     EVENT_INVALID_PATH, EVENT_SCHEMA_PATH, EVENT_VALID_PATH, DuplicateJsonKey,
     contract_content_digest, event_content_digest, load_json, make_validator,
-    validate_contract_record, validate_resolution_event_record,
+    validate_contract_record, validate_resolution_event_chain, validate_resolution_event_record,
 )
 
 CONTRACT = load_json(CONTRACT_VALID_PATH)
 EVENT = load_json(EVENT_VALID_PATH)
 CV = make_validator(CONTRACT_SCHEMA_PATH)
 EV = make_validator(EVENT_SCHEMA_PATH)
+
+
+def _challenge_event(index: int, predecessor: dict, minute: int) -> dict:
+    candidate = copy.deepcopy(EVENT)
+    candidate["event_id"] = f"pm-resolution-event-example-{index}"
+    candidate["event_index"] = index
+    candidate["event_kind"] = "resolution_challenged"
+    candidate.pop("outcome", None)
+    candidate.pop("rationale", None)
+    candidate["challenge_basis"] = "Synthetic challenge fixture."
+    candidate["recorded_at"] = f"2030-01-02T12:{minute:02d}:00Z"
+    candidate["predecessor_event_digest_sha256"] = predecessor["event_digest_sha256"]
+    candidate["event_digest_sha256"] = event_content_digest(candidate)
+    candidate["attestation"]["signed_event_digest_sha256"] = candidate["event_digest_sha256"]
+    return candidate
 
 
 class PredictionMarketEvidenceTests(unittest.TestCase):
@@ -87,6 +102,48 @@ class PredictionMarketEvidenceTests(unittest.TestCase):
         candidate["rationale"] += " changed"
         candidate["event_digest_sha256"] = event_content_digest(candidate)
         self.assertTrue(validate_resolution_event_record(candidate, CONTRACT, EV))
+
+    def test_contiguous_resolution_event_chain_is_admitted(self):
+        second = _challenge_event(2, EVENT, 2)
+        self.assertEqual(validate_resolution_event_chain([EVENT, second], CONTRACT, EV), [])
+
+    def test_resolution_chain_rejects_gap_and_duplicate_index(self):
+        gap = _challenge_event(3, EVENT, 3)
+        errors = validate_resolution_event_chain([EVENT, gap], CONTRACT, EV)
+        self.assertTrue(any("expected event_index 2, got 3" in error for error in errors))
+
+        second = _challenge_event(2, EVENT, 2)
+        fork = _challenge_event(2, EVENT, 3)
+        errors = validate_resolution_event_chain([EVENT, second, fork], CONTRACT, EV)
+        self.assertTrue(any("duplicate event_index 2" in error for error in errors))
+        self.assertTrue(any("expected event_index 3, got 2" in error for error in errors))
+
+    def test_resolution_chain_rejects_wrong_predecessor(self):
+        second = _challenge_event(2, EVENT, 2)
+        second["predecessor_event_digest_sha256"] = "e" * 64
+        second["event_digest_sha256"] = event_content_digest(second)
+        second["attestation"]["signed_event_digest_sha256"] = second["event_digest_sha256"]
+        errors = validate_resolution_event_chain([EVENT, second], CONTRACT, EV)
+        self.assertTrue(any("predecessor digest mismatch" in error for error in errors))
+
+    def test_resolution_chain_rejects_duplicate_event_ids(self):
+        second = _challenge_event(2, EVENT, 2)
+        second["event_id"] = EVENT["event_id"]
+        second["event_digest_sha256"] = event_content_digest(second)
+        second["attestation"]["signed_event_digest_sha256"] = second["event_digest_sha256"]
+        errors = validate_resolution_event_chain([EVENT, second], CONTRACT, EV)
+        self.assertTrue(any("duplicate event_id" in error for error in errors))
+
+    def test_resolution_chain_requires_increasing_record_times(self):
+        second = _challenge_event(2, EVENT, 2)
+        second["recorded_at"] = "2030-01-02T11:59:00Z"
+        second["event_digest_sha256"] = event_content_digest(second)
+        second["attestation"]["signed_event_digest_sha256"] = second["event_digest_sha256"]
+        errors = validate_resolution_event_chain([EVENT, second], CONTRACT, EV)
+        self.assertTrue(any("recorded_at is not increasing" in error for error in errors))
+
+    def test_empty_resolution_chain_is_not_vacuously_valid(self):
+        self.assertTrue(validate_resolution_event_chain([], CONTRACT, EV))
 
     def test_revision_two_requires_predecessor_contract_digest(self):
         candidate = copy.deepcopy(CONTRACT)

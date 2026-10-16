@@ -115,6 +115,63 @@ def validate_resolution_event_record(
     return sorted(errors)
 
 
+def validate_resolution_event_chain(
+    events: list[dict[str, Any]],
+    contract: dict[str, Any],
+    validator: Draft202012Validator,
+) -> list[str]:
+    """Validate an ordered set of events as one contiguous, predecessor-bound lineage."""
+    if not events:
+        return ["lineage:empty event chain"]
+
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    seen_indices: set[int] = set()
+
+    for position, event in enumerate(events, start=1):
+        event_errors = validate_resolution_event_record(event, contract, validator)
+        errors.extend(f"event[{position}]:{error}" for error in event_errors)
+
+        event_id = event.get("event_id")
+        if isinstance(event_id, str):
+            if event_id in seen_ids:
+                errors.append(f"lineage:duplicate event_id at position {position}")
+            seen_ids.add(event_id)
+
+        event_index = event.get("event_index")
+        if isinstance(event_index, int) and not isinstance(event_index, bool):
+            if event_index in seen_indices:
+                errors.append(f"lineage:duplicate event_index {event_index}")
+            seen_indices.add(event_index)
+            if event_index != position:
+                errors.append(
+                    f"lineage:expected event_index {position}, got {event_index}"
+                )
+
+        if position == 1:
+            if "predecessor_event_digest_sha256" in event:
+                errors.append("lineage:first event must not name a predecessor")
+            continue
+
+        previous = events[position - 2]
+        expected_predecessor = previous.get("event_digest_sha256")
+        actual_predecessor = event.get("predecessor_event_digest_sha256")
+        if actual_predecessor != expected_predecessor:
+            errors.append(f"lineage:predecessor digest mismatch at position {position}")
+
+        previous_time = previous.get("recorded_at")
+        current_time = event.get("recorded_at")
+        if isinstance(previous_time, str) and isinstance(current_time, str):
+            try:
+                if _parse_utc(current_time) <= _parse_utc(previous_time):
+                    errors.append(f"lineage:recorded_at is not increasing at position {position}")
+            except ValueError:
+                # Schema validation has already emitted the timestamp-format error.
+                pass
+
+    return sorted(errors)
+
+
 def main() -> int:
     cv = make_validator(CONTRACT_SCHEMA_PATH)
     ev = make_validator(EVENT_SCHEMA_PATH)
