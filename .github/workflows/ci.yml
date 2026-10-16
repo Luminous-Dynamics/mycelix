@@ -485,6 +485,27 @@ jobs:
             --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 \
             > evidence/standards-registry-ci/simulation-report.json
           cat evidence/standards-registry-ci/simulation-report.json
+      - name: Run paired held-out routing evaluation smoke
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          for input in \
+            standards-registry/validator/Cargo.toml \
+            standards-registry/validator/src/lib.rs \
+            standards-registry/validator/src/simulation.rs \
+            standards-registry/validator/src/evaluation.rs \
+            standards-registry/validator/src/bin/route-sim.rs \
+            benchmarks/traces.v1.json
+          do
+            sha256sum "$input"
+          done > evidence/standards-registry-ci/routing-evaluation-inputs.sha256
+          input_manifest_sha256="$(sha256sum evidence/standards-registry-ci/routing-evaluation-inputs.sha256 | cut -d ' ' -f 1)"
+          subject_sha="$(git rev-parse HEAD)"
+          cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
+            --evaluate --traces benchmarks/traces.v1.json --messages 1000 \
+            --seed 20261016 --seed-count 30 --candidate sequential_failover \
+            --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
+            > evidence/standards-registry-ci/paired-routing-evaluation.json
+          cat evidence/standards-registry-ci/paired-routing-evaluation.json
       - name: Exercise source-linked standards retrieval
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
