@@ -5,6 +5,7 @@
 //! Schema implementation and does not claim standards conformance.
 
 pub mod simulation;
+pub mod evaluation;
 
 use serde_json::Value;
 use std::collections::BTreeSet;
