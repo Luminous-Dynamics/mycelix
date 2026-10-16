@@ -59,3 +59,12 @@ Freeze source SHA, toolchain, allocation policy, workloads, seed list, transitio
 ## Claim boundary
 
 Even if all serial safety tests pass, that only qualifies the reference state machine. A distributed safety claim requires an independently implemented replicated model with explicit message, crash/restart, partition, replay, and equivocation semantics, plus exact-head execution records. A real-world fairness or economic-benefit claim requires separate empirical evidence.
+
+
+## Research grounding and novelty boundary
+
+The allocation idea has established prior art in escrow techniques and bounded-counter CRDTs: rights are partitioned so replicas can perform invariant-preserving local operations until their own rights are exhausted. See [Conflict-free Replicated Data Types](https://arxiv.org/abs/1805.06358). The relevant design question is not whether every operation can be coordination-free; it is which invariant-preserving operations may proceed with local rights and which operations (such as rights transfer or reconciliation) require coordination.
+
+The complementary framework of [invariant confluence / coordination avoidance](https://arxiv.org/abs/1402.2237) asks whether independently valid states remain valid after allowed operations and merges. That is the correct lens for a future replicated Mycelix protocol: define the quantity, authority, evidence and finality invariants first, then identify which transitions need coordination.
+
+The novelty claim here is deliberately narrower than inventing escrow or CRDTs. The experiment applies finite escrow rights to staged economic fulfilment while keeping accepted physical quantity, pending reservations, evidence decisions and external settlement authority explicitly separate. It is not yet a CRDT: there is no defined merge operator, causal metadata, or proof that merged replica states preserve the invariants.
