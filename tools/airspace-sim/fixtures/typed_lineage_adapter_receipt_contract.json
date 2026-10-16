@@ -1,0 +1,21 @@
+{
+  "schema": "airspace-typed-lineage-adapter-receipt-v1",
+  "status": "expected_digest_contract_not_runtime_attestation",
+  "hash_algorithm": "sha-256",
+  "digest_scope": "raw_fixture_file_bytes_including_final_newline",
+  "fixture_path": "tools/airspace-sim/fixtures/typed_lineage_adapter_v1.json",
+  "fixture_sha256": "1fab60383bbacf8c36f9b73e3abc4f7868e11e8a6ef494d23ff7952a53f044b2",
+  "fixture_byte_length": 2132,
+  "adapter_schema": "airspace-typed-lineage-adapter-v1",
+  "fixture_ref": "mixed_observation_transform_clock_errors",
+  "checker_id": "typed_lineage_adapter_byte_receipt_v1",
+  "source_revision_binding": "external_exact_head_ci_context_required",
+  "signature_status": "unsigned",
+  "authority_ceiling": "offline_synthetic_research_only_no_operational_aviation_authority",
+  "does_not_establish": [
+    "publisher authenticity",
+    "rights or freshness of a real data source",
+    "qualified aircraft dynamics or reachable sets",
+    "operational aviation safety or flight authorization"
+  ]
+}
