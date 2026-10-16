@@ -936,8 +936,11 @@ fn make_comparison(
         }
     }
 
-    let baseline_cost_mean = mean(&baseline_cost_per_demand);
-    let candidate_cost_mean = mean(&candidate_cost_per_demand);
+    let all_pairs_completed = complete_pairs == expected_pairs && incomplete_pairs == 0;
+    // Fail closed: do not publish complete-case means as if they described the registered
+    // scenario/seed schedule when any baseline/full-stack pair is incomplete.
+    let baseline_cost_mean = if all_pairs_completed { mean(&baseline_cost_per_demand) } else { None };
+    let candidate_cost_mean = if all_pairs_completed { mean(&candidate_cost_per_demand) } else { None };
     let paired_cost_delta = match (baseline_cost_mean, candidate_cost_mean) {
         (Some(base), Some(candidate)) => Some(candidate - base),
         _ => None,
@@ -946,14 +949,14 @@ fn make_comparison(
         (Some(base), Some(candidate)) if base != 0.0 => Some((candidate / base - 1.0) * 100.0),
         _ => None,
     };
-    let baseline_rate_mean = mean(&baseline_service_rates);
-    let candidate_rate_mean = mean(&candidate_service_rates);
+    let baseline_rate_mean = if all_pairs_completed { mean(&baseline_service_rates) } else { None };
+    let candidate_rate_mean = if all_pairs_completed { mean(&candidate_service_rates) } else { None };
     let service_delta_pp = match (baseline_rate_mean, candidate_rate_mean) {
         (Some(base), Some(candidate)) => Some((candidate - base) * 100.0),
         _ => None,
     };
     let all_pairs_cost_per_served_defined =
-        complete_pairs == expected_pairs && incomplete_pairs == 0 && zero_service_pairs == 0;
+        all_pairs_completed && zero_service_pairs == 0;
     let baseline_served_cost_mean = if all_pairs_cost_per_served_defined {
         mean(&baseline_cost_per_served)
     } else {
@@ -1490,6 +1493,44 @@ mod tests {
         assert_eq!(report.candidate_mean_cost_per_demand_unit_microcredits, None);
         assert!(report.stratified_scenario_cluster_bootstrap_95.is_none());
         assert!(!report.economic_benefit_established);
+    }
+
+    #[test]
+    fn withholds_headline_means_when_any_pair_is_incomplete() {
+        let schedule = small_schedule();
+        let mut results = complete_noncompleted_census(&schedule);
+        let scenario = &schedule.scenarios[0];
+        let demand = effective_demand(scenario).expect("effective demand");
+        for arm_id in ["incumbent_baseline", "full_stack"] {
+            let run_index = schedule.runs.iter().position(|run| {
+                run.scenario_id == scenario.scenario_id
+                    && run.seed == 1
+                    && run.arm_id == arm_id
+            }).expect("registered paired run");
+            results.runs[run_index].disposition = Disposition::Completed;
+            results.runs[run_index].failure_reason = None;
+            results.runs[run_index].metrics = Some(RunMetrics {
+                observed_demand_units: demand,
+                served_units: demand,
+                compute_cost_microcredits: 60,
+                data_cost_microcredits: 0,
+                integration_cost_microcredits: 0,
+                human_review_cost_microcredits: 0,
+                coordination_cost_microcredits: 0,
+                failure_recovery_cost_microcredits: 0,
+                total_cost_microcredits: 60,
+                completion_latency_ms: 10,
+            });
+        }
+        let report = make_comparison(&schedule, &results, 42, &"d".repeat(64))
+            .expect("partial-census report");
+        assert_eq!(report.complete_pairs, 1);
+        assert_eq!(report.incomplete_pairs, report.expected_pairs - 1);
+        assert_eq!(report.baseline_mean_cost_per_demand_unit_microcredits, None);
+        assert_eq!(report.candidate_mean_cost_per_demand_unit_microcredits, None);
+        assert_eq!(report.baseline_mean_service_rate, None);
+        assert_eq!(report.candidate_mean_service_rate, None);
+        assert!(report.stratified_scenario_cluster_bootstrap_95.is_none());
     }
 
     #[test]
