@@ -185,6 +185,10 @@ fn verify_trial(
     let design = string(plan, "design").unwrap_or("");
     let assignment_entries = array(assignment, "entries");
     let outcome_entries = array(outcomes, "entries");
+    let target_units = integer(plan.get("sample_plan").unwrap_or(&Value::Null), "target_units").unwrap_or(0);
+    if string(plan, "claim_tier") == Some("confirmatory_causal") && assignment_entries.len() < target_units {
+        errors.push(format!("confirmatory review requires the preregistered target of {target_units} assigned units; found {}", assignment_entries.len()));
+    }
     let mut assigned: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
     let mut arm_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut clusters_by_arm: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -203,10 +207,11 @@ fn verify_trial(
         }
         let arm = string(entry, "assigned_arm").unwrap_or("").to_owned();
         let cluster = entry.get("cluster_id").and_then(Value::as_str).map(str::to_owned);
-        if assigned.insert(unit_id.to_owned(), (arm.clone(), cluster.clone())).is_some() {
+        if assigned.contains_key(unit_id) {
             errors.push(format!("duplicate assigned unit_id: {unit_id}"));
             continue;
         }
+        assigned.insert(unit_id.to_owned(), (arm.clone(), cluster.clone()));
         *arm_counts.entry(arm.clone()).or_default() += 1;
         if let Some(cluster_id) = cluster {
             clusters_by_arm.entry(arm.clone()).or_default().insert(cluster_id.clone());
@@ -657,6 +662,15 @@ mod tests {
         fixture.plan_bytes = serde_json::to_vec(&fixture.plan).unwrap();
         let errors = fixture.errors();
         assert!(errors.iter().any(|error| error.contains("trial_plan_sha256")));
+    }
+
+    #[test]
+    fn confirmatory_review_requires_target_enrollment() {
+        let mut fixture = Fixture::new();
+        fixture.assignment["entries"].as_array_mut().unwrap().pop();
+        fixture.refresh_bindings();
+        let errors = fixture.errors();
+        assert!(errors.iter().any(|error| error.contains("preregistered target of 4 assigned units")));
     }
 
     #[test]
