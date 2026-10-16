@@ -13,6 +13,8 @@ mod polygon;
 mod model_applicability;
 #[cfg(test)]
 mod uncertainty;
+#[cfg(test)]
+mod typed_uncertainty;
 pub use polygon::{
     evaluate_polygon_intersection, PolygonEvaluationReport, PolygonExclusionVolume,
     PolygonGeometryError, PolygonIntersectionOutcome, PolygonPointMm,
