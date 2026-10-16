@@ -221,6 +221,7 @@ pub fn simulate_corpus(
             "purpose": scenario.purpose,
             "deadline_ms": scenario.deadline_ms,
             "envelope_bytes": scenario.envelope_bytes,
+            "failure_correlation_basis_points": scenario.failure_correlation_basis_points,
             "strategy_results": per_strategy
         }));
     }
@@ -729,6 +730,10 @@ mod tests {
         assert_eq!(report["hardware_qualification"], false);
         assert_eq!(report["scenario_count"], 11);
         assert_eq!(report["messages_per_scenario"], 10_000);
+        assert_eq!(
+            report["failure_correlation_model"]["default_common_draw_mixture_basis_points"],
+            10_000
+        );
     }
 
     #[test]
@@ -828,6 +833,71 @@ mod tests {
                 "same-domain paths must share the same synthetic uniform draw"
             );
         }
+    }
+
+    #[test]
+    fn failure_correlation_mixture_spans_independent_to_fully_shared_draws() {
+        let corpus = corpus();
+        let value = corpus["scenarios"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|scenario| scenario["id"] == "shared-carrier-failure-domain")
+            .expect("shared failure-domain scenario exists");
+        let mut scenario = parse_scenario(value, 10).expect("scenario parses");
+        let path_a = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-a")
+            .expect("first carrier path exists");
+        let path_b = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-b")
+            .expect("second carrier path exists");
+
+        scenario.failure_correlation_basis_points = 0;
+        let independent_disagreements = (0..1_000)
+            .filter(|message_index| {
+                path_succeeds(&scenario, path_a, 20261016, *message_index)
+                    != path_succeeds(&scenario, path_b, 20261016, *message_index)
+            })
+            .count();
+        assert!(
+            independent_disagreements > 0,
+            "independent mode should produce distinct path outcomes"
+        );
+
+        scenario.failure_correlation_basis_points = 5_000;
+        let partial_disagreements = (0..1_000)
+            .filter(|message_index| {
+                path_succeeds(&scenario, path_a, 20261016, *message_index)
+                    != path_succeeds(&scenario, path_b, 20261016, *message_index)
+            })
+            .count();
+        assert!(
+            partial_disagreements > 0 && partial_disagreements < independent_disagreements,
+            "mixture mode should retain both shared and path-specific outcomes"
+        );
+
+        scenario.failure_correlation_basis_points = 10_000;
+        for message_index in 0..1_000 {
+            assert_eq!(
+                path_succeeds(&scenario, path_a, 20261016, message_index),
+                path_succeeds(&scenario, path_b, 20261016, message_index),
+                "fully shared mode must preserve common draws"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_failure_correlation_weight_fails_closed() {
+        let mut corpus = corpus();
+        corpus["scenarios"][10]["failure_correlation_basis_points"] = json!(10_001);
+        let errors = simulate_corpus(&corpus, Some(10), None).unwrap_err();
+        assert!(errors.iter().any(|error| {
+            error.contains("failure_correlation_basis_points")
+        }));
     }
 
     #[test]
