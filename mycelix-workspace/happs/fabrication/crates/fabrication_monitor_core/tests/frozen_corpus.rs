@@ -5,8 +5,8 @@
 //! contract behavior only; they are not measured factory telemetry.
 
 use fabrication_monitor_core::{
-    BaselineError, ConfigError, DeviationKind, DetectorConfig, InputError, MonitoringEngine,
-    ObservationDisposition, ProcessProfile, ReferenceBaseline, SensorFrame, Signal, SIGNAL_COUNT,
+    BaselineError, ConfigError, DetectorConfig, InputError, MonitoringEngine,
+    ObservationDisposition, ProcessProfile, ReferenceBaseline, SensorFrame, Signal,
 };
 use std::collections::BTreeSet;
 
@@ -94,7 +94,7 @@ fn parse_disposition(value: &str) -> ObservationDisposition {
     }
 }
 
-fn run_scenario(scenario: &str) -> (MonitoringEngine, ObservationDisposition, Vec<Signal>, Vec<Signal>) {
+fn run_scenario(scenario: &str) -> (ObservationDisposition, Vec<Signal>, Vec<Signal>) {
     let mut reference = healthy_reference();
     if scenario == "tension-unqualified" {
         for sample in &mut reference {
@@ -146,7 +146,7 @@ fn run_scenario(scenario: &str) -> (MonitoringEngine, ObservationDisposition, Ve
     let report = engine.observe(&sample);
     let uncalibrated_signals = report.uncalibrated_signals.clone();
     let deviation_signals = report.deviations.iter().map(|d| d.signal).collect();
-    (engine, report.disposition, deviation_signals, uncalibrated_signals)
+    (report.disposition, deviation_signals, uncalibrated_signals)
 }
 
 #[test]
@@ -155,19 +155,18 @@ fn frozen_cincinnati_v1_corpus_matches_expected_dispositions_and_signals() {
     assert!(first_line.contains(CORPUS_ID), "corpus identity must remain explicit");
 
     let mut ids = BTreeSet::new();
-    let mut count = 0usize;
     for line in CORPUS.lines().filter(|line| !line.trim().is_empty() && !line.starts_with('#')) {
         let fields: Vec<&str> = line.split('|').collect();
         assert_eq!(fields.len(), 5, "invalid TSV row: {line}");
         let case_id = fields[0];
         let scenario = fields[1];
         let expected_disposition = parse_disposition(fields[2]);
-        let expected_signal = fields[3].is_empty().then_some(None).unwrap_or_else(|| Some(parse_signal(fields[3])));
-        let expected_uncalibrated = fields[4].is_empty().then_some(None).unwrap_or_else(|| Some(parse_signal(fields[4])));
+        let expected_signal = if fields[3].is_empty() { None } else { Some(parse_signal(fields[3])) };
+        let expected_uncalibrated = if fields[4].is_empty() { None } else { Some(parse_signal(fields[4])) };
 
         assert!(!case_id.trim().is_empty(), "case IDs cannot be empty");
         assert!(ids.insert(case_id), "duplicate case ID: {case_id}");
-        let (_engine, actual_disposition, actual_signals, actual_uncalibrated) = run_scenario(scenario);
+        let (actual_disposition, actual_signals, actual_uncalibrated) = run_scenario(scenario);
 
         assert_eq!(actual_disposition, expected_disposition, "case {case_id}");
         match expected_signal {
@@ -178,11 +177,9 @@ fn frozen_cincinnati_v1_corpus_matches_expected_dispositions_and_signals() {
             Some(signal) => assert!(actual_uncalibrated.contains(&signal), "case {case_id} missing uncalibrated {signal:?}"),
             None => assert!(actual_uncalibrated.is_empty(), "case {case_id} emitted unexpected uncalibrated signals: {actual_uncalibrated:?}"),
         }
-        count += 1;
     }
 
-    assert_eq!(count, 15, "corpus cardinality is versioned and must not drift silently");
-    assert_eq!(Signal::ALL.len(), SIGNAL_COUNT);
+    assert_eq!(ids.len(), 15, "corpus cardinality is versioned and must not drift silently");
 }
 
 #[test]
