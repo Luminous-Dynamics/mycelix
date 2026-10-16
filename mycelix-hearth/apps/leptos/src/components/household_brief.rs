@@ -14,37 +14,28 @@ use hearth_leptos_types::{
     CareScheduleStatus, CareScheduleView, DecisionStatus, DecisionView, EmergencyAlertView,
 };
 
-fn active_care_plan_count(plans: &[CareScheduleView], hearth_hash: Option<&str>) -> usize {
-    let Some(hearth_hash) = hearth_hash else {
-        return 0;
-    };
-
-    plans
+fn active_care_plan_count(plans: &[CareScheduleView], hearth_hash: Option<&str>) -> Option<usize> {
+    let hearth_hash = hearth_hash?;
+    Some(plans
         .iter()
         .filter(|plan| plan.hearth_hash == hearth_hash && plan.status == CareScheduleStatus::Active)
-        .count()
+        .count())
 }
 
-fn open_decision_count(decisions: &[DecisionView], hearth_hash: Option<&str>) -> usize {
-    let Some(hearth_hash) = hearth_hash else {
-        return 0;
-    };
-
-    decisions
+fn open_decision_count(decisions: &[DecisionView], hearth_hash: Option<&str>) -> Option<usize> {
+    let hearth_hash = hearth_hash?;
+    Some(decisions
         .iter()
         .filter(|decision| decision.hearth_hash == hearth_hash && decision.status == DecisionStatus::Open)
-        .count()
+        .count())
 }
 
-fn unresolved_alert_count(alerts: &[EmergencyAlertView], hearth_hash: Option<&str>) -> usize {
-    let Some(hearth_hash) = hearth_hash else {
-        return 0;
-    };
-
-    alerts
+fn unresolved_alert_count(alerts: &[EmergencyAlertView], hearth_hash: Option<&str>) -> Option<usize> {
+    let hearth_hash = hearth_hash?;
+    Some(alerts
         .iter()
         .filter(|alert| alert.hearth_hash == hearth_hash && alert.resolved_at.is_none())
-        .count()
+        .count())
 }
 
 #[component]
@@ -85,10 +76,14 @@ pub fn HouseholdBrief() -> impl IntoView {
             <div class="brief-grid">
                 <article class="brief-card">
                     <p class="brief-category">"Care"</p>
-                    <p class="brief-number">{move || care_count()}</p>
+                    <p class="brief-number">{move || care_count().map(|count| count.to_string()).unwrap_or_else(|| "—".into())}</p>
                     <h3>"Active care plans"</h3>
                     <p class="brief-description">
-                        "Plans marked active; due times are not inferred here."
+                        {move || if care_count().is_some() {
+                            "Plans marked active; due times are not inferred here."
+                        } else {
+                            "No household selected; this count is unavailable."
+                        }}
                     </p>
                     <A href="/care" attr:class="brief-link" attr:aria-label="Review care plans">
                         "Review care plans"
@@ -98,10 +93,14 @@ pub fn HouseholdBrief() -> impl IntoView {
 
                 <article class="brief-card">
                     <p class="brief-category">"Shared decisions"</p>
-                    <p class="brief-number" aria-live="off">{move || decision_count()}</p>
+                    <p class="brief-number">{move || decision_count().map(|count| count.to_string()).unwrap_or_else(|| "—".into())}</p>
                     <h3>"Open decisions"</h3>
                     <p class="brief-description">
-                        "Household decisions still marked open; this is not a personal vote list."
+                        {move || if decision_count().is_some() {
+                            "Household decisions still marked open; this is not a personal vote list."
+                        } else {
+                            "No household selected; this count is unavailable."
+                        }}
                     </p>
                     <A href="/decisions" attr:class="brief-link" attr:aria-label="Explore open household decisions">
                         "Explore decisions"
@@ -115,10 +114,14 @@ pub fn HouseholdBrief() -> impl IntoView {
                     "brief-card"
                 }>
                     <p class="brief-category">"Safety"</p>
-                    <p class="brief-number" aria-live="off">{move || alert_count()}</p>
+                    <p class="brief-number">{move || alert_count().map(|count| count.to_string()).unwrap_or_else(|| "—".into())}</p>
                     <h3>"Unresolved alerts"</h3>
                     <p class="brief-description">
-                        "Unresolved alerts in the currently loaded records; zero is not a safety guarantee."
+                        {move || if alert_count().is_some() {
+                            "Unresolved alerts in the currently loaded records; zero is not a safety guarantee."
+                        } else {
+                            "No household selected; this count is unavailable."
+                        }}
                     </p>
                     <A href="/emergency" attr:class="brief-link" attr:aria-label="Review safety alerts">
                         "Review alerts"
@@ -184,10 +187,10 @@ mod tests {
     }
 
     #[test]
-    fn no_selected_hearth_never_falls_back_to_unscoped_counts() {
-        assert_eq!(active_care_plan_count(&[plan("a", CareScheduleStatus::Active)], None), 0);
-        assert_eq!(open_decision_count(&[decision("a", DecisionStatus::Open)], None), 0);
-        assert_eq!(unresolved_alert_count(&[alert("a", None)], None), 0);
+    fn no_selected_hearth_is_unavailable_not_a_false_zero() {
+        assert_eq!(active_care_plan_count(&[plan("a", CareScheduleStatus::Active)], None), None);
+        assert_eq!(open_decision_count(&[decision("a", DecisionStatus::Open)], None), None);
+        assert_eq!(unresolved_alert_count(&[alert("a", None)], None), None);
     }
 
     #[test]
@@ -198,8 +201,8 @@ mod tests {
             plan("a", CareScheduleStatus::Completed),
             plan("b", CareScheduleStatus::Active),
         ];
-        assert_eq!(active_care_plan_count(&plans, Some("a")), 1);
-        assert_eq!(active_care_plan_count(&plans, Some("b")), 1);
+        assert_eq!(active_care_plan_count(&plans, Some("a")), Some(1));
+        assert_eq!(active_care_plan_count(&plans, Some("b")), Some(1));
     }
 
     #[test]
@@ -209,7 +212,7 @@ mod tests {
             decision("a", DecisionStatus::Finalized),
             decision("b", DecisionStatus::Open),
         ];
-        assert_eq!(open_decision_count(&decisions, Some("a")), 1);
+        assert_eq!(open_decision_count(&decisions, Some("a")), Some(1));
     }
 
     #[test]
@@ -219,13 +222,13 @@ mod tests {
             alert("a", Some(100)),
             alert("b", None),
         ];
-        assert_eq!(unresolved_alert_count(&alerts, Some("a")), 1);
+        assert_eq!(unresolved_alert_count(&alerts, Some("a")), Some(1));
     }
 
     #[test]
     fn empty_source_lists_produce_zero_counts() {
-        assert_eq!(active_care_plan_count(&[], Some("a")), 0);
-        assert_eq!(open_decision_count(&[], Some("a")), 0);
-        assert_eq!(unresolved_alert_count(&[], Some("a")), 0);
+        assert_eq!(active_care_plan_count(&[], Some("a")), Some(0));
+        assert_eq!(open_decision_count(&[], Some("a")), Some(0));
+        assert_eq!(unresolved_alert_count(&[], Some("a")), Some(0));
     }
 }
