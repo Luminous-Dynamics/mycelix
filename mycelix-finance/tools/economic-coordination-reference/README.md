@@ -114,3 +114,12 @@ cargo test --locked --manifest-path mycelix-finance/tools/economic-coordination-
 ```
 
 The focused GitHub Actions workflow runs these commands against the exact pull-request head. Until that run has completed successfully, the test suite should be described as authored—not passed.
+
+
+## Capability-first sourcing (experimental)
+
+The new `sourcing` module evaluates a capability-level request against supplier offers, rejects hard-constraint failures before comparison, and returns a Pareto frontier over total landed cost, arrival time, and a risk measure bound to a versioned risk-model digest. It uses integer minor currency units, checked arithmetic, explicit timestamps, exact capability-profile/unit/currency matching, and stable offer-ID ordering. It does not choose a winner when legitimate trade-offs remain.
+
+A capability profile digest is not itself proof of equivalence. A reviewed versioned mapping must establish that a candidate product meets the requested capability. Evidence-status fields are caller-supplied reference inputs; this module does not authenticate suppliers, verify live stock, search the web, issue purchase orders, or authorize spending.
+
+See SOURCING_DECISION_BENCHMARKS.md for the hard safety gates, independent-oracle plan, baseline comparisons, proposed scale targets and cross-project boundaries. The benchmarks are proposed, not measured. The module's unit tests are authored but have not been qualified by an exact-head runner in this PR.
