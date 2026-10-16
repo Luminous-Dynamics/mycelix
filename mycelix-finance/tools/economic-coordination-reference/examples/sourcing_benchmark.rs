@@ -68,7 +68,7 @@ fn make_offers(count: usize) -> Vec<SupplierOffer> {
                 quote_valid_until: as_of + 600,
                 quote_evidence_status: EvidenceStatus::Verified,
                 supplier_credential_status: EvidenceStatus::Verified,
-                supplier_credential_checked_at: AS_OF - 10,
+                supplier_credential_checked_at: as_of - 10,
                 supplier_credential_valid_until: as_of + 600,
             }
         })
