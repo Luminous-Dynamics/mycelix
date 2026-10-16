@@ -59,7 +59,7 @@ pub enum DispatchGateResult<R, E> {
     NotSent { journal_error: E },
     /// A successful domain response arrived. If confirmation_persisted is
     /// false, the next process must conservatively reconcile from Submitted.
-    Confirmed {
+    SourceChainCommitted {
         response: R,
         confirmation_persisted: bool,
     },
@@ -114,13 +114,13 @@ pub fn dispatch_after_journal<E, R>(
         Ok(response) => {
             if prepared
                 .attempt
-                .transition(AttemptStatus::Confirmed)
+                .transition(AttemptStatus::SourceChainCommitted)
                 .is_err()
             {
                 return DispatchGateResult::InvalidState;
             }
             let confirmation_persisted = persist(&prepared.attempt).is_ok();
-            DispatchGateResult::Confirmed {
+            DispatchGateResult::SourceChainCommitted {
                 response,
                 confirmation_persisted,
             }
@@ -234,7 +234,7 @@ mod tests {
 
         assert_eq!(
             result,
-            DispatchGateResult::Confirmed {
+            DispatchGateResult::SourceChainCommitted {
                 response: "remote-record",
                 confirmation_persisted: true,
             }
@@ -244,7 +244,7 @@ mod tests {
             vec![
                 AttemptStatus::Prepared,
                 AttemptStatus::Submitted,
-                AttemptStatus::Confirmed
+                AttemptStatus::SourceChainCommitted
             ]
         );
     }
@@ -301,7 +301,7 @@ mod tests {
 
         assert_eq!(
             result,
-            DispatchGateResult::Confirmed {
+            DispatchGateResult::SourceChainCommitted {
                 response: "remote-committed-record",
                 confirmation_persisted: false
             }
@@ -310,7 +310,7 @@ mod tests {
             journal.committed,
             vec![AttemptStatus::Prepared, AttemptStatus::Submitted]
         );
-        assert_eq!(permit.status(), AttemptStatus::Confirmed);
+        assert_eq!(permit.status(), AttemptStatus::SourceChainCommitted);
     }
 
     #[test]
@@ -360,11 +360,11 @@ mod tests {
                     Ok::<_, ()>(())
                 },
             );
-            assert!(matches!(result, DispatchGateResult::Confirmed { confirmation_persisted: true, .. }));
+            assert!(matches!(result, DispatchGateResult::SourceChainCommitted { confirmation_persisted: true, .. }));
             assert_eq!(calls, 1);
             assert_eq!(journal.committed[0], AttemptStatus::Prepared);
             assert_eq!(journal.committed[1], AttemptStatus::Submitted);
-            assert_eq!(journal.committed[2], AttemptStatus::Confirmed);
+            assert_eq!(journal.committed[2], AttemptStatus::SourceChainCommitted);
         }
     }
 
