@@ -1545,6 +1545,38 @@ mod tests {
     }
 
     #[test]
+    fn operational_and_capital_costs_are_included_in_total() {
+        let schedule = small_schedule();
+        let mut results = complete_noncompleted_census(&schedule);
+        let scenario = &schedule.scenarios[0];
+        let run_index = 0usize;
+        let metrics = RunMetrics {
+            observed_demand_units: effective_demand(scenario).expect("effective demand"),
+            served_units: effective_demand(scenario).expect("effective demand"),
+            compute_cost_microcredits: 1,
+            operational_cost_microcredits: 4,
+            capital_amortization_cost_microcredits: 5,
+            data_cost_microcredits: 0,
+            integration_cost_microcredits: 0,
+            human_review_cost_microcredits: 0,
+            coordination_cost_microcredits: 0,
+            failure_recovery_cost_microcredits: 0,
+            total_cost_microcredits: 10,
+            completion_latency_ms: 1,
+        };
+        results.runs[run_index].disposition = Disposition::Completed;
+        results.runs[run_index].failure_reason = None;
+        results.runs[run_index].metrics = Some(metrics);
+        verify_test_census(&schedule, &results)
+            .expect("sum includes operational and capital amortization costs");
+
+        results.runs[run_index].metrics.as_mut()
+            .expect("metrics").total_cost_microcredits = 9;
+        assert!(verify_test_census(&schedule, &results)
+            .unwrap_err().contains("total cost mismatch"));
+    }
+
+    #[test]
     fn rejects_served_units_above_demand() {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
