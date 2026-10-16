@@ -167,7 +167,10 @@
     "unconfirmed_resources_marked_committed": 0,
     "false_fulfillment_acceptances": 0,
     "initiated_episodes_missing_from_census": 0,
-    "repeated_deterministic_report_mismatches": 0
+    "repeated_deterministic_report_mismatches": 0,
+    "invalid_or_unauthorized_evidence_accepted": 0,
+    "cross_wish_or_revision_replay_accepted": 0,
+    "unsupported_signature_suites_accepted": 0
   },
   "proposed_product_value_hypothesis": {
     "status": "provisional_not_measured",
@@ -191,7 +194,12 @@
     "time_to_outcome_and_delay_tails",
     "evidence_query_value_and_cost",
     "per_stratum_accessibility_and_constraint_violations",
-    "deterministic_replay_and_report_digest"
+    "deterministic_replay_and_report_digest",
+    "evidence_digest_integrity",
+    "cryptographic_authenticity_and_signature_suite_validity",
+    "credential_status_and_role_authorization",
+    "wrong_subject_scope_or_snapshot_replay_acceptance",
+    "outcome_evidence_sufficiency_separate_from_authenticity"
   ],
   "required_version_pins": [
     "scenario_corpus_sha256",
@@ -202,7 +210,10 @@
     "scorer_version",
     "evaluator_version",
     "currency_metadata_version_if_money_is_compared",
-    "seed_derivation_version"
+    "seed_derivation_version",
+    "evidence_verifier_version",
+    "credential_status_snapshot_digest",
+    "issuer_authorization_policy_version"
   ],
   "containment_overlay": {
     "version": "wish-containment-overlay/0.1",
