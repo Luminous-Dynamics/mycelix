@@ -50,8 +50,10 @@ evaluate-transport-smoke:
       sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256; \
       manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
       subject=$$(cat evidence/transport-evaluation/subject.sha); \
-      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 1000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/paired-evaluation.json; \
-      cat evidence/transport-evaluation/paired-evaluation.json
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 1000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$subject" --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/paired-sequential.json; \
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 1000 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$subject" --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/paired-parallel.json; \
+      cat evidence/transport-evaluation/paired-sequential.json; \
+      cat evidence/transport-evaluation/paired-parallel.json
 
 # Model-level evaluation target: at least 30 paired seeds x 10,000 messages per scenario.
 evaluate-transport:
@@ -63,8 +65,10 @@ evaluate-transport:
       sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256; \
       manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
       subject=$$(cat evidence/transport-evaluation/subject.sha); \
-      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/paired-evaluation.json; \
-      cat evidence/transport-evaluation/paired-evaluation.json
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$subject" --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/paired-sequential.json; \
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$subject" --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/paired-parallel.json; \
+      cat evidence/transport-evaluation/paired-sequential.json; \
+      cat evidence/transport-evaluation/paired-parallel.json
 
 # Shared Pulse V2 primitives: native behavior plus browser-target compilation.
 test-crypto:
