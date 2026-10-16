@@ -1,0 +1,407 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_ADAPTIVE_EXPOSURE_LEDGER_V0_1.schema.json",
+  "title": "CIV-IMPACT Adaptive Challenge Exposure Ledger",
+  "description": "Evaluator-only append-only campaign ledger for selecting, executing, freezing, revealing and rotating challenge cases. Do not expose this ledger to candidate policies while the campaign is sealed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "preregistration_receipt_sha256",
+    "initial_sealed_bank_commitment_sha256",
+    "event_count",
+    "events",
+    "campaign_disposition",
+    "confirmatory_claim_valid",
+    "claim_ceiling",
+    "cumulative_evaluation_cost_microcredits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "campaign_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 160
+    },
+    "preregistration_receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "initial_sealed_bank_commitment_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "campaign_disposition": {
+      "enum": [
+        "sealed_active",
+        "confirmatory_complete",
+        "invalidated",
+        "abandoned",
+        "descriptive_complete"
+      ]
+    },
+    "confirmatory_claim_valid": {
+      "type": "boolean"
+    },
+    "claim_ceiling": {
+      "enum": [
+        "confirmatory_claim_limited_to_frozen_candidate_comparator_evaluator_and_declared_challenge_domain",
+        "descriptive_selected_set_only; no_population_inference_or_confirmatory_claim"
+      ]
+    },
+    "cumulative_evaluation_cost_microcredits": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Fully loaded evaluator-measured cost for the campaign, compared against the frozen preregistration budget."
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "selectorDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenge_commitment_sha256",
+        "regime",
+        "eligible",
+        "selected",
+        "selection_probability_permille",
+        "selector_score_microcredits",
+        "decision_reason_code"
+      ],
+      "properties": {
+        "challenge_commitment_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "regime": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "selection_probability_permille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "selector_score_microcredits": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "decision_reason_code": {
+          "enum": [
+            "selected_by_frozen_selector",
+            "selected_for_minimum_regime_coverage",
+            "selected_for_random_audit",
+            "not_selected_by_frozen_selector",
+            "ineligible_by_preregistered_rule",
+            "rejected_duplicate_or_replay"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "selected": {
+                "const": true
+              }
+            },
+            "required": [
+              "selected"
+            ]
+          },
+          "then": {
+            "properties": {
+              "eligible": {
+                "const": true
+              },
+              "selection_probability_permille": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "selected": {
+                "const": false
+              }
+            },
+            "required": [
+              "selected"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision_reason_code": {
+                "enum": [
+                  "not_selected_by_frozen_selector",
+                  "ineligible_by_preregistered_rule",
+                  "rejected_duplicate_or_replay"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "eligible": {
+                "const": true
+              },
+              "selected": {
+                "const": false
+              }
+            },
+            "required": [
+              "eligible",
+              "selected"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision_reason_code": {
+                "const": "not_selected_by_frozen_selector"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "eligible": {
+                "const": false
+              }
+            },
+            "required": [
+              "eligible"
+            ]
+          },
+          "then": {
+            "properties": {
+              "selected": {
+                "const": false
+              },
+              "selection_probability_permille": {
+                "type": "null"
+              },
+              "decision_reason_code": {
+                "enum": [
+                  "ineligible_by_preregistered_rule",
+                  "rejected_duplicate_or_replay"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "event_type",
+        "recorded_at",
+        "actor_role",
+        "previous_event_sha256",
+        "event_sha256",
+        "preregistration_sha256_at_event",
+        "candidate_artifact_sha256_at_event",
+        "comparator_artifact_sha256_at_event",
+        "evaluator_profile_sha256_at_event",
+        "scorer_profile_sha256_at_event",
+        "eligible_case_decisions",
+        "selected_case_commitments",
+        "result_frozen",
+        "result_disclosed_to_candidate",
+        "material_mutation_since_freeze",
+        "protocol_invalidated",
+        "reason"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_type": {
+          "enum": [
+            "campaign_frozen",
+            "selection_batch",
+            "challenge_executed",
+            "result_frozen",
+            "result_disclosed",
+            "challenge_rotated",
+            "mutation_detected",
+            "campaign_closed",
+            "campaign_abandoned"
+          ]
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_role": {
+          "enum": [
+            "independent_evaluator",
+            "qualification_verifier",
+            "candidate_operator",
+            "independent_reviewer",
+            "automation_service"
+          ]
+        },
+        "previous_event_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "event_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Digest of canonical event-core bytes excluding event_sha256 itself; previous_event_sha256 forms the append-only chain."
+        },
+        "preregistration_sha256_at_event": {
+          "$ref": "#/$defs/sha256"
+        },
+        "candidate_artifact_sha256_at_event": {
+          "$ref": "#/$defs/sha256"
+        },
+        "comparator_artifact_sha256_at_event": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evaluator_profile_sha256_at_event": {
+          "$ref": "#/$defs/sha256"
+        },
+        "scorer_profile_sha256_at_event": {
+          "$ref": "#/$defs/sha256"
+        },
+        "eligible_case_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selectorDecision"
+          }
+        },
+        "selected_case_commitments": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/sha256"
+          }
+        },
+        "result_frozen": {
+          "type": "boolean"
+        },
+        "result_disclosed_to_candidate": {
+          "type": "boolean"
+        },
+        "material_mutation_since_freeze": {
+          "type": "boolean"
+        },
+        "protocol_invalidated": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "material_mutation_since_freeze": {
+                "const": true
+              }
+            },
+            "required": [
+              "material_mutation_since_freeze"
+            ]
+          },
+          "then": {
+            "properties": {
+              "protocol_invalidated": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "const": "result_disclosed"
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result_frozen": {
+                "const": true
+              },
+              "result_disclosed_to_candidate": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "const": "mutation_detected"
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "material_mutation_since_freeze": {
+                "const": true
+              },
+              "protocol_invalidated": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

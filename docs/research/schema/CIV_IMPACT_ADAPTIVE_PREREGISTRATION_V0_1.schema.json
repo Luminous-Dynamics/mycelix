@@ -1,0 +1,432 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_ADAPTIVE_PREREGISTRATION_V0_1.schema.json",
+  "title": "CIV-IMPACT Adaptive Challenge Preregistration Receipt",
+  "description": "Frozen plan for a public-regression plus sealed confirmatory challenge campaign. This receipt references canonical evaluator/exposure profiles rather than reimplementing them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "campaign_id",
+    "parent_protocol_sha256",
+    "candidate_artifact_sha256",
+    "comparator_artifact_sha256",
+    "evaluator_profile_sha256",
+    "scorer_profile_sha256",
+    "environment_profile_sha256",
+    "scenario_generator_sha256",
+    "public_regression_corpus_sha256",
+    "sealed_bank_commitment_sha256",
+    "public_regression_count",
+    "sealed_challenge_count",
+    "preregistered_hypotheses",
+    "primary_outcome",
+    "comparators",
+    "adaptive_selection",
+    "statistical_plan",
+    "exposure_freeze",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "benchmark_id": {
+      "const": "CIV-IMPACT-DECISION-VALUE-SYNTH-001"
+    },
+    "campaign_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,159}$"
+    },
+    "parent_protocol_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "candidate_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "comparator_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "evaluator_profile_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "scorer_profile_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "environment_profile_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "scenario_generator_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "public_regression_corpus_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "sealed_bank_commitment_sha256": {
+      "$ref": "#/$defs/sha256",
+      "description": "Commitment to evaluator-controlled sealed-bank contents. Do not publish secret seeds or hidden truth in this receipt."
+    },
+    "public_regression_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sealed_challenge_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "preregistered_hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hypothesis_id",
+          "statement",
+          "expected_direction",
+          "minimum_effect_microcredits"
+        ],
+        "properties": {
+          "hypothesis_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 3000
+          },
+          "expected_direction": {
+            "enum": [
+              "candidate_lower_is_better",
+              "candidate_higher_is_better",
+              "noninferiority",
+              "guardrail_only"
+            ]
+          },
+          "minimum_effect_microcredits": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "primary_outcome": {
+      "enum": [
+        "paired_end_to_end_loss_reduction_microcredits",
+        "mean_decision_regret_microcredits",
+        "hard_guardrail_violation_count"
+      ]
+    },
+    "comparators": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "adaptive_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "selector_profile_sha256",
+        "selector_objective",
+        "max_selected_cases",
+        "max_evaluation_cost_microcredits",
+        "random_audit_fraction_permille",
+        "minimum_cases_per_regime",
+        "stopping_rule",
+        "selection_bias_handling"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "fixed_random",
+            "adaptive_measurement_value"
+          ]
+        },
+        "selector_profile_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "selector_objective": {
+          "enum": [
+            "preregistered_comparison_information_gain_per_cost",
+            "uniform_random"
+          ]
+        },
+        "max_selected_cases": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_evaluation_cost_microcredits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "random_audit_fraction_permille": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 1000
+        },
+        "minimum_cases_per_regime": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "regime",
+              "minimum_count"
+            ],
+            "properties": {
+              "regime": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "minimum_count": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "stopping_rule": {
+          "enum": [
+            "fixed_case_count",
+            "fixed_budget",
+            "preregistered_precision_target",
+            "sequential_rule_with_frozen_multiplicity_control"
+          ]
+        },
+        "selection_bias_handling": {
+          "enum": [
+            "design_based_estimator_preregistered",
+            "report_descriptive_selected_set_only"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "fixed_random"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "selector_objective": {
+                "const": "uniform_random"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "adaptive_measurement_value"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "selector_objective": {
+                "const": "preregistered_comparison_information_gain_per_cost"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "statistical_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison_design",
+        "analysis_unit",
+        "cluster_unit",
+        "interim_peeking_allowed",
+        "multiplicity_method",
+        "uncertainty_method",
+        "missing_outcome_policy"
+      ],
+      "properties": {
+        "comparison_design": {
+          "const": "paired_candidate_comparator_on_same_challenge"
+        },
+        "analysis_unit": {
+          "enum": [
+            "challenge_episode",
+            "scenario_family"
+          ]
+        },
+        "cluster_unit": {
+          "enum": [
+            "scenario_family",
+            "independent_generation_batch"
+          ]
+        },
+        "interim_peeking_allowed": {
+          "type": "boolean"
+        },
+        "multiplicity_method": {
+          "enum": [
+            "none_single_primary_endpoint",
+            "holm",
+            "alpha_spending",
+            "other_preregistered"
+          ]
+        },
+        "uncertainty_method": {
+          "enum": [
+            "paired_cluster_bootstrap",
+            "randomization_inference",
+            "preregistered_sequential_method",
+            "descriptive_only"
+          ]
+        },
+        "missing_outcome_policy": {
+          "enum": [
+            "retain_as_failure_or_declared_partial",
+            "explicit_censoring_model_preregistered"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "interim_peeking_allowed": {
+                "const": true
+              }
+            },
+            "required": [
+              "interim_peeking_allowed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "multiplicity_method": {
+                "enum": [
+                  "alpha_spending",
+                  "other_preregistered"
+                ]
+              },
+              "uncertainty_method": {
+                "const": "preregistered_sequential_method"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "exposure_freeze": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frozen_at",
+        "no_tune_after_reveal",
+        "challenge_rotation",
+        "public_cases_confirmatory_credit"
+      ],
+      "properties": {
+        "frozen_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "no_tune_after_reveal": {
+          "const": true
+        },
+        "challenge_rotation": {
+          "const": "disclosed_case_becomes_public_regression_and_is_replaced_under_new_version"
+        },
+        "public_cases_confirmatory_credit": {
+          "const": false
+        }
+      }
+    },
+    "claim_ceiling": {
+      "enum": [
+        "confirmatory_claim_limited_to_frozen_candidate_comparator_evaluator_and_declared_challenge_domain",
+        "descriptive_selected_set_only; no_population_inference_or_confirmatory_claim"
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "adaptive_selection": {
+            "properties": {
+              "selection_bias_handling": {
+                "const": "report_descriptive_selected_set_only"
+              }
+            },
+            "required": [
+              "selection_bias_handling"
+            ]
+          }
+        },
+        "required": [
+          "adaptive_selection"
+        ]
+      },
+      "then": {
+        "properties": {
+          "claim_ceiling": {
+            "const": "descriptive_selected_set_only; no_population_inference_or_confirmatory_claim"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "adaptive_selection": {
+            "properties": {
+              "selection_bias_handling": {
+                "const": "design_based_estimator_preregistered"
+              }
+            },
+            "required": [
+              "selection_bias_handling"
+            ]
+          }
+        },
+        "required": [
+          "adaptive_selection"
+        ]
+      },
+      "then": {
+        "properties": {
+          "claim_ceiling": {
+            "const": "confirmatory_claim_limited_to_frozen_candidate_comparator_evaluator_and_declared_challenge_domain"
+          }
+        }
+      }
+    }
+  ]
+}
