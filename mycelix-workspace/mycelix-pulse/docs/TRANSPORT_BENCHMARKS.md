@@ -104,9 +104,11 @@ just simulate-transport
 
 The corpus starts with eleven explicit synthetic scenarios and 10,000 logical messages per scenario. Each run uses a fixed seed and compares the same deterministic draws, correlated within declared failure domains, under three policies: preferred single path, sequential failover, and parallel redundancy. It reports modeled path successes before deadline, P50/P95 modeled latency among successful simulations only, attempts, illustrative cost units, and illustrative energy units. Fixed-point aggregate fields are scaled by 1,000 to avoid floating-point output. The model applies payload budget, explicit permission, link availability and message-index outage ranges before any send attempt.
 
-**Important limitation:** this is a route-policy smoke model, not a radio simulator. It uses synthetic success thresholds correlated within declared failure domains and fixed latency/cost inputs; it does not model RF propagation, interference, congestion, fragmentation, hardware, real joules, end-to-end cryptography or authenticated recipient receipts. Its modeled-success metrics mean only a synthetic path success before deadline; report field names deliberately avoid calling this real delivery. The JSON report hard-codes these non-claims.
+A paired evaluator now lives in `standards-registry/validator/src/evaluation.rs` and is exposed by `route-sim --evaluate`. The corpus declares an exhaustive, disjoint split of six development scenarios and five holdout scenarios. The evaluator compares the same seeds for the single-path baseline and one candidate, summarizes holdout aggregate and per-scenario rates, reports absolute percentage-point and relative changes, and computes an approximate paired seed-level interval. It rejects fewer than 30 seeds and binds the output to a supplied subject SHA and SHA-256 digest of a file-hash manifest. The CI smoke is configured for 30 seeds × 1,000 messages per scenario; `just evaluate-transport` runs 30 × 10,000 in release mode.
 
-Any model-level relative improvement is useful only as a harness sanity check. It cannot establish that the real Pulse adapter will produce the same improvement. Qualification must later replay measured traces, exercise the actual transport contract, and verify cryptographic recipient receipts.
+**Important limitation:** this is a route-policy model, not a radio simulator. Seed-to-seed variation is a sensitivity diagnostic for this particular synthetic model, not statistical evidence about real-world reliability. A declared holdout split does not establish that developers have never inspected those scenarios, and the current model's success thresholds remain synthetic. It does not model RF propagation, interference, congestion, fragmentation, hardware, real joules, end-to-end cryptography or authenticated recipient receipts. Its modeled-success metrics mean only a synthetic path success before deadline; report field names deliberately avoid calling this real delivery.
+
+Any model-level improvement is useful only as a harness sanity check. It cannot establish that the real Pulse adapter will produce the same improvement. Qualification must later replay measured, privacy-minimized traces, exercise the actual transport contract, and verify cryptographic recipient receipts.
 
 - QUIC (RFC 9000): https://www.rfc-editor.org/rfc/rfc9000
 - QUIC DATAGRAM Extension (RFC 9221): https://www.rfc-editor.org/rfc/rfc9221
@@ -161,7 +163,7 @@ Implementation PRs should provide focused local commands for:
 - short seeded trace simulation;
 - benchmark smoke run with metrics written to a machine-readable file.
 
-A release/qualification process can later run the extended corpus and real hardware tests. Until implemented, these are acceptance requirements, not commands known to exist. Record the exact commit SHA before execution and bind every report to that SHA, registry hash, trace-corpus hash, toolchain, and configuration.
+A release/qualification process can later run the extended corpus and real hardware tests. Commands now exist for paired evaluation and smoke replay, but they have not been verified by local execution in this environment. Record the exact commit SHA before execution and bind every report to that SHA, input-manifest digest, trace-corpus digest, toolchain, and configuration. The CI manifest binds the evaluator source and corpus; a queued workflow is not evidence that the command succeeded.
 
 ## 8. Release claim ceiling
 
