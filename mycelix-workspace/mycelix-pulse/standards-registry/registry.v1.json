@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "as_of": "2026-10-15",
+  "as_of": "2026-10-16",
   "inventory_scope": "Seed records verified against the linked public source during this pass. This is not an exhaustive standards inventory or a claim of Pulse interoperability.",
   "entries": [
     {
@@ -469,6 +469,208 @@
       "next_review_due": "2027-01-13",
       "notes": "Endpoint identifier normalization must follow the normative update. Do not treat different encoded representations as different logical endpoints if the standard defines them as equivalent.",
       "publication_period": "May 2025"
+    },
+    {
+      "id": "ietf.rfc-9173",
+      "title": "Default Security Contexts for Bundle Protocol Security (BPSec)",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9173",
+      "version": "RFC 9173",
+      "published_on": null,
+      "publication_period": "January 2022",
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "layers": [
+        "delay_tolerant",
+        "security"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "related",
+          "target_id": "ietf.rfc-9172",
+          "source_url": "https://www.rfc-editor.org/info/rfc9173",
+          "notes": "Defines default integrity and confidentiality security contexts for BPSec blocks."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9173"
+      ],
+      "review_flags": [
+        "review-algorithm-and-key-management-fit-before-adopting"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc9173",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor describes the document as defining default integrity and confidentiality security contexts for BPSec. This is a source reference, not a Pulse implementation or cryptographic approval.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "BPSec block-level security and Pulse's existing end-to-end message cryptography are different layers. Do not replace or weaken Pulse V2 based on this registry entry."
+    },
+    {
+      "id": "ietf.rfc-9174",
+      "title": "Delay-Tolerant Networking TCP Convergence-Layer Protocol Version 4 (TCPCLv4)",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9174",
+      "version": "RFC 9174",
+      "published_on": null,
+      "publication_period": "January 2022",
+      "last_checked": "2026-10-16",
+      "source_status": "published",
+      "layers": [
+        "delay_tolerant",
+        "transport",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "depends_on",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/info/rfc9174",
+          "notes": "TCPCLv4 transports BPv7 bundles over TCP and acts as a convergence-layer protocol; it is not a routing algorithm."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9174"
+      ],
+      "review_flags": [
+        "tcp-only-convergence-layer-not-a-radio-adapter"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc9174",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor describes TCPCLv4 as a reliable TCP convergence layer for BPv7 bundles with security and extensibility mechanisms.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "This is a useful reference for separating store-and-forward semantics from a link-specific convergence layer. It does not by itself qualify TCPCL on any Pulse deployment."
+    },
+    {
+      "id": "ietf.rfc-4838",
+      "title": "Delay-Tolerant Networking Architecture",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc4838",
+      "version": "RFC 4838",
+      "published_on": null,
+      "publication_period": "April 2007",
+      "last_checked": "2026-10-16",
+      "source_status": "published",
+      "layers": [
+        "delay_tolerant",
+        "network",
+        "routing"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "related",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/info/rfc4838",
+          "notes": "Foundational DTN architecture; consult the current BPv7 RFCs for normative wire-protocol details."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc4838"
+      ],
+      "review_flags": [
+        "architecture-background-not-a-current-wire-protocol"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/info/rfc4838",
+          "exact_subject_sha": null,
+          "claim": "RFC Editor catalogue identifies RFC 4838 as the Delay-Tolerant Networking Architecture. It is architectural background, not a transport implementation.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Useful for the delivery model and challenged-network threat assumptions; BPv7 and the chosen convergence layer define the implementation details."
+    },
+    {
+      "id": "briar.multi-transport-pattern",
+      "title": "Briar offline and online synchronization architecture (implementation reference)",
+      "authority": "Briar Project",
+      "artifact_kind": "implementation_reference",
+      "canonical_url": "https://briarproject.org/quick-start/",
+      "version": null,
+      "published_on": null,
+      "last_checked": "2026-10-16",
+      "source_status": "active",
+      "layers": [
+        "application",
+        "network",
+        "routing"
+      ],
+      "region_scope": [],
+      "relations": [],
+      "errata_urls": [],
+      "review_flags": [
+        "product-documentation-not-a-standard",
+        "study-contact-specific-sync-and-privacy-tradeoffs"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://briarproject.org/quick-start/",
+          "exact_subject_sha": null,
+          "claim": "Briar documentation describes synchronization via Bluetooth or Wi-Fi when offline and via Tor when online, with contact- and share-scope-dependent synchronization semantics.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-04-14",
+      "notes": "Use as a design comparison for consent-scoped offline synchronization and battery/network controls. It is not a standards document or evidence of Pulse compatibility."
+    },
+    {
+      "id": "reticulum.medium-agnostic-network",
+      "title": "Reticulum medium-agnostic network stack (implementation reference)",
+      "authority": "Reticulum Project",
+      "artifact_kind": "implementation_reference",
+      "canonical_url": "https://reticulum.network/manual/understanding.html",
+      "version": "Documentation 1.5.5",
+      "published_on": null,
+      "last_checked": "2026-10-16",
+      "source_status": "active",
+      "layers": [
+        "network",
+        "routing",
+        "security",
+        "implementation"
+      ],
+      "region_scope": [],
+      "relations": [],
+      "errata_urls": [],
+      "review_flags": [
+        "implementation-reference-not-a-standard",
+        "compare-interop-and-security-profile-before-integration"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://reticulum.network/manual/understanding.html",
+          "exact_subject_sha": null,
+          "claim": "Reticulum's documentation describes a medium-agnostic stack intended for use across diverse digital data links, including radio and serial interfaces. This is a project claim, not independent qualification.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-04-14",
+      "notes": "Study its interface abstraction and low-bandwidth design goals; avoid assuming protocol compatibility, cryptographic equivalence, or hardware support. Prefer interop experiments and threat-model comparison before writing a replacement."
     }
   ],
   "schema_uri": "./schema.v1.json"
