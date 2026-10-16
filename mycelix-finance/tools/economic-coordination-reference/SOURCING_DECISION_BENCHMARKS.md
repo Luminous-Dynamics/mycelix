@@ -20,6 +20,7 @@ A capability profile digest is an equality boundary, not semantic proof. Alterna
 The evaluator:
 - uses an explicit evaluation timestamp to make replay deterministic;
 - requires a non-empty source locator, source-payload digest reference and extraction-profile identity; these are preserved in the report but not authenticated or recomputed by this module;
+- separates supplier credential expiry from the freshness of the latest credential-status/revocation check; both must pass the explicit request policy;
 - requires exact capability ID/profile digest, canonical unit, currency, and risk-model digest matches;
 - requires quote and supplier-credential evidence to be marked verified by an upstream process;
 - rejects future/stale/expired quotes, independently future/stale/expired or unverified inventory observations, expired credentials, insufficient quantity, late delivery, malformed risk values, and integer-overflowed or over-budget totals;
@@ -40,6 +41,7 @@ Every gate is a zero-tolerance pass/fail condition; failures must not be average
 | Cost arithmetic | Boundary values, maximum integers, fees, taxes, and quantity multiplication | Zero overflow, wrapping, or understated totals |
 | Currency/unit/profile isolation | Mixed and deliberately mislabeled offers | Zero cross-currency, cross-unit or unapproved-profile comparisons |
 | Evidence freshness | Quotes at, inside and beyond the age boundary; future and expired records | Zero stale/expired offers accepted |
+| Credential currentness | Unexpired credentials whose latest status check is stale or future-dated; currentness-window boundary cases | Zero stale/future credential-status checks admitted; retain checked-at and valid-until values separately |
 | Source attribution | Accepted and rejected offers with absent source locator, payload-digest reference or extractor identity | Zero offers missing required source metadata may become eligible; output retains supplied references |
 | Evidence audit retention | Accepted and rejected rows after quote/stock/credential freshness checks | Every decision row retains the timestamps, expiry bounds, status, origin and source references actually used by the evaluator |
 | Evidence-origin isolation | Live-domain and synthetic-simulation quotes or credentials in one request | Zero cross-origin offers become eligible; the required origin is explicit and versioned by the caller |
