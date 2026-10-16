@@ -71,7 +71,7 @@ These tests are authored but not yet executed. They test the local decoder/prese
 7. 100% of checked-but-empty results distinguished from not-checked and unavailable.
 8. At least 90% of study participants distinguish "saved" from "receipt thresholds observed"; at least 90% understand neither guarantees every peer has the latest state.
 9. 100% of stale evidence-query completions are prevented from replacing the latest requested evidence snapshot.
-9. Qualify the exact head with Leptos 0.8 WASM compilation, frontend unit tests, and browser-side call mock before merge. Queued/skipped/absent is not PASS.
+10. Qualify the exact head with Leptos 0.8 WASM compilation, frontend unit tests, and browser-side call mock before merge. Queued/skipped/absent is not PASS.
 
 ## Nonclaims
 
