@@ -169,3 +169,61 @@ fn same_seed_replays_produce_identical_ordered_journals() {
         assert_eq!(first, replay, "seed {seed} did not replay identically");
     }
 }
+
+
+#[test]
+fn isolated_replicas_can_double_allocate_without_a_shared_reservation_protocol() {
+    // Deliberate counterexample, not a desired property: each serial replica
+    // sees the full request as available and therefore accepts locally valid
+    // claims. A production design needs a shared reservation authority or a
+    // formally specified escrow/partition protocol before global safety can
+    // be claimed.
+    fn isolated_replica(replica: &str, auditor: &str) -> FulfillmentLedger {
+        let request = FulfillmentRequest {
+            request_id: "shared-need-001".to_owned(),
+            requester_id: "household-a".to_owned(),
+            provider_id: "repair-coop".to_owned(),
+            resource_id: "repair-hours".to_owned(),
+            unit: "hour".to_owned(),
+            requested_quantity: 10,
+            deliver_by: 50,
+        };
+        let mut ledger = FulfillmentLedger::new(request).unwrap();
+        let claim = DeliveryTrancheClaim {
+            claim_id: format!("claim-{replica}"),
+            source_id: "repair-coop".to_owned(),
+            evidence_id: format!("claim-evidence-{replica}"),
+            resource_id: "repair-hours".to_owned(),
+            unit: "hour".to_owned(),
+            quantity: 10,
+            origin: EvidenceOrigin::LiveDomain,
+            observed_at: 2,
+        };
+        ledger.record_claim(claim.clone(), 3).unwrap();
+        assert_eq!(
+            ledger
+                .verify_claim(TrancheVerification {
+                    verifier_id: auditor.to_owned(),
+                    claim_id: claim.claim_id,
+                    claim_evidence_id: claim.evidence_id,
+                    evidence_id: format!("verification-{replica}"),
+                    evidence_status: EvidenceStatus::Verified,
+                    origin: EvidenceOrigin::LiveDomain,
+                    accepted_quantity: Some(10),
+                    decided_at: 4,
+                })
+                .unwrap(),
+            TrancheState::Accepted
+        );
+        ledger
+    }
+
+    let region_a = isolated_replica("region-a", "independent-auditor-a");
+    let region_b = isolated_replica("region-b", "independent-auditor-b");
+    assert_eq!(region_a.accepted_quantity().unwrap(), 10);
+    assert_eq!(region_b.accepted_quantity().unwrap(), 10);
+    assert!(
+        region_a.accepted_quantity().unwrap() + region_b.accepted_quantity().unwrap() > 10,
+        "independent serial validity does not imply global reservation safety"
+    );
+}
