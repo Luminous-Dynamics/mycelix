@@ -367,6 +367,11 @@
               "expires_at": {
                 "type": "string",
                 "format": "date-time"
+              },
+              "consent_record_ref": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 160
               }
             }
           }
@@ -586,6 +591,15 @@
         "pattern": "^[a-z][a-z0-9_.-]{1,80}:[a-zA-Z0-9_.-]{1,100}$"
       },
       "additionalProperties": true
+    },
+    "approved_public_summary_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 8,
+      "maxLength": 160,
+      "description": "Opaque reference to the exact requester-approved public summary/version. Required when visibility is public_summary_approved."
     }
   },
   "allOf": [
@@ -642,6 +656,92 @@
         "properties": {
           "outcome_status": {
             "const": "unknown"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "visibility": {
+            "const": "public_summary_approved"
+          }
+        },
+        "required": [
+          "visibility"
+        ]
+      },
+      "then": {
+        "required": [
+          "approved_public_summary_ref"
+        ],
+        "properties": {
+          "approved_public_summary_ref": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "enum": [
+              "consented",
+              "planning",
+              "awaiting_resources",
+              "ready_for_authorization",
+              "authorized"
+            ]
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "consent": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "granted",
+                  "partially_granted"
+                ]
+              },
+              "granted_scopes": {
+                "contains": {
+                  "const": "plan"
+                }
+              }
+            },
+            "required": [
+              "status",
+              "granted_scopes"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "enum": [
+              "authorized",
+              "in_progress"
+            ]
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorization_refs": {
+            "minItems": 1
           }
         }
       }
