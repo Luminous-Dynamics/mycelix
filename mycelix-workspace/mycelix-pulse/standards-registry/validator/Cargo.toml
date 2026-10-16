@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-pulse-standards-registry-check"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Fail-closed validation for the Pulse communications standards registry"
+
+[workspace]
+
+[dependencies]
+serde_json = "=1.0.145"
