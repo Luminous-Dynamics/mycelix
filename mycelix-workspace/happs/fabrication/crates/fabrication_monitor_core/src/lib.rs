@@ -766,6 +766,17 @@ mod tests {
             .any(|d| d.signal == Signal::VibrationRms));
     }
 
+
+    #[test]
+    fn missing_reference_dataset_identity_is_rejected() {
+        let mut detector_config = config();
+        detector_config.reference_dataset_id.clear();
+        assert_eq!(
+            detector_config.validate(),
+            Err(ConfigError::EmptyReferenceDatasetId)
+        );
+    }
+
     #[test]
     fn baseline_requires_minimum_reference_count() {
         let error =
