@@ -674,4 +674,125 @@ mod tests {
         }
     }
 
+
+    fn bounds_enclose(outer: BoundsMm, inner: BoundsMm) -> bool {
+        outer.lower_mm <= inner.lower_mm && outer.upper_mm >= inner.upper_mm
+    }
+
+    #[test]
+    fn generated_lineage_metamorphic_laws_preserve_or_expand_bounds() {
+        // Independent seed from the differential-oracle test: 500 fixed, replayable domains.
+        let mut seed = 0xA1B2_C3D4_2026_0250_u64;
+        for case_index in 0..500 {
+            let dependency_count = (next_oracle_seed(&mut seed) % 3 + 1) as usize;
+            let mut terms = Vec::new();
+            for dependency_index in 0..dependency_count {
+                let kind = if next_oracle_seed(&mut seed) % 2 == 0 {
+                    "position_error"
+                } else {
+                    "clock_offset_error"
+                };
+                let lower = -((next_oracle_seed(&mut seed) % 3) as i64);
+                let upper = (next_oracle_seed(&mut seed) % 3) as i64;
+                let contribution_count = (next_oracle_seed(&mut seed) % 3 + 1) as usize;
+                for contribution_index in 0..contribution_count {
+                    let sensitivity = (next_oracle_seed(&mut seed) % 5_001) as i64 - 2_500;
+                    terms.push(generated_lineage_term(
+                        format!("meta-{case_index}-source-{dependency_index}-{contribution_index}"),
+                        format!("meta-{case_index}-dependency-{dependency_index}"),
+                        kind,
+                        lower,
+                        upper,
+                        sensitivity,
+                    ));
+                }
+            }
+
+            let baseline = TypedLineageModel::new(terms.clone())
+                .unwrap_or_else(|error| panic!("metamorphic case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("metamorphic case {case_index} failed: {error:?}"));
+
+            // Relation 1: source labels are provenance labels, not numeric coefficients.
+            let relabelled: Vec<TypedErrorTerm> = terms.iter().enumerate().map(|(index, term)| {
+                let mut changed = term.clone();
+                changed.source_id = format!("renamed-{case_index}-{index}");
+                changed
+            }).collect();
+            let relabelled_bounds = TypedLineageModel::new(relabelled)
+                .unwrap_or_else(|error| panic!("relabelled case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("relabelled case {case_index} failed: {error:?}"));
+            assert_eq!(
+                baseline, relabelled_bounds,
+                "numeric bounds changed after source-label relabelling in case {case_index}"
+            );
+
+            // Relation 2: splitting one linear contribution into two contributions whose
+            // sensitivities sum exactly must preserve the same dependency-level function.
+            let mut split = terms.clone();
+            let original = split[0].clone();
+            let left_sensitivity = original.sensitivity_scaled / 2;
+            split[0].sensitivity_scaled = left_sensitivity;
+            let mut second_half = original.clone();
+            second_half.source_id = format!("split-source-{case_index}");
+            second_half.sensitivity_scaled =
+                original.sensitivity_scaled - left_sensitivity;
+            split.push(second_half);
+            let split_bounds = TypedLineageModel::new(split)
+                .unwrap_or_else(|error| panic!("split case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("split case {case_index} failed: {error:?}"));
+            assert_eq!(
+                baseline, split_bounds,
+                "equivalent coefficient split changed bounds in case {case_index}"
+            );
+
+            // Relation 3: widening one shared dependency's input interval, consistently
+            // across every term that refers to it, cannot shrink the output interval.
+            let widened_dependency = terms[0].dependency_id.clone();
+            let mut widened = terms.clone();
+            for term in &mut widened {
+                if term.dependency_id == widened_dependency {
+                    term.lower_value -= 1;
+                    term.upper_value += 1;
+                }
+            }
+            let widened_bounds = TypedLineageModel::new(widened)
+                .unwrap_or_else(|error| panic!("widened case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("widened case {case_index} failed: {error:?}"));
+            assert!(
+                bounds_enclose(widened_bounds, baseline),
+                "widening dependency {widened_dependency} shrank bounds in case {case_index}: baseline={baseline:?}, widened={widened_bounds:?}"
+            );
+        }
+
+        // Negative control: a deliberately narrowed interval must violate containment.
+        let broad = generated_lineage_term(
+            "metamorphic-control-source".to_owned(),
+            "metamorphic-control-dependency".to_owned(),
+            "position_error",
+            -2,
+            2,
+            1_000,
+        );
+        let baseline = TypedLineageModel::new(vec![broad.clone()])
+            .unwrap().bounds_at(10).unwrap();
+        let mut broader = broad;
+        broader.lower_value = -3;
+        broader.upper_value = 3;
+        let widened = TypedLineageModel::new(vec![broader])
+            .unwrap().bounds_at(10).unwrap();
+        assert!(bounds_enclose(widened, baseline));
+        let narrowed_mutant = BoundsMm {
+            lower_mm: widened.lower_mm + 1,
+            upper_mm: widened.upper_mm - 1,
+        };
+        assert!(
+            !bounds_enclose(narrowed_mutant, baseline),
+            "the metamorphic containment control failed to detect a narrowed-output mutant"
+        );
+    }
+
 }
