@@ -508,12 +508,12 @@ jobs:
           cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
             --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 \
             --seed 20261016 --seed-count 30 --candidate sequential_failover \
-            --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
+            --subject-sha "$subject_sha" --input-manifest evidence/standards-registry-ci/routing-evaluation-inputs.sha256 --input-manifest-sha256 "$input_manifest_sha256" \
             > evidence/standards-registry-ci/correlation-sweep-sequential.json
           cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
             --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 \
             --seed 20261016 --seed-count 30 --candidate parallel_redundancy \
-            --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
+            --subject-sha "$subject_sha" --input-manifest evidence/standards-registry-ci/routing-evaluation-inputs.sha256 --input-manifest-sha256 "$input_manifest_sha256" \
             > evidence/standards-registry-ci/correlation-sweep-parallel.json
           cat evidence/standards-registry-ci/correlation-sweep-sequential.json
           cat evidence/standards-registry-ci/correlation-sweep-parallel.json
