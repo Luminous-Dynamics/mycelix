@@ -26,7 +26,7 @@ Optional filament tension, ambient temperature and humidity can be omitted durin
 - Fixture: tests/fixtures/cincinnati_v1.tsv
 - SHA-256: 10abc8e1839c232790dd6e3adb975bf326ca2ea9516d743886c3242148d330c9
 - 24 cases: nominal trace, temperature/current/vibration/environment deviations, optional-sensor coverage, design/recipe/equipment/material/environment/calibration mismatch, invalid input, signed-current handling, sequence/timestamp gaps, ordering violations and session mismatch.
-- The independent integration evaluator in tests/frozen_corpus.rs checks disposition and signal-level expected outputs against the frozen fixture.
+- The public-API integration test in tests/frozen_corpus.rs checks disposition and signal-level outputs against expected values frozen separately from detector code. A separately built, independent verifier is still a follow-on.
 
 This hash identifies the TSV bytes only. The corpus remains synthetic and is not evidence of physical defect sensitivity, production yield, safety, cost improvement or generalized cross-process performance.
 
