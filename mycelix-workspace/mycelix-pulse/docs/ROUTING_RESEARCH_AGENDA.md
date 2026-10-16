@@ -148,11 +148,18 @@ The 20% resilience gate is a target, not a prior belief. If a baseline is near 1
 
 ### P2 — Durable messaging semantics
 
+- Added `crates/pulse-transport-core/src/delivery_state.rs` as an isolated, in-memory lifecycle primitive. It caps configured sends at 32 attempts, caps retry delay at 24 hours, derives stable message-key-specific jitter, makes repeated attempt IDs/outcomes idempotent, and prevents new attempts at/after expiry or after revocation.
+- The primitive distinguishes adapter acceptance/link/gateway acknowledgement from recipient receipt. Exhausted ambiguous attempts remain `OutcomeUnknown`; the only path to `Delivered` is the existing `VerifiedRecipientReceipt` capability bound to the exact message and recipient.
+- Added negative controls for duplicate/conflicting outcomes, attempt-ID ordering, premature retries, expiry, revocation, ambiguous ACKs, receipt binding, and a retry that cannot fit before expiry.
+- **Not yet durable:** the struct is in-memory and has no database adapter, journal, atomic transaction, serialized checkpoint, or receiver-side durable deduplication. No crash/restart guarantee is claimed. The current receipt capability also lacks a separately verified receive timestamp, so this primitive conservatively rejects a receipt first observed at/after message expiry.
+
+The remaining sequence is to integrate the lifecycle with a durable outbox and receiver inbox, then inject crashes around every state transition. Retries must retain one stable logical idempotency key across paths and restarts; storage commit success must not be confused with a network send or recipient receipt.
+
 - Integrate the outbox/event state machine with the supported Pulse alpha path without exposing plaintext to adapters.
 - Exercise crash/restart, expiration, revocation, deduplication, partial receive, and bounded reassembly.
 - Validate the existing Pulse trusted receipt verifier rather than treating a trait boundary as cryptographic proof.
 
-**Exit:** exact-head tests over the real application integration, plus explicit failure evidence. No radio qualification implied.
+**Exit:** exact-head tests over the real application integration, plus explicit failure evidence. Inject a crash after each durable write/send/receipt boundary; verify replay cannot double-count an outcome, exceed retry budgets, re-send after revocation/expiry, or fabricate delivery. No radio qualification implied.
 
 ### P3 — First real adapters
 
