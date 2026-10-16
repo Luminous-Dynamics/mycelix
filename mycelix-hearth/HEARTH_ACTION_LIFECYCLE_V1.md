@@ -11,7 +11,7 @@ Hearth should treat an action as a tracked operation with an explicit evidence-b
 ## State machine
 
 ```text
-Prepared ──► Submitted ──► Confirmed
+Prepared ──► Submitted ──► SourceChainCommitted
     │             ├──────► ExplicitlyRejected
     │             └──────► OutcomeUnknown ──► ReconciledApplied
     │                                      └─► ReconciledNotApplied
@@ -20,14 +20,14 @@ Prepared ──► Submitted ──► Confirmed
 
 - **Prepared:** local operation metadata exists; no remote request is authorized to have been sent.
 - **Submitted:** the intent to dispatch was durably recorded before the network call. Once recovered after a restart, treat it as ambiguous.
-- **Confirmed:** a decodable successful domain response was received.
+- **SourceChainCommitted:** a decodable successful domain response was received.
 - **ExplicitlyRejected:** a typed domain result proves the requested effect was not applied. A generic transport error is not a rejection.
 - **OutcomeUnknown:** the remote operation might have applied. Do not submit the same operation again. Query authoritative state or use a backend-supported idempotency contract.
 - **ReconciledApplied:** authoritative evidence establishes that the intended effect exists.
 - **ReconciledNotApplied:** authoritative evidence establishes that the intended effect does not exist. Only then can the user decide to start a *new* attempt; this does not re-open the old operation.
 - **NotSent:** a local preflight guard stopped dispatch before any request was sent.
 
-Repeating a status is an idempotent no-op. No direct transition exists from OutcomeUnknown to Submitted, Confirmed, ExplicitlyRejected, Prepared, or NotSent.
+Repeating a status is an idempotent no-op. No direct transition exists from OutcomeUnknown to Submitted, SourceChainCommitted, ExplicitlyRejected, Prepared, or NotSent.
 
 ## Required durable dispatch protocol (future integration)
 
@@ -37,7 +37,7 @@ The model in `src/action_lifecycle.rs` is deliberately pure; it does not supply 
 2. Durably append Prepared.
 3. Durably append Submitted **before** attempting network dispatch. If this durable write fails, do not send the request.
 4. Dispatch once under that operation ID.
-5. Record Confirmed only from a valid successful response; record ExplicitlyRejected only from a typed domain response whose contract proves no effect occurred. For timeout, restart, disconnect, or ambiguous decode failure, record OutcomeUnknown.
+5. Record SourceChainCommitted only from a valid successful response; record ExplicitlyRejected only from a typed domain response whose contract proves no effect occurred. For timeout, restart, disconnect, or ambiguous decode failure, record OutcomeUnknown.
 6. On restart, convert every recovered Submitted state to OutcomeUnknown before displaying it. Never replay it automatically.
 7. Reconcile against an authoritative, correctly scoped domain read or a server-supported idempotency result. An inconclusive read remains OutcomeUnknown.
 8. A retry after proven non-application is a **new user-authorized attempt** with its own operation ID. If/when the backend supports idempotency, retries of the same logical operation must reuse the same key, and the backend must bind that key to the canonical operation parameters.
@@ -84,7 +84,7 @@ Targets below are **not results**:
 2. Zero forbidden transitions accepted.
 3. 100% of recovered Submitted attempts become OutcomeUnknown.
 4. Zero dispatch-eligible states other than Prepared.
-5. Zero direct transitions from OutcomeUnknown to Submitted, Confirmed, ExplicitlyRejected, Prepared, or NotSent.
+5. Zero direct transitions from OutcomeUnknown to Submitted, SourceChainCommitted, ExplicitlyRejected, Prepared, or NotSent.
 6. 100% of inconclusive reconciliation remains OutcomeUnknown.
 7. Preserve operation ID and target fingerprint through every state transition.
 8. Run every test at the exact reviewed commit; queued, skipped, or absent checks are not passes.
