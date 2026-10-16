@@ -6,7 +6,7 @@
 //! a production-world sourcing-quality or performance result.
 
 use economic_coordination_reference::sourcing::{
-    evaluate_sourcing, EvidenceStatus, SourcingRequest, SupplierOffer,
+    evaluate_sourcing, EvidenceOrigin, EvidenceStatus, SourcingRequest, SupplierOffer,
 };
 
 const AS_OF: u64 = 1_000;
@@ -23,6 +23,7 @@ fn next(seed: &mut u64) -> u64 {
 fn request() -> SourcingRequest {
     SourcingRequest {
         as_of: AS_OF,
+        required_evidence_origin: EvidenceOrigin::SyntheticSimulation,
         request_id: "synthetic-need".into(),
         capability_id: "capability-v1".into(),
         capability_profile_digest: "fixture-profile-v1".into(),
@@ -47,6 +48,8 @@ fn offers_for_case(case_seed: u64) -> Vec<SupplierOffer> {
                 source_uri: format!("https://supplier.example/fixture/{case_seed}/{suffix}"),
                 source_payload_digest: format!("synthetic-payload-{case_seed}-{suffix}"),
                 extractor_profile_id: "synthetic-extractor-v1".into(),
+                quote_evidence_origin: EvidenceOrigin::SyntheticSimulation,
+                supplier_credential_origin: EvidenceOrigin::SyntheticSimulation,
                 capability_id: "capability-v1".into(),
                 capability_profile_digest: "fixture-profile-v1".into(),
                 unit: "each".into(),
