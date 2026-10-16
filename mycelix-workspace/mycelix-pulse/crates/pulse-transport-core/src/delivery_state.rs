@@ -57,17 +57,30 @@ impl RetryPolicy {
         if max_delay_millis > MAX_BACKOFF_MILLIS {
             return Err(RetryPolicyError::DelayExceedsHardLimit);
         }
-        Ok(Self { max_attempts, base_delay_millis, max_delay_millis })
+        Ok(Self {
+            max_attempts,
+            base_delay_millis,
+            max_delay_millis,
+        })
     }
 
-    pub const fn max_attempts(self) -> u32 { self.max_attempts }
-    pub const fn base_delay_millis(self) -> u64 { self.base_delay_millis }
-    pub const fn max_delay_millis(self) -> u64 { self.max_delay_millis }
+    pub const fn max_attempts(self) -> u32 {
+        self.max_attempts
+    }
+
+    pub const fn base_delay_millis(self) -> u64 {
+        self.base_delay_millis
+    }
+
+    pub const fn max_delay_millis(self) -> u64 {
+        self.max_delay_millis
+    }
 
     fn delay_after(self, attempt_number: u32, message_id: &str, recipient_id: &str) -> u64 {
         let exponent = attempt_number.saturating_sub(1).min(63);
         let multiplier = 1_u64.checked_shl(exponent).unwrap_or(u64::MAX);
-        let window = self.base_delay_millis
+        let window = self
+            .base_delay_millis
             .saturating_mul(multiplier)
             .min(self.max_delay_millis);
 
@@ -75,7 +88,8 @@ impl RetryPolicy {
         // making replay tests nondeterministic or requiring a weak PRNG.
         let spread = window / 4;
         let mut hash = 0xcbf29ce484222325_u64;
-        for byte in message_id.bytes()
+        for byte in message_id
+            .bytes()
             .chain([0_u8])
             .chain(recipient_id.bytes())
             .chain(attempt_number.to_le_bytes())
@@ -84,7 +98,8 @@ impl RetryPolicy {
             hash = hash.wrapping_mul(0x100000001b3);
         }
         let jitter_width = spread.saturating_mul(2).saturating_add(1);
-        window.saturating_sub(spread)
+        window
+            .saturating_sub(spread)
             .saturating_add(hash % jitter_width)
             .min(self.max_delay_millis)
     }
@@ -111,7 +126,9 @@ impl DeliveryStatus {
     pub const fn user_visible(self) -> UserVisibleDeliveryState {
         match self {
             Self::Queued => UserVisibleDeliveryState::Queued,
-            Self::InFlight | Self::AwaitingReceipt | Self::RetryScheduled
+            Self::InFlight
+            | Self::AwaitingReceipt
+            | Self::RetryScheduled
             | Self::AwaitingDeadline => UserVisibleDeliveryState::Pending,
             Self::Delivered => UserVisibleDeliveryState::Delivered,
             Self::Failed => UserVisibleDeliveryState::Failed,
@@ -212,17 +229,36 @@ impl DeliveryLifecycle {
         })
     }
 
-    pub fn logical_message_id(&self) -> &str { &self.logical_message_id }
-    pub fn recipient_id(&self) -> &str { &self.recipient_id }
-    pub const fn status(&self) -> DeliveryStatus { self.status }
-    pub fn attempt_count(&self) -> u32 { self.attempts.len() as u32 }
-    pub const fn next_attempt_at(&self) -> Option<UnixMillis> { self.next_attempt_at }
+    pub fn logical_message_id(&self) -> &str {
+        &self.logical_message_id
+    }
+
+    pub fn recipient_id(&self) -> &str {
+        &self.recipient_id
+    }
+
+    pub const fn status(&self) -> DeliveryStatus {
+        self.status
+    }
+
+    pub fn attempt_count(&self) -> u32 {
+        self.attempts.len() as u32
+    }
+
+    pub const fn next_attempt_at(&self) -> Option<UnixMillis> {
+        self.next_attempt_at
+    }
     /// Start time for one retained attempt; useful for audit/replay adapters.
     pub fn attempt_started_at(&self, attempt_id: &str) -> Option<UnixMillis> {
         self.attempts.get(attempt_id).map(|attempt| attempt.started_at)
     }
-    pub const fn expires_at(&self) -> UnixMillis { self.expires_at }
-    pub const fn retry_policy(&self) -> RetryPolicy { self.retry_policy }
+    pub const fn expires_at(&self) -> UnixMillis {
+        self.expires_at
+    }
+
+    pub const fn retry_policy(&self) -> RetryPolicy {
+        self.retry_policy
+    }
 
     /// Begin an attempt with a caller-generated, stable attempt ID. Repeating
     /// the same ID is idempotent: it will not consume budget or start another
@@ -275,11 +311,14 @@ impl DeliveryLifecycle {
         }
 
         let attempt_number = self.attempt_count() + 1;
-        self.attempts.insert(attempt_id.clone(), Attempt {
-            attempt_number,
-            started_at: now,
-            outcome: None,
-        });
+        self.attempts.insert(
+            attempt_id.clone(),
+            Attempt {
+                attempt_number,
+                started_at: now,
+                outcome: None,
+            },
+        );
         self.active_attempt_id = Some(attempt_id);
         self.next_attempt_at = None;
         self.status = DeliveryStatus::InFlight;
@@ -459,7 +498,8 @@ mod tests {
             "recipient-1",
             UnixMillis::new(expires),
             policy(max_attempts, 100, 1000),
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     struct TestVerifier;
