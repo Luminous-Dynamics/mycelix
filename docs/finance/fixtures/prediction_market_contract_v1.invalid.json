@@ -1,0 +1,26 @@
+{
+  "schema_version": "mycelix.prediction_market_contract.v1",
+  "contract_id": "pm-contract-example-2030-event-x",
+  "revision": 1,
+  "created_at": "2026-10-16T12:00:00Z",
+  "creator_principal_ref": "did:example:issuer-1",
+  "event_statement": "Will synthetic event X occur on or before 2030-01-01T00:00:00Z?",
+  "outcome_space": {
+    "kind": "binary",
+    "affirmative_label": "Yes",
+    "negative_label": "No"
+  },
+  "event_deadline_at": "2030-01-01T00:00:00Z",
+  "resolution_policy": {
+    "primary_source_profile_id": "example-official-source-v1",
+    "primary_source_uri": "https://example.invalid/source/event-x",
+    "source_revision_policy": "Use the version published before the resolution deadline; later corrections append successor evidence and do not rewrite the earlier record.",
+    "resolution_deadline_at": "2030-01-04T00:00:00Z",
+    "challenge_window_seconds": 86400,
+    "adjudication_policy_id": "synthetic-independent-review-v1",
+    "appeal_policy_id": "synthetic-appeal-v1"
+  },
+  "jurisdiction_policy_id": "synthetic-only-not-eligible-for-trading",
+  "canonicalization_profile": "RFC8785-JCS-SHA256-omit-contract_digest_sha256-v1",
+  "contract_digest_sha256": "b54f878c182e24abcb91ef662a847ccc7811881db3c37ade7c144e1e9edf1b7a"
+}

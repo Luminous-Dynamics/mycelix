@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:schema:prediction-market-contract:v1",
+  "title": "Mycelix Prediction Market Contract v1",
+  "description": "Structure is checked by JSON Schema; the independent reference validator also recomputes the RFC 8785/SHA-256 contract commitment. Source identity, authority, external truth and legal eligibility remain separate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "revision",
+    "created_at",
+    "creator_principal_ref",
+    "event_statement",
+    "outcome_space",
+    "event_deadline_at",
+    "resolution_policy",
+    "jurisdiction_policy_id",
+    "canonicalization_profile",
+    "contract_digest_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.prediction_market_contract.v1"
+    },
+    "contract_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "creator_principal_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "event_statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "outcome_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "affirmative_label",
+        "negative_label"
+      ],
+      "properties": {
+        "kind": {
+          "const": "binary"
+        },
+        "affirmative_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "negative_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "event_deadline_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "resolution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_source_profile_id",
+        "primary_source_uri",
+        "fallback_or_void_rule",
+        "source_revision_policy",
+        "resolution_deadline_at",
+        "challenge_window_seconds",
+        "adjudication_policy_id",
+        "appeal_policy_id"
+      ],
+      "properties": {
+        "primary_source_profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "primary_source_uri": {
+          "type": "string",
+          "format": "uri",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "fallback_or_void_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "source_revision_policy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "resolution_deadline_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "challenge_window_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31536000
+        },
+        "adjudication_policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "appeal_policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "jurisdiction_policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "canonicalization_profile": {
+      "const": "RFC8785-JCS-SHA256-omit-contract_digest_sha256-v1"
+    },
+    "contract_digest_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "supersedes_contract_digest_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "revision": {
+            "const": 1
+          }
+        },
+        "required": [
+          "revision"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "supersedes_contract_digest_sha256"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "supersedes_contract_digest_sha256"
+        ]
+      }
+    }
+  ]
+}

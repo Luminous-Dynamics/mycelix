@@ -1,0 +1,60 @@
+name: Prediction-market evidence contract
+
+on:
+  pull_request:
+    paths:
+      - "docs/finance/PREDICTION_MARKET_RESOLUTION_EVIDENCE_V1.md"
+      - "docs/finance/schemas/prediction_market_*_v1.schema.json"
+      - "docs/finance/fixtures/prediction_market_*"
+      - "scripts/qualification/validate_prediction_market_evidence_v1.py"
+      - "scripts/qualification/test_prediction_market_evidence_v1.py"
+      - ".github/workflows/prediction-market-evidence-contract.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/finance/PREDICTION_MARKET_RESOLUTION_EVIDENCE_V1.md"
+      - "docs/finance/schemas/prediction_market_*_v1.schema.json"
+      - "docs/finance/fixtures/prediction_market_*"
+      - "scripts/qualification/validate_prediction_market_evidence_v1.py"
+      - "scripts/qualification/test_prediction_market_evidence_v1.py"
+      - ".github/workflows/prediction-market-evidence-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prediction-market-evidence-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned JSON Schema validator
+        run: python -m pip install --disable-pip-version-check "jsonschema==4.26.0" "rfc8785==0.1.4"
+
+      - name: Assert exact head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_SHA" "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Validate schema and frozen fixtures
+        run: python scripts/qualification/validate_prediction_market_evidence_v1.py
+
+      - name: Run adversarial schema and semantic controls
+        run: python scripts/qualification/test_prediction_market_evidence_v1.py

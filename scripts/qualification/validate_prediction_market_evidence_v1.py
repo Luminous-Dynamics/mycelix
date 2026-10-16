@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""Structural and cross-record qualification for prediction-market evidence v1.
+
+Qualification tooling only; not cryptographic, identity, authority, source-truth, or settlement verification.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+import rfc8785
+from jsonschema import Draft202012Validator, FormatChecker
+
+ROOT = Path(__file__).resolve().parents[2]
+CONTRACT_SCHEMA_PATH = ROOT / "docs/finance/schemas/prediction_market_contract_v1.schema.json"
+EVENT_SCHEMA_PATH = ROOT / "docs/finance/schemas/prediction_market_resolution_event_v1.schema.json"
+CONTRACT_VALID_PATH = ROOT / "docs/finance/fixtures/prediction_market_contract_v1.valid.json"
+CONTRACT_INVALID_PATH = ROOT / "docs/finance/fixtures/prediction_market_contract_v1.invalid.json"
+EVENT_VALID_PATH = ROOT / "docs/finance/fixtures/prediction_market_resolution_event_v1.proposed.valid.json"
+EVENT_INVALID_PATH = ROOT / "docs/finance/fixtures/prediction_market_resolution_event_v1.predecessor-invalid.json"
+
+
+class DuplicateJsonKey(ValueError):
+    """Raised when a JSON object repeats a key."""
+
+
+def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise DuplicateJsonKey(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def load_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_pairs)
+
+
+def make_validator(path: Path) -> Draft202012Validator:
+    schema = load_json(path)
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
+def _parse_utc(value: str) -> datetime:
+    """Parse ISO 8601 timestamps with either a Z suffix or an explicit UTC offset."""
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
+
+def contract_content_digest(record: dict[str, Any]) -> str:
+    """Recompute the contract commitment using RFC 8785 JCS, omitting its digest field."""
+    payload = dict(record)
+    payload.pop("contract_digest_sha256", None)
+    return hashlib.sha256(rfc8785.dumps(payload)).hexdigest()
+
+
+def event_content_digest(event: dict[str, Any]) -> str:
+    """Recompute the event commitment, omitting its digest and separate attestation envelope."""
+    payload = dict(event)
+    payload.pop("event_digest_sha256", None)
+    payload.pop("attestation", None)
+    return hashlib.sha256(rfc8785.dumps(payload)).hexdigest()
+
+
+
+
+def validate_contract_record(record: dict[str, Any], validator: Draft202012Validator) -> list[str]:
+    errors = [
+        f"schema:{'/'.join(str(part) for part in error.absolute_path)}:{error.message}"
+        for error in validator.iter_errors(record)
+    ]
+    if errors:
+        return sorted(errors)
+    if contract_content_digest(record).lower() != record["contract_digest_sha256"].lower():
+        errors.append("semantic:contract_digest_sha256 does not match RFC 8785 canonical bytes")
+    created = _parse_utc(record["created_at"])
+    event_deadline = _parse_utc(record["event_deadline_at"])
+    resolution_deadline = _parse_utc(record["resolution_policy"]["resolution_deadline_at"])
+    if created > event_deadline:
+        errors.append("semantic:created_at after event_deadline_at")
+    if resolution_deadline < event_deadline:
+        errors.append("semantic:resolution deadline before event deadline")
+    return sorted(errors)
+
+
+def validate_resolution_event_record(
+    event: dict[str, Any], contract: dict[str, Any], validator: Draft202012Validator
+) -> list[str]:
+    errors = [
+        f"schema:{'/'.join(str(part) for part in error.absolute_path)}:{error.message}"
+        for error in validator.iter_errors(event)
+    ]
+    if errors:
+        return sorted(errors)
+
+    if event_content_digest(event).lower() != event["event_digest_sha256"].lower():
+        errors.append("semantic:event_digest_sha256 does not match RFC 8785 canonical bytes")
+    if event["contract_id"] != contract["contract_id"]:
+        errors.append("semantic:contract_id mismatch")
+    if event["contract_revision"] != contract["revision"]:
+        errors.append("semantic:contract_revision mismatch")
+    if event["contract_digest_sha256"].lower() != contract["contract_digest_sha256"].lower():
+        errors.append("semantic:contract digest mismatch")
+    if event["attestation"]["signed_event_digest_sha256"].lower() != event["event_digest_sha256"].lower():
+        errors.append("semantic:attestation digest does not match declared event digest")
+    recorded_at = _parse_utc(event["recorded_at"])
+    if recorded_at > _parse_utc(contract["resolution_policy"]["resolution_deadline_at"]):
+        errors.append("semantic:event recorded after resolution deadline")
+
+    seen_artifact_ids: set[str] = set()
+    for i, artifact in enumerate(event["evidence_artifacts"]):
+        artifact_id = artifact.get("artifact_id")
+        if artifact_id in seen_artifact_ids:
+            errors.append(f"semantic:evidence_artifacts/{i}:duplicate artifact_id")
+        seen_artifact_ids.add(artifact_id)
+        published = artifact.get("published_at")
+        retrieved = _parse_utc(artifact["retrieved_at"])
+        if published is not None and retrieved < _parse_utc(published):
+            errors.append(f"semantic:evidence_artifacts/{i}:retrieval precedes publication")
+        if retrieved > recorded_at:
+            errors.append(f"semantic:evidence_artifacts/{i}:event recorded before evidence retrieval")
+    return sorted(errors)
+
+
+def validate_evidence_artifact_bytes(
+    event: dict[str, Any], retained_artifacts: dict[str, bytes]
+) -> list[str]:
+    """Compare retained source bytes with each artifact's declared SHA-256 commitment.
+
+    The caller must obtain bytes through a separately trusted retention/collection process.
+    This function proves only that the supplied bytes hash to the declared digest; it does not
+    authenticate the source URI, publication time, publisher, or external-world truth.
+    """
+    if not isinstance(event, dict):
+        return ["artifact-bytes:event is not an object"]
+    artifacts = event.get("evidence_artifacts")
+    if not isinstance(artifacts, list):
+        return ["artifact-bytes:evidence_artifacts is not a list"]
+
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            errors.append(f"artifact-bytes:evidence_artifacts/{index}:not an object")
+            continue
+        artifact_id = artifact.get("artifact_id")
+        expected_digest = artifact.get("content_digest_sha256")
+        if not isinstance(artifact_id, str) or not artifact_id.strip():
+            errors.append(f"artifact-bytes/evidence_artifacts/{index}:invalid artifact_id")
+            continue
+        if artifact_id in seen_ids:
+            errors.append(f"artifact-bytes/evidence_artifacts/{index}:duplicate artifact_id")
+            continue
+        seen_ids.add(artifact_id)
+        if not isinstance(expected_digest, str):
+            errors.append(f"artifact-bytes/{artifact_id}:missing content digest")
+            continue
+        content = retained_artifacts.get(artifact_id)
+        if content is None:
+            errors.append(f"artifact-bytes/{artifact_id}:retained bytes missing")
+            continue
+        if not isinstance(content, bytes):
+            errors.append(f"artifact-bytes/{artifact_id}:retained payload is not bytes")
+            continue
+        actual_digest = hashlib.sha256(content).hexdigest()
+        if actual_digest.lower() != expected_digest.lower():
+            errors.append(f"artifact-bytes/{artifact_id}:SHA-256 digest mismatch")
+
+    for artifact_id in sorted(set(retained_artifacts) - seen_ids):
+        errors.append(f"artifact-bytes/{artifact_id}:unreferenced retained bytes")
+    return sorted(errors)
+
+
+def validate_resolution_event_chain(
+    events: list[Any],
+    contract: dict[str, Any],
+    validator: Draft202012Validator,
+) -> list[str]:
+    """Validate an ordered set of events as one contiguous, predecessor-bound lineage."""
+    if not events:
+        return ["lineage:empty event chain"]
+
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    seen_indices: set[int] = set()
+
+    for position, event in enumerate(events, start=1):
+        if not isinstance(event, dict):
+            errors.append(f"lineage:event at position {position} is not an object")
+            continue
+
+        event_errors = validate_resolution_event_record(event, contract, validator)
+        errors.extend(f"event[{position}]:{error}" for error in event_errors)
+
+        event_id = event.get("event_id")
+        if isinstance(event_id, str):
+            if event_id in seen_ids:
+                errors.append(f"lineage:duplicate event_id at position {position}")
+            seen_ids.add(event_id)
+
+        event_index = event.get("event_index")
+        if isinstance(event_index, int) and not isinstance(event_index, bool):
+            if event_index in seen_indices:
+                errors.append(f"lineage:duplicate event_index {event_index}")
+            seen_indices.add(event_index)
+            if event_index != position:
+                errors.append(
+                    f"lineage:expected event_index {position}, got {event_index}"
+                )
+
+        if position == 1:
+            if "predecessor_event_digest_sha256" in event:
+                errors.append("lineage:first event must not name a predecessor")
+            continue
+
+        previous = events[position - 2]
+        if not isinstance(previous, dict):
+            errors.append(f"lineage:previous event at position {position - 1} is not an object")
+            continue
+        expected_predecessor = previous.get("event_digest_sha256")
+        actual_predecessor = event.get("predecessor_event_digest_sha256")
+        if actual_predecessor != expected_predecessor:
+            errors.append(f"lineage:predecessor digest mismatch at position {position}")
+
+        previous_time = previous.get("recorded_at")
+        current_time = event.get("recorded_at")
+        if isinstance(previous_time, str) and isinstance(current_time, str):
+            try:
+                if _parse_utc(current_time) <= _parse_utc(previous_time):
+                    errors.append(f"lineage:recorded_at is not increasing at position {position}")
+            except ValueError:
+                # Schema validation has already emitted the timestamp-format error.
+                pass
+
+    return sorted(errors)
+
+
+def main() -> int:
+    cv = make_validator(CONTRACT_SCHEMA_PATH)
+    ev = make_validator(EVENT_SCHEMA_PATH)
+    contract = load_json(CONTRACT_VALID_PATH)
+    event = load_json(EVENT_VALID_PATH)
+    invalid_contract = load_json(CONTRACT_INVALID_PATH)
+    invalid_event = load_json(EVENT_INVALID_PATH)
+
+    checks = [
+        ("valid contract", validate_contract_record(contract, cv), False),
+        ("valid event", validate_resolution_event_record(event, contract, ev), False),
+        ("invalid contract", validate_contract_record(invalid_contract, cv), True),
+        ("invalid event", validate_resolution_event_record(invalid_event, contract, ev), True),
+    ]
+    for label, errors, should_fail in checks:
+        if bool(errors) != should_fail:
+            print(f"FAIL {label}: {errors}", file=sys.stderr)
+            return 1
+        print(f"PASS {label}")
+    print("PASS both schemas satisfy Draft 2020-12 meta-schema")
+    print("PASS RFC 8785/SHA-256 content commitments and cross-record digest-envelope/timestamp relations")
+    print("CLAIM CEILING: source-artifact bytes, signatures, identity, authority, source truth, and settlement are not verified")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
