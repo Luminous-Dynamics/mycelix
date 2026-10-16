@@ -9,6 +9,7 @@
     "manifest_version",
     "benchmark_id",
     "scenario_set_sha256",
+    "schedule_artifact_sha256",
     "runs"
   ],
   "properties": {
@@ -26,6 +27,9 @@
       "items": {
         "$ref": "#/$defs/runResult"
       }
+    },
+    "schedule_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
     }
   },
   "$defs": {
