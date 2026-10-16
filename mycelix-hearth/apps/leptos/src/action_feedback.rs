@@ -66,4 +66,33 @@ mod tests {
         assert!(copy.starts_with("Not sent:"));
         assert!(copy.contains("verified recipient identity"));
     }
+    #[test]
+    fn every_action_subject_gets_all_four_truthful_outcome_variants() {
+        let subjects = [
+            "bond update",
+            "gratitude expression",
+            "vote submission",
+            "presence update",
+            "care task completion",
+            "invitation",
+        ];
+        let variants = [
+            (ActionFeedbackKind::PreviewOnly, "Preview only:"),
+            (ActionFeedbackKind::Confirmed, "confirmed."),
+            (ActionFeedbackKind::OutcomeUnknown, "couldn't confirm whether"),
+            (ActionFeedbackKind::NotSent, "Not sent:"),
+        ];
+
+        for subject in subjects {
+            for (kind, required_text) in variants {
+                let copy = feedback_copy(kind, subject);
+                assert!(!copy.trim().is_empty(), "empty feedback for {subject}");
+                assert!(
+                    copy.contains(required_text),
+                    "unexpected copy for {subject} / {kind:?}: {copy}"
+                );
+            }
+        }
+    }
+
 }
