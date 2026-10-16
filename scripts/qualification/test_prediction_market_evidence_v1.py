@@ -252,6 +252,10 @@ class PredictionMarketEvidenceTests(unittest.TestCase):
         errors = validate_evidence_artifact_bytes(EVENT, {})
         self.assertTrue(any("retained bytes missing" in error for error in errors))
 
+    def test_non_bytes_artifact_payload_is_rejected(self):
+        errors = validate_evidence_artifact_bytes(EVENT, {"source-artifact-x1": "not bytes"})
+        self.assertTrue(any("retained payload is not bytes" in error for error in errors))
+
     def test_unreferenced_retained_artifact_bytes_are_rejected(self):
         errors = validate_evidence_artifact_bytes(
             EVENT,
