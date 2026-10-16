@@ -1017,7 +1017,9 @@ mod tests {
         let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: None,
             recipient_id: None,
             consent: Some(&consent),
