@@ -41,6 +41,7 @@ Every gate is a zero-tolerance pass/fail condition; failures must not be average
 | Currency/unit/profile isolation | Mixed and deliberately mislabeled offers | Zero cross-currency, cross-unit or unapproved-profile comparisons |
 | Evidence freshness | Quotes at, inside and beyond the age boundary; future and expired records | Zero stale/expired offers accepted |
 | Source attribution | Accepted and rejected offers with absent source locator, payload-digest reference or extractor identity | Zero offers missing required source metadata may become eligible; output retains supplied references |
+| Evidence audit retention | Accepted and rejected rows after quote/stock/credential freshness checks | Every decision row retains the timestamps, expiry bounds, status, origin and source references actually used by the evaluator |
 | Evidence-origin isolation | Live-domain and synthetic-simulation quotes or credentials in one request | Zero cross-origin offers become eligible; the required origin is explicit and versioned by the caller |
 | Pareto correctness | Hand-reviewed fixtures plus a separately implemented oracle | Exact frontier agreement |
 | Abstention | Empty catalogues, only-ineligible offers, conflicting IDs, unresolved evidence | Zero forced winner or purchase |
