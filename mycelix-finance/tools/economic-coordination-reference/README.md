@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The v1 reference, partial-fulfilment tranche experiment, and escrow-rights experiment currently contain **59 authored unit tests** (38 v1, 14 tranche-ledger, and 7 escrow-ledger tests), plus **3 authored integration tests**: **62 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, and isolated-replica experiment currently contain **66 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, and 7 isolated-replica tests), plus **3 authored integration tests**: **69 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Experimental partial-fulfilment tranche ledger
 
@@ -79,6 +79,14 @@ The additive `fulfillment_escrow` module explores a way to bound local reservati
 This is an accounting model, not a distributed implementation. It does not authenticate transfer certificates, prevent a partitioned replica from forking its local state, or establish Byzantine safety. A production protocol must either prevent rights transfers while disconnected or add durable authenticated single-spend transfer semantics and prove recovery/reconciliation safety.
 
 See [FULFILLMENT_ESCROW_BENCHMARKS.md](FULFILLMENT_ESCROW_BENCHMARKS.md) for adversarial test targets. All targets remain proposals until exact-head execution evidence exists.
+
+## Isolated-replica fixed-rights experiment
+
+The additive `fulfillment_escrow_partition` module models the quantity-accounting contract across separate per-replica states. Each replica owns a disjoint preallocated share; reservations mutate only that replica's balance, and partial finalization consumes the accepted amount while returning the rejected remainder. It deliberately exposes no transfer or timeout-release API during a partition. The aggregate wrapper acts as an independent test oracle across replicas.
+
+The deterministic interleaving campaign covers 1,000 seeds × 128 attempted transitions (128,000 operation steps) with 2–8 replicas and request quantities up to 97 units. These are authored generated checks, not a distributed proof and not an observed test pass.
+
+This model's guarantee depends on assumptions that remain outside it: initial grants are issued uniquely and durably; local spent state cannot be rolled back or forked; accepted evidence is genuine; and a replica cannot use duplicated credentials to instantiate a second copy of its share. The experiment intentionally leaves rights transfer out of the partitioned path. Before making distributed-safety claims, separately model grant issuance, crash/restart, snapshot rollback, transfer single-spend semantics, and reconciliation.
 
 ## Explicit limitations
 
