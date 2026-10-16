@@ -21,7 +21,7 @@ These are design inputs, not proof this specific implementation improves usabili
 - No implicit dispatch or mutation authority.
 - No claim of source completeness from an aggregated count.
 
-The count helpers are scoped to the currently presented Hearth identity. Without a selected target, they return zero rather than aggregating other or unbound data. This is a UI scoping guard, not proof that current-household selection is authoritatively established; the global data trust notice remains necessary.
+The count helpers are scoped to the currently presented Hearth identity. Without a selected target, they return an unavailable value (rendered as an em dash), not a false zero and not a count aggregated from other/unbound data. An established target with an empty source list produces zero. This is a UI scoping guard, not proof that current-household selection is authoritatively established; the global data trust notice remains necessary.
 
 ## Qualification
 
