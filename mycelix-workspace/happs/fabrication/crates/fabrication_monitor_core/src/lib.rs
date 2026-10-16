@@ -881,6 +881,30 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn signed_motor_current_is_evaluated_as_a_deviation_not_rejected() {
+        let mut engine = engine("live");
+        let mut sample = frame("live", 1, 100);
+        sample.stepper_current_ma[0] = -50.0;
+        let report = engine.observe(&sample);
+        assert_eq!(report.disposition, ObservationDisposition::Evaluated);
+        assert!(report.deviations.iter().any(|deviation| {
+            deviation.signal == Signal::XCurrent
+                && deviation.kind == DeviationKind::MotorCurrentDeviation
+        }));
+    }
+
+    #[test]
+    fn report_binds_exact_reference_dataset_identity() {
+        let mut engine = engine("live");
+        let report = engine.observe(&frame("live", 1, 100));
+        assert_eq!(
+            report.reference_dataset_id,
+            "sha256:synthetic-healthy-reference-v1"
+        );
+    }
+
     #[test]
     fn changed_calibration_profile_is_not_admitted() {
         let mut engine = engine("live");
