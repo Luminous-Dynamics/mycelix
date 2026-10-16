@@ -100,7 +100,7 @@ Inject a crash immediately before and after every durable write and network boun
 | After receipt send, before sender persists it | Receipt may be replayed; verify it again and commit idempotently |
 | After receipt validation, before delivered-state commit | Replay verification then commit; do not trust an uncommitted in-memory token after restart |
 | Concurrent old/new dispatcher around lease expiry | Old fencing epoch cannot overwrite newer state or create unbounded duplicate attempts |
-| Permission revocation races a reserved attempt | Define and test the final policy-check/send boundary; no new reservation after revocation and no hidden background retry |
+| Permission revocation races a reserved attempt | No new reservation or retry after revocation; any already in-flight/possibly-sent attempt remains explicitly unknown until receipt/expiry and may accept later verified receipt evidence |
 | Expiry races receipt arrival | Apply the explicit authenticated receive-time policy; do not use sender observation time as recipient receive time |
 | Storage full / I/O error / corrupt record | No silent eviction or reported delivery; fail closed and retain recoverable diagnostics within bounded space |
 | Same event ID, different event contents | Hard conflict; keep prior durable state and surface evidence corruption |
