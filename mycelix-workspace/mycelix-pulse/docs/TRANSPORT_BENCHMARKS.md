@@ -84,11 +84,15 @@ For pull-request-speed local checks, use a fixed seed and a short corpus. For qu
 
 The checked-in starter corpus is `benchmarks/traces.v1.json`; the Rust model is `standards-registry/validator/src/simulation.rs` and the CLI is `standards-registry/validator/src/bin/route-sim.rs`.
 
+The first adapter contract is in `crates/pulse-transport-core/`. Its isolated tests exercise stale observations, unknown/denied policies, payload and profile bounds, expiry, declared failure domains, and the rule that adapter/link/gateway acknowledgements are not recipient delivery. It remains a standalone prototype and is not wired into the live Pulse send path.
+
 Run from the Pulse workspace root:
 
 ```sh
+cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
 just test-standards-registry
 just validate-standards-registry
+just standards-search-smoke
 just simulate-transport-smoke
 just simulate-transport
 ```
