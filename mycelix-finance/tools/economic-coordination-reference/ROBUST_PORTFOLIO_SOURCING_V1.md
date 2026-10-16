@@ -113,6 +113,21 @@ Do not collapse these dimensions into an opaque universal score. There are two a
 
 If a portfolio is preferred because it passes a target supplier-share cap or improves a scenario outcome, report the exact input and rule. A supplier count alone is not a resilience certificate.
 
+### Research grounding
+
+Recent procurement literature supports evaluating supplier selection and order allocation jointly under disruption uncertainty, and it also warns against a universal resilience policy. A 2026 *International Journal of Production Economics* article studies two-stage robust supplier selection with normal, flexible and backup sourcing modes; a July 2026 *Computers & Industrial Engineering* article models multi-stage sourcing under joint demand/disruption uncertainty and reports that flexibility and diversification can be useful in different risk regimes. These are research findings from specific models/cases, not portable percentage guarantees or proof that one strategy always wins.
+
+Consequences for this contract:
+- compare multiple-sourcing, flexible-capacity and backup-capacity options when the domain can provide evidence for them;
+- separate scenarios from calibrated probabilities, and use robust/worst-case summaries when probability estimates are not defensible;
+- design rolling-horizon re-evaluation as a later capability: new observed evidence may change a recommendation, but it must not silently rewrite an already authorized commitment;
+- benchmark every proposed strategy against named baselines on the same cases and report the scenario families where it helps or harms.
+
+References:
+- Li, Doan & Branke, “Resilient supplier selection and order allocation under disruption risk over a Wasserstein ambiguity,” *International Journal of Production Economics* (2026), https://doi.org/10.1016/j.ijpe.2026.110160
+- Thakur & Mukherjee, “Managing demand uncertainty and supply disruption risks: a multi-stage stochastic optimization framework for efficient sourcing strategies,” *Computers & Industrial Engineering* (July 2026), https://doi.org/10.1016/j.cie.2026.112047
+- Dai, Zou & Zhang, “A two-stage robust optimization approach for resilient supplier selection and order allocation under disruption risks,” *International Journal of Production Economics* (2026), https://doi.org/10.1016/j.ijpe.2026.110060
+
 ## 6. Independent verification
 
 The verification path must be logically separate from the production allocation algorithm.
