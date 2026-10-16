@@ -1264,7 +1264,7 @@ mod tests {
             value.as_object().expect("object").keys().cloned().collect()
         };
         let expected_root: BTreeSet<String> = [
-            "manifest_version", "benchmark_id", "scenario_set_sha256", "runs"
+            "manifest_version", "benchmark_id", "scenario_set_sha256", "schedule_artifact_sha256", "runs"
         ].into_iter().map(str::to_owned).collect();
         assert_eq!(object_keys(&schema["properties"]), expected_root);
 
@@ -1413,6 +1413,20 @@ mod tests {
         let mut results = complete_noncompleted_census(&schedule);
         results.runs[1] = results.runs[0].clone();
         assert!(verify_test_census(&schedule, &results).unwrap_err().contains("duplicate result run_id"));
+    }
+
+    #[test]
+    fn rejects_results_replayed_against_changed_schedule_artifact() {
+        let schedule = small_schedule();
+        let results = complete_noncompleted_census(&schedule);
+        let mut changed_schedule = schedule.clone();
+        changed_schedule.arms[0].implementation_ref =
+            "UNQUALIFIED:changed-implementation-ref".into();
+        let changed_digest = test_schedule_artifact_sha256(&changed_schedule);
+        assert_ne!(changed_digest, results.schedule_artifact_sha256);
+        let err = verify_census(&changed_schedule, &results, &changed_digest)
+            .unwrap_err();
+        assert!(err.contains("schedule_artifact_sha256"));
     }
 
     #[test]
