@@ -44,7 +44,6 @@ fn main() -> ExitCode {
                 }
             }
             "--help" | "-h" => {
-                println!(
                 println!("Usage: route-sim [--traces PATH] [--messages COUNT] [--seed N]");
                 println!();
                 println!("Runs deterministic synthetic path comparisons.");
