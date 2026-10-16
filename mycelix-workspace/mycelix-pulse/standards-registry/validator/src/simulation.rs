@@ -33,6 +33,9 @@ struct Scenario {
     purpose: String,
     deadline_ms: u64,
     envelope_bytes: u64,
+    /// Mixture weight for using one common success draw within a failure domain.
+    /// This is a model sensitivity control, not an empirical correlation coefficient.
+    failure_correlation_basis_points: u64,
     paths: Vec<Path>,
 }
 
@@ -240,13 +243,21 @@ pub fn simulate_corpus(
         "seed": seed,
         "messages_per_scenario": messages,
         "scenario_count": scenarios.len(),
+        "failure_correlation_model": {
+            "default_common_draw_mixture_basis_points": 10000,
+            "definition": "With probability weight/10000, paths in the same failure domain share a synthetic uniform draw; otherwise each path uses an independent synthetic draw. This weight is not a Pearson correlation coefficient.",
+            "per_scenario_overrides": scenarios.iter().map(|scenario| json!({
+                "scenario_id": scenario.id,
+                "common_draw_mixture_basis_points": scenario.failure_correlation_basis_points
+            })).collect::<Vec<_>>()
+        },
         "per_message_cost_and_energy_scale_factor": 1000,
         "simulation_only": true,
         "authenticated_delivery_established": false,
         "hardware_qualification": false,
         "cryptographic_security_evaluated": false,
         "limitations": [
-            "Synthetic outcomes share draws within failure domains and are independent across domain IDs; this is not measured network reliability.",
+            "Synthetic outcomes use a configurable common-draw mixture within declared failure domains; this is not measured network reliability or an empirical correlation model.",
             "No RF propagation, interference, radio duty-cycle, congestion, or real hardware is simulated.",
             "Success means only that the route model predicts a path success before the deadline; it is not an authenticated recipient receipt.",
             "No fragmentation is modelled; envelopes larger than a path's payload budget are ineligible on that path.",
@@ -280,6 +291,25 @@ fn parse_scenario(value: &Value, index: usize) -> Result<Scenario, Vec<String>> 
         &format!("{prefix}.envelope_bytes"),
         &mut errors,
     );
+    let failure_correlation_basis_points =
+        match object.get("failure_correlation_basis_points") {
+            None => 10_000,
+            Some(value) => match value.as_u64() {
+                Some(value) if value <= 10_000 => value,
+                Some(_) => {
+                    errors.push(format!(
+                        "{prefix}.failure_correlation_basis_points: must be <= 10000"
+                    ));
+                    10_000
+                }
+                None => {
+                    errors.push(format!(
+                        "{prefix}.failure_correlation_basis_points: must be a non-negative integer"
+                    ));
+                    10_000
+                }
+            },
+        };
 
     let mut paths = Vec::new();
     match object.get("paths").and_then(Value::as_array) {
@@ -310,6 +340,7 @@ fn parse_scenario(value: &Value, index: usize) -> Result<Scenario, Vec<String>> 
             purpose: purpose.expect("validated purpose"),
             deadline_ms: deadline_ms.expect("validated deadline"),
             envelope_bytes: envelope_bytes.expect("validated envelope"),
+            failure_correlation_basis_points,
             paths,
         })
     } else {
@@ -563,20 +594,75 @@ fn eligible(path: &Path, scenario: &Scenario, message_index: u64) -> bool {
 }
 
 fn path_succeeds(scenario: &Scenario, path: &Path, seed: u64, message_index: u64) -> bool {
+    let common_draw = synthetic_uniform(
+        scenario,
+        &path.failure_domain_id,
+        None,
+        seed,
+        message_index,
+        1,
+    );
+    let uniform = match scenario.failure_correlation_basis_points {
+        10_000 => common_draw,
+        0 => synthetic_uniform(
+            scenario,
+            &path.failure_domain_id,
+            Some(&path.id),
+            seed,
+            message_index,
+            1,
+        ),
+        mixture_basis_points => {
+            let selector = synthetic_uniform(
+                scenario,
+                &path.failure_domain_id,
+                None,
+                seed,
+                message_index,
+                0,
+            );
+            if selector < mixture_basis_points {
+                common_draw
+            } else {
+                synthetic_uniform(
+                    scenario,
+                    &path.failure_domain_id,
+                    Some(&path.id),
+                    seed,
+                    message_index,
+                    1,
+                )
+            }
+        }
+    };
+    (uniform % 10_000) < path.success_basis_points
+}
+
+/// Return a deterministic value in [0, 9999]. Stream IDs distinguish the
+/// shared-mixture selector from the success draw.
+fn synthetic_uniform(
+    scenario: &Scenario,
+    failure_domain_id: &str,
+    path_id: Option<&str>,
+    seed: u64,
+    message_index: u64,
+    stream_id: u8,
+) -> u64 {
     let mut state = seed ^ 0xcbf29ce484222325_u64;
     for byte in scenario
         .id
         .bytes()
         .chain([0xff])
-        .chain(path.failure_domain_id.bytes())
+        .chain(failure_domain_id.bytes())
         .chain([0xfe])
         .chain(message_index.to_le_bytes())
+        .chain([stream_id, 0xfd])
+        .chain(path_id.unwrap_or("").bytes())
     {
         state ^= u64::from(byte);
         state = state.wrapping_mul(0x100000001b3);
     }
-    state = splitmix64(state);
-    (state % 10_000) < path.success_basis_points
+    splitmix64(state) % 10_000
 }
 
 fn splitmix64(mut value: u64) -> u64 {
