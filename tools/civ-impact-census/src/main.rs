@@ -435,6 +435,17 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
     Ok(())
 }
 
+fn effective_demand(scenario: &Scenario) -> Result<u64, String> {
+    let factor = 10_000u64
+        .checked_add(scenario.demand_shock_bps as u64)
+        .ok_or_else(|| "demand shock factor overflow".to_string())?;
+    scenario
+        .demand_units
+        .checked_mul(factor)
+        .map(|value| value / 10_000)
+        .ok_or_else(|| format!("effective demand overflow for {}", scenario.scenario_id))
+}
+
 fn checked_cost_total(metrics: &RunMetrics) -> Result<u64, String> {
     [
         metrics.compute_cost_microcredits,
@@ -503,8 +514,12 @@ fn verify_census(schedule: &Schedule, result_file: &ResultsFile) -> Result<BTree
                 let scenario = scenarios
                     .get(result.scenario_id.as_str())
                     .ok_or_else(|| format!("unknown scenario on result {}", result.run_id))?;
-                if metrics.observed_demand_units != scenario.demand_units {
-                    return Err(format!("demand mismatch for {}", result.run_id));
+                let expected_demand = effective_demand(scenario)?;
+                if metrics.observed_demand_units != expected_demand {
+                    return Err(format!(
+                        "effective demand mismatch for {}: expected {}, observed {}",
+                        result.run_id, expected_demand, metrics.observed_demand_units
+                    ));
                 }
                 if metrics.served_units > metrics.observed_demand_units {
                     return Err(format!("served_units exceeds observed demand for {}", result.run_id));
