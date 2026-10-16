@@ -259,6 +259,7 @@ pub struct JournalSnapshot {
     status: DurableDeliveryStatus,
     expires_at: UnixMillis,
     policy_generation: u64,
+    revoked: bool,
     worker_epoch: u64,
     attempts: BTreeMap<String, Option<AttemptOutcome>>,
     active_attempt_id: Option<String>,
@@ -286,6 +287,10 @@ impl JournalSnapshot {
 
     pub const fn policy_generation(&self) -> u64 {
         self.policy_generation
+    }
+
+    pub const fn revoked(&self) -> bool {
+        self.revoked
     }
 
     pub const fn worker_epoch(&self) -> u64 {
@@ -492,6 +497,7 @@ fn initial_snapshot(event: &JournalEvent) -> Result<JournalSnapshot, JournalErro
         status: DurableDeliveryStatus::Queued,
         expires_at: *expires_at,
         policy_generation: *policy_generation,
+        revoked: false,
         worker_epoch: 0,
         attempts: BTreeMap::new(),
         active_attempt_id: None,
@@ -552,6 +558,9 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
                     expected: snapshot.worker_epoch,
                     actual: epoch,
                 });
+            }
+            if snapshot.revoked {
+                return Err(JournalError::TerminalState);
             }
             if snapshot.status.is_terminal() {
                 return Err(JournalError::TerminalState);
@@ -657,6 +666,7 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
         }
         JournalEventKind::RetryScheduled { not_before } => {
             if event.actor != JournalActor::System
+                || snapshot.revoked
                 || snapshot.active_attempt_id.is_some()
                 || !matches!(
                     snapshot.status,
@@ -681,14 +691,29 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
         } => {
             if event.actor != JournalActor::System
                 || *policy_generation <= snapshot.policy_generation
+                || snapshot.revoked
                 || snapshot.status.is_terminal()
             {
                 return Err(JournalError::InvalidTransition);
             }
             snapshot.policy_generation = *policy_generation;
-            snapshot.active_attempt_id = None;
+            snapshot.revoked = true;
+            if let Some(attempt_id) = snapshot.active_attempt_id.take() {
+                // The send may already have crossed the network boundary.
+                // Mark it ambiguous so a verified receipt can still resolve
+                // the outcome, but never permit a further attempt.
+                snapshot.attempts.insert(
+                    attempt_id,
+                    Some(AttemptOutcome::OutcomeUnknown),
+                );
+                snapshot.may_have_reached_recipient = true;
+            }
             snapshot.next_attempt_at = None;
-            snapshot.status = DurableDeliveryStatus::Revoked;
+            snapshot.status = if snapshot.may_have_reached_recipient {
+                DurableDeliveryStatus::OutcomeUnknown
+            } else {
+                DurableDeliveryStatus::Revoked
+            };
             Ok(())
         }
         JournalEventKind::Expired => {
@@ -1066,6 +1091,68 @@ mod tests {
                 JournalEventKind::AttemptStarted { attempt_id: "attempt-1".into() },
             )),
             Err(JournalError::TerminalState)
+        );
+    }
+
+    #[test]
+    fn revocation_fences_retry_without_erasing_an_inflight_receipt() {
+        let mut journal = InMemoryDeliveryJournal::default();
+        let identity = queued(&mut journal);
+        journal.append(1, event(
+            "event-epoch",
+            identity.clone(),
+            2,
+            JournalActor::System,
+            JournalEventKind::WorkerEpochAdvanced { new_epoch: 1 },
+        )).unwrap();
+        journal.append(2, event(
+            "event-attempt",
+            identity.clone(),
+            3,
+            JournalActor::Worker { epoch: 1 },
+            JournalEventKind::AttemptStarted { attempt_id: "attempt-1".into() },
+        )).unwrap();
+        journal.append(3, event(
+            "event-revoke-inflight",
+            identity.clone(),
+            4,
+            JournalActor::System,
+            JournalEventKind::PolicyRevoked { policy_generation: 2 },
+        )).unwrap();
+        assert!(journal.snapshot(&identity).unwrap().revoked());
+        assert_eq!(
+            journal.snapshot(&identity).unwrap().status(),
+            DurableDeliveryStatus::OutcomeUnknown
+        );
+        assert_eq!(
+            journal.append(4, event(
+                "event-attempt-after-revoke",
+                identity.clone(),
+                5,
+                JournalActor::Worker { epoch: 1 },
+                JournalEventKind::AttemptStarted { attempt_id: "attempt-2".into() },
+            )),
+            Err(JournalError::TerminalState)
+        );
+
+        let evidence = VerifiedReceiptEvidence::verify(
+            &TestVerifier,
+            b"receipt-ok",
+            "message-1",
+            "recipient-1",
+            ZERO_COMMITMENT,
+            "pulse-test-v1",
+        ).unwrap();
+        journal.append(4, event(
+            "event-receipt-after-revoke",
+            identity.clone(),
+            6,
+            JournalActor::System,
+            JournalEventKind::RecipientReceiptVerified { evidence },
+        )).unwrap();
+        assert_eq!(
+            journal.snapshot(&identity).unwrap().status(),
+            DurableDeliveryStatus::Delivered
         );
     }
 
