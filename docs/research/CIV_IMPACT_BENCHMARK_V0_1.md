@@ -244,6 +244,7 @@ A first standalone Rust tool is being authored under [tools/civ-impact-census](h
 - `generate` deterministically emits a balanced five-regime synthetic scenario set and paired comparison schedule (default: 100 scenarios × 30 seeds × seven arms = 21,000 planned runs).
 - `verify` checks schedule/result identity, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds and cost-component arithmetic.
 - `CIV_IMPACT_RUN_CENSUS_V0_1.schema.json` provides the machine-readable structural contract for run results.
+- `CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json` defines the descriptive paired-comparison report shape and hard-codes the non-qualification claim flags.
 - The tool's report states that benchmark validity and economic benefit are **not** established. A generated plan does not execute any arm; synthetic stress parameters are not operational data or estimated disruption probabilities.
 - Generated arm implementation references are placeholders. They must be replaced with pinned implementations under a frozen preregistration before confirmatory use.
 - Scenario hashing binds a deterministic serialization, and result receipts hash exact schedule/result bytes. Hashes alone are not authentication or immutable preregistration; anchoring and independent evaluator controls remain necessary.
@@ -252,6 +253,7 @@ Commands:
 ```sh
 cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- generate /tmp/civ-impact-run 100 30
 cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- verify /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
+cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- analyze /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
 cargo test --manifest-path tools/civ-impact-census/Cargo.toml
 ```
 
@@ -262,7 +264,7 @@ The verifier consumes a result file from a separately implemented evaluator. The
 - Protocol: authored proposal.
 - Preregistration schema: authored and fetched back from the branch; JSON parsing confirmed.
 - Rust schedule/census prototype and unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
-- Result schema: authored; JSON parsing and structural schema validation by a dedicated validator remain outstanding.
+- Result and comparison-report schemas: authored; JSON parsing confirmed; structural schema validation by a dedicated validator remains outstanding.
 - Benchmark runs: none claimed.
 - Physical/economic outcomes: none claimed.
 - Exact-head workflow status at an earlier commit showed Mycelix CI skipped and canonical qualification pending; check the current head before any qualification claim.
