@@ -147,7 +147,10 @@
             "verifier_build_sha256",
             "credential_status_snapshot_sha256",
             "issuer_authorization_policy_sha256",
-            "isolation_claim"
+            "isolation_claim",
+            "qualification_ref",
+            "qualification_sha256",
+            "qualification_status"
           ],
           "properties": {
             "monitor_id": {
@@ -173,6 +176,25 @@
             },
             "isolation_claim": {
               "const": "external_to_candidate_process"
+            },
+            "qualification_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "description": "Reference to independently verifiable monitor qualification evidence; the reference itself is not proof."
+            },
+            "qualification_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "qualification_status": {
+              "enum": [
+                "qualified",
+                "unqualified",
+                "unknown",
+                "expired",
+                "scope_mismatch"
+              ],
+              "description": "Claimed state; verifier must independently validate the referenced qualification evidence, build, scope and validity window."
             }
           }
         },
@@ -331,6 +353,28 @@
                   },
                   "last_event_sequence": {
                     "const": 0
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "event_count": {
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "event_count"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "first_event_sequence": {
+                    "minimum": 1
+                  },
+                  "last_event_sequence": {
+                    "minimum": 1
                   }
                 }
               }
@@ -606,6 +650,26 @@
                     "const": 0
                   }
                 }
+              },
+              "assessment": {
+                "properties": {
+                  "coverage_status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "coverage_status"
+                ]
+              },
+              "monitor": {
+                "properties": {
+                  "qualification_status": {
+                    "const": "qualified"
+                  }
+                },
+                "required": [
+                  "qualification_status"
+                ]
               }
             }
           }
