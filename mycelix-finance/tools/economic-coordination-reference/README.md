@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The v1 reference and additive partial-fulfilment experiment currently contain **52 authored unit tests** (38 v1 tests plus 14 tranche-ledger tests). This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference and additive partial-fulfilment experiment currently contain **52 authored unit tests** (38 v1 tests plus 14 tranche-ledger tests), plus **2 authored integration tests** for generated state-machine sequences and deterministic replay: **54 test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Experimental partial-fulfilment tranche ledger
 
@@ -53,7 +53,8 @@ The additive `fulfillment_tranches` Rust module explores a ValueFlows-aligned ga
 - Partial acceptance counts only the accepted amount and releases the unaccepted remainder for a replacement tranche.
 - Duplicate claim IDs and evidence IDs are rejected. Final tranches cannot be accepted twice. Disputed resolution requires a different verifier.
 - Claims and verification decisions are retained in an append-only journal. This is a serial reference model, not a distributed concurrency protocol or financial posting authorization.
-- Fourteen regression tests are authored for multiple tranches, partial acceptance, replay, overcommitment, over-fulfilment, unknown/synthetic evidence, independence, dispute resolution, deadline checks, and journal ordering. They remain unexecuted until qualification records show otherwise.
+- Fourteen unit regression tests cover multiple tranches, partial acceptance, replay, overcommitment, over-fulfilment, unknown/synthetic evidence, independence, dispute resolution, deadlines, and journal ordering. They remain unexecuted until qualification records show otherwise.
+- `tests/fulfillment_generated_sequences.rs` adds two dependency-free integration tests: 4,096 seeded ledgers × 32 generated claim attempts (131,072 attempts) checking quantity, journal-time, and aggregate invariants; plus 100 same-seed replay comparisons. These tests are authored, not yet reported as executed. They probe serial state transitions and do not establish distributed safety.
 
 ## Partial-fulfilment experiment: proposed benchmarks
 
@@ -69,7 +70,7 @@ These are acceptance targets for the tranche prototype, not measured results:
 | Deterministic replay | 100/100 same-input runs produce identical ordered journal digests |
 | Partial fulfillment | Exact agreement between per-tranche accepted quantities and aggregate accepted quantity in every generated case |
 
-The implementation is currently a serial in-memory reference. Concurrency/interleaving campaigns must not be presented as evidence of distributed safety until a concurrent or replicated model exists. A future integration should map tranche claims and acceptance decisions to ValueFlows semantics explicitly; ValueFlows defines an economic event as fulfilling a commitment completely or partially, but this module is not yet a ValueFlows adapter.
+The implementation is currently a serial in-memory reference. The generated-state harness targets 131,072 claim attempts per invocation and 100 exact-seed replay comparisons; these are test workload sizes, not measured pass results. Concurrency/interleaving campaigns must not be presented as evidence of distributed safety until a concurrent or replicated model exists. A future integration should map tranche claims and acceptance decisions to ValueFlows semantics explicitly; ValueFlows defines an economic event as fulfilling a commitment completely or partially, but this module is not yet a ValueFlows adapter.
 
 ## Explicit limitations
 
