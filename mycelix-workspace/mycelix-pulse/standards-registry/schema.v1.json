@@ -111,7 +111,8 @@
             "technical_report",
             "announcement",
             "implementation_reference",
-            "working_group"
+            "working_group",
+            "erratum"
           ]
         },
         "canonical_url": {
@@ -273,8 +274,38 @@
           ],
           "pattern": "^[a-f0-9]{64}$",
           "description": "SHA-256 of the captured canonical source bytes or normalized source artifact; null means not captured and must not be treated as verified."
+        },
+        "errata_status": {
+          "type": "string",
+          "enum": [
+            "reported",
+            "verified",
+            "held_for_document_update",
+            "rejected",
+            "unknown"
+          ],
+          "description": "RFC Editor/standards-authority erratum disposition; independent of Pulse implementation support."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "const": "erratum"
+              }
+            },
+            "required": [
+              "artifact_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "errata_status"
+            ]
+          }
+        }
+      ]
     }
   }
 }
