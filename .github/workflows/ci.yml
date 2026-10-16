@@ -509,8 +509,14 @@ jobs:
             --evaluate --traces benchmarks/traces.v1.json --messages 1000 \
             --seed 20261016 --seed-count 30 --candidate sequential_failover \
             --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
-            > evidence/standards-registry-ci/paired-routing-evaluation.json
-          cat evidence/standards-registry-ci/paired-routing-evaluation.json
+            > evidence/standards-registry-ci/paired-sequential-evaluation.json
+          cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
+            --evaluate --traces benchmarks/traces.v1.json --messages 1000 \
+            --seed 20261016 --seed-count 30 --candidate parallel_redundancy \
+            --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
+            > evidence/standards-registry-ci/paired-parallel-evaluation.json
+          cat evidence/standards-registry-ci/paired-sequential-evaluation.json
+          cat evidence/standards-registry-ci/paired-parallel-evaluation.json
       - name: Exercise source-linked standards retrieval
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
