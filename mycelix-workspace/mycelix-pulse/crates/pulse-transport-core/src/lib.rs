@@ -16,6 +16,9 @@ const MAX_IDENTIFIER_BYTES: usize = 64;
 const MAX_MESSAGE_ID_BYTES: usize = 128;
 const MAX_RECIPIENT_ID_BYTES: usize = 512;
 const MAX_RECEIPT_BYTES: usize = 16 * 1024;
+/// Contract-level cap for one serialized encrypted Pulse envelope.
+/// Large attachments should be chunked/referenced above this layer.
+pub const MAX_OPAQUE_ENVELOPE_BYTES: usize = 16 * 1024 * 1024;
 
 /// Monotonic process-local time used only for freshness and elapsed durations.
 /// Never serialize it as a cross-device message expiry.
@@ -221,6 +224,9 @@ impl TransportCapabilities {
         if max_envelope_bytes == 0 {
             return Err(CapabilityError::ZeroPayloadBudget);
         }
+        if max_envelope_bytes > MAX_OPAQUE_ENVELOPE_BYTES {
+            return Err(CapabilityError::PayloadBudgetExceedsContractLimit);
+        }
         if transport_profiles.is_empty() {
             return Err(CapabilityError::NoTransportProfilesDeclared);
         }
@@ -282,6 +288,7 @@ impl TransportCapabilities {
 pub enum CapabilityError {
     NoDirectionSupported,
     ZeroPayloadBudget,
+    PayloadBudgetExceedsContractLimit,
     NoTransportProfilesDeclared,
     NoEnvelopeProfilesDeclared,
     DuplicateTransportProfile,
@@ -293,6 +300,9 @@ impl fmt::Display for CapabilityError {
         match self {
             Self::NoDirectionSupported => f.write_str("adapter must support send or receive"),
             Self::ZeroPayloadBudget => f.write_str("max envelope size must be greater than zero"),
+            Self::PayloadBudgetExceedsContractLimit => {
+                f.write_str("adapter payload budget exceeds the contract-level envelope limit")
+            }
             Self::NoTransportProfilesDeclared => {
                 f.write_str("at least one transport profile must be declared")
             }
@@ -376,6 +386,9 @@ impl OpaqueEnvelope {
         if payload.is_empty() {
             return Err(EnvelopeError::EmptyPayload);
         }
+        if payload.len() > MAX_OPAQUE_ENVELOPE_BYTES {
+            return Err(EnvelopeError::PayloadTooLarge);
+        }
         Ok(Self {
             logical_message_id,
             envelope_profile_id,
@@ -414,6 +427,7 @@ impl OpaqueEnvelope {
 pub enum EnvelopeError {
     InvalidLogicalMessageId,
     EmptyPayload,
+    PayloadTooLarge,
 }
 
 impl fmt::Display for EnvelopeError {
@@ -421,6 +435,9 @@ impl fmt::Display for EnvelopeError {
         match self {
             Self::InvalidLogicalMessageId => f.write_str("logical message ID is invalid"),
             Self::EmptyPayload => f.write_str("opaque envelope payload must not be empty"),
+            Self::PayloadTooLarge => {
+                f.write_str("opaque envelope payload exceeds the contract-level size limit")
+            }
         }
     }
 }
@@ -1460,6 +1477,26 @@ mod tests {
                 UnixMillis::new(100),
             ),
             Err(EnvelopeError::EmptyPayload)
+        );
+        assert_eq!(
+            OpaqueEnvelope::new(
+                "msg-1",
+                envelope_profile(),
+                vec![0; MAX_OPAQUE_ENVELOPE_BYTES + 1],
+                UnixMillis::new(100),
+            ),
+            Err(EnvelopeError::PayloadTooLarge)
+        );
+        assert_eq!(
+            TransportCapabilities::new(
+                true,
+                true,
+                MAX_OPAQUE_ENVELOPE_BYTES + 1,
+                TransportMode::Online,
+                vec![transport_profile()],
+                vec![envelope_profile()],
+            ),
+            Err(CapabilityError::PayloadBudgetExceedsContractLimit)
         );
         assert_eq!(
             TransportCapabilities::new(
