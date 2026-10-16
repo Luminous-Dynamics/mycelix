@@ -552,6 +552,12 @@ fn validate_pinned_result_schema(lock: &Value) -> Result<(), String> {
 fn validate_manifest(m: &Value) -> Result<(), String> {
     validate_containment_overlay(m)?;
     validate_execution_lock(m, false)?;
+    let manifest_status = m["status"].as_str().ok_or("manifest status missing")?;
+    let lock_status = m["execution_lock"]["status"].as_str().ok_or("execution lock status missing")?;
+    if (manifest_status == "preregistration_draft" && lock_status != "not_frozen")
+        || (manifest_status == "preregistered_before_runs" && lock_status != "frozen") {
+        return Err("benchmark status and execution-lock status must transition together".into());
+    }
     if m["benchmark_version"].as_str() != Some("wish-outcome-benchmark/0.1")
         || !matches!(m["status"].as_str(), Some("preregistration_draft" | "preregistered_before_runs"))
         || m["evidence_class"].as_str() != Some("synthetic_only")
