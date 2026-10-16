@@ -204,12 +204,7 @@ pub(crate) async fn check_and_store(
 
     let evidence = match result {
         Ok(report) => map_report(&action_hash, report),
-        Err(error) => {
-            web_sys::console::log_1(
-                &format!("publication evidence unavailable: {error}").into(),
-            );
-            PublicationEvidence::Unavailable
-        }
+        Err(_error) => PublicationEvidence::Unavailable,
     };
 
     publication_signal.set(Some(PublicationEvidenceNotice {
