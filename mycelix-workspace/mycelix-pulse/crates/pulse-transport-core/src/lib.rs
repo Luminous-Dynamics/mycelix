@@ -801,7 +801,7 @@ mod tests {
 
         let unknown = LinkObservation {
             state: LinkState::Unknown,
-            observed_at_monotonic: 1_000,
+            observed_at_monotonic: MonotonicMillis::new(1_000),
             valid_for_millis: 500,
         };
         assert_eq!(
@@ -823,7 +823,8 @@ mod tests {
                 &candidate(&small, available_observation()),
                 &policy(),
                 &envelope(81, UnixMillis::new(20_000)),
-                1_500,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
             ),
             Err(IneligibilityReason::PayloadTooLarge)
         );
@@ -832,7 +833,8 @@ mod tests {
                 &candidate(&small, available_observation()),
                 &policy(),
                 &envelope(50, UnixMillis::new(20_000)),
-                20_000,
+                UnixMillis::new(20_000),
+                MonotonicMillis::new(1_500),
             ),
             Err(IneligibilityReason::EnvelopeExpired)
         );
@@ -845,7 +847,8 @@ mod tests {
                 &candidate(&small, available_observation()),
                 &unsupported_profile_policy,
                 &envelope(50, UnixMillis::new(20_000)),
-                1_500,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
             ),
             Err(IneligibilityReason::EnvelopeProfileMismatch)
         );
@@ -919,7 +922,8 @@ mod tests {
                     &candidate(descriptor, available_observation()),
                     &policy(),
                     &envelope(100, UnixMillis::new(20_000)),
-                    1_500,
+                    UnixMillis::new(1_500),
+                    MonotonicMillis::new(1_500),
                 )
                 .unwrap()
             })
@@ -1080,7 +1084,12 @@ mod tests {
         assert_eq!(TransportId::new(""), Err(IdentifierError::Empty));
         assert_eq!(TransportId::new("MixedCase"), Err(IdentifierError::InvalidCharacter));
         assert_eq!(
-            OpaqueEnvelope::new("msg-1", profile(), Vec::new(), 100),
+            OpaqueEnvelope::new(
+                "msg-1",
+                profile(),
+                Vec::new(),
+                UnixMillis::new(100),
+            ),
             Err(EnvelopeError::EmptyPayload)
         );
         assert_eq!(
