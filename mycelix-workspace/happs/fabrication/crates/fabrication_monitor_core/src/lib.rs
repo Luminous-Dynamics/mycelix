@@ -778,6 +778,17 @@ mod tests {
     }
 
 
+
+    #[test]
+    fn missing_detector_configuration_identity_is_rejected() {
+        let mut detector_config = config();
+        detector_config.configuration_id.clear();
+        assert_eq!(
+            detector_config.validate(),
+            Err(ConfigError::EmptyConfigurationId)
+        );
+    }
+
     #[test]
     fn missing_reference_dataset_identity_is_rejected() {
         let mut detector_config = config();
