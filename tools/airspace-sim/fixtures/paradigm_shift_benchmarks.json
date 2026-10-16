@@ -705,6 +705,41 @@
         "unknown_behavior_is_unresolved_not_defaulted"
       ],
       "scope": "unsigned expected-digest contract binding SHA-256 only; not a signed attestation, authenticated source identity, completed Rust execution evidence or operational aviation safety claim"
+    },
+    {
+      "id": "AIR-PB-022",
+      "name": "independent_oracle_detects_correlated_error_faults",
+      "paradigm": "algorithmic_diversity_over_shared_representation",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A point-assignment checker that evaluates original contributions without coefficient coalescing can detect dependency-grouping and interval-under-approximation defects that a structurally similar evaluator may share.",
+      "baseline": "An oracle that aggregates coefficients by dependency can reproduce a class of grouping mistakes in the implementation it is intended to check.",
+      "stimulus": "Use a pinned seeded corpus of 1,000 small shared-dependency domains with distinct source origins, mixed-sign coefficients and independent dependency modes; compare evaluator bounds with exhaustive latent-value assignments; inject a narrowed-interval output mutant.",
+      "success_conditions": [
+        "The reference checker enumerates one value per shared dependency and evaluates original contribution terms individually without reusing the production dependency-keyed aggregation.",
+        "All 1,000 seeded shared-dependency domains agree exactly between implementation bounds and exhaustive assignment extrema.",
+        "The declared narrowed-interval mutant is rejected by the independent oracle.",
+        "Conflicting bounds for one dependency or a checker/evaluator disagreement fails the test; disagreement is never converted into clearance or a safety pass."
+      ],
+      "falsifiers": [
+        "Any finite-domain bounds disagreement is accepted.",
+        "The reference checker coalesces coefficients using the same implementation path before evaluating assignments.",
+        "A declared under-approximation mutant remains accepted.",
+        "A research-oracle pass is described as operational aviation qualification."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output and immutable commit SHA",
+        "Seed and generator version for the 1,000-case corpus",
+        "Independent oracle source and evaluator source identities",
+        "Declared mutation controls and exact rejection count",
+        "Receipt binding the fixture, test code, expected results and checker identity"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "bounded synthetic integer domains and test-only differential verification; not a proof of oracle independence, formal verification, a qualified reachable-set model or operational aviation safety"
     }
   ]
 }
