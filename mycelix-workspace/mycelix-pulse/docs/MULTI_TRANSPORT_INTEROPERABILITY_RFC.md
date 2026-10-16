@@ -71,6 +71,12 @@ Sources: [Briar quick start](https://briarproject.org/quick-start/), [Reticulum 
 
 **Errata are part of the active compatibility contract.** As checked on 2026-10-16, the RFC Editor lists nine errata for RFC 9171 (three verified, one reported, four held for document update, one rejected), and four reported errata for RFC 9172. At least one reported BPSec erratum explicitly proposes additional constraints on using Abstract Security Block fields before cryptographic validation. The registry records each disposition separately: a reported/held correction must not be treated as an accepted normative change, but the concern should still be reviewed for security and interoperability impact before adopting a profile. References: [RFC 9171 errata index](https://www.rfc-editor.org/errata_search.php?presentation=records&rec_status=15&rfc=9171), [RFC 9172 errata index](https://www.rfc-editor.org/errata/rfc9172), [RFC 9172 erratum 8312](https://www.rfc-editor.org/errata/eid8312). Any integration must be preceded by an interop spike and a threat-model comparison, not by assuming wire compatibility from similar goals.
 
+## 3B. First Rust contract implementation
+
+The branch also adds an isolated starter crate at `crates/pulse-transport-core/`. It defines transport/profile/failure-domain identifiers, declared adapter capabilities, fresh-versus-stale link observations, a route-eligibility function that rejects unknown consent/privacy/regulatory state, payload/profile/direction/expiry gates, and delivery-state mapping. The adapter trait accepts opaque envelope bytes and can report adapter/link/gateway outcomes, but has no recipient-delivered result.
+
+This is an **experimental contract prototype**, not a live Pulse integration or radio implementation. `OpaqueEnvelope` validates basic metadata only; it does not prove bytes are encrypted. Callers must provide the output of Pulse's existing crypto path, run the trusted receipt verifier before emitting `RecipientReceiptVerified`, and call the route-eligibility function before send. The isolated crate has a checked-in dependency-free lockfile so its own tests can run with `--locked`; the standards-registry validator still lacks a checked-in lockfile and its workflow records that distinction.
+
 ## 4. Adapter contract
 
 Implement the core contract in Rust after reviewing the current Pulse workspace conventions. The design should express these concepts without making hardware-specific types leak into message semantics:
