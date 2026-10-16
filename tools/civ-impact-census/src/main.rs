@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -1193,6 +1193,99 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn all_checked_in_schemas_parse_as_draft_2020_12() {
+        for source in [
+            include_str!("../../../docs/research/schema/CIV_IMPACT_BENCHMARK_V0_1.schema.json"),
+            include_str!("../../../docs/research/schema/CIV_IMPACT_RUN_CENSUS_V0_1.schema.json"),
+            include_str!("../../../docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json"),
+        ] {
+            let schema: serde_json::Value = serde_json::from_str(source)
+                .expect("schema file must parse as JSON");
+            assert_eq!(
+                schema["$schema"].as_str(),
+                Some("https://json-schema.org/draft/2020-12/schema")
+            );
+        }
+    }
+
+    #[test]
+    fn run_result_schema_keys_match_rust_record_shapes() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/research/schema/CIV_IMPACT_RUN_CENSUS_V0_1.schema.json"
+        )).expect("run schema JSON");
+        let object_keys = |value: &serde_json::Value| -> BTreeSet<String> {
+            value.as_object().expect("object").keys().cloned().collect()
+        };
+        let expected_root: BTreeSet<String> = [
+            "manifest_version", "benchmark_id", "scenario_set_sha256", "runs"
+        ].into_iter().map(str::to_owned).collect();
+        assert_eq!(object_keys(&schema["properties"]), expected_root);
+
+        let expected_run: BTreeSet<String> = [
+            "run_id", "scenario_id", "seed", "arm_id", "disposition", "metrics", "failure_reason"
+        ].into_iter().map(str::to_owned).collect();
+        assert_eq!(object_keys(&schema["$defs"]["runResult"]["properties"]), expected_run);
+
+        let expected_metrics: BTreeSet<String> = [
+            "observed_demand_units", "served_units", "compute_cost_microcredits",
+            "data_cost_microcredits", "integration_cost_microcredits",
+            "human_review_cost_microcredits", "coordination_cost_microcredits",
+            "failure_recovery_cost_microcredits", "total_cost_microcredits",
+            "completion_latency_ms"
+        ].into_iter().map(str::to_owned).collect();
+        assert_eq!(object_keys(&schema["$defs"]["runMetrics"]["properties"]), expected_metrics);
+    }
+
+    #[test]
+    fn comparison_schema_keys_match_report_and_bootstrap_shapes() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json"
+        )).expect("comparison schema JSON");
+        let object_keys = |value: &serde_json::Value| -> BTreeSet<String> {
+            value.as_object().expect("object").keys().cloned().collect()
+        };
+        let expected_report: BTreeSet<String> = [
+            "benchmark_id", "evidence_class", "baseline_arm", "candidate_arm",
+            "expected_pairs", "complete_pairs", "incomplete_pairs", "zero_service_pairs",
+            "baseline_mean_cost_per_demand_unit_microcredits",
+            "candidate_mean_cost_per_demand_unit_microcredits",
+            "candidate_minus_baseline_cost_per_demand_unit_microcredits",
+            "relative_cost_per_demand_change_percent",
+            "baseline_mean_service_rate", "candidate_mean_service_rate",
+            "candidate_minus_baseline_service_rate_percentage_points",
+            "baseline_mean_cost_per_served_unit_microcredits",
+            "candidate_mean_cost_per_served_unit_microcredits",
+            "candidate_minus_baseline_cost_per_served_unit_microcredits",
+            "relative_cost_per_served_unit_change_percent",
+            "baseline_pooled_cost_per_served_unit_microcredits",
+            "candidate_pooled_cost_per_served_unit_microcredits",
+            "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits",
+            "relative_pooled_cost_per_served_unit_change_percent",
+            "cost_per_served_unit_defined_for_all_pairs",
+            "stratified_scenario_cluster_bootstrap_95",
+            "descriptive_only", "economic_benefit_established", "claim_ceiling"
+        ].into_iter().map(str::to_owned).collect();
+        let report_properties = &schema["$defs"]["comparisonReport"]["properties"];
+        assert_eq!(object_keys(report_properties), expected_report);
+        assert_eq!(
+            object_keys(report_properties),
+            schema["$defs"]["comparisonReport"]["required"]
+                .as_array().expect("report required array")
+                .iter().map(|value| value.as_str().expect("required key").to_owned()).collect()
+        );
+
+        let bootstrap_properties = &report_properties["stratified_scenario_cluster_bootstrap_95"]["oneOf"][1]["properties"];
+        let expected_bootstrap: BTreeSet<String> = [
+            "method", "resamples", "central_interval_level", "resampling_unit",
+            "stratification", "bootstrap_seed_sha256",
+            "relative_pooled_cost_per_served_unit_change_percent",
+            "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits",
+            "candidate_minus_baseline_service_rate_percentage_points", "claim_ceiling"
+        ].into_iter().map(str::to_owned).collect();
+        assert_eq!(object_keys(bootstrap_properties), expected_bootstrap);
     }
 
     #[test]
