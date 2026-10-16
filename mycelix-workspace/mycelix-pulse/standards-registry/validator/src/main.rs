@@ -27,8 +27,9 @@ fn main() -> ExitCode {
             "--json" => json_output = true,
             "--help" | "-h" => {
                 println!(
-                    "Usage: standards-registry-check [--registry PATH] [--schema PATH] [--json]\n\n                     Default paths are relative to the Pulse workspace root."
-                );
+                println!("Usage: standards-registry-check [--registry PATH] [--schema PATH] [--json]");
+                println!();
+                println!("Default paths are relative to the Pulse workspace root.");
                 return ExitCode::SUCCESS;
             }
             unknown => {
@@ -68,7 +69,7 @@ fn main() -> ExitCode {
             .get("entries")
             .and_then(Value::as_array)
             .map_or(0, Vec::len);
-        println!("VALID: {entry_count} standards records; unique IDs and relation targets checked.");
+        println!("VALID: {entry_count} registry records; IDs and relation targets checked.");
         println!("Support evidence gates checked; not a generic JSON Schema or conformance test.");
     } else {
         eprintln!("INVALID: {} registry contract error(s):", errors.len());
