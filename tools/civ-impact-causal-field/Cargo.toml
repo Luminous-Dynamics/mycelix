@@ -1,0 +1,11 @@
+[package]
+name = "civ-impact-causal-field"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Preregistered trial and assignment/outcome artifact integrity verifier for CIV-IMPACT"
+
+[dependencies]
+serde_json = "=1.0.154"
+sha2 = "=0.11.1"
+jsonschema = { version = "=0.58.6", default-features = false }
