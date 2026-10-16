@@ -347,6 +347,14 @@ fn validate_schema_contract(schema: &Value, errors: &mut Vec<String>) {
     if root.pointer("/$defs/entry/properties/source_digest_sha256").is_none() {
         errors.push("schema: missing source_digest_sha256 property".to_owned());
     }
+    let errata_enum = root
+        .pointer("/$defs/entry/properties/errata_status/enum")
+        .and_then(Value::as_array);
+    for value in ERRATA_STATUSES {
+        if !errata_enum.is_some_and(|items| items.iter().any(|item| item.as_str() == Some(value))) {
+            errors.push(format!("schema: errata_status enum is missing '{value}'"));
+        }
+    }
     if root.pointer("/$defs/entry/properties/errata_status").is_none() {
         errors.push("schema: missing errata_status property".to_owned());
     }
@@ -748,6 +756,15 @@ mod tests {
         registry["entries"][0]["errata_status"] = json!("maybe");
         let errors = validate_registry(&registry, &schema());
         assert!(errors.iter().any(|error| error.contains("errata_status")));
+    }
+
+    #[test]
+    fn schema_without_errata_dispositions_is_rejected() {
+        let registry = seed();
+        let mut schema = schema();
+        schema["$defs"]["entry"]["properties"].as_object_mut().unwrap().remove("errata_status");
+        let errors = validate_registry(&registry, &schema);
+        assert!(errors.iter().any(|error| error.contains("errata_status property")));
     }
 
     #[test]
