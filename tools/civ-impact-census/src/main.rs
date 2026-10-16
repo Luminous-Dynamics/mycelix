@@ -163,7 +163,7 @@ struct BootstrapInterval {
 struct BootstrapUncertainty {
     method: String,
     resamples: usize,
-    confidence_level: f64,
+    central_interval_level: f64,
     resampling_unit: String,
     stratification: String,
     bootstrap_seed_sha256: String,
@@ -836,7 +836,7 @@ fn stratified_scenario_cluster_bootstrap(
     Ok(Some(BootstrapUncertainty {
         method: "stratified scenario-cluster percentile bootstrap".into(),
         resamples: BOOTSTRAP_RESAMPLES,
-        confidence_level: 0.95,
+        central_interval_level: 0.95,
         resampling_unit: "scenario cluster; all seeds and paired arms within a sampled scenario".into(),
         stratification: "resample with replacement within each registered stress regime".into(),
         bootstrap_seed_sha256: seed_digest.to_owned(),
@@ -1422,7 +1422,7 @@ mod tests {
         let interval = report.stratified_scenario_cluster_bootstrap_95
             .expect("complete paired corpus has bootstrap uncertainty");
         assert_eq!(interval.resamples, BOOTSTRAP_RESAMPLES);
-        assert_eq!(interval.confidence_level, 0.95);
+        assert_eq!(interval.central_interval_level, 0.95);
         assert!(interval.relative_pooled_cost_per_served_unit_change_percent.lower_2_5_percentile <=
             interval.relative_pooled_cost_per_served_unit_change_percent.upper_97_5_percentile);
         assert_eq!(interval.bootstrap_seed_sha256, "a".repeat(64));
