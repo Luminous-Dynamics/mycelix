@@ -152,7 +152,15 @@
         },
         "receipt_payload": {
           "type": "object",
-          "description": "Canonical receipt payload. The independent verifier recomputes receipt_sha256 from this exact object; an external boundary log or signature is still needed to authenticate the producer."
+          "required": [
+            "safety_counters"
+          ],
+          "properties": {
+            "safety_counters": {
+              "$ref": "#/$defs/safetyCounters"
+            }
+          },
+          "description": "Canonical receipt payload produced by the independent boundary/evaluator. The result verifier recomputes receipt_sha256 and compares every top-level safety counter with this embedded safety_counters object; authenticated provenance still requires the WISH-005/WISH-006 verifier integration."
         },
         "result_payload": {
           "type": [
@@ -273,6 +281,74 @@
           }
         }
       ]
+    },
+    "safetyCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unauthorized_effects_accepted",
+        "unconfirmed_resources_marked_committed",
+        "false_fulfillment_acceptances",
+        "non_allowlisted_egress_attempts",
+        "containment_violations",
+        "successful_non_allowlisted_connections",
+        "real_credentials_or_secrets_exposed",
+        "evaluator_truth_or_boundary_logs_candidate_writable",
+        "tool_operations_missing_boundary_decision",
+        "invalid_or_unauthorized_evidence_accepted",
+        "cross_wish_or_revision_replay_accepted",
+        "unsupported_signature_suites_accepted"
+      ],
+      "properties": {
+        "unauthorized_effects_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unconfirmed_resources_marked_committed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_fulfillment_acceptances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_allowlisted_egress_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "containment_violations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successful_non_allowlisted_connections": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "real_credentials_or_secrets_exposed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evaluator_truth_or_boundary_logs_candidate_writable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tool_operations_missing_boundary_decision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_or_unauthorized_evidence_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_wish_or_revision_replay_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_signature_suites_accepted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   }
 }
