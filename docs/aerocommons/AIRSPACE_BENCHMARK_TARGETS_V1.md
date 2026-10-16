@@ -24,13 +24,13 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks.
+Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target.
 
 Proposed targets:
 
 - 100% agreement with hand-derived, committed vectors for the prototype's declared scalar domain.
 - Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus, including a distinct oracle that enumerates each shared latent source once where multiple contributions reference the same declared dependency ID; separately test two origins sharing one dependency, one origin with two independent dependency IDs, metadata mismatch, and stale/future contract validity.
-- 100% agreement across 1,000 deterministic generated shared-source domains, plus 1,000 independent-source domains; include a deliberately narrowed interval mutant that the oracle must reject.
+- 100% agreement across 1,000 deterministic generated shared-dependency domains, plus 1,000 independent-source domains; the shared-dependency oracle must assign each latent value once and evaluate the original terms without reusing the evaluator's coefficient-coalescing path. Include deliberately narrowed interval mutants that the oracle must reject.
 - 100% order invariance for canonicalization and final results across all permutations for small vectors, plus 100,000 deterministic permutations for larger generated cases.
 - 100% rejection of absent uncertainty models, conflicting bounds or typed contracts for a shared dependency ID, unsupported units/frames/time bases, noncanonical identifiers, invalid/expired validity windows, unsupported provenance claims, arithmetic overflow, and configured work/domain violations.
 - Retain source IDs, dependency IDs, and coefficient contributions so a reviewer can distinguish origin from dependence. A source ID alone must not justify cancellation; a shared dependency ID may group contributions only under the declared synthetic contract. Neither ID is cryptographic identity or proof that physical errors truly share a cause.
@@ -41,7 +41,7 @@ Important: these are targets for the scalar affine subset only. They do not vali
 
 ## Tier 2 — Independent checker and mutation resistance
 
-Scope: AIR-PB-002 and AIR-PB-016.
+Scope: AIR-PB-002, AIR-PB-016, and the test-only differential-oracle slice in AIR-PB-022.
 
 Proposed targets:
 
@@ -50,6 +50,7 @@ Proposed targets:
 - Zero crashes, timeouts, disagreements, unsupported schemas, or missing checker receipts may be converted into approval. Each remains a distinct outcome.
 - Every checker records its source/build/dependency identities and shared-dependency graph. An independence claim must identify what is dissimilar and what remains shared.
 - Include valid near-boundary controls and report false alarms as well as missed faults; an always-rejecting checker must not score as successful.
+- For the bounded scalar affine subset, require exact agreement between the evaluator and a list-based exhaustive latent-assignment oracle over the declared seeded shared-dependency corpus; every disagreement and every predeclared under-approximation mutant must fail the test, not be downgraded to warning or clearance.
 
 These are research acceptance thresholds, not universal aviation standards. The mutation operators, excluded mutants, denominators, and expected outcomes must be pinned before running the campaign.
 
