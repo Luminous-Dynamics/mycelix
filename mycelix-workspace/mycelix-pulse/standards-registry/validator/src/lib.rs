@@ -1082,8 +1082,10 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .all(|entry| entry.get("canonical_url").is_some()
-                && entry.get("support_status").is_some()));
+            .all(|entry| {
+                entry.get("canonical_url").is_some()
+                    && entry["support_status"] == "unreviewed"
+            }));
     }
 
     #[test]
@@ -1098,6 +1100,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result["total_matches"], 5);
+        assert_eq!(result["support_conformance_claim"], false);
+        assert!(result["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| entry["support_status"] == "unreviewed"));
         let ids = result["results"]
             .as_array()
             .unwrap()
