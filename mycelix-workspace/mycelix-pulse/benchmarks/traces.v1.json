@@ -16,7 +16,9 @@
       "parallel_redundancy"
     ],
     "limitations": "Synthetic route eligibility, fixed latency/cost estimates, per-path success thresholds, shared deterministic outcomes within failure domains, and independent outcomes between domains. No RF propagation, interference, fragmentation, congestion, physical common-cause fault estimation, cryptography, real device power measurement, or authenticated-recipient receipt is modeled.",
-    "failure_domain_id": "Paths with the same failure_domain_id share the same deterministic synthetic success draw; this models maximally correlated outcomes at equal success rates. Distinct IDs receive independent draws. It is a conservative toy correlation model, not a measured model of carrier or hardware failures."
+    "failure_domain_id": "Paths with the same failure_domain_id share the same deterministic synthetic success draw; this models maximally correlated outcomes at equal success rates. Distinct IDs receive independent draws. It is a conservative toy correlation model, not a measured model of carrier or hardware failures.",
+    "failure_correlation_basis_points": "Optional per-scenario integer in [0,10000]. It is the mixture weight for shared-domain synthetic success draws (0=path-specific draws; 10000=one shared draw); it is not an empirical Pearson correlation coefficient. Explicit unavailable_ranges remain common-cause outages at all weights.",
+    "default_failure_correlation_basis_points": 10000
   },
   "scenarios": [
     {
@@ -448,7 +450,7 @@
   "evaluation_split": {
     "schema_version": "1.0.0",
     "split_id": "pulse-routing-evaluation-split-v1",
-    "rule": "Scenario-level development/holdout split is disjoint and exhaustive; resilience scenarios are a declared subset of holdout. Holdout scenarios are evaluated but not used to tune candidate policies.",
+    "rule": "Scenario-level development/holdout split is disjoint and exhaustive; resilience scenarios are a declared subset of holdout. Correlation-sweep weights vary the synthetic common-draw mixture only on resilience scenarios. Holdout scenarios are evaluated but not used to tune candidate policies.",
     "development_scenario_ids": [
       "local-only-first-contact",
       "compact-narrowband-message",
@@ -473,6 +475,13 @@
       "scheduled-ip-outage",
       "flapping-primary",
       "shared-carrier-failure-domain"
+    ],
+    "correlation_sweep_basis_points": [
+      0,
+      2500,
+      5000,
+      7500,
+      10000
     ]
   }
 }
