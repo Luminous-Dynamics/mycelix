@@ -431,10 +431,129 @@ fn validate_containment_overlay(m: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_execution_lock(m: &Value, require_frozen: bool) -> Result<HashMap<String, (String, String)>, String> {
+    let lock = m.get("execution_lock").ok_or("execution_lock missing")?;
+    if lock["schema_version"].as_str() != Some("wish-execution-lock/0.1") {
+        return Err("unsupported execution lock schema version".into());
+    }
+    let status = lock["status"].as_str().ok_or("execution lock status missing")?;
+    let arms = m["arms"].as_array().ok_or("manifest arms missing")?;
+    let pins = lock["arm_pins"].as_array().ok_or("execution lock arm_pins missing")?;
+    if pins.len() != arms.len() {
+        return Err("execution lock must have exactly one pin record per arm".into());
+    }
+    let declared_arms: HashSet<String> = arms.iter()
+        .map(|arm| arm["id"].as_str().unwrap_or_default().to_owned()).collect();
+    let mut seen = HashSet::new();
+    for pin in pins {
+        let id = pin["arm_id"].as_str().ok_or("execution lock arm ID missing")?;
+        if !seen.insert(id.to_owned()) || !declared_arms.contains(id) {
+            return Err(format!("duplicate or unknown execution-lock arm ID: {id}"));
+        }
+    }
+    if seen != declared_arms {
+        return Err("execution lock arm set differs from benchmark arm set".into());
+    }
+
+    let global_hashes = [
+        "policy_build_registry_sha256",
+        "scorer_sha256",
+        "evaluator_build_sha256",
+        "result_schema_sha256",
+        "tool_contracts_sha256",
+        "evidence_verifier_sha256",
+        "credential_status_snapshot_sha256",
+        "issuer_authorization_policy_sha256",
+    ];
+    if status == "not_frozen" {
+        if require_frozen {
+            return Err("execution lock is not frozen; no confirmatory results may be accepted".into());
+        }
+        if !lock["frozen_at"].is_null() || !lock["frozen_by_ref"].is_null() {
+            return Err("not-frozen execution lock must not claim a freeze time or reviewer".into());
+        }
+        for key in global_hashes {
+            if !lock[key].is_null() {
+                return Err(format!("not-frozen execution lock must not predeclare {key}"));
+            }
+        }
+        for pin in pins {
+            if pin["status"].as_str() != Some("not_pinned")
+                || !pin["policy_build_sha256"].is_null()
+                || !pin["policy_config_sha256"].is_null()
+                || !pin["runner_image_sha256"].is_null()
+                || !pin["action_space_sha256"].is_null()
+                || !pin["observation_contract_sha256"].is_null()
+            {
+                return Err(format!("not-frozen arm pin must be entirely unpinned: {}",pin["arm_id"]));
+            }
+        }
+        return Ok(HashMap::new());
+    }
+    if status != "frozen" {
+        return Err(format!("unknown execution lock status: {status}"));
+    }
+    if !require_frozen {
+        // A frozen lock is structurally valid for schedule generation too; the
+        // manifest digest makes every post-freeze schedule a distinct artifact.
+    }
+    if lock["frozen_at"].as_str().unwrap_or_default().is_empty()
+        || lock["frozen_by_ref"].as_str().unwrap_or_default().is_empty() {
+        return Err("frozen execution lock requires frozen_at and frozen_by_ref".into());
+    }
+    for key in global_hashes {
+        let value = lock[key].as_str().ok_or_else(||format!("frozen execution lock missing {key}"))?;
+        if !is_sha256(value) {
+            return Err(format!("frozen execution lock has invalid SHA-256: {key}"));
+        }
+    }
+    let declared_registry = lock["policy_build_registry_sha256"].as_str().unwrap_or_default();
+    if digest(&Value::Array(pins.clone()))? != declared_registry {
+        return Err("policy_build_registry_sha256 does not match canonical arm_pins".into());
+    }
+    let mut build_config_pins = HashMap::new();
+    for pin in pins {
+        let arm_id = pin["arm_id"].as_str().ok_or("arm pin ID missing")?;
+        if pin["status"].as_str() != Some("pinned") {
+            return Err(format!("frozen execution lock has unpinned arm: {arm_id}"));
+        }
+        for field in [
+            "policy_build_sha256",
+            "policy_config_sha256",
+            "runner_image_sha256",
+            "action_space_sha256",
+            "observation_contract_sha256",
+        ] {
+            let value = pin[field].as_str().ok_or_else(||format!("arm {arm_id} missing {field}"))?;
+            if !is_sha256(value) {
+                return Err(format!("arm {arm_id} has malformed {field}"));
+            }
+        }
+        build_config_pins.insert(
+            arm_id.to_owned(),
+            (pin["policy_build_sha256"].as_str().unwrap().to_owned(),
+             pin["policy_config_sha256"].as_str().unwrap().to_owned())
+        );
+    }
+    Ok(build_config_pins)
+}
+
+fn validate_pinned_result_schema(lock: &Value) -> Result<(), String> {
+    let path = Path::new("docs/research/schemas/wish-run-results-v0.1.schema.json");
+    let raw = fs::read_to_string(path).map_err(|e|format!("read pinned result schema {}: {e}",path.display()))?;
+    let schema = parse_strict(&raw).map_err(|e|format!("parse pinned result schema: {e}"))?;
+    let actual = digest(&schema)?;
+    if lock["result_schema_sha256"].as_str() != Some(actual.as_str()) {
+        return Err("run-result schema digest differs from frozen execution lock; regenerate the lock and schedule".into());
+    }
+    Ok(())
+}
+
 fn validate_manifest(m: &Value) -> Result<(), String> {
     validate_containment_overlay(m)?;
+    validate_execution_lock(m, false)?;
     if m["benchmark_version"].as_str() != Some("wish-outcome-benchmark/0.1")
-        || m["status"].as_str() != Some("preregistration_draft")
+        || !matches!(m["status"].as_str(), Some("preregistration_draft" | "preregistered_before_runs"))
         || m["evidence_class"].as_str() != Some("synthetic_only")
         || m["scope"]["prohibits_real_side_effects"].as_bool() != Some(true)
         || m["scope"]["prohibits_candidate_access_to_evaluator_truth"].as_bool() != Some(true) {
@@ -650,6 +769,12 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
     let manifest_raw = fs::read_to_string(manifest_path).map_err(|e| format!("read pinned manifest: {e}"))?;
     let manifest = parse_strict(&manifest_raw).map_err(|e| format!("parse pinned manifest: {e}"))?;
     validate_manifest(&manifest)?;
+    if manifest["status"].as_str() != Some("preregistered_before_runs") {
+        return Err("confirmatory census is blocked until the benchmark status is preregistered_before_runs".into());
+    }
+    let execution_lock = &manifest["execution_lock"];
+    let locked_pins = validate_execution_lock(&manifest, true)?;
+    validate_pinned_result_schema(execution_lock)?;
     let schedule = load_schedule(schedule_path, &manifest)?;
     verify_policy_dataset(&schedule, policy_path)?;
     let raw = fs::read_to_string(results_path).map_err(|e| format!("read results: {e}"))?;
@@ -698,6 +823,12 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
             continue;
         };
         let mut valid = validate_run_result(result, plan).is_ok();
+        match locked_pins.get(&result.arm_id) {
+            Some((locked_build, locked_config))
+                if locked_build == &result.policy_build_sha256
+                    && locked_config == &result.policy_config_sha256 => {},
+            _ => valid = false,
+        }
         if let Some((first_build,first_config,first_run)) = arm_configs.get(&result.arm_id) {
             if first_build != &result.policy_build_sha256 || first_config != &result.policy_config_sha256 {
                 invalid.insert(result.run_id.clone());
@@ -971,6 +1102,48 @@ mod tests {
         assert_eq!(digest(&payload).unwrap(), correct);
         let changed = json!({"producer":"independent-monitor","decision":"allowed","count":1});
         assert_ne!(digest(&changed).unwrap(), correct);
+    }
+
+    #[test]
+    fn draft_execution_lock_allows_development_schedule_but_not_results() {
+        let m = manifest();
+        validate_execution_lock(&m, false).expect("draft should still allow schedule generation");
+        assert!(validate_execution_lock(&m, true).is_err());
+    }
+
+    #[test]
+    fn frozen_execution_lock_requires_complete_per_arm_and_global_pins() {
+        let mut m = manifest();
+        m["execution_lock"]["status"] = json!("frozen");
+        m["execution_lock"]["frozen_at"] = json!("2026-10-16T18:00:00Z");
+        m["execution_lock"]["frozen_by_ref"] = json!("reviewer:synthetic-test");
+        for key in [
+            "policy_build_registry_sha256",
+            "scorer_sha256",
+            "evaluator_build_sha256",
+            "result_schema_sha256",
+            "tool_contracts_sha256",
+            "evidence_verifier_sha256",
+            "credential_status_snapshot_sha256",
+            "issuer_authorization_policy_sha256"
+        ] {
+            m["execution_lock"][key] = json!("f".repeat(64));
+        }
+        let pins = m["execution_lock"]["arm_pins"].as_array_mut().unwrap();
+        for pin in pins.iter_mut() {
+            pin["status"] = json!("pinned");
+            pin["policy_build_sha256"] = json!("a".repeat(64));
+            pin["policy_config_sha256"] = json!("b".repeat(64));
+            pin["runner_image_sha256"] = json!("c".repeat(64));
+            pin["action_space_sha256"] = json!("d".repeat(64));
+            pin["observation_contract_sha256"] = json!("e".repeat(64));
+        }
+        let registry_digest = digest(&Value::Array(pins.clone())).unwrap();
+        m["execution_lock"]["policy_build_registry_sha256"] = json!(registry_digest);
+        let locked = validate_execution_lock(&m, true).unwrap();
+        assert_eq!(locked.len(), 12);
+        m["execution_lock"]["arm_pins"][0]["policy_config_sha256"] = json!("bad");
+        assert!(validate_execution_lock(&m, true).is_err());
     }
 
     #[test]
