@@ -14,6 +14,8 @@ on:
     paths:
       - "tools/wish-benchmark-census/**"
       - "docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json"
+      - "docs/research/schemas/wish-run-results-v0.1.schema.json"
+      - "docs/research/WISH_OUTCOME_BENCHMARK_V0_1.md"
       - ".github/workflows/wish-benchmark-census.yml"
 
 permissions:
