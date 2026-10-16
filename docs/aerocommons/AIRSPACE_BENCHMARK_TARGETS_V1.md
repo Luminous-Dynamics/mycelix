@@ -24,7 +24,7 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target.
+Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target; AIR-PB-023 covers typed dimensional projection of uncertainty.
 
 Proposed targets:
 
@@ -33,6 +33,7 @@ Proposed targets:
 - 100% agreement across 1,000 deterministic generated shared-dependency domains, plus 1,000 independent-source domains; the shared-dependency oracle must assign each latent value once and evaluate the original terms without reusing the evaluator's coefficient-coalescing path. Include deliberately narrowed interval mutants that the oracle must reject.
 - 100% order invariance for canonicalization and final results across all permutations for small vectors, plus 100,000 deterministic permutations for larger generated cases.
 - 100% rejection of absent uncertainty models, conflicting bounds or typed contracts for a shared dependency ID, unsupported units/frames/time bases, noncanonical identifiers, invalid/expired validity windows, unsupported provenance claims, arithmetic overflow, and configured work/domain violations.
+- For AIR-PB-023, require explicit quantity kind/unit, validity basis, source and dependency identity, transform identity/source/target frame, and a declared sensitivity model when projecting clock offsets into position space. Unknown dimensions, incompatible dependency contracts, expired evidence, and inward rounding must reject or remain unresolved.
 - Retain source IDs, dependency IDs, and coefficient contributions so a reviewer can distinguish origin from dependence. A source ID alone must not justify cancellation; a shared dependency ID may group contributions only under the declared synthetic contract. Neither ID is cryptographic identity or proof that physical errors truly share a cause.
 
 Important: these are targets for the scalar affine subset only. They do not validate nonlinear transformations, clocks, multi-axis geometry, stochastic assumptions, aircraft reachability, or physical sensor coverage.
