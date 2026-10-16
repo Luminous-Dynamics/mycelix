@@ -1105,6 +1105,168 @@ mod tests {
     }
 
     #[test]
+    fn persisted_receipt_event_round_trips_only_after_verifier_rechecks_it() {
+        let evidence = VerifiedReceiptEvidence::verify(
+            &TestVerifier,
+            b"receipt-ok",
+            "message-1",
+            "recipient-1",
+            ZERO_COMMITMENT,
+            "pulse-test-v1",
+        ).unwrap();
+        let live = event(
+            "event-receipt",
+            identity(),
+            2,
+            JournalActor::System,
+            JournalEventKind::RecipientReceiptVerified { evidence },
+        );
+        let persisted = PersistedJournalEvent::capture(&live);
+        let restored = persisted
+            .reverify(&TestVerifier, "pulse-test-v1")
+            .unwrap();
+        assert_eq!(restored, live);
+    }
+
+    #[test]
+    fn persisted_receipt_replay_rejects_wrong_verifier_version() {
+        let evidence = VerifiedReceiptEvidence::verify(
+            &TestVerifier,
+            b"receipt-ok",
+            "message-1",
+            "recipient-1",
+            ZERO_COMMITMENT,
+            "pulse-test-v1",
+        ).unwrap();
+        let live = event(
+            "event-receipt",
+            identity(),
+            2,
+            JournalActor::System,
+            JournalEventKind::RecipientReceiptVerified { evidence },
+        );
+        let persisted = PersistedJournalEvent::capture(&live);
+        assert_eq!(
+            persisted.reverify(&TestVerifier, "pulse-test-v0"),
+            Err(JournalError::ReceiptVerifierVersionMismatch)
+        );
+    }
+
+    #[test]
+    fn persisted_receipt_replay_rejects_tampered_bytes_and_identity_commitment() {
+        let evidence = VerifiedReceiptEvidence::verify(
+            &TestVerifier,
+            b"receipt-ok",
+            "message-1",
+            "recipient-1",
+            ZERO_COMMITMENT,
+            "pulse-test-v1",
+        ).unwrap();
+        let live = event(
+            "event-receipt",
+            identity(),
+            2,
+            JournalActor::System,
+            JournalEventKind::RecipientReceiptVerified { evidence },
+        );
+        let persisted = PersistedJournalEvent::capture(&live);
+
+        let mut tampered_bytes = persisted.clone();
+        if let PersistedJournalEventKind::RecipientReceiptVerified {
+            encoded_receipt, ..
+        } = &mut tampered_bytes.kind
+        {
+            *encoded_receipt = b"tampered".to_vec();
+        } else {
+            unreachable!("live event must be receipt-bearing");
+        }
+        assert_eq!(
+            tampered_bytes.reverify(&TestVerifier, "pulse-test-v1"),
+            Err(JournalError::ReceiptVerificationFailed)
+        );
+
+        let mut tampered_identity = persisted;
+        tampered_identity.identity = MessageIdentity::new(
+            "message-1",
+            "recipient-1",
+            [9; 32],
+        ).unwrap();
+        assert_eq!(
+            tampered_identity.reverify(&TestVerifier, "pulse-test-v1"),
+            Err(JournalError::ReceiptVerificationFailed)
+        );
+    }
+
+    #[test]
+    fn replaying_persisted_event_history_rebuilds_identical_projection() {
+        let mut original = InMemoryDeliveryJournal::default();
+        let identity = queued(&mut original);
+        original.append(1, event(
+            "event-epoch",
+            identity.clone(),
+            2,
+            JournalActor::System,
+            JournalEventKind::WorkerEpochAdvanced { new_epoch: 1 },
+        )).unwrap();
+        original.append(2, event(
+            "event-attempt",
+            identity.clone(),
+            3,
+            JournalActor::Worker { epoch: 1 },
+            JournalEventKind::AttemptStarted { attempt_id: "attempt-1".into() },
+        )).unwrap();
+        original.append(3, event(
+            "event-ack",
+            identity.clone(),
+            4,
+            JournalActor::Worker { epoch: 1 },
+            JournalEventKind::AttemptOutcomeRecorded {
+                attempt_id: "attempt-1".into(),
+                outcome: AttemptOutcome::GatewayAcknowledged,
+                retry_at: None,
+            },
+        )).unwrap();
+        let evidence = VerifiedReceiptEvidence::verify(
+            &TestVerifier,
+            b"receipt-ok",
+            "message-1",
+            "recipient-1",
+            ZERO_COMMITMENT,
+            "pulse-test-v1",
+        ).unwrap();
+        original.append(4, event(
+            "event-receipt",
+            identity.clone(),
+            5,
+            JournalActor::System,
+            JournalEventKind::RecipientReceiptVerified { evidence },
+        )).unwrap();
+
+        let source_history = original.history(&identity).unwrap();
+        let expected = original.snapshot(&identity).unwrap().unwrap();
+        let mut replayed = InMemoryDeliveryJournal::default();
+        for entry in source_history {
+            let persisted = PersistedJournalEvent::capture(entry.event());
+            let verified = persisted
+                .reverify(&TestVerifier, "pulse-test-v1")
+                .unwrap();
+            let revision = replayed
+                .snapshot(&identity)
+                .unwrap()
+                .map_or(0, |snapshot| snapshot.revision());
+            replayed.append(revision, verified).unwrap();
+        }
+        assert_eq!(
+            replayed.snapshot(&identity).unwrap().unwrap(),
+            expected
+        );
+        assert_eq!(
+            replayed.history(&identity).unwrap().len(),
+            expected.revision() as usize
+        );
+    }
+
+    #[test]
     fn append_is_compare_and_swap_and_exact_replay_is_idempotent() {
         let mut journal = InMemoryDeliveryJournal::default();
         let identity = identity();
