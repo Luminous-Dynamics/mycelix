@@ -47,18 +47,26 @@ pub fn tend_bond(bond_hash: String) {
     let toasts = use_toasts();
 
     if hc.is_mock() {
-        // Mock: mutate local state
-        let members = hearth.members.get_untracked();
+        // Mock: mutate local state but keep it visibly preview-only.
+        let mut changed = false;
         hearth.bonds.update(|bonds| {
             if let Some(bond) = bonds.iter_mut().find(|b| b.hash == bond_hash) {
                 bond.strength_bp = (bond.strength_bp + 500).min(BOND_MAX);
                 bond.last_tended = mock_now();
-                toasts.push(
-                    feedback_copy(ActionFeedbackKind::PreviewOnly, "the bond update"),
-                    ToastKind::Custom("bond".into()),
-                );
+                changed = true;
             }
         });
+        if changed {
+            toasts.push(
+                feedback_copy(ActionFeedbackKind::PreviewOnly, "the bond update"),
+                ToastKind::Custom("bond".into()),
+            );
+        } else {
+            toasts.push(
+                "Preview only: bond not found in sample data; nothing changed.",
+                ToastKind::Custom("bond".into()),
+            );
+        }
     } else {
         // Real: call zome, then update signal on success
         let hc = hc.clone();
@@ -408,7 +416,10 @@ pub fn invite_member(display_name: String, role: MemberRole) {
         // The current UI only supplies a display name, not a verified AgentPubKey.
         // Do not submit a human-readable name where an authenticated identity is required.
         toasts.push(
-            feedback_copy(ActionFeedbackKind::NotSent, "this invitation"),
+            feedback_copy(
+                ActionFeedbackKind::NotSent { requirement: "a verified recipient identity" },
+                "this invitation",
+            ),
             ToastKind::Custom("presence".into()),
         );
     }
