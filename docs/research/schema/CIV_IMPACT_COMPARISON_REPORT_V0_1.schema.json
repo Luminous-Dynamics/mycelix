@@ -64,7 +64,12 @@
         "candidate_mean_cost_per_served_unit_microcredits",
         "candidate_minus_baseline_cost_per_served_unit_microcredits",
         "relative_cost_per_served_unit_change_percent",
+        "baseline_pooled_cost_per_served_unit_microcredits",
+        "candidate_pooled_cost_per_served_unit_microcredits",
+        "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits",
+        "relative_pooled_cost_per_served_unit_change_percent",
         "cost_per_served_unit_defined_for_all_pairs",
+        "stratified_scenario_cluster_bootstrap_95",
         "descriptive_only",
         "economic_benefit_established",
         "claim_ceiling"
@@ -135,13 +140,126 @@
           "const": false
         },
         "claim_ceiling": {
-          "const": "paired_descriptive_metrics_only; no_uncertainty_interval_or_economic_qualification"
+          "const": "descriptive_only; bootstrap_uncertainty_does_not_establish_causal_or_economic_benefit"
         },
         "candidate_minus_baseline_cost_per_served_unit_microcredits": {
           "$ref": "#/$defs/nullableNumber"
         },
         "relative_cost_per_served_unit_change_percent": {
           "$ref": "#/$defs/nullableNumber"
+        },
+        "baseline_pooled_cost_per_served_unit_microcredits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "candidate_pooled_cost_per_served_unit_microcredits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "relative_pooled_cost_per_served_unit_change_percent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "stratified_scenario_cluster_bootstrap_95": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "method",
+                "resamples",
+                "confidence_level",
+                "resampling_unit",
+                "stratification",
+                "bootstrap_seed_sha256",
+                "relative_pooled_cost_per_served_unit_change_percent",
+                "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits",
+                "candidate_minus_baseline_service_rate_percentage_points",
+                "claim_ceiling"
+              ],
+              "properties": {
+                "method": {
+                  "const": "stratified scenario-cluster percentile bootstrap"
+                },
+                "resamples": {
+                  "const": 10000
+                },
+                "confidence_level": {
+                  "const": 0.95
+                },
+                "resampling_unit": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "stratification": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bootstrap_seed_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "relative_pooled_cost_per_served_unit_change_percent": {
+                  "$ref": "#/$defs/interval"
+                },
+                "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits": {
+                  "$ref": "#/$defs/interval"
+                },
+                "candidate_minus_baseline_service_rate_percentage_points": {
+                  "$ref": "#/$defs/interval"
+                },
+                "claim_ceiling": {
+                  "const": "descriptive_uncertainty_for_this_synthetic_corpus; not causal or economic qualification"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower_2_5_percentile",
+        "upper_97_5_percentile"
+      ],
+      "properties": {
+        "lower_2_5_percentile": {
+          "type": "number"
+        },
+        "upper_97_5_percentile": {
+          "type": "number"
         }
       }
     }
