@@ -78,6 +78,25 @@ Initial scenarios:
 
 For pull-request-speed local checks, use a fixed seed and a short corpus. For qualification, use at least 30 declared seeds and 10,000 logical messages per scenario, or document why a specific hardware test uses a smaller safe sample. Synthetic runs do not establish RF performance.
 
+## 3A. Executable synthetic route replay
+
+The checked-in starter corpus is `benchmarks/traces.v1.json`; the Rust model is `standards-registry/validator/src/simulation.rs` and the CLI is `standards-registry/validator/src/bin/route-sim.rs`.
+
+Run from the Pulse workspace root:
+
+```sh
+just test-standards-registry
+just validate-standards-registry
+just simulate-transport-smoke
+just simulate-transport
+```
+
+The corpus starts with ten explicit synthetic scenarios and 10,000 logical messages per scenario. Each run uses a fixed seed and compares the same per-path deterministic outcome draws under three policies: preferred single path, sequential failover, and parallel redundancy. It reports deadline success, P50/P95 latency, attempts, illustrative cost units and illustrative energy units. The model applies payload budget, explicit permission, link availability and message-index outage ranges before any send attempt.
+
+**Important limitation:** this is a route-policy smoke model, not a radio simulator. It uses independent synthetic link outcomes and fixed latency/cost inputs; it does not model RF propagation, interference, congestion, fragmentation, hardware, real joules, end-to-end cryptography or authenticated recipient receipts. Its reported “delivery” means only a modeled path success before deadline. The JSON report hard-codes these non-claims.
+
+Any model-level relative improvement is useful only as a harness sanity check. It cannot establish that the real Pulse adapter will produce the same improvement. Qualification must later replay measured traces, exercise the actual transport contract, and verify cryptographic recipient receipts.
+
 ## 4. Required baselines
 
 Compare every new route policy against:
