@@ -1208,9 +1208,12 @@ mod tests {
 
     #[test]
     fn draft_execution_lock_allows_development_schedule_but_not_results() {
-        let m = manifest();
+        let mut m = manifest();
+        validate_manifest(&m).expect("draft manifest with a not-frozen lock should allow development scheduling");
         validate_execution_lock(&m, false).expect("draft should still allow schedule generation");
         assert!(validate_execution_lock(&m, true).is_err());
+        m["status"] = json!("preregistered_before_runs");
+        assert!(validate_manifest(&m).is_err(), "confirmatory status must not be accepted with an unfrozen lock");
     }
 
     #[test]
@@ -1242,6 +1245,8 @@ mod tests {
         }
         let registry_digest = digest(&Value::Array(pins.clone())).unwrap();
         m["execution_lock"]["policy_build_registry_sha256"] = json!(registry_digest);
+        m["status"] = json!("preregistered_before_runs");
+        validate_manifest(&m).expect("frozen lock should agree with preregistered manifest state");
         let locked = validate_execution_lock(&m, true).unwrap();
         assert_eq!(locked.len(), 12);
         m["execution_lock"]["arm_pins"][0]["policy_config_sha256"] = json!("bad");
