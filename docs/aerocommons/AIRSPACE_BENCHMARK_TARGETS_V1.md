@@ -24,7 +24,7 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target; AIR-PB-023 covers typed dimensional projection of uncertainty; AIR-PB-024 covers strict-schema parsing and generated differential verification; AIR-PB-025 adds traceable metamorphic laws over equivalent representation changes and uncertainty widening.
+Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target; AIR-PB-023 covers typed dimensional projection of uncertainty; AIR-PB-024 covers strict-schema parsing and generated differential verification; AIR-PB-025 adds traceable metamorphic laws over equivalent representation changes and uncertainty widening. AIR-PB-026 adds versioned cross-adapter metadata-preservation and fail-closed field-presence checks.
 
 Proposed targets:
 
@@ -36,6 +36,7 @@ Proposed targets:
 - For AIR-PB-023, require explicit quantity kind/unit, validity basis, source and dependency identity, transform identity/source/target frame, and a declared sensitivity model when projecting clock offsets into position space. Unknown dimensions, incompatible dependency contracts, expired evidence, and inward rounding must reject or remain unresolved.
 - For AIR-PB-024, reject unknown fields at every typed-lineage schema boundary and target exact agreement with a separate term-wise finite-domain oracle on 500 seeded generated cases, including 500 order-reversal checks. Publish all disagreements and mutation outcomes; no warning-only conversion of schema/oracle failures.
 - For AIR-PB-025, run 500 additional seeded typed domains and report each relation independently: target 500/500 exact-bound matches after source-label renaming, 500/500 after equivalent sensitivity splitting, and 500/500 successful containment after consistently widening one shared dependency interval. The intentionally narrowed-output control must be rejected. Preserve failing examples and seed; one counterexample blocks the relation. These properties complement, but do not replace, the distinct finite-domain oracle.
+- For AIR-PB-026, require field-by-field preservation across a versioned adapter and exact bound/error parity for seven committed fixtures plus 500 seeded generated domains. Required fields must be present even when their value is explicitly null; reject missing dependency IDs, omitted nullable transform metadata, unknown fields, unsupported schema versions, blank fixture identity, and authority-ceiling drift. Include a negative control where changing a dependency key leaves numeric bounds unchanged: metadata comparison must still catch it. A digest or round-trip test proves integrity only under the declared contract; it does not authenticate the originating source.
 - Retain source IDs, dependency IDs, and coefficient contributions so a reviewer can distinguish origin from dependence. A source ID alone must not justify cancellation; a shared dependency ID may group contributions only under the declared synthetic contract. Neither ID is cryptographic identity or proof that physical errors truly share a cause.
 
 Important: these are targets for the scalar affine subset only. They do not validate nonlinear transformations, clocks, multi-axis geometry, stochastic assumptions, aircraft reachability, or physical sensor coverage.
@@ -58,6 +59,8 @@ Proposed targets:
 These are research acceptance thresholds, not universal aviation standards. The mutation operators, excluded mutants, denominators, and expected outcomes must be pinned before running the campaign.
 
 ## Tier 3 — Reproducibility and cross-implementation contracts
+
+**AIR-PB-026 minimum adapter contract.** Every adapter boundary must version its schema, preserve explicit null versus absent metadata, reject unrecognized fields, and preserve dependency identity and authority scope. Report metadata parity separately from numeric output parity; equal bounds alone are insufficient when identity, provenance, unit, frame or validity metadata changed.
 
 Proposed targets:
 
