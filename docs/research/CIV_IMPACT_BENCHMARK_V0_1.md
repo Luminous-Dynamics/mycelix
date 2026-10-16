@@ -265,7 +265,7 @@ If any registered incumbent/full-stack pair is incomplete, the analyzer withhold
 
 - Protocol: authored proposal.
 - Preregistration, run-census, and comparison-report schema files: authored and fetched back from the branch; JSON parsing confirmed. Rust unit tests now assert that emitted report, bootstrap, result, and metric field names stay aligned with the checked-in schema contracts.
-- Rust `1.99.1` toolchain and direct dependency versions are pinned in the standalone crate; a generated and committed `Cargo.lock` remains outstanding for transitive dependency reproducibility.
+- Rust `1.99.1` toolchain and direct dependency versions (including the `jsonschema` validator) are pinned in the standalone crate; a generated and committed `Cargo.lock` remains outstanding for transitive dependency reproducibility.
 - Rust schedule/census prototype and unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
 - Result and comparison-report schemas: authored; JSON parsing confirmed; structural schema validation by a dedicated validator remains outstanding.
 - Benchmark runs: none claimed.
