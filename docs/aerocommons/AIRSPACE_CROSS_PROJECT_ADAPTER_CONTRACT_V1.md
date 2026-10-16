@@ -96,6 +96,19 @@ Every result should identify:
 
 Do not reduce **Conflict**, **Degraded**, **Unresolved**, **Reject**, or **RequiresAuthorityReview** into one scalar score. Retain safety/hard-constraint outcomes separately from performance metrics.
 
+## 3.1 Typed uncertainty lineage (AIR-PB-023)
+
+The test-only proof of concept in `tools/airspace-sim/src/typed_uncertainty.rs` and its fixture `tools/airspace-sim/fixtures/typed_uncertainty_lineage.json` starts enforcing one crucial adapter rule: **different error dimensions may not be added until a declared sensitivity projects them into the same output dimension**.
+
+- Observation position errors use synthetic millimetres in the declared output frame.
+- Transform residuals must identify a transform, source frame, and target frame; the target must equal the output frame. The residual is already expressed in the target-frame millimetres; this prototype does not execute the transform.
+- Clock offsets use synthetic milliseconds and a separately declared mm/ms sensitivity basis derived from a named synthetic model. A clock value without sensitivity/model identity is rejected; it is never silently treated as zero.
+- Validity is checked against an explicit synthetic epoch-seconds evaluation basis. Expired/future terms do not produce bounds.
+- Terms sharing a dependency ID must have the same quantity, unit, frame, transformation lineage, validity contract and input interval. Different source IDs alone do not prove independence; reusing a dependency ID across unlike dimensions is rejected.
+- Sensitivity is stored at a fixed scale of 1,000; output intervals are rounded outward to whole millimetres. Unknown units, invalid target frames, missing sensitivity models and contract mismatches are negative controls.
+
+This is a **test-only synthetic integer model**. Sensitivity values and transform identities are caller-declared fixture inputs, not authenticated or independently qualified physical evidence. The module validates declared dimensional consistency; it does not compute geographic coordinate transformations, synchronize real clocks, infer aircraft dynamics, or establish operational separation safety. AIR-PB-023 remains `implemented_pending_exact_head_verification` until the exact-head Rust tests finish.
+
 ## 4. Project-specific adapter responsibilities
 
 ### Sol-Atlas → source and infrastructure evidence
