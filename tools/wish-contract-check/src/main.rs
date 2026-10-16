@@ -142,7 +142,7 @@ fn verify_case(
 
     let semantic_result = validate_semantics(&instance);
     match expected {
-        "accept" => semantic_result.map_err(|e| format!("unexpected semantic rejection: {e}")),
+        "accept" => semantic_result.map_err(|e| format!("unexpected semantic rejection: {e:?}")),
         "digest_reject" => match semantic_result {
             Err(Rejection::Digest) => Ok(()),
             Err(other) => Err(format!("expected digest rejection, got {other:?}")),
