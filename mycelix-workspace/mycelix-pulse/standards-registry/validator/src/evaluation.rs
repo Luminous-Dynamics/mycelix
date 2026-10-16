@@ -630,6 +630,42 @@ mod tests {
     }
 
     #[test]
+    fn correlation_sweep_reports_all_declared_weights_without_overclaiming() {
+        let corpus = corpus();
+        let report = evaluate_correlation_sweep(
+            &corpus,
+            Some(10),
+            20261016,
+            MIN_SEEDS,
+            "sequential_failover",
+        )
+        .expect("declared correlation sweep should evaluate");
+        let points = report["points"].as_array().unwrap();
+        assert_eq!(points.len(), 5);
+        assert_eq!(points[0]["common_draw_mixture_basis_points"], 0);
+        assert_eq!(points[4]["common_draw_mixture_basis_points"], 10_000);
+        assert_eq!(report["simulation_only"], true);
+        assert_eq!(report["authenticated_delivery_established"], false);
+        assert_eq!(report["real_world_reliability_established"], false);
+    }
+
+    #[test]
+    fn correlation_sweep_rejects_grid_without_independence_and_shared_endpoints() {
+        let mut corpus = corpus();
+        corpus["evaluation_split"]["correlation_sweep_basis_points"] = json!([2_500, 5_000, 7_500]);
+        assert!(
+            evaluate_correlation_sweep(
+                &corpus,
+                Some(10),
+                20261016,
+                MIN_SEEDS,
+                "sequential_failover"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn paired_evaluator_rejects_too_few_seeds_and_unknown_candidate() {
         let corpus = corpus();
         assert!(evaluate_paired_seeds(&corpus, Some(10), 7, 2, "sequential_failover").is_err());
