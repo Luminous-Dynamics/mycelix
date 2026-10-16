@@ -620,6 +620,35 @@ mod tests {
     }
 
     #[test]
+    fn verified_receipt_can_resolve_an_exhausted_ambiguous_send() {
+        let mut item = lifecycle(10_000, 1);
+        item.start_attempt("attempt-1", UnixMillis::new(1)).unwrap();
+        item.record_outcome(
+            "attempt-1",
+            AttemptOutcome::GatewayAcknowledged,
+            UnixMillis::new(2),
+        )
+        .unwrap();
+        assert_eq!(item.status(), DeliveryStatus::OutcomeUnknown);
+        assert_eq!(
+            item.record_verified_receipt(&verified_receipt(), UnixMillis::new(3)),
+            Ok(true)
+        );
+        assert_eq!(item.status(), DeliveryStatus::Delivered);
+    }
+
+    #[test]
+    fn receipt_first_observed_at_expiry_cannot_revive_expired_message() {
+        let mut item = lifecycle(100, 2);
+        assert_eq!(item.advance_time(UnixMillis::new(100)), DeliveryStatus::Expired);
+        assert_eq!(
+            item.record_verified_receipt(&verified_receipt(), UnixMillis::new(100)),
+            Err(LifecycleError::MessageExpired)
+        );
+        assert_eq!(item.status(), DeliveryStatus::Expired);
+    }
+
+    #[test]
     fn verified_receipt_requires_exact_message_and_recipient_and_is_idempotent() {
         let mut item = lifecycle(10_000, 3);
         item.start_attempt("attempt-1", UnixMillis::new(1)).unwrap();
