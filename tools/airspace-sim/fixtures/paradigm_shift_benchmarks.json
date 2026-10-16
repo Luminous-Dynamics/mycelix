@@ -591,6 +591,43 @@
         "all_results_bind_exact_inputs_models_rules_and_checker"
       ],
       "scope": "test-only scalar additive integer-affine forms; dependency IDs are declared claims, not authenticated correlation evidence; no flight dynamics or physical uncertainty qualification"
+    },
+    {
+      "id": "AIR-PB-019",
+      "name": "typed_time_qualified_uncertainty_dependency_contract",
+      "paradigm": "make_units_frames_time_and_validity_part_of_uncertainty_semantics",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A latent-error dependency is composable only when its quantity, unit, reference frame, time basis, validity and declared provenance status agree with the supported contract.",
+      "baseline": "An identifier and numeric interval can be combined without checking whether values share a quantity/unit/frame/time basis or whether evidence is valid at evaluation time.",
+      "stimulus": "Mutate unit, frame, time basis, provenance claim and validity boundaries; assign inconsistent contract metadata to records sharing one dependency; evaluate immediately before, at and exactly at the half-open validity end.",
+      "success_conditions": [
+        "Only the explicit synthetic position-error/mm/local-frame/epoch-seconds contract is accepted by this research slice.",
+        "One dependency cannot combine different contracts even when IDs and numeric bounds look compatible.",
+        "Validity is half-open: valid_from_s is included and valid_until_s excluded; before-valid and expired states are distinct errors.",
+        "Claims of authenticated provenance are rejected because no authentication verifier exists in this test-only module.",
+        "All 22 versioned JSON vectors match their predeclared bounds or error outcomes."
+      ],
+      "falsifiers": [
+        "Unsupported units, frames or time bases produce interval bounds.",
+        "Inconsistent contract metadata under one dependency is accepted.",
+        "A future or expired dependency yields a normal bounds result.",
+        "An authenticated provenance label is trusted without a verifier.",
+        "A time boundary at valid_until_s is treated as still valid."
+      ],
+      "required_evidence": [
+        "Exact-head Rust tests over all 22 v3 JSON vectors",
+        "Negative controls for unit/frame/time-basis/provenance mismatches and invalid validity windows",
+        "Before/start/end-minus-one/end validity boundary tests",
+        "Independent host-side contract validator and finite-domain oracle",
+        "Exact input fixture digest and output/checker identity"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only scalar affine uncertainty with one synthetic unit/frame/time contract; validity is checked against caller-supplied evaluation time; provenance remains declared_unverified and unauthenticated"
     }
   ]
 }

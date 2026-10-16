@@ -24,15 +24,15 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015, AIR-PB-017, and the narrow test-only scalar integer-affine prototype tracked by AIR-PB-018.
+Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019.
 
 Proposed targets:
 
 - 100% agreement with hand-derived, committed vectors for the prototype's declared scalar domain.
-- Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus, including a distinct oracle that enumerates each shared latent source once where multiple contributions reference the same declared dependency ID; separately test two origins sharing one dependency and one origin with two independent dependency IDs.
+- Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus, including a distinct oracle that enumerates each shared latent source once where multiple contributions reference the same declared dependency ID; separately test two origins sharing one dependency, one origin with two independent dependency IDs, metadata mismatch, and stale/future contract validity.
 - 100% agreement across 1,000 deterministic generated shared-source domains, plus 1,000 independent-source domains; include a deliberately narrowed interval mutant that the oracle must reject.
 - 100% order invariance for canonicalization and final results across all permutations for small vectors, plus 100,000 deterministic permutations for larger generated cases.
-- 100% rejection of absent uncertainty models, conflicting bounds for a shared dependency ID, noncanonical source and dependency IDs, arithmetic overflow, and configured work/domain violations.
+- 100% rejection of absent uncertainty models, conflicting bounds or typed contracts for a shared dependency ID, unsupported units/frames/time bases, noncanonical identifiers, invalid/expired validity windows, unsupported provenance claims, arithmetic overflow, and configured work/domain violations.
 - Retain source IDs, dependency IDs, and coefficient contributions so a reviewer can distinguish origin from dependence. A source ID alone must not justify cancellation; a shared dependency ID may group contributions only under the declared synthetic contract. Neither ID is cryptographic identity or proof that physical errors truly share a cause.
 
 Important: these are targets for the scalar affine subset only. They do not validate nonlinear transformations, clocks, multi-axis geometry, stochastic assumptions, aircraft reachability, or physical sensor coverage.

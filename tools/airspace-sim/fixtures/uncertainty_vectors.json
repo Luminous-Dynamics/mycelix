@@ -1,7 +1,7 @@
 {
-  "schema": "airspace-affine-uncertainty-v2",
-  "status": "synthetic_research_vectors_with_declared_dependencies_not_authenticated_provenance",
-  "scope": "test-only scalar additive integer-affine forms; source_id records origin, dependency_id declares shared latent error identity; neither identifier is authenticated",
+  "schema": "airspace-affine-uncertainty-v3",
+  "status": "synthetic_research_vectors_with_typed_declared_dependencies_not_authenticated_provenance",
+  "scope": "test-only scalar additive integer-affine forms; source_id records origin, dependency_id declares shared latent error identity, dependency_contract qualifies quantity/unit/frame/time/validity and unverified provenance; IDs/contracts are not authenticated",
   "units": "synthetic_mm",
   "cases": [
     {
@@ -12,14 +12,32 @@
           "lower_mm": -2,
           "upper_mm": 3,
           "coefficient": 1,
-          "dependency_id": "observation"
+          "dependency_id": "observation",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "transform",
           "lower_mm": -4,
           "upper_mm": 1,
           "coefficient": 2,
-          "dependency_id": "transform"
+          "dependency_id": "transform",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -35,7 +53,16 @@
           "lower_mm": -2,
           "upper_mm": 3,
           "coefficient": -2,
-          "dependency_id": "clock-error"
+          "dependency_id": "clock-error",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -51,14 +78,32 @@
           "lower_mm": -10,
           "upper_mm": 10,
           "coefficient": 1,
-          "dependency_id": "datum-bias"
+          "dependency_id": "datum-bias",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "datum-bias",
           "lower_mm": -10,
           "upper_mm": 10,
           "coefficient": -1,
-          "dependency_id": "datum-bias"
+          "dependency_id": "datum-bias",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -74,14 +119,32 @@
           "lower_mm": -10,
           "upper_mm": 10,
           "coefficient": 1,
-          "dependency_id": "source-a"
+          "dependency_id": "source-a",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "source-b",
           "lower_mm": -10,
           "upper_mm": 10,
           "coefficient": -1,
-          "dependency_id": "source-b"
+          "dependency_id": "source-b",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -97,14 +160,32 @@
           "lower_mm": -10,
           "upper_mm": 10,
           "coefficient": 1,
-          "dependency_id": "same"
+          "dependency_id": "same",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "same",
           "lower_mm": -11,
           "upper_mm": 10,
           "coefficient": -1,
-          "dependency_id": "same"
+          "dependency_id": "same",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_error": "dependency_bounds_mismatch"
@@ -117,7 +198,16 @@
           "lower_mm": -1,
           "upper_mm": 1,
           "coefficient": 1,
-          "dependency_id": " datum "
+          "dependency_id": " datum ",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_error": "non_canonical_source_id"
@@ -135,21 +225,48 @@
           "lower_mm": -1,
           "upper_mm": 1,
           "coefficient": 1000000,
-          "dependency_id": "same"
+          "dependency_id": "same",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "same",
           "lower_mm": -1,
           "upper_mm": 1,
           "coefficient": 1000000,
-          "dependency_id": "same"
+          "dependency_id": "same",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "same",
           "lower_mm": -1,
           "upper_mm": 1,
           "coefficient": -1000000,
-          "dependency_id": "same"
+          "dependency_id": "same",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -165,7 +282,16 @@
           "lower_mm": 2,
           "upper_mm": 1,
           "coefficient": 1,
-          "dependency_id": "bad"
+          "dependency_id": "bad",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_error": "invalid_source_bounds"
@@ -178,7 +304,16 @@
           "lower_mm": -1000000000000,
           "upper_mm": 1000000000000,
           "coefficient": 1000000,
-          "dependency_id": "wide"
+          "dependency_id": "wide",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_error": "output_bounds_too_wide"
@@ -191,7 +326,16 @@
           "lower_mm": -1,
           "upper_mm": 1,
           "coefficient": 1000001,
-          "dependency_id": "bad-coefficient"
+          "dependency_id": "bad-coefficient",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_error": "coefficient_out_of_range"
@@ -204,14 +348,32 @@
           "dependency_id": "shared-datum-bias",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "sensor-b",
           "dependency_id": "shared-datum-bias",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": -1
+          "coefficient": -1,
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -227,14 +389,32 @@
           "dependency_id": "bias-mode",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "navigation-unit",
           "dependency_id": "noise-mode",
           "lower_mm": -2,
           "upper_mm": 2,
-          "coefficient": -1
+          "coefficient": -1,
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_bounds_mm": [
@@ -250,17 +430,229 @@
           "dependency_id": "shared-bias",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         },
         {
           "source_id": "sensor-b",
           "dependency_id": "shared-bias",
           "lower_mm": -11,
           "upper_mm": 10,
-          "coefficient": -1
+          "coefficient": -1,
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          }
         }
       ],
       "expected_error": "dependency_bounds_mismatch"
+    },
+    {
+      "id": "AIR-UNC-015",
+      "evaluation_time_s": 1000,
+      "terms": [
+        {
+          "source_id": "clock-feed",
+          "dependency_id": "clock-offset",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "dependency_expired"
+    },
+    {
+      "id": "AIR-UNC-016",
+      "evaluation_time_s": 0,
+      "terms": [
+        {
+          "source_id": "future-feed",
+          "dependency_id": "future-offset",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 10,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "dependency_not_yet_valid"
+    },
+    {
+      "id": "AIR-UNC-017",
+      "terms": [
+        {
+          "source_id": "sensor-a",
+          "dependency_id": "shared-bias",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        },
+        {
+          "source_id": "sensor-b",
+          "dependency_id": "shared-bias",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 900,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": -1
+        }
+      ],
+      "expected_error": "dependency_contract_mismatch"
+    },
+    {
+      "id": "AIR-UNC-018",
+      "terms": [
+        {
+          "source_id": "unit-mutation",
+          "dependency_id": "unit-mutation",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "feet",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "unsupported_dependency_contract"
+    },
+    {
+      "id": "AIR-UNC-019",
+      "terms": [
+        {
+          "source_id": "frame-mutation",
+          "dependency_id": "frame-mutation",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "WGS84",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "unsupported_dependency_contract"
+    },
+    {
+      "id": "AIR-UNC-020",
+      "terms": [
+        {
+          "source_id": "time-mutation",
+          "dependency_id": "time-mutation",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "UTC",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "unsupported_dependency_contract"
+    },
+    {
+      "id": "AIR-UNC-021",
+      "terms": [
+        {
+          "source_id": "provenance-mutation",
+          "dependency_id": "provenance-mutation",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 0,
+            "valid_until_s": 1000,
+            "provenance_status": "authenticated"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "unsupported_provenance_status"
+    },
+    {
+      "id": "AIR-UNC-022",
+      "terms": [
+        {
+          "source_id": "validity-mutation",
+          "dependency_id": "validity-mutation",
+          "dependency_contract": {
+            "quantity_kind": "position_error",
+            "unit": "synthetic_mm",
+            "reference_frame": "synthetic_local_cartesian_v1",
+            "time_basis": "synthetic_epoch_seconds_v1",
+            "valid_from_s": 10,
+            "valid_until_s": 10,
+            "provenance_status": "declared_unverified"
+          },
+          "lower_mm": -1,
+          "upper_mm": 1,
+          "coefficient": 1
+        }
+      ],
+      "expected_error": "invalid_dependency_validity"
     }
   ]
 }

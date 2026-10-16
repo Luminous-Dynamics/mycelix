@@ -12,9 +12,64 @@ const MAX_SOURCE_TERMS: usize = 64;
 const MAX_COMPOSITION_INPUTS: usize = MAX_SOURCE_TERMS * 2;
 const MAX_SOURCE_ID_BYTES: usize = 128;
 const MAX_DEPENDENCY_ID_BYTES: usize = 128;
+const MAX_CONTRACT_LABEL_BYTES: usize = 128;
 const MAX_ABS_SOURCE_BOUND_MM: i128 = 1_000_000_000_000;
 const MAX_ABS_COEFFICIENT: i128 = 1_000_000;
 const MAX_ABS_COMPOSED_BOUND_MM: i128 = 1_000_000_000_000_000;
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+struct DependencyContract {
+    quantity_kind: String,
+    unit: String,
+    reference_frame: String,
+    time_basis: String,
+    valid_from_s: i64,
+    valid_until_s: i64,
+    provenance_status: String,
+}
+
+impl DependencyContract {
+    fn validate(&self) -> Result<(), UncertaintyError> {
+        for label in [
+            self.quantity_kind.as_str(),
+            self.unit.as_str(),
+            self.reference_frame.as_str(),
+            self.time_basis.as_str(),
+            self.provenance_status.as_str(),
+        ] {
+            if label.trim().is_empty()
+                || label.trim() != label
+                || label.len() > MAX_CONTRACT_LABEL_BYTES
+            {
+                return Err(UncertaintyError::InvalidDependencyContractLabel);
+            }
+        }
+        if self.valid_from_s >= self.valid_until_s {
+            return Err(UncertaintyError::InvalidDependencyValidity);
+        }
+        if self.quantity_kind != "position_error"
+            || self.unit != "synthetic_mm"
+            || self.reference_frame != "synthetic_local_cartesian_v1"
+            || self.time_basis != "synthetic_epoch_seconds_v1"
+        {
+            return Err(UncertaintyError::UnsupportedDependencyContract);
+        }
+        if self.provenance_status != "declared_unverified" {
+            return Err(UncertaintyError::UnsupportedProvenanceStatus);
+        }
+        Ok(())
+    }
+
+    fn check_time(&self, evaluation_time_s: i64) -> Result<(), UncertaintyError> {
+        if evaluation_time_s < self.valid_from_s {
+            return Err(UncertaintyError::DependencyNotYetValid);
+        }
+        if evaluation_time_s >= self.valid_until_s {
+            return Err(UncertaintyError::DependencyExpired);
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 struct SourceContribution {
@@ -22,6 +77,8 @@ struct SourceContribution {
     source_id: String,
     /// Declared identity of one shared latent error; not authenticated by this prototype.
     dependency_id: String,
+    /// Typed quantity/frame/time/validity/provenance contract for this dependency.
+    dependency_contract: DependencyContract,
     /// Inclusive bounds of the latent error, in synthetic millimetres.
     lower_mm: i64,
     upper_mm: i64,
@@ -53,6 +110,13 @@ enum UncertaintyError {
     DependencyIdTooLong,
     InvalidSourceBounds,
     DependencyBoundsMismatch,
+    DependencyContractMismatch,
+    InvalidDependencyContractLabel,
+    InvalidDependencyValidity,
+    UnsupportedDependencyContract,
+    UnsupportedProvenanceStatus,
+    DependencyNotYetValid,
+    DependencyExpired,
     CoefficientOutOfRange,
     ArithmeticOverflow,
     OutputBoundsTooWide,
@@ -78,12 +142,13 @@ impl AffineUncertainty {
     /// Contributions sharing a dependency_id vary together even when their source
     /// origins differ. This is a set bound under asserted integer ranges, not a
     /// probability or physical aircraft-state guarantee.
-    fn bounds(&self) -> Result<IntervalBounds, UncertaintyError> {
+    fn bounds_at(&self, evaluation_time_s: i64) -> Result<IntervalBounds, UncertaintyError> {
         if self.terms.is_empty() {
             return Err(UncertaintyError::EmptyModel);
         }
         let mut groups: BTreeMap<&str, (i64, i64, i128)> = BTreeMap::new();
         for term in &self.terms {
+            term.dependency_contract.check_time(evaluation_time_s)?;
             let group = groups.entry(term.dependency_id.as_str())
                 .or_insert((term.lower_mm, term.upper_mm, 0));
             if group.0 != term.lower_mm || group.1 != term.upper_mm {
@@ -141,6 +206,7 @@ impl AffineUncertainty {
         // Preserve origin/dependency pairs for audit; bounds group by dependency.
         let mut by_dependency_and_source: BTreeMap<(String, String), SourceContribution> = BTreeMap::new();
         let mut dependency_bounds: BTreeMap<String, (i64, i64)> = BTreeMap::new();
+        let mut dependency_contracts: BTreeMap<String, DependencyContract> = BTreeMap::new();
         for term in terms {
             if term.source_id.trim().is_empty() { return Err(UncertaintyError::EmptySourceId); }
             if term.source_id.as_str() != term.source_id.trim() { return Err(UncertaintyError::NonCanonicalSourceId); }
@@ -148,6 +214,16 @@ impl AffineUncertainty {
             if term.dependency_id.trim().is_empty() { return Err(UncertaintyError::EmptyDependencyId); }
             if term.dependency_id.as_str() != term.dependency_id.trim() { return Err(UncertaintyError::NonCanonicalDependencyId); }
             if term.dependency_id.len() > MAX_DEPENDENCY_ID_BYTES { return Err(UncertaintyError::DependencyIdTooLong); }
+            term.dependency_contract.validate()?;
+            match dependency_contracts.get(&term.dependency_id) {
+                Some(contract) if contract != &term.dependency_contract => {
+                    return Err(UncertaintyError::DependencyContractMismatch);
+                }
+                Some(_) => {}
+                None => {
+                    dependency_contracts.insert(term.dependency_id.clone(), term.dependency_contract.clone());
+                }
+            }
             if term.lower_mm > term.upper_mm
                 || i128::from(term.lower_mm).abs() > MAX_ABS_SOURCE_BOUND_MM
                 || i128::from(term.upper_mm).abs() > MAX_ABS_SOURCE_BOUND_MM
@@ -203,6 +279,18 @@ mod tests {
         contribution_with_dependency(source_id, source_id, lower_mm, upper_mm, coefficient)
     }
 
+    fn default_dependency_contract() -> DependencyContract {
+        DependencyContract {
+            quantity_kind: "position_error".to_owned(),
+            unit: "synthetic_mm".to_owned(),
+            reference_frame: "synthetic_local_cartesian_v1".to_owned(),
+            time_basis: "synthetic_epoch_seconds_v1".to_owned(),
+            valid_from_s: 0,
+            valid_until_s: 1_000,
+            provenance_status: "declared_unverified".to_owned(),
+        }
+    }
+
     fn contribution_with_dependency(
         source_id: &str,
         dependency_id: &str,
@@ -213,6 +301,7 @@ mod tests {
         SourceContribution {
             source_id: source_id.to_owned(),
             dependency_id: dependency_id.to_owned(),
+            dependency_contract: default_dependency_contract(),
             lower_mm,
             upper_mm,
             coefficient,
@@ -232,6 +321,7 @@ mod tests {
         terms: Vec<SourceContribution>,
         expected_bounds_mm: Option<[i64; 2]>,
         expected_error: Option<String>,
+        evaluation_time_s: Option<i64>,
     }
 
     fn error_code(error: UncertaintyError) -> &'static str {
@@ -246,6 +336,13 @@ mod tests {
             UncertaintyError::DependencyIdTooLong => "dependency_id_too_long",
             UncertaintyError::InvalidSourceBounds => "invalid_source_bounds",
             UncertaintyError::DependencyBoundsMismatch => "dependency_bounds_mismatch",
+            UncertaintyError::DependencyContractMismatch => "dependency_contract_mismatch",
+            UncertaintyError::InvalidDependencyContractLabel => "invalid_dependency_contract_label",
+            UncertaintyError::InvalidDependencyValidity => "invalid_dependency_validity",
+            UncertaintyError::UnsupportedDependencyContract => "unsupported_dependency_contract",
+            UncertaintyError::UnsupportedProvenanceStatus => "unsupported_provenance_status",
+            UncertaintyError::DependencyNotYetValid => "dependency_not_yet_valid",
+            UncertaintyError::DependencyExpired => "dependency_expired",
             UncertaintyError::CoefficientOutOfRange => "coefficient_out_of_range",
             UncertaintyError::ArithmeticOverflow => "arithmetic_overflow",
             UncertaintyError::OutputBoundsTooWide => "output_bounds_too_wide",
@@ -308,7 +405,7 @@ mod tests {
             let mut extrema = None;
             enumerate_exact_bounds(&terms, 0, 0, &mut extrema);
             let (oracle_lower, oracle_upper) = extrema.expect("at least one concrete assignment");
-            let actual = model.bounds().unwrap_or_else(|error| {
+            let actual = model.bounds_at(0).unwrap_or_else(|error| {
                 panic!("generated case {case_index} failed to bound: {error:?}")
             });
             assert_eq!(
@@ -389,7 +486,7 @@ mod tests {
             let model = AffineUncertainty::new(terms.clone())
                 .unwrap_or_else(|error| panic!("shared case {case_index} rejected: {error:?}"));
             let expected = grouped_source_oracle(&terms);
-            let actual = model.bounds().unwrap_or_else(|error| {
+            let actual = model.bounds_at(0).unwrap_or_else(|error| {
                 panic!("shared case {case_index} failed to bound: {error:?}")
             });
             assert_eq!(
@@ -417,7 +514,7 @@ mod tests {
         ];
         let model = AffineUncertainty::new(terms.clone()).unwrap();
         let (exact_lower, exact_upper) = grouped_source_oracle(&terms);
-        let sound = model.bounds().unwrap();
+        let sound = model.bounds_at(0).unwrap();
         assert!(i128::from(sound.lower_mm) <= exact_lower);
         assert!(i128::from(sound.upper_mm) >= exact_upper);
 
@@ -434,14 +531,14 @@ mod tests {
     fn hand_derived_json_vectors_match_affine_uncertainty_contract() {
         let fixture: FixtureSet = serde_json::from_str(include_str!("../fixtures/uncertainty_vectors.json"))
             .expect("uncertainty vector fixture must parse");
-        assert_eq!(fixture.schema, "airspace-affine-uncertainty-v2");
+        assert_eq!(fixture.schema, "airspace-affine-uncertainty-v3");
         assert_eq!(fixture.status, "synthetic_research_vectors_with_declared_dependencies_not_authenticated_provenance");
-        assert_eq!(fixture.cases.len(), 14);
+        assert_eq!(fixture.cases.len(), 22);
 
         for case in fixture.cases {
             match AffineUncertainty::new(case.terms) {
                 Ok(model) => {
-                    match model.bounds() {
+                    match model.bounds_at(case.evaluation_time_s.unwrap_or(0)) {
                         Ok(actual) => {
                             assert!(
                                 case.expected_error.is_none(),
@@ -499,7 +596,7 @@ mod tests {
 
         let relative = forward.compose(&inverse).unwrap();
         assert_eq!(
-            relative.bounds().unwrap(),
+            relative.bounds_at(0).unwrap(),
             IntervalBounds {
                 lower_mm: 0,
                 upper_mm: 0
@@ -517,7 +614,7 @@ mod tests {
             AffineUncertainty::new(vec![contribution("datum-source-b", -10, 10, -1)]).unwrap();
 
         assert_eq!(
-            first.compose(&second).unwrap().bounds().unwrap(),
+            first.compose(&second).unwrap().bounds_at(0).unwrap(),
             IntervalBounds {
                 lower_mm: -20,
                 upper_mm: 20
@@ -534,7 +631,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            observed.bounds().unwrap(),
+            observed.bounds_at(0).unwrap(),
             IntervalBounds {
                 lower_mm: -10,
                 upper_mm: 5
@@ -548,7 +645,7 @@ mod tests {
             AffineUncertainty::new(vec![contribution("clock-error", -2, 3, -2)]).unwrap();
 
         assert_eq!(
-            model.bounds().unwrap(),
+            model.bounds_at(0).unwrap(),
             IntervalBounds {
                 lower_mm: -6,
                 upper_mm: 4
@@ -577,7 +674,7 @@ mod tests {
 
         assert_eq!(forward, reversed);
         assert_eq!(
-            forward.bounds().unwrap(),
+            forward.bounds_at(0).unwrap(),
             IntervalBounds {
                 lower_mm: -max,
                 upper_mm: max
@@ -608,7 +705,7 @@ mod tests {
 
         assert_eq!(forward, reversed);
         assert_eq!(
-            forward.bounds().unwrap(),
+            forward.bounds_at(0).unwrap(),
             IntervalBounds {
                 lower_mm: -12,
                 upper_mm: 8
@@ -664,7 +761,7 @@ mod tests {
         )])
         .unwrap();
         assert_eq!(
-            wide.bounds().unwrap_err(),
+            wide.bounds_at(0).unwrap_err(),
             UncertaintyError::OutputBoundsTooWide
         );
     }
@@ -678,7 +775,7 @@ mod tests {
         let composed = first.compose(&second).unwrap();
         let terms = vec![first_term, second_term];
 
-        assert_eq!(composed.bounds().unwrap(), IntervalBounds { lower_mm: 0, upper_mm: 0 });
+        assert_eq!(composed.bounds_at(0).unwrap(), IntervalBounds { lower_mm: 0, upper_mm: 0 });
         assert_eq!(composed.terms.len(), 2, "retain both source origins for audit");
         assert_eq!(grouped_source_oracle(&terms), (0, 0));
     }
@@ -689,7 +786,7 @@ mod tests {
             contribution_with_dependency("navigation-unit", "bias-mode", -10, 10, 1),
             contribution_with_dependency("navigation-unit", "noise-mode", -2, 2, -1),
         ]).unwrap();
-        assert_eq!(model.bounds().unwrap(), IntervalBounds { lower_mm: -12, upper_mm: 12 });
+        assert_eq!(model.bounds_at(0).unwrap(), IntervalBounds { lower_mm: -12, upper_mm: 12 });
         assert_eq!(model.terms.len(), 2);
     }
 
@@ -723,6 +820,60 @@ mod tests {
             )]).unwrap_err(),
             UncertaintyError::DependencyIdTooLong
         );
+    }
+
+
+    #[test]
+    fn dependency_contract_rejects_unknown_units_frames_time_bases_and_provenance() {
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.unit = "feet".to_owned();
+        assert_eq!(AffineUncertainty::new(vec![term]).unwrap_err(), UncertaintyError::UnsupportedDependencyContract);
+
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.reference_frame = "WGS84".to_owned();
+        assert_eq!(AffineUncertainty::new(vec![term]).unwrap_err(), UncertaintyError::UnsupportedDependencyContract);
+
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.time_basis = "UTC".to_owned();
+        assert_eq!(AffineUncertainty::new(vec![term]).unwrap_err(), UncertaintyError::UnsupportedDependencyContract);
+
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.provenance_status = "authenticated".to_owned();
+        assert_eq!(AffineUncertainty::new(vec![term]).unwrap_err(), UncertaintyError::UnsupportedProvenanceStatus);
+    }
+
+    #[test]
+    fn dependency_contract_must_match_for_every_contribution_to_one_dependency() {
+        let first = contribution_with_dependency("sensor-a", "shared", -1, 1, 1);
+        let mut second = contribution_with_dependency("sensor-b", "shared", -1, 1, -1);
+        second.dependency_contract.valid_until_s = 900;
+        assert_eq!(
+            AffineUncertainty::new(vec![first, second]).unwrap_err(),
+            UncertaintyError::DependencyContractMismatch
+        );
+    }
+
+    #[test]
+    fn dependency_contract_validity_uses_a_half_open_interval() {
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.valid_from_s = 10;
+        term.dependency_contract.valid_until_s = 20;
+        let model = AffineUncertainty::new(vec![term]).unwrap();
+        assert_eq!(model.bounds_at(9).unwrap_err(), UncertaintyError::DependencyNotYetValid);
+        assert_eq!(model.bounds_at(10).unwrap(), IntervalBounds { lower_mm: -1, upper_mm: 1 });
+        assert_eq!(model.bounds_at(19).unwrap(), IntervalBounds { lower_mm: -1, upper_mm: 1 });
+        assert_eq!(model.bounds_at(20).unwrap_err(), UncertaintyError::DependencyExpired);
+    }
+
+    #[test]
+    fn dependency_contract_rejects_empty_labels_and_invalid_validity_windows() {
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.unit.clear();
+        assert_eq!(AffineUncertainty::new(vec![term]).unwrap_err(), UncertaintyError::InvalidDependencyContractLabel);
+        let mut term = contribution("sensor", -1, 1, 1);
+        term.dependency_contract.valid_from_s = 20;
+        term.dependency_contract.valid_until_s = 20;
+        assert_eq!(AffineUncertainty::new(vec![term]).unwrap_err(), UncertaintyError::InvalidDependencyValidity);
     }
 
 }
