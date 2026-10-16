@@ -15,6 +15,36 @@ use std::fmt;
 const MAX_IDENTIFIER_BYTES: usize = 64;
 const MAX_MESSAGE_ID_BYTES: usize = 128;
 
+/// Monotonic process-local time used only for freshness and elapsed durations.
+/// Never serialize it as a cross-device message expiry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MonotonicMillis(u64);
+
+impl MonotonicMillis {
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn as_millis(self) -> u64 {
+        self.0
+    }
+}
+
+/// Unix-epoch milliseconds used for message expiry across queues and devices.
+/// Callers must account for wall-clock uncertainty in their expiry policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UnixMillis(u64);
+
+impl UnixMillis {
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn as_millis(self) -> u64 {
+        self.0
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IdentifierError {
     Empty,
@@ -128,16 +158,17 @@ pub enum LinkState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LinkObservation {
     pub state: LinkState,
-    pub observed_at_millis: u64,
+    pub observed_at_monotonic: MonotonicMillis,
     pub valid_for_millis: u64,
 }
 
 impl LinkObservation {
-    pub fn effective_state(self, now_millis: u64) -> LinkState {
+    pub fn effective_state(self, now_monotonic: MonotonicMillis) -> LinkState {
         if self.state == LinkState::Unknown
-            || now_millis < self.observed_at_millis
+            || now_monotonic.as_millis() < self.observed_at_monotonic.as_millis()
             || self.valid_for_millis == 0
-            || now_millis - self.observed_at_millis >= self.valid_for_millis
+            || now_monotonic.as_millis() - self.observed_at_monotonic.as_millis()
+                >= self.valid_for_millis
         {
             LinkState::Unknown
         } else {
@@ -273,7 +304,7 @@ pub struct OpaqueEnvelope {
     logical_message_id: String,
     profile_id: TransportProfileId,
     payload: Vec<u8>,
-    expires_at_millis: u64,
+    expires_at_unix_millis: UnixMillis,
 }
 
 impl OpaqueEnvelope {
@@ -281,7 +312,7 @@ impl OpaqueEnvelope {
         logical_message_id: impl Into<String>,
         profile_id: TransportProfileId,
         payload: Vec<u8>,
-        expires_at_millis: u64,
+        expires_at_unix_millis: UnixMillis,
     ) -> Result<Self, EnvelopeError> {
         let logical_message_id = logical_message_id.into();
         if logical_message_id.trim().is_empty()
@@ -297,7 +328,7 @@ impl OpaqueEnvelope {
             logical_message_id,
             profile_id,
             payload,
-            expires_at_millis,
+            expires_at_unix_millis,
         })
     }
 
@@ -318,12 +349,12 @@ impl OpaqueEnvelope {
         self.payload.len()
     }
 
-    pub fn expires_at_millis(&self) -> u64 {
-        self.expires_at_millis
+    pub fn expires_at_unix_millis(&self) -> UnixMillis {
+        self.expires_at_unix_millis
     }
 
-    pub fn is_expired(&self, now_millis: u64) -> bool {
-        now_millis >= self.expires_at_millis
+    pub fn is_expired(&self, now_unix_millis: UnixMillis) -> bool {
+        now_unix_millis >= self.expires_at_unix_millis
     }
 }
 
@@ -391,7 +422,8 @@ pub fn evaluate_route(
     candidate: &RouteCandidate<'_>,
     policy: &RoutePolicy,
     envelope: &OpaqueEnvelope,
-    now_millis: u64,
+    now_unix_millis: UnixMillis,
+    now_monotonic: MonotonicMillis,
 ) -> Result<EligibleRoute, IneligibilityReason> {
     if candidate.user_consent != PolicyDecision::Allowed {
         return Err(match candidate.user_consent {
@@ -414,7 +446,7 @@ pub fn evaluate_route(
             PolicyDecision::Allowed => unreachable!("allowed handled by the condition"),
         });
     }
-    if envelope.is_expired(now_millis) {
+    if envelope.is_expired(now_unix_millis) {
         return Err(IneligibilityReason::EnvelopeExpired);
     }
     if envelope.profile_id() != &policy.required_profile_id {
@@ -441,7 +473,7 @@ pub fn evaluate_route(
         return Err(IneligibilityReason::StoreAndForwardRequired);
     }
 
-    match candidate.observation.effective_state(now_millis) {
+    match candidate.observation.effective_state(now_monotonic) {
         LinkState::Available => {}
         LinkState::Unavailable => return Err(IneligibilityReason::LinkUnavailable),
         LinkState::Unknown => return Err(IneligibilityReason::LinkAvailabilityUnknown),
@@ -479,7 +511,7 @@ pub enum AdapterSendOutcome {
 pub trait TransportAdapter {
     fn descriptor(&self) -> &AdapterDescriptor;
 
-    fn observe(&mut self, now_millis: u64) -> LinkObservation;
+    fn observe(&mut self, now_monotonic: MonotonicMillis) -> LinkObservation;
 
     fn send_opaque(&mut self, envelope: &OpaqueEnvelope) -> AdapterSendOutcome;
 }
@@ -648,12 +680,12 @@ mod tests {
         )
     }
 
-    fn envelope(bytes: usize, expires_at_millis: u64) -> OpaqueEnvelope {
+    fn envelope(bytes: usize, expires_at_unix_millis: UnixMillis) -> OpaqueEnvelope {
         OpaqueEnvelope::new(
             "msg-0001",
             profile(),
             vec![0xA5; bytes],
-            expires_at_millis,
+            expires_at_unix_millis,
         )
         .unwrap()
     }
@@ -674,7 +706,7 @@ mod tests {
     fn available_observation() -> LinkObservation {
         LinkObservation {
             state: LinkState::Available,
-            observed_at_millis: 1_000,
+            observed_at_monotonic: MonotonicMillis::new(1_000),
             valid_for_millis: 10_000,
         }
     }
@@ -698,8 +730,9 @@ mod tests {
         let route = evaluate_route(
             &candidate(&descriptor, available_observation()),
             &policy(),
-            &envelope(512, 20_000),
-            1_500,
+            &envelope(512, UnixMillis::new(20_000)),
+            UnixMillis::new(1_500),
+            MonotonicMillis::new(1_500),
         )
         .unwrap();
 
@@ -721,21 +754,21 @@ mod tests {
         let mut no_consent = base.clone();
         no_consent.user_consent = PolicyDecision::Unknown;
         assert_eq!(
-            evaluate_route(&no_consent, &policy(), &envelope(100, 20_000), 1_500),
+            evaluate_route(&no_consent, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
             Err(IneligibilityReason::UserConsentUnknown)
         );
 
         let mut no_regulatory_proof = base.clone();
         no_regulatory_proof.regulatory_permission = PolicyDecision::Unknown;
         assert_eq!(
-            evaluate_route(&no_regulatory_proof, &policy(), &envelope(100, 20_000), 1_500),
+            evaluate_route(&no_regulatory_proof, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
             Err(IneligibilityReason::RegulatoryPermissionUnknown)
         );
 
         let mut unknown_privacy = base;
         unknown_privacy.privacy_permission = PolicyDecision::Unknown;
         assert_eq!(
-            evaluate_route(&unknown_privacy, &policy(), &envelope(100, 20_000), 1_500),
+            evaluate_route(&unknown_privacy, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
             Err(IneligibilityReason::PrivacyPolicyUnknown)
         );
     }
@@ -743,36 +776,36 @@ mod tests {
     #[test]
     fn stale_future_and_unknown_link_observations_are_not_eligible() {
         let descriptor = descriptor("ip-path", "home-uplink", 4096, TransportMode::Online);
-        let envelope = envelope(100, 20_000);
+        let envelope = envelope(100, UnixMillis::new(20_000));
         let policy = policy();
 
         let stale = LinkObservation {
             state: LinkState::Available,
-            observed_at_millis: 1_000,
+            observed_at_monotonic: MonotonicMillis::new(1_000),
             valid_for_millis: 100,
         };
         assert_eq!(
-            evaluate_route(&candidate(&descriptor, stale), &policy, &envelope, 1_100),
+            evaluate_route(&candidate(&descriptor, stale), &policy, &envelope, UnixMillis::new(1_500), MonotonicMillis::new(1_100)),
             Err(IneligibilityReason::LinkAvailabilityUnknown)
         );
 
         let future = LinkObservation {
             state: LinkState::Available,
-            observed_at_millis: 2_000,
+            observed_at_monotonic: MonotonicMillis::new(2_000),
             valid_for_millis: 500,
         };
         assert_eq!(
-            evaluate_route(&candidate(&descriptor, future), &policy, &envelope, 1_500),
+            evaluate_route(&candidate(&descriptor, future), &policy, &envelope, UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
             Err(IneligibilityReason::LinkAvailabilityUnknown)
         );
 
         let unknown = LinkObservation {
             state: LinkState::Unknown,
-            observed_at_millis: 1_000,
+            observed_at_monotonic: 1_000,
             valid_for_millis: 500,
         };
         assert_eq!(
-            evaluate_route(&candidate(&descriptor, unknown), &policy, &envelope, 1_100),
+            evaluate_route(&candidate(&descriptor, unknown), &policy, &envelope, UnixMillis::new(1_500), MonotonicMillis::new(1_100)),
             Err(IneligibilityReason::LinkAvailabilityUnknown)
         );
     }
@@ -789,7 +822,7 @@ mod tests {
             evaluate_route(
                 &candidate(&small, available_observation()),
                 &policy(),
-                &envelope(81, 20_000),
+                &envelope(81, UnixMillis::new(20_000)),
                 1_500,
             ),
             Err(IneligibilityReason::PayloadTooLarge)
@@ -798,7 +831,7 @@ mod tests {
             evaluate_route(
                 &candidate(&small, available_observation()),
                 &policy(),
-                &envelope(50, 20_000),
+                &envelope(50, UnixMillis::new(20_000)),
                 20_000,
             ),
             Err(IneligibilityReason::EnvelopeExpired)
@@ -811,7 +844,7 @@ mod tests {
             evaluate_route(
                 &candidate(&small, available_observation()),
                 &unsupported_profile_policy,
-                &envelope(50, 20_000),
+                &envelope(50, UnixMillis::new(20_000)),
                 1_500,
             ),
             Err(IneligibilityReason::EnvelopeProfileMismatch)
@@ -833,7 +866,7 @@ mod tests {
             evaluate_route(
                 &candidate(&receive_only, available_observation()),
                 &policy(),
-                &envelope(50, 20_000),
+                &envelope(50, UnixMillis::new(20_000)),
                 1_500,
             ),
             Err(IneligibilityReason::SendUnsupported)
@@ -846,7 +879,7 @@ mod tests {
             evaluate_route(
                 &candidate(&online, available_observation()),
                 &store_forward_policy,
-                &envelope(50, 20_000),
+                &envelope(50, UnixMillis::new(20_000)),
                 1_500,
             ),
             Err(IneligibilityReason::StoreAndForwardRequired)
@@ -864,7 +897,7 @@ mod tests {
         let mut candidate = candidate(&descriptor, available_observation());
         candidate.privacy_permission = PolicyDecision::Denied;
         assert_eq!(
-            evaluate_route(&candidate, &policy(), &envelope(100, 20_000), 1_500),
+            evaluate_route(&candidate, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
             Err(IneligibilityReason::PrivacyPolicyDenied)
         );
     }
@@ -885,7 +918,7 @@ mod tests {
                 evaluate_route(
                     &candidate(descriptor, available_observation()),
                     &policy(),
-                    &envelope(100, 20_000),
+                    &envelope(100, UnixMillis::new(20_000)),
                     1_500,
                 )
                 .unwrap()
