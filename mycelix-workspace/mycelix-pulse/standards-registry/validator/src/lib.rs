@@ -281,6 +281,7 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
         }
 
         validate_relations(object.get("relations"), &label, &mut errors);
+        validate_erratum_relation(object, &label, &mut errors);
         validate_evidence(object.get("evidence"), &label, &mut errors);
         validate_support_claim(object, &label, &mut errors);
     }
@@ -614,6 +615,29 @@ fn validate_evidence(value: Option<&Value>, label: &str, errors: &mut Vec<String
     }
 }
 
+fn validate_erratum_relation(
+    entry: &serde_json::Map<String, Value>,
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    if entry.get("artifact_kind").and_then(Value::as_str) != Some("erratum") {
+        return;
+    }
+    let has_base_relation = entry
+        .get("relations")
+        .and_then(Value::as_array)
+        .is_some_and(|relations| {
+            relations.iter().any(|relation| {
+                relation.get("type").and_then(Value::as_str) == Some("errata_for")
+            })
+        });
+    if !has_base_relation {
+        errors.push(format!(
+            "{label}: erratum record requires an 'errata_for' relation to its base specification"
+        ));
+    }
+}
+
 fn validate_support_claim(
     entry: &serde_json::Map<String, Value>,
     label: &str,
@@ -833,6 +857,19 @@ mod tests {
         entry.as_object_mut().unwrap().remove("errata_status");
         let errors = validate_registry(&registry, &schema());
         assert!(errors.iter().any(|error| error.contains("errata_status")));
+    }
+
+    #[test]
+    fn erratum_without_base_specification_link_is_rejected() {
+        let mut registry = seed();
+        let entry = &mut registry["entries"][0];
+        entry["artifact_kind"] = json!("erratum");
+        entry["errata_status"] = json!("reported");
+        entry["relations"] = json!([]);
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| {
+            error.contains("erratum record requires an 'errata_for' relation")
+        }));
     }
 
     #[test]
