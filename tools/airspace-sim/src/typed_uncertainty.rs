@@ -427,6 +427,7 @@ mod tests {
             sensitivity_scaled: 15,
             sensitivity_basis: "mm_per_ms_x1000".to_owned(),
             transform_id: None,
+            transform_source_frame: None,
             transform_target_frame: None,
             sensitivity_model_id: Some("synthetic_constant_velocity_v1".to_owned()),
         };
