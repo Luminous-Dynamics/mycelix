@@ -1252,7 +1252,43 @@ mod tests {
                 schema["$schema"].as_str(),
                 Some("https://json-schema.org/draft/2020-12/schema")
             );
+            jsonschema::meta::validate(&schema)
+                .expect("schema document must validate against the JSON Schema meta-schema");
         }
+    }
+
+    #[test]
+    fn serialized_run_census_validates_against_its_schema() {
+        let schedule = small_schedule();
+        let results = complete_noncompleted_census(&schedule);
+        let instance = serde_json::to_value(&results).expect("serialize run census");
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/research/schema/CIV_IMPACT_RUN_CENSUS_V0_1.schema.json"
+        )).expect("run schema JSON");
+        let validator = jsonschema::validator_for(&schema).expect("valid run schema");
+        assert!(validator.validate(&instance).is_ok(), "run census instance must match schema");
+    }
+
+    #[test]
+    fn serialized_comparison_report_validates_against_its_schema() {
+        let schedule = small_schedule();
+        let results = complete_results_with_known_cost_tradeoff(&schedule);
+        let seed_digest = "e".repeat(64);
+        let report = make_test_comparison(&schedule, &results, 9876, &seed_digest)
+            .expect("comparison report");
+        let schedule_bytes = serde_json::to_vec_pretty(&schedule).expect("schedule bytes");
+        let results_bytes = serde_json::to_vec_pretty(&results).expect("result bytes");
+        let instance = serde_json::json!({
+            "report": report,
+            "schedule_artifact_sha256": sha256_hex(&schedule_bytes),
+            "results_artifact_sha256": sha256_hex(&results_bytes),
+            "notice": "synthetic test fixture; descriptive only"
+        });
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json"
+        )).expect("comparison schema JSON");
+        let validator = jsonschema::validator_for(&schema).expect("valid comparison schema");
+        assert!(validator.validate(&instance).is_ok(), "comparison report instance must match schema");
     }
 
     #[test]
