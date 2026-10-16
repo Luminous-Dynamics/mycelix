@@ -252,19 +252,23 @@ mod tests {
     fn invalid_identity_components_fail_closed() {
         let mut registry = ClaimIdentityRegistry::new();
         assert_eq!(
+            registry.register("", "claim-1", "replica-a", DIGEST_A, 1),
+            Err(ClaimRegistryError::InvalidRequestId)
+        );
+        assert_eq!(
             registry.register("request-1", "", "replica-a", DIGEST_A, 1),
             Err(ClaimRegistryError::InvalidClaimId)
         );
         assert_eq!(
-            registry.register("claim-1", "", DIGEST_A, 1),
+            registry.register("request-1", "claim-1", "", DIGEST_A, 1),
             Err(ClaimRegistryError::InvalidReplicaId)
         );
         assert_eq!(
-            registry.register("claim-1", "replica-a", "sha256:ABC", 1),
+            registry.register("request-1", "claim-1", "replica-a", "sha256:ABC", 1),
             Err(ClaimRegistryError::InvalidDeliveryDigest)
         );
         assert_eq!(
-            registry.register("claim-1", "replica-a", DIGEST_A, 0),
+            registry.register("request-1", "claim-1", "replica-a", DIGEST_A, 0),
             Err(ClaimRegistryError::InvalidQuantity)
         );
         assert_eq!(registry.journal().len(), 0);
@@ -274,12 +278,12 @@ mod tests {
     fn exact_registration_retry_is_idempotent() {
         let mut registry = ClaimIdentityRegistry::new();
         assert_eq!(
-            registry.register("claim-1", "replica-a", DIGEST_A, 5),
+            registry.register("request-1", "claim-1", "replica-a", DIGEST_A, 5),
             Ok(ClaimRegistrationOutcome::Registered)
         );
         let journal_len = registry.journal().len();
         assert_eq!(
-            registry.register("claim-1", "replica-a", DIGEST_A, 5),
+            registry.register("request-1", "claim-1", "replica-a", DIGEST_A, 5),
             Ok(ClaimRegistrationOutcome::ExactReplay)
         );
         assert_eq!(registry.journal().len(), journal_len);
@@ -290,11 +294,11 @@ mod tests {
     fn same_claim_identity_cannot_be_registered_by_two_replicas() {
         let mut registry = ClaimIdentityRegistry::new();
         registry
-            .register("external-delivery-42", "replica-a", DIGEST_A, 3)
+            .register("request-1", "external-delivery-42", "replica-a", DIGEST_A, 3)
             .unwrap();
         let journal_len = registry.journal().len();
         assert_eq!(
-            registry.register("external-delivery-42", "replica-b", DIGEST_A, 3),
+            registry.register("request-1", "external-delivery-42", "replica-b", DIGEST_A, 3),
             Err(ClaimRegistryError::ConflictingClaimIdentity)
         );
         assert_eq!(registry.journal().len(), journal_len);
@@ -308,14 +312,14 @@ mod tests {
     fn claim_id_cannot_be_reused_for_different_payload_or_quantity() {
         let mut registry = ClaimIdentityRegistry::new();
         registry
-            .register("claim-1", "replica-a", DIGEST_A, 5)
+            .register("request-1", "claim-1", "replica-a", DIGEST_A, 5)
             .unwrap();
         assert_eq!(
-            registry.register("claim-1", "replica-a", DIGEST_B, 5),
+            registry.register("request-1", "claim-1", "replica-a", DIGEST_B, 5),
             Err(ClaimRegistryError::ConflictingClaimIdentity)
         );
         assert_eq!(
-            registry.register("claim-1", "replica-a", DIGEST_A, 4),
+            registry.register("request-1", "claim-1", "replica-a", DIGEST_A, 4),
             Err(ClaimRegistryError::ConflictingClaimIdentity)
         );
         assert_eq!(registry.claim_count(), 1);
@@ -337,7 +341,7 @@ mod tests {
     #[test]
     fn invalid_finalization_does_not_mutate_state_or_journal() {
         let mut registry = ClaimIdentityRegistry::new();
-        registry.register("claim-1", "replica-a", DIGEST_A, 5).unwrap();
+        registry.register("request-1", "claim-1", "replica-a", DIGEST_A, 5).unwrap();
         let before = registry.record("claim-1").unwrap().clone();
         let journal_len = registry.journal().len();
         assert_eq!(
@@ -351,7 +355,7 @@ mod tests {
     #[test]
     fn finalization_retry_is_idempotent_but_conflicting_retry_is_rejected() {
         let mut registry = ClaimIdentityRegistry::new();
-        registry.register("claim-1", "replica-a", DIGEST_A, 5).unwrap();
+        registry.register("request-1", "claim-1", "replica-a", DIGEST_A, 5).unwrap();
         assert_eq!(
             registry.finalize("claim-1", 3),
             Ok(ClaimFinalizationOutcome::Finalized)
@@ -384,11 +388,11 @@ mod tests {
     fn one_identity_is_accepted_once_in_the_serial_authoritative_history() {
         let mut registry = ClaimIdentityRegistry::new();
         registry
-            .register("external-delivery-42", "replica-a", DIGEST_A, 3)
+            .register("request-1", "external-delivery-42", "replica-a", DIGEST_A, 3)
             .unwrap();
         registry.finalize("external-delivery-42", 3).unwrap();
         assert_eq!(
-            registry.register("external-delivery-42", "replica-b", DIGEST_A, 3),
+            registry.register("request-1", "external-delivery-42", "replica-b", DIGEST_A, 3),
             Err(ClaimRegistryError::ConflictingClaimIdentity)
         );
         assert_eq!(registry.accepted_quantity(), Ok(3));
