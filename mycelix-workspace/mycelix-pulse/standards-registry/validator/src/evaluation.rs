@@ -20,6 +20,12 @@ const CONSERVATIVE_95_MULTIPLIER: f64 = 2.1;
 struct ScenarioTotals {
     baseline_successes: u128,
     candidate_successes: u128,
+    baseline_attempts_per_1000: u128,
+    candidate_attempts_per_1000: u128,
+    baseline_cost_per_1000: u128,
+    candidate_cost_per_1000: u128,
+    baseline_energy_millijoules_per_1000: u128,
+    candidate_energy_millijoules_per_1000: u128,
 }
 
 /// Evaluate a candidate against the preferred-single-path baseline on the
@@ -155,23 +161,46 @@ pub fn evaluate_paired_seeds(
                 .ok_or_else(|| {
                     vec![format!("seed {seed}: scenario '{scenario_id}' has no strategy results")]
                 })?;
-            let baseline = strategy_successes(strategy_rows, BASELINE_STRATEGY)
-                .ok_or_else(|| {
-                    vec![format!(
-                        "seed {seed}: scenario '{scenario_id}' lacks baseline '{BASELINE_STRATEGY}'"
-                    )]
-                })?;
-            let candidate = strategy_successes(strategy_rows, candidate_strategy).ok_or_else(|| {
+            let baseline_row = strategy_metrics(strategy_rows, BASELINE_STRATEGY).ok_or_else(|| {
+                vec![format!(
+                    "seed {seed}: scenario '{scenario_id}' lacks baseline '{BASELINE_STRATEGY}'"
+                )]
+            })?;
+            let candidate_row = strategy_metrics(strategy_rows, candidate_strategy).ok_or_else(|| {
                 vec![format!(
                     "seed {seed}: scenario '{scenario_id}' lacks candidate '{candidate_strategy}'"
                 )]
             })?;
+            let baseline = metric(baseline_row, "modeled_path_successes_before_deadline")
+                .ok_or_else(|| vec![format!("seed {seed}: baseline success metric missing")])?;
+            let candidate = metric(candidate_row, "modeled_path_successes_before_deadline")
+                .ok_or_else(|| vec![format!("seed {seed}: candidate success metric missing")])?;
+            let baseline_attempts = metric(baseline_row, "attempts_per_1000_messages")
+                .ok_or_else(|| vec![format!("seed {seed}: baseline attempts metric missing")])?;
+            let candidate_attempts = metric(candidate_row, "attempts_per_1000_messages")
+                .ok_or_else(|| vec![format!("seed {seed}: candidate attempts metric missing")])?;
+            let baseline_cost = metric(baseline_row, "illustrative_cost_units_per_message_x1000")
+                .ok_or_else(|| vec![format!("seed {seed}: baseline cost metric missing")])?;
+            let candidate_cost = metric(candidate_row, "illustrative_cost_units_per_message_x1000")
+                .ok_or_else(|| vec![format!("seed {seed}: candidate cost metric missing")])?;
+            let baseline_energy =
+                metric(baseline_row, "illustrative_energy_input_millijoules_per_message_x1000")
+                    .ok_or_else(|| vec![format!("seed {seed}: baseline energy metric missing")])?;
+            let candidate_energy =
+                metric(candidate_row, "illustrative_energy_input_millijoules_per_message_x1000")
+                    .ok_or_else(|| vec![format!("seed {seed}: candidate energy metric missing")])?;
 
             seed_baseline_successes += u128::from(baseline);
             seed_candidate_successes += u128::from(candidate);
             let totals = scenario_totals.entry(scenario_id.to_owned()).or_default();
             totals.baseline_successes += u128::from(baseline);
             totals.candidate_successes += u128::from(candidate);
+            totals.baseline_attempts_per_1000 += u128::from(baseline_attempts);
+            totals.candidate_attempts_per_1000 += u128::from(candidate_attempts);
+            totals.baseline_cost_per_1000 += u128::from(baseline_cost);
+            totals.candidate_cost_per_1000 += u128::from(candidate_cost);
+            totals.baseline_energy_millijoules_per_1000 += u128::from(baseline_energy);
+            totals.candidate_energy_millijoules_per_1000 += u128::from(candidate_energy);
         }
 
         total_baseline_successes += seed_baseline_successes;
@@ -215,7 +244,19 @@ pub fn evaluate_paired_seeds(
                 "scenario_id": scenario_id,
                 "baseline_success_rate_percent": baseline_pct,
                 "candidate_success_rate_percent": candidate_pct,
-                "absolute_delta_percentage_points": candidate_pct - baseline_pct
+                "absolute_delta_percentage_points": candidate_pct - baseline_pct,
+                "baseline_attempts_per_1000_messages":
+                    totals.baseline_attempts_per_1000 as f64 / seed_count_f,
+                "candidate_attempts_per_1000_messages":
+                    totals.candidate_attempts_per_1000 as f64 / seed_count_f,
+                "baseline_illustrative_cost_units_per_1000_messages":
+                    totals.baseline_cost_per_1000 as f64 / seed_count_f,
+                "candidate_illustrative_cost_units_per_1000_messages":
+                    totals.candidate_cost_per_1000 as f64 / seed_count_f,
+                "baseline_illustrative_energy_millijoules_per_1000_messages":
+                    totals.baseline_energy_millijoules_per_1000 as f64 / seed_count_f,
+                "candidate_illustrative_energy_millijoules_per_1000_messages":
+                    totals.candidate_energy_millijoules_per_1000 as f64 / seed_count_f
             })
         })
         .collect::<Vec<_>>();
@@ -298,12 +339,14 @@ fn parse_id_list(value: Option<&Value>, label: &str, errors: &mut Vec<String>) -
     values
 }
 
-fn strategy_successes(rows: &[Value], strategy: &str) -> Option<u64> {
+fn strategy_metrics<'a>(rows: &'a [Value], strategy: &str) -> Option<&'a Value> {
     rows.iter()
         .find(|row| row.get("strategy").and_then(Value::as_str) == Some(strategy))
         .and_then(|row| row.get("metrics"))
-        .and_then(|metrics| metrics.get("modeled_path_successes_before_deadline"))
-        .and_then(Value::as_u64)
+}
+
+fn metric(metrics: &Value, key: &str) -> Option<u64> {
+    metrics.get(key).and_then(Value::as_u64)
 }
 
 #[cfg(test)]
@@ -344,6 +387,8 @@ mod tests {
             first["per_holdout_scenario"].as_array().unwrap().len()
         );
         assert_eq!(first["model_only_screen"]["not_a_release_qualification"], true);
+        assert!(first["per_holdout_scenario"][0]["candidate_attempts_per_1000_messages"].is_number());
+        assert!(first["per_holdout_scenario"][0]["candidate_illustrative_energy_millijoules_per_1000_messages"].is_number());
     }
 
     #[test]
