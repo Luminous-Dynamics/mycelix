@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 const MAX_SOURCE_TERMS: usize = 64;
 const MAX_COMPOSITION_INPUTS: usize = MAX_SOURCE_TERMS * 2;
 const MAX_SOURCE_ID_BYTES: usize = 128;
+const MAX_DEPENDENCY_ID_BYTES: usize = 128;
 const MAX_ABS_SOURCE_BOUND_MM: i128 = 1_000_000_000_000;
 const MAX_ABS_COEFFICIENT: i128 = 1_000_000;
 const MAX_ABS_COMPOSED_BOUND_MM: i128 = 1_000_000_000_000_000;
@@ -30,7 +31,7 @@ struct SourceContribution {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct AffineUncertainty {
-    /// Canonically sorted and unique by source_id after validation.
+    /// Canonically sorted by (dependency_id, source_id); duplicate pairs are folded.
     terms: Vec<SourceContribution>,
 }
 
@@ -62,9 +63,10 @@ impl AffineUncertainty {
         Self::normalize(terms, MAX_SOURCE_TERMS)
     }
 
-    /// Adds two affine error expressions. Contributions from the same stable
-    /// source are combined algebraically, preserving a declared shared cause.
-    /// Different source IDs are never inferred to be correlated or identical.
+    /// Adds two affine expressions. Contributions with the same origin/dependency
+    /// pair are folded for audit; bounds group all origins by dependency_id. The
+    /// dependency declaration is not authenticated and different IDs do not prove
+    /// physical independence.
     fn compose(&self, other: &Self) -> Result<Self, UncertaintyError> {
         let mut terms = Vec::with_capacity(self.terms.len() + other.terms.len());
         terms.extend(self.terms.iter().cloned());
@@ -72,12 +74,10 @@ impl AffineUncertainty {
         Self::normalize(terms, MAX_COMPOSITION_INPUTS)
     }
 
-    /// Computes an outward-exact interval for this bounded integer-affine form.
-    /// This is a set bound under the declared source ranges, not a probability
-    /// or physical aircraft-state guarantee.
-    /// Computes an exact interval over declared latent dependencies.
-    /// Contributions sharing dependency_id vary together even when their source
-    /// origins differ; that declaration is not authenticated by this prototype.
+    /// Computes an exact interval over the declared latent dependencies.
+    /// Contributions sharing a dependency_id vary together even when their source
+    /// origins differ. This is a set bound under asserted integer ranges, not a
+    /// probability or physical aircraft-state guarantee.
     fn bounds(&self) -> Result<IntervalBounds, UncertaintyError> {
         if self.terms.is_empty() {
             return Err(UncertaintyError::EmptyModel);
@@ -147,7 +147,7 @@ impl AffineUncertainty {
             if term.source_id.len() > MAX_SOURCE_ID_BYTES { return Err(UncertaintyError::SourceIdTooLong); }
             if term.dependency_id.trim().is_empty() { return Err(UncertaintyError::EmptyDependencyId); }
             if term.dependency_id.as_str() != term.dependency_id.trim() { return Err(UncertaintyError::NonCanonicalDependencyId); }
-            if term.dependency_id.len() > MAX_SOURCE_ID_BYTES { return Err(UncertaintyError::DependencyIdTooLong); }
+            if term.dependency_id.len() > MAX_DEPENDENCY_ID_BYTES { return Err(UncertaintyError::DependencyIdTooLong); }
             if term.lower_mm > term.upper_mm
                 || i128::from(term.lower_mm).abs() > MAX_ABS_SOURCE_BOUND_MM
                 || i128::from(term.upper_mm).abs() > MAX_ABS_SOURCE_BOUND_MM
@@ -491,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_common_mode_source_can_cancel_only_via_explicit_identity_and_coefficients() {
+    fn shared_common_mode_dependency_can_cancel_only_via_explicit_identity_and_coefficients() {
         let forward =
             AffineUncertainty::new(vec![contribution("datum-bias", -10, 10, 1)]).unwrap();
         let inverse =
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn different_source_ids_never_cancel_by_assumption() {
+    fn different_dependency_ids_never_cancel_by_assumption() {
         let first =
             AffineUncertainty::new(vec![contribution("datum-source-a", -10, 10, 1)]).unwrap();
         let second =
