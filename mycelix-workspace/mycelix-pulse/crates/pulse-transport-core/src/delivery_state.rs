@@ -582,7 +582,7 @@ mod tests {
         ));
     }
 
- 
+
     #[test]
     fn chronological_attempt_metadata_does_not_depend_on_attempt_id_sort_order() {
         let mut item = lifecycle(10_000, 3);
