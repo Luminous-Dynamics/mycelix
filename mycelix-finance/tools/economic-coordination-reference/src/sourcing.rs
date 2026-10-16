@@ -20,6 +20,9 @@ use std::collections::BTreeSet;
 // Reuse the crate-wide evidence semantics; do not mint a sourcing-specific duplicate.
 pub use super::{EvidenceOrigin, EvidenceStatus};
 
+/// Versioned identity for the deterministic sourcing-comparison algorithm.
+pub const SOURCING_EVALUATOR_PROFILE: &str = "mycelix:sourcing-pareto-fenwick:v1";
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourcingRequest {
     /// Explicit evaluation time; no hidden wall-clock dependency.
@@ -186,6 +189,8 @@ pub struct RejectedOffer {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourcingReport {
+    /// Exact comparison algorithm/profile identity used for this report.
+    pub evaluator_profile: &'static str,
     /// Immutable request/evaluation context needed to interpret and replay this report.
     pub request_id: String,
     pub evaluated_at: u64,
@@ -519,6 +524,7 @@ pub fn evaluate_sourcing(
     let (pareto_frontier, dominated) = classify_frontier(eligible);
 
     Ok(SourcingReport {
+        evaluator_profile: SOURCING_EVALUATOR_PROFILE,
         request_id: request.request_id.clone(),
         evaluated_at: request.as_of,
         required_evidence_origin: request.required_evidence_origin,
@@ -831,6 +837,7 @@ mod tests {
     #[test]
     fn report_binds_request_and_objective_model_context() {
         let report = evaluate_sourcing(&request(), &[offer("context", 100, 10, 100)]).unwrap();
+        assert_eq!(report.evaluator_profile, "mycelix:sourcing-pareto-fenwick:v1");
         assert_eq!(report.request_id, "need-1");
         assert_eq!(report.evaluated_at, 100);
         assert_eq!(report.required_evidence_origin, EvidenceOrigin::SyntheticSimulation);
