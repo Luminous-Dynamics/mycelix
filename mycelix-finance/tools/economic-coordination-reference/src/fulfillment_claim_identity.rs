@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClaimRegistryError {
+    InvalidRequestId,
     InvalidClaimId,
     InvalidReplicaId,
     InvalidDeliveryDigest,
@@ -41,6 +42,7 @@ pub enum ClaimStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClaimIdentityRecord {
+    pub request_id: String,
     pub claim_id: String,
     pub replica_id: String,
     pub delivery_digest: String,
@@ -51,6 +53,7 @@ pub struct ClaimIdentityRecord {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClaimIdentityJournalEntry {
     Registered {
+        request_id: String,
         claim_id: String,
         replica_id: String,
         delivery_digest: String,
@@ -122,11 +125,15 @@ impl ClaimIdentityRegistry {
     /// the same delivery digest claimed by a different replica.
     pub fn register(
         &mut self,
+        request_id: &str,
         claim_id: &str,
         replica_id: &str,
         delivery_digest: &str,
         claimed_quantity: u64,
     ) -> Result<ClaimRegistrationOutcome, ClaimRegistryError> {
+        if request_id.trim().is_empty() {
+            return Err(ClaimRegistryError::InvalidRequestId);
+        }
         if claim_id.trim().is_empty() {
             return Err(ClaimRegistryError::InvalidClaimId);
         }
@@ -141,7 +148,8 @@ impl ClaimIdentityRegistry {
         }
 
         if let Some(existing) = self.records.get(claim_id) {
-            let same_binding = existing.replica_id == replica_id
+            let same_binding = existing.request_id == request_id
+                && existing.replica_id == replica_id
                 && existing.delivery_digest == delivery_digest
                 && existing.claimed_quantity == claimed_quantity;
             return if same_binding {
@@ -152,6 +160,7 @@ impl ClaimIdentityRegistry {
         }
 
         let record = ClaimIdentityRecord {
+            request_id: request_id.to_owned(),
             claim_id: claim_id.to_owned(),
             replica_id: replica_id.to_owned(),
             delivery_digest: delivery_digest.to_owned(),
@@ -159,6 +168,7 @@ impl ClaimIdentityRegistry {
             status: ClaimStatus::Pending,
         };
         self.journal.push(ClaimIdentityJournalEntry::Registered {
+            request_id: request_id.to_owned(),
             claim_id: claim_id.to_owned(),
             replica_id: replica_id.to_owned(),
             delivery_digest: delivery_digest.to_owned(),
@@ -242,7 +252,7 @@ mod tests {
     fn invalid_identity_components_fail_closed() {
         let mut registry = ClaimIdentityRegistry::new();
         assert_eq!(
-            registry.register("", "replica-a", DIGEST_A, 1),
+            registry.register("request-1", "", "replica-a", DIGEST_A, 1),
             Err(ClaimRegistryError::InvalidClaimId)
         );
         assert_eq!(
@@ -306,6 +316,19 @@ mod tests {
         );
         assert_eq!(
             registry.register("claim-1", "replica-a", DIGEST_A, 4),
+            Err(ClaimRegistryError::ConflictingClaimIdentity)
+        );
+        assert_eq!(registry.claim_count(), 1);
+    }
+
+    #[test]
+    fn claim_id_cannot_be_replayed_against_another_request() {
+        let mut registry = ClaimIdentityRegistry::new();
+        registry
+            .register("request-1", "claim-1", "replica-a", DIGEST_A, 5)
+            .unwrap();
+        assert_eq!(
+            registry.register("request-2", "claim-1", "replica-a", DIGEST_A, 5),
             Err(ClaimRegistryError::ConflictingClaimIdentity)
         );
         assert_eq!(registry.claim_count(), 1);
