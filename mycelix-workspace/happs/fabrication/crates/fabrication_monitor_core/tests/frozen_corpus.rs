@@ -161,8 +161,16 @@ fn frozen_cincinnati_v1_corpus_matches_expected_dispositions_and_signals() {
         let case_id = fields[0];
         let scenario = fields[1];
         let expected_disposition = parse_disposition(fields[2]);
-        let expected_signal = if fields[3].is_empty() { None } else { Some(parse_signal(fields[3])) };
-        let expected_uncalibrated = if fields[4].is_empty() { None } else { Some(parse_signal(fields[4])) };
+        let expected_signal = if fields[3].is_empty() {
+            None
+        } else {
+            Some(parse_signal(fields[3]))
+        };
+        let expected_uncalibrated = if fields[4].is_empty() {
+            None
+        } else {
+            Some(parse_signal(fields[4]))
+        };
 
         assert!(!case_id.trim().is_empty(), "case IDs cannot be empty");
         assert!(ids.insert(case_id), "duplicate case ID: {case_id}");
@@ -170,12 +178,24 @@ fn frozen_cincinnati_v1_corpus_matches_expected_dispositions_and_signals() {
 
         assert_eq!(actual_disposition, expected_disposition, "case {case_id}");
         match expected_signal {
-            Some(signal) => assert!(actual_signals.contains(&signal), "case {case_id} missing {signal:?}"),
-            None => assert!(actual_signals.is_empty(), "case {case_id} emitted unexpected deviations: {actual_signals:?}"),
+            Some(signal) => assert!(
+                actual_signals.contains(&signal),
+                "case {case_id} missing {signal:?}"
+            ),
+            None => assert!(
+                actual_signals.is_empty(),
+                "case {case_id} emitted unexpected deviations: {actual_signals:?}"
+            ),
         }
         match expected_uncalibrated {
-            Some(signal) => assert!(actual_uncalibrated.contains(&signal), "case {case_id} missing uncalibrated {signal:?}"),
-            None => assert!(actual_uncalibrated.is_empty(), "case {case_id} emitted unexpected uncalibrated signals: {actual_uncalibrated:?}"),
+            Some(signal) => assert!(
+                actual_uncalibrated.contains(&signal),
+                "case {case_id} missing uncalibrated {signal:?}"
+            ),
+            None => assert!(
+                actual_uncalibrated.is_empty(),
+                "case {case_id} emitted unexpected uncalibrated signals: {actual_uncalibrated:?}"
+            ),
         }
     }
 
