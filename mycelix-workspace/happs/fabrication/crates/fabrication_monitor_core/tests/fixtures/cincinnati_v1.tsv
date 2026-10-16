@@ -1,0 +1,18 @@
+# corpus_id=CINCINNATI-MONITOR-SYNTHETIC-V1
+# scope=synthetic detector-contract tests only; no physical quality, safety, economics or savings claim
+# columns=case_id|scenario|expected_disposition|expected_signal|expected_uncalibrated_signal
+healthy|healthy|Evaluated||
+hotend-drift|hotend-drift|Evaluated|HotendTemperature|
+bed-drift|bed-drift|Evaluated|BedTemperature|
+extruder-current-drift|extruder-current-drift|Evaluated|ExtruderCurrent|
+vibration-drift|vibration-drift|Evaluated|VibrationRms|
+tension-unqualified|tension-unqualified|EvaluatedWithUncalibratedSignals||FilamentTension
+recipe-mismatch|recipe-mismatch|ProcessProfileMismatch||
+calibration-mismatch|calibration-mismatch|ProcessProfileMismatch||
+nonfinite-hotend|nonfinite-hotend|InvalidObservation:NonFinite:HotendTemperature||
+negative-current|negative-current|InvalidObservation:Negative:XCurrent||
+sequence-gap|sequence-gap|DataGap:1:200||
+duplicate-sequence|duplicate-sequence|NonMonotonicSequence||
+oversized-time-gap|oversized-time-gap|DataGap:0:2500||
+timestamp-reordered|timestamp-reordered|NonMonotonicTimestamp||
+session-mismatch|session-mismatch|SessionMismatch||
