@@ -299,6 +299,7 @@ fn validate_containment_overlay(raw: &str) -> Result<(), String> {
 }
 
 fn validate_benchmark_manifest() -> Result<(usize, usize, usize), String> {
+    validate_containment_overlay(BENCHMARK_MANIFEST_TEXT)?;
     let manifest = parse_strict_json(BENCHMARK_MANIFEST_TEXT)
         .map_err(|e| format!("benchmark manifest parse: {e}"))?;
 
