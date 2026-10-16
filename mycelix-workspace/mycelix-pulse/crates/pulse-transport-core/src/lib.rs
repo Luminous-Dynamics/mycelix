@@ -264,9 +264,10 @@ impl AdapterDescriptor {
 
 /// A length-bounded logical envelope containing bytes opaque to the adapter.
 ///
-/// Construction validates basic metadata only. It does not prove that the
-/// payload is encrypted or signed; the caller must pass the bytes produced by
-/// Pulse's existing cryptographic pipeline.
+/// The profile ID describes the transport framing/adapter profile, not an
+/// encryption suite. Construction validates basic metadata only. It does not
+/// prove that the payload is encrypted or signed; the caller must pass bytes
+/// produced by Pulse's existing cryptographic pipeline.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpaqueEnvelope {
     logical_message_id: String,
@@ -484,12 +485,26 @@ pub trait TransportAdapter {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+impl From<AdapterSendOutcome> for DeliveryEvidenceStage {
+    fn from(outcome: AdapterSendOutcome) -> Self {
+        match outcome {
+            AdapterSendOutcome::AcceptedByAdapter => Self::AcceptedByAdapter,
+            AdapterSendOutcome::LinkLayerAcknowledged => Self::LinkLayerAcknowledged,
+            AdapterSendOutcome::GatewayAcknowledged => Self::GatewayAcknowledged,
+            AdapterSendOutcome::TemporarilyUnavailable => Self::TemporarilyUnavailable,
+            AdapterSendOutcome::PermanentlyRejected => Self::FailedPermanently,
+            AdapterSendOutcome::OutcomeUnknown => Self::OutcomeUnknown,
+        }
+    }
+}
+
 pub enum DeliveryEvidenceStage {
     NotAttempted,
     LocallyQueued,
     AcceptedByAdapter,
     LinkLayerAcknowledged,
     GatewayAcknowledged,
+    TemporarilyUnavailable,
     RecipientReceiptVerified,
     FailedPermanently,
     Expired,
@@ -516,7 +531,8 @@ impl DeliveryEvidenceStage {
             Self::LocallyQueued => UserVisibleDeliveryState::Queued,
             Self::AcceptedByAdapter
             | Self::LinkLayerAcknowledged
-            | Self::GatewayAcknowledged => UserVisibleDeliveryState::Pending,
+            | Self::GatewayAcknowledged
+            | Self::TemporarilyUnavailable => UserVisibleDeliveryState::Pending,
             Self::RecipientReceiptVerified => UserVisibleDeliveryState::Delivered,
             Self::FailedPermanently => UserVisibleDeliveryState::Failed,
             Self::Expired => UserVisibleDeliveryState::Expired,
@@ -790,6 +806,44 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(distinct_failure_domain_count(&routes), 2);
+    }
+
+    #[test]
+    fn adapter_outcomes_map_without_fabricating_recipient_delivery() {
+        let cases = [
+            (
+                AdapterSendOutcome::AcceptedByAdapter,
+                DeliveryEvidenceStage::AcceptedByAdapter,
+            ),
+            (
+                AdapterSendOutcome::LinkLayerAcknowledged,
+                DeliveryEvidenceStage::LinkLayerAcknowledged,
+            ),
+            (
+                AdapterSendOutcome::GatewayAcknowledged,
+                DeliveryEvidenceStage::GatewayAcknowledged,
+            ),
+            (
+                AdapterSendOutcome::TemporarilyUnavailable,
+                DeliveryEvidenceStage::TemporarilyUnavailable,
+            ),
+            (
+                AdapterSendOutcome::PermanentlyRejected,
+                DeliveryEvidenceStage::FailedPermanently,
+            ),
+            (
+                AdapterSendOutcome::OutcomeUnknown,
+                DeliveryEvidenceStage::OutcomeUnknown,
+            ),
+        ];
+        for (outcome, expected) in cases {
+            let stage = DeliveryEvidenceStage::from(outcome);
+            assert_eq!(stage, expected);
+            assert_ne!(
+                stage.user_visible_state(),
+                UserVisibleDeliveryState::Delivered
+            );
+        }
     }
 
     #[test]
