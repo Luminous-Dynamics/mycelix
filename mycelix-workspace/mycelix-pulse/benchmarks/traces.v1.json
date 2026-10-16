@@ -1,0 +1,369 @@
+{
+  "schema_version": "1.0.0",
+  "as_of": "2026-10-16",
+  "corpus_id": "pulse-transport-smoke-v1",
+  "simulation_only": true,
+  "hardware_evidence": false,
+  "seed": 20261016,
+  "default_message_count": 10000,
+  "semantics": {
+    "success_basis_points": "10000 means every permitted attempt succeeds in this synthetic model; 0 means all attempts fail.",
+    "unavailable_ranges": "Half-open [start_message, end_message) index ranges; path is unavailable for those logical-message indices.",
+    "payload_budget_bytes": "Maximum whole-envelope size for this deliberately non-fragmenting first model. Oversize envelopes are ineligible on that path.",
+    "strategies": [
+      "preferred_single_path",
+      "sequential_failover",
+      "parallel_redundancy"
+    ],
+    "limitations": "Synthetic independent per-path outcomes with fixed latency and costs. No cryptography, RF propagation, interference, fragmentation, congestion, discovery, real device power measurement, or authenticated-recipient receipt is modeled."
+  },
+  "scenarios": [
+    {
+      "id": "stable-ip",
+      "purpose": "Sanity baseline when a single reliable route is enough.",
+      "deadline_ms": 1500,
+      "envelope_bytes": 1024,
+      "paths": [
+        {
+          "id": "ip-primary",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9950,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 30,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "scheduled-ip-outage",
+      "purpose": "A primary IP path has a long outage while a permitted alternate remains available.",
+      "deadline_ms": 5000,
+      "envelope_bytes": 900,
+      "paths": [
+        {
+          "id": "ip-primary",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 200,
+          "success_basis_points": 9800,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 25,
+          "unavailable_ranges": [
+            [
+              2000,
+              8000
+            ]
+          ]
+        },
+        {
+          "id": "wifi-direct",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 500,
+          "success_basis_points": 9000,
+          "payload_budget_bytes": 4096,
+          "cost_units": 2,
+          "energy_millijoules": 90,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "local-only-first-contact",
+      "purpose": "No internet path; nearby transfer is the only permitted path.",
+      "deadline_ms": 3500,
+      "envelope_bytes": 700,
+      "paths": [
+        {
+          "id": "internet",
+          "priority": 0,
+          "available": false,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9990,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 20,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "bluetooth-le",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 450,
+          "success_basis_points": 9300,
+          "payload_budget_bytes": 1024,
+          "cost_units": 1,
+          "energy_millijoules": 35,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "compact-narrowband-message",
+      "purpose": "Small envelope can use a gateway profile with a low payload budget.",
+      "deadline_ms": 6000,
+      "envelope_bytes": 160,
+      "paths": [
+        {
+          "id": "ip",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 150,
+          "success_basis_points": 9500,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 25,
+          "unavailable_ranges": [
+            [
+              0,
+              7000
+            ]
+          ]
+        },
+        {
+          "id": "lpwan-gateway-profile",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 1800,
+          "success_basis_points": 7200,
+          "payload_budget_bytes": 200,
+          "cost_units": 3,
+          "energy_millijoules": 80,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "bluetooth-le",
+          "priority": 2,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 350,
+          "success_basis_points": 9400,
+          "payload_budget_bytes": 512,
+          "cost_units": 1,
+          "energy_millijoules": 40,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "oversize-envelope",
+      "purpose": "Demonstrate that low payload budgets must not silently truncate or pretend a large envelope fits.",
+      "deadline_ms": 5000,
+      "envelope_bytes": 900,
+      "paths": [
+        {
+          "id": "tiny-packet-link",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 1300,
+          "success_basis_points": 9900,
+          "payload_budget_bytes": 180,
+          "cost_units": 1,
+          "energy_millijoules": 45,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "ip",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 250,
+          "success_basis_points": 9700,
+          "payload_budget_bytes": 65536,
+          "cost_units": 2,
+          "energy_millijoules": 65,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "privacy-policy-excludes-relay",
+      "purpose": "An untrusted relay must remain ineligible even if its modeled success rate is high.",
+      "deadline_ms": 3000,
+      "envelope_bytes": 512,
+      "paths": [
+        {
+          "id": "untrusted-relay",
+          "priority": 0,
+          "available": true,
+          "permitted": false,
+          "latency_ms": 80,
+          "success_basis_points": 9999,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 20,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "permitted-direct-link",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 1200,
+          "success_basis_points": 7200,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 70,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "all-links-unavailable",
+      "purpose": "Must truthfully report no path rather than fabricate delivery.",
+      "deadline_ms": 3000,
+      "envelope_bytes": 512,
+      "paths": [
+        {
+          "id": "ip",
+          "priority": 0,
+          "available": false,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9999,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 20,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "bluetooth-le",
+          "priority": 1,
+          "available": false,
+          "permitted": true,
+          "latency_ms": 500,
+          "success_basis_points": 9999,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 40,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "deadline-disallows-primary",
+      "purpose": "A high-latency preferred path misses the deadline; failover may use a slower-priority but timely path.",
+      "deadline_ms": 700,
+      "envelope_bytes": 256,
+      "paths": [
+        {
+          "id": "satellite-high-latency",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 2400,
+          "success_basis_points": 9990,
+          "payload_budget_bytes": 8192,
+          "cost_units": 8,
+          "energy_millijoules": 400,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "local-radio-link",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 180,
+          "success_basis_points": 7800,
+          "payload_budget_bytes": 1024,
+          "cost_units": 1,
+          "energy_millijoules": 45,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "flapping-primary",
+      "purpose": "A primary path repeatedly disappears; static route choice should reveal avoidable deadline misses.",
+      "deadline_ms": 1800,
+      "envelope_bytes": 400,
+      "paths": [
+        {
+          "id": "flapping-ip",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 120,
+          "success_basis_points": 9600,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 25,
+          "unavailable_ranges": [
+            [
+              500,
+              1500
+            ],
+            [
+              2600,
+              3500
+            ],
+            [
+              5000,
+              6600
+            ],
+            [
+              7800,
+              9000
+            ]
+          ]
+        },
+        {
+          "id": "stable-local-link",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 380,
+          "success_basis_points": 8900,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 55,
+          "unavailable_ranges": []
+        }
+      ]
+    },
+    {
+      "id": "energy-constrained",
+      "purpose": "Route availability is not the only objective; compare latency gains against energy cost.",
+      "deadline_ms": 2500,
+      "envelope_bytes": 300,
+      "paths": [
+        {
+          "id": "low-energy-path",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 900,
+          "success_basis_points": 8500,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 10,
+          "unavailable_ranges": []
+        },
+        {
+          "id": "fast-radio",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 120,
+          "success_basis_points": 9600,
+          "payload_budget_bytes": 2048,
+          "cost_units": 2,
+          "energy_millijoules": 260,
+          "unavailable_ranges": []
+        }
+      ]
+    }
+  ]
+}
