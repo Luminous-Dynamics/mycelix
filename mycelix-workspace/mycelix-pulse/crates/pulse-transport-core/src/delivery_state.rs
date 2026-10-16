@@ -162,6 +162,7 @@ pub enum LifecycleError {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Attempt {
+    attempt_number: u32,
     started_at: UnixMillis,
     outcome: Option<AttemptOutcome>,
 }
@@ -269,6 +270,7 @@ impl DeliveryLifecycle {
 
         let attempt_number = self.attempt_count() + 1;
         self.attempts.insert(attempt_id.clone(), Attempt {
+            attempt_number,
             started_at: now,
             outcome: None,
         });
@@ -426,7 +428,7 @@ impl DeliveryLifecycle {
     }
 
     fn attempt_number(&self, attempt_id: &str) -> u32 {
-        self.attempts.keys().position(|id| id == attempt_id).unwrap_or(0) as u32 + 1
+        self.attempts.get(attempt_id).map(|attempt| attempt.attempt_number).unwrap_or(0)
     }
 }
 
