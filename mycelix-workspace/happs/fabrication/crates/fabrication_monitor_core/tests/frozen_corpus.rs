@@ -133,7 +133,10 @@ fn run_scenario(scenario: &str) -> (ObservationDisposition, Vec<Signal>, Vec<Sig
 
     let mut sample = frame("live", 1, 100);
     match scenario {
-        "healthy" | "tension-unqualified" => {}
+        "healthy"
+        | "tension-unqualified"
+        | "ambient-unqualified"
+        | "humidity-unqualified" => {}
         "hotend-drift" => sample.hotend_temp_c = 230.0,
         "bed-drift" => sample.bed_temp_c = 90.0,
         "extruder-current-drift" => sample.stepper_current_ma[3] = 500.0,
