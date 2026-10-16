@@ -85,7 +85,7 @@ pub fn HouseholdBrief() -> impl IntoView {
             <div class="brief-grid">
                 <article class="brief-card">
                     <p class="brief-category">"Care"</p>
-                    <p class="brief-number" aria-live="off">{move || care_count()}</p>
+                    <p class="brief-number">{move || care_count()}</p>
                     <h3>"Active care plans"</h3>
                     <p class="brief-description">
                         "Plans marked active; due times are not inferred here."
@@ -135,7 +135,7 @@ mod tests {
     use super::{active_care_plan_count, open_decision_count, unresolved_alert_count};
     use hearth_leptos_types::{
         AlertType, CareScheduleStatus, CareScheduleView, CareType, DecisionStatus, DecisionType,
-        DecisionView, EmergencyAlertView, HearthVisibility, Recurrence, SafetyStatus,
+        DecisionView, EmergencyAlertView, Recurrence,
     };
 
     fn plan(hash: &str, status: CareScheduleStatus) -> CareScheduleView {
