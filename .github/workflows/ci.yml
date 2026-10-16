@@ -498,6 +498,11 @@ jobs:
           do
             sha256sum "$input"
           done > evidence/standards-registry-ci/routing-evaluation-inputs.sha256
+          if [ -f standards-registry/validator/Cargo.lock ]; then
+            sha256sum standards-registry/validator/Cargo.lock >> evidence/standards-registry-ci/routing-evaluation-inputs.sha256
+          else
+            echo "MISSING Cargo.lock: dependency resolution is not lockfile-pinned" >> evidence/standards-registry-ci/routing-evaluation-inputs.sha256
+          fi
           input_manifest_sha256="$(sha256sum evidence/standards-registry-ci/routing-evaluation-inputs.sha256 | cut -d ' ' -f 1)"
           subject_sha="$(git rev-parse HEAD)"
           cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
@@ -527,6 +532,7 @@ jobs:
             standards-registry/validator/src/lib.rs \
             standards-registry/validator/src/simulation.rs \
             standards-registry/validator/src/main.rs \
+            standards-registry/validator/src/evaluation.rs \
             standards-registry/validator/src/bin/route-sim.rs \
             standards-registry/validator/src/bin/standards-search.rs \
             crates/pulse-transport-core/Cargo.toml \
