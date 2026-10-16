@@ -364,8 +364,10 @@ impl PersistedJournalEvent {
 
     /// Capture a live validated event into a persistence DTO. Receipt bytes
     /// and the verifier version are preserved so replay can re-authenticate.
-    pub fn capture(event: &JournalEvent, stream_revision: u64) -> Self {
-        assert!(stream_revision > 0, "persisted events need a committed stream revision");
+    pub fn capture(
+        event: &JournalEvent,
+        stream_revision: u64,
+    ) -> Result<Self, JournalError> {
         let kind = match event.kind() {
             JournalEventKind::Queued { expires_at, policy_generation } => {
                 PersistedJournalEventKind::QueueAccepted {
@@ -408,15 +410,14 @@ impl PersistedJournalEvent {
                 }
             }
         };
-        Self {
-            schema_version: Self::CURRENT_SCHEMA_VERSION,
+        Self::new(
             stream_revision,
-            event_id: event.event_id().to_owned(),
-            identity: event.identity().clone(),
-            occurred_at: event.occurred_at(),
-            actor: event.actor(),
+            event.event_id(),
+            event.identity().clone(),
+            event.occurred_at(),
+            event.actor(),
             kind,
-        }
+        )
     }
 
     pub fn event_id(&self) -> &str {
@@ -1194,8 +1195,8 @@ mod tests {
             JournalEventKind::WorkerEpochAdvanced { new_epoch: 1 },
         )).unwrap();
         let entries = source.history(&identity).unwrap();
-        let first = PersistedJournalEvent::capture(entries[0].event(), entries[0].revision());
-        let second = PersistedJournalEvent::capture(entries[1].event(), entries[1].revision());
+        let first = PersistedJournalEvent::capture(entries[0].event(), entries[0].revision()).unwrap();
+        let second = PersistedJournalEvent::capture(entries[1].event(), entries[1].revision()).unwrap();
 
         let mut replayed = InMemoryDeliveryJournal::default();
         assert_eq!(
@@ -1261,7 +1262,7 @@ mod tests {
             JournalActor::System,
             JournalEventKind::RecipientReceiptVerified { evidence },
         );
-        let persisted = PersistedJournalEvent::capture(&live, 2);
+        let persisted = PersistedJournalEvent::capture(&live, 2).unwrap();
         let restored = persisted
             .reverify(&TestVerifier, "pulse-test-v1")
             .unwrap();
@@ -1386,7 +1387,7 @@ mod tests {
         let expected = original.snapshot(&identity).unwrap().unwrap();
         let mut replayed = InMemoryDeliveryJournal::default();
         for entry in source_history {
-            let persisted = PersistedJournalEvent::capture(entry.event(), entry.revision());
+            let persisted = PersistedJournalEvent::capture(entry.event(), entry.revision()).unwrap();
             persisted
                 .replay_into(&mut replayed, &TestVerifier, "pulse-test-v1")
                 .unwrap();
