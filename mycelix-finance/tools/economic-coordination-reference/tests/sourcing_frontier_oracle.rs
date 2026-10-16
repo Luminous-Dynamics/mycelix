@@ -127,6 +127,54 @@ fn oracle_frontier(offers: &[SupplierOffer]) -> (Vec<String>, Vec<String>) {
 }
 
 #[test]
+fn frontier_matches_oracle_for_equal_objectives_and_adversarial_tradeoffs() {
+    // Small discrete objective space intentionally creates many exact ties,
+    // same-cost/same-arrival risk ties, and trade-offs across all three axes.
+    let objective_patterns = [
+        (100, 10, 500),
+        (100, 10, 500),
+        (100, 10, 300),
+        (100, 9, 700),
+        (90, 20, 200),
+        (90, 30, 100),
+        (90, 20, 200),
+        (80, 30, 100),
+        (80, 30, 100),
+        (100, 5, 9_000),
+        (70, 40, 100),
+        (70, 40, 100),
+    ];
+
+    let mut offers = offers_for_case(991);
+    for (index, offer) in offers.iter_mut().enumerate() {
+        let (cost, lead, risk) = objective_patterns[index % objective_patterns.len()];
+        offer.unit_price_minor = cost;
+        offer.shipping_minor = 0;
+        offer.taxes_minor = 0;
+        offer.other_fees_minor = 0;
+        offer.lead_time_secs = lead;
+        offer.risk_bps = risk;
+    }
+
+    let (expected_frontier, expected_dominated) = oracle_frontier(&offers);
+    let actual = evaluate_sourcing(&request(), &offers).unwrap();
+    let actual_frontier: Vec<String> = actual
+        .pareto_frontier
+        .iter()
+        .map(|offer| offer.offer_id.clone())
+        .collect();
+    let actual_dominated: Vec<String> = actual
+        .dominated
+        .iter()
+        .map(|offer| offer.offer_id.clone())
+        .collect();
+
+    assert_eq!(actual_frontier, expected_frontier);
+    assert_eq!(actual_dominated, expected_dominated);
+    assert!(actual.rejected.is_empty());
+}
+
+#[test]
 fn frontier_matches_separate_bruteforce_oracle_for_seeded_cases() {
     for case_seed in 1..=CASES {
         let offers = offers_for_case(case_seed);
