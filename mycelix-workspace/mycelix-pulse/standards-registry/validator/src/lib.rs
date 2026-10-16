@@ -28,6 +28,7 @@ const ENTRY_KEYS: &[&str] = &[
     "last_checked",
     "source_status",
     "source_digest_sha256",
+    "errata_status",
     "layers",
     "region_scope",
     "relations",
@@ -56,6 +57,14 @@ const ARTIFACT_KINDS: &[&str] = &[
     "announcement",
     "implementation_reference",
     "working_group",
+    "erratum",
+];
+const ERRATA_STATUSES: &[&str] = &[
+    "reported",
+    "verified",
+    "held_for_document_update",
+    "rejected",
+    "unknown",
 ];
 const SOURCE_STATUSES: &[&str] = &[
     "active",
@@ -219,6 +228,21 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
             &format!("{label}.artifact_kind"),
             &mut errors,
         );
+        if object.get("artifact_kind").and_then(Value::as_str) == Some("erratum") {
+            check_enum(
+                object.get("errata_status"),
+                ERRATA_STATUSES,
+                &format!("{label}.errata_status"),
+                &mut errors,
+            );
+        } else if object.contains_key("errata_status") {
+            check_enum(
+                object.get("errata_status"),
+                ERRATA_STATUSES,
+                &format!("{label}.errata_status"),
+                &mut errors,
+            );
+        }
         check_enum(
             object.get("source_status"),
             SOURCE_STATUSES,
@@ -322,6 +346,9 @@ fn validate_schema_contract(schema: &Value, errors: &mut Vec<String>) {
     }
     if root.pointer("/$defs/entry/properties/source_digest_sha256").is_none() {
         errors.push("schema: missing source_digest_sha256 property".to_owned());
+    }
+    if root.pointer("/$defs/entry/properties/errata_status").is_none() {
+        errors.push("schema: missing errata_status property".to_owned());
     }
     if root.pointer("/$defs/relation").and_then(Value::as_object).is_none() {
         errors.push("schema: missing $defs.relation object".to_owned());
@@ -703,6 +730,24 @@ mod tests {
         schema["required"] = json!(["schema_version"]);
         let errors = validate_registry(&registry, &schema);
         assert!(errors.iter().any(|e| e.contains("schema: required list is missing 'entries'")));
+    }
+
+    #[test]
+    fn erratum_requires_explicit_disposition() {
+        let mut registry = seed();
+        let entry = &mut registry["entries"][0];
+        entry["artifact_kind"] = json!("erratum");
+        entry.as_object_mut().unwrap().remove("errata_status");
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| error.contains("errata_status")));
+    }
+
+    #[test]
+    fn unsupported_errata_disposition_is_rejected() {
+        let mut registry = seed();
+        registry["entries"][0]["errata_status"] = json!("maybe");
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| error.contains("errata_status")));
     }
 
     #[test]
