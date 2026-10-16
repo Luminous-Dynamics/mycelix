@@ -1184,6 +1184,49 @@ mod tests {
     }
 
     #[test]
+    fn persisted_capture_rejects_zero_revision_without_panicking() {
+        let live = event(
+            "event-queue",
+            identity(),
+            1,
+            JournalActor::System,
+            JournalEventKind::Queued {
+                expires_at: UnixMillis::new(10_000),
+                policy_generation: 1,
+            },
+        );
+        assert_eq!(
+            PersistedJournalEvent::capture(&live, 0),
+            Err(JournalError::InvalidStreamRevision)
+        );
+    }
+
+    #[test]
+    fn persisted_replay_of_the_same_sequence_is_idempotent() {
+        let mut source = InMemoryDeliveryJournal::default();
+        let identity = queued(&mut source);
+        let committed = source.history(&identity).unwrap();
+        let persisted = PersistedJournalEvent::capture(
+            committed[0].event(),
+            committed[0].revision(),
+        ).unwrap();
+        let mut target = InMemoryDeliveryJournal::default();
+
+        assert_eq!(
+            persisted.replay_into(&mut target, &TestVerifier, "pulse-test-v1"),
+            Ok(AppendOutcome::Appended { revision: 1 })
+        );
+        assert_eq!(
+            persisted.replay_into(&mut target, &TestVerifier, "pulse-test-v1"),
+            Ok(AppendOutcome::Duplicate { original_revision: 1 })
+        );
+        assert_eq!(
+            target.snapshot(&identity).unwrap().unwrap().revision(),
+            1
+        );
+    }
+
+    #[test]
     fn persisted_replay_rejects_out_of_order_stream_revisions() {
         let mut source = InMemoryDeliveryJournal::default();
         let identity = queued(&mut source);
