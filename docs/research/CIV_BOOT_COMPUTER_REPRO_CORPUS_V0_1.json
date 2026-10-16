@@ -52,10 +52,10 @@
     "C3_board_assembly": "pass|fail|unresolved|not_evaluated",
     "C4_host_assisted_clone": "pass|fail|unresolved|not_evaluated",
     "C5_host_removed_reproduction": "pass|fail|unresolved|not_evaluated",
-    "C6_bare_pcb_local_fabrication": "pass|fail|unresolved|not_evaluated",
-    "C7_semiconductor_die_fabrication": "pass|fail|unresolved|not_evaluated",
     "E5_independent_transfer": "eligible|not_eligible|unresolved",
-    "multigeneration_renewal": "pass|fail|unresolved|not_evaluated"
+    "multigeneration_renewal": "pass|fail|unresolved|not_evaluated",
+    "PCB_local_fabrication": "pass|fail|unresolved|not_evaluated (independent branch; not an ordered reproduction level)",
+    "DIE_local_fabrication": "pass|fail|unresolved|not_evaluated (independent deep-industrial branch; not inferred from computer replication)"
   },
   "fixtures": [
     {
@@ -93,10 +93,10 @@
         "C3_board_assembly": "fail",
         "C4_host_assisted_clone": "fail",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "fail"
+        "multigeneration_renewal": "fail",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "An operational computer does not establish local assembly, repair, manufacturing, tooling or semiconductor capability."
     },
@@ -135,10 +135,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "pass",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "Host-assisted replication can pass C4, while no host-removal, locally fabricated bare-PCB, die-fabrication or renewal claim follows."
     },
@@ -177,10 +177,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "pass",
         "C5_host_removed_reproduction": "pass",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "This is a synthetic expected result only. A physical C5 claim needs independent observation and receipts; imported ICs and tooling remain."
     },
@@ -219,10 +219,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "pass",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "A clone may appear to work while still delegating active work to the original host."
     },
@@ -261,10 +261,10 @@
         "C3_board_assembly": "unresolved",
         "C4_host_assisted_clone": "fail",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "Local chassis/fixture capability cannot substitute for a missing qualified compute module."
     },
@@ -303,10 +303,10 @@
         "C3_board_assembly": "unresolved",
         "C4_host_assisted_clone": "unresolved",
         "C5_host_removed_reproduction": "unresolved",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "Assembly evidence cannot be upgraded to qualified-copy evidence when required calibration is stale."
     },
@@ -345,10 +345,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "unresolved",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "Board population/repair uses purchased bare PCBs and imported components; this must not close PCB substrate or chip fabrication planes."
     },
@@ -387,10 +387,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "fail",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "A working binary or a surviving computer is insufficient when the archived toolchain/source/licenses needed for reproduction are incomplete."
     },
@@ -429,10 +429,10 @@
         "C3_board_assembly": "unresolved",
         "C4_host_assisted_clone": "unresolved",
         "C5_host_removed_reproduction": "unresolved",
-        "C6_bare_pcb_local_fabrication": "unresolved",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "unresolved",
+        "DIE_local_fabrication": "fail"
       },
       "why": "A changed BOM, firmware or process revision requires binding/qualification; do not silently inherit evidence from another build."
     },
@@ -471,10 +471,10 @@
         "C3_board_assembly": "unresolved",
         "C4_host_assisted_clone": "unresolved",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "The receipt must account for every human operation and outside service; otherwise the claimed reproduction boundary is not proven."
     },
@@ -513,10 +513,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "pass",
         "C5_host_removed_reproduction": "fail",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "No level below C7 implies semiconductor die fabrication; external foundry runs, RTL, GDS, package/test or PCB assembly are separate claims."
     },
@@ -555,10 +555,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "not_evaluated",
         "C5_host_removed_reproduction": "pass",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "This synthetic case indicates eligibility for E5 review only; a physical qualification requires an independent node's raw evidence and qualified inputs."
     },
@@ -597,10 +597,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "not_evaluated",
         "C5_host_removed_reproduction": "pass",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "fail"
+        "multigeneration_renewal": "fail",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "Successful duplication consumes stock and tool life. Continued/generational renewal is a separate claim requiring its own horizon, spares and calibration evidence."
     },
@@ -639,10 +639,10 @@
         "C3_board_assembly": "pass",
         "C4_host_assisted_clone": "unresolved",
         "C5_host_removed_reproduction": "unresolved",
-        "C6_bare_pcb_local_fabrication": "fail",
-        "C7_semiconductor_die_fabrication": "fail",
         "E5_independent_transfer": "not_eligible",
-        "multigeneration_renewal": "unresolved"
+        "multigeneration_renewal": "unresolved",
+        "PCB_local_fabrication": "fail",
+        "DIE_local_fabrication": "fail"
       },
       "why": "Unknown stock is not an empty stock declaration and not evidence of availability. The affected production claims stay unresolved."
     }
@@ -657,14 +657,14 @@
     "RTL, synthesized netlist, GDS, external MPW, package/test and PCB assembly are distinct evidence claims.",
     "No single self-replication scalar is permitted; report profile-bound outcome vector and raw denominators.",
     "C7 remains not achieved unless a separately reviewed semiconductor process profile has every critical dependency qualified.",
-    "A C5 claim is bounded to the exact design, inventory, toolchain, calibration state and declared production horizon."
+    "A C5 claim is bounded to the exact design, inventory, toolchain, calibration state and declared production horizon.",
+    "Local bare-PCB fabrication and semiconductor die fabrication are independent closure branches, not sequential milestones of the C0-C5 computer-reproduction ladder."
   ],
   "future_validator_contract": {
     "language_preference": "Rust",
     "input": "This versioned JSON plus a separate profile/receipt manifest",
     "required_behavior": [
       "schema validation",
-      "all required state field checks",
       "preregistered expected-outcome comparison",
       "negative-control mutation tests",
       "canonical deterministic output",
