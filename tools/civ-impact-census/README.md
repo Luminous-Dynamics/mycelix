@@ -52,7 +52,7 @@ A non-completed run uses one of `invalid_input`, `timeout`, `non_converged`, `mi
 
 ## Paired descriptive analyzer
 
-The `analyze` command validates the census first, then pairs the incumbent and full-stack runs by the exact scenario ID and seed. It reports mean cost per demand unit, service rate, and—only when every expected pair is complete and neither arm has a zero-service pair—cost per successfully served unit, including absolute and relative changes.
+The `analyze` command validates the census first, then pairs the incumbent and full-stack runs by the exact scenario ID and seed. It reports mean per-run cost per demand unit and service rate, plus both the unweighted mean of per-run cost-per-served-unit ratios and the **pooled cost-per-served-unit ratio** (total cost divided by total units served). Cost-per-served metrics are withheld unless every expected pair is complete and neither arm has a zero-service pair.
 
 The command also computes a deterministic, regime-stratified scenario-cluster percentile resampling interval from 10,000 replicates, **only** when every incumbent/full-stack pair is complete, neither has zero service, and every baseline scenario cluster has positive cost. It resamples whole scenarios within each registered regime and keeps all seeds and paired arms in the selected scenario together; this avoids treating repeated seeds inside one scenario as independent sites.
 
