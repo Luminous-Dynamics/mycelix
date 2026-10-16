@@ -192,6 +192,7 @@ struct Attempt {
 pub struct DeliveryLifecycle {
     logical_message_id: String,
     recipient_id: String,
+    envelope_commitment: [u8; 32],
     expires_at: UnixMillis,
     retry_policy: RetryPolicy,
     status: DeliveryStatus,
@@ -205,6 +206,7 @@ impl DeliveryLifecycle {
     pub fn new(
         logical_message_id: impl Into<String>,
         recipient_id: impl Into<String>,
+        envelope_commitment: [u8; 32],
         expires_at: UnixMillis,
         retry_policy: RetryPolicy,
     ) -> Result<Self, LifecycleError> {
@@ -219,6 +221,7 @@ impl DeliveryLifecycle {
         Ok(Self {
             logical_message_id,
             recipient_id,
+            envelope_commitment,
             expires_at,
             retry_policy,
             status: DeliveryStatus::Queued,
@@ -409,6 +412,7 @@ impl DeliveryLifecycle {
             DeliveryEvidenceStage::OutcomeUnknown,
             &self.logical_message_id,
             &self.recipient_id,
+            &self.envelope_commitment,
             Some(receipt),
         ) != UserVisibleDeliveryState::Delivered {
             return Err(LifecycleError::ReceiptBindingMismatch);
@@ -503,6 +507,7 @@ mod tests {
         DeliveryLifecycle::new(
             "logical-message-1",
             "recipient-1",
+            [0; 32],
             UnixMillis::new(expires),
             policy(max_attempts, 100, 1000),
         )
@@ -517,10 +522,12 @@ mod tests {
             bytes: &[u8],
             logical_message_id: &str,
             recipient_id: &str,
+            envelope_commitment: &[u8; 32],
         ) -> Result<(), ReceiptVerificationError> {
             if bytes == b"verified"
                 && logical_message_id == "logical-message-1"
                 && recipient_id == "recipient-1"
+                && envelope_commitment == &[0; 32]
             {
                 Ok(())
             } else {
@@ -535,6 +542,7 @@ mod tests {
             b"verified",
             "logical-message-1",
             "recipient-1",
+            [0; 32],
         ).unwrap()
     }
 
@@ -685,6 +693,7 @@ mod tests {
                 bytes: &[u8],
                 _logical_message_id: &str,
                 _recipient_id: &str,
+                _envelope_commitment: &[u8; 32],
             ) -> Result<(), ReceiptVerificationError> {
                 if bytes == b"verified-any-key" {
                     Ok(())
@@ -698,6 +707,7 @@ mod tests {
             b"verified-any-key",
             "other-message",
             "recipient-1",
+            [0; 32],
         ).unwrap();
         assert_eq!(
             item.record_verified_receipt(&wrong_binding, UnixMillis::new(5)),
