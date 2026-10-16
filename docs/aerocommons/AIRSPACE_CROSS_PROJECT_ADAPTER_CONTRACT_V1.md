@@ -110,7 +110,7 @@ The test-only proof of concept in `tools/airspace-sim/src/typed_uncertainty.rs` 
 This is a **test-only synthetic integer model**. Sensitivity values and transform identities are caller-declared fixture inputs, not authenticated or independently qualified physical evidence. The module validates declared dimensional consistency; it does not compute geographic coordinate transformations, synchronize real clocks, infer aircraft dynamics, or establish operational separation safety. AIR-PB-023 remains `implemented_pending_exact_head_verification` until the exact-head Rust tests finish.
 ## 3.2 Versioned typed-lineage adapter boundary (AIR-PB-026)
 
-The `AdapterEnvelopeV1` test contract in `tools/airspace-sim/src/typed_uncertainty.rs` intentionally uses a differently named field map from the core typed term. It is a **test-only adapter conformance fixture**, not yet a production cross-project implementation.
+The `AdapterEnvelopeV1` test contract in `tools/airspace-sim/src/typed_uncertainty.rs` intentionally uses a differently named field map from the core typed term. The pinned example is `tools/airspace-sim/fixtures/typed_lineage_adapter_v1.json`, paired with the original typed terms in `typed_uncertainty_lineage.json`. It is a **test-only adapter conformance fixture**, not yet a production cross-project implementation.
 
 - Require an explicit schema version, fixture identity, evaluation time, and immutable authority ceiling at every boundary.
 - Preserve origin identity separately from dependency identity. Also preserve quantity kind, unit, frame, validity basis and interval, input bounds, fixed-point sensitivity and its basis, transformation identity/source/target frame, and sensitivity-model identity.
