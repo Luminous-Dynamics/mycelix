@@ -267,6 +267,6 @@ The verifier consumes a result file from a separately implemented evaluator. The
 - Result and comparison-report schemas: authored; JSON parsing confirmed; structural schema validation by a dedicated validator remains outstanding.
 - Benchmark runs: none claimed.
 - Physical/economic outcomes: none claimed.
-- Exact-head workflow status at an earlier commit showed Mycelix CI skipped and canonical qualification pending; check the current head before any qualification claim.
+- Exact-head qualification is a separate gate. Query status at the exact current PR head; queued, pending, skipped, cancelled and absent checks are not passes.
 
 The success criterion is not that the integrated stack wins. It is a trustworthy answer to **whether, where, for whom, at what cost, and under what conditions** integration helps.
