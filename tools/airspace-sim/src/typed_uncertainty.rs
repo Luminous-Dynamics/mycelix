@@ -35,6 +35,7 @@ struct TypedErrorTerm {
     sensitivity_scaled: i64,
     sensitivity_basis: String,
     transform_id: Option<String>,
+    transform_source_frame: Option<String>,
     transform_target_frame: Option<String>,
     sensitivity_model_id: Option<String>,
 }
@@ -48,6 +49,7 @@ struct DependencyContract {
     valid_from_s: i64,
     valid_until_s: i64,
     transform_id: Option<String>,
+    transform_source_frame: Option<String>,
     transform_target_frame: Option<String>,
 }
 
@@ -61,6 +63,7 @@ impl From<&TypedErrorTerm> for DependencyContract {
             valid_from_s: term.valid_from_s,
             valid_until_s: term.valid_until_s,
             transform_id: term.transform_id.clone(),
+            transform_source_frame: term.transform_source_frame.clone(),
             transform_target_frame: term.transform_target_frame.clone(),
         }
     }
@@ -246,7 +249,7 @@ fn validate_term(term: &TypedErrorTerm) -> Result<(), LineageError> {
             if term.sensitivity_basis != "mm_per_mm_x1000" {
                 return Err(LineageError::InvalidSensitivityBasis);
             }
-            if term.transform_id.is_some() || term.transform_target_frame.is_some() {
+            if term.transform_id.is_some() || term.transform_source_frame.is_some() || term.transform_target_frame.is_some() {
                 return Err(LineageError::UnexpectedTransformMetadata);
             }
             if term.sensitivity_model_id.is_some() {
@@ -263,7 +266,9 @@ fn validate_term(term: &TypedErrorTerm) -> Result<(), LineageError> {
             if term.sensitivity_basis != "mm_per_mm_x1000" {
                 return Err(LineageError::InvalidSensitivityBasis);
             }
-            if !term.transform_id.as_deref().is_some_and(valid_label) {
+            if !term.transform_id.as_deref().is_some_and(valid_label)
+                || !term.transform_source_frame.as_deref().is_some_and(valid_label)
+            {
                 return Err(LineageError::MissingTransformIdentity);
             }
             let target_frame = term.transform_target_frame.as_deref()
@@ -285,7 +290,7 @@ fn validate_term(term: &TypedErrorTerm) -> Result<(), LineageError> {
             if term.sensitivity_basis != "mm_per_ms_x1000" {
                 return Err(LineageError::InvalidSensitivityBasis);
             }
-            if term.transform_id.is_some() || term.transform_target_frame.is_some() {
+            if term.transform_id.is_some() || term.transform_source_frame.is_some() || term.transform_target_frame.is_some() {
                 return Err(LineageError::UnexpectedTransformMetadata);
             }
             if !term.sensitivity_model_id.as_deref().is_some_and(valid_label) {
@@ -398,6 +403,7 @@ mod tests {
             sensitivity_scaled: 15,
             sensitivity_basis: "mm_per_ms_x1000".to_owned(),
             transform_id: None,
+            transform_source_frame: None,
             transform_target_frame: None,
             sensitivity_model_id: Some("synthetic_constant_velocity_v1".to_owned()),
         };
