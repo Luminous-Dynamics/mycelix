@@ -808,6 +808,9 @@ mod tests {
         let mut engine = engine("live");
         let mut sample = frame("live", 1, 100);
         sample.profile.calibration_profile = "calibration:new".into();
-        assert_eq!(engine.observe(&sample).disposition, ObservationDisposition::ProcessProfileMismatch);
+        assert_eq!(
+            engine.observe(&sample).disposition,
+            ObservationDisposition::ProcessProfileMismatch
+        );
     }
 }
