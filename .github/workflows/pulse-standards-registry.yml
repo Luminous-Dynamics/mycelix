@@ -63,6 +63,14 @@ jobs:
             --json > evidence/standards-registry-ci/registry-validation.json
           cat evidence/standards-registry-ci/registry-validation.json
 
+      - name: Run deterministic route-policy replay
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
+            --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 \
+            > evidence/standards-registry-ci/simulation-report.json
+          cat evidence/standards-registry-ci/simulation-report.json
+
       - name: Record subject and input hashes
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse
@@ -71,13 +79,28 @@ jobs:
           git rev-parse HEAD > evidence/standards-registry-ci/subject.sha
           rustc --version > evidence/standards-registry-ci/toolchain.txt
           cargo --version >> evidence/standards-registry-ci/toolchain.txt
-          sha256sum \
-            standards-registry/schema.v1.json \
-            standards-registry/registry.v1.json \
-            standards-registry/validator/Cargo.toml \
-            standards-registry/validator/src/lib.rs \
-            standards-registry/validator/src/main.rs \
-            > evidence/standards-registry-ci/input-sha256.txt
+          {
+            for input in \
+              standards-registry/schema.v1.json \
+              standards-registry/registry.v1.json \
+              standards-registry/validator/Cargo.toml \
+              standards-registry/validator/src/lib.rs \
+              standards-registry/validator/src/main.rs \
+              standards-registry/validator/src/simulation.rs \
+              standards-registry/validator/src/bin/route-sim.rs \
+              benchmarks/traces.v1.json \
+              standards-registry/validator/Cargo.lock
+            do
+              if [ -f "$input" ]; then
+                sha256sum "$input"
+              else
+                echo "MISSING $input"
+              fi
+            done
+          } > evidence/standards-registry-ci/input-sha256.txt
+          if [ -f standards-registry/validator/Cargo.lock ]; then
+            cp standards-registry/validator/Cargo.lock evidence/standards-registry-ci/validator.Cargo.lock
+          fi
 
       - name: Upload exact-head evidence
         if: always()
