@@ -867,22 +867,24 @@ fn validate_support_claim(
         })
     };
 
+    let requires_source_review = matches!(
+        status,
+        Some("metadata_reviewed" | "prototype" | "profile_tested" | "externally_certified")
+    );
+    if requires_source_review && !has_source_digest {
+        errors.push(format!(
+            "{label}: support state '{status:?}' requires a captured source_digest_sha256"
+        ));
+    }
+    if requires_source_review && !has_evidence("source_review") {
+        errors.push(format!(
+            "{label}: support state '{status:?}' requires source_review evidence"
+        ));
+    }
+
+    // Independent checks intentionally accumulate every missing evidence
+    // requirement rather than short-circuiting after the first failed guard.
     match status {
-        Some("unreviewed") | Some("explicitly_excluded") => {}
-        Some("metadata_reviewed" | "prototype" | "profile_tested" | "externally_certified")
-            if !has_source_digest =>
-        {
-            errors.push(format!(
-                "{label}: support state '{status:?}' requires a captured source_digest_sha256"
-            ));
-        }
-        Some("metadata_reviewed" | "prototype" | "profile_tested" | "externally_certified")
-            if !has_evidence("source_review") =>
-        {
-            errors.push(format!(
-                "{label}: support state '{status:?}' requires source_review evidence"
-            ));
-        }
         Some("prototype") if !has_evidence("implementation") => {
             errors.push(format!("{label}: prototype requires implementation evidence"));
         }
