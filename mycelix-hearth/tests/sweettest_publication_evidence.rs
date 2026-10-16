@@ -110,9 +110,11 @@ fn assert_summary_is_self_consistent(report: &ActionPublicationEvidence) {
     );
 
     match report.availability {
-        PublicationEvidenceAvailability::NoOperationData => {
+        PublicationEvidenceAvailability::NotAvailableToCaller
+        | PublicationEvidenceAvailability::NoOperationData => {
             assert!(report.operations.is_empty());
             assert_eq!(report.operation_count, 0);
+            assert_eq!(report.receipt_record_count, 0);
             assert!(!report.all_receipt_thresholds_complete);
         }
         PublicationEvidenceAvailability::Observed => {
