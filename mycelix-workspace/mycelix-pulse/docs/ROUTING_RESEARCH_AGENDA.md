@@ -153,13 +153,15 @@ The 20% resilience gate is a target, not a prior belief. If a baseline is near 1
 - Added negative controls for duplicate/conflicting outcomes, attempt-ID ordering, premature retries, expiry, revocation, ambiguous ACKs, receipt binding, and a retry that cannot fit before expiry.
 - **Not yet durable:** the struct is in-memory and has no database adapter, journal, atomic transaction, serialized checkpoint, or receiver-side durable deduplication. No crash/restart guarantee is claimed. The current receipt capability also lacks a separately verified receive timestamp, so this primitive conservatively rejects a receipt first observed at/after message expiry.
 
-**Follow-up implementation:** [issue #5062 — durable outbox/inbox replay](https://github.com/Luminous-Dynamics/mycelix/issues/5062). The remaining sequence is to integrate the lifecycle with a durable outbox and receiver inbox, then inject crashes around every state transition. Retries must retain one stable logical idempotency key across paths and restarts; storage commit success must not be confused with a network send or recipient receipt.
+**Protocol contract:** [DURABLE_DELIVERY_PROTOCOL.md](DURABLE_DELIVERY_PROTOCOL.md) specifies stable logical/envelope identity, outbox/inbox state transitions, worker fencing, receipt binding, and the crash/restart fault matrix. It is a design specification, not implementation proof. **Follow-up implementation:** [issue #5062 — durable outbox/inbox replay](https://github.com/Luminous-Dynamics/mycelix/issues/5062). The remaining sequence is to integrate the lifecycle with a durable outbox and receiver inbox, then inject crashes around every state transition. Retries must retain one stable logical idempotency key across paths and restarts; storage commit success must not be confused with a network send or recipient receipt.
 
 - Integrate the outbox/event state machine with the supported Pulse alpha path without exposing plaintext to adapters.
 - Exercise crash/restart, expiration, revocation, deduplication, partial receive, and bounded reassembly.
 - Validate the existing Pulse trusted receipt verifier rather than treating a trait boundary as cryptographic proof.
 
 **Exit:** exact-head tests over the real application integration, plus explicit failure evidence. Inject a crash after each durable write/send/receipt boundary; verify replay cannot double-count an outcome, exceed retry budgets, re-send after revocation/expiry, or fabricate delivery. No radio qualification implied.
+
+**Independent workstream:** [issue #5066 — calibrate the shared failure-domain model against consented traces](https://github.com/Luminous-Dynamics/mycelix/issues/5066). The common-draw mixture remains sensitivity analysis only. Calibration must use privacy-minimized data and hold out whole outage episodes/topologies, not randomly split correlated messages.
 
 ### P3 — First real adapters
 
