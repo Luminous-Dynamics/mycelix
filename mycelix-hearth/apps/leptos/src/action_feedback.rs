@@ -84,7 +84,7 @@ mod tests {
             (ActionFeedbackKind::PreviewOnly, "Preview only:"),
             (ActionFeedbackKind::Confirmed, "confirmed."),
             (ActionFeedbackKind::OutcomeUnknown, "couldn't confirm whether"),
-            (ActionFeedbackKind::NotSent { requirement: "a required detail" }, "Not sent:"),
+            (ActionFeedbackKind::NotSent { requirement: "sufficient information" }, "Not sent:"),
         ];
 
         for subject in subjects {
