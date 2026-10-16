@@ -259,7 +259,7 @@ cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- analyze /tmp/civ
 cargo test --manifest-path tools/civ-impact-census/Cargo.toml
 ```
 
-The verifier consumes a result file from a separately implemented evaluator. The paired analyzer reports descriptive cost-per-demand and cost-per-successfully-served-unit estimands plus service-rate changes. When the primary pair set is complete and nonzero-service, it also computes a reproducible, regime-stratified scenario-cluster percentile resampling interval (10,000 replicates). These are descriptive resampling intervals for the registered synthetic corpus, **not population confidence intervals or evidence of real-world generalization**. The analysis does not qualify causal savings or economic benefit.
+If any registered incumbent/full-stack pair is incomplete, the analyzer withholds headline means and deltas rather than presenting a complete-case subset as if it represented the registered schedule. The verifier consumes a result file from a separately implemented evaluator. The paired analyzer reports descriptive cost-per-demand and cost-per-successfully-served-unit estimands plus service-rate changes. When the primary pair set is complete and nonzero-service, it also computes a reproducible, regime-stratified scenario-cluster percentile resampling interval (10,000 replicates). These are descriptive resampling intervals for the registered synthetic corpus, **not population confidence intervals or evidence of real-world generalization**. The analysis does not qualify causal savings or economic benefit.
 
 ## 14. Current status
 
