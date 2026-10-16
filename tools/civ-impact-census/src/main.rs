@@ -1124,7 +1124,11 @@ fn command_analyze(args: &[String]) -> Result<(), Box<dyn Error>> {
     seed_hasher.update(&schedule_bytes);
     seed_hasher.update(&results_bytes);
     let seed_digest_bytes = seed_hasher.finalize();
-    let seed_digest = seed_digest_bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    let seed_digest = seed_digest_bytes
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<Vec<_>>()
+        .join("");
     let mut seed_prefix = [0u8; 8];
     seed_prefix.copy_from_slice(&seed_digest_bytes[..8]);
     let bootstrap_seed = u64::from_be_bytes(seed_prefix);
@@ -1136,7 +1140,7 @@ fn command_analyze(args: &[String]) -> Result<(), Box<dyn Error>> {
             "report": report,
             "schedule_artifact_sha256": sha256_hex(&schedule_bytes),
             "results_artifact_sha256": sha256_hex(&results_bytes),
-            "notice": "Descriptive paired metrics only. This command calculates no confidence interval and establishes no economic benefit."
+            "notice": "Reports descriptive metrics and scenario-cluster resampling intervals for this synthetic corpus only; it does not establish population-level confidence, causal effect, or economic benefit."
         }))?
     );
     Ok(())
