@@ -912,9 +912,34 @@ mod tests {
 
     #[test]
     fn versioned_adapter_round_trip_preserves_fixtures_and_500_generated_domains() {
+        let pinned_adapter: AdapterEnvelopeV1 = serde_json::from_str(include_str!(
+            "../fixtures/typed_lineage_adapter_v1.json"
+        )).expect("pinned v1 adapter fixture must parse");
         let fixture: FixtureSet = serde_json::from_str(include_str!(
             "../fixtures/typed_uncertainty_lineage.json"
         )).expect("typed lineage fixture must parse");
+        let pinned_source = fixture.cases.iter()
+            .find(|case| case.id == pinned_adapter.fixture_ref)
+            .expect("pinned adapter must name an existing typed-lineage case");
+        assert_eq!(
+            pinned_adapter,
+            AdapterEnvelopeV1::from_terms(
+                &pinned_source.id, pinned_source.evaluation_time_s, &pinned_source.terms
+            ),
+            "committed adapter fixture must match the explicit field mapping"
+        );
+        let pinned_terms = pinned_adapter.clone().into_core_terms()
+            .expect("pinned adapter must satisfy its v1 envelope contract");
+        assert_eq!(pinned_terms, pinned_source.terms,
+            "pinned adapter fixture must preserve all source metadata");
+        let pinned_bounds = TypedLineageModel::new(pinned_terms)
+            .expect("pinned adapter terms must construct a valid model")
+            .bounds_at(pinned_adapter.evaluation_time_s)
+            .expect("pinned adapter terms must evaluate");
+        assert_eq!(
+            [pinned_bounds.lower_mm, pinned_bounds.upper_mm],
+            pinned_source.expected_bounds_mm.expect("pinned source case must define expected bounds")
+        );
         for case in &fixture.cases {
             let expected = TypedLineageModel::new(case.terms.clone())
                 .and_then(|model| model.bounds_at(case.evaluation_time_s));
