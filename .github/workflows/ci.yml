@@ -450,12 +450,26 @@ jobs:
       - name: Initialize exact-head evidence
         working-directory: mycelix-workspace/mycelix-pulse
         run: mkdir -p evidence/standards-registry-ci
+      - name: Record dependency lock state at checkout
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          if git ls-files --error-unmatch standards-registry/validator/Cargo.lock >/dev/null 2>&1; then
+            echo "validator_lockfile_tracked_at_checkout=true" > evidence/standards-registry-ci/lock-state.txt
+          else
+            echo "validator_lockfile_tracked_at_checkout=false; later Cargo.lock is generated during CI, not pinned by this commit" > evidence/standards-registry-ci/lock-state.txt
+          fi
       - name: Check validator formatting
         working-directory: mycelix-workspace/mycelix-pulse
         run: cargo fmt --manifest-path standards-registry/validator/Cargo.toml -- --check
+      - name: Check transport core formatting
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: cargo fmt --manifest-path crates/pulse-transport-core/Cargo.toml -- --check
       - name: Run registry validator and negative controls
         working-directory: mycelix-workspace/mycelix-pulse
         run: cargo test --manifest-path standards-registry/validator/Cargo.toml
+      - name: Run isolated transport-core contract tests
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
       - name: Validate standards inventory
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
@@ -494,6 +508,9 @@ jobs:
             standards-registry/validator/src/main.rs \
             standards-registry/validator/src/bin/route-sim.rs \
             standards-registry/validator/src/bin/standards-search.rs \
+            crates/pulse-transport-core/Cargo.toml \
+            crates/pulse-transport-core/Cargo.lock \
+            crates/pulse-transport-core/src/lib.rs \
             benchmarks/traces.v1.json
           do
             sha256sum "$input"
