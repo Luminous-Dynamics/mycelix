@@ -139,8 +139,9 @@ These are proposed engineering gates, not existing results:
 The isolated crate now has `crates/pulse-transport-core/src/delivery_journal.rs`, an executable **in-memory reference model** for the storage-neutral journal boundary. It defines:
 
 - immutable identity as logical message ID + recipient ID + a caller-computed 32-byte envelope commitment;
-- optimistic stream revision compare-and-swap;
+- optimistic stream revision compare-and-swap, with owned snapshot/history reads so a database backend need not expose references into a process-local cache;
 - global event-ID idempotency and explicit rejection when an event ID is reused for different content;
+- a starter hard cap of 256 journal events per logical message in the in-memory reference model; a durable backend must return explicit capacity/storage errors and cannot silently pretend a failed history read is empty;
 - monotonic worker epochs that fence stale workers, treating a fenced in-flight attempt as possibly sent / unknown;
 - bounded attempt count, attempt outcome transitions, retry-not-before checks, expiry/revocation and receipt binding;
 - receipt event evidence that retains the encoded signed bytes and verifier-version label alongside the verifier-issued capability, so a durable adapter can persist source evidence and re-verify it during replay.
