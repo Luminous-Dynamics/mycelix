@@ -136,3 +136,10 @@ Do not optimize a single “wish fulfillment rate” metric. Publish outcome qua
 ### Exact-value rule for budgets
 
 The request schema represents `requested_budget.max_spend` as a non-negative decimal **string**, not a JSON floating-point number (for example `"12.50"`). This avoids silently rounding a money cap through binary floating-point parsing. Before any real commitment or payment, the execution boundary must validate that value against a pinned currency metadata version, reject excess fractional digits, use exact decimal/minor-unit arithmetic, and independently enforce the authorized amount. The schema's string pattern does not by itself establish the currency's permitted precision and does not authorize spending.
+
+
+### Snapshot and receipt integrity boundary
+
+A versioned Wish Request snapshot is not a mutable global truth record. Any change to goal, consent, visibility, state or evidence references creates a new version and digest; implementations should retain prior snapshots and append a state-transition event rather than silently overwriting history. The request schema validates reference shape and cross-field consistency only. It cannot prove that a plan, authorization, commitment, delivery receipt or outcome assessment exists, is authentic, or supports the stated conclusion; those artifacts require separate fetch, authorization, signature/provenance and policy checks. A production verifier must reject missing, revoked, expired, wrong-subject or wrong-scope references at the point of use.
+
+The fixture corpus includes both a valid evidence-backed fulfilled state and a “verified” state lacking its required assessment/delivery references. This guards against a benchmark that tests refusals without proving that legitimate success paths remain representable.
