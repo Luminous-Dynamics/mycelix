@@ -1,7 +1,7 @@
 {
   "schema": "airspace-paradigm-shift-benchmarks-v1",
   "status": "research_design_not_executable_benchmarks",
-  "reviewed_on": "2026-10-15",
+  "reviewed_on": "2026-10-16",
   "authority_ceiling": "offline_research_evaluation_only_no_operational_aviation_authority",
   "result_semantics": {
     "passing_means": "The implementation conforms to this synthetic benchmark contract under its declared assumptions.",
@@ -557,6 +557,40 @@
         "unknown_behavior_is_unresolved_not_defaulted",
         "all_results_bind_exact_inputs_models_rules_and_checker"
       ]
+    },
+    {
+      "id": "AIR-PB-018",
+      "name": "separate_source_origin_from_latent_error_dependency",
+      "paradigm": "explicit_dependency_graph_for_compositional_uncertainty",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Uncertainty composition is more faithful when a source/origin identifier is distinct from the identity of the latent error variable it contributes.",
+      "baseline": "A source label doubles as a latent-error key, so distinct origins cannot express a shared common-mode dependency and one origin cannot name separate independent error modes.",
+      "stimulus": "Pair distinct source IDs with one dependency ID and opposite coefficients; pair one source ID with two distinct dependency IDs; add a conflicting-bound mutation for a shared dependency.",
+      "success_conditions": [
+        "Distinct origins sharing one explicitly declared dependency are grouped for interval bounds while both source records remain available for audit.",
+        "One origin with distinct dependency IDs does not cancel merely because the origin matches.",
+        "A shared dependency with conflicting bounds is rejected.",
+        "All 11 versioned JSON vectors still match hand-derived expectations.",
+        "The grouped point-enumeration oracle keys latent values by dependency_id, not source_id."
+      ],
+      "falsifiers": [
+        "A source ID alone causes two distinct dependency modes to cancel.",
+        "Distinct origins with one declared dependency are incorrectly treated as independent by the affine evaluator.",
+        "A dependency accepts inconsistent bounds.",
+        "A result is described as authenticated merely because dependency IDs match."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output",
+        "Versioned source/dependency JSON vectors and their digest",
+        "Independent grouped point-enumeration oracle",
+        "Negative controls showing distinct dependencies do not cancel and conflicting ranges fail closed"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only scalar additive integer-affine forms; dependency IDs are declared claims, not authenticated correlation evidence; no flight dynamics or physical uncertainty qualification"
     }
   ]
 }
