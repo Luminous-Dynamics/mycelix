@@ -68,9 +68,7 @@ fn age_description(checked_at: u64, now: u64) -> String {
     if checked_at > now {
         return "The observation timestamp is invalid, so freshness is unknown.".into();
     }
-    let age = now - checked_at;
-    let unit = if age == 1 { "second" } else { "seconds" };
-    format!("Checked {age} {unit} ago.")
+    "This evidence is a snapshot and may become stale.".into()
 }
 
 /// Resident-friendly copy from a timestamped publication evidence snapshot.
@@ -234,7 +232,7 @@ mod tests {
         );
         assert!(copy.contains("no DHT operation receipt data"));
         assert!(copy.contains("Peer availability is unknown"));
-        assert!(copy.contains("Checked 4 seconds ago."));
+        assert!(copy.contains("snapshot and may become stale"));
         assert!(!copy.contains("threshold for all"));
     }
 
@@ -277,7 +275,7 @@ mod tests {
         );
         assert!(copy.contains("receipt threshold for all 4 DHT operation"));
         assert!(copy.contains("not proof every peer currently has the update"));
-        assert!(copy.contains("Checked 60 seconds ago."));
+        assert!(copy.contains("snapshot and may become stale"));
     }
 
     #[test]
