@@ -468,9 +468,45 @@
       "id": "WMA-021",
       "name": "event_sequence_gap",
       "scope": "monitor_harness",
-      "mutations": [],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/event_count",
+          "value": 2
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/first_event_sequence",
+          "value": 1
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/last_event_sequence",
+          "value": 3
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/dropped_event_count",
+          "value": 1
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/coverage_complete",
+          "value": false
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/assessment/coverage_status",
+          "value": "incomplete"
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/assessment/safety_disposition",
+          "value": "unresolved"
+        }
+      ],
       "digest_action": "recompute",
-      "event_case": "gap_in_stream",
+      "event_case": "event_sequence_gap",
       "expected": {
         "shape": "valid",
         "integrity": "valid",
@@ -535,7 +571,8 @@
       "expected": {
         "monitor_detection": "fail",
         "disposition": "monitor_not_qualified"
-      }
+      },
+      "qualification_case": "monitor_rejects_all_positive_controls"
     },
     {
       "id": "WMA-025",
@@ -547,7 +584,8 @@
       "expected": {
         "monitor_detection": "false_negative",
         "disposition": "monitor_not_qualified"
-      }
+      },
+      "qualification_case": "monitor_misses_scripted_positive_control"
     },
     {
       "id": "WMA-026",
