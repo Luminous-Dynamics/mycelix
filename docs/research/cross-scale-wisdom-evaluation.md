@@ -104,6 +104,8 @@ Potential outcomes include meta-awareness, decentering, non-reactivity, perspect
 For a later powered study:
 - Preregister one primary outcome and a smallest effect size of interest with independent input.
 - Include baseline, post-program, and follow-up (for example, three months), not engagement metrics alone.
+- Triangulate validated self-report with situation-specific performance tasks and (where ethical and feasible) observable behavior. Wisdom-measurement research warns that self-report and performance capture different aspects, correlations between measures are imperfect, and wise reasoning varies by situation.
+- Sample more than one type of situation instead of treating one vivid episode or one global trait score as the person's general capacity.
 - Report effect estimates, confidence intervals, missingness, adverse events, and subgroup differences.
 - Treat an effect such as standardized mean difference 0.20 as a *candidate planning threshold only*, to be justified for the chosen measure and context before data collection.
 - Do not interpret increased self-transcendence reports as proof of greater wisdom, moral behavior, metaphysical truth, or clinical benefit.
@@ -171,8 +173,8 @@ Treat integrations as optional adapters with versioned contracts. Each project r
 ## 7. Minimal execution plan
 
 1. **Freeze the evaluation vocabulary and claim ceilings.** Agree on the difference between report, interpretation, outcome, causal evidence, and normative judgment.
-2. **Create an initial 30–50 case synthetic corpus.** Cover incompatible religious/nonreligious positions, minority objections, uncertain evidence, adversarial authority claims, fabricated sources, consent revocation, distress, and requests for spiritual ranking. Publish the corpus version and ground-truth rationales.
-3. **Build deterministic conformance checks.** Test type/provenance preservation, consent boundaries, withdrawal behavior, no scalar ranking, and no authority escalation from confidence or reputation.
+2. **Seed corpus created; freeze it for review.** A synthetic seed of 32 scenarios now exists at [`docs/research/fixtures/cross-scale-wisdom-v1.jsonl`](fixtures/cross-scale-wisdom-v1.jsonl), with a SHA-256 manifest and schema notes. The exact current corpus digest is `1890fab66ac9a83730e118654782b836dab82eff26914b5304197251fb409cc1`. It covers provenance, incompatible worldviews, consent and revocation, distress, dependency, plural values, durable dissent, subgroup harm, simulated-versus-human evidence, citation integrity, and decision repair. It is a seed corpus, not yet an independently reviewed or production-qualified benchmark.
+3. **Build a deterministic Rust verifier against the frozen corpus.** Validate JSONL structure, unique case IDs, allowed evidence types, required invariants, exact SHA-256, and fail-closed status semantics. Bind any qualification to the exact corpus digest and per-case evidence receipts, reusing Symthaea WCARE-10 rather than creating a parallel qualification framework.
 4. **Run a tabletop red team with affected users and cultural/religious stewards.** Include people who prefer nonreligious practices and people who do not want to disclose spiritual beliefs. Participation must be compensated where possible and entirely voluntary.
 5. **Only then design the human pilot.** Obtain independent ethics review, select validated measures, preregister hypotheses and analysis, power the study appropriately, and publish the protocol before collecting outcome data.
 
