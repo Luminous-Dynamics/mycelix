@@ -67,8 +67,12 @@ impl Aggregate {
             "p50_modeled_latency_ms": percentile(&self.latencies_ms, 50),
             "p95_modeled_latency_ms": percentile(&self.latencies_ms, 95),
             "attempts_per_1000_messages": scaled_per_message(self.attempts, self.messages, 1000),
-            "mean_cost_units_x1000": scaled_per_message(self.cost_units, self.messages, 1000),
-            "mean_energy_millijoules_x1000": scaled_per_message(
+            "illustrative_cost_units_per_message_x1000": scaled_per_message(
+                self.cost_units,
+                self.messages,
+                1000
+            ),
+            "illustrative_energy_input_millijoules_per_message_x1000": scaled_per_message(
                 self.energy_millijoules,
                 self.messages,
                 1000
@@ -234,6 +238,7 @@ pub fn simulate_corpus(
         "seed": seed,
         "messages_per_scenario": messages,
         "scenario_count": scenarios.len(),
+        "per_message_cost_and_energy_scale_factor": 1000,
         "simulation_only": true,
         "authenticated_delivery_established": false,
         "hardware_qualification": false,
