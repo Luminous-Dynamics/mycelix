@@ -448,9 +448,8 @@
   "evaluation_split": {
     "schema_version": "1.0.0",
     "split_id": "pulse-routing-evaluation-split-v1",
-    "rule": "Scenario-level holdout is declared before evaluation and must be a disjoint, exhaustive partition. Holdout scenarios are evaluated but not used to tune candidate policies.",
+    "rule": "Scenario-level development/holdout split is disjoint and exhaustive; resilience scenarios are a declared subset of holdout. Holdout scenarios are evaluated but not used to tune candidate policies.",
     "development_scenario_ids": [
-      "scheduled-ip-outage",
       "local-only-first-contact",
       "compact-narrowband-message",
       "oversize-envelope",
@@ -459,6 +458,7 @@
     ],
     "holdout_scenario_ids": [
       "stable-ip",
+      "scheduled-ip-outage",
       "privacy-policy-excludes-relay",
       "flapping-primary",
       "energy-constrained",
@@ -468,6 +468,11 @@
       "This split is for synthetic model development/evaluation only.",
       "A split declaration does not itself prove no prior tuning used these scenarios.",
       "Seeds are deterministic model replicates, not independent real-world network samples."
+    ],
+    "resilience_scenario_ids": [
+      "scheduled-ip-outage",
+      "flapping-primary",
+      "shared-carrier-failure-domain"
     ]
   }
 }
