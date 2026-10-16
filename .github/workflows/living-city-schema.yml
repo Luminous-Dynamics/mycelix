@@ -46,4 +46,6 @@ jobs:
       - name: Validate urban metabolism, conservation balances, and synergy counterfactuals
         run: python scripts/living-city/validate_metabolism.py
       - name: Smoke-test synthetic scale benchmark
+        env:
+          LIVING_CITY_BENCHMARK_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python scripts/living-city/benchmark_metabolism.py --sizes 1000 --repeats 1 --warmups 0 --runner-label "ubuntu-latest smoke run"

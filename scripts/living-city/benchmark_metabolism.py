@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+from importlib.metadata import version
 import json
 import math
 import os
@@ -190,9 +191,9 @@ def parent_main(args):
     report = {
         "benchmark_schema": "living-city-validator-benchmark/0.1",
         "classification": "synthetic developer benchmark; not a city result",
-        "commit": os.environ.get("GITHUB_SHA", "unknown"),
+        "commit": os.environ.get("LIVING_CITY_BENCHMARK_COMMIT", os.environ.get("GITHUB_SHA", "unknown")),
         "python": sys.version.split()[0],
-        "jsonschema": load_validator_module().jsonschema.__version__ if hasattr(load_validator_module(), "jsonschema") else "unknown",
+        "jsonschema": version("jsonschema"),
         "platform": platform.platform(),
         "cpu_count": os.cpu_count(),
         "target_cpu_ram": args.runner_label,
