@@ -148,6 +148,9 @@ pub fn simulate_corpus(
         .get("default_message_count")
         .and_then(Value::as_u64)
         .unwrap_or(0);
+    if default_messages == 0 {
+        errors.push("default_message_count must be greater than zero".to_owned());
+    }
     let messages = message_count_override.unwrap_or(default_messages);
     if messages == 0 || messages > MAX_MESSAGES {
         errors.push(format!("message count must be between 1 and {MAX_MESSAGES}"));
@@ -164,7 +167,7 @@ pub fn simulate_corpus(
             "trace corpus must contain between 1 and {MAX_SCENARIOS} scenarios"
         ));
     }
-    let scenarios = scenarios_value
+    let mut scenarios = scenarios_value
         .iter()
         .enumerate()
         .filter_map(|(index, value)| match parse_scenario(value, index) {
@@ -175,6 +178,10 @@ pub fn simulate_corpus(
             }
         })
         .collect::<Vec<_>>();
+
+    if default_messages > 0 && messages > 0 {
+        scale_unavailable_ranges(&mut scenarios, default_messages, messages);
+    }
 
     let mut scenario_ids = BTreeSet::new();
     for scenario in &scenarios {
@@ -243,6 +250,11 @@ pub fn simulate_corpus(
         "corpus_id": corpus_id,
         "seed": seed,
         "messages_per_scenario": messages,
+        "trace_timeline_reference_messages": default_messages,
+        "outage_schedule_scaling": {
+            "method": "half-open unavailable ranges are scaled from the declared default-message timeline to the requested simulation message count using floor(start) and ceil(end)",
+            "note": "A short smoke run samples the whole declared schedule instead of only the initial prefix; this preserves outage/recovery phases but remains a synthetic model."
+        },
         "scenario_count": scenarios.len(),
         "failure_correlation_model": {
             "default_common_draw_mixture_basis_points": 10000,
@@ -427,6 +439,38 @@ fn parse_path(value: &Value, scenario_prefix: &str, index: usize) -> Result<Path
         })
     } else {
         Err(errors)
+    }
+}
+
+/// Scale half-open outage ranges from the corpus reference timeline to
+/// the actual run length, retaining each declared outage/recovery phase in
+/// short smoke runs. Integer floor/ceil avoids dropping narrow ranges.
+fn scale_unavailable_ranges(
+    scenarios: &mut [Scenario],
+    reference_messages: u64,
+    simulated_messages: u64,
+) {
+    if reference_messages == 0 || simulated_messages == 0 {
+        return;
+    }
+    let reference = u128::from(reference_messages);
+    let run_length = u128::from(simulated_messages);
+    for scenario in scenarios {
+        for path in &mut scenario.paths {
+            for (start, end) in &mut path.unavailable_ranges {
+                let scaled_start = (u128::from(*start) * run_length / reference)
+                    .min(run_length) as u64;
+                let end_numerator = u128::from(*end) * run_length;
+                let scaled_end = end_numerator
+                    .saturating_add(reference - 1)
+                    .checked_div(reference)
+                    .unwrap_or(0)
+                    .min(run_length) as u64;
+                *start = scaled_start;
+                *end = scaled_end.max(scaled_start);
+            }
+            path.unavailable_ranges.retain(|(start, end)| start < end);
+        }
     }
 }
 
@@ -898,6 +942,36 @@ mod tests {
         assert!(errors.iter().any(|error| {
             error.contains("failure_correlation_basis_points")
         }));
+    }
+
+    #[test]
+    fn short_smoke_runs_scale_outage_windows_across_the_declared_timeline() {
+        let corpus = corpus();
+        let mut scenarios = corpus["scenarios"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(index, value)| parse_scenario(value, index).expect("scenario parses"))
+            .collect::<Vec<_>>();
+        let shared_index = scenarios
+            .iter()
+            .position(|scenario| scenario.id == "shared-carrier-failure-domain")
+            .unwrap();
+        scale_unavailable_ranges(&mut scenarios, 10_000, 1_000);
+        let scenario = &scenarios[shared_index];
+        let carrier = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-a")
+            .unwrap();
+        assert_eq!(carrier.unavailable_ranges, vec![(0, 300)]);
+        assert!(!eligible(scenario, carrier, 299));
+        assert!(eligible(scenario, carrier, 300));
+
+        let report = simulate_corpus(&corpus, Some(1_000), Some(20261016)).unwrap();
+        assert_eq!(report["trace_timeline_reference_messages"], 10_000);
+        assert!(report["outage_schedule_scaling"]["method"].is_string());
     }
 
     #[test]
