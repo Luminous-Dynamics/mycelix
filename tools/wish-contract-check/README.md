@@ -24,6 +24,7 @@ cargo run --manifest-path tools/wish-contract-check/Cargo.toml
 - Fixture paths must be relative and may not traverse outside the fixture directory.
 - The benchmark preregistration manifest must account for 120 synthetic episodes across 12 unique strata, 12 unique policy/control arms, matched-budget design invariants, zero-valued hard safety gates and an evaluator-only oracle.
 - The separate 40-probe containment overlay must retain default-deny network policy, external enforcement, complete telemetry, 36 adversarial probes, four local-mock positive controls and zero-valued hard gates.
+- The benchmark manifest also requires zero accepted invalid/unauthorized evidence, cross-wish or snapshot-revision replay, and unsupported signature suites. These are manifest invariants, not evidence that cryptographic verification has been implemented or run.
 
 Money budgets are encoded as exact decimal strings, not floating-point JSON numbers; a real action boundary must additionally validate precision against a pinned currency metadata version. The digest is an integrity check, **not** proof that the requester's statements or source claims are true. A hash also does not authenticate a producer without an independently verified signature/key binding.
 
