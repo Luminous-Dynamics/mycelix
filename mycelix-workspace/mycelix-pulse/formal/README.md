@@ -1,26 +1,35 @@
 # Pulse delivery model-checking starter
 
-This directory contains a deliberately small TLA+ state model for one logical message and one recipient.
+This directory is a deliberately small, bounded TLA+ model and qualification plan for one logical message and one recipient. It is a design aid—not a checker result and not a proof of the Rust implementation.
 
 ## Run
 
 With the TLA+ tools installed, from this directory:
 
-\`\`\`sh
+~~~sh
 java -cp tla2tools.jar tlc2.TLC -config PulseDelivery.cfg PulseDelivery.tla
-\`\`\`
+~~~
 
-The command assumes \`tla2tools.jar\` is available locally; it is not vendored here.
+The command assumes tla2tools.jar is available locally; it is not vendored here.
 
-## What this model currently checks
+## Model represented
 
-- State typing over a finite worker-epoch bound.
-- A delivered state requires receipt evidence and a committed receiver inbox.
-- Receipt evidence cannot exist before inbox commitment.
-- Send authorization checks revocation, expiry, and current worker/lease epoch.
+- Finite worker epochs and explicit lease reacquisition after restart.
+- A crash toggles worker availability and records that an interrupted attempt requires recovery.
+- An interrupted attempt is classified as unknown during recovery rather than inferred to be failed or delivered.
+- unknown can be resolved to delivered only with abstract receipt evidence, receiver inbox commitment, and a current worker lease.
+- A verified receipt must be associated with a committed inbox in this abstraction.
+- New send authorization checks the worker/lease epoch, revocation, and expiry.
+
+## Machine-readable qualification artifacts
+
+- invariants.json defines 10 stable safety/liveness property IDs, current starter-model coverage, known gaps, and proposed negative controls. Its coverage labels are plans, not proof results.
+- benchmark-plan.md separates hard correctness gates from provisional performance goals and specifies fault-boundary, scale, and provenance requirements.
 
 ## Important limitations
 
-This is a bounded design sketch, not a model-checking result and not a proof of the Rust implementation. No TLC execution result is claimed in this change. The model intentionally abstracts away real cryptography, durable storage semantics, retries, multiple messages/recipients, receipt contents, and actual concurrent storage transactions. The inbox is represented by a Boolean, so its at-most-once property is structural rather than a stress test of a collection-backed deduplication algorithm.
+No TLC syntax/configuration validation or model execution is claimed here. No Rust compile/test or CI pass is claimed. The model intentionally abstracts away cryptographic receipt contents, exact message/recipient/commitment binding, durable storage and torn writes, multiple messages/recipients, concurrent duplicate handlers, transport failure classes beyond interrupted attempts, retry scheduling, event-journal replay, and real transaction semantics. The receiver inbox and receipt evidence are Booleans, so the model does not implement collection-backed deduplication or cryptographic verification.
 
-Next steps are to expand the model alongside issue #5091: add nondeterministic crash points around durable boundaries, concurrent duplicate handlers, persistent idempotency keys, stale worker resumption, policy-generation races, and mutant checks. Each model counterexample should become a deterministic Rust regression test. Keep assumptions and boundedness explicit; a successful bounded check would not establish an unbounded theorem or real-world delivery guarantee.
+A successful bounded TLC run would show only that the encoded properties hold in the specified finite model. It would not establish an unbounded theorem, implementation refinement, storage durability, production liveness, or real-world delivery reliability.
+
+Next steps are tracked in issue #5091: validate syntax; review assumptions and reachable states; add explicit identity/commitment maps, receiver concurrency, durable write/recovery boundaries, policy-generation races, and bounded history; then require a deliberately broken mutant for each critical invariant and a deterministic Rust regression for every counterexample. Bind any eventual report to the exact commit SHA, model/config/tool digests, bounds, state count, and raw counterexample traces. Keep queued, skipped, and missing evidence distinct from passed.
