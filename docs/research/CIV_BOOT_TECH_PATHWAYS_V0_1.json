@@ -1,0 +1,1314 @@
+{
+  "schema_version": "civ-boot-technology-pathways/0.1",
+  "title": "Primitive-to-modern technology pathways: P1-P3 pilot",
+  "status": "research_seed",
+  "claim_ceiling": "Conceptual graph only. No edge establishes a local process recipe, cost, timeline, safety, or physical reproducibility.",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/3807",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5063",
+  "rules": {
+    "requires_all": "Every listed prerequisite must be qualified.",
+    "requires_any": "At least one listed alternative must be qualified; alternatives do not inherit one another's evidence.",
+    "external_tokens": "Tokens prefixed or named as imported, salvaged, qualified, or locally demonstrated are explicit scenario assertions and need their own evidence in any real profile.",
+    "unknown_prerequisite": "Unknown or conflicting prerequisites block the stronger capability claim; never assume true.",
+    "evidence": "Evidence attaches to a specific claim under a specific profile, not to a technology name globally.",
+    "state_ladder": [
+      "use",
+      "maintain",
+      "repair",
+      "replacement_part_production",
+      "productive_equipment_reproduction",
+      "metrology_and_tooling_renewal",
+      "independent_transfer"
+    ],
+    "history": "Edges are dependency hypotheses, not a universal chronology. Alternative modern routes may leapfrog historical stages but cannot erase their own real dependencies.",
+    "physical_authority": "No graph result grants authority to allocate resources, purchase, energize equipment, manufacture products, or operate machinery."
+  },
+  "evidence_tiers": {
+    "E0": "Conceptual proposal or hypothesis.",
+    "E1": "Credible historical account or specialist reference.",
+    "E2": "Directly documented process with known conditions.",
+    "E3": "Independently reproduced controlled demonstration.",
+    "E4": "Field demonstrated under a bounded local profile.",
+    "E5": "Reproduced by a separately operated node using transferred knowledge and qualified inputs."
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "secondary_synthesis",
+      "author": "Lewis Dartnell",
+      "title": "The Knowledge: How to Rebuild Our World from Scratch",
+      "year": 2014,
+      "url": "https://books.google.com/books/about/The_Knowledge.html?id=_uBdngEACAAJ",
+      "use": "Orientation and bibliography seed across agriculture, materials, power, transport, communications, chemistry and scientific knowledge.",
+      "limits": "Not a validated field manual; technical claims and conditions require specialist verification."
+    },
+    {
+      "id": "S2",
+      "type": "peer_reviewed_history",
+      "title": "Connecting the Scientific and Industrial Revolutions: The Role of Practical Mathematics",
+      "year": 2022,
+      "url": "https://doi.org/10.1017/S0022050722000250",
+      "use": "Research anchor for relationships between practical mathematics, precision measurement, instrument-making and machine tools.",
+      "limits": "Historical explanatory evidence; not direct qualification of a modern local production route."
+    },
+    {
+      "id": "S3",
+      "type": "peer_reviewed_history",
+      "title": "The development and use of machine tools in historical perspective",
+      "year": 1984,
+      "url": "https://doi.org/10.1016/0167-2681(84)90028-3",
+      "use": "Research anchor for machine-tool development, productivity and industrial organization.",
+      "limits": "Historical overview; does not specify local input, cost or feasibility."
+    },
+    {
+      "id": "S4",
+      "type": "community_knowledge_guidance",
+      "title": "UNESCO: Traditional craftsmanship",
+      "url": "https://ich.unesco.org/en/traditional-craftsmanship-00057",
+      "use": "Guidance on transmission and community context of traditional craft skills.",
+      "limits": "Not a technical process specification; community consent and knowledge restrictions must be respected."
+    },
+    {
+      "id": "S5",
+      "type": "community_knowledge_guidance",
+      "title": "UNESCO: Transmission",
+      "url": "https://ich.unesco.org/en/transmission-00078",
+      "use": "Guidance on knowledge and skills transfer across generations.",
+      "limits": "Not a technical process specification; practitioners remain active knowledge holders."
+    },
+    {
+      "id": "S6",
+      "type": "open_hardware_project_documentation",
+      "title": "RepRap Development Pathway",
+      "url": "https://reprap.org/wiki/Development_Pathway",
+      "use": "Engineering analogy for replication factors and externally supplied non-printed components ('vitamins').",
+      "limits": "Project documentation, not a validated computer-manufacturing process or universal replication metric."
+    },
+    {
+      "id": "S7",
+      "type": "industry_supply_chain_analysis",
+      "title": "Understanding Dependencies in the U.S. Semiconductor Supply Chain",
+      "url": "https://www.semiconductors.org/understanding-dependencies-in-the-u-s-semiconductor-supply-chain/",
+      "use": "Motivates explicit multi-tier supplier and materials/equipment dependency records.",
+      "limits": "Sector-level supply-chain analysis, not local availability evidence."
+    },
+    {
+      "id": "S8",
+      "type": "government_metrology_program",
+      "title": "NIST CHIPS R&D Metrology Program",
+      "url": "https://www.nist.gov/chips/research-development-programs/metrology-program",
+      "use": "Motivates explicit measurement, materials provenance, standards and test evidence in electronics manufacturing.",
+      "limits": "Program overview; does not qualify this pilot's processes or equipment."
+    },
+    {
+      "id": "S9",
+      "type": "open_hardware_reference_project",
+      "title": "Nhyodyne: A Modular Backplane Computer",
+      "url": "https://github.com/lynchaj/nhyodyne",
+      "use": "Educational reference for modular computer boards, separate functions, Gerber availability and assembly from off-the-shelf components.",
+      "limits": "The repository README says the design is intended for hobbyist and educational use and discourages commercial use. Do not treat this as a commercial production base without rights/permission review. A Z80 system is not presumed capable of running a modern manufacturing workflow."
+    },
+    {
+      "id": "S10",
+      "type": "open_hardware_reference",
+      "title": "KiCad Open Hardware Blocks",
+      "url": "https://github.com/landrylelouche/kicad_hw_reference",
+      "use": "Candidate C0-C3 learning rig: public documentation describes a GD32VF103 RISC-V MCU block with KiCad schematic/routed board, BOM and Gerber/drill artifacts under CERN-OHL-P v2.",
+      "limits": "Candidate reference only. Not a complete host computer or C4/C5 platform; verify the current revision, exact BOM, component supply, source provenance, and physical build/qualification."
+    },
+    {
+      "id": "S11",
+      "type": "open_hardware_robotics_reference",
+      "title": "Workbench mobile-home-robot hardware tree",
+      "url": "https://github.com/Quchaosheng/workbench-mobile-home-robot/tree/main/hardware",
+      "use": "Additional controller/subassembly reference for a more complex board-level learning track.",
+      "limits": "Audit exact subassembly and per-file license scope, BOM completeness, revision status and qualification before reuse; repository presence alone does not establish reproducible physical hardware."
+    },
+    {
+      "id": "S12",
+      "type": "reproducible_build_guidance",
+      "title": "Reproducible Builds — Building from source",
+      "url": "https://reproducible-builds.org/docs/build-toolchain-from-source/",
+      "use": "Guidance for source/toolchain pinning and selecting between network retrieval, vendoring, and distributable build toolchains.",
+      "limits": "General software build guidance; does not qualify this hardware/firmware package."
+    },
+    {
+      "id": "S13",
+      "type": "reproducible_build_guidance",
+      "title": "Reproducible Builds — Making plans",
+      "url": "https://reproducible-builds.org/docs/plans/",
+      "use": "Guidance for specifying source/build environments and testing reproducibility under environmental variation.",
+      "limits": "General software-build guidance; its output-comparison requirements must be tailored to hardware and firmware artifacts."
+    },
+    {
+      "id": "S14",
+      "type": "official_sbc_hardware_documentation",
+      "title": "BeagleBone Black documentation and hardware design archive",
+      "url": "https://docs.beagleboard.org/boards/beaglebone/black/index.html",
+      "use": "Candidate Linux-capable host/reference package; official documentation describes Linux boot and CC BY-SA 4.0 design-material terms, while repository includes design artifacts such as schematic, BOM and manufacturing files.",
+      "limits": "Design materials are documented as unsupported/as-is; exact BOM/revisions, component sourcing, license implications, performance, thermals, power, repairability and local build qualification remain unverified."
+    },
+    {
+      "id": "S15",
+      "type": "maintained_open_eda_flow",
+      "title": "LibreLane",
+      "url": "https://github.com/librelane/librelane",
+      "use": "Maintained reproducible/traceable RTL-to-GDS digital implementation flow candidate for the optional external ASIC branch.",
+      "limits": "Specific tool version, PDK, constraints, design and output artifacts must be pinned; running a flow or producing GDS does not demonstrate fabrication, packaged function or local fab closure."
+    },
+    {
+      "id": "S16",
+      "type": "government_research_review",
+      "title": "Innovations in advanced processes and systems for semiconductor manufacturing",
+      "url": "https://doi.org/10.1016/j.cirp.2026.04.115",
+      "use": "2026 review of semiconductor manufacturing process control, in-line metrology, advanced packaging and ecosystem dependencies.",
+      "limits": "Industry-level perspective, not qualification of a local process or a specific Symthaea design."
+    },
+    {
+      "id": "S17",
+      "type": "government_technology_readiness_guidance",
+      "title": "NASA Technology Readiness Levels",
+      "url": "https://www.nasa.gov/directorates/somd/space-communications-navigation-program/technology-readiness-levels/",
+      "use": "Reference for separating concept, breadboard validation, prototype and operational evidence.",
+      "limits": "General readiness framework, not a direct qualification of hardware manufacturing capability."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "N01_observation_and_shared_records",
+      "label": "Observation, counting, shared measures and recordkeeping",
+      "family": "knowledge",
+      "requires_all": [],
+      "requires_any": [],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "transfer"
+      ],
+      "questions": [
+        "Which local measures are repeatable and comparable?",
+        "Who maintains records and teaches the practice?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S2",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "N02_resource_and_skill_census",
+      "label": "Local resource, tool, energy and skill census",
+      "family": "assessment",
+      "requires_all": [
+        "N01_observation_and_shared_records"
+      ],
+      "requires_any": [],
+      "questions": [
+        "Are inventories observed or only reported?",
+        "Which seasonal, ecological and access constraints apply?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1"
+      ]
+    },
+    {
+      "id": "N03_manual_tools_and_workholding",
+      "label": "Manual tools, workholding and basic repair",
+      "family": "tools",
+      "requires_all": [
+        "N02_resource_and_skill_census"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "replacement_part_production"
+      ],
+      "questions": [
+        "Which tools and materials are actually present?",
+        "Which tasks require unrepresented specialist skill?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S4"
+      ]
+    },
+    {
+      "id": "N04_material_processing_routes",
+      "label": "Bounded material shaping, joining and transformation routes",
+      "family": "materials",
+      "requires_all": [
+        "N02_resource_and_skill_census"
+      ],
+      "requires_any": [
+        "basic_local_material_processing_route",
+        "qualified_existing_or_imported_material_process"
+      ],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "replacement_part_production",
+        "productive_equipment_reproduction"
+      ],
+      "questions": [
+        "Which resource and material grades are verified?",
+        "What energy, waste and ecological limits apply?",
+        "Which routes are locally demonstrated?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S4"
+      ]
+    },
+    {
+      "id": "N05_repeatable_measurement_and_references",
+      "label": "Repeatable measurement and reference-artifact continuity",
+      "family": "metrology",
+      "requires_all": [
+        "N01_observation_and_shared_records"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "calibrate",
+        "reference_renewal",
+        "transfer"
+      ],
+      "questions": [
+        "What is the uncertainty of the reference?",
+        "How is it checked and renewed?",
+        "Which claims require external calibration?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S2",
+        "S3"
+      ]
+    },
+    {
+      "id": "N06_cutting_tools_and_fixtures",
+      "label": "Renewable cutting tools, jigs, fixtures and workholding",
+      "family": "precision_tools",
+      "requires_all": [
+        "N04_material_processing_routes",
+        "N05_repeatable_measurement_and_references"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "tooling_renewal"
+      ],
+      "questions": [
+        "What material properties and tolerances are required?",
+        "Can wear surfaces and cutting edges be renewed?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S2",
+        "S3"
+      ]
+    },
+    {
+      "id": "N07_usable_mechanical_drive",
+      "label": "A bounded useful-work drive or power input",
+      "family": "power",
+      "requires_all": [],
+      "requires_any": [
+        "manual_or_animal_power",
+        "site_suitable_water_or_wind_power",
+        "salvaged_or_imported_power_unit",
+        "qualified_imported_or_existing_electrical_service"
+      ],
+      "questions": [
+        "Is the resource seasonal?",
+        "Are bearings, lubrication, structures and guards available?",
+        "Can operating limits be established?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S3"
+      ]
+    },
+    {
+      "id": "N08_operational_machine_tool",
+      "label": "Use of an available machine tool for a bounded task",
+      "family": "manufacturing",
+      "requires_all": [
+        "N07_usable_mechanical_drive"
+      ],
+      "requires_any": [
+        "salvaged_or_imported_machine_tool",
+        "qualified_existing_machine_tool"
+      ],
+      "separate_capabilities": [
+        "use"
+      ],
+      "questions": [
+        "Is the actual machine operational and correctly configured?",
+        "What tasks, materials and limits are qualified?",
+        "What does not follow about maintenance or local reproduction?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S2",
+        "S3"
+      ]
+    },
+    {
+      "id": "N09_inspectable_machine_tool_output",
+      "label": "Production with a stated, valid inspection basis",
+      "family": "quality",
+      "requires_all": [
+        "N08_operational_machine_tool",
+        "N04_material_processing_routes",
+        "N05_repeatable_measurement_and_references"
+      ],
+      "requires_any": [
+        "qualified_inspection_route",
+        "locally_demonstrated_inspection_route"
+      ],
+      "separate_capabilities": [
+        "conforming_output"
+      ],
+      "questions": [
+        "Are measurement uncertainty and calibration current?",
+        "Are material identity, process revision and acceptance criteria traceable?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S2",
+        "S3"
+      ]
+    },
+    {
+      "id": "N10_local_machine_tool_reproduction",
+      "label": "Locally reproduced machine-tool capability",
+      "family": "productive_equipment_reproduction",
+      "requires_all": [
+        "N04_material_processing_routes",
+        "N05_repeatable_measurement_and_references",
+        "N06_cutting_tools_and_fixtures",
+        "N07_usable_mechanical_drive"
+      ],
+      "requires_any": [
+        "locally_demonstrated_lower_tool_machine_route",
+        "qualified_machine_tool_assisted_reproduction_route"
+      ],
+      "separate_capabilities": [
+        "replacement_part_production",
+        "productive_equipment_reproduction",
+        "tooling_renewal"
+      ],
+      "questions": [
+        "Which spindles, slides, bearings, motors and controls remain external?",
+        "Can the calibration and cutting-tool renewal chains also be maintained?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S2",
+        "S3"
+      ]
+    },
+    {
+      "id": "N11_usable_electrical_supply",
+      "label": "Use of an existing or locally demonstrated electrical supply",
+      "family": "electrical",
+      "requires_all": [],
+      "requires_any": [
+        "qualified_imported_or_existing_electrical_service",
+        "qualified_local_electrical_supply"
+      ],
+      "separate_capabilities": [
+        "use"
+      ],
+      "questions": [
+        "Are protection, insulation, grounding, storage and load limits qualified?",
+        "Which supply and replacement dependencies remain external?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1"
+      ]
+    },
+    {
+      "id": "N12_local_electromechanical_reproduction",
+      "label": "Local reproduction of selected electromechanical equipment",
+      "family": "productive_equipment_reproduction",
+      "requires_all": [
+        "N04_material_processing_routes",
+        "N05_repeatable_measurement_and_references",
+        "N06_cutting_tools_and_fixtures",
+        "N07_usable_mechanical_drive"
+      ],
+      "requires_any": [
+        "locally_demonstrated_generator_or_motor_route",
+        "qualified_machine_tool_assisted_electromechanical_route"
+      ],
+      "separate_capabilities": [
+        "replacement_part_production",
+        "productive_equipment_reproduction",
+        "metrology_and_tooling_renewal"
+      ],
+      "questions": [
+        "Which conductors, insulation, magnetic materials, bearings, controls and test equipment are mandatory?",
+        "What electrical safety and qualification evidence is required?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S3"
+      ]
+    },
+    {
+      "id": "N13_computation_and_communication_use",
+      "label": "Use of an available computer or communications module",
+      "family": "information",
+      "requires_all": [
+        "N01_observation_and_shared_records"
+      ],
+      "requires_any": [
+        "N11_usable_electrical_supply",
+        "qualified_battery_power"
+      ],
+      "requires_any_module": [
+        "salvaged_or_imported_computing_module",
+        "qualified_existing_computing_module"
+      ],
+      "separate_capabilities": [
+        "use"
+      ],
+      "questions": [
+        "What power, storage, interface, language and maintenance constraints apply?",
+        "What remains usable without the network?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1"
+      ]
+    },
+    {
+      "id": "N14_electronics_maintenance_and_repair",
+      "label": "Diagnostics and repair of selected electronic assemblies",
+      "family": "electronics",
+      "requires_all": [
+        "N05_repeatable_measurement_and_references"
+      ],
+      "requires_any": [
+        "N11_usable_electrical_supply",
+        "qualified_battery_power"
+      ],
+      "requires_any_module": [
+        "qualified_electronics_diagnostic_tools_and_parts",
+        "locally_demonstrated_electronics_repair_route"
+      ],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "replacement_part_production"
+      ],
+      "questions": [
+        "What test equipment, schematics and skills are available?",
+        "Which components can actually be replaced and tested?",
+        "What protections are required?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1"
+      ]
+    },
+    {
+      "id": "N15_semiconductor_manufacturing_unresolved",
+      "label": "Advanced semiconductor-device manufacturing: placeholder with unresolved critical dependencies",
+      "family": "advanced_manufacturing",
+      "requires_all": [],
+      "requires_any": [],
+      "closure_status": "blocked_unknown_dependencies",
+      "unresolved_required_dependency_classes": [
+        "ultra_pure_feedstocks",
+        "ultra_pure_process_chemicals_and_water",
+        "contamination_control",
+        "vacuum",
+        "deposition_and_etch",
+        "lithography",
+        "precision_metrology",
+        "process_equipment_maintenance_and_reproduction",
+        "yield_control",
+        "specialist_workforce_and_training",
+        "reliable_power_and_thermal_management",
+        "packaging_and_test"
+      ],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "replacement_part_production",
+        "productive_equipment_reproduction"
+      ],
+      "questions": [
+        "Do not count this node as closed until each required dependency is modeled and qualified."
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "N16_durable_technical_knowledge_packet",
+      "label": "Versioned, duplicateable technical knowledge packet and training path",
+      "family": "knowledge",
+      "requires_all": [
+        "N01_observation_and_shared_records"
+      ],
+      "requires_any": [
+        "durable_printed_or_manual_archive",
+        "qualified_digital_archive"
+      ],
+      "separate_capabilities": [
+        "use",
+        "maintenance",
+        "versioning",
+        "skill_transfer",
+        "independent_reproduction"
+      ],
+      "questions": [
+        "Are diagrams, worked examples, units, revisions, failure modes, rights and training/assessment methods included?",
+        "Can the packet be used offline?"
+      ],
+      "evidence_tier": "E0",
+      "source_refs": [
+        "S1",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "N17_computer_assembled_from_qualified_modules",
+      "label": "Assemble a working computer from qualified modules and an exact BOM",
+      "family": "computer_systems",
+      "requires_all": [
+        "N01_observation_and_shared_records",
+        "N11_usable_electrical_supply",
+        "N13_computation_and_communication_use",
+        "qualified_compute_module",
+        "qualified_memory_storage",
+        "qualified_board_or_backplane",
+        "qualified_power_module",
+        "qualified_interconnect_set",
+        "qualified_cooling_module",
+        "qualified_boot_artifact",
+        "assembly_and_electrical_test_capability"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "use",
+        "maintain",
+        "repair",
+        "replaceable_module"
+      ],
+      "not_implied": [
+        "locally manufactured compute die",
+        "local memory manufacture",
+        "local PCB manufacture",
+        "local productive-equipment reproduction"
+      ],
+      "questions": [
+        "Is the exact BOM revision complete and all parts physically available?",
+        "Can a separate operator assemble and cold-boot it from the transfer packet?",
+        "Which modules remain imported and which are replaceable?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S1",
+        "S6"
+      ]
+    },
+    {
+      "id": "N18_local_computer_mechanical_subsystems",
+      "label": "Fabricate selected computer enclosure, brackets, cooling ducts and fixtures locally",
+      "family": "computer_mechanics",
+      "requires_all": [
+        "N03_manual_tools_and_workholding",
+        "N05_repeatable_measurement_and_references",
+        "N04_material_processing_routes"
+      ],
+      "requires_any": [
+        "qualified_local_additive_or_subtractive_fabrication"
+      ],
+      "separate_capabilities": [
+        "replacement_part_production",
+        "local_mechanical_subsystem_reproduction"
+      ],
+      "not_implied": [
+        "PCB manufacture",
+        "electronic component manufacture",
+        "semiconductor fabrication"
+      ],
+      "questions": [
+        "Are the material, dimensions, thermal properties and mechanical loads qualified for this exact part?",
+        "What tooling, consumables and inspection evidence remain external?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796"
+      ],
+      "source_refs": [
+        "S1",
+        "S6"
+      ]
+    },
+    {
+      "id": "N19_local_board_assembly_from_purchased_PCB_and_components",
+      "label": "Populate and test a board using purchased bare PCB and qualified electronic components",
+      "family": "computer_electronics",
+      "requires_all": [
+        "N05_repeatable_measurement_and_references",
+        "N11_usable_electrical_supply",
+        "qualified_bare_pcb_inventory",
+        "qualified_semiconductor_ic_inventory",
+        "qualified_passive_and_connector_inventory",
+        "qualified_board_assembly_rework_tools",
+        "qualified_board_test_capability"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "board_assembly",
+        "board_rework",
+        "board_test"
+      ],
+      "not_implied": [
+        "local bare-PCB fabrication",
+        "local semiconductor fabrication",
+        "board conformity without test evidence"
+      ],
+      "questions": [
+        "Is the BOM and board revision frozen?",
+        "Can assembly quality and electrical behaviour be verified independently?",
+        "Which imported components are single points of failure?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S6",
+        "S7",
+        "S8"
+      ]
+    },
+    {
+      "id": "N20_local_simple_PCB_fabrication",
+      "label": "Fabricate a bounded simple PCB locally under a qualified process",
+      "family": "computer_electronics",
+      "requires_all": [
+        "N03_manual_tools_and_workholding",
+        "N04_material_processing_routes",
+        "N05_repeatable_measurement_and_references"
+      ],
+      "requires_any": [
+        "qualified_local_simple_pcb_fabrication_process"
+      ],
+      "separate_capabilities": [
+        "bare_PCB_fabrication_under_profile"
+      ],
+      "not_implied": [
+        "multilayer PCB capability",
+        "high-frequency board qualification",
+        "semiconductor die fabrication"
+      ],
+      "questions": [
+        "Which board stack-up, conductor geometry, finish, insulation and test criteria are covered by this profile?",
+        "Are process wastes, safety, inspection and repeatability accounted for?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S6",
+        "S7"
+      ]
+    },
+    {
+      "id": "N21_offline_reproducible_firmware_and_build_toolchain",
+      "label": "Build firmware and required software from versioned offline sources",
+      "family": "computer_software",
+      "requires_all": [
+        "N01_observation_and_shared_records",
+        "N16_durable_technical_knowledge_packet",
+        "N17_computer_assembled_from_qualified_modules",
+        "qualified_source_archive",
+        "qualified_offline_compiler_and_build_toolchain",
+        "qualified_firmware_programming_interface",
+        "software_license_and_dependency_manifest"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "reproducible_software_build",
+        "offline_recovery",
+        "firmware_programming"
+      ],
+      "not_implied": [
+        "hardware manufacture",
+        "reproducibility of all upstream toolchain binaries unless separately tested"
+      ],
+      "questions": [
+        "Are source, dependency versions, build tools, firmware, licenses and recovery docs all preserved?",
+        "Does an independent rebuild match the declared reproducibility properties?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796"
+      ],
+      "source_refs": [
+        "S1",
+        "S6"
+      ]
+    },
+    {
+      "id": "N22_computer_assisted_manufacturing_cell",
+      "label": "Host computer orchestrates a bounded, human-authorized cell that makes and tests computer subsystems",
+      "family": "computer_manufacturing",
+      "requires_all": [
+        "N17_computer_assembled_from_qualified_modules",
+        "N18_local_computer_mechanical_subsystems",
+        "N19_local_board_assembly_from_purchased_PCB_and_components",
+        "N21_offline_reproducible_firmware_and_build_toolchain",
+        "qualified_fabrication_workcell",
+        "qualified_programming_and_test_interface",
+        "qualified_machine_interface_and_operator_authority"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "computer_assisted_manufacturing",
+        "subsystem_production",
+        "test_and_provisioning"
+      ],
+      "not_implied": [
+        "autonomous machine control",
+        "local bare-PCB manufacture unless N20 closes",
+        "local semiconductor manufacture"
+      ],
+      "questions": [
+        "Can the host create or select the revision-pinned artifacts, program the target, and produce a complete test receipt?",
+        "Which physical operations still require a human, vendor, or external service?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/4689"
+      ],
+      "source_refs": [
+        "S6",
+        "S7",
+        "S8"
+      ]
+    },
+    {
+      "id": "N23_first_clone_independently_boots_and_passes_tests",
+      "label": "First copy is independently assembled, booted and qualified against the declared profile",
+      "family": "computer_replication",
+      "requires_all": [
+        "N22_computer_assisted_manufacturing_cell",
+        "qualified_complete_clone_BOM_stock",
+        "independent_computer_acceptance_test_suite",
+        "revision_bound_build_and_test_receipt"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "generation_1_computer_copy"
+      ],
+      "not_implied": [
+        "replication by the clone",
+        "independence from imported ICs and tooling"
+      ],
+      "questions": [
+        "Did the copy cold boot and pass CPU/memory/storage/I-O tests after power removal?",
+        "Were every failed build, rework event and human intervention recorded?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798"
+      ],
+      "source_refs": [
+        "S6",
+        "S7"
+      ]
+    },
+    {
+      "id": "N24_second_generation_clone_reproduces_computer",
+      "label": "The first clone independently operates the preserved workflow to build and qualify another copy",
+      "family": "computer_replication",
+      "requires_all": [
+        "N22_computer_assisted_manufacturing_cell",
+        "N23_first_clone_independently_boots_and_passes_tests",
+        "qualified_second_clone_BOM_stock"
+      ],
+      "requires_any": [],
+      "separate_capabilities": [
+        "generation_2_computer_copy",
+        "independent_transfer_under_profile"
+      ],
+      "not_implied": [
+        "zero external dependencies",
+        "local semiconductor fabrication",
+        "indefinite self-sufficiency"
+      ],
+      "verification_protocol": [
+        "power down or disconnect the original host from the active production workflow",
+        "start the documented workflow from the first clone",
+        "build, program, cold-boot and independently test a second copy",
+        "record every external service, human intervention, imported component and consumable",
+        "repeat with a separately operated node before making an E5 claim"
+      ],
+      "questions": [
+        "Does the copy possess the source, build tools, programming interfaces and process knowledge to repeat the workflow?",
+        "What exact imported items still bound the number of generations?"
+      ],
+      "evidence_tier": "E0",
+      "canonical_semantics_refs": [
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+        "https://github.com/Luminous-Dynamics/symthaea/issues/5798",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/4689"
+      ],
+      "source_refs": [
+        "S6",
+        "S7",
+        "S8"
+      ],
+      "required_evidence": [
+        "The original host is disconnected from the active production workflow.",
+        "The first clone runs the pinned manufacturing workflow using the preserved source/toolchain/design/firmware package.",
+        "The next copy is built, programmed, cold-booted and independently tested.",
+        "All imported parts, consumables, external services, human interventions and failed attempts are recorded.",
+        "The clone has not inherited a physical-closure claim merely because it can use imported devices."
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "L_low_tool",
+      "initial_capabilities": [
+        "N01_observation_and_shared_records",
+        "N02_resource_and_skill_census"
+      ],
+      "candidate_external_tokens": [
+        "manual_or_animal_power",
+        "site_suitable_water_or_wind_power",
+        "durable_printed_or_manual_archive"
+      ],
+      "notes": "Profile claims are fixture inputs; presence of tools, materials and skills must be justified for any real place."
+    },
+    {
+      "id": "S_salvage",
+      "initial_capabilities": [
+        "N01_observation_and_shared_records",
+        "N02_resource_and_skill_census"
+      ],
+      "candidate_external_tokens": [
+        "salvaged_or_imported_power_unit",
+        "salvaged_or_imported_machine_tool",
+        "qualified_imported_or_existing_electrical_service",
+        "qualified_battery_power",
+        "salvaged_or_imported_computing_module",
+        "durable_printed_or_manual_archive"
+      ],
+      "notes": "Possession does not prove operation, maintenance, repair, replacement-part production or reproduction."
+    },
+    {
+      "id": "M_modern_leapfrog",
+      "initial_capabilities": [
+        "N01_observation_and_shared_records",
+        "N02_resource_and_skill_census"
+      ],
+      "candidate_external_tokens": [
+        "qualified_imported_or_existing_electrical_service",
+        "qualified_battery_power",
+        "qualified_existing_computing_module",
+        "qualified_digital_archive"
+      ],
+      "notes": "Selected modern modules can be used without a local historical reconstruction sequence; upstream repair and supply dependencies remain visible."
+    }
+  ],
+  "required_future_tests": [
+    "Use of imported equipment must not imply local manufacture of that equipment.",
+    "A machine's operation and the conformity of its output are separate claims.",
+    "Removing a required prerequisite must block closure unless a qualified alternate path is available.",
+    "Unknown critical semiconductor dependencies keep N15 blocked.",
+    "All proposed nodes remain E0 until claim-specific evidence is admitted.",
+    "The independent verifier rejects missing dependency tokens and forged transition receipts."
+  ],
+  "external_tokens": [
+    {
+      "id": "basic_local_material_processing_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "durable_printed_or_manual_archive",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "locally_demonstrated_electronics_repair_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "locally_demonstrated_generator_or_motor_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "locally_demonstrated_inspection_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "locally_demonstrated_lower_tool_machine_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "manual_or_animal_power",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_battery_power",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_digital_archive",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_electronics_diagnostic_tools_and_parts",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_existing_computing_module",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_existing_machine_tool",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_existing_or_imported_material_process",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_imported_or_existing_electrical_service",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_inspection_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_local_electrical_supply",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_machine_tool_assisted_electromechanical_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_machine_tool_assisted_reproduction_route",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "salvaged_or_imported_computing_module",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "salvaged_or_imported_machine_tool",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "salvaged_or_imported_power_unit",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "site_suitable_water_or_wind_power",
+      "semantics": "Declared scenario fact, not an inferred capability. Must be backed by profile-specific inventory/evidence before any real-world claim."
+    },
+    {
+      "id": "qualified_compute_module",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_memory_storage",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_board_or_backplane",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_power_module",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_interconnect_set",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_cooling_module",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_boot_artifact",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "assembly_and_electrical_test_capability",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_local_additive_or_subtractive_fabrication",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_bare_pcb_inventory",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_semiconductor_ic_inventory",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_passive_and_connector_inventory",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_board_assembly_rework_tools",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_board_test_capability",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_local_simple_pcb_fabrication_process",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_source_archive",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_offline_compiler_and_build_toolchain",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_firmware_programming_interface",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "software_license_and_dependency_manifest",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_fabrication_workcell",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_programming_and_test_interface",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_machine_interface_and_operator_authority",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_complete_clone_BOM_stock",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "independent_computer_acceptance_test_suite",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "revision_bound_build_and_test_receipt",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "qualified_second_clone_BOM_stock",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    },
+    {
+      "id": "independent_host_removal_reproduction_test",
+      "semantics": "Declared scenario fact, not an inferred capability. For real use, bind to exact inventory/equipment identity, revision, location, evidence, qualification scope and currentness."
+    }
+  ],
+  "external_token_policy": "Unknown or unsupported token stays unresolved. A token naming imported/salvaged/qualified equipment does not imply local maintenance, repair, replacement-part production, or reproductive closure.",
+  "computer_replication_benchmark": {
+    "id": "COMPUTE-REPLICA-001",
+    "canonical_semantics_owner": "https://github.com/Luminous-Dynamics/symthaea/issues/5796",
+    "canonical_fixture_owner": "https://github.com/Luminous-Dynamics/symthaea/issues/5798",
+    "integration_owner": "https://github.com/Luminous-Dynamics/mycelix/issues/4689",
+    "target": "A modest, repairable computer/controller profile whose documented manufacturing cell can build a tested copy, then use the copy to build another copy under the same bounded profile.",
+    "levels": [
+      {
+        "id": "C0",
+        "node": "N17_computer_assembled_from_qualified_modules",
+        "acceptance": "Exact BOM, version-pinned documentation, cold boot, declared diagnostic suite."
+      },
+      {
+        "id": "C1",
+        "node": "N17_computer_assembled_from_qualified_modules",
+        "acceptance": "Component-level repair and post-repair independent test; stock and imported replacement parts reported."
+      },
+      {
+        "id": "C2",
+        "node": "N18_local_computer_mechanical_subsystems",
+        "acceptance": "Specified enclosures, brackets, ducts and fixtures manufactured and inspected against declared criteria."
+      },
+      {
+        "id": "C3",
+        "node": "N19_local_board_assembly_from_purchased_PCB_and_components",
+        "acceptance": "Assemble/rework and electrically test boards using bought bare PCBs and ICs; imported parts remain explicit."
+      },
+      {
+        "id": "C4",
+        "node": "N23_first_clone_independently_boots_and_passes_tests",
+        "acceptance": "Host runs the production workflow to build, program, cold-boot and qualify one copy."
+      },
+      {
+        "id": "C5",
+        "node": "N24_second_generation_clone_reproduces_computer",
+        "acceptance": "Acceptance test: disconnect the original host, then have the first copy run the archived workflow to build, cold-boot and independently test the next copy."
+      }
+    ],
+    "independent_metrics": [
+      "BOM lines complete / unresolved; by count, sourced cost, mass where meaningful, and criticality—never one combined replication percentage",
+      "component classes still externally sourced and minimum-stock runway under declared production demand",
+      "conforming copies, failed builds, rework, scrap and operator interventions",
+      "cold-boot and CPU/memory/storage/I-O acceptance-test outcomes",
+      "repeatable-build properties for software/firmware artifacts",
+      "energy, consumables, labor time, cycle time and equipment maintenance per accepted copy",
+      "number of complete reproduction generations demonstrated",
+      "capabilities and outputs that become blocked when each critical imported class is removed",
+      "source/build/toolchain/firmware availability without network access",
+      "independent evaluator agreement and separately operated-node reproduction",
+      "unrecorded manual interventions: target zero; any unrecorded intervention invalidates the claimed reproduction run",
+      "repair attempts / accepted repairs / post-repair test outcomes; replacement-stock status remains distinct from repair-tool capability"
+    ],
+    "adversarial_tests": [
+      "remove compute module or memory; system must not claim a complete computer was built",
+      "keep case and PCB but remove IC stock; no computer clone may be counted",
+      "invalid calibration or failed electrical acceptance test blocks qualification",
+      "source archive or required build toolchain missing; offline reproducibility claim is blocked",
+      "original host remains hidden in the C5 workflow; host-removal test must fail",
+      "missing failed-build records or unreported external service invalidates the result",
+      "change BOM revision between builds without requalification; result must show a revision mismatch",
+      "exhaust a critical imported IC stock; projections must show production blocked unless a qualified substitute route exists",
+      "successful board assembly cannot upgrade N15 semiconductor manufacturing closure",
+      "a second-generation copy that boots but cannot execute the manufacturing workflow does not pass C5"
+    ],
+    "invariants": [
+      "No single local/self-replication boolean or composite score.",
+      "Design, source generation, board assembly, bare-PCB fabrication, chip/package test and semiconductor die fabrication are distinct evidence-bearing claims.",
+      "Imported or salvaged hardware may satisfy use or assembly requirements but never automatically receives local repair/reproduction credit.",
+      "A simulation, netlist, PCB layout or firmware image is not evidence of a physically functioning computer.",
+      "No autonomous purchase, resource allocation or manufacturing actuation authority is implied.",
+      "C0-C5 describe bounded computer reproduction/repair capabilities; bare-PCB fabrication and semiconductor die fabrication are independent branches, not ordered prerequisites or rewards.",
+      "C5 may pass for an imported-PCB/imported-IC design when the host-removal reproduction test passes; it still does not imply PCB-local or die-local closure."
+    ],
+    "claim_ceiling": "The current graph is E0 conceptual. C4/C5 remain proposed physical acceptance targets, not achieved results. This pilot does not imply local semiconductor die fabrication or indefinite industrial self-sufficiency.",
+    "candidate_platform_notes": [
+      {
+        "id": "NHYODYNE_ARCHITECTURE_REFERENCE",
+        "url": "https://github.com/lynchaj/nhyodyne",
+        "proposed_use": "C0-C3 research reference for modular boards, Gerber handoff, component procurement, assembly records and per-board replaceability.",
+        "not_a_claim": "Not selected as the C4/C5 replication target; not presumed to run modern workcell tooling; not presumed available for commercial reuse.",
+        "required_review": [
+          "full license/permission audit",
+          "BOM completeness",
+          "component sourcing and substitution",
+          "build and boot test reproducibility",
+          "capability fit for target test suite"
+        ]
+      },
+      {
+        "id": "C4_C5_TARGET_SELECTION",
+        "proposed_use": "Select a separate modest computer/controller profile that can run the archived production-control workflow needed to build and test another copy.",
+        "gate": "Choose only after checking legal reuse, BOM completeness, runtime/toolchain fit, component availability, programming/debug interface, test fixture, energy needs and documented acceptance tests.",
+        "fallback": "If no existing candidate passes, create a minimal original design from components/design artifacts with permission-cleared licenses and preserve a reproducible source history."
+      },
+      {
+        "id": "TRACK_A_KICAD_GD32VF103",
+        "url": "https://github.com/landrylelouche/kicad_hw_reference",
+        "proposed_use": "C0-C3 board assembly/repair/programming learning rig using a documented RISC-V MCU board reference with CAD/BOM/fabrication artifacts.",
+        "not_a_claim": "Not a complete computer, not a C4/C5 host, not evidence of actual parts availability or a qualified physical board.",
+        "required_review": [
+          "confirm source provenance and license at selected revision",
+          "freeze BOM and substitute policy",
+          "obtain/verify exact design and Gerber set",
+          "assemble and record independent electrical/firmware tests"
+        ]
+      },
+      {
+        "id": "TRACK_B_LINUX_CAPABLE_HOST",
+        "url": "https://reproducible-builds.org/docs/build-toolchain-from-source/",
+        "proposed_use": "C4/C5 host/clone that runs the pinned offline production-control and test workflow.",
+        "gate": "Select a license-clear Linux-capable SBC/SoM and carrier design with complete BOM, programming interface, diagnostic image, offline toolchain and independent acceptance suite.",
+        "not_a_claim": "Compute module and bare PCB may remain imported during C4/C5; that does not imply local silicon or bare-PCB fabrication closure."
+      },
+      {
+        "id": "TRACK_B_BEAGLEBONE_BLACK_CANDIDATE",
+        "url": "https://github.com/beagleboard/beaglebone-black",
+        "proposed_use": "Audit candidate for Linux-capable C4/C5 host workflow; official materials expose a hardware design package and CC BY-SA 4.0 terms.",
+        "not_a_claim": "Not selected or production-qualified. Official design materials are unsupported/as-is. No current supply, BOM completeness, or physical reproduction claim is established.",
+        "required_review": [
+          "freeze exact hardware revision and system reference manual",
+          "audit component BOM and supply/substitutions",
+          "review CC BY-SA 4.0 and separate trademark/logo limitations",
+          "check whether design can run offline pinned production toolchain",
+          "decide if reproduction target is complete system assembly or board-level reproduction",
+          "measure power, thermal behavior and independent functional acceptance"
+        ]
+      }
+    ],
+    "independent_closure_branches": [
+      {
+        "id": "PCB_LOCAL",
+        "node": "N20_local_simple_PCB_fabrication",
+        "relationship_to_reproduction_ladder": "independent branch",
+        "acceptance": "A specific simple bare-PCB fabrication route is locally demonstrated and inspected under a bounded profile; no multilayer/high-frequency or semiconductor-fab inference."
+      },
+      {
+        "id": "DIE_LOCAL",
+        "node": "N15_semiconductor_manufacturing_unresolved",
+        "relationship_to_reproduction_ladder": "deep industrial branch; blocked/unresolved",
+        "acceptance": "Every critical die-fabrication dependency is separately modeled, sourced and independently qualified; this pilot has not achieved this branch."
+      }
+    ],
+    "successor_ratchet_ref": {
+      "issue": "https://github.com/Luminous-Dynamics/symthaea/issues/7698",
+      "pull_request": "https://github.com/Luminous-Dynamics/symthaea/pull/7699",
+      "stages": [
+        "reproduction_cell",
+        "test_and_repair_capability",
+        "exact_HDC_RTL",
+        "FPGA_observed_accelerator",
+        "optional_external_ASIC",
+        "packaged_and_characterized_successor",
+        "next_productive_equipment_bottleneck"
+      ],
+      "claim_rule": "Each stage provides only the evidence it independently earns. Do not infer performance gain from reproduction, physical silicon from GDS/MPW submission, or local fabrication closure from external fabrication."
+    }
+  }
+}
