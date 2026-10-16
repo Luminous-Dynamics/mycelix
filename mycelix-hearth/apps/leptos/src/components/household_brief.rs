@@ -80,7 +80,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     <h3>"Active care plans"</h3>
                     <p class="brief-description">
                         {move || if care_count().is_some() {
-                            {move || if care_count().is_some() { "Plans marked active; due times are not inferred here." } else { "No household selected; this count is unavailable." }}
+                            "Plans marked active; due times are not inferred here."
                         } else {
                             "No household selected; this count is unavailable."
                         }}
@@ -97,7 +97,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     <h3>"Open decisions"</h3>
                     <p class="brief-description">
                         {move || if decision_count().is_some() {
-                            {move || if decision_count().is_some() { "Household decisions still marked open; this is not a personal vote list." } else { "No household selected; this count is unavailable." }}
+                            "Household decisions still marked open; this is not a personal vote list."
                         } else {
                             "No household selected; this count is unavailable."
                         }}
@@ -118,7 +118,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     <h3>"Unresolved alerts"</h3>
                     <p class="brief-description">
                         {move || if alert_count().is_some() {
-                            {move || if alert_count().is_some() { "Unresolved alerts in the currently loaded records; zero is not a safety guarantee." } else { "No household selected; this count is unavailable." }}
+                            "Unresolved alerts in the currently loaded records; zero is not a safety guarantee."
                         } else {
                             "No household selected; this count is unavailable."
                         }}
