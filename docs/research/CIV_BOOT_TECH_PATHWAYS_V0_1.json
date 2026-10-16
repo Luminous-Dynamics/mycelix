@@ -139,6 +139,14 @@
       "url": "https://reproducible-builds.org/docs/plans/",
       "use": "Guidance for specifying source/build environments and testing reproducibility under environmental variation.",
       "limits": "General software-build guidance; its output-comparison requirements must be tailored to hardware and firmware artifacts."
+    },
+    {
+      "id": "S14",
+      "type": "official_sbc_hardware_documentation",
+      "title": "BeagleBone Black documentation and hardware design archive",
+      "url": "https://docs.beagleboard.org/boards/beaglebone/black/index.html",
+      "use": "Candidate Linux-capable host/reference package; official documentation describes Linux boot and CC BY-SA 4.0 design-material terms, while repository includes design artifacts such as schematic, BOM and manufacturing files.",
+      "limits": "Design materials are documented as unsupported/as-is; exact BOM/revisions, component sourcing, license implications, performance, thermals, power, repairability and local build qualification remain unverified."
     }
   ],
   "nodes": [
@@ -1234,6 +1242,20 @@
         "proposed_use": "C4/C5 host/clone that runs the pinned offline production-control and test workflow.",
         "gate": "Select a license-clear Linux-capable SBC/SoM and carrier design with complete BOM, programming interface, diagnostic image, offline toolchain and independent acceptance suite.",
         "not_a_claim": "Compute module and bare PCB may remain imported during C4/C5; that does not imply local silicon or bare-PCB fabrication closure."
+      },
+      {
+        "id": "TRACK_B_BEAGLEBONE_BLACK_CANDIDATE",
+        "url": "https://github.com/beagleboard/beaglebone-black",
+        "proposed_use": "Audit candidate for Linux-capable C4/C5 host workflow; official materials expose a hardware design package and CC BY-SA 4.0 terms.",
+        "not_a_claim": "Not selected or production-qualified. Official design materials are unsupported/as-is. No current supply, BOM completeness, or physical reproduction claim is established.",
+        "required_review": [
+          "freeze exact hardware revision and system reference manual",
+          "audit component BOM and supply/substitutions",
+          "review CC BY-SA 4.0 and separate trademark/logo limitations",
+          "check whether design can run offline pinned production toolchain",
+          "decide if reproduction target is complete system assembly or board-level reproduction",
+          "measure power, thermal behavior and independent functional acceptance"
+        ]
       }
     ],
     "independent_closure_branches": [
