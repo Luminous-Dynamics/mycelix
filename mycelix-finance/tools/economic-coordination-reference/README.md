@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, isolated-replica experiment, and coordinated claim-identity registry currently contain **77 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, 9 isolated-replica, and 9 claim-registry tests), plus **3 authored integration tests**: **80 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, isolated-replica experiment, and coordinated claim-identity registry currently contain **78 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, 9 isolated-replica, and 10 claim-registry tests), plus **3 authored integration tests**: **81 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Experimental partial-fulfilment tranche ledger
 
