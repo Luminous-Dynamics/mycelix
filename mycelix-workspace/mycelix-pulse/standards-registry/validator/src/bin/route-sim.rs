@@ -94,7 +94,7 @@ fn main() -> ExitCode {
             }
             "--help" | "-h" => {
                 println!("Usage: route-sim [--traces PATH] [--messages COUNT] [--seed N]");
-                println!("       route-sim --evaluate [--traces PATH] [--messages COUNT]");
+                println!("       route-sim --evaluate [--correlation-sweep] [--traces PATH] [--messages COUNT]");
                 println!(concat!(
                     "                 [--seed FIRST] ",
                     "[--seed-count COUNT] [--candidate STRATEGY]"
@@ -109,6 +109,10 @@ fn main() -> ExitCode {
                 println!(concat!(
                     "Evaluation compares paired synthetic seeds ",
                     "on the declared holdout split."
+                ));
+                println!(concat!(
+                    "--correlation-sweep varies the declared shared-draw ",
+                    "mixture on resilience scenarios; it is not an empirical correlation fit."
                 ));
                 println!(concat!(
                     "Neither mode establishes authenticated delivery ",
