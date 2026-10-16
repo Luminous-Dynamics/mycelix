@@ -34,19 +34,21 @@ The results file must use manifest version `0.1`, match the benchmark ID and sce
     "observed_demand_units": 3000,
     "served_units": 2900,
     "compute_cost_microcredits": 10,
+    "operational_cost_microcredits": 8,
+    "capital_amortization_cost_microcredits": 12,
     "data_cost_microcredits": 5,
     "integration_cost_microcredits": 20,
     "human_review_cost_microcredits": 15,
     "coordination_cost_microcredits": 5,
     "failure_recovery_cost_microcredits": 0,
-    "total_cost_microcredits": 55,
+    "total_cost_microcredits": 75,
     "completion_latency_ms": 120
   },
   "failure_reason": null
 }
 ```
 
-The figures above are a format illustration only, **not benchmark data or a proposed result**. The `microcredits` labels are synthetic accounting units and must not be interpreted as dollars, tokens issued by Mycelix, or monetary value. An empirical profile needs a registered currency/unit and a defensible mapping of each cost category to measured or modeled data.
+The total is the sum of compute + operational + capital amortization + data + integration + human review + coordination + failure/recovery costs. The figures above are a format illustration only, **not benchmark data or a proposed result**. The `microcredits` labels are synthetic accounting units and must not be interpreted as dollars, tokens issued by Mycelix, or monetary value. An empirical profile needs a registered currency/unit and a defensible mapping of each cost category to measured or modeled data.
 
 A non-completed run uses one of `invalid_input`, `timeout`, `non_converged`, `missing_output`, or `evaluator_error`, includes a non-empty `failure_reason`, and does not advertise complete metrics. Failed and incomplete runs must remain visible in the census.
 
@@ -113,6 +115,6 @@ Do not benchmark against third-party instances until source identity, exact obje
 
 ## Tests
 
-The crate defines 28 unit tests covering the default 21,000-run schedule; balanced stress regimes; deterministic identities; complete paired coverage; missing/duplicate results; scenario and schedule digest tampering; cost reconciliation and demand bounds; paired descriptive metrics; reproducible scenario-cluster resampling; incomplete and zero-service outcomes; JSON Schema meta-validation; serialized result/report instance validation; Rust/schema field-set agreement; and bounded, modulo-bias-rejected random range sampling.
+The crate defines 29 unit tests covering the default 21,000-run schedule; balanced stress regimes; deterministic identities; complete paired coverage; missing/duplicate results; scenario and schedule digest tampering; cost reconciliation and demand bounds; paired descriptive metrics; reproducible scenario-cluster resampling; incomplete and zero-service outcomes; JSON Schema meta-validation; serialized result/report instance validation; Rust/schema field-set agreement; and bounded, modulo-bias-rejected random range sampling.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
