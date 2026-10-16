@@ -35,7 +35,7 @@
       "requirement": "An accepted, unexpired durable outbox item cannot silently disappear under the declared storage durability assumptions.",
       "starter_model_mapping": null,
       "starter_model_coverage": "not_modeled",
-      "gap": "Crash is currently a stuttering action; no durable/non-durable state or recovery behavior is represented.",
+      "gap": "Crash/restart models worker availability and recovery classification, but no durable/non-durable record layers, torn writes, lost writes, or storage recovery rules are represented.",
       "negative_control": "Erase an accepted outbox item during recovery; checker must find a violation.",
       "implementation_mapping": "durable outbox/storage boundary; backend intentionally unspecified",
       "rust_regression": "not_yet_mapped"
@@ -105,9 +105,9 @@
       "name": "ambiguous_transport_outcome_never_becomes_success_by_inference",
       "class": "safety",
       "requirement": "A timeout, link/gateway acknowledgment, or lost response cannot be promoted to verified recipient delivery without the required receipt evidence.",
-      "starter_model_mapping": "DeliveredRequiresReceipt is adjacent but does not model transport outcomes",
-      "starter_model_coverage": "not_modeled",
-      "gap": "No explicit DefinitelyNotSent/PossiblySent/TransportAccepted/Unknown outcome vocabulary exists in the starter.",
+      "starter_model_mapping": "RecoverInterruptedAttempt and UnknownIsNotDelivered model only the interrupted-attempt unknown state",
+      "starter_model_coverage": "partial",
+      "gap": "Only recovery from an interrupted attempt maps to unknown; no explicit DefinitelyNotSent/PossiblySent/TransportAccepted taxonomy, lost-response state, or gateway acknowledgment class is modeled.",
       "negative_control": "Map a timeout or transport acknowledgment directly to Delivered; checker must find a violation.",
       "implementation_mapping": "transport adapter outcome normalization and delivery-state reducer",
       "rust_regression": "not_yet_mapped"
@@ -119,7 +119,7 @@
       "requirement": "Under stated fairness, durable-storage availability, permission, unexpired lifetime, working route, and responsive recipient assumptions, eligible work eventually reaches a documented evidence-backed or terminal state.",
       "starter_model_mapping": null,
       "starter_model_coverage": "not_modeled",
-      "gap": "No liveness property or environmental fairness assumptions are checked; the Crash stuttering action does not establish useful progress.",
+      "gap": "No liveness property or environmental fairness assumptions are checked; the finite worker-epoch bound permits runs to stop without eventual recovery.",
       "negative_control": "Suppress all progress actions while claiming eventual progress; the liveness checker must reject the mutant under declared fairness assumptions.",
       "implementation_mapping": "scheduler/retry/recovery progress contract",
       "rust_regression": "not_yet_mapped"
