@@ -1357,7 +1357,7 @@ mod tests {
         for (outcome, expected) in cases {
             assert_eq!(DeliveryEvidenceStage::from(outcome), expected);
             assert_ne!(
-                user_visible_delivery_state(expected, "msg-1", "recipient-1", None),
+                user_visible_delivery_state(expected, "msg-1", "recipient-1", &[0; 32], None),
                 UserVisibleDeliveryState::Delivered
             );
         }
@@ -1371,10 +1371,12 @@ mod tests {
             encoded_receipt: &[u8],
             expected_logical_message_id: &str,
             expected_recipient_id: &str,
+            expected_envelope_commitment: &[u8; 32],
         ) -> Result<(), ReceiptVerificationError> {
             if encoded_receipt == b"valid-test-receipt"
                 && expected_logical_message_id == "msg-1"
                 && expected_recipient_id == "recipient-1"
+                && expected_envelope_commitment == &[0; 32]
             {
                 Ok(())
             } else {
@@ -1391,6 +1393,7 @@ mod tests {
             b"valid-test-receipt",
             "msg-1",
             "recipient-1",
+            [0; 32],
         )
         .unwrap();
         assert_eq!(
@@ -1398,6 +1401,7 @@ mod tests {
                 DeliveryEvidenceStage::GatewayAcknowledged,
                 "msg-1",
                 "recipient-1",
+                &[0; 32],
                 Some(&receipt),
             ),
             UserVisibleDeliveryState::Delivered
@@ -1407,6 +1411,7 @@ mod tests {
                 DeliveryEvidenceStage::GatewayAcknowledged,
                 "msg-2",
                 "recipient-1",
+                &[0; 32],
                 Some(&receipt),
             ),
             UserVisibleDeliveryState::Pending
@@ -1431,6 +1436,7 @@ mod tests {
                 b"untrusted-receipt",
                 "msg-1",
                 "recipient-1",
+                [0; 32],
             ),
             Err(ReceiptVerificationError::InvalidReceipt)
         );
@@ -1440,6 +1446,7 @@ mod tests {
                 b"",
                 "msg-1",
                 "recipient-1",
+                [0; 32],
             ),
             Err(ReceiptVerificationError::InvalidContext)
         );
@@ -1449,6 +1456,7 @@ mod tests {
                 &vec![0_u8; MAX_RECEIPT_BYTES + 1],
                 "msg-1",
                 "recipient-1",
+                [0; 32],
             ),
             Err(ReceiptVerificationError::InvalidReceipt)
         );
@@ -1458,6 +1466,7 @@ mod tests {
                 b"valid-test-receipt",
                 "",
                 "recipient-1",
+                [0; 32],
             ),
             Err(ReceiptVerificationError::InvalidContext)
         );
@@ -1477,7 +1486,7 @@ mod tests {
             DeliveryEvidenceStage::OutcomeUnknown,
         ] {
             assert_ne!(
-                user_visible_delivery_state(stage, "msg-1", "recipient-1", None),
+                user_visible_delivery_state(stage, "msg-1", "recipient-1", &[0; 32], None),
                 UserVisibleDeliveryState::Delivered
             );
         }
