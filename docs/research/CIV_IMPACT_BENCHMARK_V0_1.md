@@ -237,13 +237,34 @@ No need to wait for hosted runners to author the protocol, schema, source manife
 - [NBER, Shifting Work Patterns with Generative AI (2025)](https://www.nber.org/papers/w33795) — a 66-firm, 7,137-worker field experiment reported email time savings without detecting task quantity/composition changes from individual-level AI provision over the study horizon. Task-time gains alone therefore do not establish broad economic transformation.
 - [NBER, Generative AI at Work (2023)](https://www.nber.org/papers/w31161) — reports heterogeneous productivity effects across worker groups, motivating distributional and subgroup analysis.
 
-## 13. Current status
+## 13. Executable schedule/census prototype
+
+A first standalone Rust tool is being authored under [tools/civ-impact-census](https://github.com/Luminous-Dynamics/mycelix/tree/research/civ-impact-benchmark-v0-1/tools/civ-impact-census). It is intentionally narrower than an optimizer or economic simulator.
+
+- `generate` deterministically emits a balanced five-regime synthetic scenario set and paired comparison schedule (default: 100 scenarios × 30 seeds × seven arms = 21,000 planned runs).
+- `verify` checks schedule/result identity, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds and cost-component arithmetic.
+- `CIV_IMPACT_RUN_CENSUS_V0_1.schema.json` provides the machine-readable structural contract for run results.
+- The tool's report states that benchmark validity and economic benefit are **not** established. A generated plan does not execute any arm; synthetic stress parameters are not operational data or estimated disruption probabilities.
+- Generated arm implementation references are placeholders. They must be replaced with pinned implementations under a frozen preregistration before confirmatory use.
+- Scenario hashing binds a deterministic serialization, and result receipts hash exact schedule/result bytes. Hashes alone are not authentication or immutable preregistration; anchoring and independent evaluator controls remain necessary.
+
+Commands:
+```sh
+cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- generate /tmp/civ-impact-run 100 30
+cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- verify /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
+cargo test --manifest-path tools/civ-impact-census/Cargo.toml
+```
+
+The verifier consumes a result file from a separately implemented evaluator. It does not simulate logistics, estimate savings, calculate statistical significance, or qualify real-world behavior.
+
+## 14. Current status
 
 - Protocol: authored proposal.
-- Schema: accompanies this protocol.
-- Repository implementation: not yet implemented by this document.
+- Preregistration schema: authored and fetched back from the branch; JSON parsing confirmed.
+- Rust schedule/census prototype and unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
+- Result schema: authored; JSON parsing and structural schema validation by a dedicated validator remain outstanding.
 - Benchmark runs: none claimed.
 - Physical/economic outcomes: none claimed.
-- CI/local validation: no pass claimed by this document.
+- Exact-head workflow status at an earlier commit showed Mycelix CI skipped and canonical qualification pending; check the current head before any qualification claim.
 
 The success criterion is not that the integrated stack wins. It is a trustworthy answer to **whether, where, for whom, at what cost, and under what conditions** integration helps.
