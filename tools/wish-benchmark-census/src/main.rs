@@ -744,7 +744,11 @@ fn validate_run_result(result: &RunResult, plan: &PlannedRun) -> Result<(), Stri
             }
             match (&result.result_payload, result.result_sha256.as_deref()) {
                 (None, None) => {}
-                (Some(payload), Some(declared)) if is_sha256(declared) && digest(payload)? == declared => {}
+                (Some(payload), Some(declared)) => {
+                    if !is_sha256(declared) || digest(payload)? != declared {
+                        return Err("incomplete result payload/digest pair is inconsistent".into());
+                    }
+                }
                 _ => return Err("incomplete result payload/digest pair is inconsistent".into()),
             }
         }
