@@ -10,4 +10,8 @@ repository = "https://github.com/Luminous-Dynamics/mycelix"
 [lib]
 path = "src/lib.rs"
 
+[[bench]]
+name = "policy_eval"
+harness = false
+
 [workspace]
