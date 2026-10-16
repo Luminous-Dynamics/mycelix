@@ -897,6 +897,41 @@
         "unrecognized_contract_fields_fail_closed"
       ],
       "scope": "test-only versioned serialization adapter over synthetic typed-lineage terms; a successful round-trip establishes contract preservation only for the declared test schema and domain, not authenticated provenance, a qualified transformation engine, physical reachability or operational aviation safety"
+    },
+    {
+      "id": "AIR-PB-027",
+      "name": "typed_adapter_receipt_pins_raw_fixture_bytes_and_scope",
+      "paradigm": "reproducible_evidence_requires_byte_identity_and_an_explicit_authority_ceiling",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A pinned digest and byte length can detect fixture drift that preserves JSON semantics, but an unsigned receipt cannot prove publisher identity, source rights, freshness, or physical truth.",
+      "baseline": "Schema and semantic round-trip tests may continue to pass after whitespace, key-order or formatting edits change the reviewed artifact bytes, making it difficult to distinguish the reviewed input from a later revision.",
+      "stimulus": "Bind the committed versioned adapter JSON fixture's exact raw bytes, final newline, SHA-256, byte length, schema ID, fixture identity and authority ceiling in an unsigned receipt contract. Append semantically inert whitespace to produce a byte-mutation negative control.",
+      "success_conditions": [
+        "The receipt's SHA-256 and byte length match the exact committed fixture bytes, including the final newline.",
+        "A semantically inert byte mutation remains valid JSON but no longer matches the pinned digest or byte length.",
+        "The receipt schema rejects unknown fields and pins the adapter schema ID, fixture identity, checker identity, authority ceiling and unsigned status.",
+        "The receipt says exact-head source/build identity must be supplied externally and does not call an unsigned digest an attestation.",
+        "A passing byte-receipt check is reported only as local fixture-integrity evidence under this contract."
+      ],
+      "falsifiers": [
+        "Changed raw fixture bytes are accepted under the original receipt.",
+        "A parseable whitespace mutation retains the same digest or byte length.",
+        "The receipt's schema, fixture identity, or authority ceiling can be altered without detection by its contract assertions.",
+        "A SHA-256 match is described as publisher authentication, rights verification, physical truth or operational aviation safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output and commit SHA",
+        "Pinned fixture path, raw byte length and SHA-256",
+        "Receipt contract bytes and status/authority fields",
+        "Mutation input and observed digest/length mismatch",
+        "Explicit unsigned and source-revision-binding limitations"
+      ],
+      "hard_invariants": [
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "producer_output_is_checked_independently"
+      ],
+      "scope": "test-only SHA-256 receipt for one synthetic adapter JSON fixture; byte-integrity checking does not authenticate publishers, confirm rights or freshness, qualify aircraft dynamics, establish operational safety, or grant aviation authority"
     }
   ]
 }
