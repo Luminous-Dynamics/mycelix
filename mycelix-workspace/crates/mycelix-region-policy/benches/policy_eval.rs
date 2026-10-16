@@ -10,10 +10,14 @@ use mycelix_region_policy::{
 
 struct BenchmarkVerifier;
 impl ProfileVerifier for BenchmarkVerifier {
-    fn verify_profile(&self, _profile: &RegionalProfile) -> Result<(), ProfileVerificationFailure> {
+    fn verify_profile(
+        &self,
+        profile: &RegionalProfile,
+        _now_ms: u64,
+    ) -> Result<u64, ProfileVerificationFailure> {
         // Measures only the already-verified policy decision path.
         // This test adapter is not a cryptographic verifier.
-        Ok(())
+        Ok(profile.valid_until_unix_ms)
     }
 }
 
