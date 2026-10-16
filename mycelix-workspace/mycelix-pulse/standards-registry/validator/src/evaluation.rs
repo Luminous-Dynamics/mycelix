@@ -484,6 +484,11 @@ mod tests {
         );
         assert!(
             first["per_holdout_scenario"][0]
+                ["candidate_illustrative_cost_units_per_1000_messages"]
+                .is_number()
+        );
+        assert!(
+            first["per_holdout_scenario"][0]
                 ["candidate_illustrative_energy_millijoules_per_1000_messages"]
                 .is_number()
         );
@@ -505,6 +510,20 @@ mod tests {
         assert!(
             evaluate_paired_seeds(&corpus, Some(10), 7, MIN_SEEDS, "sequential_failover")
                 .is_err()
+        );
+
+        let mut invalid_resilience = corpus();
+        invalid_resilience["evaluation_split"]["resilience_scenario_ids"][0] =
+            json!("local-only-first-contact");
+        assert!(
+            evaluate_paired_seeds(
+                &invalid_resilience,
+                Some(10),
+                7,
+                MIN_SEEDS,
+                "sequential_failover"
+            )
+            .is_err()
         );
     }
 }
