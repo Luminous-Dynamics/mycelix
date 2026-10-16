@@ -11,7 +11,7 @@ Integrate by contract, not by merging responsibilities.
 
 OMSI should remain an offline-capable, vendor-neutral profile, validator and replay contract. Mycelix should add optional decentralized identity, issuer credentials, revocation evidence, epistemic claims, review/endorsement workflows, and evidence-receipt references. Mycelix must not re-implement manufacturing numeric semantics ad hoc, and OMSI must not require a Holochain conductor or a MATL score to perform its deterministic evaluation.
 
-No runtime bridge, receipt entry type or production integration is asserted to exist by this proposal.
+No Mycelix runtime bridge, receipt entry type, or production integration is asserted to exist by this proposal. The counterpart OMSI draft PR #53 now contains local `audit-adapter-map`, `apply-adapter-map`, and `verify-transform-vectors` CLI commands, with a synthetic 10-case decimal/unit transformation corpus. These are source-side mapping/accounting tools only: their two current transforms are deliberately narrow, and they do not constitute a Mycelix adapter, vendor certification, or production integration.
 
 ## Why these projects complement rather than duplicate one another
 
@@ -33,9 +33,9 @@ GitHub's Contents API returns the content of `mycelix-workspace/happs/manufactur
 /srv/luminous-dynamics/mycelix-workspace/mycelix-manufacturing
 ```
 
-This is an absolute machine-local symlink target rather than a portable repository-relative path. Its intended tracked source, submodule or pinned external repository is not established by that symlink response. A clean-checkout build/package audit must repair or replace this reference before treating the dedicated Manufacturing hApp as a stable adapter target.
+The original target is an absolute machine-local path, not a portable repository-relative path. The canonical Manufacturing source tree is tracked at `mycelix-workspace/mycelix-manufacturing/`; the wider alias audit now shows that most source-backed aliases can be repaired without moving or duplicating sources.
 
-A wider [hApp alias portability repair is proposed in Mycelix PR #5045](https://github.com/Luminous-Dynamics/mycelix/pull/5045): 18 source-backed aliases are changed from machine-local absolute targets to repository-relative links, and a dedicated workflow checks clean-checkout resolution. Two mappings remain unresolved rather than guessed: `happs/health` lacks the expected tracked `mycelix-health/` source, and `happs/supplychain` lacks the expected tracked `mycelix-supplychain/holochain/` source. The exact-head portability workflow is queued; clean-checkout execution, hApp packaging, WASM build and multi-agent qualification remain unverified.
+[Mycelix PR #5045](https://github.com/Luminous-Dynamics/mycelix/pull/5045) now changes 18 source-backed aliases from machine-local absolute targets to repository-relative links and adds a dedicated clean-checkout guard. Two paths remain deliberately unresolved: `happs/health` lacks the expected tracked `mycelix-health/` source, and `happs/supplychain` lacks the expected tracked `mycelix-supplychain/holochain/` source. The exact-head portability and D6S jobs are queued; clean-checkout execution, unified hApp packaging, WASM build and multi-agent qualification remain unverified.
 
 The current Fabrication hApp has committed source files and an explicit verification zome, so it is a sensible **first design target** for a synthetic print-quality workflow while the Manufacturing path is resolved. That does not mean Fabrication is production-ready; check its current maturity and multi-agent test status separately.
 
@@ -145,8 +145,9 @@ Research anchors: [W3C Verifiable Credentials 2.0 Recommendation](https://www.w3
 ## Acceptance gates
 
 ### Gate 0 — Make the source portable
-- Resolve the absolute `happs/manufacturing` target and document the canonical source.
-- Clean-checkout packaging for Manufacturing/Fabrication; record exact commit and result.
+- Complete the relative-link repair for the 18 source-backed aliases.
+- Resolve the health and supply-chain canonical source mappings rather than pointing them at a similar-but-not-equivalent cluster.
+- Pass clean-checkout path validation, then test hApp manifest/DNA packaging and WASM builds at the exact commit.
 - Verify correct Holochain version and actual multi-agent test status rather than relying on table claims.
 
 ### Gate 1 — Freeze a small interop contract
@@ -155,10 +156,11 @@ Research anchors: [W3C Verifiable Credentials 2.0 Recommendation](https://www.w3
 - Specify policy/credential status evidence and privacy/retention categories.
 - Add fixtures with conflicts, loss, missing revision and denied scopes.
 
-### Gate 2 — Build a local, read-only adapter
-- Verify schema and OMSI replay before creating a receipt.
-- No conductor/network dependency required for evaluating OMSI.
-- Cross-language/implementation tests reproduce the same semantic output.
+### Gate 2 — Qualify the local, read-only adapter
+- The OMSI-side draft now supplies `audit-adapter-map`, `apply-adapter-map`, and `verify-transform-vectors`, including field-loss accounting, fail-closed projection, and exact vectors for two narrowly scoped transforms.
+- Add source-schema coverage for optional fields, representative vendor fixtures, and approved transformation/crosswalk vectors before qualifying any real source system.
+- Verify the output schema and OMSI replay before creating a receipt; no conductor/network dependency may be required for local deterministic evaluation.
+- Independent implementation tests must reproduce semantic output and digest scope; queued CI is not qualification.
 
 ### Gate 3 — Add Mycelix identity and receipt integration
 - One allowlisted coordinator path with issuer-purpose/scope checks.
@@ -194,7 +196,7 @@ This is a proposed integration architecture. The receipt type, adapter and bridg
 
 ## Shared benchmark contract
 
-The counterpart OMSI repository now proposes one versioned [benchmark scorecard](https://github.com/Luminous-Dynamics/luminous-platform/blob/feat/omsi-manufacturing-rust-validator/docs/standards/omsi/benchmark-scorecard-0.1.md) and a non-gating local microbenchmark report format. Reuse its semantic-vector and replay mutation catalogue rather than inventing a second set of result semantics here.
+The counterpart OMSI draft PR #53 now proposes a versioned [benchmark scorecard](https://github.com/Luminous-Dynamics/luminous-platform/blob/feat/omsi-manufacturing-rust-validator/docs/standards/omsi/benchmark-scorecard-0.1.md), a non-gating phase-separated microbenchmark, a hard adapter field-accounting gate, and a separate [10-case transform-vector corpus](https://github.com/Luminous-Dynamics/luminous-platform/blob/feat/omsi-manufacturing-rust-validator/docs/standards/omsi/adapters/0.1/TRANSFORM-VECTORS.json). Reuse its semantic-vector and replay mutation catalogue rather than inventing a second set of result semantics.
 
 Mycelix-specific acceptance targets:
 - **100%** exact OMSI vector agreement before receipt creation; **zero** unexpected accepts in cross-tenant, malformed or contradictory evidence controls.
