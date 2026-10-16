@@ -24,7 +24,7 @@
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["run_id", "regime", "strategy", "seed", "confounding_signal_high", "truth_ate", "estimate", "standard_error", "ci95_low", "ci95_high", "ci95_covers_truth", "directional_claim", "correct_sign", "cost_units", "design_used", "identifiable"],
+        "required": ["run_id", "regime", "strategy", "seed", "confounding_signal_high", "truth_ate", "estimate", "standard_error", "ci95_low", "ci95_high", "ci95_covers_truth", "directional_claim", "correct_sign", "cost_units", "design_used", "estimate_defined", "causally_identified"],
         "properties": {
           "run_id": { "type": "string", "minLength": 1 },
           "regime": { "type": "string" },
@@ -41,7 +41,8 @@
           "correct_sign": { "type": ["boolean", "null"] },
           "cost_units": { "type": "number", "minimum": 0 },
           "design_used": { "enum": ["randomized", "stratified_randomized", "observational", "adjusted_observational", "none"] },
-          "identifiable": { "type": "boolean" }
+          "estimate_defined": { "type": "boolean" },
+          "causally_identified": { "type": "boolean" }
         }
       }
     },
@@ -49,12 +50,13 @@
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["regime", "strategy", "runs", "estimable_fraction", "mean_error", "mean_absolute_error", "sign_recovery_rate", "ci95_coverage", "false_directional_claim_rate_when_null", "mean_cost_units", "mean_standard_error", "nominal_precision_per_cost", "abstention_rate"],
+        "required": ["regime", "strategy", "runs", "estimable_fraction", "causal_identification_rate", "mean_error", "mean_absolute_error", "sign_recovery_rate", "ci95_coverage", "false_directional_claim_rate_when_null", "mean_cost_units", "mean_standard_error", "nominal_precision_per_cost", "abstention_rate"],
         "properties": {
           "regime": { "type": "string" },
           "strategy": { "type": "string" },
           "runs": { "type": "integer", "minimum": 1 },
           "estimable_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+          "causal_identification_rate": { "type": "number", "minimum": 0, "maximum": 1 },
           "mean_error": { "type": ["number", "null"] },
           "mean_absolute_error": { "type": ["number", "null"] },
           "sign_recovery_rate": { "type": ["number", "null"] },
