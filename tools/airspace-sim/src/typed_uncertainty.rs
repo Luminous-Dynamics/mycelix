@@ -18,6 +18,7 @@ const VALIDITY_TIME_BASIS: &str = "synthetic_epoch_seconds_v1";
 const OUTPUT_FRAME: &str = "synthetic_local_cartesian_v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TypedErrorTerm {
     source_id: String,
     dependency_id: String,
@@ -303,14 +304,27 @@ fn validate_term(term: &TypedErrorTerm) -> Result<(), LineageError> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FixtureSet {
     schema: String,
     status: String,
     authority_ceiling: String,
+    output: OutputContract,
     cases: Vec<FixtureCase>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OutputContract {
+    quantity_kind: String,
+    unit: String,
+    reference_frame: String,
+    sensitivity_scale_denominator: i64,
+    rounding: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FixtureCase {
     id: String,
     evaluation_time_s: i64,
@@ -360,6 +374,11 @@ mod tests {
             "offline_synthetic_research_only_no_operational_aviation_authority"
         );
         assert_eq!(fixture.cases.len(), 7);
+        assert_eq!(fixture.output.quantity_kind, "position_error");
+        assert_eq!(fixture.output.unit, "synthetic_mm");
+        assert_eq!(fixture.output.reference_frame, OUTPUT_FRAME);
+        assert_eq!(fixture.output.sensitivity_scale_denominator, 1_000);
+        assert_eq!(fixture.output.rounding, "outward_floor_lower_and_ceil_upper");
 
         for case in fixture.cases {
             let result = TypedLineageModel::new(case.terms)
@@ -452,4 +471,207 @@ mod tests {
             LineageError::DependencyContractMismatch
         );
     }
+    #[test]
+    fn unknown_contract_fields_fail_closed_instead_of_being_ignored() {
+        let mut value: serde_json::Value = serde_json::from_str(include_str!(
+            "../fixtures/typed_uncertainty_lineage.json"
+        )).expect("typed lineage fixture must parse before mutation");
+        value["cases"][0]["terms"][0]
+            .as_object_mut()
+            .expect("first term must be an object")
+            .insert("sensitivity_sclaed".to_owned(), serde_json::json!(1_000));
+
+        let error = serde_json::from_value::<FixtureSet>(value)
+            .expect_err("an unknown misspelled contract field must be rejected");
+        assert!(
+            error.to_string().contains("unknown field"),
+            "expected an unknown-field error, got: {error}"
+        );
+    }
+
+    fn next_oracle_seed(seed: &mut u64) -> u64 {
+        *seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        *seed
+    }
+
+    fn enumerate_lineage_assignments(
+        terms: &[TypedErrorTerm],
+        dependencies: &[(String, i64, i64)],
+        index: usize,
+        assigned: &mut Vec<i64>,
+        extrema: &mut Option<(i128, i128)>,
+    ) {
+        if index == dependencies.len() {
+            // Deliberately evaluate the original terms one by one. This oracle
+            // doesn't use the producer's dependency-coefficient coalescing loop.
+            let mut total_scaled = 0_i128;
+            for term in terms {
+                let value_index = dependencies
+                    .iter()
+                    .position(|(id, _, _)| id.as_str() == term.dependency_id.as_str())
+                    .expect("each term must map to a finite dependency assignment");
+                let contribution = i128::from(term.sensitivity_scaled)
+                    .checked_mul(i128::from(assigned[value_index]))
+                    .expect("small oracle product must fit in i128");
+                total_scaled = total_scaled
+                    .checked_add(contribution)
+                    .expect("small oracle sum must fit in i128");
+            }
+            match extrema {
+                Some((lower, upper)) => {
+                    *lower = (*lower).min(total_scaled);
+                    *upper = (*upper).max(total_scaled);
+                }
+                None => *extrema = Some((total_scaled, total_scaled)),
+            }
+            return;
+        }
+
+        let (_, low, high) = &dependencies[index];
+        for value in *low..=*high {
+            assigned.push(value);
+            enumerate_lineage_assignments(terms, dependencies, index + 1, assigned, extrema);
+            assigned.pop().expect("oracle assignment stack must be balanced");
+        }
+    }
+
+    fn lineage_termwise_oracle(terms: &[TypedErrorTerm]) -> BoundsMm {
+        let mut dependencies: Vec<(String, i64, i64)> = Vec::new();
+        for term in terms {
+            if let Some((_, low, high)) = dependencies
+                .iter()
+                .find(|(id, _, _)| id.as_str() == term.dependency_id.as_str())
+            {
+                assert_eq!((*low, *high), (term.lower_value, term.upper_value));
+            } else {
+                dependencies.push((
+                    term.dependency_id.clone(),
+                    term.lower_value,
+                    term.upper_value,
+                ));
+            }
+        }
+        let mut extrema = None;
+        enumerate_lineage_assignments(
+            terms,
+            &dependencies,
+            0,
+            &mut Vec::with_capacity(dependencies.len()),
+            &mut extrema,
+        );
+        let (lower_scaled, upper_scaled) = extrema.expect("oracle has at least one dependency");
+        // Independent outward-rounding implementation using quotient/remainder
+        // and Rust's truncation-towards-zero semantics.
+        let lower_mm = if lower_scaled >= 0 {
+            lower_scaled / SENSITIVITY_SCALE
+        } else {
+            -((-lower_scaled + SENSITIVITY_SCALE - 1) / SENSITIVITY_SCALE)
+        };
+        let upper_mm = if upper_scaled >= 0 {
+            (upper_scaled + SENSITIVITY_SCALE - 1) / SENSITIVITY_SCALE
+        } else {
+            -((-upper_scaled) / SENSITIVITY_SCALE)
+        };
+        BoundsMm {
+            lower_mm: i64::try_from(lower_mm).expect("small oracle bound fits i64"),
+            upper_mm: i64::try_from(upper_mm).expect("small oracle bound fits i64"),
+        }
+    }
+
+    fn generated_lineage_term(
+        source_id: String,
+        dependency_id: String,
+        quantity_kind: &str,
+        low: i64,
+        high: i64,
+        sensitivity_scaled: i64,
+    ) -> TypedErrorTerm {
+        let is_clock = quantity_kind == "clock_offset_error";
+        TypedErrorTerm {
+            source_id,
+            dependency_id,
+            quantity_kind: quantity_kind.to_owned(),
+            unit: if is_clock { "synthetic_ms" } else { "synthetic_mm" }.to_owned(),
+            reference_frame: if is_clock {
+                "not_spatial"
+            } else {
+                OUTPUT_FRAME
+            }.to_owned(),
+            validity_time_basis: VALIDITY_TIME_BASIS.to_owned(),
+            valid_from_s: 0,
+            valid_until_s: 100,
+            lower_value: low,
+            upper_value: high,
+            sensitivity_scaled,
+            sensitivity_basis: if is_clock {
+                "mm_per_ms_x1000"
+            } else {
+                "mm_per_mm_x1000"
+            }.to_owned(),
+            transform_id: None,
+            transform_source_frame: None,
+            transform_target_frame: None,
+            sensitivity_model_id: if is_clock {
+                Some("synthetic_generated_clock_sensitivity_v1".to_owned())
+            } else {
+                None
+            },
+        }
+    }
+
+    #[test]
+    fn generated_typed_lineage_domains_match_termwise_assignment_oracle() {
+        let mut seed = 0x71ED_2026_0230_5A11_u64;
+        for case_index in 0..500 {
+            let dependency_count = (next_oracle_seed(&mut seed) % 3 + 1) as usize;
+            let mut terms = Vec::new();
+            for dependency_index in 0..dependency_count {
+                let kind = if next_oracle_seed(&mut seed) % 2 == 0 {
+                    "position_error"
+                } else {
+                    "clock_offset_error"
+                };
+                let lower = -((next_oracle_seed(&mut seed) % 3) as i64);
+                let upper = (next_oracle_seed(&mut seed) % 3) as i64;
+                let contribution_count = (next_oracle_seed(&mut seed) % 3 + 1) as usize;
+                for contribution_index in 0..contribution_count {
+                    let sensitivity = (next_oracle_seed(&mut seed) % 5_001) as i64 - 2_500;
+                    terms.push(generated_lineage_term(
+                        format!("generated-{case_index}-source-{dependency_index}-{contribution_index}"),
+                        format!("generated-{case_index}-dependency-{dependency_index}"),
+                        kind,
+                        lower,
+                        upper,
+                        sensitivity,
+                    ));
+                }
+            }
+
+            let model = TypedLineageModel::new(terms.clone())
+                .unwrap_or_else(|error| panic!("generated lineage case {case_index} rejected: {error:?}"));
+            let actual = model.bounds_at(10)
+                .unwrap_or_else(|error| panic!("generated lineage case {case_index} failed: {error:?}"));
+            let expected = lineage_termwise_oracle(&terms);
+            assert_eq!(
+                actual,
+                expected,
+                "typed evaluator disagreed with exhaustive termwise oracle for case {case_index}: {terms:?}"
+            );
+
+            let mut reversed = terms.clone();
+            reversed.reverse();
+            let permuted = TypedLineageModel::new(reversed)
+                .unwrap_or_else(|error| panic!("reversed case {case_index} rejected: {error:?}"))
+                .bounds_at(10)
+                .unwrap_or_else(|error| panic!("reversed case {case_index} failed: {error:?}"));
+            assert_eq!(
+                actual,
+                permuted,
+                "typed output changed under term permutation for case {case_index}"
+            );
+        }
+    }
+
 }
