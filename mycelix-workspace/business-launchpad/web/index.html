@@ -1,0 +1,309 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Tristan Stoltz / Luminous Dynamics -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Business Launchpad — Viability Worksheet</title>
+  <meta name="description" content="A local-first, deterministic business scenario worksheet. No account or upload required in this prototype.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell">
+      <p class="eyebrow">LUMINOUS DYNAMICS · EXPERIMENTAL PROTOTYPE</p>
+      <h1>Business viability worksheet</h1>
+      <p class="lede">Check the arithmetic before committing money. Use your own costs, prices and sales assumptions.</p>
+    </div>
+  </header>
+
+  <main class="shell layout">
+    <section class="panel form-panel" aria-labelledby="inputs-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">01 / INPUTS</p>
+          <h2 id="inputs-heading">Describe the scenario</h2>
+        </div>
+        <span class="status-pill">Calculates locally</span>
+      </div>
+
+      <div class="notice notice-warning">
+        <strong>These values are fictional example defaults.</strong>
+        Replace them with quoted costs and realistic sales assumptions before using the result to make a decision.
+      </div>
+
+      <form id="model-form" novalidate>
+        <fieldset>
+          <legend>Currency and unit economics</legend>
+          <div class="field-grid currency-grid">
+            <label for="currency-code">Currency code
+              <input id="currency-code" name="currency-code" value="ZAR" maxlength="3" autocomplete="off" required>
+              <small>Three-letter code shape only; support is not verified.</small>
+            </label>
+            <label for="minor-unit-exponent">Decimal places
+              <input id="minor-unit-exponent" name="minor-unit-exponent" type="number" min="0" max="6" step="1" value="2" required>
+              <small>For example, ZAR normally uses 2.</small>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label for="selling-price">Price per sale
+              <input id="selling-price" name="selling-price" type="text" inputmode="decimal" value="180.00" autocomplete="off" required>
+            </label>
+            <label for="variable-cost">Variable cost per sale
+              <input id="variable-cost" name="variable-cost" type="text" inputmode="decimal" value="60.00" autocomplete="off" required>
+            </label>
+          </div>
+          <label for="planned-units">Sales you expect per month
+            <input id="planned-units" name="planned-units" type="number" min="0" step="1" value="50" required>
+            <small>Count one priced sale consistently: for example, one cleaning job, one meal, or one retail item. This is your assumption, not a demand forecast.</small>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Monthly and startup costs</legend>
+          <div class="field-grid">
+            <label for="fixed-monthly">Fixed costs per month
+              <input id="fixed-monthly" name="fixed-monthly" type="text" inputmode="decimal" value="900.00" autocomplete="off" required>
+            </label>
+            <label for="setup-costs">One-time setup costs
+              <input id="setup-costs" name="setup-costs" type="text" inputmode="decimal" value="2500.00" autocomplete="off" required>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label for="working-capital">Initial working-capital buffer
+              <input id="working-capital" name="working-capital" type="text" inputmode="decimal" value="3000.00" autocomplete="off" required>
+            </label>
+            <label for="available-cash">Cash available for startup
+              <input id="available-cash" name="available-cash" type="text" inputmode="decimal" value="6000.00" autocomplete="off" required>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>What is still missing?</legend>
+          <label for="cost-coverage">Cost coverage
+            <select id="cost-coverage" name="cost-coverage">
+              <option value="partial" selected>Partial — some costs unknown or omitted</option>
+              <option value="complete_for_declared_scope">Complete for the scope I entered</option>
+            </select>
+          </label>
+          <label for="omitted-costs">Omitted or uncertain cost categories
+            <textarea id="omitted-costs" name="omitted-costs" rows="3">owner labor, tax, insurance</textarea>
+            <small>Separate categories with commas. Do not treat unknown costs as zero.</small>
+          </label>
+        </fieldset>
+
+        <details id="cash-runway-details" class="cash-runway-details">
+          <summary>Optional 12-month cash runway scenario</summary>
+          <p class="form-footnote">A separate, editable month-by-month scenario. Sales units describe activity, not collections. Sales receipts and operating payments can be shifted to different months. Investing cash covers asset disposals and long-term asset purchases; financing cash covers loan/capital receipts and repayments or owner distributions. The other/unclassified fields preserve cash movements that have not been categorized; they affect closing cash but are excluded from operating/investing/financing subtotals until you classify the underlying transaction. This avoids guessing the meaning of old scenario data. Inputs are cash-only: non-cash transactions are not modeled, and all categories are planning aids—not accounting advice. The worksheet does not reconcile invoices, aged receivables, supplier balances or loan statements. Generated operating outflows combine base variable and fixed monthly costs; when edited, enter the total operating payment expected that month. Do not enter the same transaction in multiple buckets. Reset regenerates all 12 months and overwrites every cash-plan edit.</p>
+          <div class="cash-plan-scroll" role="region" aria-label="Twelve-month cash plan inputs" tabindex="0">
+            <table class="cash-plan-table">
+              <thead>
+                <tr>
+                  <th scope="col">Period</th>
+                  <th scope="col">Sales units (activity)</th>
+                  <th scope="col">Sales cash receipts</th>
+                  <th scope="col">Operating cash outflows</th>
+                  <th scope="col">Other/unclassified inflows</th>
+                  <th scope="col">Other/unclassified outflows</th>
+                  <th scope="col">Investing inflows</th>
+                  <th scope="col">Investing outflows</th>
+                  <th scope="col">Financing inflows</th>
+                  <th scope="col">Financing outflows</th>
+                </tr>
+              </thead>
+              <tbody id="cash-runway-periods"></tbody>
+            </table>
+          </div>
+          <button class="secondary-button reset-cash-plan" id="reset-cash-runway" type="button">Reset cash plan to illustrative defaults</button>
+          <small>The initial sales ramp is illustrative: 50% of target in Month 1, 75% in Month 2, and the target from Month 3 onward. Replace it with your own assumptions. This remains a scenario, not a demand forecast.</small>
+
+          <fieldset class="stress-assumptions">
+            <legend>Compare downside, base and upside</legend>
+            <p class="form-footnote">The base uses your entries. Stress cases use the assumptions below; these default values are illustrative, not measured benchmarks or probabilities. Edit them to fit your business. Downside receipts delayed beyond Month 12 are reported separately, not counted as collected within the horizon.</p>
+            <h4>Downside stress</h4>
+            <div class="field-grid">
+              <label for="downside-receipt-reduction-percent">Sales receipts reduced (%)
+                <input id="downside-receipt-reduction-percent" name="downside-receipt-reduction-percent" type="number" min="0" max="100" step="1" value="20" required>
+              </label>
+              <label for="downside-receipt-delay-months">Receipt delay (months)
+                <input id="downside-receipt-delay-months" name="downside-receipt-delay-months" type="number" min="0" max="24" step="1" value="1" required>
+              </label>
+              <label for="downside-operating-cost-increase-percent">Operating payments increased (%)
+                <input id="downside-operating-cost-increase-percent" name="downside-operating-cost-increase-percent" type="number" min="0" max="500" step="1" value="15" required>
+              </label>
+            </div>
+            <h4>Upside stress</h4>
+            <div class="field-grid">
+              <label for="upside-receipt-increase-percent">Sales receipts increased (%)
+                <input id="upside-receipt-increase-percent" name="upside-receipt-increase-percent" type="number" min="0" max="500" step="1" value="10" required>
+              </label>
+              <label for="upside-receipt-advance-months">Later receipts brought forward (months)
+                <input id="upside-receipt-advance-months" name="upside-receipt-advance-months" type="number" min="0" max="24" step="1" value="1" required>
+              </label>
+              <label for="upside-operating-cost-reduction-percent">Operating payments reduced (%)
+                <input id="upside-operating-cost-reduction-percent" name="upside-operating-cost-reduction-percent" type="number" min="0" max="100" step="1" value="5" required>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="stress-assumptions timing-schedule-assumptions">
+            <legend>Terms-based collection and variable-cost payment schedule</legend>
+            <p class="form-footnote">This creates a separate comparison case; it does not overwrite your base cash plan. Sales receipts are derived from sales units × selling price. The existing variable cost per sale is split across these three owner-named categories by cost share, then each category's share is allocated across its own payment schedule. Shares must total exactly 100%, as must each payment schedule. Fixed monthly costs and setup costs remain due in their current months. This is a timing sensitivity, not invoice-level payables.</p>
+            <h4>Customer collections</h4>
+            <div class="field-grid">
+              <label for="timing-sales-receipts-month-0">Collected in sale month (%)
+                <input id="timing-sales-receipts-month-0" name="timing-sales-receipts-month-0" type="number" min="0" max="100" step="1" value="70" required>
+              </label>
+              <label for="timing-sales-receipts-month-1">Collected next month (%)
+                <input id="timing-sales-receipts-month-1" name="timing-sales-receipts-month-1" type="number" min="0" max="100" step="1" value="25" required>
+              </label>
+              <label for="timing-sales-receipts-month-2">Collected two months later (%)
+                <input id="timing-sales-receipts-month-2" name="timing-sales-receipts-month-2" type="number" min="0" max="100" step="1" value="5" required>
+              </label>
+            </div>
+            <p class="form-footnote">Split the total variable cost per sale across these three example categories. Cost shares must total exactly 100%; each category's payment timing must also total exactly 100%. Rename the categories to match your business. The categories only distribute your existing total variable-cost input—they do not add extra costs. This is a sensitivity model, not invoice-level payables.</p>
+            <div class="timing-cost-category">
+              <h4>Variable-cost category 1</h4>
+              <div class="field-grid">
+                <label for="timing-cost-category-1-label">Category name
+                  <input id="timing-cost-category-1-label" name="timing-cost-category-1-label" type="text" maxlength="80" value="Materials / components" required>
+                </label>
+                <label for="timing-cost-category-1-share">Share of per-sale variable cost (%)
+                  <input id="timing-cost-category-1-share" name="timing-cost-category-1-share" type="number" min="0" max="100" step="1" value="60" required>
+                </label>
+              </div>
+              <div class="field-grid">
+                <label for="timing-cost-category-1-month-0">Paid in originating month (%)
+                  <input id="timing-cost-category-1-month-0" name="timing-cost-category-1-month-0" type="number" min="0" max="100" step="1" value="80" required>
+                </label>
+                <label for="timing-cost-category-1-month-1">Paid next month (%)
+                  <input id="timing-cost-category-1-month-1" name="timing-cost-category-1-month-1" type="number" min="0" max="100" step="1" value="15" required>
+                </label>
+                <label for="timing-cost-category-1-month-2">Paid two months later (%)
+                  <input id="timing-cost-category-1-month-2" name="timing-cost-category-1-month-2" type="number" min="0" max="100" step="1" value="5" required>
+                </label>
+              </div>
+            </div>
+            <div class="timing-cost-category">
+              <h4>Variable-cost category 2</h4>
+              <div class="field-grid">
+                <label for="timing-cost-category-2-label">Category name
+                  <input id="timing-cost-category-2-label" name="timing-cost-category-2-label" type="text" maxlength="80" value="Direct labor / subcontractors" required>
+                </label>
+                <label for="timing-cost-category-2-share">Share of per-sale variable cost (%)
+                  <input id="timing-cost-category-2-share" name="timing-cost-category-2-share" type="number" min="0" max="100" step="1" value="25" required>
+                </label>
+              </div>
+              <div class="field-grid">
+                <label for="timing-cost-category-2-month-0">Paid in originating month (%)
+                  <input id="timing-cost-category-2-month-0" name="timing-cost-category-2-month-0" type="number" min="0" max="100" step="1" value="100" required>
+                </label>
+                <label for="timing-cost-category-2-month-1">Paid next month (%)
+                  <input id="timing-cost-category-2-month-1" name="timing-cost-category-2-month-1" type="number" min="0" max="100" step="1" value="0" required>
+                </label>
+                <label for="timing-cost-category-2-month-2">Paid two months later (%)
+                  <input id="timing-cost-category-2-month-2" name="timing-cost-category-2-month-2" type="number" min="0" max="100" step="1" value="0" required>
+                </label>
+              </div>
+            </div>
+            <div class="timing-cost-category">
+              <h4>Variable-cost category 3</h4>
+              <div class="field-grid">
+                <label for="timing-cost-category-3-label">Category name
+                  <input id="timing-cost-category-3-label" name="timing-cost-category-3-label" type="text" maxlength="80" value="Fulfillment / other variable costs" required>
+                </label>
+                <label for="timing-cost-category-3-share">Share of per-sale variable cost (%)
+                  <input id="timing-cost-category-3-share" name="timing-cost-category-3-share" type="number" min="0" max="100" step="1" value="15" required>
+                </label>
+              </div>
+              <div class="field-grid">
+                <label for="timing-cost-category-3-month-0">Paid in originating month (%)
+                  <input id="timing-cost-category-3-month-0" name="timing-cost-category-3-month-0" type="number" min="0" max="100" step="1" value="70" required>
+                </label>
+                <label for="timing-cost-category-3-month-1">Paid next month (%)
+                  <input id="timing-cost-category-3-month-1" name="timing-cost-category-3-month-1" type="number" min="0" max="100" step="1" value="25" required>
+                </label>
+                <label for="timing-cost-category-3-month-2">Paid two months later (%)
+                  <input id="timing-cost-category-3-month-2" name="timing-cost-category-3-month-2" type="number" min="0" max="100" step="1" value="5" required>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+        </details>
+
+        <div id="input-error" class="notice notice-error" role="alert" hidden></div>
+        <button class="primary-button" id="calculate-scenario" type="submit">Calculate scenario <span aria-hidden="true">→</span></button>
+        <div class="transfer-actions" aria-label="Scenario file tools">
+          <button class="secondary-button" id="download-scenario" type="button">Download assumptions JSON</button>
+          <label class="secondary-button file-picker" for="load-scenario-file">Load assumptions JSON
+            <input id="load-scenario-file" type="file" accept="application/json,.json">
+          </label>
+        </div>
+        <p class="form-footnote">Assumptions and reports stay in this page until you choose to download a file. Nothing is uploaded to an application server. Refreshing clears unsaved edits.</p>
+      </form>
+    </section>
+
+    <section class="panel results-panel" aria-labelledby="results-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">02 / RESULT</p>
+          <h2 id="results-heading">The numbers</h2>
+        </div>
+        <span id="result-status" class="status-pill status-muted" role="status" aria-live="polite" aria-atomic="true">Example not yet calculated</span>
+      </div>
+      <div id="result">
+        <div class="empty-state">
+          <div class="empty-icon" aria-hidden="true">∑</div>
+          <h3>Run the worksheet</h3>
+          <p>The report will show contribution, break-even sales, an upfront funding gap and a separate 12-month cash runway scenario.</p>
+        </div>
+      </div>
+      <button class="secondary-button report-download" id="download-report" type="button" disabled>Download calculated report JSON</button>
+
+      <section class="actuals-panel" aria-labelledby="actuals-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / EVIDENCE</p>
+            <h3 id="actuals-heading">Actuals versus plan</h3>
+          </div>
+          <span id="actuals-status" class="status-pill status-muted" role="status" aria-live="polite">Calculate the current plan before importing actuals</span>
+        </div>
+        <p class="form-footnote">Import a complete, full-calendar-month bank-statement export or reconciled cash-ledger export using the schema-v1 template. Every transaction must have a unique ID, date, category, amount in minor currency units, matching currency, and source-row reference. Source opening-to-closing cash movement must reconcile exactly. Set the date that forecast Month 1 represents. Files stay in this browser until you explicitly export a variance bundle.</p>
+        <div class="actuals-controls">
+          <label for="actuals-forecast-start-month">Forecast Month 1 starts in
+            <input id="actuals-forecast-start-month" name="actuals-forecast-start-month" type="month" required>
+          </label>
+          <label class="secondary-button file-picker" for="load-actuals-file">Import actuals source JSON
+            <input id="load-actuals-file" type="file" accept="application/json,.json">
+          </label>
+          <button class="secondary-button" id="download-actuals-template" type="button">Download actuals template</button>
+          <button class="secondary-button" id="download-variance-report" type="button" disabled>Download variance evidence bundle</button>
+        </div>
+        <div id="actuals-error" class="notice notice-error" role="alert" hidden></div>
+        <div id="actuals-result"></div>
+        <p class="form-footnote">Important: SHA-256 fingerprints the imported bytes but does not prove the file came from a bank or is complete. Keep original statements, receipts and ledger records securely. Do not include bank credentials or full account numbers. Intermediate month-end cash balances are derived from transactions; only the overall source closing balance is supplied independently.</p>
+      </section>
+
+
+
+      <div class="notice notice-warning result-warning">
+        <strong>Not net profit or a go/no-go decision.</strong>
+        The worksheet does not calculate taxes, debt service, owner draw, depreciation, demand, seasonality or costs you have not entered. It does not verify licenses or tell you whether you can legally operate at a specific location.
+      </div>
+      <details class="privacy-details">
+        <summary>What happens to my data?</summary>
+        <p>Calculations happen in the browser. The application does not upload inputs or persist them in browser storage. You can explicitly import a local JSON scenario or download the current assumptions and calculated report as files. Static page assets are still fetched from the server hosting this prototype. These files are not a hosted account, backup service or durable business record system; keep important files in your own backup process.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="shell site-footer">
+    <p>Business Launchpad is experimental software. Verify assumptions, source documents, local rules and financial details independently.</p>
+    <p><a href="https://github.com/Luminous-Dynamics/mycelix/tree/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad">Source and limitations</a></p>
+  </footer>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

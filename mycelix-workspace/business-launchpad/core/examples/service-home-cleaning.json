@@ -1,0 +1,21 @@
+{
+  "currency": {
+    "code": "ZAR",
+    "minorUnitExponent": 2
+  },
+  "sellingPricePerUnitMinor": 18000,
+  "variableCostPerUnitMinor": 6000,
+  "fixedMonthlyCostsMinor": 90000,
+  "plannedUnitsPerMonth": 50,
+  "setupCostsMinor": 250000,
+  "initialWorkingCapitalBufferMinor": 300000,
+  "availableCashForStartupMinor": 600000,
+  "costCoverage": {
+    "level": "partial",
+    "omittedCategories": [
+      "owner labor",
+      "tax",
+      "insurance"
+    ]
+  }
+}

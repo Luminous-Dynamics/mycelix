@@ -1,0 +1,808 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This is a dependency-free interaction-contract simulation, not a real browser
+// or accessibility test. A browser engine must still validate layout and APIs.
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { webcrypto } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+globalThis.crypto ??= webcrypto;
+
+class MockElement {
+  constructor(tag = 'div', id = '') {
+    this.tagName = tag.toUpperCase();
+    this.id = id;
+    this.value = '';
+    this.disabled = false;
+    this.hidden = false;
+    this.className = '';
+    this.attributes = {};
+    this.children = [];
+    this.listeners = new Map();
+    this._text = '';
+    this.files = [];
+    this.clicked = false;
+    this.removed = false;
+  }
+  set textContent(value) {
+    this._text = value == null ? '' : String(value);
+    this.children = [];
+  }
+  get textContent() {
+    return this._text + this.children.map(child => child.textContent).join('');
+  }
+  append(child) { this.children.push(child); }
+  replaceChildren(...children) { this._text = ''; this.children = children; }
+  click() { this.clicked = true; }
+  remove() { this.removed = true; }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  addEventListener(type, listener) {
+    const entries = this.listeners.get(type) ?? [];
+    entries.push(listener);
+    this.listeners.set(type, entries);
+  }
+  dispatchEvent(event) {
+    event.target = this;
+    event.preventDefault ??= () => { event.defaultPrevented = true; };
+    for (const listener of this.listeners.get(event.type) ?? []) listener(event);
+    return !event.defaultPrevented;
+  }
+}
+
+class MockDocument {
+  constructor() {
+    this.nodes = new Map();
+    const ids = [
+      'model-form', 'input-error', 'result', 'result-status', 'currency-code',
+      'minor-unit-exponent', 'selling-price', 'variable-cost', 'planned-units',
+      'fixed-monthly', 'setup-costs', 'working-capital', 'available-cash',
+      'cost-coverage', 'omitted-costs', 'download-scenario', 'load-scenario-file', 'download-report',
+      'cash-runway-periods', 'reset-cash-runway',
+      'actuals-forecast-start-month', 'load-actuals-file', 'download-actuals-template', 'download-variance-report', 'actuals-status', 'actuals-error', 'actuals-result',
+      'downside-receipt-reduction-percent', 'downside-receipt-delay-months',
+      'downside-operating-cost-increase-percent', 'upside-receipt-increase-percent',
+      'upside-receipt-advance-months', 'upside-operating-cost-reduction-percent',
+      'timing-sales-receipts-month-0', 'timing-sales-receipts-month-1', 'timing-sales-receipts-month-2',
+      'timing-cost-category-1-label', 'timing-cost-category-1-share', 'timing-cost-category-1-month-0', 'timing-cost-category-1-month-1', 'timing-cost-category-1-month-2',
+      'timing-cost-category-2-label', 'timing-cost-category-2-share', 'timing-cost-category-2-month-0', 'timing-cost-category-2-month-1', 'timing-cost-category-2-month-2',
+      'timing-cost-category-3-label', 'timing-cost-category-3-share', 'timing-cost-category-3-month-0', 'timing-cost-category-3-month-1', 'timing-cost-category-3-month-2'
+    ];
+    for (const id of ids) this.nodes.set(id, new MockElement(id === 'model-form' ? 'form' : 'div', id));
+    this.body = new MockElement('body');
+    this.createdElements = [];
+    this.nodes.get('download-report').disabled = true;
+    this.nodes.get('currency-code').value = 'ZAR';
+    this.nodes.get('minor-unit-exponent').value = '2';
+    this.nodes.get('selling-price').value = '180.00';
+    this.nodes.get('variable-cost').value = '60.00';
+    this.nodes.get('planned-units').value = '50';
+    this.nodes.get('fixed-monthly').value = '900.00';
+    this.nodes.get('setup-costs').value = '2500.00';
+    this.nodes.get('working-capital').value = '3000.00';
+    this.nodes.get('available-cash').value = '6000.00';
+    this.nodes.get('cost-coverage').value = 'partial';
+    this.nodes.get('omitted-costs').value = 'owner labor, tax, insurance';
+    this.nodes.get('downside-receipt-reduction-percent').value = '20';
+    this.nodes.get('downside-receipt-delay-months').value = '1';
+    this.nodes.get('downside-operating-cost-increase-percent').value = '15';
+    this.nodes.get('upside-receipt-increase-percent').value = '10';
+    this.nodes.get('upside-receipt-advance-months').value = '1';
+    this.nodes.get('upside-operating-cost-reduction-percent').value = '5';
+    this.nodes.get('timing-sales-receipts-month-0').value = '70';
+    this.nodes.get('timing-sales-receipts-month-1').value = '25';
+    this.nodes.get('timing-sales-receipts-month-2').value = '5';
+    this.nodes.get('timing-cost-category-1-label').value = 'Materials / components';
+    this.nodes.get('timing-cost-category-1-share').value = '60';
+    this.nodes.get('timing-cost-category-1-month-0').value = '80';
+    this.nodes.get('timing-cost-category-1-month-1').value = '15';
+    this.nodes.get('timing-cost-category-1-month-2').value = '5';
+    this.nodes.get('timing-cost-category-2-label').value = 'Direct labor / subcontractors';
+    this.nodes.get('timing-cost-category-2-share').value = '25';
+    this.nodes.get('timing-cost-category-2-month-0').value = '100';
+    this.nodes.get('timing-cost-category-2-month-1').value = '0';
+    this.nodes.get('timing-cost-category-2-month-2').value = '0';
+    this.nodes.get('timing-cost-category-3-label').value = 'Fulfillment / other variable costs';
+    this.nodes.get('timing-cost-category-3-share').value = '15';
+    this.nodes.get('timing-cost-category-3-month-0').value = '70';
+    this.nodes.get('timing-cost-category-3-month-1').value = '25';
+    this.nodes.get('timing-cost-category-3-month-2').value = '5';
+    this.nodes.get('result-status').textContent = 'Example not yet calculated';
+  }
+  querySelector(selector) {
+    if (!selector.startsWith('#')) throw new Error('Mock DOM only implements ID selectors.');
+    return this.getElementById(selector.slice(1));
+  }
+  getElementById(id) {
+    if (this.nodes.has(id)) return this.nodes.get(id);
+    for (let index = this.createdElements.length - 1; index >= 0; index -= 1) {
+      if (this.createdElements[index].id === id) return this.createdElements[index];
+    }
+    return null;
+  }
+  createElement(tag) {
+    const node = new MockElement(tag);
+    this.createdElements.push(node);
+    return node;
+  }
+  reset() {
+    const values = {
+      'currency-code': 'ZAR',
+      'minor-unit-exponent': '2',
+      'selling-price': '180.00',
+      'variable-cost': '60.00',
+      'planned-units': '50',
+      'fixed-monthly': '900.00',
+      'setup-costs': '2500.00',
+      'working-capital': '3000.00',
+      'available-cash': '6000.00',
+      'cost-coverage': 'partial',
+      'omitted-costs': 'owner labor, tax, insurance',
+      'downside-receipt-reduction-percent': '20',
+      'downside-receipt-delay-months': '1',
+      'downside-operating-cost-increase-percent': '15',
+      'upside-receipt-increase-percent': '10',
+      'upside-receipt-advance-months': '1',
+      'upside-operating-cost-reduction-percent': '5',
+      'timing-sales-receipts-month-0': '70',
+      'timing-sales-receipts-month-1': '25',
+      'timing-sales-receipts-month-2': '5',
+      'timing-cost-category-1-label': 'Materials / components',
+      'timing-cost-category-1-share': '60',
+      'timing-cost-category-1-month-0': '80',
+      'timing-cost-category-1-month-1': '15',
+      'timing-cost-category-1-month-2': '5',
+      'timing-cost-category-2-label': 'Direct labor / subcontractors',
+      'timing-cost-category-2-share': '25',
+      'timing-cost-category-2-month-0': '100',
+      'timing-cost-category-2-month-1': '0',
+      'timing-cost-category-2-month-2': '0',
+      'timing-cost-category-3-label': 'Fulfillment / other variable costs',
+      'timing-cost-category-3-share': '15',
+      'timing-cost-category-3-month-0': '70',
+      'timing-cost-category-3-month-1': '25',
+      'timing-cost-category-3-month-2': '5',
+      'actuals-forecast-start-month': '2026-01'
+    };
+    for (const [id, value] of Object.entries(values)) this.nodes.get(id).value = value;
+    this.nodes.get('input-error').hidden = true;
+    this.nodes.get('input-error').textContent = '';
+    this.nodes.get('result').replaceChildren();
+    this.nodes.get('result-status').textContent = 'Example not yet calculated';
+    this.nodes.get('omitted-costs').disabled = false;
+    this.nodes.get('load-scenario-file').value = '';
+    this.nodes.get('load-scenario-file').files = [];
+    this.nodes.get('download-report').disabled = true;
+    this.nodes.get('download-variance-report').disabled = true;
+    this.nodes.get('load-actuals-file').value = '';
+    this.nodes.get('load-actuals-file').files = [];
+    this.nodes.get('actuals-status').textContent = 'Calculate the current plan before importing actuals.';
+    this.nodes.get('actuals-error').hidden = true;
+    this.nodes.get('actuals-error').textContent = '';
+    this.nodes.get('actuals-result').replaceChildren();
+    for (let month = 1; month <= 12; month += 1) {
+      const units = month === 1 ? 25 : month === 2 ? 38 : 50;
+      this.getElementById('cash-month-' + month + '-sales').value = String(units);
+      this.getElementById('cash-month-' + month + '-sales-receipts').value = (180 * units).toFixed(2);
+      this.getElementById('cash-month-' + month + '-operating-outflows').value = (60 * units + 900).toFixed(2);
+      this.getElementById('cash-month-' + month + '-inflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-outflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-investing-inflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-investing-outflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-financing-inflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-financing-outflows').value = '0.00';
+    }
+  }
+  submit() {
+    this.nodes.get('model-form').dispatchEvent({
+      type: 'submit',
+      defaultPrevented: false,
+      preventDefault() { this.defaultPrevented = true; }
+    });
+  }
+  change(id) { this.nodes.get(id).dispatchEvent({ type: 'change' }); }
+}
+
+const documentMock = new MockDocument();
+globalThis.document = documentMock;
+let capturedBlob = null;
+const revokedUrls = [];
+const createdUrls = [];
+globalThis.URL.createObjectURL = blob => {
+  capturedBlob = blob;
+  createdUrls.push('blob:business-launchpad-test');
+  return 'blob:business-launchpad-test';
+};
+globalThis.URL.revokeObjectURL = url => {
+  revokedUrls.push(url);
+};
+await import('../../web/app.mjs');
+
+test('default business scenario renders deterministic totals and cost warnings', () => {
+  documentMock.reset();
+  documentMock.submit();
+  const result = documentMock.getElementById('result');
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Deterministic calculation');
+  assert.match(result.textContent, /ZAR 5100\.00/);
+  assert.match(result.textContent, /8 units\/month/);
+  assert.match(result.textContent, /PARTIAL COST COVERAGE/);
+  assert.match(result.textContent, /owner labor, tax, insurance/);
+  assert.match(result.textContent, /12-month cash runway scenario/);
+  assert.match(result.textContent, /Downside \/ base \/ upside comparison/);
+  assert.match(result.textContent, /Receipts delayed beyond horizon/);
+  assert.match(result.textContent, /Downside stress: sales receipts reduced 20%, delayed 1 month/);
+  assert.match(result.textContent, /Upside stress: sales receipts increased 10%/);
+  assert.match(result.textContent, /same month/);
+  assert.equal(documentMock.getElementById('input-error').hidden, true);
+});
+
+test('rejects amounts with excess decimal precision instead of rounding them', () => {
+  documentMock.reset();
+  documentMock.getElementById('selling-price').value = '180.001';
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /more fractional digits/);
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Calculation failed');
+});
+
+test('complete-cost declaration does not carry disabled omitted categories into the model', () => {
+  documentMock.reset();
+  documentMock.getElementById('cost-coverage').value = 'complete_for_declared_scope';
+  documentMock.change('cost-coverage');
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('omitted-costs').disabled, true);
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Deterministic calculation');
+  assert.match(documentMock.getElementById('result').textContent, /COSTS DECLARED COMPLETE FOR THE USER-DEFINED SCOPE/);
+  assert.doesNotMatch(documentMock.getElementById('result').textContent, /Omitted\/uncertain/);
+});
+
+test('negative unit contribution is not displayed as a reachable break-even', () => {
+  documentMock.reset();
+  documentMock.getElementById('variable-cost').value = '200.00';
+  documentMock.submit();
+  const output = documentMock.getElementById('result').textContent;
+  assert.match(output, /Unreachable at this price\/cost/);
+  assert.match(output, /ZAR -1900\.00/);
+});
+
+test('malformed currency code and non-integer unit volume produce explicit errors', () => {
+  documentMock.reset();
+  documentMock.getElementById('currency-code').value = 'Z$';
+  documentMock.submit();
+  assert.match(documentMock.getElementById('input-error').textContent, /three-letter currency code/);
+
+  documentMock.reset();
+  documentMock.getElementById('planned-units').value = '1.5';
+  documentMock.submit();
+  assert.match(documentMock.getElementById('input-error').textContent, /whole, non-negative number/);
+});
+
+test('assumptions export produces versioned portable JSON without uploading inputs', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  assert.ok(capturedBlob instanceof Blob);
+  assert.equal(capturedBlob.type, 'application/json;charset=utf-8');
+
+  const payload = JSON.parse(await capturedBlob.text());
+  assert.equal(payload.schemaVersion, 6);
+  assert.equal(payload.kind, 'business-launchpad-scenario');
+  assert.equal(payload.input.currency.code, 'ZAR');
+  assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
+  assert.deepEqual(payload.input.costCoverage.omittedCategories, ['owner labor', 'tax', 'insurance']);
+  assert.equal(payload.cashRunwayPlan.length, 12);
+  assert.equal(payload.cashRunwayPlan[0].salesUnits, 25);
+  assert.equal(payload.cashRunwayPlan[0].salesCashReceiptsMinor, 450_000);
+  assert.equal(payload.cashRunwayPlan[0].operatingCashOutflowsMinor, 240_000);
+  assert.equal(payload.cashRunwayPlan[0].investingCashOutflowsMinor, 0);
+  assert.equal(payload.cashRunwayPlan[0].financingCashInflowsMinor, 0);
+  assert.deepEqual(payload.cashScenarioAssumptions, {
+    downside: { salesReceiptReductionPercent: 20, salesReceiptDelayMonths: 1, operatingCashOutflowIncreasePercent: 15 },
+    upside: { salesReceiptIncreasePercent: 10, salesReceiptAdvanceMonths: 1, operatingCashOutflowReductionPercent: 5 }
+  });
+  assert.deepEqual(payload.cashTimingSchedule, {
+    salesReceiptsPercent: [70, 25, 5],
+    variableCostCategories: [
+      { id: 'category-1', label: 'Materials / components', costSharePercent: 60, paymentPercentages: [80, 15, 5] },
+      { id: 'category-2', label: 'Direct labor / subcontractors', costSharePercent: 25, paymentPercentages: [100, 0, 0] },
+      { id: 'category-3', label: 'Fulfillment / other variable costs', costSharePercent: 15, paymentPercentages: [70, 25, 5] }
+    ]
+  });
+  assert.equal(payload.cashRunwayPlan[1].salesUnits, 38);
+
+  const anchor = documentMock.createdElements.at(-1);
+  assert.equal(anchor.tagName, 'A');
+  assert.equal(anchor.download, 'business-launchpad-scenario-v6.json');
+  assert.equal(anchor.clicked, true);
+  assert.equal(anchor.removed, true);
+});
+
+test('imported scenario is validated, restores fields, and requires recalculation', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.input.sellingPricePerUnitMinor = 20_000;
+  payload.input.plannedUnitsPerMonth = 40;
+  payload.cashScenarioAssumptions.downside.salesReceiptDelayMonths = 2;
+  payload.cashTimingSchedule.salesReceiptsPercent = [60, 30, 10];
+  payload.cashTimingSchedule.variableCostCategories[0].label = 'Custom materials';
+  payload.cashTimingSchedule.variableCostCategories[0].costSharePercent = 50;
+  payload.cashTimingSchedule.variableCostCategories[1].costSharePercent = 30;
+  payload.cashTimingSchedule.variableCostCategories[2].costSharePercent = 20;
+  payload.cashTimingSchedule.variableCostCategories[0].paymentPercentages = [60, 30, 10];
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  fileInput.value = 'modified-scenario.json';
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(fileInput.value, '');
+  assert.equal(documentMock.getElementById('selling-price').value, '200.00');
+  assert.equal(documentMock.getElementById('planned-units').value, '40');
+  assert.equal(documentMock.getElementById('downside-receipt-delay-months').value, '2');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '60');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-1').value, '30');
+  assert.equal(documentMock.getElementById('timing-cost-category-1-label').value, 'Custom materials');
+  assert.equal(documentMock.getElementById('timing-cost-category-1-share').value, '50');
+  assert.equal(documentMock.getElementById('timing-cost-category-2-share').value, '30');
+  assert.equal(documentMock.getElementById('timing-cost-category-3-share').value, '20');
+  assert.equal(documentMock.getElementById('timing-cost-category-1-month-1').value, '30');
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Deterministic calculation');
+  assert.match(documentMock.getElementById('result').textContent, /ZAR 4700\.00/);
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+});
+
+test('invalid cash runway plan is rejected before imported base inputs are applied', async () => {
+  documentMock.reset();
+  const originalPrice = documentMock.getElementById('selling-price').value;
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 1;
+  payload.input.sellingPricePerUnitMinor = 50_000;
+  payload.cashRunwayPlan = Array.from({ length: 12 }, (_, index) => ({
+    salesUnits: index === 0 ? -1 : 25,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0
+  }));
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Cash runway Month 1 contains an invalid amount or sales quantity/);
+});
+
+test('schema-v2 cash plan rejects missing explicit cash timing fields', async () => {
+  documentMock.reset();
+  const originalPrice = documentMock.getElementById('selling-price').value;
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 2;
+  payload.cashRunwayPlan[0] = {
+    salesUnits: 25,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0
+  };
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 2 cash runway Month 1 must include sales cash receipts and operating cash outflows/);
+});
+
+test('legacy version-1 cash plan periods derive missing cash timing fields safely', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 1;
+  payload.cashRunwayPlan = payload.cashRunwayPlan.map(period => ({
+    salesUnits: period.salesUnits,
+    otherCashInflowsMinor: period.otherCashInflowsMinor,
+    otherCashOutflowsMinor: period.otherCashOutflowsMinor
+  }));
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('cash-month-1-sales-receipts').value, '4500.00');
+  assert.equal(documentMock.getElementById('cash-month-1-operating-outflows').value, '2400.00');
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+});
+
+test('version-2 scenarios missing the cash plan are rejected instead of silently downgraded', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 2;
+  delete payload.cashRunwayPlan;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 2 scenarios must include the 12-month cash plan/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
+test('legacy version-1 scenarios without a cash plan receive an explicit default ramp', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 1;
+  delete payload.cashRunwayPlan;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('cash-month-1-sales').value, '25');
+  assert.equal(documentMock.getElementById('cash-month-2-sales').value, '38');
+  assert.equal(documentMock.getElementById('cash-month-12-sales').value, '50');
+  assert.equal(documentMock.getElementById('cash-month-1-sales-receipts').value, '4500.00');
+  assert.equal(documentMock.getElementById('cash-month-1-operating-outflows').value, '2400.00');
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  documentMock.submit();
+  assert.match(documentMock.getElementById('result').textContent, /12-month cash runway scenario/);
+});
+
+test('schema-v4 requires valid stress assumptions and cannot silently default them', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  delete payload.cashScenarioAssumptions.downside.salesReceiptDelayMonths;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Cash scenario assumptions failed validation/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
+test('schema-v6 requires a valid category-specific collection and payment schedule', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.cashTimingSchedule.salesReceiptsPercent = [70, 20, 5];
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Cash scenario assumptions failed validation/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const missingCategories = JSON.parse(await capturedBlob.text());
+  delete missingCategories.cashTimingSchedule.variableCostCategories;
+  missingCategories.schemaVersion = 6;
+  missingCategories.cashTimingSchedule.variableSupplierPaymentsPercent = [80, 15, 5];
+  const secondInput = documentMock.getElementById('load-scenario-file');
+  secondInput.files = [{ text: async () => JSON.stringify(missingCategories) }];
+  await secondInput.listeners.get('change')[0]({ target: secondInput });
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 6 scenarios must include three explicit variable-cost categories/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
+test('schema-v4 import receives explicit illustrative timing defaults', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 4;
+  delete payload.cashTimingSchedule;
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '70');
+  assert.equal(documentMock.getElementById('timing-cost-category-3-month-2').value, '5');
+});
+
+test('schema-v5 migration preserves the prior aggregate supplier-payment curve', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 5;
+  payload.cashTimingSchedule = {
+    salesReceiptsPercent: [55, 35, 10],
+    variableSupplierPaymentsPercent: [60, 30, 10]
+  };
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '55');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-1').value, '35');
+  for (const index of [1, 2, 3]) {
+    assert.equal(documentMock.getElementById('timing-cost-category-' + index + '-month-0').value, '60');
+    assert.equal(documentMock.getElementById('timing-cost-category-' + index + '-month-1').value, '30');
+    assert.equal(documentMock.getElementById('timing-cost-category-' + index + '-month-2').value, '10');
+  }
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
+test('schema-v3 plans require all explicit investing and financing cash fields', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 3;
+  delete payload.cashRunwayPlan[0].financingCashOutflowsMinor;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 3 cash runway Month 1 must include all investing and financing cash fields/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
+test('legacy version-2 plans migrate absent investing and financing amounts to zero', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 2;
+  payload.cashRunwayPlan = payload.cashRunwayPlan.map(period => ({
+    salesUnits: period.salesUnits,
+    salesCashReceiptsMinor: period.salesCashReceiptsMinor,
+    operatingCashOutflowsMinor: period.operatingCashOutflowsMinor,
+    otherCashInflowsMinor: period.otherCashInflowsMinor,
+    otherCashOutflowsMinor: period.otherCashOutflowsMinor
+  }));
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('cash-month-1-investing-inflows').value, '0.00');
+  assert.equal(documentMock.getElementById('cash-month-1-financing-outflows').value, '0.00');
+});
+
+test('report export is disabled until a valid calculation exists and includes both inputs and report', async () => {
+  documentMock.reset();
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+  documentMock.getElementById('download-report').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+
+  assert.equal(payload.schemaVersion, 6);
+  assert.equal(payload.kind, 'business-launchpad-report');
+  assert.equal(payload.input.currency.code, 'ZAR');
+  assert.equal(payload.report.breakEven.unitsPerMonth, 8);
+  assert.equal(payload.report.startup.fundingGapMinor, 0);
+  assert.equal(payload.cashRunwayPlan.length, 12);
+  assert.equal(payload.cashRunwayProjection.horizonMonths, 12);
+  assert.equal(payload.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
+  assert.equal(payload.cashScenarioComparison.kind, 'business-launchpad-cash-scenario-comparison');
+  assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
+  assert.equal(payload.cashScenarioComparison.scenarios[1].summary.endingCashMinor, payload.cashRunwayProjection.summary.endingCashMinor);
+  assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
+  assert.equal(payload.cashScenarioComparison.scenarios[3].assumptions.salesReceiptsPercent[0], 70);
+  assert.equal(payload.cashScenarioComparison.scenarios[3].deferredSalesCashReceiptsAfterHorizonMinor > 0, true);
+  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v6.json');
+  assert.ok(createdUrls.includes('blob:business-launchpad-test'));
+});
+
+test('malformed or unsupported import files fail visibly without changing inputs', async () => {
+  documentMock.reset();
+  const originalPrice = documentMock.getElementById('selling-price').value;
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 through 6 required/);
+  assert.equal(fileInput.value, '');
+
+  fileInput.files = [{
+    size: 1_000_001,
+    text: async () => JSON.stringify({ schemaVersion: 1, kind: 'business-launchpad-scenario', input: {} })
+  }];
+  fileInput.value = 'oversized.json';
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.match(documentMock.getElementById('input-error').textContent, /larger than 1 MB/);
+  assert.equal(fileInput.value, '');
+});
+
+test('resetting cash plan regenerates every cash field and invalidates prior results', () => {
+  documentMock.reset();
+  documentMock.getElementById('selling-price').value = '200.00';
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+
+  documentMock.getElementById('cash-month-1-sales-receipts').value = '0.00';
+  documentMock.getElementById('cash-month-1-operating-outflows').value = '900.00';
+  documentMock.getElementById('cash-month-1-inflows').value = '777.00';
+  documentMock.getElementById('reset-cash-runway').dispatchEvent({ type: 'click' });
+
+  assert.equal(documentMock.getElementById('cash-month-1-sales').value, '25');
+  assert.equal(documentMock.getElementById('cash-month-1-sales-receipts').value, '5000.00');
+  assert.equal(documentMock.getElementById('cash-month-1-operating-outflows').value, '2400.00');
+  assert.equal(documentMock.getElementById('cash-month-1-inflows').value, '0.00');
+  assert.equal(documentMock.getElementById('cash-month-1-investing-outflows').value, '0.00');
+  assert.equal(documentMock.getElementById('cash-month-1-financing-inflows').value, '0.00');
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Cash plan reset — recalculate');
+});
+
+test('cash runway exposes reserve breaches when the first month has no sales', () => {
+  documentMock.reset();
+  documentMock.getElementById('cash-month-1-sales').value = '0';
+  documentMock.getElementById('cash-month-1-sales-receipts').value = '0.00';
+  documentMock.getElementById('cash-month-1-operating-outflows').value = '900.00';
+  documentMock.submit();
+  const output = documentMock.getElementById('result').textContent;
+  assert.match(output, /First reserve breachMonth 1/);
+  assert.match(output, /Extra cash to maintain reserveZAR 400\.00/);
+  assert.match(output, /Month 1/);
+});
+
+test('editing inputs invalidates a previously calculated report', () => {
+  documentMock.reset();
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+
+  documentMock.getElementById('selling-price').value = '190.00';
+  documentMock.getElementById('model-form').dispatchEvent({ type: 'input' });
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Inputs changed — recalculate');
+  assert.equal(documentMock.getElementById('result').textContent, '');
+});
+
+test('static client does not contain application-level network or browser persistence calls', async () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const source = await readFile(resolve(here, '../../web/app.mjs'), 'utf8');
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
+  assert.doesNotMatch(source, /XMLHttpRequest|localStorage|sessionStorage|indexedDB|serviceWorker/);
+  assert.match(source, /URL\.createObjectURL/);
+  assert.match(source, /file\.text\(\)/);
+  assert.doesNotMatch(source, /\.innerHTML\s*=/);
+});
+
+test('custom file picker has an associated label and a high-contrast keyboard focus indicator', async () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const css = await readFile(resolve(here, '../../web/styles.css'), 'utf8');
+  const html = await readFile(resolve(here, '../../web/index.html'), 'utf8');
+  const focusColor = '#176c52';
+  assert.ok(css.includes('input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #176c52; outline-offset: 2px; }'));
+  assert.ok(css.includes('.file-picker:focus-within { outline: 3px solid #176c52; outline-offset: 3px; }'));
+  assert.ok(html.includes('<label class="secondary-button file-picker" for="load-scenario-file">'));
+  assert.ok(html.includes('<input id="load-scenario-file" type="file"'));
+  assert.ok(html.includes('id="result-status" class="status-pill status-muted" role="status" aria-live="polite" aria-atomic="true"'));
+  assert.ok(html.includes('<div id="result">'), 'long result tables should not be one atomic live announcement');
+
+  const luminance = hex => {
+    const channel = offset => {
+      const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  const contrast = (first, second) => {
+    const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+  assert.ok(contrast(focusColor, '#ffffff') >= 3, 'focus ring should contrast with white panels at 3:1 or higher');
+  assert.ok(contrast(focusColor, '#f5f7f4') >= 3, 'focus ring should contrast with the page background at 3:1 or higher');
+});
+
+
+test('reconciled actuals import produces a hash-bound portable variance evidence bundle', async () => {
+  documentMock.reset();
+  documentMock.submit();
+  const source = {
+    schemaVersion: 1,
+    kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export',
+      label: 'Synthetic two-month bank export fixture',
+      evidenceReference: 'fixture-statement-2026-01-02',
+      coverageStartDate: '2026-01-01',
+      coverageEndDate: '2026-02-28',
+      completeMonthlyCoverage: true,
+      openingCashBalanceMinor: 350000,
+      closingCashBalanceMinor: 900000
+    },
+    transactions: [
+      { transactionId: 'a-001', date: '2026-01-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 400000, sourceReference: 'line 1' },
+      { transactionId: 'a-002', date: '2026-01-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 250000, sourceReference: 'line 2' },
+      { transactionId: 'a-003', date: '2026-02-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 700000, sourceReference: 'line 3' },
+      { transactionId: 'a-004', date: '2026-02-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 300000, sourceReference: 'line 4' }
+    ]
+  };
+  const raw = JSON.stringify(source, null, 2) + '\n';
+  const buffer = new TextEncoder().encode(raw).buffer;
+  const fileInput = documentMock.getElementById('load-actuals-file');
+  fileInput.files = [{ size: buffer.byteLength, arrayBuffer: async () => buffer }];
+  fileInput.value = 'actuals-source.json';
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(fileInput.value, '');
+  assert.equal(documentMock.getElementById('actuals-error').hidden, true);
+  assert.equal(documentMock.getElementById('actuals-status').textContent, 'Actuals compared — source balances reconcile');
+  assert.match(documentMock.getElementById('actuals-result').textContent, /2026-01/);
+  assert.match(documentMock.getElementById('actuals-result').textContent, /SHA-256/);
+  assert.equal(documentMock.getElementById('download-variance-report').disabled, false);
+
+  documentMock.getElementById('download-variance-report').dispatchEvent({ type: 'click' });
+  const bundle = JSON.parse(await capturedBlob.text());
+  assert.equal(bundle.kind, 'business-launchpad-actuals-variance-report-bundle');
+  assert.equal(bundle.comparison.reconciliation.status, 'passed');
+  assert.equal(bundle.comparison.periods[0].month, '2026-01');
+  assert.equal(bundle.comparison.source.sha256, bundle.sourceArtifactSha256);
+  assert.deepEqual(JSON.parse(bundle.sourceArtifactRawText), source);
+  const digest = await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(bundle.sourceArtifactRawText));
+  const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  assert.equal(hex, bundle.sourceArtifactSha256);
+
+  documentMock.getElementById('actuals-forecast-start-month').value = '2026-02';
+  documentMock.getElementById('actuals-forecast-start-month').dispatchEvent({ type: 'input' });
+  assert.equal(documentMock.getElementById('download-variance-report').disabled, true);
+  assert.equal(documentMock.getElementById('actuals-status').textContent, 'Forecast month changed — import actuals again.');
+  assert.equal(documentMock.getElementById('actuals-result').children.length, 0);
+});
+
+test('failed actuals reconciliation disables its report download and keeps the business report separate', async () => {
+  documentMock.reset();
+  documentMock.submit();
+  const source = {
+    schemaVersion: 1, kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export', label: 'Synthetic mismatch fixture', evidenceReference: 'fixture mismatch',
+      coverageStartDate: '2026-01-01', coverageEndDate: '2026-01-31', completeMonthlyCoverage: true,
+      openingCashBalanceMinor: 350000, closingCashBalanceMinor: 350001
+    },
+    transactions: []
+  };
+  const buffer = new TextEncoder().encode(JSON.stringify(source)).buffer;
+  const fileInput = documentMock.getElementById('load-actuals-file');
+  fileInput.files = [{ size: buffer.byteLength, arrayBuffer: async () => buffer }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+  assert.equal(documentMock.getElementById('actuals-error').hidden, false);
+  assert.match(documentMock.getElementById('actuals-error').textContent, /do not reconcile/);
+  assert.equal(documentMock.getElementById('download-variance-report').disabled, true);
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+});
+
+test('rejects oversized amount and sales-quantity text before numeric conversion', () => {
+  documentMock.reset();
+  documentMock.getElementById('selling-price').value = '9'.repeat(65);
+  documentMock.submit();
+  assert.match(documentMock.getElementById('input-error').textContent, /at most 64 characters/);
+
+  documentMock.reset();
+  documentMock.getElementById('planned-units').value = '9'.repeat(65);
+  documentMock.submit();
+  assert.match(documentMock.getElementById('input-error').textContent, /quantity text is too long/);
+});

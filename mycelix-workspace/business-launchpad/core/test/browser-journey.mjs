@@ -1,0 +1,419 @@
+// Copyright (C) 2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Real Chromium journey for the static Business Launchpad prototype.
+// This is browser-engine smoke evidence, not an accessibility certification,
+// legal review, market-fit study, or production-readiness claim.
+
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { createServer } from 'node:http';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const appRoot = resolve(here, '../..');
+const evidenceDir = resolve(here, 'browser-evidence');
+await mkdir(evidenceDir, { recursive: true });
+
+const routes = new Map([
+  ['/web/index.html', { path: resolve(appRoot, 'web/index.html'), type: 'text/html; charset=utf-8' }],
+  ['/web/styles.css', { path: resolve(appRoot, 'web/styles.css'), type: 'text/css; charset=utf-8' }],
+  ['/web/app.mjs', { path: resolve(appRoot, 'web/app.mjs'), type: 'text/javascript; charset=utf-8' }],
+  ['/core/src/index.js', { path: resolve(appRoot, 'core/src/index.js'), type: 'text/javascript; charset=utf-8' }]
+]);
+
+const server = createServer(async (request, response) => {
+  const pathname = new URL(request.url || '/', 'http://127.0.0.1').pathname;
+  if (pathname === '/favicon.ico') {
+    response.writeHead(204);
+    response.end();
+    return;
+  }
+
+  const route = routes.get(pathname);
+  if (!route) {
+    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Not found');
+    return;
+  }
+
+  try {
+    const bytes = await readFile(route.path);
+    response.writeHead(200, {
+      'content-type': route.type,
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff'
+    });
+    response.end(bytes);
+  } catch {
+    response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Unable to load the test fixture');
+  }
+});
+
+await new Promise((resolveListen, rejectListen) => {
+  server.once('error', rejectListen);
+  server.listen(0, '127.0.0.1', resolveListen);
+});
+
+const address = server.address();
+if (!address || typeof address === 'string') {
+  throw new Error('The local browser-test server did not provide a TCP address.');
+}
+const origin = 'http://127.0.0.1:' + address.port;
+
+async function tabUntil(page, targetId, limit = 40) {
+  for (let index = 0; index < limit; index += 1) {
+    await page.keyboard.press('Tab');
+    const activeId = await page.evaluate(() => document.activeElement?.id || '');
+    if (activeId === targetId) return;
+  }
+  throw new Error('Keyboard traversal did not reach #' + targetId + ' within ' + limit + ' Tab presses.');
+}
+
+async function tabBackUntil(page, targetId, limit = 40) {
+  for (let index = 0; index < limit; index += 1) {
+    await page.keyboard.press('Shift+Tab');
+    const activeId = await page.evaluate(() => document.activeElement?.id || '');
+    if (activeId === targetId) return;
+  }
+  throw new Error('Reverse keyboard traversal did not reach #' + targetId + ' within ' + limit + ' Shift+Tab presses.');
+}
+
+async function readDownloadJson(page, selector, expectedFilename) {
+  const pendingDownload = page.waitForEvent('download');
+  await page.locator(selector).click();
+  const download = await pendingDownload;
+  assert.equal(download.suggestedFilename(), expectedFilename, 'download filename should be stable');
+  const path = await download.path();
+  assert.ok(path, 'the browser should expose the completed download path');
+  return JSON.parse(await readFile(path, 'utf8'));
+}
+
+let browser;
+let page;
+const pageErrors = [];
+const completedChecks = [];
+
+try {
+  browser = await chromium.launch({ headless: true });
+  page = await browser.newPage({
+    viewport: { width: 1280, height: 1000 },
+    acceptDownloads: true
+  });
+  page.on('pageerror', error => pageErrors.push('pageerror: ' + error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') pageErrors.push('console: ' + message.text());
+  });
+
+  await page.goto(origin + '/web/index.html', { waitUntil: 'networkidle' });
+  assert.equal(await page.title(), 'Business Launchpad — Viability Worksheet');
+  assert.equal(await page.locator('#result-status').getAttribute('role'), 'status');
+  assert.equal(await page.locator('#result').getAttribute('aria-live'), null);
+  await page.getByText(/Count one priced sale consistently/).waitFor();
+  completedChecks.push('served the worksheet and made the sale-unit definition explicit');
+
+  // Keyboard-only validation and calculation: no mouse or locator click is
+  // used in this part of the journey.
+  await tabUntil(page, 'selling-price');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('180.001');
+  await tabUntil(page, 'calculate-scenario');
+  await page.keyboard.press('Enter');
+  const errorBox = page.locator('#input-error');
+  await errorBox.waitFor({ state: 'visible' });
+  assert.match(await errorBox.innerText(), /more fractional digits/);
+  await page.screenshot({ path: resolve(evidenceDir, '01-keyboard-validation-error.png'), fullPage: true });
+  completedChecks.push('keyboard-only validation reports excessive decimal precision');
+
+  await tabBackUntil(page, 'selling-price');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('180.00');
+  await tabUntil(page, 'calculate-scenario');
+  await page.keyboard.press('Enter');
+  await page.locator('#result').getByText('ZAR 5100.00', { exact: true }).waitFor({ state: 'visible' });
+  assert.match(await page.locator('#result').innerText(), /8 units\/month/);
+  assert.match(await page.locator('#result').innerText(), /PARTIAL COST COVERAGE/);
+  assert.match(await page.locator('#result').innerText(), /12-month cash runway scenario/);
+  assert.match(await page.locator('#result').innerText(), /Downside stress: sales receipts reduced 20%/);
+  assert.match(await page.locator('#result').innerText(), /Upside stress: sales receipts increased 10%/);
+  assert.match(await page.locator('#result').innerText(), /does not estimate extra runway for slow sales or operating losses/);
+  assert.match(await page.locator('#result').innerText(), /single-offer model/);
+  await page.screenshot({ path: resolve(evidenceDir, '02-keyboard-calculation-result.png'), fullPage: true });
+  completedChecks.push('keyboard-only calculation shows result, break-even and partial-cost warning');
+
+  // The invisible file input is focusable; focus-within must expose a visible
+  // outline on its associated visible label.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.id || ''),
+    'load-scenario-file',
+    'keyboard traversal should reach the scenario file input'
+  );
+  const focusStyle = await page.locator('label[for="load-scenario-file"]').evaluate(label => {
+    const style = getComputedStyle(label);
+    return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth, outlineColor: style.outlineColor };
+  });
+  assert.equal(focusStyle.outlineStyle, 'solid');
+  assert.equal(focusStyle.outlineWidth, '3px');
+  assert.equal(focusStyle.outlineColor, 'rgb(23, 108, 82)');
+  completedChecks.push('keyboard focus on scenario picker produces the expected visible outline');
+
+  const exportedScenario = await readDownloadJson(
+    page,
+    '#download-scenario',
+    'business-launchpad-scenario-v6.json'
+  );
+  assert.equal(exportedScenario.schemaVersion, 6);
+  assert.equal(exportedScenario.kind, 'business-launchpad-scenario');
+  assert.equal(exportedScenario.input.currency.code, 'ZAR');
+  assert.equal(exportedScenario.cashRunwayPlan.length, 12);
+  assert.equal(exportedScenario.cashRunwayPlan[0].salesUnits, 25);
+  assert.equal(exportedScenario.cashRunwayPlan[0].salesCashReceiptsMinor, 450_000);
+  assert.equal(exportedScenario.cashRunwayPlan[0].operatingCashOutflowsMinor, 240_000);
+  assert.equal(exportedScenario.cashRunwayPlan[0].investingCashOutflowsMinor, 0);
+  assert.equal(exportedScenario.cashRunwayPlan[0].financingCashInflowsMinor, 0);
+  assert.deepEqual(exportedScenario.cashScenarioAssumptions, {
+    downside: { salesReceiptReductionPercent: 20, salesReceiptDelayMonths: 1, operatingCashOutflowIncreasePercent: 15 },
+    upside: { salesReceiptIncreasePercent: 10, salesReceiptAdvanceMonths: 1, operatingCashOutflowReductionPercent: 5 }
+  });
+  assert.deepEqual(exportedScenario.cashTimingSchedule, {
+    salesReceiptsPercent: [70, 25, 5],
+    variableCostCategories: [
+      { id: 'category-1', label: 'Materials / components', costSharePercent: 60, paymentPercentages: [80, 15, 5] },
+      { id: 'category-2', label: 'Direct labor / subcontractors', costSharePercent: 25, paymentPercentages: [100, 0, 0] },
+      { id: 'category-3', label: 'Fulfillment / other variable costs', costSharePercent: 15, paymentPercentages: [70, 25, 5] }
+    ]
+  });
+  completedChecks.push('schema-v6 export includes three cost-share categories with independent payment timing');
+
+  exportedScenario.input.sellingPricePerUnitMinor = 20_000;
+  exportedScenario.input.plannedUnitsPerMonth = 40;
+  exportedScenario.cashScenarioAssumptions.downside.salesReceiptDelayMonths = 2;
+  exportedScenario.cashTimingSchedule.salesReceiptsPercent = [60, 30, 10];
+  exportedScenario.cashTimingSchedule.variableCostCategories[0].label = 'Custom materials';
+  exportedScenario.cashTimingSchedule.variableCostCategories[0].costSharePercent = 50;
+  exportedScenario.cashTimingSchedule.variableCostCategories[1].costSharePercent = 30;
+  exportedScenario.cashTimingSchedule.variableCostCategories[2].costSharePercent = 20;
+  exportedScenario.cashTimingSchedule.variableCostCategories[0].paymentPercentages = [60, 30, 10];
+  await page.locator('#load-scenario-file').setInputFiles({
+    name: 'business-launchpad-scenario-v6.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(exportedScenario))
+  });
+  await page.waitForFunction(() =>
+    document.querySelector('#result-status')?.textContent.includes('Scenario loaded — calculate to review')
+  );
+  assert.equal(await page.locator('#selling-price').inputValue(), '200.00');
+  assert.equal(await page.locator('#planned-units').inputValue(), '40');
+  assert.equal(await page.locator('#downside-receipt-delay-months').inputValue(), '2');
+  assert.equal(await page.locator('#timing-sales-receipts-month-0').inputValue(), '60');
+  assert.equal(await page.locator('#timing-sales-receipts-month-1').inputValue(), '30');
+  assert.equal(await page.locator('#timing-cost-category-1-label').inputValue(), 'Custom materials');
+  assert.equal(await page.locator('#timing-cost-category-1-share').inputValue(), '50');
+  assert.equal(await page.locator('#timing-cost-category-2-share').inputValue(), '30');
+  assert.equal(await page.locator('#timing-cost-category-3-share').inputValue(), '20');
+  assert.equal(await page.locator('#timing-cost-category-1-month-1').inputValue(), '30');
+  assert.equal(await page.locator('#download-report').isDisabled(), true);
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  await page.locator('#result').getByText('ZAR 4700.00', { exact: true }).waitFor({ state: 'visible' });
+  assert.match(await page.locator('#result').innerText(), /7 units\/month/);
+  completedChecks.push('scenario import validates and populates fields but requires explicit recalculation');
+
+  const report = await readDownloadJson(
+    page,
+    '#download-report',
+    'business-launchpad-report-v6.json'
+  );
+  assert.equal(report.schemaVersion, 6);
+  assert.equal(report.kind, 'business-launchpad-report');
+  assert.equal(report.input.sellingPricePerUnitMinor, 20_000);
+  assert.equal(report.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, 470_000);
+  assert.equal(report.cashRunwayPlan.length, 12);
+  assert.equal(report.cashRunwayProjection.horizonMonths, 12);
+  assert.equal(report.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
+  assert.equal(report.cashScenarioAssumptions.downside.salesReceiptDelayMonths, 2);
+  assert.deepEqual(report.cashTimingSchedule.salesReceiptsPercent, [60, 30, 10]);
+  assert.deepEqual(report.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
+  assert.equal(report.cashScenarioComparison.scenarios[1].summary.endingCashMinor, report.cashRunwayProjection.summary.endingCashMinor);
+  assert.equal(report.cashScenarioComparison.scenarios[3].assumptions.salesReceiptsPercent[0], 60);
+  assert.equal(report.cashScenarioComparison.scenarios[3].deferredVariableSupplierPaymentsAfterHorizonMinor > 0, true);
+  completedChecks.push('report export contains the evaluated inputs, base projection and auditable stress comparison');
+
+
+  // Actuals comparison accepts only a calculated plan and reconciled full-month
+  // source records. This fixture tests the import contract, not source authenticity.
+  await page.locator('#actuals-forecast-start-month').fill('2026-01');
+  const actualsSource = {
+    schemaVersion: 1,
+    kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export',
+      label: 'Synthetic two-month statement fixture',
+      evidenceReference: 'browser-journey-fixture',
+      coverageStartDate: '2026-01-01',
+      coverageEndDate: '2026-02-28',
+      completeMonthlyCoverage: true,
+      openingCashBalanceMinor: 350000,
+      closingCashBalanceMinor: 900000
+    },
+    transactions: [
+      { transactionId: 'a-001', date: '2026-01-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 400000, sourceReference: 'line 1' },
+      { transactionId: 'a-002', date: '2026-01-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 250000, sourceReference: 'line 2' },
+      { transactionId: 'a-003', date: '2026-02-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 700000, sourceReference: 'line 3' },
+      { transactionId: 'a-004', date: '2026-02-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 300000, sourceReference: 'line 4' }
+    ]
+  };
+  await page.locator('#load-actuals-file').setInputFiles({
+    name: 'actuals-source-v1.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(actualsSource, null, 2) + '\n')
+  });
+  await page.getByText('Actuals compared — source balances reconcile').waitFor();
+  assert.equal(await page.locator('#download-variance-report').isDisabled(), false);
+  const varianceBundle = await readDownloadJson(
+    page,
+    '#download-variance-report',
+    'business-launchpad-actuals-variance-v1.json'
+  );
+  assert.equal(varianceBundle.kind, 'business-launchpad-actuals-variance-report-bundle');
+  assert.equal(varianceBundle.comparison.reconciliation.status, 'passed');
+  assert.equal(varianceBundle.comparison.periods[0].month, '2026-01');
+  assert.equal(
+    createHash('sha256').update(varianceBundle.sourceArtifactRawText, 'utf8').digest('hex'),
+    varianceBundle.sourceArtifactSha256,
+    'the embedded original source text must reproduce the recorded digest'
+  );
+  await page.locator('#actuals-forecast-start-month').fill('2026-02');
+  assert.equal(await page.locator('#download-variance-report').isDisabled(), true);
+  assert.match(await page.locator('#actuals-status').innerText(), /Forecast month changed/);
+  completedChecks.push('complete-month actuals reconcile, export a hash-verifiable bundle, and invalidate on mapping changes');
+
+  await page.locator('#cash-runway-details > summary').click();
+  await page.locator('#cash-month-1-sales').fill('25');
+  await page.locator('#cash-month-1-sales-receipts').fill('0.00');
+  await page.locator('#cash-month-1-operating-outflows').fill('900.00');
+  await page.locator('#cash-month-2-sales-receipts').fill('5000.00');
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  const cashOutput = await page.locator('#result').innerText();
+  assert.match(cashOutput, /First reserve breach\s*Month 1/);
+  assert.match(cashOutput, /ZAR 400\.00/);
+  const monthOneCells = page.locator('.cash-projection-table tbody tr').nth(0).locator('td');
+  const monthTwoCells = page.locator('.cash-projection-table tbody tr').nth(1).locator('td');
+  assert.equal(await monthOneCells.nth(1).innerText(), 'ZAR 0.00', 'Month 1 sales activity does not force same-month cash collection');
+  assert.equal(await monthOneCells.nth(2).innerText(), 'ZAR 900.00', 'Month 1 operating payments are explicit');
+  assert.equal(await monthTwoCells.nth(1).innerText(), 'ZAR 5000.00', 'a later month may contain the delayed collection');
+  await page.locator('#cash-month-3-investing-outflows').fill('1250.00');
+  await page.locator('#cash-month-4-financing-inflows').fill('5000.00');
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  const monthThreeCells = page.locator('.cash-projection-table tbody tr').nth(2).locator('td');
+  const monthFourCells = page.locator('.cash-projection-table tbody tr').nth(3).locator('td');
+  assert.equal(await monthThreeCells.nth(7).innerText(), 'ZAR -1250.00', 'an equipment purchase appears as investing outflow');
+  assert.equal(await monthFourCells.nth(8).innerText(), 'ZAR 5000.00', 'loan or capital receipts appear as financing inflow');
+  const classifiedReport = await readDownloadJson(page, '#download-report', 'business-launchpad-report-v6.json');
+  assert.equal(classifiedReport.schemaVersion, 3);
+  assert.equal(classifiedReport.cashRunwayPlan[2].investingCashOutflowsMinor, 125_000);
+  assert.equal(classifiedReport.cashRunwayPlan[3].financingCashInflowsMinor, 500_000);
+  assert.equal(classifiedReport.cashRunwayProjection.periods[2].netInvestingCashFlowMinor, -125_000);
+  assert.equal(classifiedReport.cashRunwayProjection.periods[3].netFinancingCashFlowMinor, 500_000);
+  await page.screenshot({ path: resolve(evidenceDir, '03-cash-runway-delayed-receipts.png'), fullPage: true });
+  completedChecks.push('delayed collections coexist with explicit investing outflows and financing inflows, and export receipts preserve categories');
+
+  await page.locator('#reset-cash-runway').click();
+  assert.equal(await page.locator('#cash-month-1-sales').inputValue(), '20', 'reset should follow the imported 40-unit target ramp');
+  assert.equal(await page.locator('#cash-month-1-sales-receipts').inputValue(), '4000.00');
+  assert.equal(await page.locator('#cash-month-1-operating-outflows').inputValue(), '2100.00');
+  assert.equal(await page.locator('#cash-month-1-inflows').inputValue(), '0.00');
+  assert.equal(await page.locator('#cash-month-1-investing-outflows').inputValue(), '0.00');
+  assert.equal(await page.locator('#cash-month-1-financing-inflows').inputValue(), '0.00');
+  assert.equal(await page.locator('#download-report').isDisabled(), true);
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  assert.equal(await page.locator('#download-report').isDisabled(), false);
+  completedChecks.push('reset makes its destructive effect explicit, regenerates cash defaults and requires recalculation');
+
+  await page.locator('#selling-price').fill('201.00');
+  assert.equal(
+    await page.locator('#download-report').isDisabled(),
+    true,
+    'editing an input must invalidate the previously calculated report'
+  );
+  completedChecks.push('editing a field disables a stale report download');
+
+  const priceBeforeInvalidImport = await page.locator('#selling-price').inputValue();
+  await page.locator('#load-scenario-file').setInputFiles({
+    name: 'unsupported.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }))
+  });
+  await errorBox.waitFor({ state: 'visible' });
+  assert.match(await errorBox.innerText(), /schemaVersion 1 through 6 required/);
+  assert.equal(await page.locator('#selling-price').inputValue(), priceBeforeInvalidImport);
+  completedChecks.push('unsupported scenario version fails visibly without overwriting entered values');
+
+  await page.locator('#load-scenario-file').setInputFiles({
+    name: 'oversized.json',
+    mimeType: 'application/json',
+    buffer: Buffer.alloc(1_000_001, 0x20)
+  });
+  await errorBox.waitFor({ state: 'visible' });
+  assert.match(await errorBox.innerText(), /larger than 1 MB/);
+  completedChecks.push('oversized scenario import is rejected before JSON parsing');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(origin + '/web/index.html', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  await page.locator('#result').getByText('ZAR 5100.00', { exact: true }).waitFor({ state: 'visible' });
+  const mobileLayout = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentScrollWidth: document.documentElement.scrollWidth
+  }));
+  assert.ok(
+    mobileLayout.documentScrollWidth <= mobileLayout.viewportWidth,
+    'mobile layout should not require horizontal scrolling: ' + JSON.stringify(mobileLayout)
+  );
+  await page.screenshot({ path: resolve(evidenceDir, '04-mobile-calculation.png'), fullPage: true });
+  completedChecks.push('390px viewport renders a calculation without horizontal page overflow');
+
+  assert.deepEqual(pageErrors, [], 'browser runtime should not emit uncaught page or console errors');
+
+  const record = {
+    status: 'passed',
+    qualifiedSha: process.env.QUALIFIED_SHA || 'not-provided',
+    browser: 'Chromium',
+    browserVersion: browser.version(),
+    cashScenarioSchemaVersion: 6,
+    checks: completedChecks,
+    pageErrors,
+    mobileLayout,
+    screenshots: [
+      '01-keyboard-validation-error.png',
+      '02-keyboard-calculation-result.png',
+      '03-cash-runway-delayed-receipts.png',
+      '04-mobile-calculation.png'
+    ],
+    limits: [
+      'One Chromium version only; cross-browser compatibility is not established.',
+      'Keyboard interaction checks do not establish a full screen-reader or assistive-technology audit.',
+      'No legal compliance, tax accuracy, demand forecast, market fit or production readiness is established.',
+      'No external service, account, payment provider or real-money operation is invoked.'
+    ]
+  };
+  await writeFile(resolve(evidenceDir, 'browser-journey-result.json'), JSON.stringify(record, null, 2) + '\n');
+  console.log(JSON.stringify(record, null, 2));
+} catch (error) {
+  if (page) {
+    await page.screenshot({ path: resolve(evidenceDir, 'failure.png'), fullPage: true }).catch(() => {});
+  }
+  throw error;
+} finally {
+  if (browser) await browser.close();
+  await new Promise(resolveClose => {
+    server.close(resolveClose);
+    server.closeAllConnections?.();
+  });
+}

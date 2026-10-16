@@ -1,0 +1,163 @@
+name: Business Launchpad Core
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/business-launchpad/core/**'
+      - 'mycelix-workspace/business-launchpad/web/**'
+      - '.github/workflows/business-launchpad-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/business-launchpad/core/**'
+      - 'mycelix-workspace/business-launchpad/web/**'
+      - '.github/workflows/business-launchpad-core.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: business-launchpad-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-core:
+    name: Deterministic business viability core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Node.js
+        id: setup-node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Assert pinned runtime
+        id: runtime
+        continue-on-error: true
+        run: test "$(node --version)" = "v24.21.0"
+
+      - name: Check source syntax
+        id: syntax
+        if: ${{ always() && steps.runtime.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: npm run check 2>&1 | tee check-output.txt
+
+      - name: Run deterministic tests
+        id: tests
+        if: ${{ always() && steps.runtime.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: npm test 2>&1 | tee test-output.tap
+
+      - name: Emit exact-head qualification record
+        id: receipt
+        if: always()
+        working-directory: mycelix-workspace/business-launchpad/core
+        env:
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+          SYNTAX_OUTCOME: ${{ steps.syntax.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          SETUP_NODE_OUTCOME: ${{ steps.setup-node.outcome }}
+        run: |
+          set -euo pipefail
+          hash_file() {
+            if [[ -f "$1" ]]; then
+              sha256sum "$1" | cut -d' ' -f1
+            else
+              printf 'unavailable'
+            fi
+          }
+          runtime_status="${RUNTIME_OUTCOME:-skipped}"
+          syntax_status="${SYNTAX_OUTCOME:-skipped}"
+          test_status="${TEST_OUTCOME:-skipped}"
+          setup_node_status="${SETUP_NODE_OUTCOME:-skipped}"
+          gate_status=passed
+          for outcome in "$setup_node_status" "$runtime_status" "$syntax_status" "$test_status"; do
+            if [[ "$outcome" != "success" ]]; then
+              gate_status=not-passed
+            fi
+          done
+          workflow_blob_sha1="$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-core.yml 2>/dev/null || printf 'unavailable')"
+          {
+            echo "BUSINESS LAUNCHPAD CORE GATE"
+            if [[ "$gate_status" == "passed" ]]; then
+              echo "status=deterministic-test-gate-passed"
+            else
+              echo "status=deterministic-test-gate-not-passed"
+            fi
+            echo "gate_status=$gate_status"
+            echo "setup_node_status=$setup_node_status"
+            echo "runtime_status=$runtime_status"
+            echo "check_status=$syntax_status"
+            echo "test_status=$test_status"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow_git_blob_sha1=$workflow_blob_sha1"
+            echo "workflow_sha256=$(hash_file "$GITHUB_WORKSPACE/.github/workflows/business-launchpad-core.yml")"
+            echo "runner_image_os=${ImageOS:-unknown}"
+            echo "runner_image_version=${ImageVersion:-unknown}"
+            echo "node=$(node --version 2>/dev/null || printf 'unavailable')"
+            echo "npm=$(npm --version 2>/dev/null || printf 'unavailable')"
+            echo "source_sha256=$(hash_file src/index.js)"
+            echo "core_tests_sha256=$(hash_file test/index.test.js)"
+            echo "mock_dom_tests_sha256=$(hash_file test/web-interaction.test.js)"
+            echo "browser_journey_sha256=$(hash_file test/browser-journey.mjs)"
+            echo "fixtures_sha256=$(hash_file test/fixtures/business-scenarios.v1.json)"
+            echo "cli_sha256=$(hash_file src/cli.js)"
+            echo "core_package_json_sha256=$(hash_file package.json)"
+            echo "browser_module_sha256=$(hash_file ../web/app.mjs)"
+            echo "browser_html_sha256=$(hash_file ../web/index.html)"
+            echo "browser_css_sha256=$(hash_file ../web/styles.css)"
+            echo "check_output_sha256=$(hash_file check-output.txt)"
+            echo "test_output_sha256=$(hash_file test-output.tap)"
+            if [[ "$gate_status" == "passed" ]]; then
+              echo "claim_ceiling=DeterministicCoreAndMockDomInteractionTestsOnly"
+            else
+              echo "claim_ceiling=NoQualification;inspectStepOutcomesAndCapturedLogs"
+            fi
+            echo "integration_status=NotExecuted"
+            echo "market_fit_status=NotEvaluated"
+          } | tee business-launchpad-core-qualification.txt
+
+      - name: Upload qualification record and captured logs
+        id: artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: business-launchpad-core-${{ env.QUALIFIED_SHA }}
+          path: |
+            mycelix-workspace/business-launchpad/core/business-launchpad-core-qualification.txt
+            mycelix-workspace/business-launchpad/core/check-output.txt
+            mycelix-workspace/business-launchpad/core/test-output.tap
+          if-no-files-found: warn
+
+      - name: Enforce qualification verdict after evidence capture
+        if: always()
+        env:
+          SETUP_NODE_OUTCOME: ${{ steps.setup-node.outcome }}
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+          SYNTAX_OUTCOME: ${{ steps.syntax.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
+          ARTIFACT_OUTCOME: ${{ steps.artifact.outcome }}
+        run: |
+          test "$SETUP_NODE_OUTCOME" = "success"
+          test "$RUNTIME_OUTCOME" = "success"
+          test "$SYNTAX_OUTCOME" = "success"
+          test "$TEST_OUTCOME" = "success"
+          test "$RECEIPT_OUTCOME" = "success"
+          test "$ARTIFACT_OUTCOME" = "success"
