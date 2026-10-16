@@ -476,6 +476,33 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct AdapterReceiptV1 {
+        schema: String,
+        status: String,
+        hash_algorithm: String,
+        digest_scope: String,
+        fixture_path: String,
+        fixture_sha256: String,
+        fixture_byte_length: usize,
+        adapter_schema: String,
+        fixture_ref: String,
+        checker_id: String,
+        source_revision_binding: String,
+        signature_status: String,
+        authority_ceiling: String,
+        does_not_establish: Vec<String>,
+    }
+
+    fn sha256_hex(bytes: &[u8]) -> String {
+        use sha2::{Digest, Sha256};
+        Sha256::digest(bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    }
+
     #[test]
     fn typed_lineage_fixture_matches_units_conversions_and_negative_controls() {
         let fixture: FixtureSet = serde_json::from_str(include_str!(
@@ -1091,6 +1118,67 @@ mod tests {
             .unwrap().bounds_at(case.evaluation_time_s).unwrap();
         assert_eq!(original_bounds, changed_bounds,
             "negative control should show why numeric bounds alone do not prove metadata preservation");
+    }
+
+
+    #[test]
+    fn adapter_byte_receipt_binds_raw_fixture_bytes_and_authority_scope() {
+        let receipt: AdapterReceiptV1 = serde_json::from_str(include_str!(
+            "../fixtures/typed_lineage_adapter_receipt_contract.json"
+        )).expect("adapter byte receipt contract must parse");
+        let bytes = include_bytes!("../fixtures/typed_lineage_adapter_v1.json");
+        assert_eq!(receipt.schema, "airspace-typed-lineage-adapter-receipt-v1");
+        assert_eq!(receipt.status, "expected_digest_contract_not_runtime_attestation");
+        assert_eq!(receipt.hash_algorithm, "sha-256");
+        assert_eq!(receipt.digest_scope, "raw_fixture_file_bytes_including_final_newline");
+        assert_eq!(
+            receipt.fixture_path,
+            "tools/airspace-sim/fixtures/typed_lineage_adapter_v1.json"
+        );
+        assert_eq!(receipt.fixture_sha256, sha256_hex(bytes));
+        assert_eq!(receipt.fixture_byte_length, bytes.len());
+        assert_eq!(receipt.adapter_schema, ADAPTER_SCHEMA_V1);
+        assert_eq!(receipt.fixture_ref, "mixed_observation_transform_clock_errors");
+        assert_eq!(receipt.checker_id, "typed_lineage_adapter_byte_receipt_v1");
+        assert_eq!(
+            receipt.source_revision_binding,
+            "external_exact_head_ci_context_required"
+        );
+        assert_eq!(receipt.signature_status, "unsigned");
+        assert_eq!(receipt.authority_ceiling, ADAPTER_AUTHORITY_CEILING);
+        assert_eq!(receipt.does_not_establish.len(), 4);
+    }
+
+    #[test]
+    fn adapter_byte_receipt_detects_semantically_inert_byte_mutation() {
+        let receipt: AdapterReceiptV1 = serde_json::from_str(include_str!(
+            "../fixtures/typed_lineage_adapter_receipt_contract.json"
+        )).expect("adapter byte receipt contract must parse");
+        let original = include_bytes!("../fixtures/typed_lineage_adapter_v1.json");
+        let mut changed = original.to_vec();
+        changed.push(b' ');
+        assert!(
+            serde_json::from_slice::<AdapterEnvelopeV1>(&changed).is_ok(),
+            "control mutation should preserve JSON parseability"
+        );
+        assert_ne!(
+            sha256_hex(&changed),
+            receipt.fixture_sha256,
+            "a byte-level change must invalidate the pinned fixture digest"
+        );
+        assert_ne!(
+            changed.len(),
+            receipt.fixture_byte_length,
+            "byte-length binding must also detect the appended whitespace"
+        );
+
+        let mut mutated_receipt = receipt.clone();
+        mutated_receipt.fixture_sha256 = sha256_hex(&changed);
+        assert_ne!(
+            mutated_receipt.fixture_sha256,
+            sha256_hex(original),
+            "mutating the receipt alongside changed bytes must not make it match the original fixture"
+        );
     }
 
 }
