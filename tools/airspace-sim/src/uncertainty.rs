@@ -514,7 +514,7 @@ mod tests {
             for term in terms {
                 let value_index = dependencies
                     .iter()
-                    .position(|(dependency_id, _, _)| dependency_id == &term.dependency_id)
+                    .position(|(dependency_id, _, _)| dependency_id.as_str() == term.dependency_id.as_str())
                     .expect("every contribution must name one enumerated dependency");
                 let contribution = i128::from(term.coefficient)
                     .checked_mul(i128::from(assigned_values[value_index]))
@@ -543,7 +543,7 @@ mod tests {
                 assigned_values,
                 extrema,
             );
-            assigned_values.pop();
+            assigned_values.pop().expect("the recursive assignment stack must be balanced");
         }
     }
 
@@ -554,7 +554,7 @@ mod tests {
         for term in terms {
             if let Some((_, lower, upper)) = dependencies
                 .iter()
-                .find(|(dependency_id, _, _)| dependency_id == &term.dependency_id)
+                .find(|(dependency_id, _, _)| dependency_id.as_str() == term.dependency_id.as_str())
             {
                 assert_eq!(
                     (*lower, *upper),
