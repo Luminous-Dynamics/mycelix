@@ -134,7 +134,22 @@ These are proposed engineering gates, not existing results:
 - Fault injection covers every row of the matrix on the exact tested commit. State the database, filesystem, sync policy, device/OS and power-loss assumptions; a process-kill test alone is not proof of power-loss durability.
 - All benchmark reports bind the exact source SHA, schema, corpus, configuration and toolchain. Queued CI is not a pass.
 
-## 8. Research basis and limitations
+## 8. Current contract prototype status
+
+The isolated crate now has `crates/pulse-transport-core/src/delivery_journal.rs`, an executable **in-memory reference model** for the storage-neutral journal boundary. It defines:
+
+- immutable identity as logical message ID + recipient ID + a caller-computed 32-byte envelope commitment;
+- optimistic stream revision compare-and-swap;
+- global event-ID idempotency and explicit rejection when an event ID is reused for different content;
+- monotonic worker epochs that fence stale workers, treating a fenced in-flight attempt as possibly sent / unknown;
+- bounded attempt count, attempt outcome transitions, retry-not-before checks, expiry/revocation and receipt binding;
+- receipt event evidence that retains the encoded signed bytes and verifier-version label alongside the verifier-issued capability, so a durable adapter can persist source evidence and re-verify it during replay.
+
+The reference model does not claim production cryptographic verification itself: the receipt verifier remains a trust boundary. It also does not survive process exit, provide a database transaction, serialize a stable storage schema, or prove filesystem/power-loss durability. Every future database backend must implement compare-and-swap, event-ID uniqueness, the immutable identity constraint, and fencing atomically—not as separate read-then-write operations. The event's raw receipt material must be re-verified on load; a saved status/boolean or process-local capability is not cryptographic evidence.
+
+This code is a contract test harness and integration seam, not the supported Pulse outbox/inbox implementation. Rust compile/test evidence remains required.
+
+## 9. Research basis and limitations
 
 - [RFC 9171 — Bundle Protocol Version 7](https://www.rfc-editor.org/rfc/rfc9171.html) explicitly says BP itself does not ensure end-to-end bundle delivery; application-level mechanisms are needed.
 - [NATS JetStream documentation](https://docs.nats.io/concepts/jetstream) describes at-least-once delivery, stable publication IDs, duplicate tracking, and double acknowledgements as separate mechanisms. Its duplicate window is a configured system property—not a universal exactly-once guarantee.
@@ -142,7 +157,7 @@ These are proposed engineering gates, not existing results:
 
 These are design precedents only. Pulse's contract, implementation and exact qualification evidence must stand on their own.
 
-## 9. Non-goals for this design tranche
+## 10. Non-goals for this design tranche
 
 - No claim that the current in-memory lifecycle is crash-safe.
 - No database-engine choice imposed by the transport-neutral crate.
