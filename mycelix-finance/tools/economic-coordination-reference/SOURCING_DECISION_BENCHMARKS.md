@@ -27,7 +27,7 @@ The evaluator:
 - sorts its report by offer ID so input ordering cannot decide an outcome;
 - distinguishes Pareto-frontier offers, dominated offers, and rejected offers; it never emits a purchase decision.
 
-The current evidence-status fields are inputs to this reference model. The model does not authenticate their origin or prove that supplier stock physically exists.
+The evaluator reuses the crate-wide evidence-origin and evidence-status types; it does not create parallel evidence ontologies. The required origin (live-domain or synthetic-simulation) is explicit on the request, and quote and supplier-credential origin must match it. These origin/status values remain caller-supplied inputs: the model does not authenticate them, recompute source digests, or prove that supplier stock physically exists.
 
 ## Hard safety gates
 
@@ -40,6 +40,7 @@ Every gate is a zero-tolerance pass/fail condition; failures must not be average
 | Currency/unit/profile isolation | Mixed and deliberately mislabeled offers | Zero cross-currency, cross-unit or unapproved-profile comparisons |
 | Evidence freshness | Quotes at, inside and beyond the age boundary; future and expired records | Zero stale/expired offers accepted |
 | Source attribution | Accepted and rejected offers with absent source locator, payload-digest reference or extractor identity | Zero offers missing required source metadata may become eligible; output retains supplied references |
+| Evidence-origin isolation | Live-domain and synthetic-simulation quotes or credentials in one request | Zero cross-origin offers become eligible; the required origin is explicit and versioned by the caller |
 | Pareto correctness | Hand-reviewed fixtures plus a separately implemented oracle | Exact frontier agreement |
 | Abstention | Empty catalogues, only-ineligible offers, conflicting IDs, unresolved evidence | Zero forced winner or purchase |
 | Deterministic replay | 100 equivalent input permutations and repeated identical executions | Identical structured report; byte-identical serialized output once canonical serialization is added |
