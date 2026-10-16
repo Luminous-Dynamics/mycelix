@@ -158,6 +158,7 @@ struct PolicyEpisode {
 struct PolicyDataset {
     schema_version: String,
     corpus_class: String,
+    schedule_sha256: String,
     episode_count: usize,
     episodes: Vec<PolicyEpisode>,
 }
@@ -321,6 +322,7 @@ fn generate(manifest_path: &Path, output_dir: &Path) -> Result<(), String> {
                 "arm_id":arm_id,
                 "seed_sha256":seed_sha,
                 "arm_definition_sha256":arm_sha,
+                "policy_input_sha256":episode.policy_input_sha256,
                 "run_identity_version":"w2o-run-id/0.1"
             });
             runs.push(PlannedRun {
@@ -358,6 +360,7 @@ fn generate(manifest_path: &Path, output_dir: &Path) -> Result<(), String> {
     let dataset = PolicyDataset {
         schema_version: "wish-policy-dataset/0.1".into(),
         corpus_class: "public_development_not_holdout".into(),
+        schedule_sha256: envelope.schedule_sha256.clone(),
         episode_count: policy_episodes.len(),
         episodes: policy_episodes,
     };
@@ -590,7 +593,7 @@ fn load_schedule(path: &Path, manifest: &Value) -> Result<ScheduleEnvelope, Stri
         }
         let seed = digest(&json!({"benchmark_version":version,"episode_id":run.episode_id,"seed_derivation_version":"w2o-shared-episode-seed/0.1"}))?;
         if run.seed_sha256 != seed { return Err(format!("planned run seed mismatch: {}",run.run_id)); }
-        let run_identity = json!({"benchmark_version":version,"episode_id":run.episode_id,"arm_id":run.arm_id,"seed_sha256":seed,"arm_definition_sha256":run.arm_definition_sha256,"run_identity_version":"w2o-run-id/0.1"});
+        let run_identity = json!({"benchmark_version":version,"episode_id":run.episode_id,"arm_id":run.arm_id,"seed_sha256":seed,"arm_definition_sha256":run.arm_definition_sha256,"policy_input_sha256":run.policy_input_sha256,"run_identity_version":"w2o-run-id/0.1"});
         if run.run_id != format!("run-{}", &digest(&run_identity)?[..32]) { return Err(format!("planned run ID mismatch: {}",run.run_id)); }
         if !pairs.insert((run.episode_id.clone(),run.arm_id.clone())) { return Err(format!("duplicate episode/arm pair: {} / {}",run.episode_id,run.arm_id)); }
     }
@@ -604,6 +607,7 @@ fn verify_policy_dataset(schedule: &ScheduleEnvelope, path: &Path) -> Result<(),
     let dataset: PolicyDataset = serde_json::from_value(value).map_err(|e| format!("decode policy-visible dataset: {e}"))?;
     if dataset.schema_version != "wish-policy-dataset/0.1"
         || dataset.corpus_class != "public_development_not_holdout"
+        || dataset.schedule_sha256 != schedule.schedule_sha256
         || dataset.episode_count != schedule.payload.episode_count
         || dataset.episodes.len() != schedule.payload.episode_count {
         return Err("policy-visible dataset schema/class/count mismatch".into());
@@ -864,7 +868,8 @@ mod tests {
                 for arm in m["arms"].as_array().unwrap() {
                     let arm_id = arm["id"].as_str().unwrap();
                     let arm_sha = digest(arm).unwrap();
-                    let run_spec = json!({"benchmark_version":version,"episode_id":ep,"arm_id":arm_id,"seed_sha256":seed,"arm_definition_sha256":arm_sha,"run_identity_version":"w2o-run-id/0.1"});
+                    let input_sha = digest(&policy_input(stratum_id, ordinal).unwrap()).unwrap();
+                    let run_spec = json!({"benchmark_version":version,"episode_id":ep,"arm_id":arm_id,"seed_sha256":seed,"arm_definition_sha256":arm_sha,"policy_input_sha256":input_sha,"run_identity_version":"w2o-run-id/0.1"});
                     assert!(runs.insert(format!("run-{}", &digest(&run_spec).unwrap()[..32])));
                 }
                 episodes += 1;
