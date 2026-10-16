@@ -312,6 +312,108 @@ mod tests {
             );
         }
     }
+    fn enumerate_grouped_source_bounds(
+        groups: &[(i64, i64, i128)],
+        index: usize,
+        current: i128,
+        extrema: &mut Option<(i128, i128)>,
+    ) {
+        if index == groups.len() {
+            match extrema {
+                Some((lower, upper)) => {
+                    *lower = (*lower).min(current);
+                    *upper = (*upper).max(current);
+                }
+                None => *extrema = Some((current, current)),
+            }
+            return;
+        }
+
+        let (lower, upper, coefficient) = groups[index];
+        for value in lower..=upper {
+            enumerate_grouped_source_bounds(
+                groups,
+                index + 1,
+                current + coefficient * i128::from(value),
+                extrema,
+            );
+        }
+    }
+
+    fn grouped_source_oracle(terms: &[SourceContribution]) -> (i128, i128) {
+        let mut sources: BTreeMap<String, (i64, i64, i128)> = BTreeMap::new();
+        for term in terms {
+            let entry = sources.entry(term.source_id.clone()).or_insert((
+                term.lower_mm, term.upper_mm, 0
+            ));
+            assert_eq!((entry.0, entry.1), (term.lower_mm, term.upper_mm));
+            entry.2 += i128::from(term.coefficient);
+        }
+        let groups: Vec<_> = sources.into_values().collect();
+        let mut extrema = None;
+        enumerate_grouped_source_bounds(&groups, 0, 0, &mut extrema);
+        extrema.expect("at least one distinct source assignment")
+    }
+
+    #[test]
+    fn exhaustive_shared_source_oracle_checks_one_thousand_correlated_domains() {
+        let mut seed = 0xC011_A710_5A0C_E123u64;
+        for case_index in 0..1_000 {
+            let count = (next_deterministic(&mut seed) % 8 + 1) as usize;
+            let mut terms = Vec::with_capacity(count);
+            for _ in 0..count {
+                let source_index = next_deterministic(&mut seed) % 3;
+                let coefficient = (next_deterministic(&mut seed) % 11) as i64 - 5;
+                terms.push(contribution(
+                    &format!("shared-{source_index}"),
+                    -2, 2, coefficient,
+                ));
+            }
+
+            let model = AffineUncertainty::new(terms.clone())
+                .unwrap_or_else(|error| panic!("shared case {case_index} rejected: {error:?}"));
+            let expected = grouped_source_oracle(&terms);
+            let actual = model.bounds().unwrap_or_else(|error| {
+                panic!("shared case {case_index} failed to bound: {error:?}")
+            });
+            assert_eq!(
+                (i128::from(actual.lower_mm), i128::from(actual.upper_mm)),
+                expected,
+                "shared-source point oracle disagreed in case {case_index}: {terms:?}"
+            );
+
+            let mut reversed = terms;
+            reversed.reverse();
+            assert_eq!(
+                model,
+                AffineUncertainty::new(reversed).expect("permutation should normalize identically"),
+                "shared-source canonical form changed under permutation in case {case_index}"
+            );
+        }
+    }
+
+    #[test]
+    fn independent_point_oracle_rejects_deliberately_under_approximated_bounds() {
+        let terms = vec![
+            contribution("shared-x", -2, 2, 1),
+            contribution("shared-x", -2, 2, -1),
+            contribution("independent-y", -1, 3, 2),
+        ];
+        let model = AffineUncertainty::new(terms.clone()).unwrap();
+        let (exact_lower, exact_upper) = grouped_source_oracle(&terms);
+        let sound = model.bounds().unwrap();
+        assert!(i128::from(sound.lower_mm) <= exact_lower);
+        assert!(i128::from(sound.upper_mm) >= exact_upper);
+
+        // Simulate a producer that reports a narrowed interval after a bug.
+        let mutated = IntervalBounds {
+            lower_mm: sound.lower_mm.saturating_add(1),
+            upper_mm: sound.upper_mm.saturating_sub(1),
+        };
+        let rejected_by_oracle =
+            i128::from(mutated.lower_mm) > exact_lower || i128::from(mutated.upper_mm) < exact_upper;
+        assert!(rejected_by_oracle, "the independent oracle missed an under-approximation mutant");
+    }
     #[test]
     fn hand_derived_json_vectors_match_affine_uncertainty_contract() {
         let fixture: FixtureSet = serde_json::from_str(include_str!("../fixtures/uncertainty_vectors.json"))
