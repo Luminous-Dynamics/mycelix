@@ -140,6 +140,7 @@ The isolated crate now has `crates/pulse-transport-core/src/delivery_journal.rs`
 
 - immutable identity as logical message ID + recipient ID + a caller-computed 32-byte envelope commitment;
 - optimistic stream revision compare-and-swap, with owned snapshot/history reads so a database backend need not expose references into a process-local cache;
+- a versioned persisted-event DTO carrying an explicit per-message stream revision. Replay rejects revision gaps/reordering and accepts duplicate replay only at the original committed revision;
 - global event-ID idempotency and explicit rejection when an event ID is reused for different content;
 - a starter hard cap of 256 journal events per logical message in the in-memory reference model; a durable backend must return explicit capacity/storage errors and cannot silently pretend a failed history read is empty;
 - monotonic worker epochs that fence stale workers, treating a fenced in-flight attempt as possibly sent / unknown;
