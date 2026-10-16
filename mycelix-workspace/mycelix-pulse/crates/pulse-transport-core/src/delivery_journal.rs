@@ -8,6 +8,8 @@
 
 use std::collections::BTreeMap;
 
+use crate::MAX_RECEIPT_BYTES;
+
 use crate::{
     delivery_state::AttemptOutcome, ReceiptVerificationError,
     TrustedRecipientReceiptVerifier, UnixMillis, VerifiedRecipientReceipt,
@@ -232,6 +234,240 @@ impl JournalEvent {
     }
 }
 
+/// A storage-facing event representation. Unlike `JournalEvent`, receipt
+/// variants contain raw authenticated bytes and a verifier-version label,
+/// not an in-process capability. A backend codec can persist these owned
+/// fields without serializing a trusted Boolean or private token.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PersistedJournalEventKind {
+    QueueAccepted {
+        expires_at: UnixMillis,
+        policy_generation: u64,
+    },
+    WorkerEpochAdvanced {
+        new_epoch: u64,
+    },
+    AttemptStarted {
+        attempt_id: String,
+    },
+    AttemptOutcomeRecorded {
+        attempt_id: String,
+        outcome: AttemptOutcome,
+        retry_at: Option<UnixMillis>,
+    },
+    RetryScheduled {
+        not_before: UnixMillis,
+    },
+    PolicyRevoked {
+        policy_generation: u64,
+    },
+    Expired,
+    RecipientReceiptVerified {
+        encoded_receipt: Vec<u8>,
+        verifier_version: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PersistedJournalEvent {
+    event_id: String,
+    identity: MessageIdentity,
+    occurred_at: UnixMillis,
+    actor: JournalActor,
+    kind: PersistedJournalEventKind,
+}
+
+impl PersistedJournalEvent {
+    pub fn new(
+        event_id: impl Into<String>,
+        identity: MessageIdentity,
+        occurred_at: UnixMillis,
+        actor: JournalActor,
+        kind: PersistedJournalEventKind,
+    ) -> Result<Self, JournalError> {
+        let event_id = event_id.into();
+        if !valid_identifier(&event_id, MAX_EVENT_ID_BYTES) {
+            return Err(JournalError::InvalidEventId);
+        }
+        match &kind {
+            PersistedJournalEventKind::AttemptStarted { attempt_id }
+            | PersistedJournalEventKind::AttemptOutcomeRecorded { attempt_id, .. } => {
+                if !valid_identifier(attempt_id, MAX_ATTEMPT_ID_BYTES) {
+                    return Err(JournalError::InvalidAttemptId);
+                }
+            }
+            PersistedJournalEventKind::RecipientReceiptVerified {
+                encoded_receipt,
+                verifier_version,
+            } => {
+                if encoded_receipt.is_empty()
+                    || encoded_receipt.len() > MAX_RECEIPT_BYTES
+                {
+                    return Err(JournalError::InvalidReceiptEvidence);
+                }
+                if !valid_identifier(verifier_version, 64) {
+                    return Err(JournalError::InvalidVerifierVersion);
+                }
+            }
+            _ => {}
+        }
+        Ok(Self {
+            event_id,
+            identity,
+            occurred_at,
+            actor,
+            kind,
+        })
+    }
+
+    /// Capture a live validated event into a persistence DTO. Receipt bytes
+    /// and the verifier version are preserved so replay can re-authenticate.
+    pub fn capture(event: &JournalEvent) -> Self {
+        let kind = match event.kind() {
+            JournalEventKind::Queued { expires_at, policy_generation } => {
+                PersistedJournalEventKind::QueueAccepted {
+                    expires_at: *expires_at,
+                    policy_generation: *policy_generation,
+                }
+            }
+            JournalEventKind::WorkerEpochAdvanced { new_epoch } => {
+                PersistedJournalEventKind::WorkerEpochAdvanced {
+                    new_epoch: *new_epoch,
+                }
+            }
+            JournalEventKind::AttemptStarted { attempt_id } => {
+                PersistedJournalEventKind::AttemptStarted {
+                    attempt_id: attempt_id.clone(),
+                }
+            }
+            JournalEventKind::AttemptOutcomeRecorded { attempt_id, outcome, retry_at } => {
+                PersistedJournalEventKind::AttemptOutcomeRecorded {
+                    attempt_id: attempt_id.clone(),
+                    outcome: *outcome,
+                    retry_at: *retry_at,
+                }
+            }
+            JournalEventKind::RetryScheduled { not_before } => {
+                PersistedJournalEventKind::RetryScheduled {
+                    not_before: *not_before,
+                }
+            }
+            JournalEventKind::PolicyRevoked { policy_generation } => {
+                PersistedJournalEventKind::PolicyRevoked {
+                    policy_generation: *policy_generation,
+                }
+            }
+            JournalEventKind::Expired => PersistedJournalEventKind::Expired,
+            JournalEventKind::RecipientReceiptVerified { evidence } => {
+                PersistedJournalEventKind::RecipientReceiptVerified {
+                    encoded_receipt: evidence.encoded_receipt().to_vec(),
+                    verifier_version: evidence.verifier_version().to_owned(),
+                }
+            }
+        };
+        Self {
+            event_id: event.event_id().to_owned(),
+            identity: event.identity().clone(),
+            occurred_at: event.occurred_at(),
+            actor: event.actor(),
+            kind,
+        }
+    }
+
+    pub fn event_id(&self) -> &str {
+        &self.event_id
+    }
+
+    pub const fn identity(&self) -> &MessageIdentity {
+        &self.identity
+    }
+
+    pub const fn occurred_at(&self) -> UnixMillis {
+        self.occurred_at
+    }
+
+    pub const fn actor(&self) -> JournalActor {
+        self.actor
+    }
+
+    pub const fn kind(&self) -> &PersistedJournalEventKind {
+        &self.kind
+    }
+
+    /// Rehydrate after decoding stored bytes. A receipt can be restored only
+    /// when the caller selects the verifier registered for the exact stored
+    /// version; raw receipt bytes are re-verified for this event's identity
+    /// and envelope commitment before a trusted capability is recreated.
+    pub fn reverify<V: TrustedRecipientReceiptVerifier>(
+        &self,
+        verifier: &V,
+        expected_verifier_version: &str,
+    ) -> Result<JournalEvent, JournalError> {
+        let kind = match &self.kind {
+            PersistedJournalEventKind::QueueAccepted { expires_at, policy_generation } => {
+                JournalEventKind::Queued {
+                    expires_at: *expires_at,
+                    policy_generation: *policy_generation,
+                }
+            }
+            PersistedJournalEventKind::WorkerEpochAdvanced { new_epoch } => {
+                JournalEventKind::WorkerEpochAdvanced {
+                    new_epoch: *new_epoch,
+                }
+            }
+            PersistedJournalEventKind::AttemptStarted { attempt_id } => {
+                JournalEventKind::AttemptStarted {
+                    attempt_id: attempt_id.clone(),
+                }
+            }
+            PersistedJournalEventKind::AttemptOutcomeRecorded { attempt_id, outcome, retry_at } => {
+                JournalEventKind::AttemptOutcomeRecorded {
+                    attempt_id: attempt_id.clone(),
+                    outcome: *outcome,
+                    retry_at: *retry_at,
+                }
+            }
+            PersistedJournalEventKind::RetryScheduled { not_before } => {
+                JournalEventKind::RetryScheduled {
+                    not_before: *not_before,
+                }
+            }
+            PersistedJournalEventKind::PolicyRevoked { policy_generation } => {
+                JournalEventKind::PolicyRevoked {
+                    policy_generation: *policy_generation,
+                }
+            }
+            PersistedJournalEventKind::Expired => JournalEventKind::Expired,
+            PersistedJournalEventKind::RecipientReceiptVerified {
+                encoded_receipt,
+                verifier_version,
+            } => {
+                if expected_verifier_version != verifier_version {
+                    return Err(JournalError::ReceiptVerifierVersionMismatch);
+                }
+                let evidence = VerifiedReceiptEvidence::verify(
+                    verifier,
+                    encoded_receipt,
+                    self.identity.logical_message_id(),
+                    self.identity.recipient_id(),
+                    *self.identity.envelope_commitment(),
+                    verifier_version.clone(),
+                )
+                .map_err(|_| JournalError::ReceiptVerificationFailed)?;
+                JournalEventKind::RecipientReceiptVerified { evidence }
+            }
+        };
+        JournalEvent::new(
+            self.event_id.clone(),
+            self.identity.clone(),
+            self.occurred_at,
+            self.actor,
+            kind,
+        )
+        .map_err(|_| JournalError::InvalidPersistedRecord)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DurableDeliveryStatus {
     Queued,
@@ -349,6 +585,11 @@ pub enum JournalError {
     InvalidRecipientId,
     InvalidEventId,
     InvalidAttemptId,
+    InvalidReceiptEvidence,
+    InvalidVerifierVersion,
+    InvalidPersistedRecord,
+    ReceiptVerificationFailed,
+    ReceiptVerifierVersionMismatch,
     RevisionConflict { expected: u64, actual: u64 },
     RevisionExhausted,
     EventLimitReached,
