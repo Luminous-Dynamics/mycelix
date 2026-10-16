@@ -301,6 +301,22 @@ def calibration_receipt_errors(review, evidence_ids):
         expected_lower, expected_upper = wilson_interval_bp(hits, n, receipt["coverage_confidence_bp"])
         if (receipt["coverage_lower_bp"], receipt["coverage_upper_bp"]) != (expected_lower, expected_upper):
             errors.append(f"{cid}: Wilson coverage interval does not match counts and confidence level")
+
+        # Coverage alone can reward uselessly wide intervals. Record relative
+        # sharpness against a named same-case baseline, but do not conflate it
+        # with the separate calibration pass/fail decision.
+        for ref in receipt["sharpness_baseline_evidence_refs"]:
+            if ref not in evidence_ids:
+                errors.append(f"{cid}: unresolved sharpness-baseline evidence reference {ref!r}")
+        baseline_width = exact_fraction(receipt["baseline_mean_interval_width"])
+        mean_width = exact_fraction(receipt["mean_interval_width"])
+        if baseline_width <= 0:
+            errors.append(f"{cid}: baseline mean interval width must be positive")
+        else:
+            width_ratio_ppm = mean_width / baseline_width * 1000000
+            expected_ratio_ppm = (width_ratio_ppm.numerator * 2 + width_ratio_ppm.denominator) // (2 * width_ratio_ppm.denominator)
+            if receipt["reported_width_ratio_ppm"] != expected_ratio_ppm:
+                errors.append(f"{cid}: reported_width_ratio_ppm does not match mean interval width divided by baseline width")
         nominal, tolerance = receipt["nominal_coverage_bp"], receipt["tolerance_bp"]
         acceptable_lower, acceptable_upper = max(0, nominal - tolerance), min(10000, nominal + tolerance)
         adequately_sampled = (
@@ -1370,6 +1386,11 @@ def main():
         "coverage_upper_bp": 10000,
         "interval_method": "wilson_independent_units",
         "calibration_result": "pass",
+        "mean_interval_width": Decimal("4.2"),
+        "baseline_mean_interval_width": Decimal("5.0"),
+        "sharpness_baseline_description": "Seasonal-persistence benchmark intervals over the same evaluation cases.",
+        "sharpness_baseline_evidence_refs": [sorted(evidence_ids)[2]],
+        "reported_width_ratio_ppm": 840000,
         "recalibration_trigger": "Recalibrate when monitored held-out coverage exits the registered tolerance band.",
         "limitations": ["Synthetic receipt for validator controls; not evidence that any city model is calibrated."]
     }
@@ -1438,7 +1459,19 @@ def main():
         fail("mutation: calibration receipt with unresolved evaluation evidence accepted")
     print("PASS mutation: calibration evaluation dataset needs resolvable evidence references")
 
-        print("PASS: 70 urban-metabolism/synergy controls (59 mutation/parser rejection controls and eleven positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
+    false_sharpness_ratio = copy.deepcopy(calibration_review)
+    false_sharpness_ratio["calibration_receipts"][0]["reported_width_ratio_ppm"] = 1000000
+    if not any("reported_width_ratio_ppm does not match mean interval width divided by baseline width" in e for e in calibration_receipt_errors(false_sharpness_ratio, evidence_ids)):
+        fail("mutation: incorrect relative interval-width ratio accepted")
+    print("PASS mutation: relative interval width must recompute exactly against its baseline")
+
+    zero_sharpness_baseline = copy.deepcopy(calibration_review)
+    zero_sharpness_baseline["calibration_receipts"][0]["baseline_mean_interval_width"] = 0
+    if not any(error.validator == "exclusiveMinimum" and list(error.path)[-1:] == ["baseline_mean_interval_width"] for error in calibration_validator.iter_errors(zero_sharpness_baseline["calibration_receipts"][0])):
+        fail("mutation: zero-width baseline accepted for relative sharpness")
+    print("PASS mutation: relative sharpness requires a positive baseline interval width")
+
+        print("PASS: 72 urban-metabolism/synergy controls (61 mutation/parser rejection controls and eleven positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
 
 
 if __name__ == "__main__":
