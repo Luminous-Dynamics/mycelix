@@ -103,7 +103,18 @@ Report, without mixing the dimensions:
 
 The implementation now uses a deterministic sweep over landed cost, arrival time and risk, with a Fenwick prefix-min index on compressed arrival coordinates. This changes frontier classification from O(n²) pairwise comparison to O(n log n) after sorting, while exact objective ties are classified as a group so identical offers do not arbitrarily dominate one another. The 2,048 × 32 generated differential oracle and a discrete objective-tie fixture exercise this logic, but neither has yet been observed passing on a runner.
 
-Initial performance hypothesis after compilation is measured: p95 below 50 ms for 1,000 offers and below 1 s for 10,000 offers on a named, pinned host. These are unmeasured targets, not guarantees. Benchmark the full evaluator (including evidence gates, sorting, allocations and report construction), preserve raw timings and host/toolchain metadata, and revise targets only with recorded measurements. No performance result is claimed.
+A dependency-free Rust-native sample harness is provided at `examples/sourcing_benchmark.rs`. It measures the full evaluator call (validation, sorting, classification, and report construction) on deterministic synthetic catalogs of 10, 100, 1,000 and 10,000 offers. It emits raw per-iteration TSV rows and p50/p95/max summaries; fixture construction is outside the timed region. It also prints the evaluator profile, OS, architecture and debug-assertion mode. Capture `git rev-parse HEAD`, `rustc --version` and `cargo --version` alongside its output when a run is performed.
+
+Run from the repository root:
+
+```sh
+git rev-parse HEAD
+rustc --version
+cargo --version
+cargo run --release --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml --example sourcing_benchmark > sourcing-benchmark.tsv
+```
+
+Initial performance hypothesis after the harness has been run on a named, pinned host: p95 below 50 ms for 1,000 offers and below 1 s for 10,000 offers. These are unmeasured targets, not guarantees. Benchmark the full evaluator (including evidence gates, sorting, allocations and report construction), preserve raw timings and host/toolchain metadata, and revise targets only with recorded measurements. No performance result is claimed.
 
 ## Cross-project contract
 
