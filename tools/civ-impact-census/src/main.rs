@@ -380,6 +380,13 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
         if !REGIMES.contains(&scenario.regime.as_str()) {
             return Err(format!("unknown scenario regime: {}", scenario.regime));
         }
+        if scenario.generator_version != GENERATOR_VERSION
+            || scenario.demand_units == 0
+            || scenario.capacity_units == 0
+            || scenario.unit_cost_microcredits == 0
+        {
+            return Err(format!("scenario {} has invalid generator identity or zero-valued base inputs", scenario.scenario_id));
+        }
         if scenario.missing_spatial_permille > 1_000
             || scenario.demand_shock_bps > 20_000
             || scenario.capacity_loss_bps > 10_000
@@ -439,8 +446,36 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
             }
         }
     }
-    if !arm_by_id.contains_key("incumbent_baseline") || !arm_by_id.contains_key("full_stack") {
-        return Err("arms must include incumbent_baseline and full_stack".into());
+    let required_arm_ids = [
+        "incumbent_baseline",
+        "symtropy_only",
+        "full_stack",
+        "without_symthaea",
+        "without_symtropy",
+        "without_sol_atlas",
+        "without_mycelix",
+    ];
+    if arm_by_id.len() != required_arm_ids.len()
+        || required_arm_ids.iter().any(|arm_id| !arm_by_id.contains_key(arm_id))
+    {
+        return Err("v0.1 schedule must contain the exact seven registered comparison arms".into());
+    }
+    let expected_components: [(&str, &[&str]); 7] = [
+        ("incumbent_baseline", &[]),
+        ("symtropy_only", &["symtropy"]),
+        ("full_stack", &["symthaea", "symtropy", "sol_atlas", "mycelix"]),
+        ("without_symthaea", &["symtropy", "sol_atlas", "mycelix"]),
+        ("without_symtropy", &["symthaea", "sol_atlas", "mycelix"]),
+        ("without_sol_atlas", &["symthaea", "symtropy", "mycelix"]),
+        ("without_mycelix", &["symthaea", "symtropy", "sol_atlas"]),
+    ];
+    for (arm_id, expected) in expected_components {
+        let arm = arm_by_id.get(arm_id).expect("required arm checked above");
+        if arm.enabled_components.len() != expected.len()
+            || expected.iter().any(|component| !arm.enabled_components.iter().any(|v| v == component))
+        {
+            return Err(format!("arm {arm_id} does not match its registered component set"));
+        }
     }
 
     let expected_count = schedule
@@ -922,6 +957,16 @@ mod tests {
         let bytes = serde_json::to_vec(&schedule.scenarios).expect("serialize changed scenarios");
         schedule.scenario_set_sha256 = sha256_hex(&bytes);
         assert!(validate_schedule(&schedule).unwrap_err().contains("balance all five"));
+    }
+
+    #[test]
+    fn rejects_modified_full_stack_arm_composition() {
+        let mut schedule = small_schedule();
+        let full_stack = schedule.arms.iter_mut()
+            .find(|arm| arm.arm_id == "full_stack")
+            .expect("full stack arm");
+        full_stack.enabled_components.pop();
+        assert!(validate_schedule(&schedule).unwrap_err().contains("registered component set"));
     }
 
     #[test]
