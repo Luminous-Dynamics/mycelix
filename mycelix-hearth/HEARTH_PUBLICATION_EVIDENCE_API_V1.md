@@ -19,11 +19,11 @@ Version-pinned references:
 
 get_action_publication_evidence(action_hash: ActionHash) -> ExternResult<ActionPublicationEvidence>
 
-The implementation runs inside the Hearth DNA's bridge coordinator zome and queries the local HDK receipt store. The output is a privacy-minimized summary:
+The implementation runs inside the Hearth DNA's bridge coordinator zome and queries the local HDK receipt store. Before reading receipt metadata it uses HDK 0.6's local-only get strategy to confirm that the action record is locally available and its author matches the calling agent. Missing and non-owned actions return the same NotAvailableToCaller result, with no receipt metadata, so the endpoint does not become a cross-agent existence/receipt oracle. The HDK host itself can read receipts for other agents on the same conductor; this coordinator wrapper deliberately narrows that capability. The output is a privacy-minimized summary:
 
 - action hash echoed in the response so the caller can bind a report to its query;
 - checked_at_micros, sourced from HDK sys_time() after receipt lookup;
-- explicit availability = Observed | NoOperationData;
+- explicit availability = NotAvailableToCaller | Observed | NoOperationData;
 - operation count, total receipt-record count, per-operation receipt-record counts, and the number of operation sets whose configured receipt threshold is complete;
 - per-operation valid, rejected, and abandoned validation-status counts;
 - all_receipt_thresholds_complete, which is explicitly false when no operation sets are returned.
@@ -50,7 +50,7 @@ The coordinator's pure summarizer is intended to enforce:
 4. Operation threshold completion is copied from the HDK receipts_complete flag, never inferred from a hardcoded count.
 5. all_receipt_thresholds_complete is false for an empty result, avoiding vacuous truth.
 6. Operation hashes and validator keys do not cross this endpoint.
-7. The report is scoped to the calling DNA's authoring conductor. When a caller asks about an action authored on another conductor, that conductor-local receipt dataset is not substituted with a network query.
+7. The report is scoped to the current authoring agent, not merely the conductor: a local-only record check must prove the queried action was authored by the caller before receipt data is returned. Missing and non-owned actions share NotAvailableToCaller. When a caller asks about an action authored on another conductor, that conductor-local receipt dataset is not substituted with a network query.
 
 ## Test plan and benchmarks
 
@@ -65,7 +65,8 @@ The coordinator's pure summarizer is intended to enforce:
 
 The new ignored conductor integration tests cover:
 - querying the action hash returned by a real create_hearth call on the authoring conductor;
-- querying an action hash authored on a separate conductor and requiring NoOperationData rather than a false synchronization claim;
+- querying an action hash authored on a separate conductor and requiring NotAvailableToCaller rather than a false synchronization claim;
+- querying an action authored by another agent on the same conductor and requiring the same non-disclosing NotAvailableToCaller result;
 - count consistency, query binding, observation timestamp, and non-vacuous completion.
 
 ### Acceptance targets (not results)
