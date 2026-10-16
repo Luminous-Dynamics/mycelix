@@ -137,10 +137,10 @@
     },
     {
       "id": "N07_usable_mechanical_drive",
-      "label": "A bounded useful-work drive and mechanical transmission",
+      "label": "A bounded useful-work drive or power input",
       "family": "power",
-      "requires_all": ["N03_manual_tools_and_workholding"],
-      "requires_any": ["manual_or_animal_power", "site_suitable_water_or_wind_power", "salvaged_or_imported_power_unit"],
+      "requires_all": [],
+      "requires_any": ["manual_or_animal_power", "site_suitable_water_or_wind_power", "salvaged_or_imported_power_unit", "qualified_imported_or_existing_electrical_service"],
       "questions": ["Is the resource seasonal?", "Are bearings, lubrication, structures and guards available?", "Can operating limits be established?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S3"]
@@ -160,7 +160,7 @@
       "id": "N09_inspectable_machine_tool_output",
       "label": "Production with a stated, valid inspection basis",
       "family": "quality",
-      "requires_all": ["N08_operational_machine_tool", "N05_repeatable_measurement_and_references"],
+      "requires_all": ["N08_operational_machine_tool", "N04_material_processing_routes", "N05_repeatable_measurement_and_references"],
       "requires_any": ["qualified_inspection_route", "locally_demonstrated_inspection_route"],
       "separate_capabilities": ["conforming_output"],
       "questions": ["Are measurement uncertainty and calibration current?", "Are material identity, process revision and acceptance criteria traceable?"],
