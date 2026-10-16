@@ -671,13 +671,15 @@ mod tests {
 
     #[test]
     fn different_origins_can_share_one_explicit_latent_dependency() {
-        let terms = vec![
-            contribution_with_dependency("sensor-a", "shared-datum-bias", -10, 10, 1),
-            contribution_with_dependency("sensor-b", "shared-datum-bias", -10, 10, -1),
-        ];
-        let model = AffineUncertainty::new(terms.clone()).unwrap();
-        assert_eq!(model.bounds().unwrap(), IntervalBounds { lower_mm: 0, upper_mm: 0 });
-        assert_eq!(model.terms.len(), 2, "retain both source origins for audit");
+        let first_term = contribution_with_dependency("sensor-a", "shared-datum-bias", -10, 10, 1);
+        let second_term = contribution_with_dependency("sensor-b", "shared-datum-bias", -10, 10, -1);
+        let first = AffineUncertainty::new(vec![first_term.clone()]).unwrap();
+        let second = AffineUncertainty::new(vec![second_term.clone()]).unwrap();
+        let composed = first.compose(&second).unwrap();
+        let terms = vec![first_term, second_term];
+
+        assert_eq!(composed.bounds().unwrap(), IntervalBounds { lower_mm: 0, upper_mm: 0 });
+        assert_eq!(composed.terms.len(), 2, "retain both source origins for audit");
         assert_eq!(grouped_source_oracle(&terms), (0, 0));
     }
 
@@ -685,9 +687,9 @@ mod tests {
     fn one_origin_with_distinct_dependency_modes_must_not_cancel() {
         let model = AffineUncertainty::new(vec![
             contribution_with_dependency("navigation-unit", "bias-mode", -10, 10, 1),
-            contribution_with_dependency("navigation-unit", "noise-mode", -10, 10, -1),
+            contribution_with_dependency("navigation-unit", "noise-mode", -2, 2, -1),
         ]).unwrap();
-        assert_eq!(model.bounds().unwrap(), IntervalBounds { lower_mm: -20, upper_mm: 20 });
+        assert_eq!(model.bounds().unwrap(), IntervalBounds { lower_mm: -12, upper_mm: 12 });
         assert_eq!(model.terms.len(), 2);
     }
 
@@ -701,12 +703,25 @@ mod tests {
     }
 
     #[test]
-    fn noncanonical_dependency_identifiers_fail_closed() {
+    fn dependency_identifier_domain_is_bounded_and_canonical() {
         assert_eq!(
             AffineUncertainty::new(vec![contribution_with_dependency(
                 "sensor", " shared-bias ", -1, 1, 1
             )]).unwrap_err(),
             UncertaintyError::NonCanonicalDependencyId
+        );
+        assert_eq!(
+            AffineUncertainty::new(vec![contribution_with_dependency(
+                "sensor", "", -1, 1, 1
+            )]).unwrap_err(),
+            UncertaintyError::EmptyDependencyId
+        );
+        let oversized = "d".repeat(MAX_DEPENDENCY_ID_BYTES + 1);
+        assert_eq!(
+            AffineUncertainty::new(vec![contribution_with_dependency(
+                "sensor", &oversized, -1, 1, 1
+            )]).unwrap_err(),
+            UncertaintyError::DependencyIdTooLong
         );
     }
 
