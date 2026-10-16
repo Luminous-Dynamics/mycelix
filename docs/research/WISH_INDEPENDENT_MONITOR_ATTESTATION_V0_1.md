@@ -53,7 +53,7 @@ Do not collapse these into a single trust score. A cryptographic proof authentic
 
 ## Conformance vectors
 
-The machine-readable vector catalogue is `docs/research/WISH_MONITOR_ATTESTATION_CONFORMANCE_VECTORS_V0_1.json`. It separates structural/integrity mutations that can be checked against this schema from cryptographic, credential, run-binding and monitor-capability cases that require the existing verifier interface and an independent monitor harness. It is a test oracle catalogue, not evidence that the vectors have executed.
+The machine-readable vector catalogue is `docs/research/WISH_MONITOR_ATTESTATION_CONFORMANCE_VECTORS_V0_1.json` and contains 28 cases. It includes a canonical-digest-consistent base envelope plus a synthetic qualification fixture; proof and credential identifiers are still references to required test vectors, not embedded signatures or credentials. Structural/integrity mutations are separable from cryptographic, credential, run-binding and monitor-capability cases that require the existing verifier interface and an independent monitor harness. It is a test oracle catalogue, not evidence that the vectors have executed.
 
 ## Conformance vector catalogue
 
