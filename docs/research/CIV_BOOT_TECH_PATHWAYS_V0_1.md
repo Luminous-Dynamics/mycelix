@@ -216,6 +216,28 @@ The transfer packet must pin source commits or release archives, compiler/build 
 
 Initial target: **C4, followed by C5**, for one modest, repairable controller or computer profile. That is an ambitious but testable definition of “a computer that can make more computers.” Semiconductor die localization remains a separate long-range program, not the next rung in the computer-reproduction ladder.
 
+### Path F — From reproducing computers to making better successors
+
+The next step up the chain is not simply to reproduce more identical machines. It is to use each generation to **expand the set of capabilities that can be reproduced and verified**—while preserving previously required abilities. This composes Symthaea's [COMPUTE-MFG-004 successor capability-ratchet benchmark #7698](https://github.com/Luminous-Dynamics/symthaea/issues/7698) and draft [PR #7699](https://github.com/Luminous-Dynamics/symthaea/pull/7699) with the canonical multi-generation envelope #5782 and Pareto/frontier planner #5783.
+
+#### Candidate succession path
+
+1. **Reproduction cell:** physically qualify a bounded C4/C5 computer-copy workflow. This is a reproduction gain, not a compute-performance gain.
+2. **Test/repair capability:** add qualified programming, electrical test, repair and calibration routes so the cell can detect and fix more failures.
+3. **Exact HDC hardware:** reuse canonical `BinaryHV` semantics from Symthaea #5808, with frozen conventional baselines from #5805. Begin with XOR binding, permutation, Hamming/popcount and odd-N bundle.
+4. **FPGA-observed accelerator:** compare physical-board results with the frozen CPU workload, including host/device transfer and setup overhead. A faster kernel that loses end-to-end is a negative result.
+5. **External ASIC path:** only if the measured workload benefit justifies the additional complexity, use the evidence bridge #5800. The maintained [LibreLane flow](https://github.com/librelane/librelane) supports reproducible/traceable RTL-to-GDS implementation, but design/layout/submission are not fabricated silicon.
+6. **Packaged/characterized successor:** require distinct fabrication, package/test and system-integration receipts. External fabrication is acceptable, and remains an explicit dependency.
+7. **Deeper productive-equipment capability:** use CIV-BOOT's capability-envelope and Pareto planning to identify which metrology, toolmaking, calibration or manufacturing equipment would unlock the next useful bottleneck. Do not jump from one accelerator to claims of a local semiconductor fab.
+
+#### Benchmark the delta, not a vague notion of “better”
+
+Draft [COMPUTE-MFG-004 PR #7699](https://github.com/Luminous-Dynamics/symthaea/pull/7699) freezes 13 synthetic cases for the successor decision contract. They include an identical clone with no compute gain, a qualified test-fixture improvement, exact RTL without hardware advantage, transfer-overhead failure, a synthetic positive HDC accelerator case, latency/offline-recovery regressions, stale metrology, unknown toolchain dependencies, GDS/submission vs fabricated silicon, and external package/test.
+
+The proposed first HDC win gate is **zero unexplained exact-output mismatches plus either 2× end-to-end throughput or 30% lower measured system energy** on the same declared workload, while preserving protected latency, task quality, thermal and resource constraints. The 2×/30% thresholds are hypotheses to preregister before actual measurements, not universal standards. All values in the fixture corpus are synthetic, not evidence of an existing performance win.
+
+Keep task utility, throughput, tail latency, system energy, memory traffic, FPGA resources, repairability, capability deltas, import dependence, evidence maturity and maintenance/calibration renewal as separate axes. Use the canonical Pareto and capability-envelope owners; do not make a single weighted successor score. NIST's 2026 semiconductor-manufacturing review highlights that process control, in-line metrology, advanced packaging and ecosystem dependencies are central to improving the chain ([review](https://doi.org/10.1016/j.cirp.2026.04.115)). Technology evidence should similarly progress from concept to breadboard/prototype/operational demonstration rather than skip stages ([NASA TRL guidance](https://www.nasa.gov/directorates/somd/space-communications-navigation-program/technology-readiness-levels/)).
+
 ## 4. Starting profiles to compare
 
 | Profile | Initial condition | Planning question |
