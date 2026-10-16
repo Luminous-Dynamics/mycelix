@@ -771,8 +771,34 @@ pub fn user_visible_delivery_state(
 mod tests {
     use super::*;
 
-    fn profile() -> TransportProfileId {
-        TransportProfileId::new("quic-envelope-v1").unwrap()
+    fn envelope_profile() -> EnvelopeProfileId {
+        EnvelopeProfileId::new("pulse-envelope-v1").unwrap()
+    }
+
+    fn transport_profile() -> TransportProfileId {
+        TransportProfileId::new("test-frame-v1").unwrap()
+    }
+
+    fn descriptor_for_transport_profile(
+        id: &str,
+        domain: &str,
+        max_bytes: usize,
+        mode: TransportMode,
+        transport_profile_id: &str,
+    ) -> AdapterDescriptor {
+        AdapterDescriptor::new(
+            TransportId::new(id).unwrap(),
+            FailureDomainId::new(domain).unwrap(),
+            TransportCapabilities::new(
+                true,
+                true,
+                max_bytes,
+                mode,
+                vec![TransportProfileId::new(transport_profile_id).unwrap()],
+                vec![envelope_profile()],
+            )
+            .unwrap(),
+        )
     }
 
     fn descriptor(
@@ -781,17 +807,19 @@ mod tests {
         max_bytes: usize,
         mode: TransportMode,
     ) -> AdapterDescriptor {
-        AdapterDescriptor::new(
-            TransportId::new(id).unwrap(),
-            FailureDomainId::new(domain).unwrap(),
-            TransportCapabilities::new(true, true, max_bytes, mode, vec![profile()]).unwrap(),
+        descriptor_for_transport_profile(
+            id,
+            domain,
+            max_bytes,
+            mode,
+            "test-frame-v1",
         )
     }
 
     fn envelope(bytes: usize, expires_at_unix_millis: UnixMillis) -> OpaqueEnvelope {
         OpaqueEnvelope::new(
             "msg-0001",
-            profile(),
+            envelope_profile(),
             vec![0xA5; bytes],
             expires_at_unix_millis,
         )
@@ -822,7 +850,8 @@ mod tests {
     fn policy() -> RoutePolicy {
         RoutePolicy {
             direction: Direction::Send,
-            required_profile_id: profile(),
+            required_envelope_profile_id: envelope_profile(),
+            required_transport_profile_id: None,
             require_store_and_forward: false,
         }
     }
@@ -947,18 +976,18 @@ mod tests {
             Err(IneligibilityReason::EnvelopeExpired)
         );
 
-        let mut unsupported_profile_policy = policy();
-        unsupported_profile_policy.required_profile_id =
-            TransportProfileId::new("bluetooth-gatt-v1").unwrap();
+        let mut unsupported_transport_policy = policy();
+        unsupported_transport_policy.required_transport_profile_id =
+            Some(TransportProfileId::new("bluetooth-gatt-v1").unwrap());
         assert_eq!(
             evaluate_route(
                 &candidate(&small, available_observation()),
-                &unsupported_profile_policy,
+                &unsupported_transport_policy,
                 &envelope(50, UnixMillis::new(20_000)),
                 UnixMillis::new(1_500),
                 MonotonicMillis::new(1_500),
             ),
-            Err(IneligibilityReason::EnvelopeProfileMismatch)
+            Err(IneligibilityReason::ProfileUnsupported)
         );
 
         let receive_only = AdapterDescriptor::new(
@@ -969,7 +998,8 @@ mod tests {
                 true,
                 1000,
                 TransportMode::Online,
-                vec![profile()],
+                vec![transport_profile()],
+                vec![envelope_profile()],
             )
             .unwrap(),
         );
@@ -1259,19 +1289,44 @@ mod tests {
         assert_eq!(
             OpaqueEnvelope::new(
                 "msg-1",
-                profile(),
+                envelope_profile(),
                 Vec::new(),
                 UnixMillis::new(100),
             ),
             Err(EnvelopeError::EmptyPayload)
         );
         assert_eq!(
-            TransportCapabilities::new(false, false, 1000, TransportMode::Online, vec![profile()]),
+            TransportCapabilities::new(
+                false,
+                false,
+                1000,
+                TransportMode::Online,
+                vec![transport_profile()],
+                vec![envelope_profile()],
+            ),
             Err(CapabilityError::NoDirectionSupported)
         );
         assert_eq!(
-            TransportCapabilities::new(true, true, 1000, TransportMode::Online, vec![]),
-            Err(CapabilityError::NoProfilesDeclared)
+            TransportCapabilities::new(
+                true,
+                true,
+                1000,
+                TransportMode::Online,
+                vec![],
+                vec![envelope_profile()],
+            ),
+            Err(CapabilityError::NoTransportProfilesDeclared)
+        );
+        assert_eq!(
+            TransportCapabilities::new(
+                true,
+                true,
+                1000,
+                TransportMode::Online,
+                vec![transport_profile()],
+                vec![],
+            ),
+            Err(CapabilityError::NoEnvelopeProfilesDeclared)
         );
     }
 }
