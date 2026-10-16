@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "docs/research/WISH_TO_OUTCOME_PROTOCOL_V0_1.md"
+      - "docs/research/WISH_OUTCOME_BENCHMARK_V0_1.md"
+      - "docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json"
       - "docs/research/schemas/wish-request-v0.1.schema.json"
       - "tools/wish-contract-check/**"
       - ".github/workflows/wish-contract-check.yml"
