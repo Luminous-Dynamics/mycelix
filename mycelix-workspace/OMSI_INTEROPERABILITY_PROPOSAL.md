@@ -157,7 +157,7 @@ Research anchors: [W3C Verifiable Credentials 2.0 Recommendation](https://www.w3
 - Add fixtures with conflicts, loss, missing revision and denied scopes.
 
 ### Gate 2 — Qualify the local, read-only adapter
-- The OMSI-side draft now supplies `audit-adapter-map`, `apply-adapter-map`, and `verify-transform-vectors`, including field-loss accounting, fail-closed projection, and exact vectors for two narrowly scoped transforms.
+- The OMSI-side draft now supplies `audit-adapter-map`, `apply-adapter-map`, and `verify-transform-vectors`, including field-loss accounting, fail-closed projection, and exact vectors for two narrowly scoped transforms. Adapter mappings can distinguish `required` and `optional` paths: missing required fields block projection, while absent optional fields remain listed and counted as skipped rather than being mislabeled as drops.
 - Add source-schema coverage for optional fields, representative vendor fixtures, and approved transformation/crosswalk vectors before qualifying any real source system.
 - Verify the output schema and OMSI replay before creating a receipt; no conductor/network dependency may be required for local deterministic evaluation.
 - Independent implementation tests must reproduce semantic output and digest scope; queued CI is not qualification.
