@@ -1296,6 +1296,18 @@ mod tests {
         )).expect("run schema JSON");
         let validator = jsonschema::validator_for(&schema).expect("valid run schema");
         assert!(validator.validate(&instance).is_ok(), "run census instance must match schema");
+
+        let mut missing_schedule_binding = instance.clone();
+        missing_schedule_binding.as_object_mut()
+            .expect("results envelope object")
+            .remove("schedule_artifact_sha256");
+        assert!(!validator.is_valid(&missing_schedule_binding));
+
+        let mut missing_operational_cost = instance.clone();
+        missing_operational_cost["runs"][0]["metrics"].as_object_mut()
+            .expect("metrics object")
+            .remove("operational_cost_microcredits");
+        assert!(!validator.is_valid(&missing_operational_cost));
     }
 
     #[test]
@@ -1318,6 +1330,11 @@ mod tests {
         )).expect("comparison schema JSON");
         let validator = jsonschema::validator_for(&schema).expect("valid comparison schema");
         assert!(validator.validate(&instance).is_ok(), "comparison report instance must match schema");
+
+        let mut promoted_claim = instance.clone();
+        promoted_claim["report"]["descriptive_only"] = serde_json::Value::Bool(false);
+        promoted_claim["report"]["economic_benefit_established"] = serde_json::Value::Bool(true);
+        assert!(!validator.is_valid(&promoted_claim));
     }
 
     #[test]
