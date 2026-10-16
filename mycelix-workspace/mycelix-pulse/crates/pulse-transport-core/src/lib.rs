@@ -709,15 +709,16 @@ impl std::error::Error for ReceiptVerificationError {}
 /// cryptographic receipt-verification module, never by a transport adapter.
 ///
 /// Implementations MUST verify the receipt's authenticating signature/MAC,
-/// logical message ID, intended recipient identity, and any required protocol
-/// or freshness fields. The trait is deliberately explicit because this
-/// crate has no dependency on Pulse's crypto implementation.
+/// logical message ID, intended recipient identity, exact envelope commitment,
+/// and any required protocol or freshness fields. The trait is deliberately
+/// explicit because this crate has no dependency on Pulse's crypto implementation.
 pub trait TrustedRecipientReceiptVerifier {
     fn verify(
         &self,
         encoded_receipt: &[u8],
         expected_logical_message_id: &str,
         expected_recipient_id: &str,
+        expected_envelope_commitment: &[u8; 32],
     ) -> Result<(), ReceiptVerificationError>;
 }
 
@@ -729,6 +730,7 @@ pub trait TrustedRecipientReceiptVerifier {
 pub struct VerifiedRecipientReceipt {
     logical_message_id: String,
     recipient_id: String,
+    envelope_commitment: [u8; 32],
 }
 
 impl VerifiedRecipientReceipt {
@@ -737,6 +739,7 @@ impl VerifiedRecipientReceipt {
         encoded_receipt: &[u8],
         expected_logical_message_id: &str,
         expected_recipient_id: &str,
+        expected_envelope_commitment: [u8; 32],
     ) -> Result<Self, ReceiptVerificationError> {
         if !valid_receipt_binding(expected_logical_message_id, MAX_MESSAGE_ID_BYTES)
             || !valid_receipt_binding(expected_recipient_id, MAX_RECIPIENT_ID_BYTES)
@@ -750,15 +753,24 @@ impl VerifiedRecipientReceipt {
             encoded_receipt,
             expected_logical_message_id,
             expected_recipient_id,
+            &expected_envelope_commitment,
         )?;
         Ok(Self {
             logical_message_id: expected_logical_message_id.to_owned(),
             recipient_id: expected_recipient_id.to_owned(),
+            envelope_commitment: expected_envelope_commitment,
         })
     }
 
-    fn matches(&self, logical_message_id: &str, recipient_id: &str) -> bool {
-        self.logical_message_id == logical_message_id && self.recipient_id == recipient_id
+    fn matches(
+        &self,
+        logical_message_id: &str,
+        recipient_id: &str,
+        envelope_commitment: &[u8; 32],
+    ) -> bool {
+        self.logical_message_id == logical_message_id
+            && self.recipient_id == recipient_id
+            && &self.envelope_commitment == envelope_commitment
     }
 }
 
@@ -769,16 +781,17 @@ fn valid_receipt_binding(value: &str, maximum_bytes: usize) -> bool {
 }
 
 /// Converts transport-layer evidence to user-visible state. No transport
-/// outcome maps to Delivered. A separately verified token must match both the
-/// current logical message ID and the intended recipient.
+/// outcome maps to Delivered. A separately verified token must match the
+/// current logical message ID, recipient, and immutable envelope commitment.
 pub fn user_visible_delivery_state(
     stage: DeliveryEvidenceStage,
     logical_message_id: &str,
     recipient_id: &str,
+    envelope_commitment: &[u8; 32],
     verified_receipt: Option<&VerifiedRecipientReceipt>,
 ) -> UserVisibleDeliveryState {
     if verified_receipt.is_some_and(|receipt| {
-        receipt.matches(logical_message_id, recipient_id)
+        receipt.matches(logical_message_id, recipient_id, envelope_commitment)
     }) {
         return UserVisibleDeliveryState::Delivered;
     }
