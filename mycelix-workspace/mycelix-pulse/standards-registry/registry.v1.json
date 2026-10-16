@@ -319,7 +319,7 @@
       "version": "RFC 9171",
       "published_on": null,
       "last_checked": "2026-10-15",
-      "source_status": "published",
+      "source_status": "published_errata_review",
       "layers": [
         "delay_tolerant",
         "application",
@@ -345,7 +345,9 @@
       ],
       "review_flags": [
         "read-with-rfc-9713-and-rfc-9758-not-in-isolation",
-        "source-content-digest-not-captured"
+        "source-content-digest-not-captured",
+        "rfc-editor-index-lists-9-errata-as-of-2026-10-16",
+        "individual-errata-records-seeded-from-rfc-editor-index"
       ],
       "support_status": "unreviewed",
       "evidence": [
@@ -390,7 +392,9 @@
       ],
       "review_flags": [
         "rfc-editor-displays-reported-errata-impact-review-required",
-        "source-content-digest-not-captured"
+        "source-content-digest-not-captured",
+        "rfc-editor-index-lists-4-reported-errata-as-of-2026-10-16",
+        "security-impact-review-needed-before-bpsec-profile-adoption"
       ],
       "support_status": "unreviewed",
       "evidence": [
@@ -707,6 +711,604 @@
       "next_review_due": "2027-04-14",
       "notes": "Study its interface abstraction and low-bandwidth design goals; avoid assuming protocol compatibility, cryptographic equivalence, or hardware support. Prefer interop experiments and threat-model comparison before writing a replacement.",
       "source_digest_sha256": null
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-8043",
+      "title": "RFC 9171 Erratum 8043 — CRC field bytes in primary-block calculation",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8043",
+      "version": "RFC Erratum 8043",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "verified",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid8043",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8043"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8043",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition verified; Verified erratum on Section 4.3.1: clarify which CRC value bytes are zeroed for computation while preserving the CBOR field's initial byte. Confirm the exact corrected text in the linked RFC Editor record before implementing.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Verified erratum on Section 4.3.1: clarify which CRC value bytes are zeroed for computation while preserving the CBOR field's initial byte. Confirm the exact corrected text in the linked RFC Editor record before implementing."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-8525",
+      "title": "RFC 9171 Erratum 8525 — source node ID URI schemes",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8525",
+      "version": "RFC Erratum 8525",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "verified",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid8525",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8525"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8525",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition verified; Verified erratum on Section 6.1.1 clarifies that source node IDs may use either the dtn or ipn URI scheme. Check the correction when implementing EID and status-report handling.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Verified erratum on Section 6.1.1 clarifies that source node IDs may use either the dtn or ipn URI scheme. Check the correction when implementing EID and status-report handling."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-7337",
+      "title": "RFC 9171 Erratum 7337 — Appendix B CDDL line breaks",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid7337",
+      "version": "RFC Erratum 7337",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "verified",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid7337",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid7337"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid7337",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition verified; Verified editorial erratum on Appendix B correcting CDDL formatting that can introduce syntax errors in copied/parsed forms. Do not hand-copy the malformed original grammar.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Verified editorial erratum on Appendix B correcting CDDL formatting that can introduce syntax errors in copied/parsed forms. Do not hand-copy the malformed original grammar."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-8645",
+      "title": "RFC 9171 Erratum 8645 — block-type-specific data representation",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8645",
+      "version": "RFC Erratum 8645",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "reported",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid8645",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8645"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8645",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition reported; Reported technical erratum on Section 4.2.8 proposes a definite-length CBOR byte string representation for block-type-specific data. It is reported, not verified; review implications for BPSec and do not silently present the proposed text as normative.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Reported technical erratum on Section 4.2.8 proposes a definite-length CBOR byte string representation for block-type-specific data. It is reported, not verified; review implications for BPSec and do not silently present the proposed text as normative."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-7272",
+      "title": "RFC 9171 Erratum 7272 — dtn URI scheme syntax",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid7272",
+      "version": "RFC Erratum 7272",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "held_for_document_update",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid7272",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid7272"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid7272",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition held_for_document_update; Erratum for Section 4.2.5.1.1 is held for document update and concerns dtn URI demultiplexing/path syntax. Inspect the complete authority record and current URI references before building endpoint parsing.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Erratum for Section 4.2.5.1.1 is held for document update and concerns dtn URI demultiplexing/path syntax. Inspect the complete authority record and current URI references before building endpoint parsing."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-7881",
+      "title": "RFC 9171 Erratum 7881 — bundle status item encoding",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid7881",
+      "version": "RFC Erratum 7881",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "held_for_document_update",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid7881",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid7881"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid7881",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition held_for_document_update; Erratum concerning Section 6.1.1 status-item encoding is held for document update. This record intentionally points to the authority text rather than treating the proposed correction as accepted normative language.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Erratum concerning Section 6.1.1 status-item encoding is held for document update. This record intentionally points to the authority text rather than treating the proposed correction as accepted normative language."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-8376",
+      "title": "RFC 9171 Erratum 8376 — fragmented bundle extension blocks",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8376",
+      "version": "RFC Erratum 8376",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "held_for_document_update",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid8376",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8376"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8376",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition held_for_document_update; Erratum concerning Section 5.8 fragmentation/extension-block placement is held for document update. Its stated concern includes fragments exceeding a practical MTU; fragmentation must not be designed from the RFC text in isolation.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Erratum concerning Section 5.8 fragmentation/extension-block placement is held for document update. Its stated concern includes fragments exceeding a practical MTU; fragmentation must not be designed from the RFC text in isolation."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-8377",
+      "title": "RFC 9171 Erratum 8377 — ADU reassembly",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8377",
+      "version": "RFC Erratum 8377",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "held_for_document_update",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid8377",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8377"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8377",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition held_for_document_update; Erratum concerning Section 5.7 ADU reassembly is held for document update. Review the complete authority record and current specifications before implementing reassembly semantics.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Erratum concerning Section 5.7 ADU reassembly is held for document update. Review the complete authority record and current specifications before implementing reassembly semantics."
+    },
+    {
+      "id": "ietf.rfc-9171-erratum-8495",
+      "title": "RFC 9171 Erratum 8495 — local endpoint processing",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8495",
+      "version": "RFC Erratum 8495",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "rejected",
+      "layers": [
+        "delay_tolerant",
+        "network"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9171",
+          "source_url": "https://www.rfc-editor.org/errata/eid8495",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8495"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8495",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition rejected; The proposed correction concerning processing of a bundle sent to a locally registered endpoint was rejected. Preserve the rejected disposition; do not implement the rejected proposed replacement as if accepted.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "The proposed correction concerning processing of a bundle sent to a locally registered endpoint was rejected. Preserve the rejected disposition; do not implement the rejected proposed replacement as if accepted."
+    },
+    {
+      "id": "ietf.rfc-9172-erratum-7672",
+      "title": "RFC 9172 Erratum 7672 — Security Context ID integer range",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid7672",
+      "version": "RFC Erratum 7672",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "reported",
+      "layers": [
+        "delay_tolerant",
+        "security"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9172",
+          "source_url": "https://www.rfc-editor.org/errata/eid7672",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid7672"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid7672",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition reported; Reported technical erratum says Section 3.6 should allow negative CBOR integers for private-use Security Context IDs, citing the IANA signed 16-bit range. Reported, not verified; validate actual registry and profile requirements.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Reported technical erratum says Section 3.6 should allow negative CBOR integers for private-use Security Context IDs, citing the IANA signed 16-bit range. Reported, not verified; validate actual registry and profile requirements."
+    },
+    {
+      "id": "ietf.rfc-9172-erratum-8312",
+      "title": "RFC 9172 Erratum 8312 — untrusted security block fields",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8312",
+      "version": "RFC Erratum 8312",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "reported",
+      "layers": [
+        "delay_tolerant",
+        "security"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9172",
+          "source_url": "https://www.rfc-editor.org/errata/eid8312",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8312"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8312",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition reported; Reported erratum proposes explicitly treating Abstract Security Block fields as untrusted for key lookup and barring other decisions until authenticated as additional data. This is security-critical design input, but its proposed text is not a verified correction.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Reported erratum proposes explicitly treating Abstract Security Block fields as untrusted for key lookup and barring other decisions until authenticated as additional data. This is security-critical design input, but its proposed text is not a verified correction."
+    },
+    {
+      "id": "ietf.rfc-9172-erratum-8681",
+      "title": "RFC 9172 Erratum 8681 — decryption failure disposition",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8681",
+      "version": "RFC Erratum 8681",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "reported",
+      "layers": [
+        "delay_tolerant",
+        "security"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9172",
+          "source_url": "https://www.rfc-editor.org/errata/eid8681",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8681"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8681",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition reported; Reported erratum proposes changes to disposition/status reporting after encrypted payload or target decryption failure, noting a mismatch with the stated Bundle Status Report reasons. Review against RFC 9171 processing and do not assume the proposed wording is normative.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Reported erratum proposes changes to disposition/status reporting after encrypted payload or target decryption failure, noting a mismatch with the stated Bundle Status Report reasons. Review against RFC 9171 processing and do not assume the proposed wording is normative."
+    },
+    {
+      "id": "ietf.rfc-9172-erratum-8723",
+      "title": "RFC 9172 Erratum 8723 — integrity operation combinations",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "erratum",
+      "canonical_url": "https://www.rfc-editor.org/errata/eid8723",
+      "version": "RFC Erratum 8723",
+      "published_on": null,
+      "publication_period": null,
+      "last_checked": "2026-10-16",
+      "source_status": "published_errata_review",
+      "source_digest_sha256": null,
+      "errata_status": "reported",
+      "layers": [
+        "delay_tolerant",
+        "security"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "errata_for",
+          "target_id": "ietf.rfc-9172",
+          "source_url": "https://www.rfc-editor.org/errata/eid8723",
+          "notes": "Disposition as listed in the RFC Editor errata catalogue on 2026-10-16."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/eid8723"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "review-status-before-profile-adoption"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/errata/eid8723",
+          "exact_subject_sha": null,
+          "claim": "As listed by the RFC Editor on 2026-10-16: disposition reported; Reported erratum proposes a constraint on combinations of integrity operations that target security-block metadata as authenticated data, because moving a security block can invalidate results. Treat as a required review item before adopting a BPSec profile, not as a verified correction.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Reported erratum proposes a constraint on combinations of integrity operations that target security-block metadata as authenticated data, because moving a security block can invalidate results. Treat as a required review item before adopting a BPSec profile, not as a verified correction."
     }
   ],
   "schema_uri": "./schema.v1.json"
