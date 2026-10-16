@@ -78,7 +78,7 @@ The tool does **not**:
 - implement vehicle routing or call Symtropy;
 - read or redistribute CVRPLIB, OSM, or other third-party datasets;
 - model real service operations;
-- calculate benchmark improvements, confidence intervals, social welfare or ROI;
+- decide that a measured difference is statistically reliable or establishes economic benefit; calculate confidence intervals, social welfare or ROI;
 - authorize dispatch, reserve resources, issue payments or change system state;
 - turn a valid JSON file, completed CI job, or hash into evidence of real-world truth.
 
@@ -90,12 +90,13 @@ The tool does **not**:
 - [Mycelix logistics proposal seam #5044](https://github.com/Luminous-Dynamics/mycelix/issues/5044)
 - [Symtropy global transport benchmark PR #1662](https://github.com/Luminous-Dynamics/symtropy/pull/1662)
 - [Symtropy resilience envelope #1660](https://github.com/Luminous-Dynamics/symtropy/issues/1660)
+- [CIV-IMPACT paired comparison report schema](https://github.com/Luminous-Dynamics/mycelix/blob/research/civ-impact-benchmark-v0-1/docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json)
 - [CVRPLIB best-known-solution challenge](https://galgos.inf.puc-rio.br/cvrplib/index.php/en/bks_challenge/overview)
 
 Do not benchmark against third-party instances until source identity, exact objective convention, license/usage terms, transformation lineage, and reference-solution semantics have been audited and pinned.
 
 ## Tests
 
-The crate defines unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds and missing failure reasons.
+The crate defines 16 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, incomplete-pair visibility, and zero-service handling.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
