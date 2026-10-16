@@ -128,6 +128,8 @@ struct SchedulePayload {
     episode_count: usize,
     stratum_count: usize,
     arm_count: usize,
+    stratum_ids: Vec<String>,
+    arm_ids: Vec<String>,
     planned_run_count: usize,
     episodes: Vec<EpisodeIdentity>,
     planned_runs: Vec<PlannedRun>,
@@ -233,10 +235,10 @@ fn run() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("generate") if args.len() == 4 => generate(Path::new(&args[2]), Path::new(&args[3])),
-        Some("verify-census") if args.len() == 5 => {
-            verify_census(Path::new(&args[2]), Path::new(&args[3]), Path::new(&args[4]))
+        Some("verify-census") if args.len() == 7 => {
+            verify_census(Path::new(&args[2]), Path::new(&args[3]), Path::new(&args[4]), Path::new(&args[5]), Path::new(&args[6]))
         }
-        _ => Err("usage:\n  wish-benchmark-census generate <manifest.json> <output-dir>\n  wish-benchmark-census verify-census <schedule.json> <results.json> <report.json>".into()),
+        _ => Err("usage:\n  wish-benchmark-census generate <manifest.json> <output-dir>\n  wish-benchmark-census verify-census <manifest.json> <schedule.json> <policy-visible-episodes.json> <results.json> <report.json>".into()),
     }
 }
 
@@ -329,6 +331,8 @@ fn generate(manifest_path: &Path, output_dir: &Path) -> Result<(), String> {
         episode_count: identities.len(),
         stratum_count: strata.len(),
         arm_count: arms.len(),
+        stratum_ids: strata.iter().map(|s| s["id"].as_str().unwrap().to_owned()).collect(),
+        arm_ids: arms.iter().map(|a| a["id"].as_str().unwrap().to_owned()).collect(),
         planned_run_count: run_count,
         episodes: identities,
         planned_runs: runs,
@@ -414,7 +418,7 @@ fn policy_input(stratum_id: &str, ordinal: u64) -> Result<Value, String> {
     Ok(input)
 }
 
-fn load_schedule(path: &Path) -> Result<ScheduleEnvelope, String> {
+fn load_schedule(path: &Path, manifest: &Value) -> Result<ScheduleEnvelope, String> {
     let raw = fs::read_to_string(path).map_err(|e| format!("read schedule: {e}"))?;
     let value = parse_strict(&raw).map_err(|e| format!("parse schedule: {e}"))?;
     let envelope: ScheduleEnvelope = serde_json::from_value(value).map_err(|e| format!("decode schedule: {e}"))?;
@@ -425,44 +429,109 @@ fn load_schedule(path: &Path) -> Result<ScheduleEnvelope, String> {
     }
     let payload_value = serde_json::to_value(&envelope.payload).map_err(|e| format!("schedule payload serialize: {e}"))?;
     if digest(&payload_value)? != envelope.schedule_sha256 { return Err("schedule digest mismatch".into()); }
-    if envelope.payload.planned_runs.len() != envelope.payload.planned_run_count
-        || envelope.payload.episodes.len() != envelope.payload.episode_count {
-        return Err("declared schedule counts do not match arrays".into());
+    let manifest_sha = digest(manifest)?;
+    if envelope.payload.manifest_sha256 != manifest_sha { return Err("schedule references a different benchmark manifest".into()); }
+    let version = manifest["benchmark_version"].as_str().ok_or("manifest benchmark_version missing")?;
+    if envelope.payload.benchmark_version != version { return Err("schedule benchmark version mismatch".into()); }
+
+    let strata = manifest["strata"].as_array().ok_or("manifest strata missing")?;
+    let arms = manifest["arms"].as_array().ok_or("manifest arms missing")?;
+    let declared_strata: HashSet<String> = strata.iter().map(|s| s["id"].as_str().unwrap_or_default().to_owned()).collect();
+    let declared_arms: HashSet<String> = arms.iter().map(|a| a["id"].as_str().unwrap_or_default().to_owned()).collect();
+    if envelope.payload.stratum_count != strata.len() || envelope.payload.arm_count != arms.len()
+        || envelope.payload.stratum_ids.iter().cloned().collect::<HashSet<_>>() != declared_strata
+        || envelope.payload.arm_ids.iter().cloned().collect::<HashSet<_>>() != declared_arms {
+        return Err("schedule stratum/arm declarations do not match the pinned manifest".into());
     }
-    let mut ids = HashSet::new();
-    let mut episode_ids = HashSet::new();
+    if envelope.payload.episode_count != manifest["design"]["distinct_synthetic_episodes"].as_u64().unwrap_or(0) as usize
+        || envelope.payload.episodes.len() != envelope.payload.episode_count
+        || envelope.payload.planned_runs.len() != envelope.payload.planned_run_count
+        || envelope.payload.planned_run_count != envelope.payload.episode_count * envelope.payload.arm_count {
+        return Err("schedule counts do not match pinned design".into());
+    }
+
+    let mut expected_episodes = HashMap::new();
+    for stratum in strata {
+        let stratum_id = stratum["id"].as_str().ok_or("stratum id missing")?;
+        for ordinal in 1..=stratum["cases"].as_u64().ok_or("stratum cases missing")? {
+            let identity = json!({"benchmark_version":version,"manifest_sha256":manifest_sha,"stratum_id":stratum_id,"case_ordinal":ordinal,"identity_version":"w2o-episode-id/0.1"});
+            let episode_id = format!("ep-{}", &digest(&identity)?[..24]);
+            let input_sha = digest(&policy_input(stratum_id, ordinal)?)?;
+            expected_episodes.insert(episode_id.clone(), (stratum_id.to_owned(), ordinal, input_sha));
+        }
+    }
+    let mut seen_episodes = HashSet::new();
     for episode in &envelope.payload.episodes {
-        if !episode_ids.insert(episode.episode_id.clone()) {
-            return Err(format!("duplicate schedule episode ID: {}", episode.episode_id));
-        }
-        if !is_sha256(&episode.policy_input_sha256) {
-            return Err(format!("invalid policy-input digest for {}", episode.episode_id));
+        if !seen_episodes.insert(episode.episode_id.clone()) { return Err(format!("duplicate schedule episode ID: {}",episode.episode_id)); }
+        let Some((stratum_id, ordinal, input_sha)) = expected_episodes.get(&episode.episode_id) else {
+            return Err(format!("schedule contains unrecognized episode ID: {}",episode.episode_id));
+        };
+        if &episode.stratum_id != stratum_id || &episode.case_ordinal != ordinal || &episode.policy_input_sha256 != input_sha {
+            return Err(format!("episode identity/input digest mismatch: {}",episode.episode_id));
         }
     }
-    if envelope.payload.planned_run_count != envelope.payload.episode_count * envelope.payload.arm_count {
-        return Err("planned run count must equal episode count × arm count".into());
-    }
+    if seen_episodes.len() != expected_episodes.len() { return Err("schedule episode census is incomplete".into()); }
+
+    let arm_lookup: HashMap<&str, &Value> = arms.iter().filter_map(|arm| arm["id"].as_str().map(|id|(id,arm))).collect();
+    let episode_lookup: HashMap<&str, &EpisodeIdentity> = envelope.payload.episodes.iter().map(|ep|(ep.episode_id.as_str(),ep)).collect();
+    let mut run_ids = HashSet::new();
     let mut pairs = HashSet::new();
     for run in &envelope.payload.planned_runs {
-        if !ids.insert(run.run_id.clone()) { return Err(format!("duplicate schedule run ID: {}", run.run_id)); }
-        if !episode_ids.contains(&run.episode_id) {
-            return Err(format!("run references absent episode ID: {}", run.episode_id));
+        if !run_ids.insert(run.run_id.clone()) { return Err(format!("duplicate schedule run ID: {}",run.run_id)); }
+        let episode = episode_lookup.get(run.episode_id.as_str()).ok_or("run references absent episode")?;
+        let arm = arm_lookup.get(run.arm_id.as_str()).ok_or("run references undeclared arm")?;
+        if run.stratum_id != episode.stratum_id || run.case_ordinal != episode.case_ordinal
+            || run.policy_input_sha256 != episode.policy_input_sha256
+            || run.arm_definition_sha256 != digest(arm)? {
+            return Err(format!("planned run identity binding mismatch: {}",run.run_id));
         }
-        if !is_sha256(&run.seed_sha256) || !is_sha256(&run.arm_definition_sha256) || !is_sha256(&run.policy_input_sha256) {
-            return Err(format!("run contains malformed digest: {}", run.run_id));
-        }
-        if !pairs.insert((run.episode_id.clone(),run.arm_id.clone())) {
-            return Err(format!("duplicate episode/arm pair: {} / {}",run.episode_id,run.arm_id));
-        }
+        let seed = digest(&json!({"benchmark_version":version,"episode_id":run.episode_id,"seed_derivation_version":"w2o-shared-episode-seed/0.1"}))?;
+        if run.seed_sha256 != seed { return Err(format!("planned run seed mismatch: {}",run.run_id)); }
+        let run_identity = json!({"benchmark_version":version,"episode_id":run.episode_id,"arm_id":run.arm_id,"seed_sha256":seed,"arm_definition_sha256":run.arm_definition_sha256,"run_identity_version":"w2o-run-id/0.1"});
+        if run.run_id != format!("run-{}", &digest(&run_identity)?[..32]) { return Err(format!("planned run ID mismatch: {}",run.run_id)); }
+        if !pairs.insert((run.episode_id.clone(),run.arm_id.clone())) { return Err(format!("duplicate episode/arm pair: {} / {}",run.episode_id,run.arm_id)); }
     }
-    if pairs.len() != envelope.payload.planned_run_count {
-        return Err("episode/arm pair census does not match planned run count".into());
-    }
+    if pairs.len() != envelope.payload.planned_run_count { return Err("episode/arm pair census does not match planned run count".into()); }
     Ok(envelope)
 }
 
-fn verify_census(schedule_path: &Path, results_path: &Path, report_path: &Path) -> Result<(), String> {
-    let schedule = load_schedule(schedule_path)?;
+fn verify_policy_dataset(schedule: &ScheduleEnvelope, path: &Path) -> Result<(), String> {
+    let raw = fs::read_to_string(path).map_err(|e| format!("read policy-visible dataset: {e}"))?;
+    let value = parse_strict(&raw).map_err(|e| format!("parse policy-visible dataset: {e}"))?;
+    let dataset: PolicyDataset = serde_json::from_value(value).map_err(|e| format!("decode policy-visible dataset: {e}"))?;
+    if dataset.schema_version != "wish-policy-dataset/0.1"
+        || dataset.corpus_class != "public_development_not_holdout"
+        || dataset.episode_count != schedule.payload.episode_count
+        || dataset.episodes.len() != schedule.payload.episode_count {
+        return Err("policy-visible dataset schema/class/count mismatch".into());
+    }
+    let planned: HashMap<&str, &EpisodeIdentity> = schedule.payload.episodes.iter().map(|ep|(ep.episode_id.as_str(),ep)).collect();
+    let mut seen = HashSet::new();
+    for episode in &dataset.episodes {
+        if !episode.synthetic_only || episode.corpus_class != "public_development_not_holdout" {
+            return Err(format!("episode is not correctly marked synthetic/public-development: {}",episode.episode_id));
+        }
+        if !seen.insert(episode.episode_id.clone()) { return Err(format!("duplicate policy episode: {}",episode.episode_id)); }
+        let plan = planned.get(episode.episode_id.as_str()).ok_or("policy dataset has extra episode")?;
+        if episode.policy_input_sha256 != digest(&episode.input)?
+            || episode.policy_input_sha256 != plan.policy_input_sha256 {
+            return Err(format!("policy input digest mismatch: {}",episode.episode_id));
+        }
+        let encoded = episode.input.to_string();
+        if encoded.contains("expected_disposition") || encoded.contains("scoring_weights") || encoded.contains("evaluator_truth") {
+            return Err(format!("policy-visible episode leaks evaluator-only fields: {}",episode.episode_id));
+        }
+    }
+    if seen.len() != planned.len() { return Err("policy-visible dataset omits planned episodes".into()); }
+    Ok(())
+}
+
+fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path, results_path: &Path, report_path: &Path) -> Result<(), String> {
+    let manifest_raw = fs::read_to_string(manifest_path).map_err(|e| format!("read pinned manifest: {e}"))?;
+    let manifest = parse_strict(&manifest_raw).map_err(|e| format!("parse pinned manifest: {e}"))?;
+    validate_manifest(&manifest)?;
+    let schedule = load_schedule(schedule_path, &manifest)?;
+    verify_policy_dataset(&schedule, policy_path)?;
     let raw = fs::read_to_string(results_path).map_err(|e| format!("read results: {e}"))?;
     let parsed = parse_strict(&raw).map_err(|e| format!("parse results: {e}"))?;
     let results: ResultsEnvelope = serde_json::from_value(parsed).map_err(|e| format!("decode results: {e}"))?;
