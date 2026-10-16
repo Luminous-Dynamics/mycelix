@@ -654,11 +654,6 @@ fn validate_support_claim(
                 "{label}: support state '{status:?}' requires source_review evidence"
             ));
         }
-        Some("metadata_reviewed") if !has_evidence("source_review") => {
-            errors.push(format!(
-                "{label}: metadata_reviewed requires source_review evidence"
-            ));
-        }
         Some("prototype") if !has_evidence("implementation") => {
             errors.push(format!("{label}: prototype requires implementation evidence"));
         }
