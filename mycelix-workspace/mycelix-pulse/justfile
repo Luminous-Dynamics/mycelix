@@ -17,6 +17,14 @@ check-ui:
 test-protocol:
     cargo test --manifest-path crates/mail-leptos-types/Cargo.toml
 
+# Validate versioned standards metadata, IDs, source URLs, relations, and evidence gates.
+validate-standards-registry:
+    cargo run --manifest-path standards-registry/validator/Cargo.toml -- --registry standards-registry/registry.v1.json --schema standards-registry/schema.v1.json
+
+# Exercise registry validator positive and negative controls.
+test-standards-registry:
+    cargo test --manifest-path standards-registry/validator/Cargo.toml
+
 # Shared Pulse V2 primitives: native behavior plus browser-target compilation.
 test-crypto:
     cargo test --manifest-path ../mycelix-identity/crates/mycelix-crypto/Cargo.toml --features hybrid-rc pulse_v2
@@ -27,11 +35,12 @@ test-zomes:
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-holochain-target} cargo test --manifest-path holochain/Cargo.toml --lib
 
 # Fast canonical alpha gate. Formatting commands are checks and do not rewrite files.
-check: fmt-check check-ui test-protocol test-crypto test-zomes
+check: fmt-check check-ui test-protocol test-crypto test-zomes validate-standards-registry test-standards-registry
 
 fmt-check:
     cargo fmt --manifest-path apps/leptos/Cargo.toml -- --check
     cargo fmt --manifest-path crates/mail-leptos-types/Cargo.toml -- --check
+    cargo fmt --manifest-path standards-registry/validator/Cargo.toml -- --check
     cargo fmt --manifest-path holochain/Cargo.toml \
       -p contacts_integrity -p contacts \
       -p mail_profiles_integrity -p mail_profiles \
