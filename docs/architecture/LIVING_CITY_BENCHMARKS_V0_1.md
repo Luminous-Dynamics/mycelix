@@ -46,3 +46,8 @@ python scripts/living-city/benchmark_metabolism.py --sizes 1000,10000,100000 --r
 Each sample runs in a fresh subprocess, first builds a larger synthetic-only fixture, then separately times schema validation and semantic validation. Fixture expansion and catalogue loading are excluded from the validation timing. Output includes raw sample measurements, median/p95 by size, process peak RSS, Python/jsonschema version, environment label, exact workflow commit when `GITHUB_SHA` is set, and a report digest. The label is user-declared rather than hardware-probed; record actual runner CPU and memory externally. A 1,000-flow smoke run is wired into the Living-City workflow. Full 1k/10k/100k benchmark remains an explicit command because it is more expensive than a correctness gate.
 
 The harness validates only synthetic records and never emits predictions about Johannesburg. Timing comparisons are meaningful only on the same pinned reference runner; the public CI smoke result is not a performance qualification.
+
+
+## CI benchmark evidence retention
+
+The schema workflow writes the 1,000-flow smoke measurement to a JSON report, publishes the measured values and report digest in the Actions job summary, and uploads the report as a 30-day workflow artifact. The report is keyed to the pull-request head SHA, so timings should not be attributed to a different commit. A successful smoke step proves that the harness ran and emitted a report; it does not establish the 10k/100k performance targets or scientific calibration.
