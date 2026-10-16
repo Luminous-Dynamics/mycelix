@@ -133,14 +133,16 @@ The 20% resilience gate is a target, not a prior belief. If a baseline is near 1
 
 **Exit:** isolated contract tests compile and pass at the exact PR head; no claim until that evidence exists.
 
-### P1 — Better independent evaluation (next implementation tranche)
+### P1 — Better independent evaluation (implementation added; execution pending)
 
-- Add paired multi-seed evaluation and per-scenario confidence summaries to the Rust harness.
-- Add a held-out scenario split and manifest digests for source, corpus, config, and seed list.
-- Add explicit common-cause variants and sensitivity analysis for weak/unknown correlation.
-- Add stable-network non-regression and budget-aware comparisons; do not declare win on delivery alone.
+- Added `standards-registry/validator/src/evaluation.rs`, a paired multi-seed evaluator comparing sequential failover or parallel redundancy to preferred-single-path on the declared holdout scenarios.
+- Added an exhaustive, disjoint scenario split: six development scenarios and five holdout scenarios, including stable-network non-regression, privacy exclusion, flapping links, energy trade-offs, and shared-carrier failure.
+- Added per-holdout scenario rates, absolute percentage-point change, relative point-estimate improvement, a paired seed-level interval, and a model-only screen against the proposed 20% resilience / -2 percentage-point stable-network gates.
+- Added manifest-bound CLI flags for the checked-out subject SHA and SHA-256 of a generated input manifest. CI is configured for a 30-seed × 1,000-message smoke evaluation; `just evaluate-transport` defines the heavier 30-seed × 10,000-message run.
+- The interval explicitly measures variation in this synthetic model only. It is not empirical uncertainty about real network performance, and even a model-screen pass is not release qualification.
+- This tranche does **not** yet implement calibrated weak/unknown failure-correlation models, a true held-out test process history, hardware traces, or real device metrics.
 
-**Exit:** reproducible reports and negative controls from an executed Rust binary, with exact-head evidence.
+**Exit:** exact-head Rust formatting, tests, and paired evaluation execute successfully; artifact subject/input hashes match the tested commit; negative controls pass; no performance result is claimed before that evidence appears.
 
 ### P2 — Durable messaging semantics
 
