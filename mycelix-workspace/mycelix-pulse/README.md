@@ -64,7 +64,7 @@ just evaluate-transport-smoke
 just evaluate-transport
 ```
 
-The smoke command uses 30 seeds and 500 messages per scenario; the heavier evaluation uses 30 seeds and 10,000 messages per scenario in release mode. Reports include the subject SHA, hashed input-manifest digest, and generated validator lockfile as evidence. The evaluator and tests are not considered passing until exact-head CI artifacts confirm execution. All route-success, confidence-interval, cost, and energy numbers are synthetic-model diagnostics—not authenticated delivery, RF behavior, or hardware measurements.
+The smoke command uses 30 seeds and 500 messages per scenario; the heavier evaluation uses 30 seeds and 10,000 messages per scenario in release mode. Reports include the verified subject SHA, input-manifest path/digest, and generated validator lockfile. Evidence mode checks the subject against the checked-out Git HEAD, verifies every manifest entry with `sha256sum --check --strict`, and recomputes the manifest digest before running. The evaluator and tests are not considered passing until exact-head CI artifacts confirm execution. All route-success, confidence-interval, cost, and energy numbers are synthetic-model diagnostics—not authenticated delivery, RF behavior, or hardware measurements.
 
 ## Runtime truth
 
