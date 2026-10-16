@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+/// Experimental escrow allocation for partition-tolerant local reservations; not a distributed protocol.
+pub mod fulfillment_escrow;
+
 /// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
 pub mod fulfillment_tranches;
 
