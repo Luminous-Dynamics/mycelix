@@ -36,6 +36,22 @@ pub fn Nav() -> impl IntoView {
                 <A href="/personal/profile">"vault"</A>
             </div>
 
+            // Keep secondary destinations discoverable without crowding the primary row.
+            // Native <details>/<summary> gives keyboard users a built-in toggle without JS state.
+            <details class="nav-more">
+                <summary aria-label="more household destinations">"more"</summary>
+                <div class="nav-more-menu" role="group" aria-label="more destinations">
+                    <A href="/found">"founding ceremony"</A>
+                    <A href="/milestones">"milestones"</A>
+                    <A href="/resources">"resources"</A>
+                    <A href="/autonomy">"autonomy"</A>
+                    <A href="/settings">"settings"</A>
+                    <A href="/personal/health">"health"</A>
+                    <A href="/personal/credentials">"credentials"</A>
+                    <A href="/personal/disclosure">"privacy & sharing"</A>
+                </div>
+            </details>
+
             <div class="nav-actions">
                 <FontSizeToggle />
                 <SoundToggle />
