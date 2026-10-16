@@ -32,6 +32,7 @@ struct FixtureCase {
 enum Rejection {
     Digest,
     DuplicateIdentifier,
+    SnapshotLineage,
 }
 
 #[derive(Debug)]
@@ -404,6 +405,11 @@ fn verify_case(
             Err(other) => Err(format!("expected digest rejection, got {other:?}")),
             Ok(()) => Err("digest-mismatch fixture unexpectedly accepted".into()),
         },
+        "snapshot_lineage_reject" => match semantic_result {
+            Err(Rejection::SnapshotLineage) => Ok(()),
+            Err(other) => Err(format!("expected snapshot-lineage rejection, got {other:?}")),
+            Ok(()) => Err("self-superseding snapshot unexpectedly accepted".into()),
+        },
         "duplicate_id_reject" => match semantic_result {
             Err(Rejection::DuplicateIdentifier) => Ok(()),
             Err(other) => Err(format!("expected duplicate-ID rejection, got {other:?}")),
@@ -414,6 +420,15 @@ fn verify_case(
 }
 
 fn validate_semantics(instance: &Value) -> Result<(), Rejection> {
+    let revision = instance.get("snapshot_revision").and_then(Value::as_u64).ok_or(Rejection::SnapshotLineage)?;
+    let snapshot_ref = instance.get("snapshot_ref").and_then(Value::as_str).ok_or(Rejection::SnapshotLineage)?;
+    let supersedes = instance.get("supersedes_snapshot_ref").ok_or(Rejection::SnapshotLineage)?;
+    if revision == 1 {
+        if !supersedes.is_null() { return Err(Rejection::SnapshotLineage); }
+    } else {
+        let previous = supersedes.as_str().filter(|value| !value.is_empty()).ok_or(Rejection::SnapshotLineage)?;
+        if previous == snapshot_ref { return Err(Rejection::SnapshotLineage); }
+    }
     ensure_unique_ids(
         instance.pointer("/goal/success_criteria"),
         "criterion_id",
