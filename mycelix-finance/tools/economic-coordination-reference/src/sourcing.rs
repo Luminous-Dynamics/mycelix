@@ -753,7 +753,10 @@ mod tests {
         candidate.source_payload_digest.clear();
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::MissingSourceProvenance);
-        assert_eq!(report.rejected[0].source_uri, "https://supplier.example/offers/no-source-digest");
+        assert_eq!(
+            report.rejected[0].source_uri,
+            "https://supplier.example/offers/no-source-digest"
+        );
         assert!(report.pareto_frontier.is_empty());
     }
 
@@ -823,7 +826,11 @@ mod tests {
         let mut expired_stock = offer("expired-stock", 10, 1, 10);
         expired_stock.inventory_valid_until = 99;
 
-        let report = evaluate_sourcing(&request(), &[stale_stock, unverified_stock, expired_stock]).unwrap();
+        let report = evaluate_sourcing(
+            &request(),
+            &[stale_stock, unverified_stock, expired_stock],
+        )
+        .unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::InventoryExpired);
         assert_eq!(report.rejected[1].reason, RejectionReason::InventoryStale);
         assert_eq!(report.rejected[2].reason, RejectionReason::InventoryNotVerified);
