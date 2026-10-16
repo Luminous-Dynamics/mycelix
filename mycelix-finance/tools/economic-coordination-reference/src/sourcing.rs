@@ -43,6 +43,7 @@ pub struct SourcingRequest {
     pub deliver_by: u64,
     pub max_quote_age_secs: u64,
     pub max_inventory_age_secs: u64,
+    pub max_credential_status_age_secs: u64,
     /// Binds the meaning and calibration of risk_bps across candidates.
     pub risk_model_digest: String,
 }
@@ -103,6 +104,8 @@ pub struct SupplierOffer {
     pub quote_valid_until: u64,
     pub quote_evidence_status: EvidenceStatus,
     pub supplier_credential_status: EvidenceStatus,
+    /// Time of the last credential validity/revocation/status check.
+    pub supplier_credential_checked_at: u64,
     pub supplier_credential_valid_until: u64,
 }
 
@@ -131,6 +134,8 @@ pub enum RejectionReason {
     RiskValueOutOfRange,
     QuoteNotVerified,
     SupplierCredentialNotVerified,
+    SupplierCredentialCheckFromFuture,
+    SupplierCredentialStatusStale,
     QuoteFromFuture,
     QuoteStale,
     QuoteExpired,
@@ -159,6 +164,8 @@ pub struct EvaluatedOffer {
     pub inventory_evidence_origin: EvidenceOrigin,
     pub supplier_credential_origin: EvidenceOrigin,
     pub supplier_credential_status: EvidenceStatus,
+    /// Time of the last credential validity/revocation/status check.
+    pub supplier_credential_checked_at: u64,
     pub supplier_credential_valid_until: u64,
     pub landed_cost_minor: u64,
     pub arrival_at: u64,
@@ -183,6 +190,8 @@ pub struct RejectedOffer {
     pub inventory_evidence_origin: EvidenceOrigin,
     pub supplier_credential_origin: EvidenceOrigin,
     pub supplier_credential_status: EvidenceStatus,
+    /// Time of the last credential validity/revocation/status check.
+    pub supplier_credential_checked_at: u64,
     pub supplier_credential_valid_until: u64,
     pub reason: RejectionReason,
 }
@@ -289,6 +298,14 @@ fn evaluate_offer(
     if offer.supplier_credential_status != EvidenceStatus::Verified {
         return Err(RejectionReason::SupplierCredentialNotVerified);
     }
+    if offer.supplier_credential_checked_at > request.as_of {
+        return Err(RejectionReason::SupplierCredentialCheckFromFuture);
+    }
+    if request.as_of - offer.supplier_credential_checked_at
+        > request.max_credential_status_age_secs
+    {
+        return Err(RejectionReason::SupplierCredentialStatusStale);
+    }
     if offer.quote_observed_at > request.as_of {
         return Err(RejectionReason::QuoteFromFuture);
     }
@@ -334,6 +351,7 @@ fn evaluate_offer(
         inventory_evidence_origin: offer.inventory_evidence_origin,
         supplier_credential_origin: offer.supplier_credential_origin,
         supplier_credential_status: offer.supplier_credential_status,
+        supplier_credential_checked_at: offer.supplier_credential_checked_at,
         supplier_credential_valid_until: offer.supplier_credential_valid_until,
         landed_cost_minor: total,
         arrival_at,
@@ -513,6 +531,7 @@ pub fn evaluate_sourcing(
                 inventory_evidence_origin: offer.inventory_evidence_origin,
                 supplier_credential_origin: offer.supplier_credential_origin,
                 supplier_credential_status: offer.supplier_credential_status,
+                supplier_credential_checked_at: offer.supplier_credential_checked_at,
                 supplier_credential_valid_until: offer.supplier_credential_valid_until,
                 reason,
             }),
@@ -558,6 +577,7 @@ mod tests {
             deliver_by: 500,
             max_quote_age_secs: 60,
             max_inventory_age_secs: 60,
+            max_credential_status_age_secs: 60,
             risk_model_digest: "risk-model-v1".into(),
         }
     }
@@ -591,6 +611,7 @@ mod tests {
             quote_valid_until: 200,
             quote_evidence_status: EvidenceStatus::Verified,
             supplier_credential_status: EvidenceStatus::Verified,
+            supplier_credential_checked_at: 100,
             supplier_credential_valid_until: 500,
         }
     }
@@ -847,6 +868,19 @@ mod tests {
         assert_eq!(report.currency, "USD");
         assert_eq!(report.quantity, 1);
         assert_eq!(report.risk_model_digest, "risk-model-v1");
+    }
+
+    #[test]
+    fn credential_expiry_does_not_rescue_stale_status_check() {
+        let mut stale = offer("stale-credential-status", 100, 10, 100);
+        stale.supplier_credential_checked_at = 39;
+        let mut future = offer("future-credential-status", 100, 10, 100);
+        future.supplier_credential_checked_at = 101;
+
+        let report = evaluate_sourcing(&request(), &[stale, future]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::SupplierCredentialCheckFromFuture);
+        assert_eq!(report.rejected[1].reason, RejectionReason::SupplierCredentialStatusStale);
+        assert!(report.pareto_frontier.is_empty());
     }
 
     #[test]
