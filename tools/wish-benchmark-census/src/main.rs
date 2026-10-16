@@ -175,6 +175,15 @@ enum RunDisposition {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ArmExecutionPin {
+    policy_build_sha256: String,
+    policy_config_sha256: String,
+    runner_image_sha256: String,
+    action_space_sha256: String,
+    observation_contract_sha256: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RunResult {
     run_id: String,
     episode_id: String,
@@ -183,6 +192,9 @@ struct RunResult {
     policy_input_sha256: String,
     policy_build_sha256: String,
     policy_config_sha256: String,
+    runner_image_sha256: String,
+    action_space_sha256: String,
+    observation_contract_sha256: String,
     disposition: RunDisposition,
     receipt_sha256: String,
     receipt_payload: Value,
@@ -431,7 +443,7 @@ fn validate_containment_overlay(m: &Value) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_execution_lock(m: &Value, require_frozen: bool) -> Result<HashMap<String, (String, String)>, String> {
+fn validate_execution_lock(m: &Value, require_frozen: bool) -> Result<HashMap<String, ArmExecutionPin>, String> {
     let lock = m.get("execution_lock").ok_or("execution_lock missing")?;
     if lock["schema_version"].as_str() != Some("wish-execution-lock/0.1") {
         return Err("unsupported execution lock schema version".into());
@@ -531,8 +543,13 @@ fn validate_execution_lock(m: &Value, require_frozen: bool) -> Result<HashMap<St
         }
         build_config_pins.insert(
             arm_id.to_owned(),
-            (pin["policy_build_sha256"].as_str().unwrap().to_owned(),
-             pin["policy_config_sha256"].as_str().unwrap().to_owned())
+            ArmExecutionPin {
+                policy_build_sha256: pin["policy_build_sha256"].as_str().unwrap().to_owned(),
+                policy_config_sha256: pin["policy_config_sha256"].as_str().unwrap().to_owned(),
+                runner_image_sha256: pin["runner_image_sha256"].as_str().unwrap().to_owned(),
+                action_space_sha256: pin["action_space_sha256"].as_str().unwrap().to_owned(),
+                observation_contract_sha256: pin["observation_contract_sha256"].as_str().unwrap().to_owned(),
+            }
         );
     }
     Ok(build_config_pins)
@@ -830,9 +847,12 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
         };
         let mut valid = validate_run_result(result, plan).is_ok();
         match locked_pins.get(&result.arm_id) {
-            Some((locked_build, locked_config))
-                if locked_build == &result.policy_build_sha256
-                    && locked_config == &result.policy_config_sha256 => {},
+            Some(pin)
+                if pin.policy_build_sha256 == result.policy_build_sha256
+                    && pin.policy_config_sha256 == result.policy_config_sha256
+                    && pin.runner_image_sha256 == result.runner_image_sha256
+                    && pin.action_space_sha256 == result.action_space_sha256
+                    && pin.observation_contract_sha256 == result.observation_contract_sha256 => {},
             _ => valid = false,
         }
         if let Some((first_build,first_config,first_run)) = arm_configs.get(&result.arm_id) {
@@ -1046,6 +1066,9 @@ mod tests {
             policy_input_sha256: input_sha,
             policy_build_sha256: "d".repeat(64),
             policy_config_sha256: "e".repeat(64),
+            runner_image_sha256: "f".repeat(64),
+            action_space_sha256: "1".repeat(64),
+            observation_contract_sha256: "2".repeat(64),
             disposition,
             receipt_sha256,
             receipt_payload,
