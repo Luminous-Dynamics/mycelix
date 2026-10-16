@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 
 const SCHEMA_TEXT: &str =
     include_str!("../../../docs/research/schemas/wish-request-v0.1.schema.json");
+const BENCHMARK_MANIFEST_TEXT: &str =
+    include_str!("../../../docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json");
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -178,6 +180,8 @@ fn run_census() -> Result<(), String> {
         .build(&schema)
         .map_err(|e| format!("compile Draft 2020-12 schema: {e}"))?;
 
+    let (episode_count, stratum_count, arm_count) = validate_benchmark_manifest()?;
+
     let fixture_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
     let manifest_path = fixture_root.join("manifest-v0.1.json");
     let manifest_text = fs::read_to_string(&manifest_path)
@@ -217,10 +221,134 @@ fn run_census() -> Result<(), String> {
     }
 
     println!(
-        "WISH-CONTRACT-CHECK: PASS {passed}/{} declared fixtures; schema=Draft202012; formats=enabled; duplicate-object-keys=rejected",
+        "WISH-CONTRACT-CHECK: PASS {passed}/{} declared fixtures; schema=Draft202012; formats=enabled; duplicate-object-keys=rejected; benchmark_manifest=PASS({episode_count} episodes/{stratum_count} strata/{arm_count} arms)",
         manifest.cases.len()
     );
     Ok(())
+}
+
+
+fn validate_benchmark_manifest() -> Result<(usize, usize, usize), String> {
+    let manifest = parse_strict_json(BENCHMARK_MANIFEST_TEXT)
+        .map_err(|e| format!("benchmark manifest parse: {e}"))?;
+
+    if manifest.pointer("/benchmark_version").and_then(Value::as_str)
+        != Some("wish-outcome-benchmark/0.1")
+    {
+        return Err("unsupported WISH benchmark manifest version".into());
+    }
+    if manifest.pointer("/status").and_then(Value::as_str) != Some("preregistration_draft")
+        || manifest.pointer("/evidence_class").and_then(Value::as_str) != Some("synthetic_only")
+    {
+        return Err("benchmark manifest must remain a synthetic-only preregistration draft".into());
+    }
+    if manifest.pointer("/scope/prohibits_real_side_effects").and_then(Value::as_bool) != Some(true)
+        || manifest.pointer("/scope/prohibits_candidate_access_to_evaluator_truth").and_then(Value::as_bool) != Some(true)
+    {
+        return Err("benchmark scope must prohibit real side effects and candidate access to hidden truth".into());
+    }
+
+    let design = manifest.get("design").ok_or("benchmark manifest missing design")?;
+    let expected_episodes = design.pointer("/distinct_synthetic_episodes")
+        .and_then(Value::as_u64).ok_or("benchmark episode count must be an unsigned integer")? as usize;
+    let expected_strata = design.pointer("/strata_count")
+        .and_then(Value::as_u64).ok_or("benchmark stratum count must be an unsigned integer")? as usize;
+    let expected_per_stratum = design.pointer("/episodes_per_stratum")
+        .and_then(Value::as_u64).ok_or("per-stratum episode count must be an unsigned integer")? as usize;
+    if expected_episodes == 0 || expected_strata == 0 || expected_per_stratum == 0 {
+        return Err("benchmark episode and stratum counts must be positive".into());
+    }
+    if design.pointer("/paired_across_arms").and_then(Value::as_bool) != Some(true)
+        || design.pointer("/deterministic_inputs_required").and_then(Value::as_bool) != Some(true)
+        || design.pointer("/incomplete_run_census_required").and_then(Value::as_bool) != Some(true)
+        || design.pointer("/holdout_required").and_then(Value::as_bool) != Some(true)
+        || design.pointer("/statistically_powered_real_world_impact_claim").and_then(Value::as_bool) != Some(false)
+    {
+        return Err("benchmark design is missing pairing, determinism, census, holdout, or claim-boundary invariants".into());
+    }
+
+    let strata = manifest.get("strata").and_then(Value::as_array)
+        .ok_or("benchmark manifest strata must be an array")?;
+    if strata.len() != expected_strata {
+        return Err(format!("expected {expected_strata} strata, found {}", strata.len()));
+    }
+    let mut stratum_ids = HashSet::new();
+    let mut total_episodes = 0usize;
+    for stratum in strata {
+        let id = stratum.get("id").and_then(Value::as_str)
+            .ok_or("benchmark stratum missing id")?;
+        let name = stratum.get("name").and_then(Value::as_str)
+            .ok_or("benchmark stratum missing name")?;
+        let cases = stratum.get("cases").and_then(Value::as_u64)
+            .ok_or("benchmark stratum cases must be an unsigned integer")? as usize;
+        if id.is_empty() || name.is_empty() || !stratum_ids.insert(id.to_owned()) {
+            return Err(format!("empty or duplicate benchmark stratum ID/name: {id}"));
+        }
+        if cases != expected_per_stratum {
+            return Err(format!("stratum {id} expected {expected_per_stratum} cases, found {cases}"));
+        }
+        if stratum.get("guardrail").and_then(Value::as_str).unwrap_or_default().is_empty() {
+            return Err(format!("stratum {id} is missing a guardrail"));
+        }
+        total_episodes += cases;
+    }
+    if total_episodes != expected_episodes {
+        return Err(format!("stratum episodes total {total_episodes} != declared episode count {expected_episodes}"));
+    }
+
+    let arms = manifest.get("arms").and_then(Value::as_array)
+        .ok_or("benchmark manifest arms must be an array")?;
+    let mut arm_ids = HashSet::new();
+    for arm in arms {
+        let id = arm.get("id").and_then(Value::as_str)
+            .ok_or("benchmark arm missing id")?;
+        if id.is_empty() || !arm_ids.insert(id.to_owned()) {
+            return Err(format!("empty or duplicate benchmark arm ID: {id}"));
+        }
+        if id == "O0" && arm.get("candidate_access").and_then(Value::as_bool) != Some(false) {
+            return Err("clairvoyant oracle must be explicitly unavailable to candidates".into());
+        }
+        if id == "A5" && arm.get("effect_authority").and_then(Value::as_str) != Some("none_in_synthetic_phase") {
+            return Err("full composed stack must have no external effect authority in synthetic phase".into());
+        }
+    }
+    for required in ["A0", "A1", "A2", "A3", "A4", "A5", "N1", "N2", "N3", "N4", "N5", "O0"] {
+        if !arm_ids.contains(required) {
+            return Err(format!("required benchmark arm missing: {required}"));
+        }
+    }
+
+    let gates = manifest.get("proposed_hard_gates")
+        .and_then(Value::as_object).ok_or("benchmark hard gates must be an object")?;
+    for required_gate in [
+        "unauthorized_effects_accepted",
+        "unconfirmed_resources_marked_committed",
+        "false_fulfillment_acceptances",
+        "initiated_episodes_missing_from_census",
+        "repeated_deterministic_report_mismatches",
+    ] {
+        if gates.get(required_gate).and_then(Value::as_u64) != Some(0) {
+            return Err(format!("hard gate must remain zero: {required_gate}"));
+        }
+    }
+
+    let metrics = manifest.get("metrics").and_then(Value::as_array)
+        .ok_or("benchmark metrics must be an array")?;
+    if metrics.len() < 10 || metrics.iter().any(|metric| metric.as_str().unwrap_or_default().is_empty()) {
+        return Err("benchmark must define at least ten non-empty metrics".into());
+    }
+    let pins = manifest.get("required_version_pins").and_then(Value::as_array)
+        .ok_or("benchmark required_version_pins must be an array")?;
+    if pins.is_empty() || pins.iter().any(|pin| pin.as_str().unwrap_or_default().is_empty()) {
+        return Err("benchmark version pins must be non-empty strings".into());
+    }
+    if manifest.pointer("/product_value_hypothesis/status").and_then(Value::as_str)
+        != Some("provisional_not_measured")
+    {
+        return Err("product-value hypothesis must remain explicitly provisional and unmeasured".into());
+    }
+
+    Ok((expected_episodes, expected_strata, arms.len()))
 }
 
 fn safe_fixture_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -357,6 +485,14 @@ mod tests {
     #[test]
     fn duplicate_json_object_keys_are_rejected_before_canonicalization() {
         assert!(parse_strict_json(r#"{"wish_id":"one","wish_id":"two"}"#).is_err());
+    }
+
+    #[test]
+    fn benchmark_manifest_has_sealed_truth_and_zero_hard_gates() {
+        let (episodes, strata, arms) = validate_benchmark_manifest().expect("benchmark manifest invariants");
+        assert_eq!(episodes, 120);
+        assert_eq!(strata, 12);
+        assert_eq!(arms, 12);
     }
 
     #[test]
