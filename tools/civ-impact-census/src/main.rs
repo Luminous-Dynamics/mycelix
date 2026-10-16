@@ -1511,6 +1511,29 @@ mod tests {
     }
 
     #[test]
+    fn withholds_relative_bootstrap_when_baseline_cost_is_zero() {
+        let schedule = small_schedule();
+        let mut results = complete_results_with_known_cost_tradeoff(&schedule);
+        for row in &mut results.runs {
+            if row.arm_id == "incumbent_baseline" {
+                let metrics = row.metrics.as_mut().expect("completed baseline metrics");
+                metrics.compute_cost_microcredits = 0;
+                metrics.data_cost_microcredits = 0;
+                metrics.integration_cost_microcredits = 0;
+                metrics.human_review_cost_microcredits = 0;
+                metrics.coordination_cost_microcredits = 0;
+                metrics.failure_recovery_cost_microcredits = 0;
+                metrics.total_cost_microcredits = 0;
+            }
+        }
+        let report = make_comparison(&schedule, &results, 42, &"c".repeat(64))
+            .expect("zero-baseline-cost records remain internally consistent");
+        assert!(report.cost_per_served_unit_defined_for_all_pairs);
+        assert_eq!(report.relative_pooled_cost_per_served_unit_change_percent, None);
+        assert!(report.stratified_scenario_cluster_bootstrap_95.is_none());
+    }
+
+    #[test]
     fn rejects_failure_without_reason() {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
