@@ -1,0 +1,33 @@
+name: Wish benchmark schedule and census
+
+on:
+  pull_request:
+    paths:
+      - "tools/wish-benchmark-census/**"
+      - "docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json"
+      - ".github/workflows/wish-benchmark-census.yml"
+  push:
+    branches:
+      - "research/wish-to-outcome-contract-v0-1"
+    paths:
+      - "tools/wish-benchmark-census/**"
+      - "docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json"
+      - ".github/workflows/wish-benchmark-census.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  schedule-census:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/wish-benchmark-census/Cargo.toml -- --check
+      - name: Test deterministic identities and isolation
+        run: cargo test --manifest-path tools/wish-benchmark-census/Cargo.toml
+      - name: Generate reproducible public-development schedule
+        run: cargo run --manifest-path tools/wish-benchmark-census/Cargo.toml -- generate docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json /tmp/w2o-schedule
