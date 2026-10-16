@@ -1147,6 +1147,25 @@ mod tests {
             Err(JournalError::TerminalState)
         );
 
+        // The send result for the pre-revocation attempt can arrive later.
+        // Record it for audit, but revocation still prevents another attempt.
+        journal.append(4, event(
+            "event-late-ack-after-revoke",
+            identity.clone(),
+            5,
+            JournalActor::Worker { epoch: 1 },
+            JournalEventKind::AttemptOutcomeRecorded {
+                attempt_id: "attempt-1".into(),
+                outcome: AttemptOutcome::GatewayAcknowledged,
+                retry_at: None,
+            },
+        )).unwrap();
+        assert!(journal.snapshot(&identity).unwrap().revoked());
+        assert_eq!(
+            journal.snapshot(&identity).unwrap().status(),
+            DurableDeliveryStatus::AwaitingReceipt
+        );
+
         let evidence = VerifiedReceiptEvidence::verify(
             &TestVerifier,
             b"receipt-ok",
@@ -1155,7 +1174,7 @@ mod tests {
             ZERO_COMMITMENT,
             "pulse-test-v1",
         ).unwrap();
-        journal.append(4, event(
+        journal.append(5, event(
             "event-receipt-after-revoke",
             identity.clone(),
             6,
