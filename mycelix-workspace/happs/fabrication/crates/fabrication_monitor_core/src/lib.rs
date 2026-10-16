@@ -39,7 +39,7 @@ pub struct SensorFrame {
     pub sequence: u64,
     /// Source timestamp in milliseconds, strictly increasing within the session.
     pub timestamp_ms: u64,
-    /// Exact design, recipe and calibration identity used for the frame.
+    /// Exact design, recipe, equipment, material, environment and calibration identity.
     pub profile: ProcessProfile,
     /// Hotend temperature in degrees Celsius.
     pub hotend_temp_c: f64,
@@ -252,7 +252,7 @@ pub struct SignalBaseline {
     pub sample_count: usize,
 }
 
-/// A reference model bound to exact process, calibration and detector identities.
+/// A reference model bound to exact process and measurement identities plus detector config.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReferenceBaseline {
     /// Exact profile represented by this baseline.
@@ -269,7 +269,7 @@ impl ReferenceBaseline {
     /// Fit a deterministic baseline from explicitly selected healthy reference frames.
     ///
     /// Input order does not affect fitted statistics. All frames must share the
-    /// exact same design, recipe and calibration identity.
+    /// exact same design, recipe, equipment, material, environment and calibration identity.
     pub fn fit(
         process_profile: ProcessProfile,
         detector_config: DetectorConfig,
@@ -673,7 +673,7 @@ mod tests {
         DetectorConfig {
             detector_id: "cincinnati.robust-reference".into(),
             detector_version: "1.0.0".into(),
-            reference_dataset_id: "sha256:synthetic-healthy-reference-v1".into(),
+            reference_dataset_id: "fixture:synthetic-healthy-reference-v1".into,
             robust_z_threshold: 3.5,
             minimum_scale_by_signal: [
                 0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0, 0.5, 2.0,
@@ -901,7 +901,7 @@ mod tests {
         let report = engine.observe(&frame("live", 1, 100));
         assert_eq!(
             report.reference_dataset_id,
-            "sha256:synthetic-healthy-reference-v1"
+            "fixture:synthetic-healthy-reference-v1"
         );
     }
 
