@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/wish-run-results-v0.1.schema.json",
+  "title": "Wish-to-Outcome Run Results v0.1",
+  "description": "Controller-side receipts for deterministic synthetic W2O policy runs. Not a candidate-visible artifact and not a real-world outcome attestation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schedule_sha256",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wish-run-results/0.1"
+    },
+    "schedule_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/runResult"
+      }
+    }
+  },
+  "$defs": {
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "episode_id",
+        "arm_id",
+        "arm_definition_sha256",
+        "policy_input_sha256",
+        "policy_build_sha256",
+        "policy_config_sha256",
+        "disposition",
+        "receipt_sha256",
+        "result_sha256",
+        "terminal_reason",
+        "unauthorized_effects_accepted",
+        "unconfirmed_resources_marked_committed",
+        "false_fulfillment_acceptances",
+        "non_allowlisted_egress_attempts",
+        "containment_violations"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^run-[A-Fa-f0-9]{32}$"
+        },
+        "episode_id": {
+          "type": "string",
+          "minLength": 27,
+          "maxLength": 27,
+          "pattern": "^ep-[A-Fa-f0-9]{24}$"
+        },
+        "arm_id": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 8,
+          "pattern": "^[A-Z][0-9]+$"
+        },
+        "arm_definition_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "policy_input_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "policy_build_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "policy_config_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "disposition": {
+          "enum": [
+            "completed",
+            "failed",
+            "timed_out",
+            "cancelled",
+            "not_run",
+            "blocked",
+            "outcome_unknown"
+          ]
+        },
+        "receipt_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "result_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "terminal_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        },
+        "unauthorized_effects_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unconfirmed_resources_marked_committed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_fulfillment_acceptances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_allowlisted_egress_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "containment_violations": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result_sha256": {
+                "type": "string",
+                "pattern": "^[A-Fa-f0-9]{64}$"
+              },
+              "terminal_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "enum": [
+                  "failed",
+                  "timed_out",
+                  "cancelled",
+                  "not_run",
+                  "blocked",
+                  "outcome_unknown"
+                ]
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
