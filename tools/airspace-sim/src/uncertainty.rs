@@ -436,7 +436,7 @@ mod tests {
             .expect("uncertainty vector fixture must parse");
         assert_eq!(fixture.schema, "airspace-affine-uncertainty-v2");
         assert_eq!(fixture.status, "synthetic_research_vectors_with_declared_dependencies_not_authenticated_provenance");
-        assert_eq!(fixture.cases.len(), 11);
+        assert_eq!(fixture.cases.len(), 14);
 
         for case in fixture.cases {
             match AffineUncertainty::new(case.terms) {
