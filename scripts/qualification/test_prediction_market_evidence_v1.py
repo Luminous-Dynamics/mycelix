@@ -14,7 +14,8 @@ from validate_prediction_market_evidence_v1 import (  # noqa: E402
     CONTRACT_INVALID_PATH, CONTRACT_SCHEMA_PATH, CONTRACT_VALID_PATH,
     EVENT_INVALID_PATH, EVENT_SCHEMA_PATH, EVENT_VALID_PATH, DuplicateJsonKey,
     contract_content_digest, event_content_digest, load_json, make_validator,
-    validate_contract_record, validate_resolution_event_chain, validate_resolution_event_record,
+    validate_contract_record, validate_evidence_artifact_bytes, validate_resolution_event_chain,
+    validate_resolution_event_record,
 )
 
 CONTRACT = load_json(CONTRACT_VALID_PATH)
@@ -231,6 +232,40 @@ class PredictionMarketEvidenceTests(unittest.TestCase):
         candidate = copy.deepcopy(CONTRACT)
         candidate["created_at"] = "2026-10-16T12:00:00+02:00"
         self.assertTrue(validate_contract_record(candidate, CV))
+
+    def test_retained_artifact_bytes_match_the_declared_digest(self):
+        import hashlib
+
+        candidate = copy.deepcopy(EVENT)
+        content = b"synthetic retained artifact bytes"
+        candidate["evidence_artifacts"][0]["content_digest_sha256"] = hashlib.sha256(content).hexdigest()
+        candidate["event_digest_sha256"] = event_content_digest(candidate)
+        candidate["attestation"]["signed_event_digest_sha256"] = candidate["event_digest_sha256"]
+        self.assertEqual(validate_evidence_artifact_bytes(candidate, {"source-artifact-x1": content}), [])
+
+    def test_retained_artifact_bytes_reject_a_digest_mismatch(self):
+        self.assertTrue(
+            validate_evidence_artifact_bytes(EVENT, {"source-artifact-x1": b"not the committed bytes"})
+        )
+
+    def test_missing_retained_artifact_bytes_are_explicit(self):
+        errors = validate_evidence_artifact_bytes(EVENT, {})
+        self.assertTrue(any("retained bytes missing" in error for error in errors))
+
+    def test_unreferenced_retained_artifact_bytes_are_rejected(self):
+        errors = validate_evidence_artifact_bytes(
+            EVENT,
+            {"source-artifact-x1": b"placeholder", "unreferenced": b"extra"},
+        )
+        self.assertTrue(any("unreferenced retained bytes" in error for error in errors))
+
+    def test_duplicate_artifact_ids_are_rejected(self):
+        candidate = copy.deepcopy(EVENT)
+        candidate["evidence_artifacts"].append(copy.deepcopy(candidate["evidence_artifacts"][0]))
+        candidate["event_digest_sha256"] = event_content_digest(candidate)
+        candidate["attestation"]["signed_event_digest_sha256"] = candidate["event_digest_sha256"]
+        errors = validate_resolution_event_record(candidate, CONTRACT, EV)
+        self.assertTrue(any("duplicate artifact_id" in error for error in errors))
 
     def test_duplicate_json_object_keys_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
