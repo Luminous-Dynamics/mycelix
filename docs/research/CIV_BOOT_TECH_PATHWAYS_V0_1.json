@@ -107,6 +107,38 @@
       "url": "https://github.com/lynchaj/nhyodyne",
       "use": "Educational reference for modular computer boards, separate functions, Gerber availability and assembly from off-the-shelf components.",
       "limits": "The repository README says the design is intended for hobbyist and educational use and discourages commercial use. Do not treat this as a commercial production base without rights/permission review. A Z80 system is not presumed capable of running a modern manufacturing workflow."
+    },
+    {
+      "id": "S10",
+      "type": "open_hardware_reference",
+      "title": "KiCad Open Hardware Blocks",
+      "url": "https://github.com/landrylelouche/kicad_hw_reference",
+      "use": "Candidate C0-C3 learning rig: public documentation describes a GD32VF103 RISC-V MCU block with KiCad schematic/routed board, BOM and Gerber/drill artifacts under CERN-OHL-P v2.",
+      "limits": "Candidate reference only. Not a complete host computer or C4/C5 platform; verify the current revision, exact BOM, component supply, source provenance, and physical build/qualification."
+    },
+    {
+      "id": "S11",
+      "type": "open_hardware_robotics_reference",
+      "title": "Workbench mobile-home-robot hardware tree",
+      "url": "https://github.com/Quchaosheng/workbench-mobile-home-robot/tree/main/hardware",
+      "use": "Additional controller/subassembly reference for a more complex board-level learning track.",
+      "limits": "Audit exact subassembly and per-file license scope, BOM completeness, revision status and qualification before reuse; repository presence alone does not establish reproducible physical hardware."
+    },
+    {
+      "id": "S12",
+      "type": "reproducible_build_guidance",
+      "title": "Reproducible Builds — Building from source",
+      "url": "https://reproducible-builds.org/docs/build-toolchain-from-source/",
+      "use": "Guidance for source/toolchain pinning and selecting between network retrieval, vendoring, and distributable build toolchains.",
+      "limits": "General software build guidance; does not qualify this hardware/firmware package."
+    },
+    {
+      "id": "S13",
+      "type": "reproducible_build_guidance",
+      "title": "Reproducible Builds — Making plans",
+      "url": "https://reproducible-builds.org/docs/plans/",
+      "use": "Guidance for specifying source/build environments and testing reproducibility under environmental variation.",
+      "limits": "General software-build guidance; its output-comparison requirements must be tailored to hardware and firmware artifacts."
     }
   ],
   "nodes": [
@@ -1183,6 +1215,25 @@
         "proposed_use": "Select a separate modest computer/controller profile that can run the archived production-control workflow needed to build and test another copy.",
         "gate": "Choose only after checking legal reuse, BOM completeness, runtime/toolchain fit, component availability, programming/debug interface, test fixture, energy needs and documented acceptance tests.",
         "fallback": "If no existing candidate passes, create a minimal original design from components/design artifacts with permission-cleared licenses and preserve a reproducible source history."
+      },
+      {
+        "id": "TRACK_A_KICAD_GD32VF103",
+        "url": "https://github.com/landrylelouche/kicad_hw_reference",
+        "proposed_use": "C0-C3 board assembly/repair/programming learning rig using a documented RISC-V MCU board reference with CAD/BOM/fabrication artifacts.",
+        "not_a_claim": "Not a complete computer, not a C4/C5 host, not evidence of actual parts availability or a qualified physical board.",
+        "required_review": [
+          "confirm source provenance and license at selected revision",
+          "freeze BOM and substitute policy",
+          "obtain/verify exact design and Gerber set",
+          "assemble and record independent electrical/firmware tests"
+        ]
+      },
+      {
+        "id": "TRACK_B_LINUX_CAPABLE_HOST",
+        "url": "https://reproducible-builds.org/docs/build-toolchain-from-source/",
+        "proposed_use": "C4/C5 host/clone that runs the pinned offline production-control and test workflow.",
+        "gate": "Select a license-clear Linux-capable SBC/SoM and carrier design with complete BOM, programming interface, diagnostic image, offline toolchain and independent acceptance suite.",
+        "not_a_claim": "Compute module and bare PCB may remain imported during C4/C5; that does not imply local silicon or bare-PCB fabrication closure."
       }
     ],
     "independent_closure_branches": [
