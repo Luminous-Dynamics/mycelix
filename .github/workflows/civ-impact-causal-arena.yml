@@ -1,0 +1,54 @@
+name: CIV-IMPACT Causal Arena
+
+on:
+  pull_request:
+    paths:
+      - "tools/civ-impact-causal-arena/**"
+      - "docs/research/CIV_IMPACT_CAUSAL_INVESTIGATION_ARENA_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_CAUSAL_ARENA_REPORT_V0_1.schema.json"
+      - ".github/workflows/civ-impact-causal-arena.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/civ-impact-causal-arena/**"
+      - "docs/research/CIV_IMPACT_CAUSAL_INVESTIGATION_ARENA_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_CAUSAL_ARENA_REPORT_V0_1.schema.json"
+      - ".github/workflows/civ-impact-causal-arena.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-impact-causal-arena-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  causal-arena:
+    name: Rust SCM simulator, report schema, and causal negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust and rustfmt
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt
+
+      - name: Validate report schema JSON
+        run: jq empty docs/research/schema/CIV_IMPACT_CAUSAL_ARENA_REPORT_V0_1.schema.json
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/civ-impact-causal-arena/Cargo.toml -- --check
+
+      - name: Run simulator, schema, and negative-control tests
+        run: cargo test --manifest-path tools/civ-impact-causal-arena/Cargo.toml
+
+      - name: Run deterministic report smoke test
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/civ-impact-causal-arena/Cargo.toml -- run --replications 2 --units 64 --seed 20261016 > /tmp/arena-a.json
+          cargo run --manifest-path tools/civ-impact-causal-arena/Cargo.toml -- run --replications 2 --units 64 --seed 20261016 > /tmp/arena-b.json
+          cmp /tmp/arena-a.json /tmp/arena-b.json
+          jq -e '.complete == true and .missing_cells == 0 and .scheduled_cells == 60 and (.results | length) == 60 and (.summary | length) == 30' /tmp/arena-a.json
