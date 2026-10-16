@@ -164,6 +164,14 @@ Use purchased or salvaged ICs initially. Modern semiconductor fabrication depend
 
 Therefore keep the existing semiconductor placeholder blocked until its critical process dependencies are modeled and evidence-qualified. The first goal is not to build an advanced CPU fab in a garage. It is to build a small computer-production cell that can make a useful replacement computer from an auditable stock of imported components, then steadily reduce the most consequential dependencies.
 
+#### Candidate hardware research: separate the learning target from the replication target
+
+A useful modular-computer reference is [Nhyodyne / Modular Backplane Computer](https://github.com/lynchaj/nhyodyne). Its README describes a working minimum system built from four core Z80 boards, supplies Gerber files for external PCB fabrication, and emphasizes replaceable, single-function boards and off-the-shelf parts. This makes it a useful **architecture / C0–C3 study** for board modularity, source artifacts, and assembly evidence ([project README](https://github.com/lynchaj/nhyodyne)).
+
+However, the README says the design is intended for hobbyist and educational use and discourages commercial use. Treat it as a reference unless rights and permission are reviewed. Also, a simple Z80 system should not be assumed capable of running a modern manufacturing workstation toolchain. The C4/C5 replication target must be chosen separately and must actually execute the preserved production workflow.
+
+Select the final hardware target only after auditing: design/BOM completeness, firmware/toolchain, software and hardware licenses, component availability, manufacturing files, testability, operator skill requirements, and whether the resulting computer can run the production controller needed for the claimed replication level. If no existing design satisfies those constraints, create a deliberately minimal original design from permissively usable parts and preserve its full design history.
+
 #### Acceptance benchmarks
 
 1. **BOM closure:** every line in the declared target BOM has identity, revision, source class, quantity and status; no omitted “miscellaneous” critical items.
