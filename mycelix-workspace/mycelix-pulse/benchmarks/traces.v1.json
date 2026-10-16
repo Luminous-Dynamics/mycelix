@@ -1,0 +1,487 @@
+{
+  "schema_version": "1.0.0",
+  "as_of": "2026-10-16",
+  "corpus_id": "pulse-transport-smoke-v1",
+  "simulation_only": true,
+  "hardware_evidence": false,
+  "seed": 20261016,
+  "default_message_count": 10000,
+  "semantics": {
+    "success_basis_points": "10000 means every permitted attempt succeeds in this synthetic model; 0 means all attempts fail.",
+    "unavailable_ranges": "Half-open [start_message, end_message) ranges are defined on the default_message_count reference timeline. If a run overrides the message count, ranges are scaled to preserve outage/recovery phases across the whole reference timeline; this is a synthetic time-warp for smoke testing, not observed network time.",
+    "payload_budget_bytes": "Maximum whole-envelope size for this deliberately non-fragmenting first model. Oversize envelopes are ineligible on that path.",
+    "strategies": [
+      "preferred_single_path",
+      "sequential_failover",
+      "parallel_redundancy"
+    ],
+    "limitations": "Synthetic route eligibility, fixed latency/cost estimates, per-path success thresholds, shared deterministic outcomes within failure domains, and independent outcomes between domains. No RF propagation, interference, fragmentation, congestion, physical common-cause fault estimation, cryptography, real device power measurement, or authenticated-recipient receipt is modeled.",
+    "failure_domain_id": "Paths with the same failure_domain_id share outcomes with the declared common-draw mixture weight outside explicit outages. Distinct IDs share no synthetic success draw. Correlation weight is a sensitivity knob, not a fit to measured failure data.",
+    "failure_correlation_basis_points": "Optional per-scenario integer in [0,10000]. This is a common-draw mixture weight, not an empirical Pearson correlation coefficient: 0 uses path-specific synthetic draws, 10000 shares one draw for same-domain paths; intermediate values probabilistically mix shared and path-specific draws. Explicit unavailable_ranges remain common-cause outages under every setting.",
+    "default_failure_correlation_basis_points": 10000
+  },
+  "scenarios": [
+    {
+      "id": "stable-ip",
+      "purpose": "Sanity baseline when a single reliable route is enough.",
+      "deadline_ms": 1500,
+      "envelope_bytes": 1024,
+      "paths": [
+        {
+          "id": "ip-primary",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9950,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 30,
+          "unavailable_ranges": [],
+          "failure_domain_id": "home-uplink"
+        }
+      ]
+    },
+    {
+      "id": "scheduled-ip-outage",
+      "purpose": "A primary IP path has a long outage while a permitted alternate remains available.",
+      "deadline_ms": 5000,
+      "envelope_bytes": 900,
+      "paths": [
+        {
+          "id": "ip-primary",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 200,
+          "success_basis_points": 9800,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 25,
+          "unavailable_ranges": [
+            [
+              2000,
+              8000
+            ]
+          ],
+          "failure_domain_id": "mobile-uplink-a"
+        },
+        {
+          "id": "wifi-direct",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 500,
+          "success_basis_points": 9000,
+          "payload_budget_bytes": 4096,
+          "cost_units": 2,
+          "energy_millijoules": 90,
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-wifi"
+        }
+      ]
+    },
+    {
+      "id": "local-only-first-contact",
+      "purpose": "No internet path; nearby transfer is the only permitted path.",
+      "deadline_ms": 3500,
+      "envelope_bytes": 700,
+      "paths": [
+        {
+          "id": "internet",
+          "priority": 0,
+          "available": false,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9990,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 20,
+          "unavailable_ranges": [],
+          "failure_domain_id": "home-uplink"
+        },
+        {
+          "id": "bluetooth-le",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 450,
+          "success_basis_points": 9300,
+          "payload_budget_bytes": 1024,
+          "cost_units": 1,
+          "energy_millijoules": 35,
+          "unavailable_ranges": [],
+          "failure_domain_id": "nearby-radio"
+        }
+      ]
+    },
+    {
+      "id": "compact-narrowband-message",
+      "purpose": "Small envelope can use a gateway profile with a low payload budget.",
+      "deadline_ms": 6000,
+      "envelope_bytes": 160,
+      "paths": [
+        {
+          "id": "ip",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 150,
+          "success_basis_points": 9500,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 25,
+          "unavailable_ranges": [
+            [
+              0,
+              7000
+            ]
+          ],
+          "failure_domain_id": "cellular-uplink"
+        },
+        {
+          "id": "lpwan-gateway-profile",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 1800,
+          "success_basis_points": 7200,
+          "payload_budget_bytes": 200,
+          "cost_units": 3,
+          "energy_millijoules": 80,
+          "unavailable_ranges": [],
+          "failure_domain_id": "lpwan-gateway"
+        },
+        {
+          "id": "bluetooth-le",
+          "priority": 2,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 350,
+          "success_basis_points": 9400,
+          "payload_budget_bytes": 512,
+          "cost_units": 1,
+          "energy_millijoules": 40,
+          "unavailable_ranges": [],
+          "failure_domain_id": "nearby-radio"
+        }
+      ]
+    },
+    {
+      "id": "oversize-envelope",
+      "purpose": "Demonstrate that low payload budgets must not silently truncate or pretend a large envelope fits.",
+      "deadline_ms": 5000,
+      "envelope_bytes": 900,
+      "paths": [
+        {
+          "id": "tiny-packet-link",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 1300,
+          "success_basis_points": 9900,
+          "payload_budget_bytes": 180,
+          "cost_units": 1,
+          "energy_millijoules": 45,
+          "unavailable_ranges": [],
+          "failure_domain_id": "lpwan-network"
+        },
+        {
+          "id": "ip",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 250,
+          "success_basis_points": 9700,
+          "payload_budget_bytes": 65536,
+          "cost_units": 2,
+          "energy_millijoules": 65,
+          "unavailable_ranges": [],
+          "failure_domain_id": "wired-uplink"
+        }
+      ]
+    },
+    {
+      "id": "privacy-policy-excludes-relay",
+      "purpose": "An untrusted relay must remain ineligible even if its modeled success rate is high.",
+      "deadline_ms": 3000,
+      "envelope_bytes": 512,
+      "paths": [
+        {
+          "id": "untrusted-relay",
+          "priority": 0,
+          "available": true,
+          "permitted": false,
+          "latency_ms": 80,
+          "success_basis_points": 9999,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 20,
+          "unavailable_ranges": [],
+          "failure_domain_id": "untrusted-relay-node"
+        },
+        {
+          "id": "permitted-direct-link",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 1200,
+          "success_basis_points": 7200,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 70,
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-direct-link"
+        }
+      ]
+    },
+    {
+      "id": "all-links-unavailable",
+      "purpose": "Must truthfully report no path rather than fabricate delivery.",
+      "deadline_ms": 3000,
+      "envelope_bytes": 512,
+      "paths": [
+        {
+          "id": "ip",
+          "priority": 0,
+          "available": false,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9999,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 20,
+          "unavailable_ranges": [],
+          "failure_domain_id": "home-uplink"
+        },
+        {
+          "id": "bluetooth-le",
+          "priority": 1,
+          "available": false,
+          "permitted": true,
+          "latency_ms": 500,
+          "success_basis_points": 9999,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 40,
+          "unavailable_ranges": [],
+          "failure_domain_id": "nearby-radio"
+        }
+      ]
+    },
+    {
+      "id": "deadline-disallows-primary",
+      "purpose": "A high-latency preferred path misses the deadline; failover may use a slower-priority but timely path.",
+      "deadline_ms": 700,
+      "envelope_bytes": 256,
+      "paths": [
+        {
+          "id": "satellite-high-latency",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 2400,
+          "success_basis_points": 9990,
+          "payload_budget_bytes": 8192,
+          "cost_units": 8,
+          "energy_millijoules": 400,
+          "unavailable_ranges": [],
+          "failure_domain_id": "satellite-provider"
+        },
+        {
+          "id": "local-radio-link",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 180,
+          "success_basis_points": 7800,
+          "payload_budget_bytes": 1024,
+          "cost_units": 1,
+          "energy_millijoules": 45,
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-radio"
+        }
+      ]
+    },
+    {
+      "id": "flapping-primary",
+      "purpose": "A primary path repeatedly disappears; static route choice should reveal avoidable deadline misses.",
+      "deadline_ms": 1800,
+      "envelope_bytes": 400,
+      "paths": [
+        {
+          "id": "flapping-ip",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 120,
+          "success_basis_points": 9600,
+          "payload_budget_bytes": 65536,
+          "cost_units": 1,
+          "energy_millijoules": 25,
+          "unavailable_ranges": [
+            [
+              500,
+              1500
+            ],
+            [
+              2600,
+              3500
+            ],
+            [
+              5000,
+              6600
+            ],
+            [
+              7800,
+              9000
+            ]
+          ],
+          "failure_domain_id": "mobile-uplink"
+        },
+        {
+          "id": "stable-local-link",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 380,
+          "success_basis_points": 8900,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 55,
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-radio"
+        }
+      ]
+    },
+    {
+      "id": "energy-constrained",
+      "purpose": "Route availability is not the only objective; compare latency gains against energy cost.",
+      "deadline_ms": 2500,
+      "envelope_bytes": 300,
+      "paths": [
+        {
+          "id": "low-energy-path",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 900,
+          "success_basis_points": 8500,
+          "payload_budget_bytes": 2048,
+          "cost_units": 1,
+          "energy_millijoules": 10,
+          "unavailable_ranges": [],
+          "failure_domain_id": "low-energy-radio"
+        },
+        {
+          "id": "fast-radio",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 120,
+          "success_basis_points": 9600,
+          "payload_budget_bytes": 2048,
+          "cost_units": 2,
+          "energy_millijoules": 260,
+          "unavailable_ranges": [],
+          "failure_domain_id": "high-energy-radio"
+        }
+      ]
+    },
+    {
+      "id": "shared-carrier-failure-domain",
+      "purpose": "Two adapters in a shared carrier failure domain fail together during a declared outage and share success draws otherwise; an independent relay provides diversity.",
+      "deadline_ms": 2500,
+      "envelope_bytes": 200,
+      "paths": [
+        {
+          "id": "cellular-radio-a",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9000,
+          "payload_budget_bytes": 4096,
+          "cost_units": 1,
+          "energy_millijoules": 50,
+          "unavailable_ranges": [
+            [
+              0,
+              3000
+            ]
+          ],
+          "failure_domain_id": "carrier-core-a"
+        },
+        {
+          "id": "cellular-radio-b",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 150,
+          "success_basis_points": 9000,
+          "payload_budget_bytes": 4096,
+          "cost_units": 1,
+          "energy_millijoules": 55,
+          "unavailable_ranges": [
+            [
+              0,
+              3000
+            ]
+          ],
+          "failure_domain_id": "carrier-core-a"
+        },
+        {
+          "id": "independent-community-relay",
+          "priority": 2,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 300,
+          "success_basis_points": 7000,
+          "payload_budget_bytes": 1024,
+          "cost_units": 2,
+          "energy_millijoules": 85,
+          "unavailable_ranges": [],
+          "failure_domain_id": "community-relay-b"
+        }
+      ],
+      "notes": "The first 3,000 message indices model a shared carrier-core outage on both cellular adapters. Both adapters also share one deterministic success draw outside that outage window. The independent community relay has its own domain and stays available. This is a synthetic scenario, not a measured reliability model."
+    }
+  ],
+  "evaluation_split": {
+    "schema_version": "1.0.0",
+    "split_id": "pulse-routing-evaluation-split-v1",
+    "rule": "Scenario-level development/holdout split is disjoint and exhaustive; resilience scenarios are a declared subset of holdout. Correlation-sweep weights vary the synthetic common-draw mixture only on resilience scenarios. Holdout scenarios are evaluated but not used to tune candidate policies.",
+    "development_scenario_ids": [
+      "local-only-first-contact",
+      "compact-narrowband-message",
+      "oversize-envelope",
+      "all-links-unavailable",
+      "deadline-disallows-primary"
+    ],
+    "holdout_scenario_ids": [
+      "stable-ip",
+      "scheduled-ip-outage",
+      "privacy-policy-excludes-relay",
+      "flapping-primary",
+      "energy-constrained",
+      "shared-carrier-failure-domain"
+    ],
+    "limitations": [
+      "This split is for synthetic model development/evaluation only.",
+      "A split declaration does not itself prove no prior tuning used these scenarios.",
+      "Seeds are deterministic model replicates, not independent real-world network samples."
+    ],
+    "resilience_scenario_ids": [
+      "scheduled-ip-outage",
+      "flapping-primary",
+      "shared-carrier-failure-domain"
+    ],
+    "correlation_sweep_basis_points": [
+      0,
+      2500,
+      5000,
+      7500,
+      10000
+    ]
+  }
+}

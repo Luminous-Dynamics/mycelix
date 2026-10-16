@@ -17,6 +17,65 @@ check-ui:
 test-protocol:
     cargo test --manifest-path crates/mail-leptos-types/Cargo.toml
 
+# Validate versioned standards metadata, IDs, source URLs, relations, and evidence gates.
+validate-standards-registry:
+    cargo run --manifest-path standards-registry/validator/Cargo.toml -- --registry standards-registry/registry.v1.json --schema standards-registry/schema.v1.json
+
+# Exercise registry validator positive and negative controls.
+test-standards-registry:
+    cargo test --manifest-path standards-registry/validator/Cargo.toml
+
+# Test transport eligibility, stale-link handling, failure domains, and delivery-state truth.
+test-transport-core:
+    cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
+
+# Query standards with source links and explicit support/errata dispositions.
+standards-search-smoke:
+    cargo run --manifest-path standards-registry/validator/Cargo.toml --bin standards-search -- --query BPSec --errata-status reported --limit 20
+
+# Compare deterministic synthetic route policies. This is not RF or delivery qualification.
+simulate-transport:
+    cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016
+
+simulate-transport-smoke:
+    cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --traces benchmarks/traces.v1.json --messages 1000 --seed 20261016
+
+# Paired multi-seed correlation-sensitivity smoke evaluation (500 messages per scenario).
+evaluate-transport-smoke:
+    @set -eu; \
+      mkdir -p evidence/transport-evaluation; \
+      cargo generate-lockfile --manifest-path standards-registry/validator/Cargo.toml; \
+      cp standards-registry/validator/Cargo.lock evidence/transport-evaluation/validator.Cargo.lock; \
+      rustc --version > evidence/transport-evaluation/toolchain.txt; \
+      cargo --version >> evidence/transport-evaluation/toolchain.txt; \
+      printf '%s\n' 'mode=correlation-sweep' 'messages_per_scenario=500' 'seed_start=20261016' 'seed_count=30' 'candidate_strategies=sequential_failover,parallel_redundancy' 'correlation_weights=0,2500,5000,7500,10000' > evidence/transport-evaluation/routing-evaluation-config.txt; \
+      git rev-parse HEAD > evidence/transport-evaluation/subject.sha; \
+      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json evidence/transport-evaluation/toolchain.txt evidence/transport-evaluation/routing-evaluation-config.txt justfile ../../.github/workflows/ci.yml > evidence/transport-evaluation/inputs.sha256; \
+      manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
+      subject=$$(cat evidence/transport-evaluation/subject.sha); \
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-sequential.json; \
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-parallel.json; \
+      cat evidence/transport-evaluation/correlation-sweep-sequential.json; \
+      cat evidence/transport-evaluation/correlation-sweep-parallel.json
+
+# Model-level correlation sweep: 30 paired seeds x 10,000 messages per scenario.
+evaluate-transport:
+    @set -eu; \
+      mkdir -p evidence/transport-evaluation; \
+      cargo generate-lockfile --manifest-path standards-registry/validator/Cargo.toml; \
+      cp standards-registry/validator/Cargo.lock evidence/transport-evaluation/validator.Cargo.lock; \
+      rustc --version > evidence/transport-evaluation/toolchain.txt; \
+      cargo --version >> evidence/transport-evaluation/toolchain.txt; \
+      printf '%s\n' 'mode=correlation-sweep' 'messages_per_scenario=10000' 'seed_start=20261016' 'seed_count=30' 'candidate_strategies=sequential_failover,parallel_redundancy' 'correlation_weights=0,2500,5000,7500,10000' > evidence/transport-evaluation/routing-evaluation-config.txt; \
+      git rev-parse HEAD > evidence/transport-evaluation/subject.sha; \
+      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json evidence/transport-evaluation/toolchain.txt evidence/transport-evaluation/routing-evaluation-config.txt justfile ../../.github/workflows/ci.yml > evidence/transport-evaluation/inputs.sha256; \
+      manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
+      subject=$$(cat evidence/transport-evaluation/subject.sha); \
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-sequential.json; \
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-parallel.json; \
+      cat evidence/transport-evaluation/correlation-sweep-sequential.json; \
+      cat evidence/transport-evaluation/correlation-sweep-parallel.json
+
 # Shared Pulse V2 primitives: native behavior plus browser-target compilation.
 test-crypto:
     cargo test --manifest-path ../mycelix-identity/crates/mycelix-crypto/Cargo.toml --features hybrid-rc pulse_v2
@@ -27,11 +86,13 @@ test-zomes:
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-holochain-target} cargo test --manifest-path holochain/Cargo.toml --lib
 
 # Fast canonical alpha gate. Formatting commands are checks and do not rewrite files.
-check: fmt-check check-ui test-protocol test-crypto test-zomes
+check: fmt-check check-ui test-protocol test-crypto test-zomes validate-standards-registry test-standards-registry simulate-transport-smoke evaluate-transport-smoke standards-search-smoke test-transport-core
 
 fmt-check:
     cargo fmt --manifest-path apps/leptos/Cargo.toml -- --check
     cargo fmt --manifest-path crates/mail-leptos-types/Cargo.toml -- --check
+    cargo fmt --manifest-path standards-registry/validator/Cargo.toml -- --check
+    cargo fmt --manifest-path crates/pulse-transport-core/Cargo.toml -- --check
     cargo fmt --manifest-path holochain/Cargo.toml \
       -p contacts_integrity -p contacts \
       -p mail_profiles_integrity -p mail_profiles \
