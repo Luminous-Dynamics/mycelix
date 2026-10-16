@@ -99,6 +99,14 @@
       "url": "https://www.nist.gov/chips/research-development-programs/metrology-program",
       "use": "Motivates explicit measurement, materials provenance, standards and test evidence in electronics manufacturing.",
       "limits": "Program overview; does not qualify this pilot's processes or equipment."
+    },
+    {
+      "id": "S9",
+      "type": "open_hardware_reference_project",
+      "title": "Nhyodyne: A Modular Backplane Computer",
+      "url": "https://github.com/lynchaj/nhyodyne",
+      "use": "Educational reference for modular computer boards, separate functions, Gerber availability and assembly from off-the-shelf components.",
+      "limits": "The repository README says the design is intended for hobbyist and educational use and discourages commercial use. Do not treat this as a commercial production base without rights/permission review. A Z80 system is not presumed capable of running a modern manufacturing workflow."
     }
   ],
   "nodes": [
@@ -1162,6 +1170,27 @@
       "A simulation, netlist, PCB layout or firmware image is not evidence of a physically functioning computer.",
       "No autonomous purchase, resource allocation or manufacturing actuation authority is implied."
     ],
-    "claim_ceiling": "The current graph is E0 conceptual. C4/C5 remain proposed physical acceptance targets, not achieved results. This pilot does not imply local semiconductor die fabrication or indefinite industrial self-sufficiency."
+    "claim_ceiling": "The current graph is E0 conceptual. C4/C5 remain proposed physical acceptance targets, not achieved results. This pilot does not imply local semiconductor die fabrication or indefinite industrial self-sufficiency.",
+    "candidate_platform_notes": [
+      {
+        "id": "NHYODYNE_ARCHITECTURE_REFERENCE",
+        "url": "https://github.com/lynchaj/nhyodyne",
+        "proposed_use": "C0-C3 research reference for modular boards, Gerber handoff, component procurement, assembly records and per-board replaceability.",
+        "not_a_claim": "Not selected as the C4/C5 replication target; not presumed to run modern workcell tooling; not presumed available for commercial reuse.",
+        "required_review": [
+          "full license/permission audit",
+          "BOM completeness",
+          "component sourcing and substitution",
+          "build and boot test reproducibility",
+          "capability fit for target test suite"
+        ]
+      },
+      {
+        "id": "C4_C5_TARGET_SELECTION",
+        "proposed_use": "Select a separate modest computer/controller profile that can run the archived production-control workflow needed to build and test another copy.",
+        "gate": "Choose only after checking legal reuse, BOM completeness, runtime/toolchain fit, component availability, programming/debug interface, test fixture, energy needs and documented acceptance tests.",
+        "fallback": "If no existing candidate passes, create a minimal original design from components/design artifacts with permission-cleared licenses and preserve a reproducible source history."
+      }
+    ]
   }
 }
