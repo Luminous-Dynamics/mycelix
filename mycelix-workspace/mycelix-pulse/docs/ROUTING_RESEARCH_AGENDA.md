@@ -136,7 +136,7 @@ The 20% resilience gate is a target, not a prior belief. If a baseline is near 1
 ### P1 — Better independent evaluation (implementation added; execution pending)
 
 - Added `standards-registry/validator/src/evaluation.rs`, a paired multi-seed evaluator comparing sequential failover or parallel redundancy to preferred-single-path on the declared holdout scenarios.
-- Added an exhaustive, disjoint scenario split: six development scenarios and five holdout scenarios, including stable-network non-regression, privacy exclusion, flapping links, energy trade-offs, and shared-carrier failure.
+- Added an exhaustive, disjoint scenario split: five development scenarios and six holdout scenarios, with three separately declared resilience scenarios, including stable-network non-regression, privacy exclusion, flapping links, energy trade-offs, and shared-carrier failure.
 - Added per-holdout scenario rates, absolute percentage-point change, relative point-estimate improvement, a paired seed-level interval, and a model-only screen against the proposed 20% resilience / -2 percentage-point stable-network gates.
 - Added manifest-bound CLI flags for the checked-out subject SHA and SHA-256 of a generated input manifest. CI is configured for a 30-seed × 1,000-message smoke evaluation; `just evaluate-transport` defines the heavier 30-seed × 10,000-message run.
 - The interval explicitly measures variation in this synthetic model only. It is not empirical uncertainty about real network performance, and even a model-screen pass is not release qualification.
