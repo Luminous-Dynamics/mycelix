@@ -468,7 +468,7 @@
         "max_spend": {
           "type": "string",
           "maxLength": 64,
-          "pattern": "^(0|[1-9][0-9]*)(\\\\.[0-9]+)?$",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$",
           "description": "Exact non-negative decimal string in the currency's major unit (for example, \"12.50\"). Do not encode money as a binary floating-point JSON number. Implementations must validate permitted precision against a pinned currency metadata version; the string is a planning cap, not authority to spend."
         },
         "max_contributor_hours": {
