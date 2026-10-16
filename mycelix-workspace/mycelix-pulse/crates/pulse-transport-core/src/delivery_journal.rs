@@ -1238,8 +1238,10 @@ mod tests {
             JournalEventKind::WorkerEpochAdvanced { new_epoch: 1 },
         )).unwrap();
         let entries = source.history(&identity).unwrap();
-        let first = PersistedJournalEvent::capture(entries[0].event(), entries[0].revision()).unwrap();
-        let second = PersistedJournalEvent::capture(entries[1].event(), entries[1].revision()).unwrap();
+        let first =
+            PersistedJournalEvent::capture(entries[0].event(), entries[0].revision()).unwrap();
+        let second =
+            PersistedJournalEvent::capture(entries[1].event(), entries[1].revision()).unwrap();
 
         let mut replayed = InMemoryDeliveryJournal::default();
         assert_eq!(
@@ -1430,7 +1432,8 @@ mod tests {
         let expected = original.snapshot(&identity).unwrap().unwrap();
         let mut replayed = InMemoryDeliveryJournal::default();
         for entry in source_history {
-            let persisted = PersistedJournalEvent::capture(entry.event(), entry.revision()).unwrap();
+            let persisted =
+                PersistedJournalEvent::capture(entry.event(), entry.revision()).unwrap();
             persisted
                 .replay_into(&mut replayed, &TestVerifier, "pulse-test-v1")
                 .unwrap();
