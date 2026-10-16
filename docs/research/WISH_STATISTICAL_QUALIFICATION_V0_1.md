@@ -64,6 +64,25 @@ The actual sample size remains **undetermined** until there is a defensible esti
 
 Publish the power/sensitivity curve over plausible assumptions. If the available sample cannot detect the desired effect with the target power, either collect more independent scenarios or state that the result is exploratory/underpowered. Do not simply lower the target after seeing data.
 
+
+### Illustrative sensitivity only — not a sample-size recommendation
+
+For a paired binary endpoint, let \(D=Y_{\text{new}}-Y_{\text{baseline}}\in\{-1,0,1\}\), \(\delta=E[D]\), and \(q=P(D\ne0)\) be the discordant-pair rate. Then \(\operatorname{Var}(D)=q-\delta^2\). A rough normal-approximation calculation for a two-sided \(\alpha=0.05\), 90%-power target and \(\delta=0.10\) gives:
+
+| Assumed discordant-pair rate \(q\) | Approximate independent episode count |
+|---:|---:|
+| 0.10 | 95 |
+| 0.15 | 148 |
+| 0.20 | 200 |
+| 0.25 | 253 |
+| 0.30 | 305 |
+| 0.35 | 358 |
+| 0.40 | 410 |
+| 0.50 | 515 |
+| 0.60 | 620 |
+
+These values use \(n\approx(z_{1-\alpha/2}+z_{1-\beta})^2(q-\delta^2)/\delta^2\), with independent pairs, no multiplicity correction, no family/source clustering, no monitor-unqualified episodes, and a normal approximation to the paired mean difference. They are **not** an exact McNemar calculation, they are not based on observed WISH data, and they do not prove that 120 episodes are adequate. If scenarios share source/template families, or if the actual primary test is different, sample size may be higher. The confirmatory number must come from simulation of the exact preregistered test using justified nuisance-parameter ranges.
+
 ## 5. Paired estimation, uncertainty and multiplicity
 
 - Compute episode-level paired outcomes/differences for the preregistered primary contrast.
