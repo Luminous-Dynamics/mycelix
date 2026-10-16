@@ -817,6 +817,9 @@ fn stratified_scenario_cluster_bootstrap(
     for _ in 0..BOOTSTRAP_RESAMPLES {
         let mut baseline = Aggregate::default();
         let mut candidate = Aggregate::default();
+        let mut baseline_scenario_service_rate_sum = 0.0;
+        let mut candidate_scenario_service_rate_sum = 0.0;
+        let mut sampled_scenario_count = 0usize;
         for indices in strata.values() {
             // Resample whole scenarios within each registered regime. All seeds from
             // one scenario stay together, so seeds do not masquerade as independent sites.
@@ -829,6 +832,13 @@ fn stratified_scenario_cluster_bootstrap(
                 candidate.cost_microcredits += cluster.candidate.cost_microcredits;
                 candidate.served_units += cluster.candidate.served_units;
                 candidate.demand_units += cluster.candidate.demand_units;
+                // Match the report's equal-scenario-weight service-rate estimand,
+                // rather than silently weighting higher-demand scenarios more heavily.
+                baseline_scenario_service_rate_sum +=
+                    cluster.baseline.served_units as f64 / cluster.baseline.demand_units as f64;
+                candidate_scenario_service_rate_sum +=
+                    cluster.candidate.served_units as f64 / cluster.candidate.demand_units as f64;
+                sampled_scenario_count += 1;
             }
         }
         if baseline.cost_microcredits == 0
@@ -850,9 +860,13 @@ fn stratified_scenario_cluster_bootstrap(
         );
         absolute_cost_changes.push(candidate_cost_per_served - baseline_cost_per_served);
 
-        let base_service_rate = baseline.served_units as f64 / baseline.demand_units as f64;
+        if sampled_scenario_count == 0 {
+            return Err("bootstrap sampled no scenarios".into());
+        }
+        let base_service_rate =
+            baseline_scenario_service_rate_sum / sampled_scenario_count as f64;
         let candidate_service_rate =
-            candidate.served_units as f64 / candidate.demand_units as f64;
+            candidate_scenario_service_rate_sum / sampled_scenario_count as f64;
         service_changes.push((candidate_service_rate - base_service_rate) * 100.0);
     }
 
