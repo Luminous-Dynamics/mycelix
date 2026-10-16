@@ -42,6 +42,16 @@ against later static endpoint compromise, or post-compromise recovery. The
 normative byte contract and exact exclusions are in
 [the V2 crypto specification](docs/PULSE_V2_CRYPTO_SPEC.md).
 
+## Experimental multi-transport contract
+
+The isolated `crates/pulse-transport-core/` crate defines the first transport-neutral contracts for future adapters: bounded opaque payloads, transport-profile and payload eligibility, timestamped link observations, fail-closed consent/privacy/regulatory decisions, failure-domain identity, and user-visible delivery-evidence stages.
+
+This crate is **experimental and not wired into the supported alpha send path**. It does not implement a radio driver, encrypt payloads, verify recipient receipts, or establish network interoperability. Its standalone contract tests are in the exact-head CI job; do not infer test success until the matching commit has a completed artifact.
+
+```sh
+cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
+```
+
 ## Runtime truth
 
 The UI exposes three states: `Live`, `Demo`, and `Unavailable`. Connection,
