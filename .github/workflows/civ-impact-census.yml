@@ -1,0 +1,69 @@
+name: CIV-IMPACT Census Verifier
+
+on:
+  pull_request:
+    paths:
+      - "tools/civ-impact-census/**"
+      - "docs/research/schema/CIV_IMPACT_*.schema.json"
+      - "docs/research/CIV_IMPACT_BENCHMARK_V0_1.md"
+      - ".github/workflows/civ-impact-census.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/civ-impact-census/**"
+      - "docs/research/schema/CIV_IMPACT_*.schema.json"
+      - "docs/research/CIV_IMPACT_BENCHMARK_V0_1.md"
+      - ".github/workflows/civ-impact-census.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-impact-census-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-and-contracts:
+    name: Rust tests and contract syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v7
+
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt
+
+      - name: Validate JSON syntax
+        run: |
+          set -euo pipefail
+          jq empty docs/research/schema/CIV_IMPACT_BENCHMARK_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_RUN_CENSUS_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json
+
+      - name: Check Rust formatting
+        working-directory: tools/civ-impact-census
+        run: cargo fmt -- --check
+
+      - name: Run unit tests
+        working-directory: tools/civ-impact-census
+        run: cargo test
+
+      - name: Generate and inspect default schedule
+        working-directory: tools/civ-impact-census
+        run: |
+          set -euo pipefail
+          out_dir="$(mktemp -d)"
+          cargo run -- generate "$out_dir" 100 30 | tee "$out_dir/summary.json"
+          jq -e '
+            .status == "schedule_generated_not_executed" and
+            .scenario_count == 100 and
+            .regime_count == 5 and
+            .seed_count == 30 and
+            .arm_count == 7 and
+            .scheduled_runs == 21000 and
+            .economic_benefit_established == false and
+            .claim_ceiling == "deterministic_synthetic_schedule_only"
+          ' "$out_dir/summary.json"
