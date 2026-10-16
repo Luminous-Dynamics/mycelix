@@ -54,7 +54,9 @@ A non-completed run uses one of `invalid_input`, `timeout`, `non_converged`, `mi
 
 The `analyze` command validates the census first, then pairs the incumbent and full-stack runs by the exact scenario ID and seed. It reports mean cost per demand unit, service rate, and—only when every expected pair is complete and neither arm has a zero-service pair—cost per successfully served unit, including absolute and relative changes.
 
-This is a descriptive summary of the supplied data, not a statistical test. No confidence intervals, preregistered significance test, causal estimate, or economic-benefit qualification are computed. Incomplete pairs remain visible in `incomplete_pairs`; zero-service outcomes prevent a misleading finite cost-per-served-unit comparison. The output contract is documented in [CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json](https://github.com/Luminous-Dynamics/mycelix/blob/research/civ-impact-benchmark-v0-1/docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json).
+The command also computes a deterministic, regime-stratified scenario-cluster percentile resampling interval from 10,000 replicates, **only** when every incumbent/full-stack pair is complete, neither has zero service, and every baseline scenario cluster has positive cost. It resamples whole scenarios within each registered regime and keeps all seeds and paired arms in the selected scenario together; this avoids treating repeated seeds inside one scenario as independent sites.
+
+These are **descriptive resampling intervals for the supplied synthetic scenario corpus**, not population confidence intervals, a preregistered significance test, a causal estimate, or an economic-benefit qualification. The interval seed is derived from the exact schedule and result bytes, so identical artifacts produce reproducible intervals. Incomplete pairs remain visible in `incomplete_pairs`; zero-service outcomes prevent cost-per-served-unit estimates and bootstrap intervals. The output contract is documented in [CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json](https://github.com/Luminous-Dynamics/mycelix/blob/research/civ-impact-benchmark-v0-1/docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json).
 
 ## Comparison arms
 
@@ -103,6 +105,6 @@ Do not benchmark against third-party instances until source identity, exact obje
 
 ## Tests
 
-The crate defines 18 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, incomplete-pair visibility, and zero-service handling.
+The crate defines 19 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, incomplete-pair visibility, and zero-service handling.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
