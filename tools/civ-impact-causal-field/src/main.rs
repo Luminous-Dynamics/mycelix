@@ -189,12 +189,18 @@ fn verify_trial(
     let mut arm_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut clusters_by_arm: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut cluster_assignment: BTreeMap<String, String> = BTreeMap::new();
+    let mut assignment_receipt_ids = BTreeSet::new();
 
     for entry in assignment_entries {
         let Some(unit_id) = string(entry, "unit_id") else {
             errors.push("assignment entry lacks unit_id".into());
             continue;
         };
+        if let Some(receipt_id) = string(entry, "assignment_receipt_id") {
+            if !assignment_receipt_ids.insert(receipt_id.to_owned()) {
+                errors.push(format!("duplicate assignment_receipt_id: {receipt_id}"));
+            }
+        }
         let arm = string(entry, "assigned_arm").unwrap_or("").to_owned();
         let cluster = entry.get("cluster_id").and_then(Value::as_str).map(str::to_owned);
         if assigned.insert(unit_id.to_owned(), (arm.clone(), cluster.clone())).is_some() {
@@ -233,6 +239,15 @@ fn verify_trial(
         }
     }
 
+    let required_harm_ids: BTreeSet<String> = plan
+        .get("estimand")
+        .and_then(|v| v.get("harm_outcomes"))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| string(item, "id"))
+        .map(str::to_owned)
+        .collect();
     let mut seen_outcomes = BTreeSet::new();
     let mut missing_by_arm: BTreeMap<String, usize> = BTreeMap::new();
     let mut observed_by_arm: BTreeMap<String, usize> = BTreeMap::new();
@@ -249,6 +264,12 @@ fn verify_trial(
             errors.push(format!("outcome exists for unassigned unit_id: {unit_id}"));
             continue;
         };
+        let harm_record = row.get("harm_outcomes").and_then(Value::as_object);
+        for harm_id in &required_harm_ids {
+            if !harm_record.map(|record| record.contains_key(harm_id)).unwrap_or(false) {
+                errors.push(format!("outcome unit {unit_id} omits predeclared harm outcome {harm_id}"));
+            }
+        }
         let status = string(row, "outcome_status").unwrap_or("");
         let value_is_null = row.get("primary_outcome_value").map(Value::is_null).unwrap_or(true);
         if status == "observed" {
@@ -509,6 +530,23 @@ mod tests {
         fixture.assignment_bytes.push(b' ');
         let errors = verify_trial(&fixture.plan, &fixture.assignment, &fixture.outcomes, &fixture.plan_bytes, &fixture.assignment_bytes);
         assert!(errors.iter().any(|error| error.contains("exact-byte SHA-256")));
+    }
+
+    #[test]
+    fn assignment_receipts_cannot_be_reused_across_units() {
+        let mut fixture = Fixture::new();
+        fixture.assignment["entries"][1]["assignment_receipt_id"] = json!("receipt-u1");
+        fixture.refresh_bindings();
+        let errors = fixture.errors();
+        assert!(errors.iter().any(|error| error.contains("duplicate assignment_receipt_id")));
+    }
+
+    #[test]
+    fn every_registered_harm_outcome_must_be_present_even_when_unknown() {
+        let mut fixture = Fixture::new();
+        fixture.outcomes["entries"][0]["harm_outcomes"].as_object_mut().unwrap().remove("harm_flag");
+        let errors = fixture.errors();
+        assert!(errors.iter().any(|error| error.contains("omits predeclared harm outcome")));
     }
 
     #[test]
