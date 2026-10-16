@@ -17,6 +17,9 @@ fn profile() -> ProcessProfile {
     ProcessProfile {
         design_revision: "design:bracket@sha256:test-a".into(),
         recipe_revision: "recipe:pla-0.2mm@sha256:test-b".into(),
+        equipment_profile: "equipment:printer-7:config-r3".into(),
+        material_profile: "material:PLA-grade-A:lot-2026-10-01".into(),
+        environment_profile: "environment:enclosed-lab-profile-v1".into(),
         calibration_profile: "calibration:printer-7:2026-10-01".into(),
     }
 }
@@ -26,7 +29,9 @@ fn config() -> DetectorConfig {
         detector_id: "cincinnati.robust-reference".into(),
         detector_version: "1.0.0".into(),
         robust_z_threshold: 3.5,
-        minimum_scale_by_signal: [0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0],
+        minimum_scale_by_signal: [
+            0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0, 0.5, 2.0,
+        ],
         minimum_baseline_samples: 5,
         maximum_sample_gap_ms: 1_000,
     }
@@ -44,6 +49,8 @@ fn frame(session_id: &str, sequence: u64, timestamp_ms: u64) -> SensorFrame {
         stepper_current_ma: [100.0 + i, 200.0 + i, 150.0 + i, 300.0 + 2.0 * i],
         vibration_rms_g: 0.10 + i * 0.001,
         filament_tension_g: Some(50.0 + i * 0.5),
+        ambient_temp_c: Some(25.0 + i * 0.05),
+        humidity_pct: Some(45.0 + i * 0.2),
     }
 }
 
@@ -86,6 +93,7 @@ fn parse_disposition(value: &str) -> ObservationDisposition {
                     InputError::NonFinite(Signal::HotendTemperature)
                 }
                 ("Negative", "XCurrent") => InputError::Negative(Signal::XCurrent),
+                ("OutOfRange", "Humidity") => InputError::OutOfRange(Signal::Humidity),
                 other => panic!("unknown invalid-observation reason in corpus: {other:?}"),
             };
             ObservationDisposition::InvalidObservation(reason)
@@ -96,10 +104,23 @@ fn parse_disposition(value: &str) -> ObservationDisposition {
 
 fn run_scenario(scenario: &str) -> (ObservationDisposition, Vec<Signal>, Vec<Signal>) {
     let mut reference = healthy_reference();
-    if scenario == "tension-unqualified" {
-        for sample in &mut reference {
-            sample.filament_tension_g = None;
+    match scenario {
+        "tension-unqualified" => {
+            for sample in &mut reference {
+                sample.filament_tension_g = None;
+            }
         }
+        "ambient-unqualified" => {
+            for sample in &mut reference {
+                sample.ambient_temp_c = None;
+            }
+        }
+        "humidity-unqualified" => {
+            for sample in &mut reference {
+                sample.humidity_pct = None;
+            }
+        }
+        _ => {}
     }
 
     let baseline = ReferenceBaseline::fit(profile(), config(), &reference)
@@ -114,12 +135,24 @@ fn run_scenario(scenario: &str) -> (ObservationDisposition, Vec<Signal>, Vec<Sig
         "bed-drift" => sample.bed_temp_c = 90.0,
         "extruder-current-drift" => sample.stepper_current_ma[3] = 500.0,
         "vibration-drift" => sample.vibration_rms_g = 0.8,
+        "ambient-drift" => sample.ambient_temp_c = Some(45.0),
+        "humidity-drift" => sample.humidity_pct = Some(80.0),
         "recipe-mismatch" => sample.profile.recipe_revision = "recipe:changed".into(),
         "calibration-mismatch" => {
             sample.profile.calibration_profile = "calibration:new".into();
         }
+        "equipment-mismatch" => {
+            sample.profile.equipment_profile = "equipment:printer-8:config-r1".into();
+        }
+        "material-mismatch" => {
+            sample.profile.material_profile = "material:PLA-grade-B:lot-2026-10-02".into();
+        }
+        "environment-mismatch" => {
+            sample.profile.environment_profile = "environment:open-shop-profile-v1".into();
+        }
         "nonfinite-hotend" => sample.hotend_temp_c = f64::NAN,
         "negative-current" => sample.stepper_current_ma[0] = -1.0,
+        "humidity-out-of-range" => sample.humidity_pct = Some(101.0),
         "session-mismatch" => sample.session_id = "other-session".into(),
         "sequence-gap" => {
             let _ = engine.observe(&sample);
