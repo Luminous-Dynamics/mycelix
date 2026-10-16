@@ -301,5 +301,129 @@
       "evaluator_truth_or_boundary_logs_candidate_writable": 0,
       "tool_operations_missing_boundary_decision": 0
     }
+  },
+  "execution_lock": {
+    "schema_version": "wish-execution-lock/0.1",
+    "status": "not_frozen",
+    "frozen_at": null,
+    "frozen_by_ref": null,
+    "policy_build_registry_sha256": null,
+    "scorer_sha256": null,
+    "evaluator_build_sha256": null,
+    "result_schema_sha256": null,
+    "tool_contracts_sha256": null,
+    "evidence_verifier_sha256": null,
+    "credential_status_snapshot_sha256": null,
+    "issuer_authorization_policy_sha256": null,
+    "arm_pins": [
+      {
+        "arm_id": "A0",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "A1",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "A2",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "A3",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "A4",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "A5",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "N1",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "N2",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "N3",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "N4",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "N5",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      },
+      {
+        "arm_id": "O0",
+        "status": "not_pinned",
+        "policy_build_sha256": null,
+        "policy_config_sha256": null,
+        "runner_image_sha256": null,
+        "action_space_sha256": null,
+        "observation_contract_sha256": null
+      }
+    ]
   }
 }
