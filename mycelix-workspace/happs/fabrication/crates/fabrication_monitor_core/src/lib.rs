@@ -1,7 +1,7 @@
 //! Deterministic, Holochain-independent process-monitoring core.
 //!
 //! Detects deviations from a reference trace bound to one exact design,
-//! recipe and calibration profile. It does not infer part conformity, defect
+//! recipe, equipment, material, environment and calibration profile. It does not infer part conformity, defect
 //! probability, or safe machine actions. Hardware safety authority stays elsewhere.
 //!
 //! Thresholds and unit-specific noise floors are supplied by a versioned profile;
@@ -203,8 +203,11 @@ pub enum BaselineError {
     InvalidConfig(ConfigError),
     /// The reference set was too small.
     InsufficientSamples { found: usize, required: usize },
-    /// A reference frame used another design, recipe or calibration profile.
+    /// A reference frame used another design, recipe, equipment, material,
+    /// environment or calibration profile.
     ProcessProfileMismatch { sample_index: usize },
+    /// A session sequence or timestamp identity was duplicated in the reference set.
+    DuplicateReferenceObservation { sample_index: usize },
     /// A reference frame had invalid input.
     InvalidSample { sample_index: usize, reason: InputError },
     /// A mandatory signal was unavailable in the reference set.
@@ -275,6 +278,9 @@ impl ReferenceBaseline {
             });
         }
 
+        let mut seen_sequences = std::collections::BTreeSet::new();
+        let mut seen_timestamps = std::collections::BTreeSet::new();
+
         for (sample_index, frame) in healthy_frames.iter().enumerate() {
             if frame.profile != process_profile {
                 return Err(BaselineError::ProcessProfileMismatch { sample_index });
@@ -283,6 +289,12 @@ impl ReferenceBaseline {
                 sample_index,
                 reason,
             })?;
+
+            let sequence_key = (frame.session_id.clone(), frame.sequence);
+            let timestamp_key = (frame.session_id.clone(), frame.timestamp_ms);
+            if !seen_sequences.insert(sequence_key) || !seen_timestamps.insert(timestamp_key) {
+                return Err(BaselineError::DuplicateReferenceObservation { sample_index });
+            }
         }
 
         let signals: [Option<SignalBaseline>; SIGNAL_COUNT] = std::array::from_fn(|index| {
@@ -826,8 +838,10 @@ mod tests {
 
     #[test]
     fn zero_mad_uses_profile_floor_instead_of_dividing_by_zero() {
-        let mut references = vec![frame("reference", 1, 100); 7];
-        for sample in &mut references {
+        let mut references = vec![frame("reference", 0, 0); 7];
+        for (index, sample) in references.iter_mut().enumerate() {
+            sample.sequence = index as u64;
+            sample.timestamp_ms = index as u64 * 100;
             sample.hotend_temp_c = 200.0;
         }
         let baseline = ReferenceBaseline::fit(profile(), config(), &references).unwrap();
@@ -835,6 +849,18 @@ mod tests {
         assert_eq!(stats.median, 200.0);
         assert_eq!(stats.robust_scale, config().minimum_scale_by_signal[0]);
         assert!(stats.robust_scale.is_finite() && stats.robust_scale > 0.0);
+    }
+
+
+    #[test]
+    fn duplicate_reference_identity_cannot_inflate_baseline_sample_count() {
+        let mut references = healthy_frames();
+        references.push(references[0].clone());
+        let error = ReferenceBaseline::fit(profile(), config(), &references).unwrap_err();
+        assert_eq!(
+            error,
+            BaselineError::DuplicateReferenceObservation { sample_index: 7 }
+        );
     }
 
     #[test]
