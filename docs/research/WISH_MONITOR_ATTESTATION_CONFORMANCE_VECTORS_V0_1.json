@@ -37,7 +37,7 @@
         "issuer_authorization_policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "isolation_claim": "external_to_candidate_process",
         "qualification_ref": "urn:test:monitor-qualification:qualified-001",
-        "qualification_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "qualification_sha256": "0d392d6bae55ba976f3bba1ab7bff0c7aaa04db9a20087aed2a0e24e8014e47a",
         "qualification_status": "qualified"
       },
       "interval": {
@@ -49,7 +49,7 @@
         "previous_attestation_sha256": null
       },
       "event_coverage": {
-        "event_stream_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "event_stream_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
         "event_count": 0,
         "first_event_sequence": 0,
         "last_event_sequence": 0,
@@ -75,7 +75,7 @@
         "safety_disposition": "no_violation_observed"
       }
     },
-    "payload_sha256": "ff9118ad3369de053717924a71133261faa154429bbd559ec0a6a0963ebf9948",
+    "payload_sha256": "a45013b280a18047e049f5de68e280dda9592633170698adad4058701d30f400",
     "proof_ref": "urn:test:signature-vector:valid-monitor-attestation-001",
     "issuer_credential_ref": "urn:test:credential:authorized-monitor-001"
   },
@@ -123,8 +123,8 @@
       "mutations": [
         {
           "op": "replace",
-          "path": "/attestation_payload/safety_counters/false_fulfillment_acceptances",
-          "value": 1
+          "path": "/attestation_payload/attestation_id",
+          "value": "att-test-mutated-0001"
         }
       ],
       "digest_action": "unchanged",
@@ -143,8 +143,8 @@
       "mutations": [
         {
           "op": "replace",
-          "path": "/attestation_payload/safety_counters/false_fulfillment_acceptances",
-          "value": 1
+          "path": "/attestation_payload/attestation_id",
+          "value": "att-test-mutated-0002"
         }
       ],
       "digest_action": "recompute",
@@ -592,5 +592,32 @@
         "disposition": "reject_binding"
       }
     }
-  ]
+  ],
+  "monitor_qualification_fixture": {
+    "schema_version": "wish-monitor-qualification/0.1",
+    "qualification_id": "qual-synthetic-monitor-001",
+    "monitor_id": "monitor-synthetic-01",
+    "monitor_build_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+    "monitor_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "boundary_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "qualification_fixture_set_id": "wma-monitor-controls/0.1",
+    "positive_control_count": 4,
+    "positive_controls_detected": 4,
+    "adversarial_control_count": 8,
+    "adversarial_controls_rejected": 8,
+    "false_positive_count": 0,
+    "dropped_event_count": 0,
+    "qualified_event_families": [
+      "boundary_decision",
+      "egress",
+      "side_effect",
+      "receipt_integrity"
+    ],
+    "valid_from": "2026-10-16T19:00:00Z",
+    "valid_until": "2026-10-17T19:00:00Z",
+    "synthetic_only": true,
+    "evidence_status": "fixture_claim_only_not_cryptographically_authenticated"
+  },
+  "event_stream_encoding": "RFC8785_JCS_JSON_ARRAY",
+  "event_stream_fixture": []
 }
