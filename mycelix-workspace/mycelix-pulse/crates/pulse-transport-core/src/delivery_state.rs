@@ -738,6 +738,80 @@ mod tests {
     }
 
     #[test]
+    fn deterministic_adversarial_event_schedules_preserve_lifecycle_invariants() {
+        // Small dependency-free property-style harness: many deterministic
+        // interleavings, including time jumps, duplicate outcomes, receipts,
+        // retry attempts, and revocation. This is not a substitute for durable
+        // crash injection or a formal model checker.
+        for initial_seed in 1_u64..=96 {
+            let mut random = initial_seed;
+            let mut item = lifecycle(2_000, 4);
+            let mut active_attempt: Option<String> = None;
+            let mut accepted_receipt = false;
+            let mut attempt_nonce = 0_u32;
+
+            for step in 0_u64..96 {
+                random = random
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                let now = UnixMillis::new(step.saturating_mul(17));
+                match random % 7 {
+                    0 | 1 => {
+                        if active_attempt.is_none() {
+                            attempt_nonce += 1;
+                            let attempt_id = format!("attempt-{attempt_nonce}");
+                            if matches!(
+                                item.start_attempt(attempt_id.clone(), now),
+                                Ok(AttemptStart::Started { .. })
+                            ) {
+                                active_attempt = Some(attempt_id);
+                            }
+                        }
+                    }
+                    2 | 3 | 4 => {
+                        if let Some(attempt_id) = active_attempt.clone() {
+                            let outcome = match random % 5 {
+                                0 => AttemptOutcome::AcceptedByAdapter,
+                                1 => AttemptOutcome::LinkLayerAcknowledged,
+                                2 => AttemptOutcome::GatewayAcknowledged,
+                                3 => AttemptOutcome::TemporarilyUnavailable,
+                                _ => AttemptOutcome::OutcomeUnknown,
+                            };
+                            if item.record_outcome(&attempt_id, outcome, now).is_ok() {
+                                active_attempt = None;
+                            }
+                        }
+                    }
+                    5 => {
+                        if item.record_verified_receipt(&verified_receipt(), now) == Ok(true) {
+                            accepted_receipt = true;
+                        }
+                    }
+                    6 => {
+                        if item.revoke(now) {
+                            active_attempt = None;
+                        }
+                    }
+                    _ => unreachable!("random modulo seven is bounded"),
+                }
+
+                item.advance_time(now);
+                assert!(item.attempt_count() <= item.retry_policy().max_attempts());
+                assert!(
+                    item.status() != DeliveryStatus::Delivered || accepted_receipt,
+                    "seed {initial_seed}, step {step}: Delivered without accepted verified receipt"
+                );
+                if matches!(item.status(), DeliveryStatus::Expired | DeliveryStatus::Revoked) {
+                    assert!(
+                        item.start_attempt(format!("forbidden-{step}"), now).is_err(),
+                        "seed {initial_seed}, step {step}: terminal policy state started an attempt"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn retry_policy_rejects_unbounded_or_invalid_values() {
         assert_eq!(RetryPolicy::new(0, 10, 100), Err(RetryPolicyError::ZeroAttempts));
         assert_eq!(RetryPolicy::new(33, 10, 100), Err(RetryPolicyError::TooManyAttempts));
