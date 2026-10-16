@@ -125,3 +125,21 @@ The sourcing structs are minimal evaluator projections, not the canonical suppli
 A capability profile digest is not itself proof of equivalence. A reviewed versioned mapping must establish that a candidate product meets the requested capability. Evidence-status fields are caller-supplied reference inputs; this module does not authenticate suppliers, verify live stock, search the web, issue purchase orders, or authorize spending.
 
 See SOURCING_DECISION_BENCHMARKS.md for the hard safety gates, independent-oracle plan, baseline comparisons, proposed scale targets and cross-project boundaries. The Pareto classifier uses a deterministic cost/arrival/risk sweep and Fenwick prefix-min index, reducing classification from quadratic pairwise comparison to O(n log n) after sorting. Twenty focused inline unit tests and a separate brute-force frontier oracle (2,048 deterministic cases × 32 offers, plus an exact-tie fixture) are authored but have not been qualified by an exact-head runner in this PR. A dependency-free Rust example emits raw timings and p50/p95/max summaries at 10, 100, 1,000 and 10,000 offers; it has not yet been run, so performance remains unmeasured.
+
+
+## Exact portfolio procurement (experimental)
+
+The additive `portfolio` module is a bounded, effects-disabled reference for selecting feasible allocations across multiple supplier offers after upstream eligibility/evidence checks. This extends the single-offer `sourcing` evaluator without treating one offer's capacity ceiling as if it had to satisfy the full request on its own.
+
+- Requires explicit request, capability-profile, unit, currency, policy, scenario-set and input-manifest identities.
+- Checks qualification-receipt, quote and capacity observation status/origin, freshness and validity separately.
+- Requires shared offers that point to the same capacity pool to agree on the pool quantity, observation window, evidence state and snapshot digest; allocations against that pool are summed and cannot double-count the ceiling.
+- Enforces demand conservation, per-offer capacity, minimum lots/order increments, maximum number of suppliers, maximum supplier share, delivery deadline and landed-cost budget with checked integer arithmetic.
+- When disruption scenarios are provided, dependency evidence must be verified and fresh. It reports the unavailable allocation in each named scenario and the worst scenario; it does not invent probabilities for the scenario set.
+- Returns the full non-dominated set over total cost, latest arrival, and worst-scenario unavailable quantity. It does not select an award winner or move stock or money.
+- Includes bounded recursive enumeration (at most 16 offers, 500,000 search nodes and 2,000 retained feasible allocations). Exceeding a bound returns an error, not a partial frontier presented as complete.
+- Output allocations preserve source locator, payload-digest reference, qualification receipt, capacity-pool identity and snapshot-digest reference. The module checks references are present, not authentic.
+
+The in-module tests include a split-award case where neither supplier can individually satisfy the full demand, a no-split negative control, repeated-capacity-pool accounting, stale-capacity and unverified-dependency cases, duplicate offer identities, and a small brute-force objective-frontier oracle. They are **authored tests, not an observed pass** until the exact-head workflow succeeds.
+
+This remains a research prototype. The module does not authenticate suppliers, prove source claims, determine semantic product substitution, fetch live offers, authorize awards, issue RFQs/purchase orders, execute inventory mutations, or process payments. The independent portfolio oracle, broader frozen adversarial corpus, measured performance and any live/shadow integration remain follow-up work. See [robust portfolio sourcing contract](ROBUST_PORTFOLIO_SOURCING_V1.md) for the design and benchmark contract.
