@@ -793,6 +793,36 @@ mod tests {
     }
 
     #[test]
+    fn accepts_completed_result_when_costs_reconcile_and_shock_is_applied() {
+        let schedule = small_schedule();
+        let mut results = complete_noncompleted_census(&schedule);
+        let scenario = schedule.scenarios.iter().find(|s| s.regime == "demand_shock").expect("demand shock");
+        let expected_demand = effective_demand(scenario).expect("effective demand");
+        let index = schedule.runs.iter().position(|run| {
+            run.scenario_id == scenario.scenario_id
+                && run.seed == 1
+                && run.arm_id == "incumbent_baseline"
+        }).expect("scheduled matching run");
+        results.runs[index].disposition = Disposition::Completed;
+        results.runs[index].failure_reason = None;
+        results.runs[index].metrics = Some(RunMetrics {
+            observed_demand_units: expected_demand,
+            served_units: expected_demand.saturating_sub(3),
+            compute_cost_microcredits: 1,
+            data_cost_microcredits: 2,
+            integration_cost_microcredits: 3,
+            human_review_cost_microcredits: 4,
+            coordination_cost_microcredits: 5,
+            failure_recovery_cost_microcredits: 6,
+            total_cost_microcredits: 21,
+            completion_latency_ms: 100,
+        });
+        let counts = verify_census(&schedule, &results).expect("valid completed result");
+        assert_eq!(counts.get("completed"), Some(&1));
+        assert_eq!(counts.get("non_converged"), Some(&(schedule.runs.len() - 1)));
+    }
+
+    #[test]
     fn rejects_failure_without_reason() {
         let schedule = small_schedule();
         let mut results = complete_noncompleted_census(&schedule);
