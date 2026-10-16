@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The v1 reference and additive partial-fulfilment experiment currently contain **52 authored unit tests** (38 v1 tests plus 14 tranche-ledger tests), plus **3 authored integration tests** for generated state-machine sequences, deterministic replay, and an isolated-replica counterexample: **55 test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference, partial-fulfilment tranche experiment, and escrow-rights experiment currently contain **59 authored unit tests** (38 v1, 14 tranche-ledger, and 7 escrow-ledger tests), plus **3 authored integration tests**: **62 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Experimental partial-fulfilment tranche ledger
 
@@ -71,6 +71,14 @@ These are acceptance targets for the tranche prototype, not measured results:
 | Partial fulfillment | Exact agreement between per-tranche accepted quantities and aggregate accepted quantity in every generated case |
 
 The implementation is currently a serial in-memory reference. The generated-state harness targets 131,072 claim attempts per invocation and 100 exact-seed replay comparisons; these are test workload sizes, not measured pass results. A dedicated counterexample asserts that two disconnected replicas can accept 20 units combined against a 10-unit request. A successor protocol must either use a shared reservation authority or specify bounded escrow/partition semantics and then demonstrate zero global over-allocation across generated partitions, retries, and message reordering. Concurrency/interleaving campaigns must not be presented as evidence of distributed safety until a concurrent or replicated protocol is modeled and qualified. A future integration should map tranche claims and acceptance decisions to ValueFlows semantics explicitly; ValueFlows defines an economic event as fulfilling a commitment completely or partially, but this module is not yet a ValueFlows adapter.
+
+## Experimental replica escrow rights
+
+The additive `fulfillment_escrow` module explores a way to bound local reservations without a globally available coordinator: partition a request quantity into disjoint, preallocated per-replica rights. A replica can reserve only rights it already holds. Pending reservations remain locked; finalization consumes only accepted units and returns the rejected remainder. Transfers move available rights and are single-use inside this serial reference ledger.
+
+This is an accounting model, not a distributed implementation. It does not authenticate transfer certificates, prevent a partitioned replica from forking its local state, or establish Byzantine safety. A production protocol must either prevent rights transfers while disconnected or add durable authenticated single-spend transfer semantics and prove recovery/reconciliation safety.
+
+See [FULFILLMENT_ESCROW_BENCHMARKS.md](FULFILLMENT_ESCROW_BENCHMARKS.md) for adversarial test targets. All targets remain proposals until exact-head execution evidence exists.
 
 ## Explicit limitations
 
