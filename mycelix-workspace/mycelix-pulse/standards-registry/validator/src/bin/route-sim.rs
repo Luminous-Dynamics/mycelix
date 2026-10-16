@@ -93,12 +93,24 @@ fn main() -> ExitCode {
             "--help" | "-h" => {
                 println!("Usage: route-sim [--traces PATH] [--messages COUNT] [--seed N]");
                 println!("       route-sim --evaluate [--traces PATH] [--messages COUNT]");
-                println!("                 [--seed FIRST] [--seed-count COUNT] [--candidate STRATEGY]");
+                println!(concat!(
+                    "                 [--seed FIRST] ",
+                    "[--seed-count COUNT] [--candidate STRATEGY]"
+                ));
                 println!("                 --subject-sha SHA --input-manifest-sha256 SHA256");
                 println!();
-                println!("Strategies: preferred_single_path, sequential_failover, parallel_redundancy");
-                println!("Evaluation compares paired synthetic seeds on the declared holdout split.");
-                println!("Neither mode establishes authenticated delivery or hardware qualification.");
+                println!(concat!(
+                    "Strategies: preferred_single_path, ",
+                    "sequential_failover, parallel_redundancy"
+                ));
+                println!(concat!(
+                    "Evaluation compares paired synthetic seeds ",
+                    "on the declared holdout split."
+                ));
+                println!(concat!(
+                    "Neither mode establishes authenticated delivery ",
+                    "or hardware qualification."
+                ));
                 return ExitCode::SUCCESS;
             }
             unknown => {
@@ -108,8 +120,13 @@ fn main() -> ExitCode {
         }
     }
 
-    if !evaluate && (seed_count_explicit || subject_sha.is_some() || input_manifest_sha256.is_some()) {
-        eprintln!("error: --seed-count, --subject-sha and --input-manifest-sha256 require --evaluate");
+    if !evaluate
+        && (seed_count_explicit || subject_sha.is_some() || input_manifest_sha256.is_some())
+    {
+        eprintln!(concat!(
+            "error: --seed-count, --subject-sha and ",
+            "--input-manifest-sha256 require --evaluate"
+        ));
         return ExitCode::from(2);
     }
 
@@ -142,7 +159,10 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
         if !is_hex_digest(&input_manifest_sha256) {
-            eprintln!("error: --input-manifest-sha256 must be a 64-character hexadecimal SHA-256 digest");
+            eprintln!(concat!(
+                "error: --input-manifest-sha256 must be a ",
+                "64-character hexadecimal SHA-256 digest"
+            ));
             return ExitCode::from(2);
         }
 
