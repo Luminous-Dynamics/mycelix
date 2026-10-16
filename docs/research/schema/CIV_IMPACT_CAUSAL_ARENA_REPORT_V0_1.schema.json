@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/civ-impact-causal-arena-report-v0.1.schema.json",
+  "title": "CIV-IMPACT causal investigation arena report v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_sha256", "seed", "replications", "units_per_replication", "regime_count", "strategy_count", "scheduled_cells", "completed_cells", "missing_cells", "complete", "claim_ceiling", "regimes", "strategies", "results", "summary"],
+  "properties": {
+    "schema_version": { "const": "civ-impact-causal-arena-report-v0.1" },
+    "source_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "seed": { "type": "integer", "minimum": 0 },
+    "replications": { "type": "integer", "minimum": 1 },
+    "units_per_replication": { "type": "integer", "minimum": 16 },
+    "regime_count": { "const": 5 },
+    "strategy_count": { "const": 6 },
+    "scheduled_cells": { "type": "integer", "minimum": 30 },
+    "completed_cells": { "type": "integer", "minimum": 30 },
+    "missing_cells": { "type": "integer", "minimum": 0 },
+    "complete": { "type": "boolean" },
+    "claim_ceiling": { "const": "synthetic_diagnostic_only_not_field_evidence" },
+    "regimes": { "type": "array", "minItems": 5, "items": { "type": "string" } },
+    "strategies": { "type": "array", "minItems": 6, "items": { "type": "string" } },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["run_id", "regime", "strategy", "seed", "confounding_signal_high", "truth_ate", "estimate", "standard_error", "ci95_low", "ci95_high", "ci95_covers_truth", "directional_claim", "correct_sign", "cost_units", "design_used", "identifiable"],
+        "properties": {
+          "run_id": { "type": "string", "minLength": 1 },
+          "regime": { "type": "string" },
+          "strategy": { "type": "string" },
+          "seed": { "type": "integer", "minimum": 0 },
+          "confounding_signal_high": { "type": "boolean" },
+          "truth_ate": { "type": "number" },
+          "estimate": { "type": ["number", "null"] },
+          "standard_error": { "type": ["number", "null"] },
+          "ci95_low": { "type": ["number", "null"] },
+          "ci95_high": { "type": ["number", "null"] },
+          "ci95_covers_truth": { "type": ["boolean", "null"] },
+          "directional_claim": { "enum": ["positive", "negative", "none", "abstain", "unidentified"] },
+          "correct_sign": { "type": ["boolean", "null"] },
+          "cost_units": { "type": "number", "minimum": 0 },
+          "design_used": { "enum": ["randomized", "stratified_randomized", "observational", "adjusted_observational", "none"] },
+          "identifiable": { "type": "boolean" }
+        }
+      }
+    },
+    "summary": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["regime", "strategy", "runs", "estimable_fraction", "mean_error", "mean_absolute_error", "sign_recovery_rate", "ci95_coverage", "false_directional_claim_rate_when_null", "mean_cost_units", "mean_standard_error", "nominal_precision_per_cost", "abstention_rate"],
+        "properties": {
+          "regime": { "type": "string" },
+          "strategy": { "type": "string" },
+          "runs": { "type": "integer", "minimum": 1 },
+          "estimable_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+          "mean_error": { "type": ["number", "null"] },
+          "mean_absolute_error": { "type": ["number", "null"] },
+          "sign_recovery_rate": { "type": ["number", "null"] },
+          "ci95_coverage": { "type": ["number", "null"] },
+          "false_directional_claim_rate_when_null": { "type": ["number", "null"] },
+          "mean_cost_units": { "type": "number", "minimum": 0 },
+          "mean_standard_error": { "type": ["number", "null"] },
+          "nominal_precision_per_cost": { "type": ["number", "null"] },
+          "abstention_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    }
+  }
+}
