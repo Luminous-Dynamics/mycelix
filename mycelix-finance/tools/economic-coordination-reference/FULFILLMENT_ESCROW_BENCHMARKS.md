@@ -88,3 +88,20 @@ Add these qualification gates before considering any later replicated implementa
 | Crash/restart rollback | Zero re-spends after restart or stale snapshot restoration in a future persistent replica model |
 
 The generated state campaign is an authored test, not an observed pass. The wrapper's per-replica objects are simulated in one process; it does not create true network concurrency. Two explicit negative controls currently reproduce known gaps rather than qualify the design: `duplicated_allocation_plan_is_a_known_global_overacceptance_counterexample` constructs two independent ledgers from the same grants, with combined acceptance 12 against a request of 10; `same_external_claim_replayed_across_replicas_is_a_known_idempotency_counterexample` shows one external claim ID finalized by two replicas while aggregate quantity remains within the request. Both tests deliberately pass by exhibiting their named counterexample; neither is a safety pass. This distinguishes **conservation** (the quantity sum stays bounded) from **exactly-once evidence** (a delivery identity cannot be counted twice). Grant issuance uniqueness, persistence, non-forking local state, claim identity, and cryptographic evidence remain explicit preconditions, not conclusions.
+
+
+## Coordinated claim-identity profile
+
+The separate `fulfillment_claim_identity.rs` prototype chooses a single serialized registry for globally scoped idempotency. It is the intentional comparison point for the partition-local fixed-rights model, not an offline-safe alternative.
+
+| Gate | Proposed target |
+|---|---|
+| Cross-replica identity | A claim ID binds to exactly one replica, delivery digest and quantity in a single authoritative history |
+| Exact retry | 10,000 retries of an identical registration/finalization produce no extra journal records |
+| Conflicting replay | 100% of cross-replica, digest-mismatch, quantity-mismatch and conflicting-finalization attempts fail closed |
+| Pending semantics | Loss of registry reachability never implies acceptance or releases a reservation by itself |
+| Durable successor | Zero duplicate finalizations after process restart, stale restore or authority failover, demonstrated against durable storage/consensus—not this in-memory model |
+
+The eight authored registry unit tests cover invalid identity fields, exact retry idempotency, cross-replica claim replay, payload/quantity mismatch, non-mutating invalid finalization, conflicting finalization, unknown claims and one accepted identity in a serial authoritative history. These are source-level tests until an exact-head Rust run is observed.
+
+The key research question is the availability/consistency boundary: which reservations can proceed using preallocated local rights, and which identity/finality transitions must be delayed until an authority is reachable? Do not flatten this into a single "decentralization" or throughput score.
