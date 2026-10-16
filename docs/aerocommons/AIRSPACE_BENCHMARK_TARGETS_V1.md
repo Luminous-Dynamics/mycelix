@@ -29,7 +29,8 @@ Scope: AIR-PB-015 and the intentionally narrow AIR-PB-017 scalar integer-affine 
 Proposed targets:
 
 - 100% agreement with hand-derived, committed vectors for the prototype's declared scalar domain.
-- Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus.
+- Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus, including a distinct oracle that enumerates each shared latent source once where multiple contributions reference the same declared source ID.
+- 100% agreement across 1,000 deterministic generated shared-source domains, plus 1,000 independent-source domains; include a deliberately narrowed interval mutant that the oracle must reject.
 - 100% order invariance for canonicalization and final results across all permutations for small vectors, plus 100,000 deterministic permutations for larger generated cases.
 - 100% rejection of absent uncertainty models, conflicting bounds for a shared source ID, noncanonical source IDs, arithmetic overflow, and configured work/domain violations.
 - Retain source IDs and coefficient contributions in the test report so a reviewer can distinguish justified same-source cancellation from accidental cancellation. A source ID is a declared provenance label, not cryptographic identity or proof that two physical errors truly share a cause.
