@@ -4,6 +4,7 @@ This directory is a **seed inventory**, not a conformance catalogue. Every entry
 
 - `registry.v1.json`: reviewed source pointers and explicit open work, current as of 2026-10-15.
 - `schema.v1.json`: JSON Schema draft 2020-12 structure.
+- `validator/`: standalone Rust contract validator and adversarial unit tests. The validator checks the registry's declared v1 fields/enums, IDs, URL/date shapes, support-evidence gates, and relation targets. It is deliberately not represented as a generic JSON Schema engine.
 - `../docs/TRANSPORT_BENCHMARKS.md`: acceptance gates and benchmark methodology.
 - `../docs/MULTI_TRANSPORT_INTEROPERABILITY_RFC.md`: architecture and layer boundaries.
 
@@ -17,4 +18,4 @@ This directory is a **seed inventory**, not a conformance catalogue. Every entry
 6. Do not turn registry updates into automatic radio activation, installation, transmissions, dependency changes, or model-policy changes.
 7. The initial seed does not exhaustively cover all standards or revisions. New entries require a source review and should be validated against the schema.
 
-The current schema captures the initial information model. A follow-on implementation should add local validation, duplicate-ID checks, reciprocal relation checks, source digest capture, date-based stale status, and generated documentation in the repository's Rust/Nix test path. No production Python or Node-based runtime is required.
+Run from the Pulse workspace root with `just test-standards-registry` and `just validate-standards-registry`. The checks have not yet been compiled or executed in this environment because a Rust toolchain is unavailable here; the exact-head workflow is added for subsequent PR runs. Do not report the Rust tests as passing until an exact-head job produces evidence. Before treating the checker as reproducible release infrastructure, generate and review its standalone Cargo.lock in the project Nix environment, then change commands to `--locked` and record that lockfile hash. No production Python or Node-based runtime is required.
