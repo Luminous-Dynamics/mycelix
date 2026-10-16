@@ -42,7 +42,7 @@ Every gate is a zero-tolerance pass/fail condition; failures must not be average
 | Source attribution | Accepted and rejected offers with absent source locator, payload-digest reference or extractor identity | Zero offers missing required source metadata may become eligible; output retains supplied references |
 | Pareto correctness | Hand-reviewed fixtures plus a separately implemented oracle | Exact frontier agreement |
 | Abstention | Empty catalogues, only-ineligible offers, conflicting IDs, unresolved evidence | Zero forced winner or purchase |
-| Deterministic replay | 100 equivalent input permutations and repeated identical executions | Byte-identical canonical report |
+| Deterministic replay | 100 equivalent input permutations and repeated identical executions | Identical structured report; byte-identical serialized output once canonical serialization is added |
 | Duplicate identity | Repeated offer IDs, including payload conflicts | Fail closed; never select between ambiguous identities |
 | Non-domination | Offers that trade cost against time/risk and exactly equal offers | Preserve all non-dominated options; no hidden weighted-score tie-break |
 | Purchase authority | Static source audit and integration contract tests | Zero route from this evaluator directly to money movement or order dispatch |
@@ -65,13 +65,15 @@ Each case needs a stable ID, input digest, expected rejection reasons, expected 
 
 ### 2. Independent oracle
 
-Implement the oracle separately from production ranking logic. For each frozen fixture:
+An initial test-only brute-force oracle is now checked in at tests/sourcing_frontier_oracle.rs. It independently recomputes pairwise dominance for 2,048 fixed-seed synthetic cases with 32 offers each, and compares frontier IDs, dominated IDs, and eligibility counts against the production module. This harness is authored, not yet observed passing.
+
+For the broader frozen campaign, extend the oracle separately from production ranking logic. For each fixture:
 - calculate hard eligibility independently;
 - calculate pairwise dominance independently;
 - compare all output IDs and rejection reasons exactly;
 - preserve minimal counterexamples for every mismatch.
 
-Do not let a source-owned output decide its own expected result. The first module's unit tests are not a substitute for the independent oracle.
+Do not let a source-owned output decide its own expected result. This first differential test is not a frozen reviewed corpus or an independent CI trust root.
 
 ### 3. Baselines
 
