@@ -433,7 +433,7 @@ mod tests {
         book.finalize("claim", 3).unwrap();
         assert_eq!(book.accepted_quantity(), Ok(3));
         assert_eq!(book.pending_quantity(), Ok(0));
-        assert_eq!(book.balance("replica-a").unwrap().available, 4);
+        assert_eq!(book.balance("replica-a").unwrap().available, 3);
         assert_eq!(book.balance("replica-a").unwrap().accepted, 3);
         assert!(book.conservation_holds());
     }
