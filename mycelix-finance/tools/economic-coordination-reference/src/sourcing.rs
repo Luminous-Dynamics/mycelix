@@ -87,7 +87,8 @@ pub struct SupplierOffer {
     pub inventory_evidence_origin: EvidenceOrigin,
     /// Integer minor units, multiplied by the requested quantity.
     pub unit_price_minor: u64,
-    /// All fixed costs are expressed in the request's currency and minor units.
+    /// Order-level totals in the request currency/minor unit for the requested quantity.
+    /// Adapters must normalize per-unit fees into these fields before evaluation.
     pub shipping_minor: u64,
     pub taxes_minor: u64,
     pub other_fees_minor: u64,
@@ -146,7 +147,16 @@ pub struct EvaluatedOffer {
     pub source_payload_digest: String,
     pub extractor_profile_id: String,
     pub quote_evidence_origin: EvidenceOrigin,
+    pub quote_observed_at: u64,
+    pub quote_valid_until: u64,
+    pub quote_evidence_status: EvidenceStatus,
+    pub inventory_observed_at: u64,
+    pub inventory_valid_until: u64,
+    pub inventory_evidence_status: EvidenceStatus,
+    pub inventory_evidence_origin: EvidenceOrigin,
     pub supplier_credential_origin: EvidenceOrigin,
+    pub supplier_credential_status: EvidenceStatus,
+    pub supplier_credential_valid_until: u64,
     pub landed_cost_minor: u64,
     pub arrival_at: u64,
     pub lead_time_secs: u64,
@@ -161,7 +171,16 @@ pub struct RejectedOffer {
     pub source_payload_digest: String,
     pub extractor_profile_id: String,
     pub quote_evidence_origin: EvidenceOrigin,
+    pub quote_observed_at: u64,
+    pub quote_valid_until: u64,
+    pub quote_evidence_status: EvidenceStatus,
+    pub inventory_observed_at: u64,
+    pub inventory_valid_until: u64,
+    pub inventory_evidence_status: EvidenceStatus,
+    pub inventory_evidence_origin: EvidenceOrigin,
     pub supplier_credential_origin: EvidenceOrigin,
+    pub supplier_credential_status: EvidenceStatus,
+    pub supplier_credential_valid_until: u64,
     pub reason: RejectionReason,
 }
 
@@ -291,7 +310,16 @@ fn evaluate_offer(
         source_payload_digest: offer.source_payload_digest.clone(),
         extractor_profile_id: offer.extractor_profile_id.clone(),
         quote_evidence_origin: offer.quote_evidence_origin,
+        quote_observed_at: offer.quote_observed_at,
+        quote_valid_until: offer.quote_valid_until,
+        quote_evidence_status: offer.quote_evidence_status,
+        inventory_observed_at: offer.inventory_observed_at,
+        inventory_valid_until: offer.inventory_valid_until,
+        inventory_evidence_status: offer.inventory_evidence_status,
+        inventory_evidence_origin: offer.inventory_evidence_origin,
         supplier_credential_origin: offer.supplier_credential_origin,
+        supplier_credential_status: offer.supplier_credential_status,
+        supplier_credential_valid_until: offer.supplier_credential_valid_until,
         landed_cost_minor: total,
         arrival_at,
         lead_time_secs: offer.lead_time_secs,
@@ -342,7 +370,16 @@ pub fn evaluate_sourcing(
                 source_payload_digest: offer.source_payload_digest.clone(),
                 extractor_profile_id: offer.extractor_profile_id.clone(),
                 quote_evidence_origin: offer.quote_evidence_origin,
+                quote_observed_at: offer.quote_observed_at,
+                quote_valid_until: offer.quote_valid_until,
+                quote_evidence_status: offer.quote_evidence_status,
+                inventory_observed_at: offer.inventory_observed_at,
+                inventory_valid_until: offer.inventory_valid_until,
+                inventory_evidence_status: offer.inventory_evidence_status,
+                inventory_evidence_origin: offer.inventory_evidence_origin,
                 supplier_credential_origin: offer.supplier_credential_origin,
+                supplier_credential_status: offer.supplier_credential_status,
+                supplier_credential_valid_until: offer.supplier_credential_valid_until,
                 reason,
             }),
         }
@@ -648,6 +685,22 @@ mod tests {
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::InventoryOriginMismatch);
         assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn report_preserves_the_exact_quote_and_inventory_observation_times() {
+        let mut candidate = offer("timestamp-preserved", 100, 10, 100);
+        candidate.quote_observed_at = 80;
+        candidate.quote_valid_until = 140;
+        candidate.inventory_observed_at = 90;
+        candidate.inventory_valid_until = 150;
+
+        let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
+        let selected = &report.pareto_frontier[0];
+        assert_eq!(selected.quote_observed_at, 80);
+        assert_eq!(selected.quote_valid_until, 140);
+        assert_eq!(selected.inventory_observed_at, 90);
+        assert_eq!(selected.inventory_valid_until, 150);
     }
 
     #[test]
