@@ -195,6 +195,72 @@
         }
       ],
       "expected_error": "coefficient_out_of_range"
+    },
+    {
+      "id": "AIR-UNC-012",
+      "terms": [
+        {
+          "source_id": "sensor-a",
+          "dependency_id": "shared-datum-bias",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": 1
+        },
+        {
+          "source_id": "sensor-b",
+          "dependency_id": "shared-datum-bias",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": -1
+        }
+      ],
+      "expected_bounds_mm": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "AIR-UNC-013",
+      "terms": [
+        {
+          "source_id": "navigation-unit",
+          "dependency_id": "bias-mode",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": 1
+        },
+        {
+          "source_id": "navigation-unit",
+          "dependency_id": "noise-mode",
+          "lower_mm": -2,
+          "upper_mm": 2,
+          "coefficient": -1
+        }
+      ],
+      "expected_bounds_mm": [
+        -12,
+        12
+      ]
+    },
+    {
+      "id": "AIR-UNC-014",
+      "terms": [
+        {
+          "source_id": "sensor-a",
+          "dependency_id": "shared-bias",
+          "lower_mm": -10,
+          "upper_mm": 10,
+          "coefficient": 1
+        },
+        {
+          "source_id": "sensor-b",
+          "dependency_id": "shared-bias",
+          "lower_mm": -11,
+          "upper_mm": 10,
+          "coefficient": -1
+        }
+      ],
+      "expected_error": "dependency_bounds_mismatch"
     }
   ]
 }
