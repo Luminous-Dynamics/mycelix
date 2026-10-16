@@ -17,7 +17,8 @@ material-mismatch|material-mismatch|ProcessProfileMismatch||
 environment-mismatch|environment-mismatch|ProcessProfileMismatch||
 calibration-mismatch|calibration-mismatch|ProcessProfileMismatch||
 nonfinite-hotend|nonfinite-hotend|InvalidObservation:NonFinite:HotendTemperature||
-negative-current|negative-current|InvalidObservation:Negative:XCurrent||
+negative-vibration|negative-vibration|InvalidObservation:Negative:VibrationRms||
+signed-current|signed-current|Evaluated|XCurrent|
 humidity-out-of-range|humidity-out-of-range|InvalidObservation:OutOfRange:Humidity||
 sequence-gap|sequence-gap|DataGap:1:200||
 duplicate-sequence|duplicate-sequence|NonMonotonicSequence||
