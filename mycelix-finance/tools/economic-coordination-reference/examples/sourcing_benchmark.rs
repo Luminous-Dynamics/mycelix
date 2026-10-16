@@ -1,7 +1,9 @@
 //! Dependency-free, deterministic microbenchmark for the sourcing evaluator.
 //!
 //! Run from the repository root:
-//! cargo run --release --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml --example sourcing_benchmark
+//! cargo run --release --manifest-path \\
+//!   mycelix-finance/tools/economic-coordination-reference/Cargo.toml \\
+//!   --example sourcing_benchmark
 //!
 //! Output is TSV sample rows and summary rows under one tabular header. Candidate
 //! construction is outside the timed region; evaluation includes validation,
@@ -90,7 +92,19 @@ fn main() {
     println!("#arch={}", std::env::consts::ARCH);
     println!("#debug_assertions={}", cfg!(debug_assertions));
     println!("#timing_scope=full evaluator call; candidate construction excluded");
-    println!("record\toffers\titeration\telapsed_ns\tp50_ns\tp95_ns\tmax_ns\teligible_count\tfrontier_count");
+    let header = [
+        "record",
+        "offers",
+        "iteration",
+        "elapsed_ns",
+        "p50_ns",
+        "p95_ns",
+        "max_ns",
+        "eligible_count",
+        "frontier_count",
+    ]
+    .join("\t");
+    println!("{header}");
 
     for (offer_count, iterations) in cases {
         let offers = make_offers(offer_count);
@@ -114,7 +128,12 @@ fn main() {
             black_box((&report, eligible_count, frontier_count));
             elapsed.push(elapsed_ns);
             println!(
-                "sample\t{offer_count}\t{iteration}\t{elapsed_ns}\t\t\t\t{eligible_count}\t{frontier_count}"
+                "sample\t{}\t{}\t{}\t\t\t\t{}\t{}",
+                offer_count,
+                iteration,
+                elapsed_ns,
+                eligible_count,
+                frontier_count,
             );
         }
 
@@ -123,7 +142,14 @@ fn main() {
         let p95 = percentile(&elapsed, 95, 100);
         let maximum = *elapsed.last().expect("at least one timing sample");
         println!(
-            "summary\t{offer_count}\t{iterations}\t\t{p50}\t{p95}\t{maximum}\t{eligible_count}\t{frontier_count}"
+            "summary\t{}\t{}\t\t{}\t{}\t{}\t{}\t{}",
+            offer_count,
+            iterations,
+            p50,
+            p95,
+            maximum,
+            eligible_count,
+            frontier_count,
         );
     }
 }
