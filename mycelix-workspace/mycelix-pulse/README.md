@@ -52,6 +52,16 @@ This crate is **experimental and not wired into the supported alpha send path**.
 cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
 ```
 
+## Durable delivery protocol design
+
+The next-step design for durable outbox/inbox semantics is recorded in
+[the durable delivery protocol](docs/DURABLE_DELIVERY_PROTOCOL.md). It specifies
+stable logical identity, envelope commitments, event IDs, worker fencing,
+receiver-side deduplication, receipt binding, and a crash/restart fault matrix.
+This is a design contract for follow-on work, not evidence that the current
+in-memory delivery lifecycle survives process or power loss. Track implementation
+in [issue #5062](https://github.com/Luminous-Dynamics/mycelix/issues/5062).
+
 ## Synthetic routing evaluation
 
 The synthetic trace harness compares preferred-single-path, sequential failover, and parallel redundancy. Its paired evaluator uses a declared development/holdout split, reports per-scenario attempts/cost/illustrative energy, and can sweep the common-draw mixture weight over 0, 2500, 5000, 7500 and 10000 for explicitly designated resilience scenarios. The weight is a synthetic sensitivity knob, not a calibrated empirical correlation coefficient. Short smoke runs scale declared outage windows across the whole reference trace so they include outage and recovery phases.
