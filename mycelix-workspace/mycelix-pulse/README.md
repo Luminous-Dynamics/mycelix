@@ -94,3 +94,5 @@ itself.
 
 AGPL-3.0-or-later. Commercial licensing terms are described by the repository
 licensing files.
+
+- Routing research: [ROUTING_RESEARCH_AGENDA.md](docs/ROUTING_RESEARCH_AGENDA.md) proposes constrained, evidence-carrying routing and the qualification sequence.
