@@ -1,0 +1,4028 @@
+{
+  "schema": "airspace-replay-scenarios-v1",
+  "status": "synthetic_research_fixture",
+  "authority_ceiling": "planning_simulation_semantics_only",
+  "scenarios": [
+    {
+      "scenario_id": "clear_separation",
+      "description": "Two parallel trajectories remain well outside the synthetic horizontal threshold.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "accept_for_planning_only",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "crossing_conflict",
+      "description": "Nominal trajectories converge at the same altitude; the conservative envelope flags conflict before the crossing.",
+      "window_start_s": 0,
+      "window_end_s": 20,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": -100000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "vertical_separation",
+      "description": "Horizontally coincident trajectories remain outside the synthetic vertical threshold.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "accept_for_planning_only",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 1000000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "uncertainty_expands_conflict",
+      "description": "Uncertainty envelopes trigger a planning conflict even though nominal horizontal distance exceeds the base threshold.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 20000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "between_sample_crossing",
+      "description": "A fast relative crossing occurs between sample times; the velocity-based conservative expansion catches it.",
+      "window_start_s": 0,
+      "window_end_s": 2,
+      "policy": {
+        "horizontal_separation_mm": 1000,
+        "vertical_separation_mm": 1000,
+        "sample_step_s": 2
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 2,
+          "position_at_valid_from_mm": {
+            "x": -10000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 2,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "frame_mismatch_unresolved",
+      "description": "Coordinates with different reference-frame identities must not be compared as if they shared a frame.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "unresolved",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "another-local-frame-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "time_unqualified_unresolved",
+      "description": "An unqualified clock basis cannot support authoritative space-time comparison.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "unresolved",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": false,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 100000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "expired_intent_rejected",
+      "description": "An intent whose validity ends before the simulation window ends is rejected as stale.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "reject",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 100000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "emergency_requires_review",
+      "description": "An emergency-priority intent with no synthetic conflict still requires a competent-authority review.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "requires_authority_review",
+      "flights": [
+        {
+          "flight_id": "EMERGENCY-A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "emergency",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "ROUTINE-B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 100000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "time_basis_mismatch_unresolved",
+      "description": "The same numeric timestamps in unrelated epochs cannot be compared as a common space-time plan.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "unresolved",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "unrelated-fixture-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "withdrawn_intent_rejected",
+      "description": "A withdrawn intent cannot be treated as current future traffic.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "reject",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "withdrawn",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "three_aircraft_one_conflict_pair",
+      "description": "Three-aircraft baseline: one crossing conflict is attributed while a third, distant trajectory remains outside the synthetic threshold.",
+      "window_start_s": 0,
+      "window_end_s": 20,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": -100000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": {
+            "x": 500000,
+            "y": 500000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "three_aircraft_multiple_pair_conflicts",
+      "description": "Three stationary trajectories deliberately create several simultaneous pairwise conflicts; all must be reported in this toy model.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 5000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 9000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "four_aircraft_parallel_lanes_clear",
+      "description": "Four parallel trajectories occupy widely separated synthetic lateral lanes; no pair should cross the declared fixture predicate.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "accept_for_planning_only",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 200000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "D",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 300000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "three_aircraft_uncertainty_pair_conflict",
+      "description": "Three-aircraft uncertainty control: a separated nominal pair conflicts only after the synthetic uncertainty margins are included.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 20000,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "C",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 500000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "duplicate_flight_identity_rejected",
+      "description": "Negative control: two spatially separate input records share one flight ID, so conflict attribution is ambiguous and the case must reject before pairwise work.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "reject",
+      "flights": [
+        {
+          "flight_id": "DUPLICATE",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "DUPLICATE",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 250000,
+            "y": 250000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "activated",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
+    }
+  ],
+  "lifecycle_transition_cases": [
+    {
+      "case_id": "proposed_to_accepted",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "accepted_to_activated",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "accepted"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "activated"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "activated_to_ended",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "activated"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "ended"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "proposed_to_withdrawn",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "withdrawn"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "illegal_accepted_to_ended",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "accepted"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "ended"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "sequence_gap",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 3,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "duplicate_sequence",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "time_reversal",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 99,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "issuer_changed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "other-provider",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "trajectory_digest_changed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:different-trajectory",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "time_basis_changed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "another-time-epoch",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "withdrawn_terminal",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "withdrawn"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "empty_digest",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    }
+  ],
+  "reservation_cases": [
+    {
+      "case_id": "concurrent_overlap_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-A",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-1",
+          "trajectory_digest": "sha256:trajectory-R-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-B",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-slot-1",
+          "trajectory_digest": "sha256:trajectory-R-B",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 150,
+          "end_s": 250,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "conflict"
+    },
+    {
+      "case_id": "half_open_adjacent_no_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-C",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-2",
+          "trajectory_digest": "sha256:trajectory-R-C",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-D",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-slot-2",
+          "trajectory_digest": "sha256:trajectory-R-D",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 200,
+          "end_s": 300,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "different_resource_no_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-E",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-west",
+          "trajectory_digest": "sha256:trajectory-R-E",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-F",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-east",
+          "trajectory_digest": "sha256:trajectory-R-F",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "expired_claim_does_not_block",
+      "now_s": 100,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-EXPIRED",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-3",
+          "trajectory_digest": "sha256:trajectory-R-EXPIRED",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 50,
+          "start_s": 110,
+          "end_s": 150,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CURRENT",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-slot-3",
+          "trajectory_digest": "sha256:trajectory-R-CURRENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 110,
+          "end_s": 150,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "withdrawn_claim_does_not_block",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-WITHDRAWN",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-4",
+          "trajectory_digest": "sha256:trajectory-R-WITHDRAWN",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "withdrawn",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CURRENT-2",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-slot-4",
+          "trajectory_digest": "sha256:trajectory-R-CURRENT-2",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "partitioned_snapshot_degraded",
+      "now_s": 50,
+      "snapshot_state": "partitioned",
+      "claims": [
+        {
+          "reservation_id": "R-PART",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-5",
+          "trajectory_digest": "sha256:trajectory-R-PART",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "degraded"
+    },
+    {
+      "case_id": "stale_snapshot_degraded",
+      "now_s": 50,
+      "snapshot_state": "stale_or_incomplete",
+      "claims": [
+        {
+          "reservation_id": "R-STALE",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-6",
+          "trajectory_digest": "sha256:trajectory-R-STALE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "degraded"
+    },
+    {
+      "case_id": "stale_update_duplicate_version_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-DUP",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-7",
+          "trajectory_digest": "sha256:trajectory-R-DUP",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 3,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-DUP",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-7",
+          "trajectory_digest": "sha256:revised-route",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 4,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 250,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "incompatible_time_bases_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-TIME-A",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-8",
+          "trajectory_digest": "sha256:trajectory-R-TIME-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-TIME-B",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-slot-8",
+          "trajectory_digest": "sha256:trajectory-R-TIME-B",
+          "time_basis": "another-epoch",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 150,
+          "end_s": 250,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "emergency_claim_requires_review",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-EMERGENCY",
+          "provider_id": "emergency-provider",
+          "resource_id": "vertiport-slot-9",
+          "trajectory_digest": "sha256:trajectory-R-EMERGENCY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "emergency"
+        }
+      ],
+      "expected_outcome": "requires_authority_review"
+    },
+    {
+      "case_id": "emergency_does_not_preempt_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-ROUTINE",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-10",
+          "trajectory_digest": "sha256:trajectory-R-ROUTINE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-EMERGENCY-2",
+          "provider_id": "emergency-provider",
+          "resource_id": "vertiport-slot-10",
+          "trajectory_digest": "sha256:trajectory-R-EMERGENCY-2",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 120,
+          "end_s": 220,
+          "state": "accepted",
+          "priority": "emergency"
+        }
+      ],
+      "expected_outcome": "conflict"
+    },
+    {
+      "case_id": "malformed_interval_rejected",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-BAD",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-11",
+          "trajectory_digest": "sha256:trajectory-R-BAD",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 200,
+          "end_s": 100,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "reject"
+    },
+    {
+      "case_id": "future_issued_claim_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-FUTURE",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-12",
+          "trajectory_digest": "sha256:trajectory-R-FUTURE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 60,
+          "expires_at_s": 1000,
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "recovered_complete_snapshot_no_conflict",
+      "now_s": 200,
+      "snapshot_state": "complete_fresh",
+      "claims": [
+        {
+          "reservation_id": "R-RECOVER-A",
+          "provider_id": "provider-a",
+          "resource_id": "vertiport-slot-13",
+          "trajectory_digest": "sha256:trajectory-R-RECOVER-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 210,
+          "end_s": 300,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-RECOVER-B",
+          "provider_id": "provider-b",
+          "resource_id": "vertiport-slot-13",
+          "trajectory_digest": "sha256:trajectory-R-RECOVER-B",
+          "time_basis": "fixture-tai-epoch-v1",
+          "sequence": 1,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "start_s": 300,
+          "end_s": 400,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    }
+  ],
+  "reservation_event_cases": [
+    {
+      "case_id": "reordered_updates_converge_no_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-ORDER",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-ORDER:event:2:accepted",
+          "previous_event_digest": "R-ORDER:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-ORDER",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-ORDER",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-ORDER:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-ORDER",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "sequence_gap_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-GAP",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-GAP:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-GAP",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-GAP",
+          "provider_id": "provider-a",
+          "sequence": 3,
+          "event_digest": "R-GAP:event:3:accepted",
+          "previous_event_digest": "R-GAP:event:2:accepted",
+          "issued_at_s": 3,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-GAP",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "same_sequence_fork_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-FORK",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-FORK:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FORK",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-FORK",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-FORK:event:2:accepted",
+          "previous_event_digest": "R-FORK:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FORK",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-FORK",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-FORK:event:2:withdrawn",
+          "previous_event_digest": "R-FORK:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FORK",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "withdrawn",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "predecessor_mismatch_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-PREV",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-PREV:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PREV",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-PREV",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-PREV:event:2:accepted",
+          "previous_event_digest": "wrong-parent",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PREV",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "illegal_terminal_transition_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-STATE",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-STATE:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-STATE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-STATE",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-STATE:event:2:ended",
+          "previous_event_digest": "R-STATE:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-STATE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "ended",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "exact_retransmission_is_idempotent",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-REPLAY",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-REPLAY:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-REPLAY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-REPLAY",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-REPLAY:event:2:accepted",
+          "previous_event_digest": "R-REPLAY:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-REPLAY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-REPLAY",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-REPLAY:event:2:accepted",
+          "previous_event_digest": "R-REPLAY:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-REPLAY",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "cross_provider_event_stream_conflict",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-CROSS-A",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-CROSS-A:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CROSS-A",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-CROSS-A:event:2:accepted",
+          "previous_event_digest": "R-CROSS-A:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-A",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CROSS-B",
+          "provider_id": "provider-b",
+          "sequence": 1,
+          "event_digest": "R-CROSS-B:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-B",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 150,
+          "end_s": 250,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-CROSS-B",
+          "provider_id": "provider-b",
+          "sequence": 2,
+          "event_digest": "R-CROSS-B:event:2:accepted",
+          "previous_event_digest": "R-CROSS-B:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "pad-shared",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-CROSS-B",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 150,
+          "end_s": 250,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "conflict"
+    },
+    {
+      "case_id": "withdrawal_releases_current_claim",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-WITHDRAW",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-WITHDRAW:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-WITHDRAW",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-WITHDRAW",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-WITHDRAW:event:2:accepted",
+          "previous_event_digest": "R-WITHDRAW:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-WITHDRAW",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-WITHDRAW",
+          "provider_id": "provider-a",
+          "sequence": 3,
+          "event_digest": "R-WITHDRAW:event:3:withdrawn",
+          "previous_event_digest": "R-WITHDRAW:event:2:accepted",
+          "issued_at_s": 3,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-WITHDRAW",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "withdrawn",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "partitioned_event_view_degraded",
+      "now_s": 50,
+      "snapshot_state": "partitioned",
+      "events": [
+        {
+          "reservation_id": "R-PART-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-PART-EVENT:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PART-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-PART-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-PART-EVENT:event:2:accepted",
+          "previous_event_digest": "R-PART-EVENT:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PART-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "degraded"
+    },
+    {
+      "case_id": "expired_replayed_history_not_current",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-EXPIRED-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-EXPIRED-EVENT:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 50,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-EXPIRED-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-EXPIRED-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-EXPIRED-EVENT:event:2:accepted",
+          "previous_event_digest": "R-EXPIRED-EVENT:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 50,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-EXPIRED-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "no_conflict_in_provided_snapshot"
+    },
+    {
+      "case_id": "future_event_time_unresolved",
+      "now_s": 2,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-FUTURE-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-FUTURE-EVENT:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 10,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FUTURE-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-FUTURE-EVENT",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-FUTURE-EVENT:event:2:accepted",
+          "previous_event_digest": "R-FUTURE-EVENT:event:1:proposed",
+          "issued_at_s": 11,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-FUTURE-EVENT",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "same_digest_conflicting_payload_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-DIGEST",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-DIGEST:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-DIGEST",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-DIGEST",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-DIGEST:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-DIGEST",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "reservation_semantics_mutation_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-MUTATE",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-MUTATE:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-MUTATE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-MUTATE",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-MUTATE:event:2:accepted",
+          "previous_event_digest": "R-MUTATE:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-MUTATE",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 120,
+          "end_s": 220,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "event_issue_time_reversal_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-TIME-REV",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-TIME-REV:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 5,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-TIME-REV",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        },
+        {
+          "reservation_id": "R-TIME-REV",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-TIME-REV:event:2:accepted",
+          "previous_event_digest": "R-TIME-REV:event:1:proposed",
+          "issued_at_s": 4,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-TIME-REV",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "missing_initial_prefix_unresolved",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-PREFIX",
+          "provider_id": "provider-a",
+          "sequence": 2,
+          "event_digest": "R-PREFIX:event:2:accepted",
+          "previous_event_digest": "R-PREFIX:event:1:proposed",
+          "issued_at_s": 2,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-PREFIX",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 100,
+          "end_s": 200,
+          "state": "accepted",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "unresolved"
+    },
+    {
+      "case_id": "malformed_event_interval_rejected",
+      "now_s": 50,
+      "snapshot_state": "complete_fresh",
+      "events": [
+        {
+          "reservation_id": "R-INTERVAL",
+          "provider_id": "provider-a",
+          "sequence": 1,
+          "event_digest": "R-INTERVAL:event:1:proposed",
+          "previous_event_digest": null,
+          "issued_at_s": 1,
+          "expires_at_s": 1000,
+          "resource_id": "vertiport-event-pad-1",
+          "trajectory_digest": "sha256:synthetic-trajectory-R-INTERVAL",
+          "time_basis": "fixture-tai-epoch-v1",
+          "start_s": 200,
+          "end_s": 200,
+          "state": "proposed",
+          "priority": "routine"
+        }
+      ],
+      "expected_outcome": "reject"
+    }
+  ],
+  "dynamic_constraint_cases": [
+    {
+      "case_id": "new_restriction_intersects_accepted_intent",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-NEW",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-NEW:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "no_intersection_in_complete_snapshot",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-AWAY",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-AWAY:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "constraint_update_changes_clear_plan_to_affected",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-REV",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-REV:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-REV",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-REV:update:2:active",
+          "previous_update_digest": "TFR-REV:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "withdrawn_constraint_no_longer_intersects",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-WITHDRAW",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-WITHDRAW:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-WITHDRAW",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-WITHDRAW:update:2:withdrawn",
+          "previous_update_digest": "TFR-WITHDRAW:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "withdrawn"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "partitioned_snapshot_without_updates_degraded",
+      "now_s": 5,
+      "snapshot_state": "partitioned",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [],
+      "expected_outcome": "degraded",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "stale_snapshot_known_impact_still_requires_reassessment",
+      "now_s": 5,
+      "snapshot_state": "stale_or_incomplete",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-STALE-KNOWN",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-STALE-KNOWN:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "constraint_sequence_gap_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-GAP",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-GAP:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-GAP",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 3,
+          "update_digest": "TFR-GAP:update:3:active",
+          "previous_update_digest": "TFR-GAP:update:2:active",
+          "issued_at_s": 3,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "constraint_fork_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-FORK",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-FORK:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-FORK",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-FORK:update:2:active",
+          "previous_update_digest": "TFR-FORK:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-FORK",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 2,
+          "update_digest": "TFR-FORK:update:2:withdrawn",
+          "previous_update_digest": "TFR-FORK:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "withdrawn"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "malformed_constraint_bounds_rejected",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-BAD-BOX",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-BAD-BOX:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "min_position_mm": {
+            "x": 5,
+            "y": 5,
+            "z": 5
+          },
+          "max_position_mm": {
+            "x": 4,
+            "y": 6,
+            "z": 6
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reject",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "constraint_frame_mismatch_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-FRAME",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-FRAME:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "unrelated-frame",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "future_constraint_update_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-FUTURE",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-FUTURE:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 6,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "expired_constraint_does_not_intersect",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-EXPIRED",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-EXPIRED:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 0,
+          "valid_until_s": 5,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "continuous_intersection_catches_between_integer_seconds",
+      "now_s": 4,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-BETWEEN",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-BETWEEN:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 4,
+          "valid_until_s": 5,
+          "min_position_mm": {
+            "x": 44000,
+            "y": -100,
+            "z": 99900
+          },
+          "max_position_mm": {
+            "x": 46000,
+            "y": 100,
+            "z": 100100
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required",
+      "uncertainty_horizon_s": 0
+    },
+    {
+      "case_id": "unqualified_flight_time_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": false,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-TIME",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-TIME:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "exact_constraint_update_retransmission_idempotent",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-DUP",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-DUP:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-DUP",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-DUP:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "same_constraint_digest_different_payload_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-DIGEST",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "constant-update-id",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-DIGEST",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "constant-update-id",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "constraint_authority_change_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-AUTH",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-AUTH:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 1,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        },
+        {
+          "constraint_id": "TFR-AUTH",
+          "authority_id": "different-authority",
+          "sequence": 2,
+          "update_digest": "TFR-AUTH:update:2:active",
+          "previous_update_digest": "TFR-AUTH:update:1:active",
+          "issued_at_s": 2,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 0,
+            "y": 50000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 100000,
+            "y": 60000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "constraint_vertical_datum_mismatch_unresolved",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-DATUM",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-DATUM:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "different-vertical-datum",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 51000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "unresolved",
+      "uncertainty_horizon_s": 1
+    },
+    {
+      "case_id": "invalid_constraint_uncertainty_horizon_rejected",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [],
+      "expected_outcome": "reject",
+      "uncertainty_horizon_s": 3601
+    },
+    {
+      "case_id": "continuous_spatial_tangent_at_start_is_impact",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "uncertainty_horizon_s": 0,
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-TANGENT",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-TANGENT:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 49000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 50000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "reassessment_required"
+    },
+    {
+      "case_id": "constraint_valid_until_boundary_is_exclusive",
+      "now_s": 5,
+      "snapshot_state": "complete_fresh",
+      "uncertainty_horizon_s": 0,
+      "flights": [
+        {
+          "flight_id": "A",
+          "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+          "model_profile_id": "constant_velocity_toy_v1",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ],
+      "updates": [
+        {
+          "constraint_id": "TFR-END-EXCLUSIVE",
+          "authority_id": "synthetic-airspace-authority",
+          "sequence": 1,
+          "update_digest": "TFR-END-EXCLUSIVE:update:1:active",
+          "previous_update_digest": null,
+          "issued_at_s": 4,
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_basis": "fixture-tai-epoch-v1",
+          "valid_from_s": 5,
+          "valid_until_s": 6,
+          "min_position_mm": {
+            "x": 60000,
+            "y": -1000,
+            "z": 99000
+          },
+          "max_position_mm": {
+            "x": 61000,
+            "y": 1000,
+            "z": 101000
+          },
+          "horizontal_margin_mm": 0,
+          "vertical_margin_mm": 0,
+          "state": "active"
+        }
+      ],
+      "expected_outcome": "no_impact_in_provided_snapshot"
+    }
+  ]
+}

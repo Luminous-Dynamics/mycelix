@@ -1,0 +1,32 @@
+name: Airspace Replay Research Gate
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/airspace-replay.yml"
+      - "tools/airspace-sim/**"
+      - "docs/aerocommons/AIRSPACE_COORDINATION_REQUIREMENTS_V1.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/airspace-replay.yml"
+      - "tools/airspace-sim/**"
+      - "docs/aerocommons/AIRSPACE_COORDINATION_REQUIREMENTS_V1.json"
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Unit and fixture tests
+        run: cargo test --manifest-path tools/airspace-sim/Cargo.toml
+      - name: Verify committed scenario expectations
+        run: cargo run --manifest-path tools/airspace-sim/Cargo.toml -- --verify

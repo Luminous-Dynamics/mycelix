@@ -1,0 +1,267 @@
+{
+  "schema": "airspace-typed-uncertainty-lineage-v1",
+  "status": "synthetic_test_contract_not_production_transform_engine",
+  "authority_ceiling": "offline_synthetic_research_only_no_operational_aviation_authority",
+  "output": {
+    "quantity_kind": "position_error",
+    "unit": "synthetic_mm",
+    "reference_frame": "synthetic_local_cartesian_v1",
+    "sensitivity_scale_denominator": 1000,
+    "rounding": "outward_floor_lower_and_ceil_upper"
+  },
+  "cases": [
+    {
+      "id": "mixed_observation_transform_clock_errors",
+      "evaluation_time_s": 10,
+      "terms": [
+        {
+          "source_id": "observation-a",
+          "dependency_id": "position-noise",
+          "quantity_kind": "position_error",
+          "unit": "synthetic_mm",
+          "reference_frame": "synthetic_local_cartesian_v1",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 1000,
+          "sensitivity_basis": "mm_per_mm_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": null,
+          "transform_source_frame": null
+        },
+        {
+          "source_id": "transform-a",
+          "dependency_id": "transform-residual",
+          "quantity_kind": "transform_error",
+          "unit": "synthetic_mm",
+          "reference_frame": "synthetic_local_cartesian_v1",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -1,
+          "upper_value": 1,
+          "sensitivity_scaled": 1000,
+          "sensitivity_basis": "mm_per_mm_x1000",
+          "transform_id": "synthetic_translation_transform_v1",
+          "transform_target_frame": "synthetic_local_cartesian_v1",
+          "sensitivity_model_id": null,
+          "transform_source_frame": "synthetic_sensor_frame_v1"
+        },
+        {
+          "source_id": "clock-a",
+          "dependency_id": "clock-offset",
+          "quantity_kind": "clock_offset_error",
+          "unit": "synthetic_ms",
+          "reference_frame": "not_spatial",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 15,
+          "sensitivity_basis": "mm_per_ms_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": "synthetic_constant_velocity_v1",
+          "transform_source_frame": null
+        }
+      ],
+      "expected_bounds_mm": [
+        -4,
+        4
+      ]
+    },
+    {
+      "id": "shared_position_bias_cancels_only_when_declared",
+      "evaluation_time_s": 10,
+      "terms": [
+        {
+          "source_id": "sensor-east",
+          "dependency_id": "shared-datum-bias",
+          "quantity_kind": "position_error",
+          "unit": "synthetic_mm",
+          "reference_frame": "synthetic_local_cartesian_v1",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -3,
+          "upper_value": 3,
+          "sensitivity_scaled": 1000,
+          "sensitivity_basis": "mm_per_mm_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": null,
+          "transform_source_frame": null
+        },
+        {
+          "source_id": "sensor-west",
+          "dependency_id": "shared-datum-bias",
+          "quantity_kind": "position_error",
+          "unit": "synthetic_mm",
+          "reference_frame": "synthetic_local_cartesian_v1",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -3,
+          "upper_value": 3,
+          "sensitivity_scaled": -1000,
+          "sensitivity_basis": "mm_per_mm_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": null,
+          "transform_source_frame": null
+        }
+      ],
+      "expected_bounds_mm": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "expired_clock_evidence_fails_closed",
+      "evaluation_time_s": 100,
+      "terms": [
+        {
+          "source_id": "clock-expired",
+          "dependency_id": "clock-expired",
+          "quantity_kind": "clock_offset_error",
+          "unit": "synthetic_ms",
+          "reference_frame": "not_spatial",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 15,
+          "sensitivity_basis": "mm_per_ms_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": "synthetic_constant_velocity_v1",
+          "transform_source_frame": null
+        }
+      ],
+      "expected_error": "dependency_expired"
+    },
+    {
+      "id": "clock_conversion_requires_model_sensitivity",
+      "evaluation_time_s": 10,
+      "terms": [
+        {
+          "source_id": "clock-no-model",
+          "dependency_id": "clock-no-model",
+          "quantity_kind": "clock_offset_error",
+          "unit": "synthetic_ms",
+          "reference_frame": "not_spatial",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 15,
+          "sensitivity_basis": "mm_per_ms_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": null,
+          "transform_source_frame": null
+        }
+      ],
+      "expected_error": "missing_sensitivity_model"
+    },
+    {
+      "id": "transform_target_must_match_output_frame",
+      "evaluation_time_s": 10,
+      "terms": [
+        {
+          "source_id": "transform-bad-target",
+          "dependency_id": "transform-bad-target",
+          "quantity_kind": "transform_error",
+          "unit": "synthetic_mm",
+          "reference_frame": "synthetic_local_cartesian_v1",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -1,
+          "upper_value": 1,
+          "sensitivity_scaled": 1000,
+          "sensitivity_basis": "mm_per_mm_x1000",
+          "transform_id": "synthetic_translation_transform_v1",
+          "transform_target_frame": "synthetic_other_frame_v1",
+          "sensitivity_model_id": null,
+          "transform_source_frame": "synthetic_sensor_frame_v1"
+        }
+      ],
+      "expected_error": "transform_target_frame_mismatch"
+    },
+    {
+      "id": "clock_unit_mutation_is_rejected",
+      "evaluation_time_s": 10,
+      "terms": [
+        {
+          "source_id": "clock-unit-mutation",
+          "dependency_id": "clock-unit-mutation",
+          "quantity_kind": "clock_offset_error",
+          "unit": "synthetic_s",
+          "reference_frame": "not_spatial",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 15,
+          "sensitivity_basis": "mm_per_ms_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": "synthetic_constant_velocity_v1",
+          "transform_source_frame": null
+        }
+      ],
+      "expected_error": "unsupported_quantity_unit"
+    },
+    {
+      "id": "shared_dependency_cannot_change_dimension",
+      "evaluation_time_s": 10,
+      "terms": [
+        {
+          "source_id": "shared-clock",
+          "dependency_id": "shared-clock",
+          "quantity_kind": "clock_offset_error",
+          "unit": "synthetic_ms",
+          "reference_frame": "not_spatial",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 15,
+          "sensitivity_basis": "mm_per_ms_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": "synthetic_constant_velocity_v1",
+          "transform_source_frame": null
+        },
+        {
+          "source_id": "same-id-as-position",
+          "dependency_id": "shared-clock",
+          "quantity_kind": "position_error",
+          "unit": "synthetic_mm",
+          "reference_frame": "synthetic_local_cartesian_v1",
+          "validity_time_basis": "synthetic_epoch_seconds_v1",
+          "valid_from_s": 0,
+          "valid_until_s": 100,
+          "lower_value": -2,
+          "upper_value": 2,
+          "sensitivity_scaled": 1000,
+          "sensitivity_basis": "mm_per_mm_x1000",
+          "transform_id": null,
+          "transform_target_frame": null,
+          "sensitivity_model_id": null,
+          "transform_source_frame": null
+        }
+      ],
+      "expected_error": "dependency_contract_mismatch"
+    }
+  ]
+}

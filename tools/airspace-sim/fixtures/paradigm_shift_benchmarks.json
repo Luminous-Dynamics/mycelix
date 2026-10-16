@@ -1,0 +1,937 @@
+{
+  "schema": "airspace-paradigm-shift-benchmarks-v1",
+  "status": "research_design_not_executable_benchmarks",
+  "reviewed_on": "2026-10-16",
+  "authority_ceiling": "offline_research_evaluation_only_no_operational_aviation_authority",
+  "result_semantics": {
+    "passing_means": "The implementation conforms to this synthetic benchmark contract under its declared assumptions.",
+    "does_not_mean": [
+      "operational separation safety",
+      "airworthiness",
+      "certification",
+      "flight authorization",
+      "source authenticity unless separately verified",
+      "real-world model applicability"
+    ]
+  },
+  "shared_invariants": [
+    "unsupported_model_never_yields_geometry_clearance",
+    "hard_constraints_precede_optimization",
+    "stale_or_partitioned_inputs_never_prove_absence_of_impact",
+    "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+    "producer_output_is_checked_independently",
+    "all_results_bind_exact_inputs_models_rules_and_checker",
+    "unknown_behavior_is_unresolved_not_defaulted",
+    "contingency_optionality_is_separate_from_nominal_throughput",
+    "recovery_capacity_never_relaxes_hard_constraints",
+    "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score",
+    "allocation_priority_comes_only_from_authorized_policy",
+    "access_outcomes_are_audited_by_declared_group",
+    "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
+    "uncertainty_composition_preserves_dependencies_and_bounds",
+    "assurance_independence_is_evidenced_not_declared",
+    "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+    "unrecognized_contract_fields_fail_closed"
+  ],
+  "benchmarks": [
+    {
+      "id": "AIR-PB-001",
+      "name": "model_admission_fail_closed",
+      "paradigm": "qualified_reachable_volumes",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "An explicit allowlist prevents missing, unknown, and unsupported traffic/model pairs from reaching geometric evaluation.",
+      "baseline": "A coordinate-only constant-velocity evaluator can process a real-world archetype unless a caller or adapter blocks it.",
+      "stimulus": "Remove model identifiers and then substitute each of the 15 real-world archetypes while retaining the toy model ID.",
+      "success_conditions": [
+        "Missing or unsupported pairs classify as unresolved.",
+        "Trajectory sample checks and geometric intersection checks remain zero.",
+        "The synthetic fixture/model pair remains admitted only for synthetic research fixtures."
+      ],
+      "falsifiers": [
+        "Any unsupported or missing pair produces an accepted-for-planning result.",
+        "Any geometric work occurs after failed model admission."
+      ],
+      "required_evidence": [
+        "Exact-head Rust unit-test output",
+        "Model registry and traffic catalogue digests",
+        "Independent assertion over every real-world archetype"
+      ],
+      "hard_invariants": [
+        "unsupported_model_never_yields_geometry_clearance",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ]
+    },
+    {
+      "id": "AIR-PB-002",
+      "name": "independent_monitor_detects_producer_error",
+      "paradigm": "assurance_artifacts_not_self_certification",
+      "status": "research_backlog",
+      "hypothesis": "A separately implemented checker detects intentionally corrupted candidate plans and report fields without reusing producer calculations.",
+      "baseline": "Producer-generated expected values may reproduce the same implementation defect as the system under test.",
+      "stimulus": "Mutate a plan's reported conflict state, time interval, model ID, or resource total after candidate generation.",
+      "success_conditions": [
+        "The independent checker rejects every declared hard-gate violation in the corpus.",
+        "The report identifies the violated invariant and binds its input digest."
+      ],
+      "falsifiers": [
+        "A deliberately injected violation is accepted.",
+        "The checker trusts producer totals rather than recomputing predicates."
+      ],
+      "required_evidence": [
+        "Checker source identity",
+        "Mutation corpus and expected outcomes",
+        "Exact-head run receipt"
+      ],
+      "hard_invariants": [
+        "producer_output_is_checked_independently",
+        "hard_constraints_precede_optimization"
+      ]
+    },
+    {
+      "id": "AIR-PB-003",
+      "name": "uncertainty_envelope_under_approximation",
+      "paradigm": "qualified_reachable_volumes",
+      "status": "research_backlog",
+      "hypothesis": "A qualified model's reported envelope contains all oracle states for the declared domain, horizon, and assumptions.",
+      "baseline": "Nominal trajectories plus caller-selected margins do not establish a conservative reachable set.",
+      "stimulus": "Generate boundary trajectories, bounded disturbances, delayed observations, and model-domain edge cases against an independent high-resolution or analytic oracle.",
+      "success_conditions": [
+        "No oracle state falls outside a claimed conservative envelope within the declared domain.",
+        "Out-of-domain or unbounded uncertainty returns unresolved.",
+        "Envelope conservatism and compute cost are reported separately."
+      ],
+      "falsifiers": [
+        "Any in-domain oracle state falls outside the claimed envelope.",
+        "The model claims conservative coverage outside its declared domain."
+      ],
+      "required_evidence": [
+        "Versioned model domain",
+        "Independent oracle",
+        "Seeded corpus manifest",
+        "Under-approximation counterexamples"
+      ],
+      "hard_invariants": [
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-004",
+      "name": "corridor_optionality_counterfactual",
+      "paradigm": "dynamic_space_time_resource_fabric",
+      "status": "research_backlog",
+      "hypothesis": "Comparing constrained corridors against alternative route topology reveals operating regimes where fixed corridors remove conflict-resolution options.",
+      "baseline": "A corridor-only planner can appear efficient while leaving too few feasible maneuvers under dense or disrupted traffic.",
+      "stimulus": "Replay identical synthetic traffic, hard constraints, and resource limits with corridor-only and topology-flexible candidate sets.",
+      "success_conditions": [
+        "Both configurations report hard-gate results before performance metrics.",
+        "Feasible candidate count, conflict outcomes, delay, search effort, and recovery options are reported.",
+        "No configuration is declared superior using a score that hides hard-gate failures."
+      ],
+      "falsifiers": [
+        "A hard-ineligible plan is counted as feasible.",
+        "A claimed corridor benefit cannot be reproduced from identical pinned inputs."
+      ],
+      "required_evidence": [
+        "Pinned scenario corpus",
+        "Candidate-pool completeness declaration",
+        "Independent feasibility oracle",
+        "Counterfactual report"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-005",
+      "name": "time_dependent_shared_resource_contention",
+      "paradigm": "dynamic_space_time_resource_fabric",
+      "status": "research_backlog",
+      "hypothesis": "Time-windowed capacity accounting identifies shared-resource over-allocation that a static route/edge capacity view misses.",
+      "baseline": "A static edge-capacity report is not a schedule for runway, vertiport, charging, approach segment, or airspace occupancy.",
+      "stimulus": "Submit multiple individually valid candidate plans whose aggregate demand overlaps in a shared resource interval, including adjacent half-open windows and expired capacity evidence.",
+      "success_conditions": [
+        "Cumulative overlapping allocation above capacity is rejected by an independent verifier.",
+        "Adjacent non-overlapping half-open intervals remain non-conflicting.",
+        "Stale, unqualified, or out-of-window capacity returns degraded or unresolved."
+      ],
+      "falsifiers": [
+        "The sum of overlapping accepted allocations exceeds declared capacity.",
+        "Expired capacity evidence is treated as current."
+      ],
+      "required_evidence": [
+        "Resource identity and unit contract",
+        "Time-window fixture corpus",
+        "Independent resource-conservation checker"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "stale_or_partitioned_inputs_never_prove_absence_of_impact"
+      ]
+    },
+    {
+      "id": "AIR-PB-006",
+      "name": "federated_partition_and_conflict_replay",
+      "paradigm": "federated_coordination_bounded_authority",
+      "status": "partial_foundations_exist_not_fully_qualified",
+      "hypothesis": "Provider event reordering, exact retransmission, forks, stale snapshots, and partitions have deterministic outcomes that never manufacture a clear or authoritative winner.",
+      "baseline": "Naive last-writer-wins or arrival-order logic can erase a conflict or imply global agreement from a partial view.",
+      "stimulus": "Permute event arrival; duplicate exact deliveries; inject conflicting same-sequence payloads, missing predecessors, clock incompatibility, expiry and provider partitions.",
+      "success_conditions": [
+        "Exact retransmissions are idempotent and counted.",
+        "Forks, gaps, and contradictory histories remain unresolved.",
+        "Known impacts still prompt reassessment on stale views; no observed impact on a stale view never means no impact.",
+        "No reservation result is represented as flight authorization."
+      ],
+      "falsifiers": [
+        "A partial or stale view returns a definitive no-impact classification.",
+        "Conflicting versions disappear without an explicit reconciliation result."
+      ],
+      "required_evidence": [
+        "Event corpus digest",
+        "Permutation test output",
+        "State-machine oracle",
+        "Exact-head result receipt"
+      ],
+      "hard_invariants": [
+        "stale_or_partitioned_inputs_never_prove_absence_of_impact",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct"
+      ]
+    },
+    {
+      "id": "AIR-PB-007",
+      "name": "hard_gate_cannot_be_bought_by_objective_weights",
+      "paradigm": "safety_first_feasible_set_planning",
+      "status": "research_backlog",
+      "hypothesis": "No performance-weight setting admits a candidate that violates an applicable hard gate.",
+      "baseline": "A scalar weighted sum can trade a hard violation against lower cost, delay, energy, or noise.",
+      "stimulus": "Construct a prohibited or unresolved candidate with arbitrarily favorable performance metrics and compare it with feasible alternatives under extreme objective weights.",
+      "success_conditions": [
+        "The infeasible candidate is eliminated before objective ranking.",
+        "Performance weights cannot change hard-gate classification.",
+        "Reports preserve the violated gate separately from optimization scores."
+      ],
+      "falsifiers": [
+        "Any weight vector allows an ineligible candidate to be selected as feasible.",
+        "A scalar score hides a failed hard gate."
+      ],
+      "required_evidence": [
+        "Objective-independent gate oracle",
+        "Adversarial weight sweep",
+        "Selected-candidate and rejected-candidate reports"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization"
+      ]
+    },
+    {
+      "id": "AIR-PB-008",
+      "name": "source_bytes_freshness_and_rights_are_separate",
+      "paradigm": "assurance_artifacts_not_self_certification",
+      "status": "research_backlog",
+      "hypothesis": "The evidence adapter distinguishes byte integrity, publisher authenticity, source freshness, usage rights, and scenario fitness instead of collapsing them into one trusted flag.",
+      "baseline": "A parseable payload or digest-shaped string can be mistaken for verified, current, authorized-to-use data.",
+      "stimulus": "Use correct and incorrect hashes, stale timestamps, unknown rights, unverified publisher identity, changed source bytes, and parsed-and-reserialized variants.",
+      "success_conditions": [
+        "Exact-byte hash mismatch is rejected.",
+        "Passing byte integrity does not imply publisher authenticity, legal rights, freshness, or physical truth.",
+        "Any unqualified dimension required by the scenario remains visibly unresolved."
+      ],
+      "falsifiers": [
+        "A digest string passes without hashing exact source bytes.",
+        "Unknown rights, stale data, or unauthenticated authority are silently promoted to qualified."
+      ],
+      "required_evidence": [
+        "Exact raw-byte test artifacts",
+        "Receipt verifier identity",
+        "Rights/freshness negative controls",
+        "Independent digest recomputation"
+      ],
+      "hard_invariants": [
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct"
+      ]
+    },
+    {
+      "id": "AIR-PB-009",
+      "name": "unknown_and_noncooperative_traffic_is_not_absence",
+      "paradigm": "qualified_reachable_volumes",
+      "status": "research_backlog",
+      "hypothesis": "A lack of cooperative intent is represented as an observation/coverage limitation rather than as an empty part of the traffic picture.",
+      "baseline": "Intent-centric planning can miss objects without valid identity, timely telemetry, or cooperative trajectory data.",
+      "stimulus": "Inject anonymous tracks, dropped reports, conflicting sensors, spoofed labels and no-track-coverage regions.",
+      "success_conditions": [
+        "The result exposes the missing observation/coverage dimension.",
+        "No absence-of-track assertion is interpreted as proof of absence of traffic.",
+        "The system separates track confidence from legal identity and model applicability."
+      ],
+      "falsifiers": [
+        "Missing or non-cooperative traffic is silently omitted while a clear result is asserted.",
+        "Sensor confidence alone is treated as legal identification or authorization."
+      ],
+      "required_evidence": [
+        "Observation/coverage metadata",
+        "Injected-loss corpus",
+        "Independent classification oracle"
+      ],
+      "hard_invariants": [
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "stale_or_partitioned_inputs_never_prove_absence_of_impact"
+      ]
+    },
+    {
+      "id": "AIR-PB-010",
+      "name": "ground_and_community_externality_visibility",
+      "paradigm": "joint_air_ground_community_coordination",
+      "status": "research_backlog",
+      "hypothesis": "Eligible alternatives can be compared for externalities and distributional effects without allowing those objective values to override hard feasibility.",
+      "baseline": "Airspace efficiency scores can omit where noise, ground risk, delay and infrastructure burdens are concentrated.",
+      "stimulus": "Compare feasible synthetic plans across noise exposure, energy, emergency access, ground exposure, infrastructure readiness and who receives service.",
+      "success_conditions": [
+        "Hard eligibility is reported independently of externality metrics.",
+        "Metrics retain units, provenance, uncertainty, spatial scope and affected groups.",
+        "The output surfaces tradeoffs rather than compressing incomparable values into an unexplained score."
+      ],
+      "falsifiers": [
+        "A plan with a hard violation wins due to better externality scores.",
+        "Uncertain or missing externality evidence is represented as zero impact."
+      ],
+      "required_evidence": [
+        "Source-qualified spatial inputs",
+        "Units and aggregation contract",
+        "Sensitivity analysis",
+        "Distributional comparison report"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-011",
+      "name": "counterfactual_disruption_and_recovery",
+      "paradigm": "reproducible_assurance_artifact",
+      "status": "research_backlog",
+      "hypothesis": "A candidate planner can report defensible alternatives under disruptions using pinned assumptions and without turning forecast output into authorization.",
+      "baseline": "A single preferred route can fail under weather, capacity loss, closure, communications partition or diversion demand.",
+      "stimulus": "Remove a resource, invalidate evidence, withdraw a restriction, partition a provider or introduce a synthetic wind-model mismatch; recompute all candidates.",
+      "success_conditions": [
+        "Each counterfactual binds exact changes to the baseline manifest.",
+        "Recovery options, unresolved conditions, performance deltas and compute budget are reported.",
+        "No alternative is promoted while its model or required evidence is unresolved."
+      ],
+      "falsifiers": [
+        "The report cannot identify which changed inputs caused a result change.",
+        "A forecast or planner result is represented as operational clearance."
+      ],
+      "required_evidence": [
+        "Baseline/counterfactual manifest pair",
+        "Input diffs",
+        "Independent feasibility oracle",
+        "Reproducible run receipt"
+      ],
+      "hard_invariants": [
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ]
+    },
+    {
+      "id": "AIR-PB-012",
+      "name": "cross_project_replay_reproducibility",
+      "paradigm": "assurance_artifacts_not_self_certification",
+      "status": "research_backlog",
+      "hypothesis": "Versioned contracts allow independent adapters in Mycelix, Symthaea, Sol-Atlas and Symtropy to preserve scope, evidence identity and result semantics across a shared fixture corpus.",
+      "baseline": "Cross-project descriptions can drift while similarly named fields acquire different units, time semantics or authority meanings.",
+      "stimulus": "Run a pinned language-neutral corpus through independent Rust adapters and compare normalized decisions plus retained uncertainty, evidence and authority metadata.",
+      "success_conditions": [
+        "Every consumer rejects unknown required schema versions and missing required qualification.",
+        "Normalized classifications and invariant outcomes agree across consumers.",
+        "Consumer build/source identities and any disagreements are retained."
+      ],
+      "falsifiers": [
+        "A consumer silently coerces an unknown enum/schema into a positive result.",
+        "Equivalent fixture inputs change meaning because an adapter drops units, time basis, evidence IDs or authority ceiling."
+      ],
+      "required_evidence": [
+        "Schema and fixture digests",
+        "Consumer commits/build identities",
+        "Differential output comparison",
+        "Negative-control report"
+      ],
+      "hard_invariants": [
+        "producer_output_is_checked_independently",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-013",
+      "name": "contingency_option_value_and_recovery_reserve",
+      "paradigm": "adaptive_capacity_and_recovery_optionality",
+      "status": "research_backlog",
+      "hypothesis": "A policy that preserves eligible recovery options under declared disruptions can reduce recovery delay and unserved high-priority/community missions versus a nominal-throughput-only baseline, without weakening hard gates.",
+      "baseline": "A schedule selected only for nominal demand and throughput, without explicit accounting for the continued availability of alternate time windows, routes, or landing resources.",
+      "stimulus": "Replay identical pinned synthetic demand under paired policies: nominal-throughput-first, explicitly reserved contingency capacity, and adaptive option-preserving capacity. Apply predeclared vertiport/route closures, weather restrictions, stale capacity evidence, provider partition, and emergency insertion at fixed simulation times.",
+      "success_conditions": [
+        "Hard eligibility and independent-check outcomes are reported before any performance comparison, and no policy can convert a rejected or unresolved candidate into an eligible one.",
+        "Each policy reports the number of eligible recovery options remaining before and after each disruption, recovery time, delay distributions, unserved missions by declared service class/region, and reserve utilization/cost.",
+        "Paired results bind the same demand, disruption sequence, candidate set, constraints, and oracle; trade-offs and worst-case results remain visible rather than being collapsed into one score."
+      ],
+      "falsifiers": [
+        "A policy improves nominal throughput by weakening, bypassing, or hiding a hard gate.",
+        "A claimed recovery improvement cannot be reproduced from the same pinned inputs, or results count unavailable/stale resources as live options.",
+        "An aggregate improvement masks a material deterioration in a predeclared emergency or community-access outcome without making that trade-off explicit."
+      ],
+      "required_evidence": [
+        "Paired baseline/counterfactual scenario manifests and disruption timelines",
+        "Candidate-pool completeness declaration and independent hard-feasibility oracle",
+        "Exact-head replay outputs with source, constraint, model, and checker identities",
+        "Per-class/per-region outcome distributions, recovery-option counts, and reserve utilization",
+        "Sensitivity results for disruption timing and declared capacity assumptions"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "contingency_optionality_is_separate_from_nominal_throughput",
+        "recovery_capacity_never_relaxes_hard_constraints",
+        "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
+      ]
+    },
+    {
+      "id": "AIR-PB-014",
+      "name": "authority_bound_fair_access_and_allocation_audit",
+      "paradigm": "airspace_as_an_auditable_public_commons",
+      "status": "research_backlog",
+      "hypothesis": "A versioned, authority-bound allocation policy plus group-level outcome auditing can make scarce airspace access decisions more explainable and reveal burdens that aggregate throughput hides, without weakening safety eligibility or inventing universal priority rules.",
+      "baseline": "An allocation process whose tie-breaks, priority semantics, or access effects are implicit, unversioned, or visible only through a single system-wide throughput score.",
+      "stimulus": "Create a synthetic capacity-constrained set of otherwise safety-eligible requests with explicitly declared mission classes and service regions. Apply a pinned authorized policy, then permute request ordering and change metadata that the policy does not authorize as a priority input (such as provider brand, operator reputation, network membership, or commercial size). Include unknown group metadata and capacity shortages.",
+      "success_conditions": [
+        "Every accepted, rejected, deferred, or unresolved request has a reason code linked to the exact policy version and authority reference; the policy itself is an explicit input, not inferred from model output.",
+        "Permuting input order or changing metadata not named by the policy leaves allocation outcomes invariant; a change is allowed only where the authorized policy explicitly defines the corresponding field as decision-relevant.",
+        "Outcomes are reported by declared mission/service group with sample counts, service rate, delay distribution, rejection/defer reason, and capacity use; missing classifications remain unknown rather than silently disappearing.",
+        "Safety/model/evidence hard gates run before access-policy optimization; the audit reports disparities but cannot convert an ineligible request into an eligible one."
+      ],
+      "falsifiers": [
+        "Operator identity, reputation, wealth/size, or network membership changes priority without an explicit authorized policy rule.",
+        "A scalar fairness/throughput score hides missing group data or materially adverse per-group outcomes.",
+        "The allocator or report treats its chosen policy as universally lawful, or bypasses a hard feasibility gate to improve an access metric."
+      ],
+      "required_evidence": [
+        "Versioned synthetic allocation policy and authority-reference fixture",
+        "Pinned candidate requests, resource capacity, and policy-eligible field declaration",
+        "Permutation/metamorphic corpus for irrelevant metadata and input order",
+        "Independent hard-eligibility oracle and exact-head replay receipt",
+        "Per-group outcomes with denominators, unknown/missing counts, and capacity accounting"
+      ],
+      "hard_invariants": [
+        "hard_constraints_precede_optimization",
+        "allocation_priority_comes_only_from_authorized_policy",
+        "access_outcomes_are_audited_by_declared_group",
+        "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "resilience_and_access_metrics_are_not_collapsed_into_one_safety_score"
+      ]
+    },
+    {
+      "id": "AIR-PB-015",
+      "name": "uncertainty_composition_across_provenance_boundaries",
+      "paradigm": "compositional_uncertainty_and_evidence_frontiers",
+      "status": "research_backlog",
+      "hypothesis": "An end-to-end uncertainty contract detects under-bounded predictions caused by hidden common-mode errors, coordinate/time transforms, evidence age, model residuals, and correlated inputs that each local adapter may appear to handle.",
+      "baseline": "Pipeline components emit unrelated scalar confidence values or locally valid bounds but discard units, dependency identity, correlation, source age, or transformation error before downstream composition.",
+      "stimulus": "Replay pinned synthetic truth cases through observation, source-age/latency, coordinate/time transformation, and model-prediction stages. Compare independent and correlated/common-mode error scenarios, reorder equivalent inputs, duplicate shared-provenance inputs, cross validity boundaries, and inject missing or unsupported uncertainty semantics.",
+      "success_conditions": [
+        "Every uncertainty component declares its represented quantity, units/reference frame/time basis, validity horizon, bound or distribution semantics, provenance, and dependence/correlation assumptions needed by the selected composition rule.",
+        "A separate analytic or set-based oracle finds no in-domain state outside any envelope advertised as conservative for the declared benchmark assumptions.",
+        "Known shared/common-mode dependencies are preserved; independence-based covariance or probabilistic composition is used only when the required assumptions and evidence are explicit.",
+        "Unknown, unbounded, stale, dimensionally incompatible, or unsupported uncertainty inputs produce unresolved or degraded results and cannot yield a positive geometric eligibility result.",
+        "Per-component contributions and the composition rule remain inspectable; the final output does not collapse uncertainty into an unqualified confidence score."
+      ],
+      "falsifiers": [
+        "Any oracle state falls outside an envelope declared conservative for the test domain.",
+        "A shared datum, clock, source, or model error is treated as independent or allowed to cancel without a justified dependency rule.",
+        "A missing or unsupported uncertainty component silently defaults to zero, or confidence is converted into a bound without a qualified mapping.",
+        "Input permutation or duplicate provenance changes an envelope in a way not allowed by the declared dependency semantics, or results cannot be reproduced from the pinned pipeline manifest."
+      ],
+      "required_evidence": [
+        "Versioned typed uncertainty-component and composition-rule contract",
+        "Pinned source/transform/model pipeline manifest and dependency graph",
+        "Independent analytic or set-based oracle with common-mode and correlation controls",
+        "Seeded fixtures covering latency, clock skew, frame transformation, stale evidence, and model residuals",
+        "Envelope outputs, under-approximation counterexamples, and component-wise contribution report",
+        "Exact-head implementation and independent-checker receipts"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unsupported_model_never_yields_geometry_clearance"
+      ]
+    },
+    {
+      "id": "AIR-PB-016",
+      "name": "independent_checker_diversity_and_fault_injection",
+      "paradigm": "assurance_diversity_and_adversarial_qualification",
+      "status": "research_backlog",
+      "hypothesis": "A producer and verifier that share a parser, model assumptions, transformation library, generated fixtures, or copied predicate can agree while sharing the same defect; an explicit fault-injection programme and dependency-diversity assessment exposes those common-mode failures.",
+      "baseline": "A green producer result plus a second checker result is treated as independent confirmation without evidence about implementation lineage, shared dependencies, oracle construction, or fault-detection coverage.",
+      "stimulus": "Create pinned candidate plans and evidence receipts, then inject one defect at a time into geometry boundaries, units, time bases, uncertainty metadata, resource totals, stale-source handling, authority scope and serialization. Run the producer and at least two separately derived checkers with recorded code/dependency lineages; include mutations targeted at components shared by multiple checkers and include valid near-boundary controls.",
+      "success_conditions": [
+        "Checker roles, implementation provenance, shared dependencies and oracle derivation are recorded; independence is described by concrete dimensions rather than a boolean label.",
+        "The mutation corpus contains valid controls and fault injections for every declared hard invariant; all expected detector outcomes are declared before the run.",
+        "At least one checker detects each injected fault within its declared scope, and common-mode mutations are shown to expose the checkers that are susceptible rather than being hidden by agreement.",
+        "Checker disagreement, unsupported cases, crashes and timeouts remain explicit results; majority vote cannot promote an unresolved or hard-gate-violating candidate.",
+        "A third party can reproduce mutation outcomes from pinned source, build, fixture, dependency and checker manifests."
+      ],
+      "falsifiers": [
+        "Two checkers agree only because they share the faulty producer predicate, normalization code or generated expected outputs, and the common-mode defect passes unnoticed.",
+        "A declared hard-gate violation survives all designated monitors without being recorded as a coverage gap.",
+        "A checker crash, timeout, schema mismatch or disagreement is counted as approval or silently omitted from the report.",
+        "The mutation campaign reports only a single aggregate score without mapping detected and undetected faults to invariants and checker lineage."
+      ],
+      "required_evidence": [
+        "Producer and checker source/build/dependency identities with a documented shared-dependency graph",
+        "Predeclared mutation operators and expected detection outcomes",
+        "Independent reference predicates or analytically derived boundary vectors",
+        "Valid near-boundary controls and a report of false alarms as well as missed faults",
+        "Per-invariant, per-checker mutation results with fault lineage and surviving counterexamples",
+        "Exact-head replay receipts and independent rerun instructions"
+      ],
+      "hard_invariants": [
+        "assurance_independence_is_evidenced_not_declared",
+        "producer_output_is_checked_independently",
+        "hard_constraints_precede_optimization",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ]
+    },
+    {
+      "id": "AIR-PB-017",
+      "name": "bounded_source_aware_affine_uncertainty_primitive",
+      "paradigm": "compositional_uncertainty_and_evidence_frontiers",
+      "status": "implemented_pending_exact_head_verification",
+      "scope": "test_only_scalar_additive_integer_affine_error_form; not flight dynamics, multi-axis geometry, a probability model, a validated reachable set, or operational qualification",
+      "hypothesis": "A small explicit affine error algebra can preserve declared shared-source dependencies and conservatively bound additive scalar uncertainty without assuming different source IDs are independent in the physical world or silently treating missing uncertainty as zero.",
+      "baseline": "Scalar margins are commonly passed between stages without a compositional contract for source identity, sign, bounds, overflow, or missing inputs.",
+      "stimulus": "Compose hand-derived synthetic scalar error terms with positive and negative integer coefficients, repeated stable source identities, distinct source identities, mismatched bounds for the same source, reversed input order, absent inputs, excess terms, coefficient limits, and output-bound overflow.",
+      "success_conditions": [
+        "Repeated contributions with the same source identity and identical declared bounds combine by explicit coefficient arithmetic; opposite coefficients cancel only under that explicit identity contract.",
+        "Contributions with different source IDs are not merged or cancelled by assumption, and interval endpoints are reversed correctly for negative coefficients.",
+        "Analytical expected bounds and canonical source order are stable under equivalent input permutations, including coefficient folds that temporarily exceed the limit but finish within it.",
+        "Missing models, mismatched bounds for a shared source, excess terms, out-of-range coefficients, and excessive output bounds fail closed.",
+        "The implementation is compiled only for tests and does not change the production geometry decision path.",
+        "Source IDs with leading or trailing whitespace are rejected rather than silently creating distinct identities for an intended shared source.",
+        "The committed 11-vector JSON corpus yields the expected interval or error for every case under the declared scalar-algebra contract.",
+        "An independently structured exhaustive point-enumeration oracle agrees with affine interval bounds for 1,000 reproducibly generated finite integer domains.",
+        "A separate shared-source oracle enumerates each unique provenance source once and agrees with the affine bounds on 1,000 deterministic generated cases containing repeated source identities.",
+        "A deliberately narrowed reported interval is rejected by the point oracle when a concrete shared-source assignment lies outside it."
+      ],
+      "falsifiers": [
+        "A different-source pair is silently merged or cancelled.",
+        "A repeated source ID with incompatible declared bounds is accepted.",
+        "A missing uncertainty model yields an implicit zero interval.",
+        "An overflow or configured work-bound violation returns a normal bounded result.",
+        "The prototype is described as multi-axis reachability, validated flight uncertainty, or operational safety.",
+        "Reordering the same legal contributions changes the final coefficient, bounded result, or acceptance outcome solely because an intermediate coefficient sum temporarily exceeds the limit.",
+        "Noncanonical source identifiers with leading or trailing whitespace are admitted as separate dependency identities.",
+        "Any JSON vector's observed result differs from its predeclared expected interval or error outcome.",
+        "The exhaustive point oracle finds any concrete source assignment outside the computed interval or any interval endpoint narrower than the exact finite-domain extrema.",
+        "The test oracle treats repeated contributions from the same source identity as independent latent values and therefore fails to detect a source-correlation defect.",
+        "A deliberately under-approximated claimed interval is accepted by the independent point-enumeration predicate."
+      ],
+      "required_evidence": [
+        "Exact-head Rust unit-test output",
+        "Hand-derived expected interval vectors for positive, negative, shared and distinct sources",
+        "Negative-control output for source mismatch, absent model, excessive terms, coefficient overflow, and excessive bounds",
+        "Source/build identity and a scope statement separating this primitive from the full AIR-PB-015 pipeline",
+        "Independent review of source-identity semantics before adding transformation or physical-model adapters",
+        "Permutation pair for same-source coefficients near the configured coefficient limit and negative-control source IDs with noncanonical whitespace",
+        "Fixture corpus tools/airspace-sim/fixtures/uncertainty_vectors.json with 11 hand-derived expected outcomes",
+        "Independent host-side arithmetic recomputation of all 11 committed vectors (structural cross-check only; Rust execution still pending)",
+        "Exact-head Rust test output for the vector-driven test and standalone uncertainty module",
+        "Deterministic seed and exact-head Rust result for 1,000 generated domains exhaustively enumerated over all concrete integer assignments",
+        "tools/airspace-sim/fixtures/uncertainty_vectors.json digest and fixture-driven 11-case result",
+        "Deterministic seed and exact-head Rust receipt for 1,000 domains with repeated source IDs, oracle enumeration over unique latent source values, and a deliberately narrowed-interval negative control."
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ]
+    },
+    {
+      "id": "AIR-PB-018",
+      "name": "separate_source_origin_from_latent_error_dependency",
+      "paradigm": "explicit_dependency_graph_for_compositional_uncertainty",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Uncertainty composition is more faithful when a source/origin identifier is distinct from the identity of the latent error variable it contributes.",
+      "baseline": "A source label doubles as a latent-error key, so distinct origins cannot express a shared common-mode dependency and one origin cannot name separate independent error modes.",
+      "stimulus": "Pair distinct source IDs with one dependency ID and opposite coefficients; pair one source ID with two distinct dependency IDs; add a conflicting-bound mutation for a shared dependency.",
+      "success_conditions": [
+        "Distinct origins sharing one explicitly declared dependency are grouped for interval bounds while both source records remain available for audit.",
+        "One origin with distinct dependency IDs does not cancel merely because the origin matches.",
+        "A shared dependency with conflicting bounds is rejected.",
+        "All 14 versioned JSON vectors still match hand-derived expectations.",
+        "The grouped point-enumeration oracle keys latent values by dependency_id, not source_id."
+      ],
+      "falsifiers": [
+        "A source ID alone causes two distinct dependency modes to cancel.",
+        "Distinct origins with one declared dependency are incorrectly treated as independent by the affine evaluator.",
+        "A dependency accepts inconsistent bounds.",
+        "A result is described as authenticated merely because dependency IDs match."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output",
+        "Versioned source/dependency JSON vectors and their digest",
+        "Independent grouped point-enumeration oracle",
+        "Negative controls showing distinct dependencies do not cancel and conflicting ranges fail closed"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only scalar additive integer-affine forms; dependency IDs are declared claims, not authenticated correlation evidence; no flight dynamics or physical uncertainty qualification"
+    },
+    {
+      "id": "AIR-PB-019",
+      "name": "typed_time_qualified_uncertainty_dependency_contract",
+      "paradigm": "make_units_frames_time_and_validity_part_of_uncertainty_semantics",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A latent-error dependency is composable only when its quantity, unit, reference frame, time basis, validity and declared provenance status agree with the supported contract.",
+      "baseline": "An identifier and numeric interval can be combined without checking whether values share a quantity/unit/frame/time basis or whether evidence is valid at evaluation time.",
+      "stimulus": "Mutate unit, frame, time basis, provenance claim and validity boundaries; assign inconsistent contract metadata to records sharing one dependency; evaluate immediately before, at and exactly at the half-open validity end.",
+      "success_conditions": [
+        "Only the explicit synthetic position-error/mm/local-frame/epoch-seconds contract is accepted by this research slice.",
+        "One dependency cannot combine different contracts even when IDs and numeric bounds look compatible.",
+        "Validity is half-open: valid_from_s is included and valid_until_s excluded; before-valid and expired states are distinct errors.",
+        "Claims of authenticated provenance are rejected because no authentication verifier exists in this test-only module.",
+        "All 22 versioned JSON vectors match their predeclared bounds or error outcomes."
+      ],
+      "falsifiers": [
+        "Unsupported units, frames or time bases produce interval bounds.",
+        "Inconsistent contract metadata under one dependency is accepted.",
+        "A future or expired dependency yields a normal bounds result.",
+        "An authenticated provenance label is trusted without a verifier.",
+        "A time boundary at valid_until_s is treated as still valid."
+      ],
+      "required_evidence": [
+        "Exact-head Rust tests over all 22 v3 JSON vectors",
+        "Negative controls for unit/frame/time-basis/provenance mismatches and invalid validity windows",
+        "Before/start/end-minus-one/end validity boundary tests",
+        "Independent host-side contract validator and finite-domain oracle",
+        "Exact input fixture digest and output/checker identity"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only scalar affine uncertainty with one synthetic unit/frame/time contract; validity is checked against caller-supplied evaluation time; provenance remains declared_unverified and unauthenticated"
+    },
+    {
+      "id": "AIR-PB-020",
+      "name": "separate_set_containment_from_probabilistic_calibration",
+      "paradigm": "two_evidence_channels_for_bounded_uncertainty_and_probability",
+      "status": "research_backlog",
+      "hypothesis": "Deterministic set-containment claims and probabilistic conflict-risk estimates require different assumptions, oracles and scorecards; neither may be used as a substitute for the other.",
+      "baseline": "A single scalar risk/confidence output can hide that interval coverage is a hard-set claim while a probability estimate depends on a distribution, calibration data, encounter geometry and evaluation horizon.",
+      "stimulus": "Generate independent synthetic holdout encounters across geometry, uncertainty magnitude, look-ahead horizon and source-quality strata; compare exact finite-set extrema with separately generated probabilistic outcomes; inject distribution misspecification and near-look-ahead-boundary cases.",
+      "success_conditions": [
+        "Set-containment results are tested against exact finite-domain or qualified reachability oracles and remain a separate report.",
+        "Probability estimates are evaluated with reliability diagrams, Brier score and calibration error on a pinned holdout corpus with uncertainty intervals and predeclared strata.",
+        "The first synthetic calibration target is expected calibration error <= 0.05 on the held-out synthetic corpus, subject to declared binning/sample-size rules; this is not an operational aviation threshold.",
+        "A missing or misspecified probability distribution cannot be turned into a hard bound or authorization.",
+        "No low probability, average calibration score or risk score can waive a failed hard constraint, missing model qualification or stale-evidence gate."
+      ],
+      "falsifiers": [
+        "An interval containing all declared states is described as a probability distribution without additional assumptions.",
+        "A probabilistic estimate is described as a guaranteed outer bound.",
+        "Calibration is reported only in aggregate while predeclared encounter-geometry or horizon strata fail materially.",
+        "A low estimated risk converts hard-gate failure or unknown state into eligible-for-planning.",
+        "The near-look-ahead-boundary cases are omitted or receive materially optimistic calibration without an explicit caveat."
+      ],
+      "required_evidence": [
+        "Pinned scenario generator, random seeds, distributions and holdout split",
+        "Exact set-containment oracle report distinct from probability calibration",
+        "Reliability diagram, Brier score, calibration error and confidence intervals by predeclared stratum",
+        "Distribution-misspecification and near-look-ahead-boundary fault injections",
+        "Exact-head reproducibility receipt and independent checker result"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "hard_constraints_precede_optimization",
+        "producer_output_is_checked_independently",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "research backlog; synthetic probabilistic calibration only; no operational risk threshold, aircraft safety claim, authorization or substitution for bounded-set reasoning",
+      "research_basis": [
+        "May 2026 study of uncertainty quantification in state-based conflict detection and resolution: https://doi.org/10.1016/j.ress.2025.112111",
+        "Its reported setup explores Gaussian position/velocity error propagated using Monte Carlo and analytical approximations; this motivates a distinct calibration benchmark, not a flight-safety guarantee."
+      ]
+    },
+    {
+      "id": "AIR-PB-021",
+      "name": "content_addressed_replay_evidence_receipt",
+      "paradigm": "results_are_replayable_objects_bound_to_exact_inputs_and_checkers",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A deterministic receipt binding exact fixture bytes, the supported contract, evaluator/checker identity, evaluation-time policy and observed outcomes makes replay claims independently falsifiable.",
+      "baseline": "A summary can be detached from the source bytes, contract or outcomes that produced it; superficial metadata can change without invalidating the reported result.",
+      "stimulus": "Mutate one byte of the fixture, one supported-contract field and one observed outcome independently; alter receipt schema, digest format, case count and signature-status claims.",
+      "success_conditions": [
+        "SHA-256 of the exact committed fixture bytes matches the pinned digest.",
+        "The canonical supported dependency-contract serialization matches its pinned digest.",
+        "Observed outputs serialized in a declared field order match the pinned expected outcome digest.",
+        "Input-byte, contract and output mutations all change their respective digests.",
+        "The receipt says unsigned and external exact-head CI context is required; it never implies authentication, a signature, completed Rust execution or operational safety."
+      ],
+      "falsifiers": [
+        "An input, contract or outcome mutation leaves the pinned digest unchanged.",
+        "Receipt hashes are malformed or algorithm metadata is unknown but the receipt is accepted.",
+        "A receipt can claim signed/authenticated provenance without a verifier or signature-validation path.",
+        "A receipt is described as a runtime attestation before the exact-head test has actually executed."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output for receipt replay and all mutation controls",
+        "Independently computed SHA-256 of exact fixture bytes and canonical contract bytes",
+        "Observed-outcome digest comparison and explicit serializer field order",
+        "Exact-head CI/revision identity supplied externally, not self-asserted in the receipt",
+        "Unsigned / no-authority status checked by the receipt validator"
+      ],
+      "hard_invariants": [
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ],
+      "scope": "unsigned expected-digest contract binding SHA-256 only; not a signed attestation, authenticated source identity, completed Rust execution evidence or operational aviation safety claim"
+    },
+    {
+      "id": "AIR-PB-022",
+      "name": "independent_oracle_detects_correlated_error_faults",
+      "paradigm": "algorithmic_diversity_over_shared_representation",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A point-assignment checker that evaluates original contributions without coefficient coalescing can detect dependency-grouping and interval-under-approximation defects that a structurally similar evaluator may share.",
+      "baseline": "An oracle that aggregates coefficients by dependency can reproduce a class of grouping mistakes in the implementation it is intended to check.",
+      "stimulus": "Use a pinned seeded corpus of 1,000 small shared-dependency domains with distinct source origins, mixed-sign coefficients and independent dependency modes; compare evaluator bounds with exhaustive latent-value assignments; inject a narrowed-interval output mutant.",
+      "success_conditions": [
+        "The reference checker enumerates one value per shared dependency and evaluates original contribution terms individually without reusing the production dependency-keyed aggregation.",
+        "All 1,000 seeded shared-dependency domains agree exactly between implementation bounds and exhaustive assignment extrema.",
+        "The declared narrowed-interval mutant is rejected by the independent oracle.",
+        "Conflicting bounds for one dependency or a checker/evaluator disagreement fails the test; disagreement is never converted into clearance or a safety pass."
+      ],
+      "falsifiers": [
+        "Any finite-domain bounds disagreement is accepted.",
+        "The reference checker coalesces coefficients using the same implementation path before evaluating assignments.",
+        "A declared under-approximation mutant remains accepted.",
+        "A research-oracle pass is described as operational aviation qualification."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output and immutable commit SHA",
+        "Seed and generator version for the 1,000-case corpus",
+        "Independent oracle source and evaluator source identities",
+        "Declared mutation controls and exact rejection count",
+        "Receipt binding the fixture, test code, expected results and checker identity"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "bounded synthetic integer domains and test-only differential verification; not a proof of oracle independence, formal verification, a qualified reachable-set model or operational aviation safety"
+    },
+    {
+      "id": "AIR-PB-023",
+      "name": "typed_uncertainty_lineage_and_dimensionally_explicit_projection",
+      "paradigm": "uncertainty_is_a_typed_dependency_graph_not_an_unlabelled_scalar",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Observation position error, transformation residual and clock-offset error can compose into a common output-space bound only when every input unit, frame, validity window and conversion sensitivity is explicit and compatible.",
+      "baseline": "A scalar uncertainty field can silently add a time quantity to a position quantity, hide transformation-frame mistakes, or treat a missing velocity/time sensitivity as zero.",
+      "stimulus": "Replay the pinned typed-lineage fixture mixing synthetic millimetre position error, synthetic millisecond clock offset and transform residuals. Mutate unit labels, transform target frames, sensitivity-model identity, validity bounds, dependency dimension and shared-source grouping.",
+      "success_conditions": [
+        "Typed observation and transform residuals map only into the declared synthetic output frame and millimetre dimension.",
+        "A clock offset requires a declared millimetre-per-millisecond sensitivity basis and sensitivity-model identity before it contributes to position bounds.",
+        "Transform residuals name transform identity, source frame and target frame; the target must equal the declared output frame.",
+        "Contributions sharing a dependency retain one common input interval and one typed dependency contract; unlike quantities cannot be coalesced under a reused dependency ID.",
+        "Rational sensitivity conversion uses outward rounding at the output boundary and never narrows the declared bound.",
+        "Unknown units, missing conversion evidence, stale dependencies, incompatible dimensions or frame mismatch yield explicit errors, never an implicit zero or a clear classification."
+      ],
+      "falsifiers": [
+        "A clock offset is added to millimetres without an explicit sensitivity basis.",
+        "A transform residual is admitted with a target frame different from the output frame.",
+        "Two different quantity dimensions sharing one dependency ID are silently combined.",
+        "Fractional millimetre conversion rounds inward.",
+        "An absent sensitivity model, expired source or unsupported unit returns numerical bounds."
+      ],
+      "required_evidence": [
+        "Exact-head Rust unit-test output for the typed lineage fixture",
+        "Pinned fixture digest and exact source/model identifiers",
+        "Independent calculation for mixed-error outward bounds",
+        "Negative controls for unit, frame, validity and shared-dependency mutations",
+        "Explicit statement that transform/model sensitivity is caller-declared synthetic evidence, not physical qualification"
+      ],
+      "hard_invariants": [
+        "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only synthetic integer uncertainty composition with explicit typed units and declared sensitivities; no geodetic transformation, real clock synchronization, validated dynamics, qualified reachable set or operational aviation authority"
+    },
+    {
+      "id": "AIR-PB-024",
+      "name": "strict_typed_schema_and_differential_lineage_oracle",
+      "paradigm": "schemas_are_executable_contracts_and_checkers_use_a_distinct_representation",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Rejecting unknown fields and comparing the typed evaluator against exhaustive assignments catches silent schema drift, coefficient-grouping defects and term-order sensitivity before lineage metadata can influence a decision.",
+      "baseline": "Permissive deserialization can ignore misspelled metadata, while a checker using the same aggregation path can repeat evaluator defects.",
+      "stimulus": "Mutate valid typed-lineage JSON by inserting an unknown/misspelled field; generate 500 seeded typed domains mixing position and clock-offset dimensions with shared dependencies; evaluate each domain by exhaustive per-dependency assignment and compare with the typed evaluator; reverse term order.",
+      "success_conditions": [
+        "Unknown fields in the typed-term, case, output-contract or fixture-envelope schema are rejected.",
+        "All 500 seeded generated domains match the term-wise exhaustive assignment oracle exactly after outward rounding.",
+        "All 500 term-order reversals preserve the output bounds.",
+        "Position and clock-offset dependency dimensions cannot be mixed by reusing one dependency ID.",
+        "Any oracle disagreement or unknown-field acceptance fails closed; none is converted to numerical clearance or silent default."
+      ],
+      "falsifiers": [
+        "A typo or unknown field is ignored while a result is still accepted.",
+        "Any generated typed-lineage domain disagrees with the independent assignment oracle.",
+        "Term permutation changes normalized bounds.",
+        "A shared dependency ID silently changes quantity dimension or validity contract."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output for strict deserialization and 500 generated differential cases",
+        "Pinned generator seed and generator implementation identity",
+        "Exact typed-lineage fixture digest and schema version",
+        "Observed disagreement and unknown-field mutation counts",
+        "Explicit separation between schema conformance, synthetic arithmetic correctness and physical model qualification"
+      ],
+      "hard_invariants": [
+        "unrecognized_contract_fields_fail_closed",
+        "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only synthetic typed uncertainty contract; no authenticated provenance, real geodetic transformation, live clock synchronization, validated aircraft dynamics or operational aviation authority"
+    },
+    {
+      "id": "AIR-PB-025",
+      "name": "typed_lineage_metamorphic_laws_and_under_approximation_detection",
+      "paradigm": "correctness_is_invariant_under_equivalent_representations_and_monotone_under_uncertainty_widening",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Typed uncertainty bounds should obey algebraic relations even where an individual expected-answer fixture is absent: source-label renaming and sensitivity splitting preserve bounds, while widening a shared dependency interval cannot shrink them.",
+      "baseline": "Example-based assertions and finite-domain oracles cover selected inputs but may miss representation-sensitive defects or fail to detect incorrect bounds for a generated input without a separately pinned expected answer.",
+      "stimulus": "Run 500 seeded typed domains through three metamorphic relations: rename source labels, split one contribution into two sensitivities with the same exact sum, and widen one dependency interval consistently across every term sharing that dependency. Include a deliberately narrowed-output mutation control.",
+      "success_conditions": [
+        "All 500 generated source-label renamings preserve output bounds exactly.",
+        "All 500 sensitivity-split transformations preserve output bounds exactly, including negative and odd fixed-point sensitivities.",
+        "All 500 consistent dependency-interval widenings produce an output interval that contains the original interval.",
+        "The explicit narrowed-output mutant violates containment and is detected.",
+        "The generator seed, transformations, relation counts and exact test source are pinned; every failure reports the generated case index and relevant dependency."
+      ],
+      "falsifiers": [
+        "Equivalent source-label renaming changes numeric bounds.",
+        "Splitting a coefficient into summands with an identical total changes bounds.",
+        "Widening any shared dependency interval excludes a previously possible output.",
+        "The narrowed-output mutation control passes containment.",
+        "A metamorphic pass is described as validating physical aircraft dynamics, operational risk, or aviation safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output and immutable commit SHA",
+        "Generator seed and exact relation implementations",
+        "Per-relation denominator and mismatch count for 500 generated domains",
+        "Observed detection of the deliberately narrowed-output mutant",
+        "Separate differential-oracle evidence and explicit synthetic-only scope"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ],
+      "scope": "test-only metamorphic checks over bounded synthetic integer typed-lineage domains; does not validate oracle independence formally, physical uncertainty distributions, reachable sets, real aircraft dynamics, or operational aviation safety"
+    },
+    {
+      "id": "AIR-PB-026",
+      "name": "versioned_typed_lineage_adapter_preserves_metadata_and_fail_closed_semantics",
+      "paradigm": "evidence_equivalence_requires_metadata_preservation_not_only_equal_numeric_outputs",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A schema adapter can preserve numerical bounds while silently changing a dependency identity or dropping an explicit-null metadata field; a checker must compare the typed contract and reject omissions rather than relying on outcome equality alone.",
+      "baseline": "A value-only round-trip test can pass when the dependency graph's identity metadata changed, because the mutated dependency may not change this particular interval result.",
+      "stimulus": "Serialize typed fixture and generated lineage through a separately named, versioned adapter schema with explicit field mapping. Round-trip all seven committed typed-lineage fixtures and 500 seeded generated domains. Remove a required dependency field, remove an explicitly-null optional transform field, inject an unknown field, alter a dependency key while preserving numeric bounds, and mutate the adapter schema or authority ceiling.",
+      "success_conditions": [
+        "All seven committed cases preserve every source ID, dependency ID, dimension, unit, frame, time basis, validity bound, input interval, sensitivity, transform identity and sensitivity-model identifier exactly.",
+        "All 500 generated domains preserve exact term structures and produce identical bounds or identical typed errors before and after the adapter round-trip.",
+        "Missing required fields and omitted nullable fields are rejected; explicit null remains distinct from a missing property.",
+        "Unknown adapter fields, unsupported schema versions, missing fixture identity and authority-ceiling mutation fail closed.",
+        "A dependency identity mutation is detected by the metadata comparison even when the numeric interval is unchanged.",
+        "Evidence binds the exact head, adapter schema, fixture bytes, generator seed, per-control outcomes and authority ceiling; no adapter integrity claim is called authentication."
+      ],
+      "falsifiers": [
+        "An omitted field deserializes into a default/null value and is accepted.",
+        "Any required typed metadata changes during a round-trip.",
+        "Any of the 500 generated bounds or typed errors changes during round-trip.",
+        "The dependency-key mutation passes metadata equivalence solely because numeric bounds match.",
+        "The checker accepts unknown fields or a changed authority ceiling.",
+        "A serialization pass is described as source authentication, aircraft-model qualification or operational aviation safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust tests, build/toolchain identity and commit SHA",
+        "Adapter schema version and canonical fixture digest",
+        "Seed and generator implementation identity for 500 generated cases",
+        "Field-by-field metadata equality results and bounds/error parity results",
+        "Rejection evidence for omitted-required, omitted-nullable and unknown-field controls",
+        "A reproducible same-bounds/different-metadata negative control",
+        "Explicit unsigned/integrity-only and synthetic-only scope"
+      ],
+      "hard_invariants": [
+        "producer_output_is_checked_independently",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+        "unrecognized_contract_fields_fail_closed"
+      ],
+      "scope": "test-only versioned serialization adapter over synthetic typed-lineage terms; a successful round-trip establishes contract preservation only for the declared test schema and domain, not authenticated provenance, a qualified transformation engine, physical reachability or operational aviation safety"
+    },
+    {
+      "id": "AIR-PB-027",
+      "name": "typed_adapter_receipt_pins_raw_fixture_bytes_and_scope",
+      "paradigm": "reproducible_evidence_requires_byte_identity_and_an_explicit_authority_ceiling",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A pinned digest and byte length can detect fixture drift that preserves JSON semantics, but an unsigned receipt cannot prove publisher identity, source rights, freshness, or physical truth.",
+      "baseline": "Schema and semantic round-trip tests may continue to pass after whitespace, key-order or formatting edits change the reviewed artifact bytes, making it difficult to distinguish the reviewed input from a later revision.",
+      "stimulus": "Bind the committed versioned adapter JSON fixture's exact raw bytes, final newline, SHA-256, byte length, schema ID, fixture identity and authority ceiling in an unsigned receipt contract. Append semantically inert whitespace to produce a byte-mutation negative control.",
+      "success_conditions": [
+        "The receipt's SHA-256 and byte length match the exact committed fixture bytes, including the final newline.",
+        "A semantically inert byte mutation remains valid JSON but no longer matches the pinned digest or byte length.",
+        "The receipt schema rejects unknown fields and pins the adapter schema ID, fixture identity, checker identity, authority ceiling and unsigned status.",
+        "The receipt says exact-head source/build identity must be supplied externally and does not call an unsigned digest an attestation.",
+        "A passing byte-receipt check is reported only as local fixture-integrity evidence under this contract."
+      ],
+      "falsifiers": [
+        "Changed raw fixture bytes are accepted under the original receipt.",
+        "A parseable whitespace mutation retains the same digest or byte length.",
+        "The receipt's schema, fixture identity, or authority ceiling can be altered without detection by its contract assertions.",
+        "A SHA-256 match is described as publisher authentication, rights verification, physical truth or operational aviation safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output and commit SHA",
+        "Pinned fixture path, raw byte length and SHA-256",
+        "Receipt contract bytes and status/authority fields",
+        "Mutation input and observed digest/length mismatch",
+        "Explicit unsigned and source-revision-binding limitations"
+      ],
+      "hard_invariants": [
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "producer_output_is_checked_independently"
+      ],
+      "scope": "test-only SHA-256 receipt for one synthetic adapter JSON fixture; byte-integrity checking does not authenticate publishers, confirm rights or freshness, qualify aircraft dynamics, establish operational safety, or grant aviation authority"
+    }
+  ]
+}

@@ -1,0 +1,482 @@
+{
+  "schema": "aerocommons-airspace-coordination-requirements-v1",
+  "status": "design_contract",
+  "qualification_state": "specified_not_executed",
+  "authority_ceiling": "planning_simulation_interoperability_and_evidence_only",
+  "created_for_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5023",
+  "related_work": [
+    "https://github.com/Luminous-Dynamics/mycelix/issues/3638",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/3708"
+  ],
+  "nonclaims": [
+    "flight_authorization",
+    "aircraft_safety",
+    "airworthiness",
+    "certification",
+    "approved_separation_minima",
+    "real_time_air_traffic_control",
+    "physical_truth_from_simulation"
+  ],
+  "invariants": [
+    {
+      "id": "AIR-INV-001",
+      "statement": "A coordination reservation is not flight authorization unless a competent authority explicitly defines and issues it as such.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-002",
+      "statement": "A strategy or simulation result cannot replace onboard or approved tactical detect-and-avoid/separation functions.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-003",
+      "statement": "A route/trajectory comparison requires qualified spatial reference, vertical datum, time basis, validity interval, and uncertainty semantics.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-004",
+      "statement": "Missing, stale, contradictory, or unqualified inputs cannot produce a clear-to-fly classification.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-005",
+      "statement": "Reputation, consensus, record validity, or a signed receipt does not prove physical safety, authorization, or certification.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-006",
+      "statement": "Safety constraints are non-compensatory; throughput, cost, noise, and fairness cannot trade away a hard safety gate.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-007",
+      "statement": "Every flight geometry evaluation requires an explicit traffic-profile/model-profile pair admitted by a versioned applicability registry; unknown, missing, or unsupported pairs remain unresolved before geometric work.",
+      "hard_gate": true
+    }
+  ],
+  "classification_vocabulary": [
+    "AcceptForPlanningOnly",
+    "Conflict",
+    "Degraded",
+    "Reject",
+    "Unresolved",
+    "RequiresAuthorityReview"
+  ],
+  "cases": [
+    {
+      "id": "AIR-CASE-001",
+      "name": "stale_flight_intent",
+      "stimulus": "The intent validity interval expires before reservation activation or preflight recheck.",
+      "expected_classification": "Reject",
+      "required_behavior": "Require a refreshed intent and repeat the relevant conflict assessment.",
+      "forbidden_inference": "Historical conflict-free intent remains current after expiry."
+    },
+    {
+      "id": "AIR-CASE-002",
+      "name": "coordinate_frame_or_vertical_datum_mismatch",
+      "stimulus": "Two trajectory inputs use incompatible or unspecified spatial reference systems or vertical datums.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Require an explicit qualified transformation and preserve transformation provenance before comparison.",
+      "forbidden_inference": "Numerically similar coordinates represent the same physical location."
+    },
+    {
+      "id": "AIR-CASE-003",
+      "name": "unqualified_clock_or_excessive_clock_skew",
+      "stimulus": "Time inputs lack a qualified time basis or exceed the selected profile's permitted skew.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Do not compare space-time occupancy as authoritative until time qualification is restored.",
+      "forbidden_inference": "Timestamps from different clocks are interchangeable because they share a numeric representation."
+    },
+    {
+      "id": "AIR-CASE-004",
+      "name": "duplicate_or_replayed_reservation",
+      "stimulus": "An authenticated or unauthenticated duplicate message attempts to re-apply an old reservation state.",
+      "expected_classification": "Reject",
+      "required_behavior": "Use version, issuer, validity and replay-protection semantics; preserve the rejected event for audit.",
+      "forbidden_inference": "A valid historical signature makes an expired state current."
+    },
+    {
+      "id": "AIR-CASE-005",
+      "name": "overlapping_trajectory_tubes",
+      "stimulus": "Two current, qualified trajectory envelopes overlap in space and time under the applicable assessment profile.",
+      "expected_classification": "Conflict",
+      "required_behavior": "Do not present the pair as conflict-free; request replanning or a competent operational resolution.",
+      "forbidden_inference": "Nominal centerlines that do not cross prove robust separation."
+    },
+    {
+      "id": "AIR-CASE-006",
+      "name": "emergency_traffic_insertion",
+      "stimulus": "An emergency mission arrives after ordinary reservations have been issued.",
+      "expected_classification": "RequiresAuthorityReview",
+      "required_behavior": "Apply the applicable emergency-priority policy, assess affected reservations and contingencies, and do not prescribe physically impossible maneuvers.",
+      "forbidden_inference": "Emergency priority by itself proves every requested path is feasible or safe."
+    },
+    {
+      "id": "AIR-CASE-007",
+      "name": "communications_loss_or_provider_partition",
+      "stimulus": "Federated providers lose connectivity or cannot reconcile a reservation update.",
+      "expected_classification": "Degraded",
+      "required_behavior": "Use only the prequalified partition/degraded-mode policy; block unsupported new coordination claims and preserve local onboard safety behavior.",
+      "forbidden_inference": "A central service or remote network remains available just because the last response was valid."
+    },
+    {
+      "id": "AIR-CASE-008",
+      "name": "navigation_integrity_degraded",
+      "stimulus": "GNSS spoofing suspicion, sensor disagreement, stale observations, or uncertainty growth invalidates the selected navigation profile.",
+      "expected_classification": "Degraded",
+      "required_behavior": "Mark the capability/intent as degraded and defer the actual contingency to the qualified vehicle and operation profile.",
+      "forbidden_inference": "Network connectivity or a prior route authorization restores physical navigation integrity."
+    },
+    {
+      "id": "AIR-CASE-009",
+      "name": "weather_or_airspace_constraint_changes",
+      "stimulus": "A new weather hazard, temporary restriction, landing-site closure, or protected volume intersects a planned trajectory.",
+      "expected_classification": "Conflict",
+      "required_behavior": "Invalidate affected planning claims and recompute under the new versioned constraints.",
+      "forbidden_inference": "A plan remains valid because its original inputs were valid at submission time."
+    },
+    {
+      "id": "AIR-CASE-010",
+      "name": "non_cooperative_or_untracked_traffic",
+      "stimulus": "Traffic may be present but lacks sufficient qualified intent or tracking data.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Do not assume empty airspace; use approved traffic-awareness and detect-and-avoid procedures, escalating to the competent operational process where required.",
+      "forbidden_inference": "Unseen traffic is absent traffic."
+    },
+    {
+      "id": "AIR-CASE-011",
+      "name": "infeasible_corridor_without_escape_options",
+      "stimulus": "A corridor constraint leaves no trajectory satisfying the declared vehicle dynamics, uncertainty envelope, and contingency requirements.",
+      "expected_classification": "Reject",
+      "required_behavior": "Report infeasibility or request another route/capacity decision rather than silently weakening the constraint.",
+      "forbidden_inference": "Higher utilization makes an infeasible route acceptable."
+    },
+    {
+      "id": "AIR-CASE-012",
+      "name": "simulation_pass_presented_as_operational_approval",
+      "stimulus": "A successful simulated scenario is submitted as evidence that a real flight or deployed service is authorized/safe.",
+      "expected_classification": "Reject",
+      "required_behavior": "Retain simulation as simulation evidence within its declared model and scenario limits; require the independent operational approval path.",
+      "forbidden_inference": "Simulation success establishes airworthiness, certification, or permission to fly."
+    },
+    {
+      "id": "AIR-CASE-013",
+      "name": "record_or_reputation_used_as_safety_authority",
+      "stimulus": "A valid provenance receipt, quorum, reputation score, or protocol validation is used as the sole basis for a safety/authorization claim.",
+      "expected_classification": "Reject",
+      "required_behavior": "Require the relevant authoritative decision and qualified engineering/operational evidence.",
+      "forbidden_inference": "Protocol integrity or social consensus proves physical safety."
+    },
+    {
+      "id": "AIR-CASE-014",
+      "name": "one_provider_claims_conflicting_authoritative_views",
+      "stimulus": "Federated providers report incompatible active reservations for the same qualified space-time resource without a declared conflict state.",
+      "expected_classification": "Conflict",
+      "required_behavior": "Expose the inconsistency and reconcile under explicit issuer/version/authority rules before presenting a unified current state.",
+      "forbidden_inference": "A merged projection can hide contradictions while remaining authoritative."
+    },
+    {
+      "id": "AIR-CASE-015",
+      "name": "hard_safety_gate_traded_for_throughput",
+      "stimulus": "An optimizer ranks a candidate with a violated hard safety predicate above feasible alternatives due to throughput, cost, or noise score.",
+      "expected_classification": "Reject",
+      "required_behavior": "Apply hard safety predicates before optimization and keep the violated gate visible in the result.",
+      "forbidden_inference": "A favorable aggregate score compensates for a hard safety violation."
+    },
+    {
+      "id": "AIR-CASE-016",
+      "name": "missing_model_applicability_binding",
+      "stimulus": "A flight intent omits traffic_profile_id or model_profile_id, or supplies an empty identifier.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Return unresolved before trajectory, dynamic-constraint, or polygon intersection work; do not infer a default model from coordinates.",
+      "forbidden_inference": "Missing model metadata means the default or simplest kernel applies."
+    },
+    {
+      "id": "AIR-CASE-017",
+      "name": "real_world_traffic_profile_paired_with_toy_kernel",
+      "stimulus": "A catalogued real-world archetype such as conventional_fixed_wing, evtol_aam, low_altitude_multirotor_uas, or launch_reentry_suborbital is paired with the constant_velocity_toy_v1 model.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Reject the model/profile combination as unsupported before performing any geometric intersection work; preserve the declared unsupported model status.",
+      "forbidden_inference": "A valid local Cartesian coordinate and velocity record establish applicability to a real vehicle."
+    },
+    {
+      "id": "AIR-CASE-018",
+      "name": "direct_polygon_api_bypasses_model_admission",
+      "stimulus": "A caller sends a valid-looking FlightIntent directly to the planar polygon API with an unsupported traffic/model pair.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Apply the same fail-closed model-applicability gate in the polygon entry point and record zero geometric work.",
+      "forbidden_inference": "A lower-level geometry function may bypass the traffic-model admission contract."
+    }
+  ],
+  "evaluation_metrics": [
+    {
+      "id": "AIR-METRIC-001",
+      "name": "hard_safety_gate_violations",
+      "role": "non_compensatory_gate",
+      "notes": "Thresholds must come from the applicable authority and validated operation profile; this contract does not invent universal separation minima."
+    },
+    {
+      "id": "AIR-METRIC-002",
+      "name": "unresolved_or_conflicting_intent_rate",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-003",
+      "name": "delay_capacity_and_recovery",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-004",
+      "name": "noise_energy_and_ground_exposure",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-005",
+      "name": "allocation_access_and_emergency_performance",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-006",
+      "name": "partition_cyber_resilience_and_degraded_mode_coverage",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-007",
+      "name": "unsupported_model_profile_admission",
+      "role": "non_compensatory_gate",
+      "notes": "Every geometry entry point must fail closed before geometric work when the traffic/model pair is missing or unsupported; this gate is not a learned score or performance objective."
+    }
+  ],
+  "execution": {
+    "test_runner": "GitHub Actions: Airspace Replay Research Gate",
+    "target_commit": null,
+    "result": "not_run",
+    "note": "Traffic, lifecycle, and reservation snapshot fixtures are authored. Independent tool-side expectation checks are not Rust execution; update this only from exact-head GitHub Actions evidence."
+  },
+  "references": [
+    "https://www.faa.gov/uas/advanced_operations/traffic_management",
+    "https://www.faa.gov/air_traffic/publications/ATpubs/AIM_html/chap11_section_4.html",
+    "https://www.icao.int/safety/UA/Documents/UTM%20Framework%20Edition%204.pdf",
+    "https://www.easa.europa.eu/en/domains/air-traffic-management/u-space",
+    "https://ntrs.nasa.gov/citations/20250003243",
+    "https://ntrs.nasa.gov/citations/20250001367",
+    "https://www.itu.int/dms_pubrec/itu-t/rec/x/T-REC-X.1385-202504-I%21%21SUM-HTM-E.htm",
+    "https://www.caa.co.za/industry-information/uas/",
+    "https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english",
+    "https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html",
+    "https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX%3A02021R0664-20260222",
+    "https://www.easa.europa.eu/en/document-library/easy-access-rules/online-publications/easy-access-rules-u-space?erules-id=ERULES-1963177438-21387"
+  ],
+  "prototype": {
+    "implementation": "tools/airspace-sim",
+    "language": "Rust",
+    "status": "initial_traffic_lifecycle_reservation_event_and_dynamic_constraint_replay_authored",
+    "fixture_scenarios": [
+      "clear_separation",
+      "crossing_conflict",
+      "vertical_separation",
+      "uncertainty_expands_conflict",
+      "between_sample_crossing",
+      "frame_mismatch_unresolved",
+      "time_unqualified_unresolved",
+      "expired_intent_rejected",
+      "emergency_requires_review",
+      "time_basis_mismatch_unresolved",
+      "withdrawn_intent_rejected"
+    ],
+    "implemented_semantics": [
+      "synthetic_pairwise_trajectory_conflict_screen",
+      "horizontal_and_vertical_thresholds_remain_separate",
+      "uncertainty_and_relative_motion_conservative_margins",
+      "space_time_reference_frame_vertical_datum_and_time_basis_qualification",
+      "intent_validity_window_checks",
+      "proposed_accepted_activated_withdrawn_completed_lifecycle_type",
+      "emergency_priority_requires_authority_review_without_granting_authority",
+      "bounded_pair_sample_work",
+      "expected_vs_actual_fixture_replay",
+      "deterministic_intent_state_transition_validation",
+      "issuer_trajectory_digest_time_basis_and_monotonic_sequence_binding",
+      "provider_reservation_snapshot_pairwise_overlap_screen",
+      "half_open_resource_time_intervals",
+      "expired_withdrawn_and_ended_reservation_claims_are_not_current",
+      "duplicate_reservation_ids_remain_unresolved_without_last_writer_wins",
+      "stale_or_partitioned_snapshot_cannot_yield_no_conflict",
+      "emergency_reservation_does_not_automatically_preempt_conflict",
+      "bounded_reservation_claim_and_pairwise_work",
+      "provider_local_reservation_event_stream_replay_by_explicit_sequence",
+      "event_predecessor_linkage_and_monotonic_issue_time_checks",
+      "reservation_event_gap_fork_and_illegal_transition_fail_closed",
+      "exact_full_event_retransmission_deduplication_with_auditable_count",
+      "out_of_order_event_arrival_reconciles_to_same_provider_local_projection",
+      "accepted_or_activated_unexpired_event_projection_for_snapshot_conflict_screen",
+      "versioned_dynamic_airspace_constraint_update_stream",
+      "active_constraint_volume_intersection_against_current_flight_intents",
+      "constraint_update_sequence_predecessor_and_source_identity_validation",
+      "constraint_activation_volume_revision_and_withdrawal_replay",
+      "known_constraint_impact_requires_reassessment_even_when_snapshot_stale",
+      "stale_or_partitioned_constraint_snapshot_cannot_yield_no_impact",
+      "continuous_time_axis_aligned_constraint_intersection_for_constant_velocity",
+      "half_open_constraint_validity_intersection_and_exact_boundary_semantics",
+      "bounded_constraint_flight_pair_intersection_work",
+      "synthetic_velocity_scaled_uncertainty_horizon_for_constraint_guard_band",
+      "versioned_model_applicability_registry_admits_only_an_explicit_synthetic_fixture_pair",
+      "missing_unknown_and_real_world_traffic_model_pairs_resolve_before_trajectory_geometry_work",
+      "direct_polygon_entry_point_enforces_the_same_model_applicability_gate"
+    ],
+    "not_yet_implemented": [
+      "networked provider federation, authenticated peer exchange, and replicated snapshot/event-log reconciliation",
+      "weather or terrain modeling",
+      "non_cooperative traffic modeling",
+      "validated aircraft dynamics or reachable-set analysis",
+      "official jurisdictional separation minima",
+      "operational authorization",
+      "full one-to-one executable coverage of all AIR-CASE requirements",
+      "competent-authority reservation allocation and flight-authorization lifecycle integration",
+      "capacity-aware scheduling, sequencing, and fairness across resource pools",
+      "authoritative provider identity/signature verification and trust-root governance",
+      "authenticated provider-to-provider event exchange and cryptographic payload/signature verification",
+      "cross-provider causal ordering, replicated event-log merge, reservation supersession, and jurisdiction-specific resolution policy",
+      "authoritative dynamic restriction ingestion/signature validation and jurisdiction-specific geometry/transformation",
+      "dynamic weather/wind/terrain modeling and validated continuous reachable-set intersection",
+      "validated continuous reachability for maneuvering trajectories, time-varying uncertainty envelopes, and polygon/polyhedron geometry",
+      "vehicle-specific dynamics and independently qualified applicability evidence for any real-world traffic archetype",
+      "authenticated provenance proving that a caller-declared traffic profile matches the physical vehicle/source"
+    ],
+    "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
+    "lifecycle_transition_cases": [
+      "proposed_to_accepted",
+      "accepted_to_activated",
+      "activated_to_ended",
+      "proposed_to_withdrawn",
+      "illegal_accepted_to_ended",
+      "sequence_gap",
+      "duplicate_sequence",
+      "time_reversal",
+      "issuer_changed",
+      "trajectory_digest_changed",
+      "time_basis_changed",
+      "withdrawn_terminal",
+      "empty_digest"
+    ],
+    "reservation_cases": [
+      "concurrent_overlap_conflict",
+      "half_open_adjacent_no_conflict",
+      "different_resource_no_conflict",
+      "expired_claim_does_not_block",
+      "withdrawn_claim_does_not_block",
+      "partitioned_snapshot_degraded",
+      "stale_snapshot_degraded",
+      "stale_update_duplicate_version_unresolved",
+      "incompatible_time_bases_unresolved",
+      "emergency_claim_requires_review",
+      "emergency_does_not_preempt_conflict",
+      "malformed_interval_rejected",
+      "future_issued_claim_unresolved",
+      "recovered_complete_snapshot_no_conflict"
+    ],
+    "reservation_semantics": {
+      "interval_semantics": "half_open_[start_s,end_s)",
+      "conflict_key": "same_resource_id_and_overlapping_interval_under_same_time_basis",
+      "snapshot_claim": "complete_fresh_is_synthetic_input_and_not_independent_network_evidence",
+      "duplicate_ids": "unresolved_no_last_writer_wins",
+      "incomplete_snapshot": "degraded_if_no_known_conflict; never no_conflict",
+      "emergency": "does_not_automatically_preempt_existing_claim; applicable jurisdictional priority rules are not implemented",
+      "work_bounds": {
+        "max_claims": 300,
+        "max_pair_checks": 50000
+      },
+      "authority_ceiling": "snapshot conflict assessment only; not reservation allocation or flight authorization"
+    },
+    "reservation_event_cases": [
+      "reordered_updates_converge_no_conflict",
+      "sequence_gap_unresolved",
+      "same_sequence_fork_unresolved",
+      "predecessor_mismatch_unresolved",
+      "illegal_terminal_transition_unresolved",
+      "exact_retransmission_is_idempotent",
+      "cross_provider_event_stream_conflict",
+      "withdrawal_releases_current_claim",
+      "partitioned_event_view_degraded",
+      "expired_replayed_history_not_current",
+      "future_event_time_unresolved",
+      "same_digest_conflicting_payload_unresolved",
+      "reservation_semantics_mutation_unresolved",
+      "event_issue_time_reversal_unresolved",
+      "missing_initial_prefix_unresolved",
+      "malformed_event_interval_rejected"
+    ],
+    "reservation_event_semantics": {
+      "sequence_scope": "strict per-reservation stream; starts at sequence 1 and must be contiguous",
+      "predecessor_link": "opaque prior-event identifier; this prototype does not compute or authenticate digests",
+      "event_order": "arrival order is ignored; sequence is sorted, but gaps and forks are unresolved",
+      "retransmission": "only field-for-field identical typed event records after schema parsing are deduplicated",
+      "mutable_fields": "resource, trajectory, time basis, interval, expiry, priority, and provider remain fixed within one reservation stream",
+      "active_projection": "latest Accepted or Activated event when not expired or ended",
+      "cross_provider": "conflicts are surfaced; no winner, global causal order, or reservation grant",
+      "maximum_received_events": 1000,
+      "authority_ceiling": "synthetic provider-local event replay and reservation conflict screen only",
+      "additional_negative_controls": [
+        "same_digest_conflicting_payload_unresolved",
+        "reservation_semantics_mutation_unresolved",
+        "event_issue_time_reversal_unresolved",
+        "missing_initial_prefix_unresolved",
+        "malformed_event_interval_rejected"
+      ]
+    },
+    "dynamic_constraint_cases": [
+      "new_restriction_intersects_accepted_intent",
+      "no_intersection_in_complete_snapshot",
+      "constraint_update_changes_clear_plan_to_affected",
+      "withdrawn_constraint_no_longer_intersects",
+      "partitioned_snapshot_without_updates_degraded",
+      "stale_snapshot_known_impact_still_requires_reassessment",
+      "constraint_sequence_gap_unresolved",
+      "constraint_fork_unresolved",
+      "malformed_constraint_bounds_rejected",
+      "constraint_frame_mismatch_unresolved",
+      "future_constraint_update_unresolved",
+      "expired_constraint_does_not_intersect",
+      "continuous_intersection_catches_between_integer_seconds",
+      "unqualified_flight_time_unresolved",
+      "exact_constraint_update_retransmission_idempotent",
+      "same_constraint_digest_different_payload_unresolved",
+      "constraint_authority_change_unresolved",
+      "constraint_vertical_datum_mismatch_unresolved",
+      "invalid_constraint_uncertainty_horizon_rejected",
+      "continuous_spatial_tangent_at_start_is_impact",
+      "constraint_valid_until_boundary_is_exclusive",
+      "unsupported_model_profile_resolves_before_constraint_intersection"
+    ],
+    "dynamic_constraint_semantics": {
+      "volume_model": "synthetic axis-aligned box in explicit local frame, vertical datum and time basis",
+      "temporal_semantics": "half-open [valid_from_s, valid_until_s); an intersection exactly at valid_until_s is excluded",
+      "update_order": "per-constraint contiguous sequence with predecessor linkage; arrival order is not authoritative",
+      "withdrawal": "latest withdrawn version removes the constraint from the current synthetic view; does not restore flight authorization or certify safety",
+      "intersection": "continuous-time analytical slab intersection for constant-velocity trajectories against expanded axis-aligned boxes, bounded by constraint/flight pair checks",
+      "stale_snapshot": "known intersections remain reassessment_required; absence of observed intersection in stale/partitioned view is degraded",
+      "authority_ceiling": "impact evidence only; competent service decides how to update or withdraw authorizations",
+      "additional_negative_controls": [
+        "exact_constraint_update_retransmission_idempotent",
+        "same_constraint_digest_different_payload_unresolved",
+        "constraint_authority_change_unresolved",
+        "constraint_vertical_datum_mismatch_unresolved",
+        "invalid_constraint_sample_step_rejected",
+        "unsupported_model_profile_resolves_before_constraint_intersection"
+      ],
+      "uncertainty_envelope": "declared flight uncertainty + constraint margin + absolute velocity scaled by a caller-specified synthetic uncertainty horizon",
+      "sampling": "no temporal point-sampling to detect geometric intersection; report records intersection checks, not sample checks",
+      "additional_cases": [
+        "continuous_intersection_catches_between_integer_seconds",
+        "continuous_spatial_tangent_at_start_is_impact",
+        "constraint_valid_until_boundary_is_exclusive"
+      ]
+    },
+    "flight_trajectory_fixture_bindings": {
+      "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+      "model_profile_id": "constant_velocity_toy_v1",
+      "applicability_registry": "tools/airspace-sim/fixtures/model_applicability.json",
+      "applicability_domain": "synthetic_fixtures_only",
+      "real_world_archetypes": "unsupported"
+    }
+  }
+}

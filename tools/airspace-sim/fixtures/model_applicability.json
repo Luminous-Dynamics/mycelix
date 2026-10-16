@@ -1,0 +1,16 @@
+{
+  "schema": "airspace-model-applicability-v1",
+  "status": "research_only_registry",
+  "default_on_unmatched": "unresolved",
+  "authority_ceiling": "synthetic_fixture_admission_only_not_operational_model_support",
+  "supported_pairs": [
+    {
+      "traffic_profile_id": "synthetic_fixture_kinematics_v1",
+      "model_profile_id": "constant_velocity_toy_v1",
+      "kernel_id": "synthetic_local_cartesian_constant_velocity",
+      "applicability_domain": "synthetic_fixtures_only",
+      "model_status": "toy_not_validated",
+      "operational_claims": false
+    }
+  ]
+}
