@@ -34,6 +34,7 @@ fn request() -> SourcingRequest {
         deliver_by: 10_000,
         max_quote_age_secs: 60,
         max_inventory_age_secs: 60,
+        max_credential_status_age_secs: 60,
         risk_model_digest: "fixture-risk-model-v1".into(),
     }
 }
@@ -71,6 +72,7 @@ fn offers_for_case(case_seed: u64) -> Vec<SupplierOffer> {
                 quote_valid_until: AS_OF + 100,
                 quote_evidence_status: EvidenceStatus::Verified,
                 supplier_credential_status: EvidenceStatus::Verified,
+                supplier_credential_checked_at: AS_OF - 10,
                 supplier_credential_valid_until: AS_OF + 100,
             }
         })
