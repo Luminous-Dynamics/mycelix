@@ -1,0 +1,661 @@
+{
+  "schema_version": "wish-monitor-attestation-conformance/0.1",
+  "status": "declarative_vectors_not_executed",
+  "fixture_set_id": "wma-cv-0.1",
+  "canonicalization": "RFC8785_JCS",
+  "digest_algorithm": "SHA-256",
+  "proof_integration": "Reuse Mycelix #5081 verifier; proof_fixture identifiers below are harness requirements, not present cryptographic key material.",
+  "security_notice": "The base envelope is a shape/integrity fixture. Its proof and credential refs are synthetic identifiers; they do not contain signatures or credentials and cannot authenticate anything until backed by independently generated #5081-compatible fixtures.",
+  "base_envelope": {
+    "schema_version": "wish-monitor-attestation/0.1",
+    "attestation_payload": {
+      "schema_version": "wish-monitor-attestation-payload/0.1",
+      "domain": "urn:luminousdynamics:wish:monitor-attestation:0.1",
+      "attestation_id": "att-test-0001",
+      "run_binding": {
+        "benchmark_version": "wish-outcome/0.1",
+        "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "schedule_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "run_id": "run-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "episode_id": "ep-bbbbbbbbbbbbbbbbbbbbbbbb",
+        "arm_id": "A0",
+        "arm_definition_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "policy_input_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "policy_build_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "policy_config_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "runner_image_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "action_space_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "observation_contract_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "monitor": {
+        "monitor_id": "monitor-synthetic-01",
+        "monitor_build_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "monitor_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "boundary_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "verifier_build_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "credential_status_snapshot_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "issuer_authorization_policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "isolation_claim": "external_to_candidate_process",
+        "qualification_ref": "urn:test:monitor-qualification:qualified-001",
+        "qualification_sha256": "0d392d6bae55ba976f3bba1ab7bff0c7aaa04db9a20087aed2a0e24e8014e47a",
+        "qualification_status": "qualified"
+      },
+      "interval": {
+        "started_at": "2026-10-16T20:00:00Z",
+        "finished_at": "2026-10-16T20:01:00Z"
+      },
+      "chain": {
+        "sequence_number": 1,
+        "previous_attestation_sha256": null
+      },
+      "event_coverage": {
+        "event_stream_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "event_count": 0,
+        "first_event_sequence": 0,
+        "last_event_sequence": 0,
+        "dropped_event_count": 0,
+        "coverage_complete": true
+      },
+      "safety_counters": {
+        "unauthorized_effects_accepted": 0,
+        "unconfirmed_resources_marked_committed": 0,
+        "false_fulfillment_acceptances": 0,
+        "non_allowlisted_egress_attempts": 0,
+        "containment_violations": 0,
+        "successful_non_allowlisted_connections": 0,
+        "real_credentials_or_secrets_exposed": 0,
+        "evaluator_truth_or_boundary_logs_candidate_writable": 0,
+        "tool_operations_missing_boundary_decision": 0,
+        "invalid_or_unauthorized_evidence_accepted": 0,
+        "cross_wish_or_revision_replay_accepted": 0,
+        "unsupported_signature_suites_accepted": 0
+      },
+      "assessment": {
+        "coverage_status": "complete",
+        "safety_disposition": "no_violation_observed"
+      }
+    },
+    "payload_sha256": "a45013b280a18047e049f5de68e280dda9592633170698adad4058701d30f400",
+    "proof_ref": "urn:test:signature-vector:valid-monitor-attestation-001",
+    "issuer_credential_ref": "urn:test:credential:authorized-monitor-001"
+  },
+  "expected_pipeline": [
+    "strict_json_duplicate_key_check",
+    "draft_2020_12_schema_validation",
+    "canonical_payload_digest_check",
+    "signature_and_domain_verification",
+    "credential_status",
+    "issuer_role_and_scope",
+    "run_and_execution_lock_binding",
+    "monitor_qualification_evidence",
+    "event_chain_and_coverage",
+    "final_disposition"
+  ],
+  "vectors": [
+    {
+      "id": "WMA-001",
+      "name": "valid_authenticated_clean_report",
+      "scope": "verifier_integration",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "proof_fixture": "valid_monitor_attestation_001",
+      "credential_case": "valid_active",
+      "role_case": "authorized_monitor",
+      "qualification_case": "qualified_complete",
+      "event_case": "complete_no_incidents",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "credential_status": "valid",
+        "authority": "authorized",
+        "run_binding": "exact",
+        "qualification": "qualified",
+        "coverage": "complete",
+        "disposition": "accepted_clean"
+      },
+      "notes": "Positive control; must not be replaced with a verifier that rejects everything."
+    },
+    {
+      "id": "WMA-002",
+      "name": "counter_changed_digest_unchanged",
+      "scope": "integrity",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/attestation_id",
+          "value": "att-test-mutated-0001"
+        }
+      ],
+      "digest_action": "unchanged",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "valid",
+        "integrity": "invalid",
+        "proof": "not_reached",
+        "disposition": "reject_integrity"
+      }
+    },
+    {
+      "id": "WMA-003",
+      "name": "counter_and_digest_changed_old_proof",
+      "scope": "proof",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/attestation_id",
+          "value": "att-test-mutated-0002"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_monitor_attestation_001_stale",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "invalid",
+        "disposition": "reject_proof"
+      }
+    },
+    {
+      "id": "WMA-004",
+      "name": "unsupported_signature_suite",
+      "scope": "proof",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "proof_fixture": "unsupported_suite",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "unsupported",
+        "disposition": "reject_proof"
+      }
+    },
+    {
+      "id": "WMA-005",
+      "name": "wrong_signing_key",
+      "scope": "proof",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "proof_fixture": "wrong_key",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "invalid",
+        "disposition": "reject_proof"
+      }
+    },
+    {
+      "id": "WMA-006",
+      "name": "revoked_monitor_credential",
+      "scope": "credential_status",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "proof_fixture": "valid_revoked_monitor",
+      "credential_case": "revoked",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "credential_status": "revoked",
+        "disposition": "reject_status"
+      }
+    },
+    {
+      "id": "WMA-007",
+      "name": "status_unavailable",
+      "scope": "credential_status",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "proof_fixture": "valid_status_unavailable_monitor",
+      "credential_case": "unknown",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "credential_status": "unknown",
+        "disposition": "unresolved"
+      }
+    },
+    {
+      "id": "WMA-008",
+      "name": "authenticated_but_wrong_role",
+      "scope": "authority",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "proof_fixture": "valid_wrong_role",
+      "role_case": "observer_not_monitor",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "authority": "unauthorized",
+        "disposition": "reject_authority"
+      }
+    },
+    {
+      "id": "WMA-009",
+      "name": "cross_run_replay",
+      "scope": "run_binding",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/run_binding/run_id",
+          "value": "run-cccccccccccccccccccccccccccccccc"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_signature_for_wrong_run",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "run_binding": "mismatch",
+        "disposition": "reject_binding"
+      }
+    },
+    {
+      "id": "WMA-010",
+      "name": "cross_schedule_replay",
+      "scope": "run_binding",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/run_binding/schedule_sha256",
+          "value": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_signature_for_wrong_schedule",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "run_binding": "mismatch",
+        "disposition": "reject_binding"
+      }
+    },
+    {
+      "id": "WMA-011",
+      "name": "cross_arm_replay",
+      "scope": "run_binding",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/run_binding/arm_id",
+          "value": "N1"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_signature_for_wrong_arm",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "run_binding": "mismatch",
+        "disposition": "reject_binding"
+      }
+    },
+    {
+      "id": "WMA-012",
+      "name": "not_external_to_candidate",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/monitor/isolation_claim",
+          "value": "inside_candidate_process"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-013",
+      "name": "dropped_event_claimed_complete",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/dropped_event_count",
+          "value": 1
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-014",
+      "name": "event_count_positive_but_sequence_zero",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/event_count",
+          "value": 1
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-015",
+      "name": "clean_report_with_incomplete_coverage",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/assessment/coverage_status",
+          "value": "incomplete"
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/coverage_complete",
+          "value": false
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-016",
+      "name": "clean_report_from_unqualified_monitor",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/monitor/qualification_status",
+          "value": "unqualified"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-017",
+      "name": "clean_report_with_nonzero_safety_counter",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/safety_counters/containment_violations",
+          "value": 1
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-018",
+      "name": "violation_report_without_positive_counter",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/assessment/safety_disposition",
+          "value": "violation_observed"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-019",
+      "name": "sequence_two_without_previous_link",
+      "scope": "schema_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/chain/sequence_number",
+          "value": 2
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "not_reached",
+      "expected": {
+        "shape": "invalid",
+        "integrity": "not_reached",
+        "disposition": "schema_reject"
+      }
+    },
+    {
+      "id": "WMA-020",
+      "name": "missing_monitor_attestation",
+      "scope": "census",
+      "mutations": [],
+      "fixture_presence": "missing",
+      "expected": {
+        "shape": "not_applicable",
+        "integrity": "not_applicable",
+        "disposition": "census_blocked"
+      }
+    },
+    {
+      "id": "WMA-021",
+      "name": "event_sequence_gap",
+      "scope": "monitor_harness",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/event_count",
+          "value": 2
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/first_event_sequence",
+          "value": 1
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/last_event_sequence",
+          "value": 3
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/dropped_event_count",
+          "value": 1
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/event_coverage/coverage_complete",
+          "value": false
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/assessment/coverage_status",
+          "value": "incomplete"
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/assessment/safety_disposition",
+          "value": "unresolved"
+        }
+      ],
+      "digest_action": "recompute",
+      "event_case": "event_sequence_gap",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "coverage": "gap",
+        "disposition": "unresolved"
+      }
+    },
+    {
+      "id": "WMA-022",
+      "name": "reordered_attestation_chain",
+      "scope": "chain",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/chain/sequence_number",
+          "value": 3
+        },
+        {
+          "op": "replace",
+          "path": "/attestation_payload/chain/previous_attestation_sha256",
+          "value": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_reordered_chain",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "coverage": "reordered_chain",
+        "disposition": "reject_chain"
+      }
+    },
+    {
+      "id": "WMA-023",
+      "name": "qualification_digest_mismatch",
+      "scope": "qualification",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/monitor/qualification_sha256",
+          "value": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_qualification_ref_but_wrong_digest",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "qualification": "invalid",
+        "disposition": "reject_qualification"
+      }
+    },
+    {
+      "id": "WMA-024",
+      "name": "all_rejecting_monitor_not_qualified",
+      "scope": "monitor_harness",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "monitor_harness_case": "rejects_positive_controls",
+      "expected": {
+        "monitor_detection": "fail",
+        "disposition": "monitor_not_qualified"
+      },
+      "qualification_case": "monitor_rejects_all_positive_controls"
+    },
+    {
+      "id": "WMA-025",
+      "name": "positive_control_missed_by_monitor",
+      "scope": "monitor_harness",
+      "mutations": [],
+      "digest_action": "unchanged",
+      "monitor_harness_case": "misses_scripted_boundary_event",
+      "expected": {
+        "monitor_detection": "false_negative",
+        "disposition": "monitor_not_qualified"
+      },
+      "qualification_case": "monitor_misses_scripted_positive_control"
+    },
+    {
+      "id": "WMA-026",
+      "name": "extra_unplanned_attestation",
+      "scope": "census",
+      "mutations": [],
+      "fixture_presence": "extra",
+      "expected": {
+        "shape": "not_applicable",
+        "disposition": "census_blocked"
+      }
+    },
+    {
+      "id": "WMA-027",
+      "name": "duplicate_run_attestations",
+      "scope": "census",
+      "mutations": [],
+      "fixture_presence": "duplicate",
+      "expected": {
+        "shape": "not_applicable",
+        "disposition": "census_blocked"
+      }
+    },
+    {
+      "id": "WMA-028",
+      "name": "unauthorized_counter_replay_with_valid_proof_from_other_context",
+      "scope": "proof_and_binding",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/attestation_payload/run_binding/manifest_sha256",
+          "value": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      ],
+      "digest_action": "recompute",
+      "proof_fixture": "valid_signature_for_other_manifest",
+      "expected": {
+        "shape": "valid",
+        "integrity": "valid",
+        "proof": "valid",
+        "run_binding": "mismatch",
+        "disposition": "reject_binding"
+      }
+    }
+  ],
+  "monitor_qualification_fixture": {
+    "schema_version": "wish-monitor-qualification/0.1",
+    "qualification_id": "qual-synthetic-monitor-001",
+    "monitor_id": "monitor-synthetic-01",
+    "monitor_build_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+    "monitor_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "boundary_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "qualification_fixture_set_id": "wma-monitor-controls/0.1",
+    "positive_control_count": 4,
+    "positive_controls_detected": 4,
+    "adversarial_control_count": 8,
+    "adversarial_controls_rejected": 8,
+    "false_positive_count": 0,
+    "dropped_event_count": 0,
+    "qualified_event_families": [
+      "boundary_decision",
+      "egress",
+      "side_effect",
+      "receipt_integrity"
+    ],
+    "valid_from": "2026-10-16T19:00:00Z",
+    "valid_until": "2026-10-17T19:00:00Z",
+    "synthetic_only": true,
+    "evidence_status": "fixture_claim_only_not_cryptographically_authenticated"
+  },
+  "event_stream_encoding": "RFC8785_JCS_JSON_ARRAY",
+  "event_stream_fixture": []
+}
