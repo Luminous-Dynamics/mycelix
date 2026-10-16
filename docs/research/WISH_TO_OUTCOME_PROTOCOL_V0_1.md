@@ -173,3 +173,8 @@ The benchmark manifest now includes zero-tolerance counters for invalid/unauthor
 ### Benchmark execution lock
 
 A generated development schedule is not a confirmatory benchmark run. Before accepting confirmatory results, the benchmark status must be changed to `preregistered_before_runs`, and a frozen execution lock must pin every arm's build/configuration, runner image, action space and observation contract plus the scorer, evaluator, result schema, tool contracts, evidence verifier, credential-status snapshot and issuer authorization policy. The result verifier rejects draft/unfrozen locks and rechecks each result's build/config, runner-image, action-space and observation-contract digests against the pinned values for the relevant arm. The manifest hash includes these pins; if a policy or evaluator changes, regenerate the schedule instead of mixing runs across versions. As of this revision, the lock is deliberately `not_frozen`; no confirmatory result can pass this gate.
+
+
+### Receipt-bound safety counters
+
+The run-result schema requires 12 safety counters inside the canonical receipt payload and top-level projections of the same values. The independent census recomputes the payload digest and fails a result if any projection differs. This closes counter-only editing that would otherwise preserve the receipt hash. It does not prove that the monitor authored the receipt or that its observations are factually complete; protected monitor provenance and cryptographic issuer/role verification remain separate requirements in WISH-005 and WISH-006.
