@@ -20,11 +20,11 @@ cargo run --manifest-path tools/wish-contract-check/Cargo.toml
 - `provenance.content_sha256` matches SHA-256 over RFC 8785 canonical JSON with only that digest field omitted.
 - Fixture paths must be relative and may not traverse outside the fixture directory.
 
-The digest is an integrity check, **not** proof that the requester's statements or source claims are true. A hash also does not authenticate a producer without an independently verified signature/key binding.
+Money budgets are encoded as exact decimal strings, not floating-point JSON numbers; a real action boundary must additionally validate precision against a pinned currency metadata version. The digest is an integrity check, **not** proof that the requester's statements or source claims are true. A hash also does not authenticate a producer without an independently verified signature/key binding.
 
 ## Fixture census v0.1
 
-The initial manifest contains nine cases: one minimal accepted request; four schema-rejection controls (false fulfillment, unapproved public summary, consent without a record, and an authorized state without an authorization reference); one duplicate-ID semantic rejection; one digest-tampering rejection; and malformed/duplicate-key parser rejections.
+The initial manifest contains ten cases: one minimal accepted request; four schema-rejection controls (false fulfillment, unapproved public summary, consent without a record, and an authorized state without an authorization reference); one floating-point money representation rejection; one duplicate-ID semantic rejection; one digest-tampering rejection; and malformed/duplicate-key parser rejections.
 
 The corpus is a contract smoke test, not a statistically powered benchmark, not a model-quality measure, and not evidence of real-world wish fulfillment. Additional property-based, fuzz, lifecycle-transition, authorization-boundary and blinded holdout tests are required before production use.
 
