@@ -22,6 +22,9 @@ pub mod fulfillment_tranches;
 /// Capability-first, evidence-gated sourcing comparison; no purchasing authority.
 pub mod sourcing;
 
+/// Bounded exact multi-source portfolio allocation; no purchase authority.
+pub mod portfolio;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
