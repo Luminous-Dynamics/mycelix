@@ -456,7 +456,7 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
         "without_mycelix",
     ];
     if arm_by_id.len() != required_arm_ids.len()
-        || required_arm_ids.iter().any(|arm_id| !arm_by_id.contains_key(arm_id))
+        || required_arm_ids.iter().any(|arm_id| !arm_by_id.contains_key(*arm_id))
     {
         return Err("v0.1 schedule must contain the exact seven registered comparison arms".into());
     }
@@ -472,7 +472,9 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
     for (arm_id, expected) in expected_components {
         let arm = arm_by_id.get(arm_id).expect("required arm checked above");
         if arm.enabled_components.len() != expected.len()
-            || expected.iter().any(|component| !arm.enabled_components.iter().any(|v| v == component))
+            || expected
+                .iter()
+                .any(|component| !arm.enabled_components.iter().any(|value| value.as_str() == *component))
         {
             return Err(format!("arm {arm_id} does not match its registered component set"));
         }
