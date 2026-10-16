@@ -71,7 +71,7 @@ impl PortfolioRequest {
             || self.deliver_by < self.evaluated_at
             || self.max_suppliers == 0
             || self.minimum_independent_sources == 0
-            || self.minimum_independent_sources > if self.allow_split { self.max_suppliers } else { 1 }
+            || self.minimum_independent_sources > (if self.allow_split { self.max_suppliers } else { 1 })
             || self.minimum_independent_sources > MAX_EXACT_OFFERS
             || self.max_supplier_share_bps == 0
             || u64::from(self.max_supplier_share_bps) > BPS_SCALE
@@ -786,6 +786,8 @@ pub fn evaluate_portfolios(
         currency: request.currency.clone(),
         required_quantity: request.required_quantity,
         required_evidence_origin: request.required_evidence_origin,
+        minimum_independent_sources: request.minimum_independent_sources,
+        independence_constraint_assessed: request.minimum_independent_sources > 1,
         policy_id: request.policy_id.clone(),
         policy_digest: request.policy_digest.clone(),
         scenario_set_id: request.scenario_set_id.clone(),
@@ -945,6 +947,36 @@ mod tests {
         }]).unwrap();
         assert_eq!(report.eligible_offer_count, 0);
         assert_eq!(report.rejected_offers[0].reason, RejectionReason::DependencyEvidenceNotVerified);
+    }
+
+    #[test]
+    fn shared_failure_domain_does_not_count_as_independent_sources() {
+        let req = request();
+        let offers = vec![
+            offer("offer-a", "supplier-a", "pool-a", 6, 1, 110, "region-common"),
+            offer("offer-b", "supplier-b", "pool-b", 6, 2, 120, "region-common"),
+        ];
+        let report = evaluate_portfolios(&req, &offers, &[]).unwrap();
+        assert_eq!(report.independence_constraint_assessed, true);
+        assert_eq!(report.feasible_portfolio_count, 0);
+        assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn explicit_supplier_failure_scenario_counts_the_full_allocation() {
+        let mut req = request();
+        req.max_suppliers = 1;
+        req.minimum_independent_sources = 1;
+        req.max_supplier_share_bps = 10_000;
+        let candidate = offer("offer-a", "supplier-a", "pool-a", 10, 1, 110, "region-a");
+        let scenarios = vec![DisruptionScenario {
+            scenario_id: "supplier-a-fails".into(),
+            failed_domains: vec!["supplier:supplier-a".into()],
+        }];
+        let report = evaluate_portfolios(&req, &[candidate], &scenarios).unwrap();
+        assert_eq!(report.pareto_frontier.len(), 1);
+        assert_eq!(report.pareto_frontier[0].worst_case_unavailable_quantity, 10);
+        assert_eq!(report.pareto_frontier[0].scenario_shortages[0].unavailable_quantity, 10);
     }
 
     #[test]
