@@ -335,6 +335,9 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
     if schedule.scenario_count != schedule.scenarios.len() {
         return Err("scenario_count does not match scenario array length".into());
     }
+    if schedule.scenario_count < REGIMES.len() || schedule.scenario_count % REGIMES.len() != 0 {
+        return Err("scenario count must be divisible by the number of named regimes".into());
+    }
     if schedule.seed_count == 0 || schedule.scenarios.is_empty() {
         return Err("scenario and seed counts must be nonzero".into());
     }
@@ -358,13 +361,39 @@ fn validate_schedule(schedule: &Schedule) -> Result<(), String> {
         {
             return Err(format!("scenario {} has out-of-range stress parameters", scenario.scenario_id));
         }
+        let regime_consistent = match scenario.regime.as_str() {
+            "nominal" => scenario.demand_shock_bps == 0
+                && scenario.capacity_loss_bps == 0
+                && scenario.coordinator_available,
+            "demand_shock" => scenario.demand_shock_bps > 0
+                && scenario.capacity_loss_bps == 0
+                && scenario.coordinator_available,
+            "capacity_loss" => scenario.demand_shock_bps == 0
+                && scenario.capacity_loss_bps > 0
+                && scenario.coordinator_available,
+            "stale_spatial_data" => scenario.demand_shock_bps == 0
+                && scenario.capacity_loss_bps == 0
+                && scenario.spatial_age_hours >= 24
+                && scenario.missing_spatial_permille >= 50
+                && scenario.coordinator_available,
+            "coordinator_outage" => !scenario.coordinator_available,
+            _ => false,
+        };
+        if !regime_consistent {
+            return Err(format!(
+                "scenario {} has parameters inconsistent with regime {}",
+                scenario.scenario_id, scenario.regime
+            ));
+        }
         if scenario_by_id.insert(scenario.scenario_id.as_str(), scenario).is_some() {
             return Err(format!("duplicate scenario_id: {}", scenario.scenario_id));
         }
         *regime_counts.entry(scenario.regime.clone()).or_default() += 1;
     }
-    if regime_counts.len() != REGIMES.len() || regime_counts.values().any(|count| *count == 0) {
-        return Err("schedule must contain all five named stress regimes".into());
+    if regime_counts.len() != REGIMES.len()
+        || regime_counts.values().any(|count| *count != schedule.scenario_count / REGIMES.len())
+    {
+        return Err("schedule must balance all five named stress regimes equally".into());
     }
 
     let mut arm_by_id = HashMap::new();
@@ -705,6 +734,15 @@ mod tests {
     #[test]
     fn rejects_unbalanced_scenario_regimes() {
         assert!(build_schedule(6, 1).is_err());
+    }
+
+    #[test]
+    fn rejects_rehashed_schedule_with_unbalanced_regimes() {
+        let mut schedule = build_schedule(10, 1).expect("balanced schedule");
+        schedule.scenarios[0].regime = schedule.scenarios[1].regime.clone();
+        let bytes = serde_json::to_vec(&schedule.scenarios).expect("serialize changed scenarios");
+        schedule.scenario_set_sha256 = sha256_hex(&bytes);
+        assert!(validate_schedule(&schedule).unwrap_err().contains("balance all five"));
     }
 
     #[test]
