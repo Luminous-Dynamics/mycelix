@@ -344,10 +344,11 @@ impl AdapterDescriptor {
 
 /// A length-bounded logical envelope containing bytes opaque to the adapter.
 ///
-/// The profile ID describes the transport framing/adapter profile, not an
-/// encryption suite. Construction validates basic metadata only. It does not
-/// prove that the payload is encrypted or signed; the caller must pass bytes
-/// produced by Pulse's existing cryptographic pipeline.
+/// The envelope profile identifies the transport-neutral Pulse message format.
+/// It is separate from transport framing (for example, QUIC streams versus a
+/// Bluetooth GATT frame). Construction validates metadata only; it does not
+/// prove that the payload is encrypted or signed. Callers must pass bytes
+/// produced by Pulse's existing end-to-end cryptographic pipeline.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpaqueEnvelope {
     logical_message_id: String,
@@ -671,7 +672,9 @@ impl fmt::Display for ReceiptVerificationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidContext => f.write_str("receipt context is empty, oversized, or invalid"),
-            Self::InvalidReceipt => f.write_str("recipient receipt failed authentication or binding checks"),
+            Self::InvalidReceipt => {
+                f.write_str("recipient receipt failed authentication or binding checks")
+            }
         }
     }
 }
@@ -891,21 +894,39 @@ mod tests {
         let mut no_consent = base.clone();
         no_consent.user_consent = PolicyDecision::Unknown;
         assert_eq!(
-            evaluate_route(&no_consent, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
+            evaluate_route(
+                &no_consent,
+                &policy(),
+                &envelope(100, UnixMillis::new(20_000)),
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
             Err(IneligibilityReason::UserConsentUnknown)
         );
 
         let mut no_regulatory_proof = base.clone();
         no_regulatory_proof.regulatory_permission = PolicyDecision::Unknown;
         assert_eq!(
-            evaluate_route(&no_regulatory_proof, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
+            evaluate_route(
+                &no_regulatory_proof,
+                &policy(),
+                &envelope(100, UnixMillis::new(20_000)),
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
             Err(IneligibilityReason::RegulatoryPermissionUnknown)
         );
 
         let mut unknown_privacy = base;
         unknown_privacy.privacy_permission = PolicyDecision::Unknown;
         assert_eq!(
-            evaluate_route(&unknown_privacy, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
+            evaluate_route(
+                &unknown_privacy,
+                &policy(),
+                &envelope(100, UnixMillis::new(20_000)),
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
             Err(IneligibilityReason::PrivacyPolicyUnknown)
         );
     }
@@ -922,7 +943,13 @@ mod tests {
             valid_for_millis: 100,
         };
         assert_eq!(
-            evaluate_route(&candidate(&descriptor, stale), &policy, &envelope, UnixMillis::new(1_500), MonotonicMillis::new(1_100)),
+            evaluate_route(
+                &candidate(&descriptor, stale),
+                &policy,
+                &envelope,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_100),
+            ),
             Err(IneligibilityReason::LinkAvailabilityUnknown)
         );
 
@@ -932,7 +959,13 @@ mod tests {
             valid_for_millis: 500,
         };
         assert_eq!(
-            evaluate_route(&candidate(&descriptor, future), &policy, &envelope, UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
+            evaluate_route(
+                &candidate(&descriptor, future),
+                &policy,
+                &envelope,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
             Err(IneligibilityReason::LinkAvailabilityUnknown)
         );
 
@@ -942,9 +975,121 @@ mod tests {
             valid_for_millis: 500,
         };
         assert_eq!(
-            evaluate_route(&candidate(&descriptor, unknown), &policy, &envelope, UnixMillis::new(1_500), MonotonicMillis::new(1_100)),
+            evaluate_route(
+                &candidate(&descriptor, unknown),
+                &policy,
+                &envelope,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_100),
+            ),
             Err(IneligibilityReason::LinkAvailabilityUnknown)
         );
+    }
+
+    #[test]
+    fn one_envelope_can_cross_distinct_transport_profiles() {
+        let quic = descriptor_for_transport_profile(
+            "quic-adapter",
+            "wan-uplink",
+            4096,
+            TransportMode::Online,
+            "quic-stream-v1",
+        );
+        let bluetooth = descriptor_for_transport_profile(
+            "bluetooth-adapter",
+            "nearby-radio",
+            1024,
+            TransportMode::Opportunistic,
+            "bluetooth-gatt-v1",
+        );
+        let envelope = envelope(100, UnixMillis::new(20_000));
+        let policy = policy();
+
+        let quic_route = evaluate_route(
+            &candidate(&quic, available_observation()),
+            &policy,
+            &envelope,
+            UnixMillis::new(1_500),
+            MonotonicMillis::new(1_500),
+        )
+        .unwrap();
+        let bluetooth_route = evaluate_route(
+            &candidate(&bluetooth, available_observation()),
+            &policy,
+            &envelope,
+            UnixMillis::new(1_500),
+            MonotonicMillis::new(1_500),
+        )
+        .unwrap();
+
+        assert_eq!(quic_route.transport_profile_id.as_str(), "quic-stream-v1");
+        assert_eq!(
+            bluetooth_route.transport_profile_id.as_str(),
+            "bluetooth-gatt-v1"
+        );
+        assert_eq!(envelope.envelope_profile_id().as_str(), "pulse-envelope-v1");
+    }
+
+    #[test]
+    fn envelope_profile_and_transport_profile_failures_are_distinct() {
+        let descriptor = descriptor(
+            "quic-adapter",
+            "wan-uplink",
+            4096,
+            TransportMode::Online,
+        );
+        let incompatible_envelope = OpaqueEnvelope::new(
+            "msg-0001",
+            EnvelopeProfileId::new("pulse-envelope-v2").unwrap(),
+            vec![0xA5; 100],
+            UnixMillis::new(20_000),
+        )
+        .unwrap();
+        assert_eq!(
+            evaluate_route(
+                &candidate(&descriptor, available_observation()),
+                &policy(),
+                &incompatible_envelope,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
+            Err(IneligibilityReason::EnvelopeProfileMismatch)
+        );
+
+        let mut unsupported_envelope_policy = policy();
+        unsupported_envelope_policy.required_envelope_profile_id =
+            EnvelopeProfileId::new("pulse-envelope-v2").unwrap();
+        assert_eq!(
+            evaluate_route(
+                &candidate(&descriptor, available_observation()),
+                &unsupported_envelope_policy,
+                &incompatible_envelope,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
+            Err(IneligibilityReason::EnvelopeProfileUnsupported)
+        );
+    }
+
+    #[test]
+    fn wall_clock_expiry_and_monotonic_freshness_use_separate_types() {
+        let observation = LinkObservation {
+            state: LinkState::Available,
+            observed_at_monotonic: MonotonicMillis::new(1_000),
+            valid_for_millis: 5_000,
+        };
+        let envelope = envelope(100, UnixMillis::new(20_000));
+
+        assert_eq!(
+            observation.effective_state(MonotonicMillis::new(1_500)),
+            LinkState::Available
+        );
+        assert_eq!(
+            observation.effective_state(MonotonicMillis::new(6_000)),
+            LinkState::Unknown
+        );
+        assert!(!envelope.is_expired(UnixMillis::new(19_999)));
+        assert!(envelope.is_expired(UnixMillis::new(20_000)));
     }
 
     #[test]
@@ -1038,7 +1183,13 @@ mod tests {
         let mut candidate = candidate(&descriptor, available_observation());
         candidate.privacy_permission = PolicyDecision::Denied;
         assert_eq!(
-            evaluate_route(&candidate, &policy(), &envelope(100, UnixMillis::new(20_000)), UnixMillis::new(1_500), MonotonicMillis::new(1_500)),
+            evaluate_route(
+                &candidate,
+                &policy(),
+                &envelope(100, UnixMillis::new(20_000)),
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
+            ),
             Err(IneligibilityReason::PrivacyPolicyDenied)
         );
     }
