@@ -311,10 +311,26 @@ fn parse_path(value: &Value, scenario_prefix: &str, index: usize) -> Result<Path
     };
 
     let id = string_field(object.get("id"), &format!("{prefix}.id"), &mut errors);
-    let priority = integer_field(object.get("priority"), &format!("{prefix}.priority"), &mut errors);
-    let available = bool_field(object.get("available"), &format!("{prefix}.available"), &mut errors);
-    let permitted = bool_field(object.get("permitted"), &format!("{prefix}.permitted"), &mut errors);
-    let latency_ms = positive_int_field(object.get("latency_ms"), &format!("{prefix}.latency_ms"), &mut errors);
+    let priority = integer_field(
+        object.get("priority"),
+        &format!("{prefix}.priority"),
+        &mut errors,
+    );
+    let available = bool_field(
+        object.get("available"),
+        &format!("{prefix}.available"),
+        &mut errors,
+    );
+    let permitted = bool_field(
+        object.get("permitted"),
+        &format!("{prefix}.permitted"),
+        &mut errors,
+    );
+    let latency_ms = positive_int_field(
+        object.get("latency_ms"),
+        &format!("{prefix}.latency_ms"),
+        &mut errors,
+    );
     let success_basis_points = integer_field(
         object.get("success_basis_points"),
         &format!("{prefix}.success_basis_points"),
@@ -328,7 +344,11 @@ fn parse_path(value: &Value, scenario_prefix: &str, index: usize) -> Result<Path
         &format!("{prefix}.payload_budget_bytes"),
         &mut errors,
     );
-    let cost_units = integer_field(object.get("cost_units"), &format!("{prefix}.cost_units"), &mut errors);
+    let cost_units = integer_field(
+        object.get("cost_units"),
+        &format!("{prefix}.cost_units"),
+        &mut errors,
+    );
     let energy_millijoules = integer_field(
         object.get("energy_millijoules"),
         &format!("{prefix}.energy_millijoules"),
@@ -438,7 +458,12 @@ fn bool_field(value: Option<&Value>, label: &str, errors: &mut Vec<String>) -> O
     }
 }
 
-fn simulate_message(scenario: &Scenario, strategy: Strategy, seed: u64, message_index: u64) -> Outcome {
+fn simulate_message(
+    scenario: &Scenario,
+    strategy: Strategy,
+    seed: u64,
+    message_index: u64,
+) -> Outcome {
     match strategy {
         Strategy::PreferredSinglePath => single_path(scenario, seed, message_index),
         Strategy::SequentialFailover => sequential_failover(scenario, seed, message_index),
@@ -498,7 +523,9 @@ fn parallel_redundancy(scenario: &Scenario, seed: u64, message_index: u64) -> Ou
         }
         add_attempt(&mut outcome, path);
         if path_succeeds(scenario, path, seed, message_index) {
-            best_latency = Some(best_latency.map_or(path.latency_ms, |best: u64| best.min(path.latency_ms)));
+            best_latency = Some(
+                best_latency.map_or(path.latency_ms, |best: u64| best.min(path.latency_ms)),
+            );
         }
     }
     outcome.delivery_latency_ms = best_latency;
@@ -517,7 +544,14 @@ fn eligible(path: &Path, scenario: &Scenario, message_index: u64) -> bool {
 
 fn path_succeeds(scenario: &Scenario, path: &Path, seed: u64, message_index: u64) -> bool {
     let mut state = seed ^ 0xcbf29ce484222325_u64;
-    for byte in scenario.id.bytes().chain([0xff]).chain(path.id.bytes()).chain([0xfe]).chain(message_index.to_le_bytes()) {
+    for byte in scenario
+        .id
+        .bytes()
+        .chain([0xff])
+        .chain(path.id.bytes())
+        .chain([0xfe])
+        .chain(message_index.to_le_bytes())
+    {
         state ^= u64::from(byte);
         state = state.wrapping_mul(0x100000001b3);
     }
