@@ -196,6 +196,8 @@ This proposal is motivated by, but does not claim more than, existing research:
 - Tretter and Puzio, “Red lines for religious AI,” *Nature* (14 October 2025): identifies concerns including manipulation, spiritual abuse, and dependency. https://www.nature.com/articles/d41586-025-03359-z
 - Rask and Shin, “Integrating Paths: Enhancing Deliberative Democracy Through Collective Intelligence Insights,” *Societies* (18 December 2024): reviews possible connections between collective intelligence, deliberation, and participatory governance; it does not guarantee that any specific tool improves decisions. https://www.mdpi.com/2075-4698/14/12/270
 
+- Winiger et al., “Artificial Intelligence in Spiritual Care: Modified Delphi Study,” *Journal of Medical Internet Research* (27 July 2026): the expert panel favored AI assistance for administrative, informational, documentation, and research tasks; agreement was lower for direct patient-facing and ritual tasks, and loss of human connection was the highest-ranked risk. This is expert opinion, not an efficacy trial, but it supports preserving qualified human relationships and keeping AI assistance task-bounded. https://pubmed.ncbi.nlm.nih.gov/42507998/
+
 The engineering contribution proposed here is the cross-scale contract: explicit evidence categories, participant sovereignty, reproducible tests, pluralistic deliberation, and a disciplined bridge from simulation to human evidence. It is a research proposal until the implementation and evaluations exist.
 
 ## 9. Relationship to existing work
