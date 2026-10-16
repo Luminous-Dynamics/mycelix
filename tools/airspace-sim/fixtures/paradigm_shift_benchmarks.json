@@ -570,7 +570,7 @@
         "Distinct origins sharing one explicitly declared dependency are grouped for interval bounds while both source records remain available for audit.",
         "One origin with distinct dependency IDs does not cancel merely because the origin matches.",
         "A shared dependency with conflicting bounds is rejected.",
-        "All 11 versioned JSON vectors still match hand-derived expectations.",
+        "All 14 versioned JSON vectors still match hand-derived expectations.",
         "The grouped point-enumeration oracle keys latent values by dependency_id, not source_id."
       ],
       "falsifiers": [
