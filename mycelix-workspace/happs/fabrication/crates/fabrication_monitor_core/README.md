@@ -4,7 +4,7 @@ A deterministic, Holochain-independent Rust core for the first Cincinnati proces
 
 ## Contract
 
-- Input: a source-timestamped sensor frame, exact design revision, exact recipe revision, exact calibration profile, monitoring-session ID, and a versioned detector configuration.
+- Input: a source-timestamped sensor frame, exact design/recipe/equipment/material/environment/calibration profile, monitoring-session ID, and a versioned detector configuration.
 - Baseline: robust medians and median absolute deviations (MAD) fit only from explicitly selected healthy reference frames. A per-signal minimum scale prevents division by zero.
 - Output: per-signal robust-z deviations plus a disposition explaining whether the frame was evaluated, rejected, uncalibrated, reordered, or separated by a data gap.
 - Determinism: no wall clock, randomness, network access, Holochain dependency, mutable global state, or machine I/O.
@@ -12,7 +12,7 @@ A deterministic, Holochain-independent Rust core for the first Cincinnati proces
 
 ## Why profile identity is exact
 
-The baseline is invalid for a frame from another design revision, process recipe or calibration profile. The core returns ProcessProfileMismatch rather than silently applying stale baseline statistics. Adapters must preserve units, source timestamps, sequence, missing-data state and the calibration identity provided by their measurement system.
+The baseline is invalid for a frame from another design, process recipe, equipment configuration, material lot/profile, declared environment, or calibration profile. The core returns ProcessProfileMismatch rather than silently applying baseline statistics outside their declared applicability. Reference fitting also rejects duplicated session sequence/timestamp identities so duplicated samples cannot inflate the reference count. Adapters must preserve units, source timestamps, sequence, missing-data state and measurement-system identity.
 
 ## Metrics and limitations
 
