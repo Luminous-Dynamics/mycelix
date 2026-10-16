@@ -99,7 +99,9 @@ just test-standards-registry
 just validate-standards-registry
 just standards-search-smoke
 just simulate-transport-smoke
+just evaluate-transport-smoke
 just simulate-transport
+just evaluate-transport
 ```
 
 The corpus starts with eleven explicit synthetic scenarios and 10,000 logical messages per scenario. Each run uses a fixed seed and compares the same deterministic draws, correlated within declared failure domains, under three policies: preferred single path, sequential failover, and parallel redundancy. It reports modeled path successes before deadline, P50/P95 modeled latency among successful simulations only, attempts, illustrative cost units, and illustrative energy units. Fixed-point aggregate fields are scaled by 1,000 to avoid floating-point output. The model applies payload budget, explicit permission, link availability and message-index outage ranges before any send attempt.
@@ -190,4 +192,4 @@ Before changing the simulator or routing objective, agree on these reporting rul
 - Require the 20% relative improvement target and a paired 95% interval excluding zero before calling the resilience target met; also report absolute percentage-point improvement and stable-network non-regression. All remain proposed gates until actually measured.
 - A safety, authorization, privacy, or false-delivery violation is a hard failure regardless of mean latency or delivery rate.
 
-The existing Rust simulator does not yet implement this full qualification protocol. In particular, a single fixed-seed synthetic path-success count is not a confidence interval, is not a verified recipient receipt, and does not establish RF or hardware performance. The next coding tranche is paired multi-seed evaluation plus a documented held-out split and manifest-bound reports.
+The existing Rust simulator does not yet implement this full qualification protocol. In particular, a single fixed-seed synthetic path-success count is not a confidence interval, is not a verified recipient receipt, and does not establish RF or hardware performance. The paired multi-seed evaluator, declared scenario split, and manifest-bound command path have now been added. Exact-head compilation/tests and execution remain pending; the next algorithmic tranche is better common-cause sensitivity analysis and model-based state-transition tests.
