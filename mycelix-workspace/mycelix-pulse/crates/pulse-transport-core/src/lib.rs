@@ -14,6 +14,8 @@ use std::fmt;
 
 /// Bounded retry/deadline lifecycle primitive; durable storage is supplied by the caller.
 pub mod delivery_state;
+/// Storage-neutral journal contract and in-memory reference model; not durable.
+pub mod delivery_journal;
 
 const MAX_IDENTIFIER_BYTES: usize = 64;
 const MAX_MESSAGE_ID_BYTES: usize = 128;
