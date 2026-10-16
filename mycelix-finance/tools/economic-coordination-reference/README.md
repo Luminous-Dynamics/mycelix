@@ -55,6 +55,22 @@ The additive `fulfillment_tranches` Rust module explores a ValueFlows-aligned ga
 - Claims and verification decisions are retained in an append-only journal. This is a serial reference model, not a distributed concurrency protocol or financial posting authorization.
 - Fourteen regression tests are authored for multiple tranches, partial acceptance, replay, overcommitment, over-fulfilment, unknown/synthetic evidence, independence, dispute resolution, deadline checks, and journal ordering. They remain unexecuted until qualification records show otherwise.
 
+## Partial-fulfilment experiment: proposed benchmarks
+
+These are acceptance targets for the tranche prototype, not measured results:
+
+| Benchmark | Target |
+|---|---:|
+| Conservation | 0 accepted units above request quantity across 100,000 generated transition sequences |
+| Evidence gate | 0 synthetic/unknown-origin units counted as accepted |
+| Replay resistance | 0 duplicate claim IDs or evidence IDs accepted across 10,000 replay attempts |
+| Pending-claim reservation | 0 overcommitted quantities across 100,000 generated claim interleavings |
+| Dispute audit | 100% of accepted decisions preserved in append-only verification history |
+| Deterministic replay | 100/100 same-input runs produce identical ordered journal digests |
+| Partial fulfillment | Exact agreement between per-tranche accepted quantities and aggregate accepted quantity in every generated case |
+
+The implementation is currently a serial in-memory reference. Concurrency/interleaving campaigns must not be presented as evidence of distributed safety until a concurrent or replicated model exists. A future integration should map tranche claims and acceptance decisions to ValueFlows semantics explicitly; ValueFlows defines an economic event as fulfilling a commitment completely or partially, but this module is not yet a ValueFlows adapter.
+
 ## Explicit limitations
 
 - Evidence status and origin are caller-supplied inputs. Separating `EvidenceStatus` from `EvidenceOrigin` prevents a legitimately verified simulation result from being treated as live-domain evidence, but the enum itself does not prove provenance: a dishonest caller can mislabel origin as `LiveDomain`. This crate does not authenticate signatures, establish physical truth, or qualify who may issue evidence.
