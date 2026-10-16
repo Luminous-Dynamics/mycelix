@@ -101,7 +101,9 @@ Report, without mixing the dimensions:
 - memory use, bytes retained per offer, and canonical report size;
 - results by scenario family, including censored/failed cases.
 
-Initial performance hypothesis after compilation is measured: p95 below 50 ms for 1,000 offers and below 1 s for 10,000 offers on a named, pinned host. The current pairwise frontier algorithm is quadratic; these targets may fail and must be revised only after preserving the measurements and examining algorithmic bottlenecks. No performance result is claimed.
+The implementation now uses a deterministic sweep over landed cost, arrival time and risk, with a Fenwick prefix-min index on compressed arrival coordinates. This changes frontier classification from O(n²) pairwise comparison to O(n log n) after sorting, while exact objective ties are classified as a group so identical offers do not arbitrarily dominate one another. The 2,048 × 32 generated differential oracle and a discrete objective-tie fixture exercise this logic, but neither has yet been observed passing on a runner.
+
+Initial performance hypothesis after compilation is measured: p95 below 50 ms for 1,000 offers and below 1 s for 10,000 offers on a named, pinned host. These are unmeasured targets, not guarantees. Benchmark the full evaluator (including evidence gates, sorting, allocations and report construction), preserve raw timings and host/toolchain metadata, and revise targets only with recorded measurements. No performance result is claimed.
 
 ## Cross-project contract
 
