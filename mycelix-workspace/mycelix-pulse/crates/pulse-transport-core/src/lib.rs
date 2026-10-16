@@ -128,6 +128,23 @@ impl TransportProfileId {
     }
 }
 
+/// Version of the transport-neutral Pulse encrypted-envelope contract.
+/// This is distinct from the link-specific frame/profile used by an adapter.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EnvelopeProfileId(String);
+
+impl EnvelopeProfileId {
+    pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
+        let value = value.into();
+        validate_identifier(&value)?;
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransportMode {
     Online,
@@ -183,7 +200,8 @@ pub struct TransportCapabilities {
     can_receive: bool,
     max_envelope_bytes: usize,
     mode: TransportMode,
-    profiles: Vec<TransportProfileId>,
+    transport_profiles: Vec<TransportProfileId>,
+    envelope_profiles: Vec<EnvelopeProfileId>,
 }
 
 impl TransportCapabilities {
@@ -192,7 +210,8 @@ impl TransportCapabilities {
         can_receive: bool,
         max_envelope_bytes: usize,
         mode: TransportMode,
-        profiles: Vec<TransportProfileId>,
+        transport_profiles: Vec<TransportProfileId>,
+        envelope_profiles: Vec<EnvelopeProfileId>,
     ) -> Result<Self, CapabilityError> {
         if !can_send && !can_receive {
             return Err(CapabilityError::NoDirectionSupported);
@@ -200,19 +219,27 @@ impl TransportCapabilities {
         if max_envelope_bytes == 0 {
             return Err(CapabilityError::ZeroPayloadBudget);
         }
-        if profiles.is_empty() {
-            return Err(CapabilityError::NoProfilesDeclared);
+        if transport_profiles.is_empty() {
+            return Err(CapabilityError::NoTransportProfilesDeclared);
         }
-        let unique_count = profiles.iter().collect::<BTreeSet<_>>().len();
-        if unique_count != profiles.len() {
-            return Err(CapabilityError::DuplicateProfile);
+        if envelope_profiles.is_empty() {
+            return Err(CapabilityError::NoEnvelopeProfilesDeclared);
+        }
+        let unique_transport_count = transport_profiles.iter().collect::<BTreeSet<_>>().len();
+        if unique_transport_count != transport_profiles.len() {
+            return Err(CapabilityError::DuplicateTransportProfile);
+        }
+        let unique_envelope_count = envelope_profiles.iter().collect::<BTreeSet<_>>().len();
+        if unique_envelope_count != envelope_profiles.len() {
+            return Err(CapabilityError::DuplicateEnvelopeProfile);
         }
         Ok(Self {
             can_send,
             can_receive,
             max_envelope_bytes,
             mode,
-            profiles,
+            transport_profiles,
+            envelope_profiles,
         })
     }
 
@@ -232,8 +259,20 @@ impl TransportCapabilities {
         self.mode
     }
 
-    pub fn supports_profile(&self, profile_id: &TransportProfileId) -> bool {
-        self.profiles.iter().any(|profile| profile == profile_id)
+    pub fn supports_transport_profile(&self, profile_id: &TransportProfileId) -> bool {
+        self.transport_profiles
+            .iter()
+            .any(|profile| profile == profile_id)
+    }
+
+    pub fn supports_envelope_profile(&self, profile_id: &EnvelopeProfileId) -> bool {
+        self.envelope_profiles
+            .iter()
+            .any(|profile| profile == profile_id)
+    }
+
+    pub fn transport_profiles(&self) -> &[TransportProfileId] {
+        &self.transport_profiles
     }
 }
 
@@ -241,8 +280,10 @@ impl TransportCapabilities {
 pub enum CapabilityError {
     NoDirectionSupported,
     ZeroPayloadBudget,
-    NoProfilesDeclared,
-    DuplicateProfile,
+    NoTransportProfilesDeclared,
+    NoEnvelopeProfilesDeclared,
+    DuplicateTransportProfile,
+    DuplicateEnvelopeProfile,
 }
 
 impl fmt::Display for CapabilityError {
@@ -250,10 +291,18 @@ impl fmt::Display for CapabilityError {
         match self {
             Self::NoDirectionSupported => f.write_str("adapter must support send or receive"),
             Self::ZeroPayloadBudget => f.write_str("max envelope size must be greater than zero"),
-            Self::NoProfilesDeclared => {
+            Self::NoTransportProfilesDeclared => {
                 f.write_str("at least one transport profile must be declared")
             }
-            Self::DuplicateProfile => f.write_str("transport profile IDs must be unique"),
+            Self::NoEnvelopeProfilesDeclared => {
+                f.write_str("at least one envelope profile must be declared")
+            }
+            Self::DuplicateTransportProfile => {
+                f.write_str("transport profile IDs must be unique")
+            }
+            Self::DuplicateEnvelopeProfile => {
+                f.write_str("envelope profile IDs must be unique")
+            }
         }
     }
 }
@@ -302,7 +351,7 @@ impl AdapterDescriptor {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpaqueEnvelope {
     logical_message_id: String,
-    profile_id: TransportProfileId,
+    envelope_profile_id: EnvelopeProfileId,
     payload: Vec<u8>,
     expires_at_unix_millis: UnixMillis,
 }
@@ -310,7 +359,7 @@ pub struct OpaqueEnvelope {
 impl OpaqueEnvelope {
     pub fn new(
         logical_message_id: impl Into<String>,
-        profile_id: TransportProfileId,
+        envelope_profile_id: EnvelopeProfileId,
         payload: Vec<u8>,
         expires_at_unix_millis: UnixMillis,
     ) -> Result<Self, EnvelopeError> {
@@ -326,7 +375,7 @@ impl OpaqueEnvelope {
         }
         Ok(Self {
             logical_message_id,
-            profile_id,
+            envelope_profile_id,
             payload,
             expires_at_unix_millis,
         })
@@ -336,8 +385,8 @@ impl OpaqueEnvelope {
         &self.logical_message_id
     }
 
-    pub fn profile_id(&self) -> &TransportProfileId {
-        &self.profile_id
+    pub fn envelope_profile_id(&self) -> &EnvelopeProfileId {
+        &self.envelope_profile_id
     }
 
     /// Returns opaque payload bytes. No plaintext representation is provided.
@@ -378,7 +427,9 @@ impl std::error::Error for EnvelopeError {}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoutePolicy {
     pub direction: Direction,
-    pub required_profile_id: TransportProfileId,
+    pub required_envelope_profile_id: EnvelopeProfileId,
+    /// If omitted, the adapter's first declared transport profile is selected.
+    pub required_transport_profile_id: Option<TransportProfileId>,
     pub require_store_and_forward: bool,
 }
 
@@ -392,6 +443,7 @@ pub enum IneligibilityReason {
     PrivacyPolicyUnknown,
     EnvelopeExpired,
     EnvelopeProfileMismatch,
+    EnvelopeProfileUnsupported,
     ProfileUnsupported,
     SendUnsupported,
     ReceiveUnsupported,
@@ -413,6 +465,7 @@ pub struct RouteCandidate<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EligibleRoute {
     pub transport_id: TransportId,
+    pub transport_profile_id: TransportProfileId,
     pub failure_domain_id: FailureDomainId,
     pub mode: TransportMode,
     pub max_envelope_bytes: usize,
@@ -449,14 +502,23 @@ pub fn evaluate_route(
     if envelope.is_expired(now_unix_millis) {
         return Err(IneligibilityReason::EnvelopeExpired);
     }
-    if envelope.profile_id() != &policy.required_profile_id {
+    if envelope.envelope_profile_id() != &policy.required_envelope_profile_id {
         return Err(IneligibilityReason::EnvelopeProfileMismatch);
     }
 
     let capabilities = candidate.descriptor.capabilities();
-    if !capabilities.supports_profile(&policy.required_profile_id) {
-        return Err(IneligibilityReason::ProfileUnsupported);
+    if !capabilities.supports_envelope_profile(&policy.required_envelope_profile_id) {
+        return Err(IneligibilityReason::EnvelopeProfileUnsupported);
     }
+    let transport_profile_id = match policy.required_transport_profile_id.as_ref() {
+        Some(required) if capabilities.supports_transport_profile(required) => required.clone(),
+        Some(_) => return Err(IneligibilityReason::ProfileUnsupported),
+        None => capabilities
+            .transport_profiles()
+            .first()
+            .expect("capabilities guarantee at least one transport profile")
+            .clone(),
+    };
     match policy.direction {
         Direction::Send if !capabilities.can_send() => {
             return Err(IneligibilityReason::SendUnsupported);
@@ -481,6 +543,7 @@ pub fn evaluate_route(
 
     Ok(EligibleRoute {
         transport_id: candidate.descriptor.id().clone(),
+        transport_profile_id,
         failure_domain_id: candidate.descriptor.failure_domain_id().clone(),
         mode: capabilities.mode(),
         max_envelope_bytes: capabilities.max_envelope_bytes(),
