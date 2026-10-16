@@ -65,7 +65,11 @@ impl Aggregate {
             "p95_delivery_latency_ms": percentile(&self.latencies_ms, 95),
             "attempts_per_1000_messages": scaled_per_message(self.attempts, self.messages, 1000),
             "mean_cost_units_x1000": scaled_per_message(self.cost_units, self.messages, 1000),
-            "mean_energy_millijoules_x1000": scaled_per_message(self.energy_millijoules, self.messages, 1000)
+            "mean_energy_millijoules_x1000": scaled_per_message(
+                self.energy_millijoules,
+                self.messages,
+                1000
+            )
         })
     }
 }
