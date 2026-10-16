@@ -147,6 +147,30 @@
       "url": "https://docs.beagleboard.org/boards/beaglebone/black/index.html",
       "use": "Candidate Linux-capable host/reference package; official documentation describes Linux boot and CC BY-SA 4.0 design-material terms, while repository includes design artifacts such as schematic, BOM and manufacturing files.",
       "limits": "Design materials are documented as unsupported/as-is; exact BOM/revisions, component sourcing, license implications, performance, thermals, power, repairability and local build qualification remain unverified."
+    },
+    {
+      "id": "S15",
+      "type": "maintained_open_eda_flow",
+      "title": "LibreLane",
+      "url": "https://github.com/librelane/librelane",
+      "use": "Maintained reproducible/traceable RTL-to-GDS digital implementation flow candidate for the optional external ASIC branch.",
+      "limits": "Specific tool version, PDK, constraints, design and output artifacts must be pinned; running a flow or producing GDS does not demonstrate fabrication, packaged function or local fab closure."
+    },
+    {
+      "id": "S16",
+      "type": "government_research_review",
+      "title": "Innovations in advanced processes and systems for semiconductor manufacturing",
+      "url": "https://doi.org/10.1016/j.cirp.2026.04.115",
+      "use": "2026 review of semiconductor manufacturing process control, in-line metrology, advanced packaging and ecosystem dependencies.",
+      "limits": "Industry-level perspective, not qualification of a local process or a specific Symthaea design."
+    },
+    {
+      "id": "S17",
+      "type": "government_technology_readiness_guidance",
+      "title": "NASA Technology Readiness Levels",
+      "url": "https://www.nasa.gov/directorates/somd/space-communications-navigation-program/technology-readiness-levels/",
+      "use": "Reference for separating concept, breadboard validation, prototype and operational evidence.",
+      "limits": "General readiness framework, not a direct qualification of hardware manufacturing capability."
     }
   ],
   "nodes": [
@@ -1271,6 +1295,20 @@
         "relationship_to_reproduction_ladder": "deep industrial branch; blocked/unresolved",
         "acceptance": "Every critical die-fabrication dependency is separately modeled, sourced and independently qualified; this pilot has not achieved this branch."
       }
-    ]
+    ],
+    "successor_ratchet_ref": {
+      "issue": "https://github.com/Luminous-Dynamics/symthaea/issues/7698",
+      "pull_request": "https://github.com/Luminous-Dynamics/symthaea/pull/7699",
+      "stages": [
+        "reproduction_cell",
+        "test_and_repair_capability",
+        "exact_HDC_RTL",
+        "FPGA_observed_accelerator",
+        "optional_external_ASIC",
+        "packaged_and_characterized_successor",
+        "next_productive_equipment_bottleneck"
+      ],
+      "claim_rule": "Each stage provides only the evidence it independently earns. Do not infer performance gain from reproduction, physical silicon from GDS/MPW submission, or local fabrication closure from external fabrication."
+    }
   }
 }
