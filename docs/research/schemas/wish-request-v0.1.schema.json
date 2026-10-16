@@ -466,8 +466,10 @@
           "description": "Three-letter currency code. No conversion or FX source is implied by this schema."
         },
         "max_spend": {
-          "type": "number",
-          "minimum": 0
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^(0|[1-9][0-9]*)(\\\\.[0-9]+)?$",
+          "description": "Exact non-negative decimal string in the currency's major unit (for example, \"12.50\"). Do not encode money as a binary floating-point JSON number. Implementations must validate permitted precision against a pinned currency metadata version; the string is a planning cap, not authority to spend."
         },
         "max_contributor_hours": {
           "type": [
@@ -481,7 +483,7 @@
           "maxLength": 2000
         }
       },
-      "description": "A requester-defined planning cap only. It is not authorization to spend or commit funds."
+      "description": "A requester-defined planning cap only. max_spend is an exact decimal string, not a JSON number; real action boundaries must validate currency precision against a pinned currency metadata version. It is never authorization to spend or commit funds."
     },
     "evidence_policy": {
       "type": "object",
