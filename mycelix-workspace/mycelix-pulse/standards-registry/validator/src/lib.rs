@@ -118,6 +118,34 @@ const EVIDENCE_KINDS: &[&str] = &[
     "certification",
 ];
 
+/// Bounded, deterministic query filters for the standards inventory.
+///
+/// Query results preserve the registry's explicit claim ceiling and provide
+/// source/provenance links. Results do not grant implementation support.
+#[derive(Clone, Debug)]
+pub struct RegistryQuery {
+    pub text: Option<String>,
+    pub layer: Option<String>,
+    pub source_status: Option<String>,
+    pub support_status: Option<String>,
+    pub errata_status: Option<String>,
+    pub limit: usize,
+}
+
+impl Default for RegistryQuery {
+    fn default() -> Self {
+        Self {
+            text: None,
+            layer: None,
+            source_status: None,
+            support_status: None,
+            errata_status: None,
+            limit: 20,
+        }
+    }
+}
+
+
 /// Validate the registry against the checked-in v1 contract and optional schema.
 pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
     let mut errors = Vec::new();
@@ -308,6 +336,183 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
     }
 
     errors
+}
+
+/// Query a validated standards-registry value with deterministic, bounded filters.
+///
+/// This function intentionally returns registry records rather than a generated
+/// answer. Consumers must preserve source links, review flags and the support
+/// claim ceiling when presenting results to people or to Symthaea.
+pub fn query_registry(
+    registry: &Value,
+    query: &RegistryQuery,
+) -> Result<Value, Vec<String>> {
+    let mut errors = Vec::new();
+    if query.limit == 0 || query.limit > 100 {
+        errors.push("query limit must be between 1 and 100".to_owned());
+    }
+    if let Some(text) = query.text.as_deref() {
+        if text.trim().is_empty() || text.len() > 256 {
+            errors.push("query text must contain 1 to 256 non-whitespace bytes".to_owned());
+        }
+    }
+    validate_filter(
+        query.layer.as_deref(),
+        LAYERS,
+        "layer",
+        &mut errors,
+    );
+    validate_filter(
+        query.source_status.as_deref(),
+        SOURCE_STATUSES,
+        "source_status",
+        &mut errors,
+    );
+    validate_filter(
+        query.support_status.as_deref(),
+        SUPPORT_STATUSES,
+        "support_status",
+        &mut errors,
+    );
+    validate_filter(
+        query.errata_status.as_deref(),
+        ERRATA_STATUSES,
+        "errata_status",
+        &mut errors,
+    );
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    let Some(root) = registry.as_object() else {
+        return Err(vec!["registry query: root must be a JSON object".to_owned()]);
+    };
+    let Some(entries) = root.get("entries").and_then(Value::as_array) else {
+        return Err(vec!["registry query: entries must be an array".to_owned()]);
+    };
+    let text = query.text.as_deref().map(str::to_ascii_lowercase);
+    let mut matches = entries
+        .iter()
+        .filter(|entry| {
+            query.layer.as_deref().is_none_or(|layer| {
+                entry
+                    .get("layers")
+                    .and_then(Value::as_array)
+                    .is_some_and(|layers| layers.iter().any(|value| value.as_str() == Some(layer)))
+            })
+        })
+        .filter(|entry| {
+            query.source_status.as_deref().is_none_or(|status| {
+                entry.get("source_status").and_then(Value::as_str) == Some(status)
+            })
+        })
+        .filter(|entry| {
+            query.support_status.as_deref().is_none_or(|status| {
+                entry.get("support_status").and_then(Value::as_str) == Some(status)
+            })
+        })
+        .filter(|entry| {
+            query.errata_status.as_deref().is_none_or(|status| {
+                entry.get("errata_status").and_then(Value::as_str) == Some(status)
+            })
+        })
+        .filter(|entry| {
+            text.as_deref()
+                .is_none_or(|needle| entry_text_matches(entry, needle))
+        })
+        .collect::<Vec<_>>();
+
+    matches.sort_by(|left, right| {
+        left.get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .cmp(
+                right
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+            )
+    });
+    let total_matches = matches.len();
+    let results = matches
+        .into_iter()
+        .take(query.limit)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    Ok(serde_json::json!({
+        "registry_schema_version": root.get("schema_version").and_then(Value::as_str),
+        "registry_as_of": root.get("as_of").and_then(Value::as_str),
+        "inventory_only": true,
+        "support_conformance_claim": false,
+        "claim_ceiling": "Metadata retrieval only; protocol support, interoperability, and certification require separate exact-profile evidence.",
+        "query": {
+            "text": query.text,
+            "layer": query.layer,
+            "source_status": query.source_status,
+            "support_status": query.support_status,
+            "errata_status": query.errata_status,
+            "limit": query.limit
+        },
+        "total_matches": total_matches,
+        "returned_count": results.len(),
+        "truncated": total_matches > results.len(),
+        "results": results
+    }))
+}
+
+fn validate_filter(
+    filter: Option<&str>,
+    accepted: &[&str],
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    if let Some(value) = filter {
+        if !accepted.contains(&value) {
+            errors.push(format!("{label} filter has unsupported value '{value}'"));
+        }
+    }
+}
+
+fn entry_text_matches(entry: &Value, needle: &str) -> bool {
+    for field in ["id", "title", "authority", "canonical_url", "notes", "version"] {
+        if entry
+            .get(field)
+            .and_then(Value::as_str)
+            .is_some_and(|value| value.to_ascii_lowercase().contains(needle))
+        {
+            return true;
+        }
+    }
+    for field in ["layers", "region_scope", "review_flags"] {
+        if entry
+            .get(field)
+            .and_then(Value::as_array)
+            .is_some_and(|values| {
+                values.iter().any(|value| {
+                    value
+                        .as_str()
+                        .is_some_and(|text| text.to_ascii_lowercase().contains(needle))
+                })
+            })
+        {
+            return true;
+        }
+    }
+    if entry
+        .get("evidence")
+        .and_then(Value::as_array)
+        .is_some_and(|evidence| {
+            evidence.iter().any(|item| {
+                item.get("claim")
+                    .and_then(Value::as_str)
+                    .is_some_and(|claim| claim.to_ascii_lowercase().contains(needle))
+            })
+        })
+    {
+        return true;
+    }
+    false
 }
 
 fn validate_schema_contract(schema: &Value, errors: &mut Vec<String>) {
@@ -857,6 +1062,87 @@ mod tests {
         entry.as_object_mut().unwrap().remove("errata_status");
         let errors = validate_registry(&registry, &schema());
         assert!(errors.iter().any(|error| error.contains("errata_status")));
+    }
+
+    #[test]
+    fn query_returns_source_links_and_explicit_claim_ceiling() {
+        let result = query_registry(
+            &seed(),
+            &RegistryQuery {
+                text: Some("BPSec".to_owned()),
+                ..RegistryQuery::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(result["inventory_only"], true);
+        assert_eq!(result["support_conformance_claim"], false);
+        assert!(result["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| entry.get("canonical_url").is_some()
+                && entry.get("support_status").is_some()));
+    }
+
+    #[test]
+    fn query_filters_reported_errata_deterministically() {
+        let result = query_registry(
+            &seed(),
+            &RegistryQuery {
+                errata_status: Some("reported".to_owned()),
+                limit: 20,
+                ..RegistryQuery::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(result["total_matches"], 5);
+        let ids = result["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entry| entry["id"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        let mut sorted = ids.clone();
+        sorted.sort_unstable();
+        assert_eq!(ids, sorted);
+    }
+
+    #[test]
+    fn query_bounds_results_and_rejects_invalid_filters() {
+        let error = query_registry(
+            &seed(),
+            &RegistryQuery {
+                limit: 101,
+                ..RegistryQuery::default()
+            },
+        )
+        .unwrap_err();
+        assert!(error.iter().any(|item| item.contains("limit")));
+
+        let error = query_registry(
+            &seed(),
+            &RegistryQuery {
+                layer: Some("imaginary-radio-layer".to_owned()),
+                ..RegistryQuery::default()
+            },
+        )
+        .unwrap_err();
+        assert!(error.iter().any(|item| item.contains("layer filter")));
+    }
+
+    #[test]
+    fn query_empty_match_is_not_reported_as_complete_support() {
+        let result = query_registry(
+            &seed(),
+            &RegistryQuery {
+                text: Some("definitely-not-a-real-standard".to_owned()),
+                ..RegistryQuery::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(result["total_matches"], 0);
+        assert_eq!(result["inventory_only"], true);
+        assert_eq!(result["support_conformance_claim"], false);
     }
 
     #[test]
