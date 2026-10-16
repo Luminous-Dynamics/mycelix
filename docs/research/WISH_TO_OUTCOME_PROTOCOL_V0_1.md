@@ -128,7 +128,7 @@ These benchmarks are complementary reference points, not interchangeable baselin
 2. **Synthetic closed world:** sealed truth, equal budgets, seeded scenarios, baseline/ablation/negative-control arms and a complete census including unserved requests.
 3. **Shadow mode:** evaluate proposed plans against human adjudication without external side effects; record disagreements and decision latency.
 4. **Opt-in, bounded pilot:** low-risk tasks, explicit consent, human steward, clear cancellation/complaint paths, recipient-defined success criteria and independent checks where feasible.
-5. **Comparative impact claim:** only after preregistered baselines, suitable sample-size reasoning, uncertainty intervals, distributional analysis and full failure/cost accounting. The 100-episode/10-stratum contract corpus is a smoke/contract target, not by itself a statistically powered impact study.
+5. **Comparative impact claim:** only after preregistered baselines, suitable sample-size reasoning, uncertainty intervals, distributional analysis and full failure/cost accounting. The twelve request-contract fixtures are a smoke/contract target; the separate preregistered 120-episode/12-stratum policy benchmark is not by itself a statistically powered impact study.
 
 Do not optimize a single “wish fulfillment rate” metric. Publish outcome quality, delay, lifecycle cost per verified outcome, resource realization, false-fulfillment, access, agency and all unserved/failed dispositions as a dashboard. A synthetic fixture passing is not evidence that a real person was helped.
 
