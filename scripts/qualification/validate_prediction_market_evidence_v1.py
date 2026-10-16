@@ -163,6 +163,9 @@ def validate_evidence_artifact_bytes(
         if content is None:
             errors.append(f"artifact-bytes/{artifact_id}:retained bytes missing")
             continue
+        if not isinstance(content, bytes):
+            errors.append(f"artifact-bytes/{artifact_id}:retained payload is not bytes")
+            continue
         actual_digest = hashlib.sha256(content).hexdigest()
         if actual_digest.lower() != expected_digest.lower():
             errors.append(f"artifact-bytes/{artifact_id}:SHA-256 digest mismatch")
