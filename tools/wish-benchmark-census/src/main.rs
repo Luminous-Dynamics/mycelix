@@ -181,7 +181,9 @@ struct RunResult {
     policy_config_sha256: String,
     disposition: RunDisposition,
     receipt_sha256: String,
+    receipt_payload: Value,
     result_sha256: Option<String>,
+    result_payload: Option<Value>,
     terminal_reason: Option<String>,
     unauthorized_effects_accepted: u64,
     unconfirmed_resources_marked_committed: u64,
@@ -624,10 +626,12 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
             result.policy_config_sha256.as_str(),
             result.receipt_sha256.as_str(),
         ] { if !is_sha256(hash) { valid = false; } }
+        if result.receipt_sha256 != digest(&result.receipt_payload).unwrap_or_default() { valid = false; }
         match result.disposition {
             RunDisposition::Completed => {
                 if !result.result_sha256.as_deref().is_some_and(is_sha256) { valid = false; }
-                if result.terminal_reason.as_deref().is_some_and(|v| !v.trim().is_empty()) { valid = false; }
+                if result.terminal_reason.is_some() { valid = false; }
+                if result.result_payload.as_ref().is_none_or(|payload| result.result_sha256.as_deref() != digest(payload).ok().as_deref()) { valid = false; }
             }
             _ => {
                 if !result.terminal_reason.as_deref().is_some_and(|v| !v.trim().is_empty()) { valid = false; }
@@ -755,6 +759,15 @@ mod tests {
     #[test]
     fn duplicate_json_object_keys_are_rejected() {
         assert!(parse_strict(r#"{"field":1,"field":2}"#).is_err());
+    }
+
+    #[test]
+    fn receipt_payload_digest_is_recomputed_not_only_shape_checked() {
+        let payload = json!({"producer":"independent-monitor","decision":"denied","count":1});
+        let correct = digest(&payload).unwrap();
+        assert_eq!(digest(&payload).unwrap(), correct);
+        let changed = json!({"producer":"independent-monitor","decision":"allowed","count":1});
+        assert_ne!(digest(&changed).unwrap(), correct);
     }
 
     #[test]
