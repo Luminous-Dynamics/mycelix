@@ -12,7 +12,7 @@ pub(crate) enum ActionFeedbackKind {
     PreviewOnly,
     Confirmed,
     OutcomeUnknown,
-    NotSent,
+    NotSent { requirement: &'static str },
 }
 
 pub(crate) fn feedback_copy(kind: ActionFeedbackKind, subject: &str) -> String {
@@ -24,8 +24,8 @@ pub(crate) fn feedback_copy(kind: ActionFeedbackKind, subject: &str) -> String {
         ActionFeedbackKind::OutcomeUnknown => format!(
             "We couldn't confirm whether {subject} succeeded. Check its current state before retrying."
         ),
-        ActionFeedbackKind::NotSent => format!(
-            "Not sent: {subject}. Choose a verified recipient identity before sending."
+        ActionFeedbackKind::NotSent { requirement } => format!(
+            "Not sent: {subject}. {requirement} is required; nothing was sent."
         ),
     }
 }
@@ -62,9 +62,13 @@ mod tests {
 
     #[test]
     fn missing_identity_is_stated_as_not_sent() {
-        let copy = feedback_copy(ActionFeedbackKind::NotSent, "this invitation");
+        let copy = feedback_copy(
+            ActionFeedbackKind::NotSent { requirement: "a verified recipient identity" },
+            "this invitation",
+        );
         assert!(copy.starts_with("Not sent:"));
-        assert!(copy.contains("verified recipient identity"));
+        assert!(copy.contains("a verified recipient identity is required"));
+        assert!(copy.contains("nothing was sent"));
     }
     #[test]
     fn every_action_subject_gets_all_four_truthful_outcome_variants() {
@@ -80,7 +84,7 @@ mod tests {
             (ActionFeedbackKind::PreviewOnly, "Preview only:"),
             (ActionFeedbackKind::Confirmed, "confirmed."),
             (ActionFeedbackKind::OutcomeUnknown, "couldn't confirm whether"),
-            (ActionFeedbackKind::NotSent, "Not sent:"),
+            (ActionFeedbackKind::NotSent { requirement: "a required detail" }, "Not sent:"),
         ];
 
         for subject in subjects {
