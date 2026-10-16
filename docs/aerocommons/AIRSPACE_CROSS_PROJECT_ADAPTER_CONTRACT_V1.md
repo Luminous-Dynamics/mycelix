@@ -120,6 +120,15 @@ The `AdapterEnvelopeV1` test contract in `tools/airspace-sim/src/typed_uncertain
 - Any future Mycelix / Symtropy / Sol-Atlas implementation should be a separately implemented consumer with its own source identity and negative controls; this same-crate prototype does not yet establish independent checker diversity.
 
 All AIR-PB-026 results remain `implemented_pending_exact_head_verification` until a Rust test run is completed on the exact commit. Neither round-trip equivalence nor a digest authenticates a publisher, qualifies a physical model, proves a reachable set, or grants aviation authority.
+## 3.3 Raw-byte receipt for the adapter fixture (AIR-PB-027)
+
+The unsigned receipt at `tools/airspace-sim/fixtures/typed_lineage_adapter_receipt_contract.json` pins the exact bytes of `typed_lineage_adapter_v1.json`, including the final newline, by SHA-256 and byte length. This adds a byte-identity check alongside the semantic round-trip test: appending whitespace can leave the JSON semantically valid while invalidating both the digest and length.
+
+- The receipt status is `expected_digest_contract_not_runtime_attestation`; its signature status is `unsigned`.
+- Source revision/build identity must be supplied by the external exact-head execution context; the receipt does not bind a publisher's identity.
+- Digest match is integrity evidence for one pinned synthetic file only. It says nothing by itself about publisher authenticity, data rights, freshness, physical truth, validated dynamics or flight authorization.
+- The Rust tests remain pending until executed successfully at an exact commit SHA. Host-side hashing and source inspection do not substitute for that result.
+
 
 
 ## 4. Project-specific adapter responsibilities
