@@ -1427,23 +1427,21 @@ mod tests {
         let served_cost_change = report.relative_cost_per_served_unit_change_percent.expect("served cost delta");
         assert!(served_cost_change < 0.0 && served_cost_change > -10.0);
         assert!(report.candidate_minus_baseline_service_rate_percentage_points.expect("service delta") < 0.0);
-        let baseline_rows = results.runs.iter()
+        let baseline_cost = results.runs.iter()
             .filter(|row| row.arm_id == "incumbent_baseline")
-            .map(|row| row.metrics.as_ref().expect("completed baseline metrics"));
-        let candidate_rows = results.runs.iter()
+            .map(|row| row.metrics.as_ref().expect("completed baseline metrics").total_cost_microcredits as u128)
+            .sum::<u128>();
+        let baseline_served = results.runs.iter()
+            .filter(|row| row.arm_id == "incumbent_baseline")
+            .map(|row| row.metrics.as_ref().expect("completed baseline metrics").served_units as u128)
+            .sum::<u128>();
+        let candidate_cost = results.runs.iter()
             .filter(|row| row.arm_id == "full_stack")
-            .map(|row| row.metrics.as_ref().expect("completed full-stack metrics"));
-        let baseline_cost = baseline_rows.clone()
-            .map(|metrics| metrics.total_cost_microcredits as u128)
+            .map(|row| row.metrics.as_ref().expect("completed full-stack metrics").total_cost_microcredits as u128)
             .sum::<u128>();
-        let baseline_served = baseline_rows
-            .map(|metrics| metrics.served_units as u128)
-            .sum::<u128>();
-        let candidate_cost = candidate_rows.clone()
-            .map(|metrics| metrics.total_cost_microcredits as u128)
-            .sum::<u128>();
-        let candidate_served = candidate_rows
-            .map(|metrics| metrics.served_units as u128)
+        let candidate_served = results.runs.iter()
+            .filter(|row| row.arm_id == "full_stack")
+            .map(|row| row.metrics.as_ref().expect("completed full-stack metrics").served_units as u128)
             .sum::<u128>();
         let expected_pooled_change = (
             (candidate_cost as f64 / candidate_served as f64)
