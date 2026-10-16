@@ -716,6 +716,45 @@ mod tests {
     }
 
     #[test]
+    fn receipt_for_another_envelope_commitment_cannot_deliver_lifecycle() {
+        struct CommitmentIgnoringVerifier;
+
+        impl TrustedRecipientReceiptVerifier for CommitmentIgnoringVerifier {
+            fn verify(
+                &self,
+                bytes: &[u8],
+                logical_message_id: &str,
+                recipient_id: &str,
+                _envelope_commitment: &[u8; 32],
+            ) -> Result<(), ReceiptVerificationError> {
+                if bytes == b"receipt-any"
+                    && logical_message_id == "logical-message-1"
+                    && recipient_id == "recipient-1"
+                {
+                    Ok(())
+                } else {
+                    Err(ReceiptVerificationError::InvalidReceipt)
+                }
+            }
+        }
+
+        let wrong_commitment = VerifiedRecipientReceipt::verify(
+            &CommitmentIgnoringVerifier,
+            b"receipt-any",
+            "logical-message-1",
+            "recipient-1",
+            [1; 32],
+        )
+        .unwrap();
+        let mut item = lifecycle(10_000, 3);
+        assert_eq!(
+            item.record_verified_receipt(&wrong_commitment, UnixMillis::new(1)),
+            Err(LifecycleError::ReceiptBindingMismatch)
+        );
+        assert_eq!(item.status(), DeliveryStatus::Queued);
+    }
+
+    #[test]
     fn expiry_and_revocation_block_future_sends() {
         let mut expired = lifecycle(100, 3);
         assert_eq!(
