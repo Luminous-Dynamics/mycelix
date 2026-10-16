@@ -27,9 +27,9 @@ impl fmt::Display for IdentifierError {
         match self {
             Self::Empty => f.write_str("identifier must not be empty"),
             Self::TooLong => f.write_str("identifier exceeds its maximum byte length"),
-            Self::InvalidCharacter => {
-                f.write_str("identifier may contain only lowercase ASCII letters, digits, '.', '_' or '-'")
-            }
+            Self::InvalidCharacter => f.write_str(
+                "identifier may contain only lowercase ASCII letters, digits, '.', '_' or '-'",
+            ),
         }
     }
 }
@@ -219,7 +219,9 @@ impl fmt::Display for CapabilityError {
         match self {
             Self::NoDirectionSupported => f.write_str("adapter must support send or receive"),
             Self::ZeroPayloadBudget => f.write_str("max envelope size must be greater than zero"),
-            Self::NoProfilesDeclared => f.write_str("at least one transport profile must be declared"),
+            Self::NoProfilesDeclared => {
+                f.write_str("at least one transport profile must be declared")
+            }
             Self::DuplicateProfile => f.write_str("transport profile IDs must be unique"),
         }
     }
@@ -585,7 +587,12 @@ mod tests {
 
     #[test]
     fn eligible_route_preserves_failure_domain_and_profile_limits() {
-        let descriptor = descriptor("wifi-direct", "local-wifi", 2048, TransportMode::Opportunistic);
+        let descriptor = descriptor(
+            "wifi-direct",
+            "local-wifi",
+            2048,
+            TransportMode::Opportunistic,
+        );
         let route = evaluate_route(
             &candidate(&descriptor, available_observation()),
             &policy(),
@@ -601,7 +608,12 @@ mod tests {
 
     #[test]
     fn consent_regulatory_and_privacy_unknowns_fail_closed() {
-        let descriptor = descriptor("bluetooth-le", "nearby-radio", 1024, TransportMode::Opportunistic);
+        let descriptor = descriptor(
+            "bluetooth-le",
+            "nearby-radio",
+            1024,
+            TransportMode::Opportunistic,
+        );
         let base = candidate(&descriptor, available_observation());
 
         let mut no_consent = base.clone();
@@ -665,13 +677,28 @@ mod tests {
 
     #[test]
     fn payload_profile_direction_and_expiry_are_hard_gates() {
-        let small = descriptor("lpwan-adapter", "lpwan-gateway", 80, TransportMode::StoreAndForward);
+        let small = descriptor(
+            "lpwan-adapter",
+            "lpwan-gateway",
+            80,
+            TransportMode::StoreAndForward,
+        );
         assert_eq!(
-            evaluate_route(&candidate(&small, available_observation()), &policy(), &envelope(81, 20_000), 1_500),
+            evaluate_route(
+                &candidate(&small, available_observation()),
+                &policy(),
+                &envelope(81, 20_000),
+                1_500,
+            ),
             Err(IneligibilityReason::PayloadTooLarge)
         );
         assert_eq!(
-            evaluate_route(&candidate(&small, available_observation()), &policy(), &envelope(50, 20_000), 20_000),
+            evaluate_route(
+                &candidate(&small, available_observation()),
+                &policy(),
+                &envelope(50, 20_000),
+                20_000,
+            ),
             Err(IneligibilityReason::EnvelopeExpired)
         );
 
@@ -679,17 +706,34 @@ mod tests {
         unsupported_profile_policy.required_profile_id =
             TransportProfileId::new("bluetooth-gatt-v1").unwrap();
         assert_eq!(
-            evaluate_route(&candidate(&small, available_observation()), &unsupported_profile_policy, &envelope(50, 20_000), 1_500),
+            evaluate_route(
+                &candidate(&small, available_observation()),
+                &unsupported_profile_policy,
+                &envelope(50, 20_000),
+                1_500,
+            ),
             Err(IneligibilityReason::EnvelopeProfileMismatch)
         );
 
         let receive_only = AdapterDescriptor::new(
             TransportId::new("receive-only").unwrap(),
             FailureDomainId::new("receive-only-domain").unwrap(),
-            TransportCapabilities::new(false, true, 1000, TransportMode::Online, vec![profile()]).unwrap(),
+            TransportCapabilities::new(
+                false,
+                true,
+                1000,
+                TransportMode::Online,
+                vec![profile()],
+            )
+            .unwrap(),
         );
         assert_eq!(
-            evaluate_route(&candidate(&receive_only, available_observation()), &policy(), &envelope(50, 20_000), 1_500),
+            evaluate_route(
+                &candidate(&receive_only, available_observation()),
+                &policy(),
+                &envelope(50, 20_000),
+                1_500,
+            ),
             Err(IneligibilityReason::SendUnsupported)
         );
 
@@ -697,14 +741,24 @@ mod tests {
         store_forward_policy.require_store_and_forward = true;
         let online = descriptor("online-only", "internet-uplink", 4096, TransportMode::Online);
         assert_eq!(
-            evaluate_route(&candidate(&online, available_observation()), &store_forward_policy, &envelope(50, 20_000), 1_500),
+            evaluate_route(
+                &candidate(&online, available_observation()),
+                &store_forward_policy,
+                &envelope(50, 20_000),
+                1_500,
+            ),
             Err(IneligibilityReason::StoreAndForwardRequired)
         );
     }
 
     #[test]
     fn unknown_and_forbidden_routes_are_never_promoted_by_quality() {
-        let descriptor = descriptor("high-success-but-forbidden", "carrier-core", 4096, TransportMode::Online);
+        let descriptor = descriptor(
+            "high-success-but-forbidden",
+            "carrier-core",
+            4096,
+            TransportMode::Online,
+        );
         let mut candidate = candidate(&descriptor, available_observation());
         candidate.privacy_permission = PolicyDecision::Denied;
         assert_eq!(
@@ -717,7 +771,12 @@ mod tests {
     fn same_failure_domain_is_not_counted_as_independent_redundancy() {
         let first = descriptor("cellular-a", "carrier-core-a", 4096, TransportMode::Online);
         let second = descriptor("cellular-b", "carrier-core-a", 4096, TransportMode::Online);
-        let third = descriptor("community-relay", "relay-network-b", 4096, TransportMode::StoreAndForward);
+        let third = descriptor(
+            "community-relay",
+            "relay-network-b",
+            4096,
+            TransportMode::StoreAndForward,
+        );
         let routes = [first, second, third]
             .iter()
             .map(|descriptor| {
