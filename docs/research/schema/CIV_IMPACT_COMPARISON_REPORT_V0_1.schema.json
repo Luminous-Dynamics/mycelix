@@ -62,6 +62,8 @@
         "candidate_minus_baseline_service_rate_percentage_points",
         "baseline_mean_cost_per_served_unit_microcredits",
         "candidate_mean_cost_per_served_unit_microcredits",
+        "candidate_minus_baseline_cost_per_served_unit_microcredits",
+        "relative_cost_per_served_unit_change_percent",
         "cost_per_served_unit_defined_for_all_pairs",
         "descriptive_only",
         "economic_benefit_established",
@@ -134,6 +136,12 @@
         },
         "claim_ceiling": {
           "const": "paired_descriptive_metrics_only; no_uncertainty_interval_or_economic_qualification"
+        },
+        "candidate_minus_baseline_cost_per_served_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "relative_cost_per_served_unit_change_percent": {
+          "$ref": "#/$defs/nullableNumber"
         }
       }
     }
