@@ -45,3 +45,6 @@ jobs:
 
       - name: Run reference and adversarial tests
         run: cargo test --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml
+
+      - name: Compile sourcing benchmark harness
+        run: cargo check --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml --example sourcing_benchmark
