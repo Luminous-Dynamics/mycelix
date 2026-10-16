@@ -483,7 +483,10 @@ fn validate_manifest(m: &Value) -> Result<(), String> {
         "unconfirmed_resources_marked_committed",
         "false_fulfillment_acceptances",
         "initiated_episodes_missing_from_census",
-        "repeated_deterministic_report_mismatches"
+        "repeated_deterministic_report_mismatches",
+        "invalid_or_unauthorized_evidence_accepted",
+        "cross_wish_or_revision_replay_accepted",
+        "unsupported_signature_suites_accepted"
     ] {
         if gates.get(key).and_then(Value::as_u64) != Some(0) {
             return Err(format!("main benchmark hard gate must remain zero: {key}"));
