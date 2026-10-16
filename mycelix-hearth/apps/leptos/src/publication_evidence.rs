@@ -168,8 +168,8 @@ fn map_report(
 /// Do one follow-up query for the exact action returned by the user's own write.
 /// The caller should emit the source-chain-saved toast before awaiting this
 /// function. Receipt failure never rewrites the mutation's earlier result.
-/// Only the generation that still owns the shared latest-evidence slot may publish.
-/// Receipt queries are allowed to finish; stale results are discarded, not retried.
+/// Only the request generation that still owns the shared latest-evidence slot may publish.
+/// Receipt queries may finish; stale results are discarded, not retried.
 fn is_current_request(request_generation: u64, current_generation: u64) -> bool {
     request_generation == current_generation
 }
@@ -183,9 +183,7 @@ pub(crate) async fn check_and_store(
 ) {
     // Reserve the shared snapshot slot before awaiting the conductor. If a later
     // successful action starts another query, its generation supersedes this one.
-    let request_generation = request_generation_signal
-        .get_untracked()
-        .wrapping_add(1);
+    let request_generation = request_generation_signal.get_untracked().wrapping_add(1);
     request_generation_signal.set(request_generation);
 
     let action_hash = record.signed_action.hashed.hash.clone();
