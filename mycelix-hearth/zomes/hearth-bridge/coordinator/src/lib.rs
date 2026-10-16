@@ -180,7 +180,6 @@ fn summarize_publication_receipts(
 pub fn get_action_publication_evidence(
     action_hash: ActionHash,
 ) -> ExternResult<ActionPublicationEvidence> {
-    let checked_at_micros = sys_time()?.as_micros();
     let caller = agent_info()?.agent_initial_pubkey;
     let local_record = get(action_hash.clone(), GetOptions::local())?;
 
@@ -194,7 +193,7 @@ pub fn get_action_publication_evidence(
     ) {
         return Ok(empty_publication_evidence(
             action_hash,
-            checked_at_micros,
+            sys_time()?.as_micros(),
             PublicationEvidenceAvailability::NotAvailableToCaller,
         ));
     }
