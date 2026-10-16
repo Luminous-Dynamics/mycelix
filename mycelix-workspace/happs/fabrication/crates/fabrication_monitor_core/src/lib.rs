@@ -226,6 +226,8 @@ pub enum BaselineError {
     InvalidSample { sample_index: usize, reason: InputError },
     /// A mandatory signal was unavailable in the reference set.
     MissingRequiredSignal(Signal),
+    /// A median, absolute deviation, or scaled MAD could not be represented finitely.
+    UnrepresentableStatistic(Signal),
 }
 
 impl fmt::Display for BaselineError {
@@ -246,6 +248,10 @@ pub enum InputError {
     Negative(Signal),
     /// Relative humidity was outside its supported 0-100 percentage range.
     OutOfRange(Signal),
+    /// Subtracting two finite values overflowed the representable f64 range.
+    UnrepresentableDifference(Signal),
+    /// Dividing the absolute deviation by the robust scale overflowed f64.
+    UnrepresentableScore(Signal),
 }
 
 /// Robust location and scale estimated from a healthy reference trace.
@@ -311,30 +317,41 @@ impl ReferenceBaseline {
             }
         }
 
-        let signals: [Option<SignalBaseline>; SIGNAL_COUNT] = std::array::from_fn(|index| {
-            let signal = Signal::ALL[index];
+        let mut signals: [Option<SignalBaseline>; SIGNAL_COUNT] = [None; SIGNAL_COUNT];
+        for signal in Signal::ALL {
             let mut values: Vec<f64> = healthy_frames
                 .iter()
                 .filter_map(|frame| signal_value(frame, signal))
                 .collect();
 
             if values.len() < detector_config.minimum_baseline_samples {
-                return None;
+                continue;
             }
 
             let center = median(&mut values);
-            let mut absolute_deviations: Vec<f64> =
-                values.iter().map(|value| (value - center).abs()).collect();
+            let mut absolute_deviations = Vec::with_capacity(values.len());
+            for value in &values {
+                let absolute_deviation = (*value - center).abs();
+                if !absolute_deviation.is_finite() {
+                    return Err(BaselineError::UnrepresentableStatistic(signal));
+                }
+                absolute_deviations.push(absolute_deviation);
+            }
+
             let mad = median(&mut absolute_deviations);
-            let robust_scale = (1.4826 * mad)
+            let scaled_mad = 1.4826 * mad;
+            if !scaled_mad.is_finite() {
+                return Err(BaselineError::UnrepresentableStatistic(signal));
+            }
+            let robust_scale = scaled_mad
                 .max(detector_config.minimum_scale_by_signal[signal.index()]);
 
-            Some(SignalBaseline {
+            signals[signal.index()] = Some(SignalBaseline {
                 median: center,
                 robust_scale,
                 sample_count: values.len(),
-            })
-        });
+            });
+        }
 
         for signal in Signal::ALL {
             if !signal.is_optional() && signals[signal.index()].is_none() {
@@ -518,6 +535,37 @@ impl MonitoringEngine {
             }
         }
 
+        // Reject derived arithmetic that overflows before consuming this frame's position.
+        for signal in Signal::ALL {
+            let Some(observed_value) = signal_value(frame, signal) else {
+                continue;
+            };
+            let Some(reference) = self.baseline.signals[signal.index()] else {
+                continue;
+            };
+            let difference = observed_value - reference.median;
+            if !difference.is_finite() {
+                return self.report(
+                    frame,
+                    ObservationDisposition::InvalidObservation(
+                        InputError::UnrepresentableDifference(signal),
+                    ),
+                    vec![],
+                    vec![],
+                );
+            }
+            if !(difference.abs() / reference.robust_scale).is_finite() {
+                return self.report(
+                    frame,
+                    ObservationDisposition::InvalidObservation(
+                        InputError::UnrepresentableScore(signal),
+                    ),
+                    vec![],
+                    vec![],
+                );
+            }
+        }
+
         self.last_position = Some((frame.sequence, frame.timestamp_ms));
         let mut deviations = Vec::new();
         let mut uncalibrated_signals = Vec::new();
@@ -644,7 +692,13 @@ fn median(values: &mut [f64]) -> f64 {
     values.sort_by(f64::total_cmp);
     let middle = values.len() / 2;
     if values.len().is_multiple_of(2) {
-        (values[middle - 1] + values[middle]) / 2.0
+        let lower = values[middle - 1];
+        let upper = values[middle];
+        if lower.is_sign_positive() == upper.is_sign_positive() {
+            lower + (upper - lower) / 2.0
+        } else {
+            (lower + upper) / 2.0
+        }
     } else {
         values[middle]
     }
@@ -952,4 +1006,86 @@ mod tests {
             ObservationDisposition::ProcessProfileMismatch
         );
     }
+
+    #[test]
+    fn median_is_finite_for_extreme_finite_values() {
+        let mut same_sign = vec![f64::MAX, f64::MAX];
+        assert_eq!(median(&mut same_sign), f64::MAX);
+
+        let mut opposite_sign = vec![-f64::MAX, f64::MAX];
+        assert_eq!(median(&mut opposite_sign), 0.0);
+    }
+
+    #[test]
+    fn baseline_rejects_unrepresentable_absolute_deviation() {
+        let mut frames = healthy_frames();
+        for frame in &mut frames[0..3] {
+            frame.hotend_temp_c = -f64::MAX;
+        }
+        for frame in &mut frames[3..7] {
+            frame.hotend_temp_c = f64::MAX;
+        }
+
+        assert_eq!(
+            ReferenceBaseline::fit(profile(), config(), &frames).unwrap_err(),
+            BaselineError::UnrepresentableStatistic(Signal::HotendTemperature)
+        );
+    }
+
+    #[test]
+    fn baseline_rejects_unrepresentable_scaled_mad() {
+        let mut frames = healthy_frames();
+        let hotend_values = [0.0, 0.0, 0.0, f64::MAX, f64::MAX, -f64::MAX, -f64::MAX];
+        for (frame, value) in frames.iter_mut().zip(hotend_values) {
+            frame.hotend_temp_c = value;
+        }
+
+        assert_eq!(
+            ReferenceBaseline::fit(profile(), config(), &frames).unwrap_err(),
+            BaselineError::UnrepresentableStatistic(Signal::HotendTemperature)
+        );
+    }
+
+    #[test]
+    fn observation_rejects_unrepresentable_finite_difference() {
+        let mut references = healthy_frames();
+        for frame in &mut references {
+            frame.hotend_temp_c = f64::MAX;
+        }
+        let baseline = ReferenceBaseline::fit(profile(), config(), &references).unwrap();
+        let mut engine = MonitoringEngine::new(baseline, "live").unwrap();
+        let mut sample = frame("live", 1, 100);
+        sample.hotend_temp_c = -f64::MAX;
+
+        assert_eq!(
+            engine.observe(&sample).disposition,
+            ObservationDisposition::InvalidObservation(
+                InputError::UnrepresentableDifference(Signal::HotendTemperature)
+            )
+        );
+    }
+
+    #[test]
+    fn observation_rejects_unrepresentable_finite_robust_z_score() {
+        let mut references = healthy_frames();
+        for frame in &mut references {
+            frame.hotend_temp_c = 0.0;
+        }
+        let mut detector_config = config();
+        detector_config.minimum_scale_by_signal[Signal::HotendTemperature.index()] =
+            f64::MIN_POSITIVE;
+        let baseline =
+            ReferenceBaseline::fit(profile(), detector_config, &references).unwrap();
+        let mut engine = MonitoringEngine::new(baseline, "live").unwrap();
+        let mut sample = frame("live", 1, 100);
+        sample.hotend_temp_c = f64::MAX;
+
+        assert_eq!(
+            engine.observe(&sample).disposition,
+            ObservationDisposition::InvalidObservation(
+                InputError::UnrepresentableScore(Signal::HotendTemperature)
+            )
+        );
+    }
+
 }
