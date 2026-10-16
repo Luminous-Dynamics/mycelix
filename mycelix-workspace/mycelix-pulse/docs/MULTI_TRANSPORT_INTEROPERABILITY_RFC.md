@@ -54,6 +54,19 @@ The application must distinguish a direct radio link from an IP service provided
 
 Holochain remains a peer/application substrate rather than an all-purpose radio driver. The current migration work documents a Holochain 0.7 transport change to Iroh over QUIC and requires a fresh conductor due to incompatible DNA/runtime changes. That does not by itself add Bluetooth, LoRaWAN, cellular-radio control, amateur radio, or satellite service access. Keep that migration scope independent.
 
+## 3A. Research comparison: reuse the right abstraction
+
+The useful paradigm shift is not to write a custom driver for every waveform. It is to separate Pulse's encrypted message and user-consent semantics from the link-specific mechanism that carries bytes.
+
+- **Briar** documents direct synchronization over Bluetooth/Wi-Fi when offline and Tor-based synchronization when online, with contact- and share-scope-dependent sync. The lesson is to make offline sync, relationship privacy, and user-selected sharing explicit—not to assume that nearby connectivity means arbitrary relaying is safe.
+- **Reticulum** documents a medium-agnostic network abstraction that can use varied digital links, including serial and radio interfaces. Study its interface-boundary and constrained-link goals before inventing another lower-layer network stack. Its project documentation is a design reference, not an adopted standard, independent certification, or proof that Pulse can directly interoperate with Reticulum.
+- **BPv7 (RFC 9171)** supplies a store-carry-forward overlay and relies on convergence-layer adapters (CLAs) to move opaque bundles over a native link. **TCPCLv4 (RFC 9174)** is one example of a specific CLA. This separation maps well to Pulse if its existing encrypted envelope is carried opaquely and delivery receipts retain their precise meaning.
+- **BPSec (RFC 9172) and default security contexts (RFC 9173)** apply security services at the bundle layer. They are not a substitute for Pulse's current end-to-end message encryption/signature policy. The exact key-management model, errata and threat boundaries must be reviewed before an adoption decision.
+
+Sources: [Briar quick start](https://briarproject.org/quick-start/), [Reticulum architecture](https://reticulum.network/manual/understanding.html), [Reticulum hardware interfaces](https://reticulum.network/manual/hardware.html), [RFC 9171](https://www.rfc-editor.org/info/rfc9171), [RFC 9173](https://www.rfc-editor.org/info/rfc9173), [RFC 9174](https://www.rfc-editor.org/info/rfc9174).
+
+**Architectural choice:** first build a Pulse adapter API and one well-defined store-and-forward profile; prefer integrating or interoperating with existing mature network stacks over reimplementing routing, discovery and radio drivers wholesale. Any integration must be preceded by an interop spike and a threat-model comparison, not by assuming wire compatibility from similar goals.
+
 ## 4. Adapter contract
 
 Implement the core contract in Rust after reviewing the current Pulse workspace conventions. The design should express these concepts without making hardware-specific types leak into message semantics:
@@ -214,6 +227,10 @@ These are starting points for a maintained registry. Before claiming conformance
 - IETF RFC 9713, Bundle Protocol Version 7 Administrative Record Types Registry (updates RFC 9171): https://www.rfc-editor.org/info/rfc9713
 - IETF RFC 9758, Updates to the 'ipn' URI Scheme (updates RFC 9171 endpoint-identifier handling): https://www.rfc-editor.org/info/rfc9758
 - IETF Bundle Protocol Security RFC 9172: https://www.rfc-editor.org/rfc/rfc9172
+- IETF Default Security Contexts for BPSec RFC 9173: https://www.rfc-editor.org/rfc/rfc9173
+- IETF TCP Convergence-Layer Protocol Version 4 RFC 9174: https://www.rfc-editor.org/rfc/rfc9174
+- Briar offline and online synchronization guide: https://briarproject.org/quick-start/
+- Reticulum medium-agnostic network overview: https://reticulum.network/manual/understanding.html
 - IETF Babel RFC 8966: https://www.rfc-editor.org/rfc/rfc8966
 - IETF OLSRv2 RFC 7181: https://www.rfc-editor.org/rfc/rfc7181
 - ETSI wireless/mobile technologies (including TETRA): https://www.etsi.org/technologies/wireless-mobile-technologies/
