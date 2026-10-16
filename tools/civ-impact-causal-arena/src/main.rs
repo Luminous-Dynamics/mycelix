@@ -487,7 +487,7 @@ fn parse_args() -> Result<(usize, usize, u64), String> {
     let mut replications = 64usize;
     let mut units = 256usize;
     let mut seed = 20_261_016u64;
-    let mut index = usize::from(args.first().map(String::as_str) == Some("run"));
+    let mut index = if args.first().map(String::as_str) == Some("run") { 1 } else { 0 };
     while index < args.len() {
         let key = args[index].as_str();
         if key == "--help" || key == "-h" {
