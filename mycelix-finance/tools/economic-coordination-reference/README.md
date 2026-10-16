@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, isolated-replica experiment, and coordinated claim-identity registry currently contain **76 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, 9 isolated-replica, and 8 claim-registry tests), plus **3 authored integration tests**: **79 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, isolated-replica experiment, and coordinated claim-identity registry currently contain **77 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, 9 isolated-replica, and 9 claim-registry tests), plus **3 authored integration tests**: **80 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Experimental partial-fulfilment tranche ledger
 
@@ -90,7 +90,7 @@ This model's guarantee depends on assumptions that remain outside it: initial gr
 
 ## Coordinated claim-identity experiment
 
-The additive `fulfillment_claim_identity` module models the alternate consistency choice: all claims pass through one serialized authority that binds an external claim ID to one replica, one exact SHA-256-shaped delivery digest, and one claimed quantity. Exact retries are idempotent; conflicting reuse, including the same claim ID on a different replica, is rejected. Finalization is also idempotent only when the accepted quantity is identical; conflicting finalizations fail closed.
+The additive `fulfillment_claim_identity` module models the alternate consistency choice: all claims pass through one serialized authority that binds an external claim ID to one request, one replica, one exact SHA-256-shaped delivery digest, and one claimed quantity. Exact retries are idempotent; conflicting reuse, including the same claim ID on another request or replica, is rejected. Finalization is also idempotent only when the accepted quantity is identical; conflicting finalizations fail closed.
 
 This demonstrates the stronger exactly-once *identity bookkeeping* available under a single authority. It is not a distributed consensus protocol, and the digest's syntax is not signature or evidence authentication. During a network partition, a replica unable to reach the registry must stay pending or decline finalization. An in-memory registry cannot prove durable single-spend behavior after crash, restore, fork or backup cloning.
 
