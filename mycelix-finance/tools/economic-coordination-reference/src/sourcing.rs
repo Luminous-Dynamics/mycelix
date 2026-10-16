@@ -39,6 +39,7 @@ pub struct SourcingRequest {
     pub max_landed_cost_minor: u64,
     pub deliver_by: u64,
     pub max_quote_age_secs: u64,
+    pub max_inventory_age_secs: u64,
     /// Binds the meaning and calibration of risk_bps across candidates.
     pub risk_model_digest: String,
 }
@@ -245,7 +246,7 @@ fn evaluate_offer(
     if offer.inventory_observed_at > request.as_of {
         return Err(RejectionReason::InventoryFromFuture);
     }
-    if request.as_of - offer.inventory_observed_at > request.max_quote_age_secs {
+    if request.as_of - offer.inventory_observed_at > request.max_inventory_age_secs {
         return Err(RejectionReason::InventoryStale);
     }
     if offer.inventory_valid_until < request.as_of {
@@ -388,6 +389,7 @@ mod tests {
             max_landed_cost_minor: 1_000,
             deliver_by: 500,
             max_quote_age_secs: 60,
+            max_inventory_age_secs: 60,
             risk_model_digest: "risk-model-v1".into(),
         }
     }
@@ -634,8 +636,8 @@ mod tests {
 
         let report = evaluate_sourcing(&request(), &[stale_stock, unverified_stock, expired_stock]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::InventoryExpired);
-        assert_eq!(report.rejected[1].reason, RejectionReason::InventoryNotVerified);
-        assert_eq!(report.rejected[2].reason, RejectionReason::InventoryStale);
+        assert_eq!(report.rejected[1].reason, RejectionReason::InventoryStale);
+        assert_eq!(report.rejected[2].reason, RejectionReason::InventoryNotVerified);
         assert!(report.pareto_frontier.is_empty());
     }
 
