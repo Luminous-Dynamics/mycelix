@@ -67,6 +67,8 @@ exclude = [
     # now deleted, so excluding them is moot.
     "crates/mycelix-leptos-i18n",
     "crates/mycelix-mock-data",
+    # Standalone, pure policy kernel; keep its dependency graph independently testable.
+    "crates/mycelix-region-policy",
     "crates/mycelix-zkp-core/benches",
     "crates/mycelix-zkp-core",
     "crates/mycelix-zkp-core/src/circuits",
