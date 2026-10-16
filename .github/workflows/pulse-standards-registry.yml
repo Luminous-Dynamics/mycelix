@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "mycelix-workspace/mycelix-pulse/standards-registry/**"
+      - "mycelix-workspace/mycelix-pulse/benchmarks/**"
       - "mycelix-workspace/mycelix-pulse/docs/MULTI_TRANSPORT_INTEROPERABILITY_RFC.md"
       - "mycelix-workspace/mycelix-pulse/docs/TRANSPORT_BENCHMARKS.md"
       - "mycelix-workspace/mycelix-pulse/justfile"
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "mycelix-workspace/mycelix-pulse/standards-registry/**"
+      - "mycelix-workspace/mycelix-pulse/benchmarks/**"
       - "mycelix-workspace/mycelix-pulse/docs/MULTI_TRANSPORT_INTEROPERABILITY_RFC.md"
       - "mycelix-workspace/mycelix-pulse/docs/TRANSPORT_BENCHMARKS.md"
       - "mycelix-workspace/mycelix-pulse/justfile"
