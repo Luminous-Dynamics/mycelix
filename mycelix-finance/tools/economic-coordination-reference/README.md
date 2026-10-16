@@ -43,7 +43,7 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, and isolated-replica experiment currently contain **67 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, and 8 isolated-replica tests), plus **3 authored integration tests**: **70 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference, partial-fulfilment tranche experiment, escrow-rights ledger, and isolated-replica experiment currently contain **68 authored unit tests** (38 v1, 14 tranche-ledger, 7 escrow-ledger, and 9 isolated-replica tests), plus **3 authored integration tests**: **71 authored test functions total**. This is a source-level count, not a claim that the tests have executed successfully.
 
 ## Experimental partial-fulfilment tranche ledger
 
@@ -86,7 +86,7 @@ The additive `fulfillment_escrow_partition` module models the quantity-accountin
 
 The deterministic interleaving campaign covers 1,000 seeds × 128 attempted transitions (128,000 operation steps) with 2–8 replicas and request quantities up to 97 units. These are authored generated checks, not a distributed proof and not an observed test pass.
 
-This model's guarantee depends on assumptions that remain outside it: initial grants are issued uniquely and durably; local spent state cannot be rolled back or forked; accepted evidence is genuine; and a replica cannot use duplicated credentials to instantiate a second copy of its share. The experiment intentionally leaves rights transfer out of the partitioned path. Before making distributed-safety claims, separately model grant issuance, crash/restart, snapshot rollback, transfer single-spend semantics, and reconciliation.
+This model's guarantee depends on assumptions that remain outside it: initial grants are issued uniquely and durably; local spent state cannot be rolled back or forked; accepted evidence is genuine; and a replica cannot use duplicated credentials to instantiate a second copy of its share. It also does not deduplicate the same external delivery identity across replica-local histories: `same_external_claim_replayed_across_replicas_is_a_known_idempotency_counterexample` demonstrates that a repeated claim ID may be accepted twice while the quantity invariant still holds. Quantity conservation therefore does not imply exactly-once delivery evidence. A successor needs a globally unique/single-use evidence or reservation identity with explicit partition behavior, plus crash/restart, snapshot rollback, transfer single-spend semantics, and reconciliation rules.
 
 ## Explicit limitations
 
