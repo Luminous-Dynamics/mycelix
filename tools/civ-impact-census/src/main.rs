@@ -154,6 +154,7 @@ struct VerificationReport {
 }
 
 #[derive(Debug, Serialize)]
+#[derive(Debug, Serialize)]
 struct BootstrapInterval {
     lower_2_5_percentile: f64,
     upper_97_5_percentile: f64,
@@ -167,12 +168,13 @@ struct BootstrapUncertainty {
     resampling_unit: String,
     stratification: String,
     bootstrap_seed_sha256: String,
-    relative_cost_per_served_unit_change_percent: BootstrapInterval,
-    candidate_minus_baseline_cost_per_served_unit_microcredits: BootstrapInterval,
+    relative_pooled_cost_per_served_unit_change_percent: BootstrapInterval,
+    candidate_minus_baseline_pooled_cost_per_served_unit_microcredits: BootstrapInterval,
     candidate_minus_baseline_service_rate_percentage_points: BootstrapInterval,
     claim_ceiling: String,
 }
 
+#[derive(Debug, Serialize)]
 struct ComparisonReport {
     benchmark_id: String,
     evidence_class: String,
@@ -193,6 +195,10 @@ struct ComparisonReport {
     candidate_mean_cost_per_served_unit_microcredits: Option<f64>,
     candidate_minus_baseline_cost_per_served_unit_microcredits: Option<f64>,
     relative_cost_per_served_unit_change_percent: Option<f64>,
+    baseline_pooled_cost_per_served_unit_microcredits: Option<f64>,
+    candidate_pooled_cost_per_served_unit_microcredits: Option<f64>,
+    candidate_minus_baseline_pooled_cost_per_served_unit_microcredits: Option<f64>,
+    relative_pooled_cost_per_served_unit_change_percent: Option<f64>,
     cost_per_served_unit_defined_for_all_pairs: bool,
     stratified_scenario_cluster_bootstrap_95: Option<BootstrapUncertainty>,
     descriptive_only: bool,
@@ -689,7 +695,6 @@ struct Aggregate {
 
 #[derive(Debug, Clone)]
 struct ScenarioAggregate {
-    scenario_id: String,
     regime: String,
     baseline: Aggregate,
     candidate: Aggregate,
@@ -768,7 +773,6 @@ fn stratified_scenario_cluster_bootstrap(
             return Ok(None);
         }
         scenario_aggregates.push(ScenarioAggregate {
-            scenario_id: scenario.scenario_id.clone(),
             regime: scenario.regime.clone(),
             baseline,
             candidate,
@@ -837,11 +841,11 @@ fn stratified_scenario_cluster_bootstrap(
         resampling_unit: "scenario cluster; all seeds and paired arms within a sampled scenario".into(),
         stratification: "resample with replacement within each registered stress regime".into(),
         bootstrap_seed_sha256: seed_digest.to_owned(),
-        relative_cost_per_served_unit_change_percent: BootstrapInterval {
+        relative_pooled_cost_per_served_unit_change_percent: BootstrapInterval {
             lower_2_5_percentile: bootstrap_percentile(&mut relative_cost_changes, 0.025)?,
             upper_97_5_percentile: bootstrap_percentile(&mut relative_cost_changes, 0.975)?,
         },
-        candidate_minus_baseline_cost_per_served_unit_microcredits: BootstrapInterval {
+        candidate_minus_baseline_pooled_cost_per_served_unit_microcredits: BootstrapInterval {
             lower_2_5_percentile: bootstrap_percentile(&mut absolute_cost_changes, 0.025)?,
             upper_97_5_percentile: bootstrap_percentile(&mut absolute_cost_changes, 0.975)?,
         },
@@ -880,6 +884,10 @@ fn make_comparison(
     let mut candidate_service_rates = Vec::new();
     let mut baseline_cost_per_served = Vec::new();
     let mut candidate_cost_per_served = Vec::new();
+    let mut baseline_total_cost_microcredits: u128 = 0;
+    let mut candidate_total_cost_microcredits: u128 = 0;
+    let mut baseline_total_served_units: u128 = 0;
+    let mut candidate_total_served_units: u128 = 0;
 
     for scenario in &schedule.scenarios {
         let demand = effective_demand(scenario)?;
@@ -911,6 +919,10 @@ fn make_comparison(
             candidate_cost_per_demand.push(candidate_cost_per_demand);
             baseline_service_rates.push(base_rate);
             candidate_service_rates.push(candidate_rate);
+            baseline_total_cost_microcredits += base_metrics.total_cost_microcredits as u128;
+            candidate_total_cost_microcredits += candidate_metrics.total_cost_microcredits as u128;
+            baseline_total_served_units += base_metrics.served_units as u128;
+            candidate_total_served_units += candidate_metrics.served_units as u128;
 
             if base_metrics.served_units == 0 || candidate_metrics.served_units == 0 {
                 zero_service_pairs += 1;
@@ -961,6 +973,24 @@ fn make_comparison(
         (Some(base), Some(candidate)) if base != 0.0 => Some((candidate / base - 1.0) * 100.0),
         _ => None,
     };
+    let baseline_pooled_cost_per_served = if all_pairs_cost_per_served_defined {
+        Some(baseline_total_cost_microcredits as f64 / baseline_total_served_units as f64)
+    } else {
+        None
+    };
+    let candidate_pooled_cost_per_served = if all_pairs_cost_per_served_defined {
+        Some(candidate_total_cost_microcredits as f64 / candidate_total_served_units as f64)
+    } else {
+        None
+    };
+    let pooled_cost_delta = match (baseline_pooled_cost_per_served, candidate_pooled_cost_per_served) {
+        (Some(base), Some(candidate)) => Some(candidate - base),
+        _ => None,
+    };
+    let pooled_cost_relative_change = match (baseline_pooled_cost_per_served, candidate_pooled_cost_per_served) {
+        (Some(base), Some(candidate)) if base > 0.0 => Some((candidate / base - 1.0) * 100.0),
+        _ => None,
+    };
 
     let bootstrap = if all_pairs_cost_per_served_defined {
         stratified_scenario_cluster_bootstrap(
@@ -993,6 +1023,10 @@ fn make_comparison(
         candidate_mean_cost_per_served_unit_microcredits: candidate_served_cost_mean,
         candidate_minus_baseline_cost_per_served_unit_microcredits: served_cost_delta,
         relative_cost_per_served_unit_change_percent: served_cost_relative_change,
+        baseline_pooled_cost_per_served_unit_microcredits: baseline_pooled_cost_per_served,
+        candidate_pooled_cost_per_served_unit_microcredits: candidate_pooled_cost_per_served,
+        candidate_minus_baseline_pooled_cost_per_served_unit_microcredits: pooled_cost_delta,
+        relative_pooled_cost_per_served_unit_change_percent: pooled_cost_relative_change,
         cost_per_served_unit_defined_for_all_pairs: all_pairs_cost_per_served_defined,
         stratified_scenario_cluster_bootstrap_95: bootstrap,
         descriptive_only: true,
@@ -1383,14 +1417,15 @@ mod tests {
         let served_cost_change = report.relative_cost_per_served_unit_change_percent.expect("served cost delta");
         assert!(served_cost_change < 0.0 && served_cost_change > -10.0);
         assert!(report.candidate_minus_baseline_service_rate_percentage_points.expect("service delta") < 0.0);
+        assert!((report.relative_pooled_cost_per_served_unit_change_percent.expect("pooled cost delta") + (1.0 - 0.9 / 0.95) * 100.0).abs() < 1e-9);
         assert!(!report.economic_benefit_established);
         assert!(report.descriptive_only);
         let interval = report.stratified_scenario_cluster_bootstrap_95
             .expect("complete paired corpus has bootstrap uncertainty");
         assert_eq!(interval.resamples, BOOTSTRAP_RESAMPLES);
         assert_eq!(interval.confidence_level, 0.95);
-        assert!(interval.relative_cost_per_served_unit_change_percent.lower_2_5_percentile <=
-            interval.relative_cost_per_served_unit_change_percent.upper_97_5_percentile);
+        assert!(interval.relative_pooled_cost_per_served_unit_change_percent.lower_2_5_percentile <=
+            interval.relative_pooled_cost_per_served_unit_change_percent.upper_97_5_percentile);
         assert_eq!(interval.bootstrap_seed_sha256, "a".repeat(64));
     }
 
