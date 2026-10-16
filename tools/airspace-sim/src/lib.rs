@@ -2023,7 +2023,7 @@ mod tests {
         let benchmarks = manifest["benchmarks"]
             .as_array()
             .expect("benchmark cases must be an array");
-        assert_eq!(benchmarks.len(), 17);
+        assert_eq!(benchmarks.len(), 18);
         let mut ids = std::collections::BTreeSet::new();
         let allowed_statuses = [
             "implemented_pending_exact_head_verification",
@@ -2066,7 +2066,7 @@ mod tests {
             "AIR-PB-001", "AIR-PB-002", "AIR-PB-003", "AIR-PB-004",
             "AIR-PB-005", "AIR-PB-006", "AIR-PB-007", "AIR-PB-008",
             "AIR-PB-009", "AIR-PB-010", "AIR-PB-011", "AIR-PB-012",
-            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017",
+            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017", "AIR-PB-018",
         ] {
             assert!(ids.contains(required), "required research case missing: {required}");
         }
@@ -2088,6 +2088,19 @@ mod tests {
         assert_eq!(
             uncertainty_prototype["scope"].as_str(),
             Some("test_only_scalar_additive_integer_affine_error_form; not flight dynamics, multi-axis geometry, a probability model, a validated reachable set, or operational qualification")
+        );
+
+        let dependency_identity = benchmarks.iter()
+            .find(|benchmark| benchmark["id"] == "AIR-PB-018")
+            .expect("origin/dependency identity benchmark must exist");
+        assert_eq!(
+            dependency_identity["status"].as_str(),
+            Some("implemented_pending_exact_head_verification")
+        );
+        assert!(
+            dependency_identity["scope"].as_str().unwrap_or("").contains(
+                "dependency IDs are declared claims, not authenticated correlation evidence"
+            )
         );
         assert!(
             benchmarks.iter().all(|benchmark| {
