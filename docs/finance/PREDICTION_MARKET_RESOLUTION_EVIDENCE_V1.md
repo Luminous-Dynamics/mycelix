@@ -50,7 +50,7 @@ An independent conformance checker must fail closed unless all applicable requir
 
 1. Compute RFC 8785 JSON Canonicalization Scheme bytes for the contract with `contract_digest_sha256` omitted, then recompute SHA-256 and compare the declared digest.
 2. Compute the resolution-event digest from RFC 8785 canonical bytes with `event_digest_sha256` and the separate `attestation` envelope omitted. The attestation must name that recomputed digest. This avoids circularly hashing a signature which itself signs the digest.
-3. Verify each source artifact digest against retained/captured bytes, not just its declaration. Capture time and source revision are preserved; newer publications are successor evidence, not retroactive deletion of older publications.
+3. Where retained bytes are available, verify each source artifact digest against those bytes, not just its declaration. The optional reference helper `validate_evidence_artifact_bytes` compares a caller-supplied artifact-ID-to-bytes map with the event's declared SHA-256 commitments and rejects missing, extra, duplicate-ID, non-byte, or mismatched entries. It does not fetch URLs or authenticate the publisher. Capture time and source revision are preserved; newer publications are successor evidence, not retroactive deletion of older publications.
 4. Check semantic time ordering (event cutoff, source publication, source capture, resolution deadline, challenge window) under one declared UTC/time policy. JSON Schema's `format` is structural, not a cross-field temporal proof.
 5. Verify issuer, signer credential, signature scheme and signature cryptographically; bind the signature to the recomputed canonical event digest.
 6. Verify `authority_policy_id` and `authorization_evidence_ref` against the exact contract's allowed resolver/adjudicator roles and jurisdiction profile. Policy IDs and refs are not self-authenticating.
@@ -82,7 +82,7 @@ Mycelix may provide issuer identity references, policy-bound attestations, appen
 - v1 intentionally limits the outcome space to a fully specified binary event. Categorical, interval, conditional, composite and scalar outcomes need separately versioned schemas and scoring semantics.
 - Unknown data remains unknown; it is not coerced to `false`, zero, non-violation, or finalized.
 - Unsupported or ambiguous contracts should not enter a qualified market book until the contract or jurisdiction profile has a declared interpretation.
-- JSON Schema defines the structural contract. The focused reference validator additionally recomputes the RFC 8785/SHA-256 contract and event commitments. It still does not verify signatures, source-artifact bytes, signer credentials, authority, venue interoperability, fairness, anti-manipulation effectiveness or compliance.
+- JSON Schema defines the structural contract. The focused reference validator additionally recomputes the RFC 8785/SHA-256 contract and event commitments. Its optional retained-bytes helper checks supplied bytes against declared digests, but the default CLI fixture run does not have real artifact bytes. No code here verifies signatures, signer credentials, authority, venue interoperability, fairness, anti-manipulation effectiveness or compliance.
 
 ## Benchmark gates
 
