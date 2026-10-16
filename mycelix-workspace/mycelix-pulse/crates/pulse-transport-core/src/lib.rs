@@ -506,6 +506,47 @@ pub enum AdapterSendOutcome {
     OutcomeUnknown,
 }
 
+/// One opaque frame accepted from a transport adapter.
+///
+/// The receive timestamp is monotonic and process-local; envelope expiry uses
+/// the separate UnixMillis type. The caller must authenticate/decrypt/validate
+/// the frame using Pulse's existing cryptographic pipeline before application
+/// processing or replay-ledger insertion.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReceivedOpaqueEnvelope {
+    envelope: OpaqueEnvelope,
+    received_at_monotonic: MonotonicMillis,
+}
+
+impl ReceivedOpaqueEnvelope {
+    pub fn new(
+        envelope: OpaqueEnvelope,
+        received_at_monotonic: MonotonicMillis,
+    ) -> Self {
+        Self {
+            envelope,
+            received_at_monotonic,
+        }
+    }
+
+    pub fn envelope(&self) -> &OpaqueEnvelope {
+        &self.envelope
+    }
+
+    pub fn received_at_monotonic(&self) -> MonotonicMillis {
+        self.received_at_monotonic
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AdapterReceiveOutcome {
+    Frame(ReceivedOpaqueEnvelope),
+    NoFrameAvailable,
+    TemporarilyUnavailable,
+    PermanentlyRejected,
+    OutcomeUnknown,
+}
+
 /// An adapter can report only what its own layer observed. It cannot claim
 /// recipient delivery; that requires Pulse's separate receipt verifier.
 pub trait TransportAdapter {
@@ -514,6 +555,10 @@ pub trait TransportAdapter {
     fn observe(&mut self, now_monotonic: MonotonicMillis) -> LinkObservation;
 
     fn send_opaque(&mut self, envelope: &OpaqueEnvelope) -> AdapterSendOutcome;
+
+    /// Non-blocking receive poll. Incoming bytes remain untrusted until the
+    /// application-level cryptographic verifier accepts the envelope.
+    fn receive_opaque(&mut self, now_monotonic: MonotonicMillis) -> AdapterReceiveOutcome;
 }
 
 impl From<AdapterSendOutcome> for DeliveryEvidenceStage {
@@ -929,6 +974,71 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(distinct_failure_domain_count(&routes), 2);
+    }
+
+    struct StubTransportAdapter {
+        descriptor: AdapterDescriptor,
+        observation: LinkObservation,
+        send_outcome: AdapterSendOutcome,
+        receive_outcome: AdapterReceiveOutcome,
+    }
+
+    impl TransportAdapter for StubTransportAdapter {
+        fn descriptor(&self) -> &AdapterDescriptor {
+            &self.descriptor
+        }
+
+        fn observe(&mut self, _now_monotonic: MonotonicMillis) -> LinkObservation {
+            self.observation
+        }
+
+        fn send_opaque(&mut self, _envelope: &OpaqueEnvelope) -> AdapterSendOutcome {
+            self.send_outcome
+        }
+
+        fn receive_opaque(&mut self, _now_monotonic: MonotonicMillis) -> AdapterReceiveOutcome {
+            self.receive_outcome.clone()
+        }
+    }
+
+    #[test]
+    fn adapter_contract_has_symmetric_opaque_send_and_receive() {
+        let descriptor = descriptor(
+            "loopback-test",
+            "test-only-domain",
+            1024,
+            TransportMode::Opportunistic,
+        );
+        let incoming = ReceivedOpaqueEnvelope::new(
+            envelope(16, UnixMillis::new(10_000)),
+            MonotonicMillis::new(3_000),
+        );
+        let mut adapter = StubTransportAdapter {
+            descriptor,
+            observation: available_observation(),
+            send_outcome: AdapterSendOutcome::AcceptedByAdapter,
+            receive_outcome: AdapterReceiveOutcome::Frame(incoming.clone()),
+        };
+
+        assert_eq!(
+            adapter.send_opaque(&envelope(16, UnixMillis::new(10_000))),
+            AdapterSendOutcome::AcceptedByAdapter
+        );
+        assert_eq!(
+            adapter.receive_opaque(MonotonicMillis::new(3_100)),
+            AdapterReceiveOutcome::Frame(incoming.clone())
+        );
+        if let AdapterReceiveOutcome::Frame(frame) =
+            adapter.receive_opaque(MonotonicMillis::new(3_200))
+        {
+            assert_eq!(
+                frame.received_at_monotonic(),
+                MonotonicMillis::new(3_000)
+            );
+            assert_eq!(frame.envelope().logical_message_id(), "msg-0001");
+        } else {
+            panic!("stub must return its queued opaque frame");
+        }
     }
 
     #[test]
