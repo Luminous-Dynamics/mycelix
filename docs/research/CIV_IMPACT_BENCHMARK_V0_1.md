@@ -244,8 +244,8 @@ No need to wait for hosted runners to author the protocol, schema, source manife
 A first standalone Rust tool is being authored under [tools/civ-impact-census](https://github.com/Luminous-Dynamics/mycelix/tree/research/civ-impact-benchmark-v0-1/tools/civ-impact-census). It is intentionally narrower than an optimizer or economic simulator.
 
 - `generate` deterministically emits a balanced five-regime synthetic scenario set and paired comparison schedule (default: 100 scenarios × 30 seeds × seven arms = 21,000 planned runs).
-- `verify` checks schedule/result identity, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds and cost-component arithmetic.
-- `CIV_IMPACT_RUN_CENSUS_V0_1.schema.json` provides the machine-readable structural contract for run results.
+- `verify` checks the exact schedule artifact SHA-256 embedded in the results manifest, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds and cost-component arithmetic. Changing arms, implementation references, seed count, or any other schedule field invalidates result reuse even if the scenario-set digest remains unchanged.
+- `CIV_IMPACT_RUN_CENSUS_V0_1.schema.json` provides the machine-readable structural contract for run results, including the required `schedule_artifact_sha256` link to exact schedule bytes.
 - `CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json` defines the descriptive paired-comparison report shape, the stratified resampling interval shape, and the non-qualification claim flags.
 - The tool's report states that benchmark validity and economic benefit are **not** established. A generated plan does not execute any arm; synthetic stress parameters are not operational data or estimated disruption probabilities.
 - Generated arm implementation references are placeholders. They must be replaced with pinned implementations under a frozen preregistration before confirmatory use.
