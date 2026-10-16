@@ -62,6 +62,12 @@ impl SourcingRequest {
 pub struct SupplierOffer {
     pub offer_id: String,
     pub supplier_id: String,
+    /// Source record locator captured by the discovery adapter.
+    pub source_uri: String,
+    /// Opaque digest reference for exact source payload bytes; content is not verified here.
+    pub source_payload_digest: String,
+    /// Version/digest identifying the extraction profile that produced the fields.
+    pub extractor_profile_id: String,
     pub capability_id: String,
     pub capability_profile_digest: String,
     pub unit: String,
@@ -93,6 +99,7 @@ pub enum EvaluationError {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RejectionReason {
     InvalidOfferIdentity,
+    MissingSourceProvenance,
     CapabilityMismatch,
     CapabilityProfileMismatch,
     UnitMismatch,
@@ -116,6 +123,9 @@ pub enum RejectionReason {
 pub struct EvaluatedOffer {
     pub offer_id: String,
     pub supplier_id: String,
+    pub source_uri: String,
+    pub source_payload_digest: String,
+    pub extractor_profile_id: String,
     pub landed_cost_minor: u64,
     pub arrival_at: u64,
     pub lead_time_secs: u64,
@@ -126,6 +136,9 @@ pub struct EvaluatedOffer {
 pub struct RejectedOffer {
     pub offer_id: String,
     pub supplier_id: String,
+    pub source_uri: String,
+    pub source_payload_digest: String,
+    pub extractor_profile_id: String,
     pub reason: RejectionReason,
 }
 
@@ -167,6 +180,12 @@ fn evaluate_offer(
 ) -> Result<EvaluatedOffer, RejectionReason> {
     if !non_empty(&offer.offer_id) || !non_empty(&offer.supplier_id) {
         return Err(RejectionReason::InvalidOfferIdentity);
+    }
+    if !non_empty(&offer.source_uri)
+        || !non_empty(&offer.source_payload_digest)
+        || !non_empty(&offer.extractor_profile_id)
+    {
+        return Err(RejectionReason::MissingSourceProvenance);
     }
     if offer.capability_id != request.capability_id {
         return Err(RejectionReason::CapabilityMismatch);
@@ -224,6 +243,9 @@ fn evaluate_offer(
     Ok(EvaluatedOffer {
         offer_id: offer.offer_id.clone(),
         supplier_id: offer.supplier_id.clone(),
+        source_uri: offer.source_uri.clone(),
+        source_payload_digest: offer.source_payload_digest.clone(),
+        extractor_profile_id: offer.extractor_profile_id.clone(),
         landed_cost_minor: total,
         arrival_at,
         lead_time_secs: offer.lead_time_secs,
@@ -270,6 +292,9 @@ pub fn evaluate_sourcing(
             Err(reason) => rejected.push(RejectedOffer {
                 offer_id: offer.offer_id.clone(),
                 supplier_id: offer.supplier_id.clone(),
+                source_uri: offer.source_uri.clone(),
+                source_payload_digest: offer.source_payload_digest.clone(),
+                extractor_profile_id: offer.extractor_profile_id.clone(),
                 reason,
             }),
         }
@@ -323,6 +348,9 @@ mod tests {
         SupplierOffer {
             offer_id: id.into(),
             supplier_id: format!("supplier-{id}"),
+            source_uri: format!("https://supplier.example/offers/{id}"),
+            source_payload_digest: format!("fixture-source-digest-{id}"),
+            extractor_profile_id: "fixture-extractor-v1".into(),
             capability_id: "solar-charge-control".into(),
             capability_profile_digest: "profile-sha256-v1".into(),
             unit: "each".into(),
@@ -472,6 +500,64 @@ mod tests {
         assert!(report.pareto_frontier.is_empty());
         assert!(report.dominated.is_empty());
         assert_eq!(report.rejected[0].reason, RejectionReason::InsufficientQuantity);
+    }
+
+    #[test]
+    fn missing_source_provenance_is_rejected_and_reported() {
+        let mut candidate = offer("no-source-digest", 100, 10, 100);
+        candidate.source_payload_digest.clear();
+        let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::MissingSourceProvenance);
+        assert_eq!(report.rejected[0].source_uri, "https://supplier.example/offers/no-source-digest");
+        assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn future_or_expired_quotes_are_rejected() {
+        let mut future = offer("future", 100, 10, 100);
+        future.quote_observed_at = 101;
+        let mut expired = offer("expired", 90, 10, 100);
+        expired.quote_valid_until = 99;
+        let report = evaluate_sourcing(&request(), &[future, expired]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::QuoteExpired);
+        assert_eq!(report.rejected[1].reason, RejectionReason::QuoteFromFuture);
+        assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn over_budget_and_noncanonical_units_are_rejected() {
+        let mut req = request();
+        req.max_landed_cost_minor = 99;
+        let cheap_but_wrong_unit = {
+            let mut item = offer("wrong-unit", 1, 1, 1);
+            item.unit = "case".into();
+            item
+        };
+        let over_budget = offer("over-budget", 100, 1, 1);
+        let report = evaluate_sourcing(&req, &[cheap_but_wrong_unit, over_budget]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::OverBudget);
+        assert_eq!(report.rejected[1].reason, RejectionReason::UnitMismatch);
+        assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn invalid_risk_value_and_arrival_overflow_fail_closed() {
+        let mut invalid_risk = offer("invalid-risk", 100, 1, 10_001);
+        invalid_risk.risk_model_digest = "risk-model-v1".into();
+
+        let mut req = request();
+        req.as_of = u64::MAX - 5;
+        req.deliver_by = u64::MAX;
+        req.max_quote_age_secs = 100;
+        let mut overflow_arrival = offer("arrival-overflow", 100, 10, 100);
+        overflow_arrival.quote_observed_at = req.as_of;
+        overflow_arrival.quote_valid_until = u64::MAX;
+        overflow_arrival.supplier_credential_valid_until = u64::MAX;
+        let report = evaluate_sourcing(&req, &[overflow_arrival]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::ArrivalTimeOverflow);
+
+        let report = evaluate_sourcing(&request(), &[invalid_risk]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::RiskValueOutOfRange);
     }
 
     #[test]
