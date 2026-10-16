@@ -210,6 +210,18 @@ class PredictionMarketEvidenceTests(unittest.TestCase):
         candidate["evidence_artifacts"][0]["retrieved_at"] = "2030-01-01T09:00:00Z"
         self.assertTrue(validate_resolution_event_record(candidate, CONTRACT, EV))
 
+    def test_source_publication_timestamp_with_utc_offset_is_normalized(self):
+        candidate = copy.deepcopy(EVENT)
+        candidate["evidence_artifacts"][0]["published_at"] = "2030-01-02T12:00:00+02:00"
+        self.assertEqual(validate_resolution_event_record(candidate, CONTRACT, EV), [])
+
+    def test_event_cannot_claim_evidence_retrieved_after_the_event(self):
+        candidate = copy.deepcopy(EVENT)
+        candidate["evidence_artifacts"][0]["retrieved_at"] = "2030-01-02T13:00:00Z"
+        candidate["event_digest_sha256"] = event_content_digest(candidate)
+        candidate["attestation"]["signed_event_digest_sha256"] = candidate["event_digest_sha256"]
+        self.assertTrue(validate_resolution_event_record(candidate, CONTRACT, EV))
+
     def test_non_utc_timestamp_is_rejected(self):
         candidate = copy.deepcopy(CONTRACT)
         candidate["created_at"] = "2026-10-16T12:00:00+02:00"

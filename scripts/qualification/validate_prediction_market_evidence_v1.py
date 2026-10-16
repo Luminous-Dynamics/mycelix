@@ -47,7 +47,9 @@ def make_validator(path: Path) -> Draft202012Validator:
 
 
 def _parse_utc(value: str) -> datetime:
-    return datetime.fromisoformat(value[:-1] + "+00:00")
+    """Parse ISO 8601 timestamps with either a Z suffix or an explicit UTC offset."""
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
 
 def contract_content_digest(record: dict[str, Any]) -> str:
     """Recompute the contract commitment using RFC 8785 JCS, omitting its digest field."""
@@ -110,8 +112,11 @@ def validate_resolution_event_record(
 
     for i, artifact in enumerate(event["evidence_artifacts"]):
         published = artifact.get("published_at")
-        if published is not None and _parse_utc(artifact["retrieved_at"]) < _parse_utc(published):
+        retrieved = _parse_utc(artifact["retrieved_at"])
+        if published is not None and retrieved < _parse_utc(published):
             errors.append(f"semantic:evidence_artifacts/{i}:retrieval precedes publication")
+        if retrieved > recorded_at:
+            errors.append(f"semantic:evidence_artifacts/{i}:event recorded before evidence retrieval")
     return sorted(errors)
 
 
