@@ -2,7 +2,7 @@
 
 This directory is a **seed inventory**, not a conformance catalogue. Every entry tracks source metadata separately from Pulse implementation support. An entry marked `unreviewed` must not be presented as supported.
 
-- `registry.v1.json`: reviewed source pointers and explicit open work, current as of 2026-10-15.
+- `registry.v1.json`: source pointers and explicit open work across 17 records, revised 2026-10-16.
 - `schema.v1.json`: JSON Schema draft 2020-12 structure.
 - `validator/`: standalone Rust contract validator and adversarial unit tests. The validator checks the registry's declared v1 fields/enums, IDs, URL/date shapes, support-evidence gates, and relation targets. It is deliberately not represented as a generic JSON Schema engine.
 - `../docs/TRANSPORT_BENCHMARKS.md`: acceptance gates and benchmark methodology.
