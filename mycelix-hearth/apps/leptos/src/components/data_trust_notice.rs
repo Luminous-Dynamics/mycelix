@@ -59,10 +59,9 @@ pub fn DataTrustNotice() -> impl IntoView {
     let status = hc.status;
     let signing_ready = hc.zome_call_signing_ready;
 
-    // The shared provider already displays an unmissable alert when a live
-    // strategy degrades into Mock. Avoid duplicating that alert here.
+    // Show the preview status even for deliberate MockOnly mode. On accidental
+    // fallback, the shared provider still owns the urgent connection-failure alert.
     view! {
-        <Show when=move || status.get() != ConnectionStatus::Mock>
             <aside
                 class=move || {
                     let (_, _, modifier) =
@@ -84,7 +83,6 @@ pub fn DataTrustNotice() -> impl IntoView {
                     </p>
                 </div>
             </aside>
-        </Show>
     }
 }
 
