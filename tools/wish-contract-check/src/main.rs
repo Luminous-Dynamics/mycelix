@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 
 const SCHEMA_TEXT: &str =
     include_str!("../../../docs/research/schemas/wish-request-v0.1.schema.json");
+const RESULT_SCHEMA_TEXT: &str =
+    include_str!("../../../docs/research/schemas/wish-run-results-v0.1.schema.json");
 const BENCHMARK_MANIFEST_TEXT: &str =
     include_str!("../../../docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json");
 
@@ -180,6 +182,16 @@ fn run_census() -> Result<(), String> {
         .should_validate_formats(true)
         .build(&schema)
         .map_err(|e| format!("compile Draft 2020-12 schema: {e}"))?;
+
+    let result_schema: Value = serde_json::from_str(RESULT_SCHEMA_TEXT)
+        .map_err(|e| format!("run-result schema JSON parse: {e}"))?;
+    if !draft202012::meta::is_valid(&result_schema) {
+        return Err("run-result schema does not validate against the Draft 2020-12 meta-schema".into());
+    }
+    let _result_validator = draft202012::options()
+        .should_validate_formats(true)
+        .build(&result_schema)
+        .map_err(|e| format!("compile run-result Draft 2020-12 schema: {e}"))?;
 
     let (episode_count, stratum_count, arm_count) = validate_benchmark_manifest()?;
 
