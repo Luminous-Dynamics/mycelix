@@ -615,29 +615,7 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
             extras.insert(result.run_id.clone());
             continue;
         };
-        let mut valid = result.episode_id == plan.episode_id
-            && result.arm_id == plan.arm_id
-            && result.arm_definition_sha256 == plan.arm_definition_sha256
-            && result.policy_input_sha256 == plan.policy_input_sha256;
-        for hash in [
-            result.arm_definition_sha256.as_str(),
-            result.policy_input_sha256.as_str(),
-            result.policy_build_sha256.as_str(),
-            result.policy_config_sha256.as_str(),
-            result.receipt_sha256.as_str(),
-        ] { if !is_sha256(hash) { valid = false; } }
-        if result.receipt_sha256 != digest(&result.receipt_payload).unwrap_or_default() { valid = false; }
-        match result.disposition {
-            RunDisposition::Completed => {
-                if !result.result_sha256.as_deref().is_some_and(is_sha256) { valid = false; }
-                if result.terminal_reason.is_some() { valid = false; }
-                if result.result_payload.as_ref().is_none_or(|payload| result.result_sha256.as_deref() != digest(payload).ok().as_deref()) { valid = false; }
-            }
-            _ => {
-                if !result.terminal_reason.as_deref().is_some_and(|v| !v.trim().is_empty()) { valid = false; }
-                if result.result_sha256.as_deref().is_some_and(|v| !is_sha256(v)) { valid = false; }
-            }
-        }
+        let mut valid = validate_run_result(result, plan).is_ok();
         if let Some((first_build,first_config,first_run)) = arm_configs.get(&result.arm_id) {
             if first_build != &result.policy_build_sha256 || first_config != &result.policy_config_sha256 {
                 invalid.insert(result.run_id.clone());
@@ -713,6 +691,50 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
     Ok(())
 }
 
+fn validate_run_result(result: &RunResult, plan: &PlannedRun) -> Result<(), String> {
+    if result.episode_id != plan.episode_id
+        || result.arm_id != plan.arm_id
+        || result.arm_definition_sha256 != plan.arm_definition_sha256
+        || result.policy_input_sha256 != plan.policy_input_sha256 {
+        return Err("run/episode/arm/input binding mismatch".into());
+    }
+    for hash in [
+        result.arm_definition_sha256.as_str(),
+        result.policy_input_sha256.as_str(),
+        result.policy_build_sha256.as_str(),
+        result.policy_config_sha256.as_str(),
+        result.receipt_sha256.as_str(),
+    ] {
+        if !is_sha256(hash) { return Err("malformed SHA-256 field".into()); }
+    }
+    let receipt_digest = digest(&result.receipt_payload)?;
+    if result.receipt_sha256 != receipt_digest {
+        return Err("receipt payload digest mismatch".into());
+    }
+    match result.disposition {
+        RunDisposition::Completed => {
+            let payload = result.result_payload.as_ref()
+                .ok_or("completed result has no result payload")?;
+            let declared = result.result_sha256.as_deref()
+                .filter(|value| is_sha256(value))
+                .ok_or("completed result has no valid result digest")?;
+            if digest(payload)? != declared { return Err("result payload digest mismatch".into()); }
+            if result.terminal_reason.is_some() { return Err("completed result must not have a terminal failure reason".into()); }
+        }
+        _ => {
+            if !result.terminal_reason.as_deref().is_some_and(|value| !value.trim().is_empty()) {
+                return Err("non-completed run requires a non-empty terminal reason".into());
+            }
+            match (&result.result_payload, result.result_sha256.as_deref()) {
+                (None, None) => {}
+                (Some(payload), Some(declared)) if is_sha256(declared) && digest(payload)? == declared => {}
+                _ => return Err("incomplete result payload/digest pair is inconsistent".into()),
+            }
+        }
+    }
+    Ok(())
+}
+
 fn sorted(values: HashSet<String>) -> Vec<String> {
     let mut result: Vec<String> = values.into_iter().collect();
     result.sort();
@@ -754,6 +776,71 @@ mod tests {
         }
         assert_eq!(episodes, 120);
         assert_eq!(runs.len(), 1440);
+    }
+
+    fn test_result_pair(disposition: RunDisposition) -> (PlannedRun, RunResult) {
+        let arm = json!({"id":"A0","name":"rule_only"});
+        let arm_sha = digest(&arm).unwrap();
+        let input = json!({"request":{"statement":"synthetic test"}});
+        let input_sha = digest(&input).unwrap();
+        let plan = PlannedRun {
+            run_id: format!("run-{}", "a".repeat(32)),
+            episode_id: format!("ep-{}", "b".repeat(24)),
+            stratum_id: "S01".into(),
+            case_ordinal: 1,
+            arm_id: "A0".into(),
+            seed_sha256: "c".repeat(64),
+            arm_definition_sha256: arm_sha.clone(),
+            policy_input_sha256: input_sha.clone(),
+            disposition: "planned_not_executed".into(),
+        };
+        let receipt_payload = json!({"boundary_decision":"no_side_effects","events":[]});
+        let result_payload = json!({"outcome":"no_action","synthetic_only":true});
+        let completed = matches!(disposition, RunDisposition::Completed);
+        let receipt_sha256 = digest(&receipt_payload).unwrap();
+        let result_sha256 = if completed { Some(digest(&result_payload).unwrap()) } else { None };
+        let result = RunResult {
+            run_id: plan.run_id.clone(),
+            episode_id: plan.episode_id.clone(),
+            arm_id: plan.arm_id.clone(),
+            arm_definition_sha256: arm_sha,
+            policy_input_sha256: input_sha,
+            policy_build_sha256: "d".repeat(64),
+            policy_config_sha256: "e".repeat(64),
+            disposition,
+            receipt_sha256,
+            receipt_payload,
+            result_sha256,
+            result_payload: if completed { Some(result_payload) } else { None },
+            terminal_reason: if completed { None } else { Some("synthetic timeout".into()) },
+            unauthorized_effects_accepted: 0,
+            unconfirmed_resources_marked_committed: 0,
+            false_fulfillment_acceptances: 0,
+            non_allowlisted_egress_attempts: 0,
+            containment_violations: 0,
+        };
+        (plan, result)
+    }
+
+    #[test]
+    fn completed_result_and_receipt_payload_digests_are_recomputed() {
+        let (plan, result) = test_result_pair(RunDisposition::Completed);
+        assert!(validate_run_result(&result, &plan).is_ok());
+        let mut tampered = result.clone();
+        tampered.receipt_payload["boundary_decision"] = json!("allowed");
+        assert!(validate_run_result(&tampered, &plan).is_err());
+        let mut tampered_result = result.clone();
+        tampered_result.result_payload.as_mut().unwrap()["outcome"] = json!("fabricated_success");
+        assert!(validate_run_result(&tampered_result, &plan).is_err());
+    }
+
+    #[test]
+    fn incomplete_run_requires_explicit_reason_and_still_has_a_receipt() {
+        let (plan, result) = test_result_pair(RunDisposition::TimedOut);
+        assert!(validate_run_result(&result, &plan).is_ok());
+        let mut no_reason = result.clone();
+        no_reason.terminal_reason = Some(" ".into());
+        assert!(validate_run_result(&no_reason, &plan).is_err());
     }
 
     #[test]
