@@ -22,7 +22,8 @@ The evaluator:
 - requires a non-empty source locator, source-payload digest reference and extraction-profile identity; these are preserved in the report but not authenticated or recomputed by this module;
 - requires exact capability ID/profile digest, canonical unit, currency, and risk-model digest matches;
 - requires quote and supplier-credential evidence to be marked verified by an upstream process;
-- rejects future/stale/expired quotes, expired credentials, insufficient quantity, late delivery, malformed risk values, and integer-overflowed or over-budget totals;
+- rejects future/stale/expired quotes, independently future/stale/expired or unverified inventory observations, expired credentials, insufficient quantity, late delivery, malformed risk values, and integer-overflowed or over-budget totals;
+- binds quote freshness and inventory freshness to separate policy windows, and requires both evidence origins to match the request's declared origin;
 - computes landed cost using checked integer arithmetic in minor currency units;
 - sorts its report by offer ID so input ordering cannot decide an outcome;
 - distinguishes Pareto-frontier offers, dominated offers, and rejected offers; it never emits a purchase decision.
