@@ -1139,7 +1139,8 @@
       "capabilities and outputs that become blocked when each critical imported class is removed",
       "source/build/toolchain/firmware availability without network access",
       "independent evaluator agreement and separately operated-node reproduction",
-      "unrecorded manual interventions: target zero; any unrecorded intervention invalidates the claimed reproduction run"
+      "unrecorded manual interventions: target zero; any unrecorded intervention invalidates the claimed reproduction run",
+      "repair attempts / accepted repairs / post-repair test outcomes; replacement-stock status remains distinct from repair-tool capability"
     ],
     "adversarial_tests": [
       "remove compute module or memory; system must not claim a complete computer was built",
