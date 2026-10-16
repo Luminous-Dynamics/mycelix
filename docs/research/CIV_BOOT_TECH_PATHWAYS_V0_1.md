@@ -164,6 +164,12 @@ Use purchased or salvaged ICs initially. Modern semiconductor fabrication depend
 
 Therefore keep the existing semiconductor placeholder blocked until its critical process dependencies are modeled and evidence-qualified. The first goal is not to build an advanced CPU fab in a garage. It is to build a small computer-production cell that can make a useful replacement computer from an auditable stock of imported components, then steadily reduce the most consequential dependencies.
 
+#### Frozen synthetic corpus for independent verification
+
+The companion [computer reproduction corpus](./CIV_BOOT_COMPUTER_REPRO_CORPUS_V0_1.json) preregisters 13 scenario outcomes across 22 state fields, including host-assisted success, verified host removal, hidden-host negative control, missing compute module, stale calibration, incomplete offline toolchain, revision drift, unrecorded intervention, imported-IC board assembly, separate-node transfer eligibility, and tool-renewal failure. It is a scenario specification—not physical evidence.
+
+The next implementation should be a dependency-light Rust validator/projection in the canonical Symthaea closure stack, with a deterministic report that names each blocked claim and missing dependency. Reuse [CIV-BOOT-002D #5789](https://github.com/Luminous-Dynamics/symthaea/issues/5789)'s PIE↔Rust differential methodology and [COMPUTE-MFG-002 #7658](https://github.com/Luminous-Dynamics/symthaea/issues/7658)'s physical host-removal campaign. Do not create a second closure engine in Mycelix.
+
 #### Candidate hardware research: separate the learning target from the replication target
 
 A useful modular-computer reference is [Nhyodyne / Modular Backplane Computer](https://github.com/lynchaj/nhyodyne). Its README describes a working minimum system built from four core Z80 boards, supplies Gerber files for external PCB fabrication, and emphasizes replaceable, single-function boards and off-the-shelf parts. This makes it a useful **architecture / C0–C3 study** for board modularity, source artifacts, and assembly evidence ([project README](https://github.com/lynchaj/nhyodyne)).
