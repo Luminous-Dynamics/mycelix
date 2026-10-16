@@ -244,7 +244,7 @@ No need to wait for hosted runners to author the protocol, schema, source manife
 A first standalone Rust tool is being authored under [tools/civ-impact-census](https://github.com/Luminous-Dynamics/mycelix/tree/research/civ-impact-benchmark-v0-1/tools/civ-impact-census). It is intentionally narrower than an optimizer or economic simulator.
 
 - `generate` deterministically emits a balanced five-regime synthetic scenario set and paired comparison schedule (default: 100 scenarios × 30 seeds × seven arms = 21,000 planned runs).
-- `verify` checks the exact schedule artifact SHA-256 embedded in the results manifest, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds and cost-component arithmetic. Changing arms, implementation references, seed count, or any other schedule field invalidates result reuse even if the scenario-set digest remains unchanged.
+- `verify` checks the exact schedule artifact SHA-256 embedded in the results manifest, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds, and reconciliation across compute, operational, capital-amortization, data, integration, review, coordination and failure-recovery costs. Changing arms, implementation references, seed count, or any other schedule field invalidates result reuse even if the scenario-set digest remains unchanged.
 - `CIV_IMPACT_RUN_CENSUS_V0_1.schema.json` provides the machine-readable structural contract for run results, including the required `schedule_artifact_sha256` link to exact schedule bytes.
 - `CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json` defines the descriptive paired-comparison report shape, the stratified resampling interval shape, and the non-qualification claim flags.
 - The tool's report states that benchmark validity and economic benefit are **not** established. A generated plan does not execute any arm; synthetic stress parameters are not operational data or estimated disruption probabilities.
@@ -266,7 +266,7 @@ If any registered incumbent/full-stack pair is incomplete, the analyzer withhold
 - Protocol: authored proposal.
 - Preregistration, run-census, and comparison-report schema files: authored and fetched back from the branch; JSON parsing confirmed. Rust unit tests are authored to validate each schema against its JSON Schema meta-schema, validate serialized run/report instances, and enforce schema/code field-set alignment. These tests remain unexecuted until the exact-head Rust workflow runs.
 - Rust `1.99.1` toolchain and direct dependency versions (including the `jsonschema` validator) are pinned in the standalone crate; a generated and committed `Cargo.lock` remains outstanding for transitive dependency reproducibility.
-- Rust schedule/census prototype and unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
+- Rust schedule/census prototype and 29 unit tests: authored and fetched back from the branch; **not executed locally** because this environment does not expose `cargo` or `rustc`.
 - Draft 2020-12 validation is implemented in the test harness via the pinned Rust `jsonschema` crate; schema meta-validation and instance-validation have not yet been executed in this environment.
 - Benchmark runs: none claimed.
 - Physical/economic outcomes: none claimed.
