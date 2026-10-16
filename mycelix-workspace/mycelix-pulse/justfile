@@ -46,12 +46,15 @@ evaluate-transport-smoke:
       mkdir -p evidence/transport-evaluation; \
       cargo generate-lockfile --manifest-path standards-registry/validator/Cargo.toml; \
       cp standards-registry/validator/Cargo.lock evidence/transport-evaluation/validator.Cargo.lock; \
+      rustc --version > evidence/transport-evaluation/toolchain.txt; \
+      cargo --version >> evidence/transport-evaluation/toolchain.txt; \
+      printf '%s\n' 'mode=correlation-sweep' 'messages_per_scenario=500' 'seed_start=20261016' 'seed_count=30' 'candidate_strategies=sequential_failover,parallel_redundancy' 'correlation_weights=0,2500,5000,7500,10000' > evidence/transport-evaluation/routing-evaluation-config.txt; \
       git rev-parse HEAD > evidence/transport-evaluation/subject.sha; \
-      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256; \
+      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json evidence/transport-evaluation/toolchain.txt evidence/transport-evaluation/routing-evaluation-config.txt justfile ../../.github/workflows/ci.yml > evidence/transport-evaluation/inputs.sha256; \
       manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
       subject=$$(cat evidence/transport-evaluation/subject.sha); \
-      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/correlation-sweep-sequential.json; \
-      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/correlation-sweep-parallel.json; \
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-sequential.json; \
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-parallel.json; \
       cat evidence/transport-evaluation/correlation-sweep-sequential.json; \
       cat evidence/transport-evaluation/correlation-sweep-parallel.json
 
@@ -61,12 +64,15 @@ evaluate-transport:
       mkdir -p evidence/transport-evaluation; \
       cargo generate-lockfile --manifest-path standards-registry/validator/Cargo.toml; \
       cp standards-registry/validator/Cargo.lock evidence/transport-evaluation/validator.Cargo.lock; \
+      rustc --version > evidence/transport-evaluation/toolchain.txt; \
+      cargo --version >> evidence/transport-evaluation/toolchain.txt; \
+      printf '%s\n' 'mode=correlation-sweep' 'messages_per_scenario=10000' 'seed_start=20261016' 'seed_count=30' 'candidate_strategies=sequential_failover,parallel_redundancy' 'correlation_weights=0,2500,5000,7500,10000' > evidence/transport-evaluation/routing-evaluation-config.txt; \
       git rev-parse HEAD > evidence/transport-evaluation/subject.sha; \
-      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256; \
+      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/Cargo.lock standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json evidence/transport-evaluation/toolchain.txt evidence/transport-evaluation/routing-evaluation-config.txt justfile ../../.github/workflows/ci.yml > evidence/transport-evaluation/inputs.sha256; \
       manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
       subject=$$(cat evidence/transport-evaluation/subject.sha); \
-      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/correlation-sweep-sequential.json; \
-      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$manifest" > evidence/transport-evaluation/correlation-sweep-parallel.json; \
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-sequential.json; \
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate parallel_redundancy --subject-sha "$$subject" --input-manifest evidence/transport-evaluation/inputs.sha256 --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/correlation-sweep-parallel.json; \
       cat evidence/transport-evaluation/correlation-sweep-sequential.json; \
       cat evidence/transport-evaluation/correlation-sweep-parallel.json
 
