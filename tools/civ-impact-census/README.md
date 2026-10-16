@@ -21,7 +21,7 @@ cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- verify /tmp/civ-
 cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- analyze /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
 ```
 
-The results file must use manifest version `0.1`, match the benchmark ID and scenario-set digest, and include one result per scheduled `run_id`. A complete example row has this shape:
+The results file must use manifest version `0.1`, match the benchmark ID and scenario-set digest, bind to the SHA-256 of the exact pretty-serialized `schedule.json` bytes via `schedule_artifact_sha256`, and include one result per scheduled `run_id`. A result file generated for a schedule cannot be replayed against a changed schedule—even if the scenario-set digest stayed the same and only arms or implementation references changed. A complete example row has this shape:
 
 ```json
 {
@@ -75,7 +75,7 @@ Implementation references in this generated schedule are explicitly placeholders
 - Scenario IDs, scenario parameter generation, run IDs, and ordering are deterministic for the same arguments and tool version.
 - Scenario generation uses an explicitly named XorShift64 variant for reproducibility, not cryptographic randomness.
 - The scenario-set SHA-256 hashes the exact compact JSON serialization produced by this implementation. Independent implementations must duplicate the serialization contract or compare the provided scenario file's exact bytes instead.
-- The verification report separately hashes the exact schedule and result file bytes.
+- The results manifest binds the exact schedule artifact SHA-256; verification and analysis recompute it from the exact schedule file bytes. The report also hashes the exact schedule and result file bytes.
 - The verifier rejects missing/duplicate/unexpected run identities, mismatched schedule identities, missing failure dispositions/reasons, served demand above registered demand, absent completed-run metrics, and total-cost arithmetic that does not equal the sum of registered cost components.
 
 These are integrity controls, not authentication. A party can rewrite an artifact and recompute its hash; immutable storage, signed or independently anchored preregistration, evaluator separation and access controls remain external requirements. The verifier also does not prove that an evaluator truthfully measured its metrics.
@@ -113,6 +113,6 @@ Do not benchmark against third-party instances until source identity, exact obje
 
 ## Tests
 
-The crate defines 24 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, reproducible scenario-cluster resampling, incomplete-pair visibility, zero-service handling, and Rust/schema field-set agreement.
+The crate defines 25 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, reproducible scenario-cluster resampling, incomplete-pair visibility, zero-service handling, and Rust/schema field-set agreement, and stale-result rejection after a schedule artifact change.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
