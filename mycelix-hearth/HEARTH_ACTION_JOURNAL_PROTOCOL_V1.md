@@ -16,7 +16,7 @@ persist(Submitted) -- commit not confirmed --> DO NOT SEND
 dispatch exactly once
    | success response          | ambiguous error
    v                           v
-persist(Confirmed)        persist(OutcomeUnknown)
+persist(SourceChainCommitted)        persist(OutcomeUnknown)
 ```
 
 A process-local operation ID or state enum is not a durable journal. This module does not implement storage, network dispatch, Holochain idempotency, or exactly-once effects. Its purpose is to make the dispatch ordering independently testable before a browser storage adapter is written.
@@ -27,10 +27,10 @@ A process-local operation ID or state enum is not a durable journal. This module
 - `dispatch_after_journal` accepts only that permit while its lifecycle status remains Prepared.
 - It transitions to Submitted and calls the persistence function before invoking the supplied one-shot dispatch closure.
 - If the Submitted persistence operation does not report success, the dispatch closure is never called.
-- A conclusive successful response moves the in-process attempt to Confirmed. The result explicitly states whether the confirmation update was persisted.
+- A conclusive successful response moves the in-process attempt to SourceChainCommitted. The result explicitly states whether the confirmation update was persisted.
 - An untyped transport error is OutcomeUnknown, not ExplicitlyRejected; the module attempts to persist that state and reports whether that write was confirmed.
 - A second dispatch call with the same permit is rejected by the state guard.
-- If the remote response arrived but writing Confirmed failed, the present process may know the result; after a restart the journal may contain only Submitted. Recovery must conservatively convert the recovered Submitted record to OutcomeUnknown and reconcile.
+- If the remote response arrived but writing SourceChainCommitted failed, the present process may know the result; after a restart the journal may contain only Submitted. Recovery must conservatively convert the recovered Submitted record to OutcomeUnknown and reconcile.
 - If the OutcomeUnknown write fails, the previously committed Submitted state remains the conservative recovery input. The permit cannot be dispatched again.
 
 ## Fake-journal fault injection
