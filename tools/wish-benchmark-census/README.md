@@ -16,6 +16,10 @@ The manifest, input templates, generator and development episodes are public. Th
 
 The tool does not run policy arms, connect to live endpoints, generate evaluator-truth labels, or claim that a wish was fulfilled. Actual policy/build/config digests must be captured in every run receipt.
 
+## Execution lock (confirmatory results are currently blocked)
+
+The checked-in manifest is `preregistration_draft` with an `execution_lock.status=not_frozen`. The tool may generate a public development schedule from that draft, but `verify-census` intentionally refuses to accept results until the manifest has status `preregistered_before_runs` and a frozen execution lock. Before confirmatory runs, freeze every arm's policy build/config, runner image, action space and observation contract; also freeze the scorer/evaluator, result schema, tool contracts, evidence verifier, credential-status snapshot and issuer-authorization policy. The policy-build registry digest must equal the canonical digest of the ordered per-arm pins. Updating the lock changes the manifest digest, so regenerate the schedule and policy dataset after freezing it. A self-reported build hash or a result set that is internally consistent but not bound to this frozen lock is not a valid confirmatory comparison.
+
 ## Census contract
 
 A result file uses wish-run-results/0.1 and binds to the exact schedule digest. It must contain one result per planned run and bind the run/episode/arm identity, arm definition, visible input, policy build/config, result and receipt digests. Incomplete runs require an explicit terminal reason. Duplicate, extra or mismatched records invalidate the census. A report preserves incomplete IDs and suppresses paired summaries when any run is incomplete.
