@@ -1,9 +1,10 @@
 //! Test-only prototype for compositional scalar affine uncertainty.
 //!
 //! This intentionally is not a flight-dynamics or reachable-set implementation.
-//! Source IDs identify the same latent additive error only when their provenance
-//! contract says so. Different IDs are conservatively ranged independently;
-//! this enlarges the admitted set when cross-source dependencies are unknown.
+//! Source IDs preserve observation origin; dependency IDs name a declared shared
+//! latent additive error. Different origins may share a dependency and one origin
+//! may contribute independent error modes. These IDs are caller assertions, not
+//! authenticated provenance or correlation proofs.
 
 use std::collections::BTreeMap;
 
@@ -16,8 +17,10 @@ const MAX_ABS_COMPOSED_BOUND_MM: i128 = 1_000_000_000_000_000;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 struct SourceContribution {
-    /// Stable provenance identity for one latent additive error.
+    /// Stable source/origin identity retained for audit; it does not imply dependence.
     source_id: String,
+    /// Declared identity of one shared latent error; not authenticated by this prototype.
+    dependency_id: String,
     /// Inclusive bounds of the latent error, in synthetic millimetres.
     lower_mm: i64,
     upper_mm: i64,
@@ -44,8 +47,11 @@ enum UncertaintyError {
     EmptySourceId,
     NonCanonicalSourceId,
     SourceIdTooLong,
+    EmptyDependencyId,
+    NonCanonicalDependencyId,
+    DependencyIdTooLong,
     InvalidSourceBounds,
-    SourceBoundsMismatch,
+    DependencyBoundsMismatch,
     CoefficientOutOfRange,
     ArithmeticOverflow,
     OutputBoundsTooWide,
@@ -69,42 +75,45 @@ impl AffineUncertainty {
     /// Computes an outward-exact interval for this bounded integer-affine form.
     /// This is a set bound under the declared source ranges, not a probability
     /// or physical aircraft-state guarantee.
+    /// Computes an exact interval over declared latent dependencies.
+    /// Contributions sharing dependency_id vary together even when their source
+    /// origins differ; that declaration is not authenticated by this prototype.
     fn bounds(&self) -> Result<IntervalBounds, UncertaintyError> {
         if self.terms.is_empty() {
             return Err(UncertaintyError::EmptyModel);
         }
+        let mut groups: BTreeMap<&str, (i64, i64, i128)> = BTreeMap::new();
+        for term in &self.terms {
+            let group = groups.entry(term.dependency_id.as_str())
+                .or_insert((term.lower_mm, term.upper_mm, 0));
+            if group.0 != term.lower_mm || group.1 != term.upper_mm {
+                return Err(UncertaintyError::DependencyBoundsMismatch);
+            }
+            group.2 = group.2.checked_add(i128::from(term.coefficient))
+                .ok_or(UncertaintyError::ArithmeticOverflow)?;
+        }
 
         let mut lower_total: i128 = 0;
         let mut upper_total: i128 = 0;
-        for term in &self.terms {
-            let coefficient = i128::from(term.coefficient);
-            let source_lower = i128::from(term.lower_mm);
-            let source_upper = i128::from(term.upper_mm);
-
+        for (source_lower, source_upper, coefficient) in groups.values().copied() {
             let (term_lower, term_upper) = if coefficient >= 0 {
                 (
-                    coefficient
-                        .checked_mul(source_lower)
+                    coefficient.checked_mul(i128::from(source_lower))
                         .ok_or(UncertaintyError::ArithmeticOverflow)?,
-                    coefficient
-                        .checked_mul(source_upper)
+                    coefficient.checked_mul(i128::from(source_upper))
                         .ok_or(UncertaintyError::ArithmeticOverflow)?,
                 )
             } else {
                 (
-                    coefficient
-                        .checked_mul(source_upper)
+                    coefficient.checked_mul(i128::from(source_upper))
                         .ok_or(UncertaintyError::ArithmeticOverflow)?,
-                    coefficient
-                        .checked_mul(source_lower)
+                    coefficient.checked_mul(i128::from(source_lower))
                         .ok_or(UncertaintyError::ArithmeticOverflow)?,
                 )
             };
-            lower_total = lower_total
-                .checked_add(term_lower)
+            lower_total = lower_total.checked_add(term_lower)
                 .ok_or(UncertaintyError::ArithmeticOverflow)?;
-            upper_total = upper_total
-                .checked_add(term_upper)
+            upper_total = upper_total.checked_add(term_upper)
                 .ok_or(UncertaintyError::ArithmeticOverflow)?;
         }
 
@@ -114,7 +123,6 @@ impl AffineUncertainty {
         {
             return Err(UncertaintyError::OutputBoundsTooWide);
         }
-
         Ok(IntervalBounds {
             lower_mm: i64::try_from(lower_total)
                 .map_err(|_| UncertaintyError::ArithmeticOverflow)?,
@@ -127,24 +135,19 @@ impl AffineUncertainty {
         terms: Vec<SourceContribution>,
         max_input_terms: usize,
     ) -> Result<Self, UncertaintyError> {
-        if terms.is_empty() {
-            return Err(UncertaintyError::EmptyModel);
-        }
-        if terms.len() > max_input_terms {
-            return Err(UncertaintyError::TooManyTerms);
-        }
+        if terms.is_empty() { return Err(UncertaintyError::EmptyModel); }
+        if terms.len() > max_input_terms { return Err(UncertaintyError::TooManyTerms); }
 
-        let mut by_source: BTreeMap<String, SourceContribution> = BTreeMap::new();
+        // Preserve origin/dependency pairs for audit; bounds group by dependency.
+        let mut by_dependency_and_source: BTreeMap<(String, String), SourceContribution> = BTreeMap::new();
+        let mut dependency_bounds: BTreeMap<String, (i64, i64)> = BTreeMap::new();
         for term in terms {
-            if term.source_id.trim().is_empty() {
-                return Err(UncertaintyError::EmptySourceId);
-            }
-            if term.source_id.as_str() != term.source_id.trim() {
-                return Err(UncertaintyError::NonCanonicalSourceId);
-            }
-            if term.source_id.len() > MAX_SOURCE_ID_BYTES {
-                return Err(UncertaintyError::SourceIdTooLong);
-            }
+            if term.source_id.trim().is_empty() { return Err(UncertaintyError::EmptySourceId); }
+            if term.source_id.as_str() != term.source_id.trim() { return Err(UncertaintyError::NonCanonicalSourceId); }
+            if term.source_id.len() > MAX_SOURCE_ID_BYTES { return Err(UncertaintyError::SourceIdTooLong); }
+            if term.dependency_id.trim().is_empty() { return Err(UncertaintyError::EmptyDependencyId); }
+            if term.dependency_id.as_str() != term.dependency_id.trim() { return Err(UncertaintyError::NonCanonicalDependencyId); }
+            if term.dependency_id.len() > MAX_SOURCE_ID_BYTES { return Err(UncertaintyError::DependencyIdTooLong); }
             if term.lower_mm > term.upper_mm
                 || i128::from(term.lower_mm).abs() > MAX_ABS_SOURCE_BOUND_MM
                 || i128::from(term.upper_mm).abs() > MAX_ABS_SOURCE_BOUND_MM
@@ -154,37 +157,36 @@ impl AffineUncertainty {
             if i128::from(term.coefficient).abs() > MAX_ABS_COEFFICIENT {
                 return Err(UncertaintyError::CoefficientOutOfRange);
             }
-
-            if let Some(existing) = by_source.get_mut(&term.source_id) {
-                if existing.lower_mm != term.lower_mm || existing.upper_mm != term.upper_mm {
-                    return Err(UncertaintyError::SourceBoundsMismatch);
+            match dependency_bounds.get(&term.dependency_id) {
+                Some(bounds) if *bounds != (term.lower_mm, term.upper_mm) => {
+                    return Err(UncertaintyError::DependencyBoundsMismatch);
                 }
-                let combined = existing
-                    .coefficient
-                    .checked_add(term.coefficient)
+                Some(_) => {}
+                None => { dependency_bounds.insert(term.dependency_id.clone(), (term.lower_mm, term.upper_mm)); }
+            }
+
+            let key = (term.dependency_id.clone(), term.source_id.clone());
+            if let Some(existing) = by_dependency_and_source.get_mut(&key) {
+                existing.coefficient = existing.coefficient.checked_add(term.coefficient)
                     .ok_or(UncertaintyError::ArithmeticOverflow)?;
-                // Delay the coefficient range check until all contributions
-                // for this source are folded, so equivalent input permutations
-                // cannot differ because of an over-limit intermediate sum.
-                existing.coefficient = combined;
             } else {
-                by_source.insert(term.source_id.clone(), term);
-                if by_source.len() > MAX_SOURCE_TERMS {
+                by_dependency_and_source.insert(key, term);
+                if by_dependency_and_source.len() > MAX_SOURCE_TERMS {
                     return Err(UncertaintyError::TooManyTerms);
                 }
             }
         }
-
-        if by_source
-            .values()
-            .any(|term| i128::from(term.coefficient).abs() > MAX_ABS_COEFFICIENT)
-        {
+        // Validate the aggregate sensitivity across every origin for each latent error.
+        let mut dependency_coefficients: BTreeMap<String, i128> = BTreeMap::new();
+        for term in by_dependency_and_source.values() {
+            let coefficient = dependency_coefficients.entry(term.dependency_id.clone()).or_insert(0);
+            *coefficient = coefficient.checked_add(i128::from(term.coefficient))
+                .ok_or(UncertaintyError::ArithmeticOverflow)?;
+        }
+        if dependency_coefficients.values().any(|c| c.abs() > MAX_ABS_COEFFICIENT) {
             return Err(UncertaintyError::CoefficientOutOfRange);
         }
-
-        Ok(Self {
-            terms: by_source.into_values().collect(),
-        })
+        Ok(Self { terms: by_dependency_and_source.into_values().collect() })
     }
 }
 
@@ -198,8 +200,19 @@ mod tests {
         upper_mm: i64,
         coefficient: i64,
     ) -> SourceContribution {
+        contribution_with_dependency(source_id, source_id, lower_mm, upper_mm, coefficient)
+    }
+
+    fn contribution_with_dependency(
+        source_id: &str,
+        dependency_id: &str,
+        lower_mm: i64,
+        upper_mm: i64,
+        coefficient: i64,
+    ) -> SourceContribution {
         SourceContribution {
             source_id: source_id.to_owned(),
+            dependency_id: dependency_id.to_owned(),
             lower_mm,
             upper_mm,
             coefficient,
@@ -228,8 +241,11 @@ mod tests {
             UncertaintyError::EmptySourceId => "empty_source_id",
             UncertaintyError::NonCanonicalSourceId => "non_canonical_source_id",
             UncertaintyError::SourceIdTooLong => "source_id_too_long",
+            UncertaintyError::EmptyDependencyId => "empty_dependency_id",
+            UncertaintyError::NonCanonicalDependencyId => "non_canonical_dependency_id",
+            UncertaintyError::DependencyIdTooLong => "dependency_id_too_long",
             UncertaintyError::InvalidSourceBounds => "invalid_source_bounds",
-            UncertaintyError::SourceBoundsMismatch => "source_bounds_mismatch",
+            UncertaintyError::DependencyBoundsMismatch => "dependency_bounds_mismatch",
             UncertaintyError::CoefficientOutOfRange => "coefficient_out_of_range",
             UncertaintyError::ArithmeticOverflow => "arithmetic_overflow",
             UncertaintyError::OutputBoundsTooWide => "output_bounds_too_wide",
@@ -343,7 +359,7 @@ mod tests {
     fn grouped_source_oracle(terms: &[SourceContribution]) -> (i128, i128) {
         let mut sources: BTreeMap<String, (i64, i64, i128)> = BTreeMap::new();
         for term in terms {
-            let entry = sources.entry(term.source_id.clone()).or_insert((
+            let entry = sources.entry(term.dependency_id.clone()).or_insert((
                 term.lower_mm, term.upper_mm, 0
             ));
             assert_eq!((entry.0, entry.1), (term.lower_mm, term.upper_mm));
@@ -418,8 +434,8 @@ mod tests {
     fn hand_derived_json_vectors_match_affine_uncertainty_contract() {
         let fixture: FixtureSet = serde_json::from_str(include_str!("../fixtures/uncertainty_vectors.json"))
             .expect("uncertainty vector fixture must parse");
-        assert_eq!(fixture.schema, "airspace-affine-uncertainty-vectors-v1");
-        assert_eq!(fixture.status, "synthetic_research_vectors_not_physical_model");
+        assert_eq!(fixture.schema, "airspace-affine-uncertainty-v2");
+        assert_eq!(fixture.status, "synthetic_research_vectors_with_declared_dependencies_not_authenticated_provenance");
         assert_eq!(fixture.cases.len(), 11);
 
         for case in fixture.cases {
@@ -570,14 +586,14 @@ mod tests {
     }
 
     #[test]
-    fn source_identity_with_conflicting_bounds_fails_closed() {
+    fn dependency_identity_with_conflicting_bounds_fails_closed() {
         let error = AffineUncertainty::new(vec![
             contribution("shared-source", -10, 10, 1),
             contribution("shared-source", -11, 10, -1),
         ])
         .unwrap_err();
 
-        assert_eq!(error, UncertaintyError::SourceBoundsMismatch);
+        assert_eq!(error, UncertaintyError::DependencyBoundsMismatch);
     }
 
     #[test]
@@ -652,4 +668,46 @@ mod tests {
             UncertaintyError::OutputBoundsTooWide
         );
     }
+
+    #[test]
+    fn different_origins_can_share_one_explicit_latent_dependency() {
+        let terms = vec![
+            contribution_with_dependency("sensor-a", "shared-datum-bias", -10, 10, 1),
+            contribution_with_dependency("sensor-b", "shared-datum-bias", -10, 10, -1),
+        ];
+        let model = AffineUncertainty::new(terms.clone()).unwrap();
+        assert_eq!(model.bounds().unwrap(), IntervalBounds { lower_mm: 0, upper_mm: 0 });
+        assert_eq!(model.terms.len(), 2, "retain both source origins for audit");
+        assert_eq!(grouped_source_oracle(&terms), (0, 0));
+    }
+
+    #[test]
+    fn one_origin_with_distinct_dependency_modes_must_not_cancel() {
+        let model = AffineUncertainty::new(vec![
+            contribution_with_dependency("navigation-unit", "bias-mode", -10, 10, 1),
+            contribution_with_dependency("navigation-unit", "noise-mode", -10, 10, -1),
+        ]).unwrap();
+        assert_eq!(model.bounds().unwrap(), IntervalBounds { lower_mm: -20, upper_mm: 20 });
+        assert_eq!(model.terms.len(), 2);
+    }
+
+    #[test]
+    fn dependency_ids_cannot_claim_incompatible_ranges() {
+        let error = AffineUncertainty::new(vec![
+            contribution_with_dependency("sensor-a", "shared-bias", -10, 10, 1),
+            contribution_with_dependency("sensor-b", "shared-bias", -11, 10, -1),
+        ]).unwrap_err();
+        assert_eq!(error, UncertaintyError::DependencyBoundsMismatch);
+    }
+
+    #[test]
+    fn noncanonical_dependency_identifiers_fail_closed() {
+        assert_eq!(
+            AffineUncertainty::new(vec![contribution_with_dependency(
+                "sensor", " shared-bias ", -1, 1, 1
+            )]).unwrap_err(),
+            UncertaintyError::NonCanonicalDependencyId
+        );
+    }
+
 }
