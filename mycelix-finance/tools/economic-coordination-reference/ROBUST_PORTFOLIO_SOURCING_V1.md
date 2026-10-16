@@ -70,6 +70,14 @@ Each scenario has a stable ID, version, input digest and explicit perturbation s
 
 For offer i, define a non-negative integer allocation quantity x_i in the request's canonical unit. More complex multiple-line requests generalize this to x_(line, offer), only when the offer is admitted for that line by a reviewed capability/substitution mapping.
 
+### Required integration seam with #5072
+
+Do **not** feed the existing single-offer report directly into a split-award optimizer and assume it represents every usable source. The current single-offer contract rejects an offer whose available quantity is below the entire request quantity. That is appropriate for single-source fulfillment, but it can exclude a valid partial-allocation supplier before portfolio optimization begins.
+
+The implementation must therefore separate reusable offer evidence/qualification checks from allocation-dependent checks. The reusable layer should validate identity/provenance presence, admitted capability/profile, unit/currency, evidence status/origin, source/quote/credential freshness, and risk-model compatibility. The allocation layer must then check the proposed quantity against observed capacity, lot rules, request budget and deadline for that allocation. If fees are nonlinear or apply per order, the portfolio cost function must encode the fee basis explicitly rather than multiplying the whole-request landed total by a quantity ratio.
+
+This is a contract/refactor requirement, not a claim that #5072 currently supports partial-offer portfolios. Keep its current single-source behavior intact until a tested shared eligibility API is available. Differential tests must show that (a) a source with only part of total demand can participate when split awards are allowed, (b) the same source is correctly rejected for a single-source request, and (c) no portfolio can use a source whose evidence/credential gates fail.
+
 At minimum, a feasible portfolio must enforce:
 
 1. **Demand conservation:** allocated/accepted quantities satisfy the requested quantity, or the policy explicitly permits partial fulfillment and the shortfall is reported.
