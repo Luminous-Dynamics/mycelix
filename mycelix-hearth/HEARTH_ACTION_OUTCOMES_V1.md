@@ -12,7 +12,7 @@ Use four states:
 | State | Meaning | Copy rule |
 |---|---|---|
 | Preview only | Local sample/demo state changed | Explicitly say local-only and not synced |
-| Source-chain committed | A successful decodable zome response returned its record | Say it was saved to the source chain; sharing/peer validation may still be in progress |
+| Source-chain committed | A successful decodable zome response returned its record | Use resident-friendly wording that says it was saved while sharing/peer validation may still be in progress |
 | Outcome unknown | The app cannot establish whether a remote action took effect | Tell the resident to check current state before retrying |
 | Not sent | Required target or identity was missing before dispatch | Say no request was sent and name the missing requirement |
 
