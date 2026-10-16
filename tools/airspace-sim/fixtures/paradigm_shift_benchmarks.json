@@ -669,6 +669,42 @@
         "May 2026 study of uncertainty quantification in state-based conflict detection and resolution: https://doi.org/10.1016/j.ress.2025.112111",
         "Its reported setup explores Gaussian position/velocity error propagated using Monte Carlo and analytical approximations; this motivates a distinct calibration benchmark, not a flight-safety guarantee."
       ]
+    },
+    {
+      "id": "AIR-PB-021",
+      "name": "content_addressed_replay_evidence_receipt",
+      "paradigm": "results_are_replayable_objects_bound_to_exact_inputs_and_checkers",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A deterministic receipt binding exact fixture bytes, the supported contract, evaluator/checker identity, evaluation-time policy and observed outcomes makes replay claims independently falsifiable.",
+      "baseline": "A summary can be detached from the source bytes, contract or outcomes that produced it; superficial metadata can change without invalidating the reported result.",
+      "stimulus": "Mutate one byte of the fixture, one supported-contract field and one observed outcome independently; alter receipt schema, digest format, case count and signature-status claims.",
+      "success_conditions": [
+        "SHA-256 of the exact committed fixture bytes matches the pinned digest.",
+        "The canonical supported dependency-contract serialization matches its pinned digest.",
+        "Observed outputs serialized in a declared field order match the pinned expected outcome digest.",
+        "Input-byte, contract and output mutations all change their respective digests.",
+        "The receipt says unsigned and external exact-head CI context is required; it never implies authentication, a signature, completed Rust execution or operational safety."
+      ],
+      "falsifiers": [
+        "An input, contract or outcome mutation leaves the pinned digest unchanged.",
+        "Receipt hashes are malformed or algorithm metadata is unknown but the receipt is accepted.",
+        "A receipt can claim signed/authenticated provenance without a verifier or signature-validation path.",
+        "A receipt is described as a runtime attestation before the exact-head test has actually executed."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output for receipt replay and all mutation controls",
+        "Independently computed SHA-256 of exact fixture bytes and canonical contract bytes",
+        "Observed-outcome digest comparison and explicit serializer field order",
+        "Exact-head CI/revision identity supplied externally, not self-asserted in the receipt",
+        "Unsigned / no-authority status checked by the receipt validator"
+      ],
+      "hard_invariants": [
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "source_integrity_authority_freshness_and_physical_truth_are_distinct",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ],
+      "scope": "unsigned expected-digest contract binding SHA-256 only; not a signed attestation, authenticated source identity, completed Rust execution evidence or operational aviation safety claim"
     }
   ]
 }
