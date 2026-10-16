@@ -80,7 +80,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     <h3>"Active care plans"</h3>
                     <p class="brief-description">
                         {move || if care_count().is_some() {
-                            "Plans marked active; due times are not inferred here."
+                            {move || if care_count().is_some() { "Plans marked active; due times are not inferred here." } else { "No household selected; this count is unavailable." }}
                         } else {
                             "No household selected; this count is unavailable."
                         }}
@@ -97,7 +97,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     <h3>"Open decisions"</h3>
                     <p class="brief-description">
                         {move || if decision_count().is_some() {
-                            "Household decisions still marked open; this is not a personal vote list."
+                            {move || if decision_count().is_some() { "Household decisions still marked open; this is not a personal vote list." } else { "No household selected; this count is unavailable." }}
                         } else {
                             "No household selected; this count is unavailable."
                         }}
@@ -108,7 +108,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     </A>
                 </article>
 
-                <article class=move || if alert_count() > 0 {
+                <article class=move || if alert_count().is_some_and(|count| count > 0) {
                     "brief-card brief-card--attention"
                 } else {
                     "brief-card"
@@ -118,7 +118,7 @@ pub fn HouseholdBrief() -> impl IntoView {
                     <h3>"Unresolved alerts"</h3>
                     <p class="brief-description">
                         {move || if alert_count().is_some() {
-                            "Unresolved alerts in the currently loaded records; zero is not a safety guarantee."
+                            {move || if alert_count().is_some() { "Unresolved alerts in the currently loaded records; zero is not a safety guarantee." } else { "No household selected; this count is unavailable." }}
                         } else {
                             "No household selected; this count is unavailable."
                         }}
