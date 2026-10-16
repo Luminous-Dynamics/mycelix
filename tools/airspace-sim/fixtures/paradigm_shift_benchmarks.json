@@ -521,7 +521,9 @@
         "The implementation is compiled only for tests and does not change the production geometry decision path.",
         "Source IDs with leading or trailing whitespace are rejected rather than silently creating distinct identities for an intended shared source.",
         "The committed 11-vector JSON corpus yields the expected interval or error for every case under the declared scalar-algebra contract.",
-        "An independently structured exhaustive point-enumeration oracle agrees with affine interval bounds for 1,000 reproducibly generated finite integer domains."
+        "An independently structured exhaustive point-enumeration oracle agrees with affine interval bounds for 1,000 reproducibly generated finite integer domains.",
+        "A separate shared-source oracle enumerates each unique provenance source once and agrees with the affine bounds on 1,000 deterministic generated cases containing repeated source identities.",
+        "A deliberately narrowed reported interval is rejected by the point oracle when a concrete shared-source assignment lies outside it."
       ],
       "falsifiers": [
         "A different-source pair is silently merged or cancelled.",
@@ -532,7 +534,9 @@
         "Reordering the same legal contributions changes the final coefficient, bounded result, or acceptance outcome solely because an intermediate coefficient sum temporarily exceeds the limit.",
         "Noncanonical source identifiers with leading or trailing whitespace are admitted as separate dependency identities.",
         "Any JSON vector's observed result differs from its predeclared expected interval or error outcome.",
-        "The exhaustive point oracle finds any concrete source assignment outside the computed interval or any interval endpoint narrower than the exact finite-domain extrema."
+        "The exhaustive point oracle finds any concrete source assignment outside the computed interval or any interval endpoint narrower than the exact finite-domain extrema.",
+        "The test oracle treats repeated contributions from the same source identity as independent latent values and therefore fails to detect a source-correlation defect.",
+        "A deliberately under-approximated claimed interval is accepted by the independent point-enumeration predicate."
       ],
       "required_evidence": [
         "Exact-head Rust unit-test output",
@@ -545,7 +549,8 @@
         "Independent host-side arithmetic recomputation of all 11 committed vectors (structural cross-check only; Rust execution still pending)",
         "Exact-head Rust test output for the vector-driven test and standalone uncertainty module",
         "Deterministic seed and exact-head Rust result for 1,000 generated domains exhaustively enumerated over all concrete integer assignments",
-        "tools/airspace-sim/fixtures/uncertainty_vectors.json digest and fixture-driven 11-case result"
+        "tools/airspace-sim/fixtures/uncertainty_vectors.json digest and fixture-driven 11-case result",
+        "Deterministic seed and exact-head Rust receipt for 1,000 domains with repeated source IDs, oracle enumeration over unique latent source values, and a deliberately narrowed-interval negative control."
       ],
       "hard_invariants": [
         "uncertainty_composition_preserves_dependencies_and_bounds",
