@@ -491,7 +491,7 @@ jobs:
           cargo generate-lockfile --manifest-path standards-registry/validator/Cargo.toml
           rustc --version > evidence/standards-registry-ci/routing-evaluation-toolchain.txt
           cargo --version >> evidence/standards-registry-ci/routing-evaluation-toolchain.txt
-          printf '%s\\n' \
+          printf '%s\n' \
             'mode=correlation-sweep' \
             'messages_per_scenario=500' \
             'seed_start=20261016' \
