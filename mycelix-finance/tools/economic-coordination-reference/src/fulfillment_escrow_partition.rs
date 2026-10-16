@@ -432,6 +432,28 @@ mod tests {
     }
 
     #[test]
+    fn duplicated_allocation_plan_is_a_known_global_overacceptance_counterexample() {
+        // Two independent ledgers each believe they own the same initial grants.
+        // Both are locally valid, but their combined accepted quantity exceeds
+        // the single request budget. This is an expected negative control.
+        let mut first = model();
+        let mut forked = model();
+        first.reserve("replica-a", "delivery-a", 6).unwrap();
+        first.finalize("replica-a", "delivery-a", 6).unwrap();
+        forked.reserve("replica-a", "delivery-b", 6).unwrap();
+        forked.finalize("replica-a", "delivery-b", 6).unwrap();
+
+        assert!(first.invariants_hold());
+        assert!(forked.invariants_hold());
+        assert_eq!(first.accepted_quantity(), Ok(6));
+        assert_eq!(forked.accepted_quantity(), Ok(6));
+        let combined_accepted =
+            first.accepted_quantity().unwrap() + forked.accepted_quantity().unwrap();
+        assert_eq!(combined_accepted, 12);
+        assert!(combined_accepted > first.requested_quantity());
+    }
+
+    #[test]
     fn deterministic_interleaving_campaign_preserves_global_conservation() {
         for seed in 1_u64..=1_000 {
             let total = seed % 97 + 1;
