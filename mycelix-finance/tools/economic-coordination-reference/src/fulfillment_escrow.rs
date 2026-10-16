@@ -528,7 +528,10 @@ mod tests {
                         );
                     }
                 }
-                assert!(book.conservation_holds(), "conservation failed at seed={seed}, step={step}");
+                assert!(
+                    book.conservation_holds(),
+                    "conservation failed at seed={seed}, step={step}"
+                );
                 assert!(book.accepted_quantity().unwrap() <= total);
                 assert!(book.pending_quantity().unwrap() <= total);
             }
