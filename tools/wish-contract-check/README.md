@@ -12,7 +12,7 @@ cargo run --manifest-path tools/wish-contract-check/Cargo.toml
 
 ## What it checks
 
-- The embedded request schema validates against the JSON Schema Draft 2020-12 meta-schema.
+- The embedded Wish Request and run-result schemas validate against the JSON Schema Draft 2020-12 meta-schema and are compiled with format validation enabled.
 - Date/time formats are checked rather than treated as annotations.
 - Every file in the versioned fixture manifest has the declared expected disposition.
 - JSON input with duplicate object keys is rejected before schema validation or digest computation.
@@ -23,6 +23,7 @@ cargo run --manifest-path tools/wish-contract-check/Cargo.toml
 - `provenance.content_sha256` matches SHA-256 over RFC 8785 canonical JSON with only that digest field omitted.
 - Fixture paths must be relative and may not traverse outside the fixture directory.
 - The benchmark preregistration manifest must account for 120 synthetic episodes across 12 unique strata, 12 unique policy/control arms, matched-budget design invariants, zero-valued hard safety gates and an evaluator-only oracle.
+- The separate 40-probe containment overlay must retain default-deny network policy, external enforcement, complete telemetry, 36 adversarial probes, four local-mock positive controls and zero-valued hard gates.
 
 Money budgets are encoded as exact decimal strings, not floating-point JSON numbers; a real action boundary must additionally validate precision against a pinned currency metadata version. The digest is an integrity check, **not** proof that the requester's statements or source claims are true. A hash also does not authenticate a producer without an independently verified signature/key binding.
 
