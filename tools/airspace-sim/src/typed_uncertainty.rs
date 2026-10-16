@@ -1021,6 +1021,39 @@ mod tests {
             "unknown adapter envelope fields must fail closed"
         );
 
+        let mut unsupported_schema: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        unsupported_schema["schema"] = serde_json::json!("airspace-typed-lineage-adapter-v999");
+        let unsupported_schema: AdapterEnvelopeV1 = serde_json::from_value(unsupported_schema)
+            .expect("schema-version mutation remains syntactically valid");
+        assert_eq!(
+            unsupported_schema.into_core_terms().unwrap_err(),
+            "unsupported_adapter_schema",
+            "unknown adapter schema versions must fail closed"
+        );
+
+        let mut changed_authority: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        changed_authority["authority_ceiling"] = serde_json::json!("operational_authority");
+        let changed_authority: AdapterEnvelopeV1 = serde_json::from_value(changed_authority)
+            .expect("authority mutation remains syntactically valid");
+        assert_eq!(
+            changed_authority.into_core_terms().unwrap_err(),
+            "authority_ceiling_mismatch",
+            "authority-ceiling mutation must fail closed"
+        );
+
+        let mut missing_fixture_identity: serde_json::Value =
+            serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
+        missing_fixture_identity["fixture_ref"] = serde_json::json!("   ");
+        let missing_fixture_identity: AdapterEnvelopeV1 = serde_json::from_value(missing_fixture_identity)
+            .expect("blank fixture identity remains syntactically valid");
+        assert_eq!(
+            missing_fixture_identity.into_core_terms().unwrap_err(),
+            "missing_fixture_identity",
+            "blank fixture identity must fail closed"
+        );
+
         let mut mutated: serde_json::Value =
             serde_json::to_value(&adapter).expect("adapter must serialize to JSON value");
         mutated["terms"][0]["dependency_key"] = serde_json::json!("silently-relabelled-dependency");
