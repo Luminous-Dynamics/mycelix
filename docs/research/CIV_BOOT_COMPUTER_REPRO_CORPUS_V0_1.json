@@ -42,7 +42,8 @@
     "qualified_bare_pcb_process": "A local bare-PCB fabrication process is qualified for the exact declared board profile.",
     "qualified_semiconductor_die_process": "Every required die-fabrication dependency is independently modeled and qualified for the declared semiconductor profile.",
     "separate_node_transfer": "A separately operated node/operator reproduces the profile from transferred knowledge and qualified inputs.",
-    "tool_renewal_closed": "Tools, calibration and maintenance resources required for subsequent generations can be renewed/reproduced under the declared horizon."
+    "tool_renewal_closed": "Tools, calibration and maintenance resources required for subsequent generations can be renewed/reproduced under the declared horizon.",
+    "qualified_seed_clone_available": "A previously built first-generation copy has independently passed the declared acceptance suite and is the C5 reproducing host."
   },
   "outcome_fields": {
     "baseline_use": "true|false|unresolved",
@@ -82,7 +83,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": false
       },
       "expected": {
         "baseline_use": "true",
@@ -123,7 +125,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": false
       },
       "expected": {
         "baseline_use": "true",
@@ -164,7 +167,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -205,7 +209,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -246,7 +251,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -287,7 +293,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -328,7 +335,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -369,7 +377,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -410,7 +419,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -451,7 +461,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -492,7 +503,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -533,7 +545,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": true,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -574,7 +587,8 @@
         "qualified_bare_pcb_process": false,
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
-        "tool_renewal_closed": false
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -589,6 +603,48 @@
         "multigeneration_renewal": "fail"
       },
       "why": "Successful duplication consumes stock and tool life. Continued/generational renewal is a separate claim requiring its own horizon, spares and calibration evidence."
+    },
+    {
+      "id": "CR13_critical_inventory_unknown",
+      "intent": "Unknown availability of a critical compute module must propagate as unresolved rather than silently becoming absent or present.",
+      "state": {
+        "baseline_computer_operational": true,
+        "target_bom_complete": true,
+        "compute_module_stock": "unknown",
+        "memory_storage_stock": true,
+        "bare_pcb_stock": true,
+        "electronic_component_stock": true,
+        "mechanical_fabrication_qualified": true,
+        "board_assembly_qualified": true,
+        "board_test_qualified": true,
+        "calibration_current": true,
+        "independent_acceptance_suite": true,
+        "offline_source_toolchain_complete": true,
+        "host_online_tools_available": false,
+        "host_removal_verified": true,
+        "hidden_original_host_path": false,
+        "revision_match": true,
+        "interventions_fully_recorded": true,
+        "external_services_declared": true,
+        "qualified_bare_pcb_process": false,
+        "qualified_semiconductor_die_process": false,
+        "separate_node_transfer": false,
+        "tool_renewal_closed": false,
+        "qualified_seed_clone_available": true
+      },
+      "expected": {
+        "baseline_use": "true",
+        "C0_assembly": "unresolved",
+        "C2_mechanical_support": "pass",
+        "C3_board_assembly": "pass",
+        "C4_host_assisted_clone": "unresolved",
+        "C5_host_removed_reproduction": "unresolved",
+        "C6_bare_pcb_local_fabrication": "fail",
+        "C7_semiconductor_die_fabrication": "fail",
+        "E5_independent_transfer": "not_eligible",
+        "multigeneration_renewal": "unresolved"
+      },
+      "why": "Unknown stock is not an empty stock declaration and not evidence of availability. The affected production claims stay unresolved."
     }
   ],
   "global_invariants": [
@@ -613,8 +669,8 @@
       "negative-control mutation tests",
       "canonical deterministic output",
       "receipt hashes and fixture version binding",
-      "unknown vs false distinction",
-      "report every fixture result with explicit blocker set"
+      "report every fixture result with explicit blocker set",
+      "tri-state unknown vs known absent"
     ],
     "out_of_scope": [
       "hardware control commands",
@@ -632,5 +688,10 @@
       "physical C5 host-removal run",
       "separate-node transfer before E5"
     ]
+  },
+  "state_value_semantics": {
+    "true": "The capability/input is present and evidence-qualified for this synthetic profile.",
+    "false": "Known absent, unavailable or unqualified for this profile.",
+    "unknown": "Not established, evidence conflicted, or currentness is unknown. Do not coerce to false or true; dependent claims remain unresolved unless another known blocker already forces failure."
   }
 }
