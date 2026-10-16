@@ -57,8 +57,8 @@ fn main() -> ExitCode {
     if json_output {
         let report = serde_json::json!({
             "valid": errors.is_empty(),
-            "registry_path": registry_path,
-            "schema_path": schema_path,
+            "registry_path": registry_path.display().to_string(),
+            "schema_path": schema_path.display().to_string(),
             "error_count": errors.len(),
             "errors": errors
         });
