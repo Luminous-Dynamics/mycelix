@@ -59,10 +59,12 @@ impl Aggregate {
     }
 
     fn to_json(&self) -> Value {
+        let modeled_path_success_rate =
+            rate_basis_points(self.delivered, self.messages);
         json!({
             "logical_messages": self.messages,
             "modeled_path_successes_before_deadline": self.delivered,
-            "modeled_path_success_rate_basis_points": rate_basis_points(self.delivered, self.messages),
+            "modeled_path_success_rate_basis_points": modeled_path_success_rate,
             "latency_percentile_population": "modeled successes only; misses count toward deadline success rate but are not in latency percentiles",
             "p50_modeled_latency_ms": percentile(&self.latencies_ms, 50),
             "p95_modeled_latency_ms": percentile(&self.latencies_ms, 95),
@@ -781,6 +783,11 @@ mod tests {
             .iter()
             .find(|row| row["strategy"] == "sequential_failover")
             .unwrap();
-        assert!(failover["metrics"]["modeled_path_successes_before_deadline"].as_u64().unwrap() > 0);
+        assert!(
+            failover["metrics"]["modeled_path_successes_before_deadline"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
     }
 }
