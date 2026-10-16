@@ -1,0 +1,62 @@
+{
+  "schema": "airspace-typed-lineage-adapter-v1",
+  "fixture_ref": "mixed_observation_transform_clock_errors",
+  "evaluation_time_s": 10,
+  "authority_ceiling": "offline_synthetic_research_only_no_operational_aviation_authority",
+  "terms": [
+    {
+      "origin_ref": "observation-a",
+      "dependency_key": "position-noise",
+      "input_quantity": "position_error",
+      "input_unit": "synthetic_mm",
+      "input_frame": "synthetic_local_cartesian_v1",
+      "validity_clock": "synthetic_epoch_seconds_v1",
+      "valid_start_s": 0,
+      "valid_end_s": 100,
+      "input_low": -2,
+      "input_high": 2,
+      "output_sensitivity_x1000": 1000,
+      "sensitivity_mapping": "mm_per_mm_x1000",
+      "transform_ref": null,
+      "transform_from_frame": null,
+      "transform_to_frame": null,
+      "sensitivity_model_ref": null
+    },
+    {
+      "origin_ref": "transform-a",
+      "dependency_key": "transform-residual",
+      "input_quantity": "transform_error",
+      "input_unit": "synthetic_mm",
+      "input_frame": "synthetic_local_cartesian_v1",
+      "validity_clock": "synthetic_epoch_seconds_v1",
+      "valid_start_s": 0,
+      "valid_end_s": 100,
+      "input_low": -1,
+      "input_high": 1,
+      "output_sensitivity_x1000": 1000,
+      "sensitivity_mapping": "mm_per_mm_x1000",
+      "transform_ref": "synthetic_translation_transform_v1",
+      "transform_from_frame": "synthetic_sensor_frame_v1",
+      "transform_to_frame": "synthetic_local_cartesian_v1",
+      "sensitivity_model_ref": null
+    },
+    {
+      "origin_ref": "clock-a",
+      "dependency_key": "clock-offset",
+      "input_quantity": "clock_offset_error",
+      "input_unit": "synthetic_ms",
+      "input_frame": "not_spatial",
+      "validity_clock": "synthetic_epoch_seconds_v1",
+      "valid_start_s": 0,
+      "valid_end_s": 100,
+      "input_low": -2,
+      "input_high": 2,
+      "output_sensitivity_x1000": 15,
+      "sensitivity_mapping": "mm_per_ms_x1000",
+      "transform_ref": null,
+      "transform_from_frame": null,
+      "transform_to_frame": null,
+      "sensitivity_model_ref": "synthetic_constant_velocity_v1"
+    }
+  ]
+}
