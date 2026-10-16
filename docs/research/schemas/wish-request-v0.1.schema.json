@@ -602,6 +602,63 @@
       "minLength": 8,
       "maxLength": 160,
       "description": "Opaque reference to the exact requester-approved public summary/version. Required when visibility is public_summary_approved."
+    },
+    "candidate_plan_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+      },
+      "description": "References to versioned candidate-plan artifacts. A plan remains a proposal and does not itself authorize an action."
+    },
+    "resource_commitment_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+      },
+      "description": "References to voluntary, scoped resource offers/commitments. Existence of a reference does not independently prove that the promised resource was delivered."
+    },
+    "operation_receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+      },
+      "description": "References to action/operation receipts, including reconciliation for ambiguous outcomes. Receipts are evidence artifacts, not automatic proof of the intended outcome."
+    },
+    "delivery_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+      },
+      "description": "References to delivery evidence assessed against requester-approved success criteria."
+    },
+    "outcome_assessment_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 8,
+      "maxLength": 160,
+      "description": "Reference to a separate outcome assessment. Required for verified fulfillment or partial fulfillment; the schema validates the reference shape, not the truth of the assessment."
     }
   },
   "allOf": [
@@ -743,6 +800,209 @@
       "then": {
         "properties": {
           "authorization_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "enum": [
+              "ready_for_authorization",
+              "authorized",
+              "in_progress",
+              "outcome_pending_verification",
+              "fulfilled",
+              "partially_fulfilled",
+              "outcome_unknown"
+            ]
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "candidate_plan_refs"
+        ],
+        "properties": {
+          "candidate_plan_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "enum": [
+              "authorized",
+              "in_progress",
+              "outcome_pending_verification",
+              "fulfilled",
+              "partially_fulfilled",
+              "outcome_unknown"
+            ]
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorization_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "enum": [
+              "outcome_pending_verification",
+              "fulfilled",
+              "partially_fulfilled",
+              "outcome_unknown"
+            ]
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "operation_receipt_refs"
+        ],
+        "properties": {
+          "operation_receipt_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "const": "fulfilled"
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "outcome_assessment_ref",
+          "delivery_evidence_refs"
+        ],
+        "properties": {
+          "outcome_status": {
+            "const": "verified_fulfilled"
+          },
+          "outcome_assessment_ref": {
+            "type": "string",
+            "minLength": 8
+          },
+          "delivery_evidence_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "const": "partially_fulfilled"
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "outcome_assessment_ref",
+          "delivery_evidence_refs"
+        ],
+        "properties": {
+          "outcome_status": {
+            "const": "partial"
+          },
+          "outcome_assessment_ref": {
+            "type": "string",
+            "minLength": 8
+          },
+          "delivery_evidence_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome_status": {
+            "const": "verified_fulfilled"
+          }
+        },
+        "required": [
+          "outcome_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "outcome_assessment_ref",
+          "delivery_evidence_refs"
+        ],
+        "properties": {
+          "lifecycle_status": {
+            "const": "fulfilled"
+          },
+          "outcome_assessment_ref": {
+            "type": "string",
+            "minLength": 8
+          },
+          "delivery_evidence_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome_status": {
+            "const": "partial"
+          }
+        },
+        "required": [
+          "outcome_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "outcome_assessment_ref",
+          "delivery_evidence_refs"
+        ],
+        "properties": {
+          "lifecycle_status": {
+            "const": "partially_fulfilled"
+          },
+          "outcome_assessment_ref": {
+            "type": "string",
+            "minLength": 8
+          },
+          "delivery_evidence_refs": {
             "minItems": 1
           }
         }
