@@ -392,8 +392,8 @@ impl DeliveryLifecycle {
         Ok(true)
     }
 
-    /// A receipt capability can be issued only by the existing trusted
-    /// verifier. It must bind this exact message and recipient. Late receipts
+    /// A receipt capability can be issued only by the configured trusted
+    /// verifier. It must bind the message, recipient, and exact envelope commitment. Late receipts
     /// at/after expiry are rejected because the current token does not carry a
     /// separately verified recipient-receive timestamp.
     pub fn record_verified_receipt(
