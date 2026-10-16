@@ -484,7 +484,6 @@ pub trait TransportAdapter {
     fn send_opaque(&mut self, envelope: &OpaqueEnvelope) -> AdapterSendOutcome;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 impl From<AdapterSendOutcome> for DeliveryEvidenceStage {
     fn from(outcome: AdapterSendOutcome) -> Self {
         match outcome {
@@ -498,6 +497,7 @@ impl From<AdapterSendOutcome> for DeliveryEvidenceStage {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeliveryEvidenceStage {
     NotAttempted,
     LocallyQueued,
@@ -505,7 +505,6 @@ pub enum DeliveryEvidenceStage {
     LinkLayerAcknowledged,
     GatewayAcknowledged,
     TemporarilyUnavailable,
-    RecipientReceiptVerified,
     FailedPermanently,
     Expired,
     OutcomeUnknown,
@@ -521,22 +520,109 @@ pub enum UserVisibleDeliveryState {
     Unknown,
 }
 
-impl DeliveryEvidenceStage {
-    /// Only a verified recipient receipt maps to user-visible "Delivered".
-    ///
-    /// The caller may choose RecipientReceiptVerified only after the trusted
-    /// receipt verifier confirms message identity and recipient binding.
-    pub fn user_visible_state(self) -> UserVisibleDeliveryState {
+/// Errors returned by the trusted recipient-receipt verification boundary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReceiptVerificationError {
+    InvalidContext,
+    InvalidReceipt,
+}
+
+impl fmt::Display for ReceiptVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::LocallyQueued => UserVisibleDeliveryState::Queued,
-            Self::AcceptedByAdapter
-            | Self::LinkLayerAcknowledged
-            | Self::GatewayAcknowledged
-            | Self::TemporarilyUnavailable => UserVisibleDeliveryState::Pending,
-            Self::RecipientReceiptVerified => UserVisibleDeliveryState::Delivered,
-            Self::FailedPermanently => UserVisibleDeliveryState::Failed,
-            Self::Expired => UserVisibleDeliveryState::Expired,
-            Self::NotAttempted | Self::OutcomeUnknown => UserVisibleDeliveryState::Unknown,
+            Self::InvalidContext => f.write_str("receipt context is empty, oversized, or invalid"),
+            Self::InvalidReceipt => f.write_str("recipient receipt failed authentication or binding checks"),
+        }
+    }
+}
+
+impl std::error::Error for ReceiptVerificationError {}
+
+/// Security-critical integration point implemented by Pulse's trusted
+/// cryptographic receipt-verification module, never by a transport adapter.
+///
+/// Implementations MUST verify the receipt's authenticating signature/MAC,
+/// logical message ID, intended recipient identity, and any required protocol
+/// or freshness fields. The trait is deliberately explicit because this
+/// crate has no dependency on Pulse's crypto implementation.
+pub trait TrustedRecipientReceiptVerifier {
+    fn verify(
+        &self,
+        encoded_receipt: &[u8],
+        expected_logical_message_id: &str,
+        expected_recipient_id: &str,
+    ) -> Result<(), ReceiptVerificationError>;
+}
+
+/// Opaque capability issued only after the configured trusted verifier accepts
+/// a receipt for one specific message and recipient. Its binding fields are
+/// private, so callers cannot construct or retarget a token with a struct
+/// literal from outside this crate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedRecipientReceipt {
+    logical_message_id: String,
+    recipient_id: String,
+}
+
+impl VerifiedRecipientReceipt {
+    pub fn verify<V: TrustedRecipientReceiptVerifier>(
+        verifier: &V,
+        encoded_receipt: &[u8],
+        expected_logical_message_id: &str,
+        expected_recipient_id: &str,
+    ) -> Result<Self, ReceiptVerificationError> {
+        if !valid_receipt_binding(expected_logical_message_id, MAX_MESSAGE_ID_BYTES)
+            || !valid_receipt_binding(expected_recipient_id, 512)
+            || encoded_receipt.is_empty()
+        {
+            return Err(ReceiptVerificationError::InvalidContext);
+        }
+        verifier.verify(
+            encoded_receipt,
+            expected_logical_message_id,
+            expected_recipient_id,
+        )?;
+        Ok(Self {
+            logical_message_id: expected_logical_message_id.to_owned(),
+            recipient_id: expected_recipient_id.to_owned(),
+        })
+    }
+
+    fn matches(&self, logical_message_id: &str, recipient_id: &str) -> bool {
+        self.logical_message_id == logical_message_id && self.recipient_id == recipient_id
+    }
+}
+
+fn valid_receipt_binding(value: &str, maximum_bytes: usize) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= maximum_bytes
+        && !value.chars().any(char::is_control)
+}
+
+/// Converts transport-layer evidence to user-visible state. No transport
+/// outcome maps to Delivered. A separately verified token must match both the
+/// current logical message ID and the intended recipient.
+pub fn user_visible_delivery_state(
+    stage: DeliveryEvidenceStage,
+    logical_message_id: &str,
+    recipient_id: &str,
+    verified_receipt: Option<&VerifiedRecipientReceipt>,
+) -> UserVisibleDeliveryState {
+    if verified_receipt.is_some_and(|receipt| {
+        receipt.matches(logical_message_id, recipient_id)
+    }) {
+        return UserVisibleDeliveryState::Delivered;
+    }
+    match stage {
+        DeliveryEvidenceStage::LocallyQueued => UserVisibleDeliveryState::Queued,
+        DeliveryEvidenceStage::AcceptedByAdapter
+        | DeliveryEvidenceStage::LinkLayerAcknowledged
+        | DeliveryEvidenceStage::GatewayAcknowledged
+        | DeliveryEvidenceStage::TemporarilyUnavailable => UserVisibleDeliveryState::Pending,
+        DeliveryEvidenceStage::FailedPermanently => UserVisibleDeliveryState::Failed,
+        DeliveryEvidenceStage::Expired => UserVisibleDeliveryState::Expired,
+        DeliveryEvidenceStage::NotAttempted | DeliveryEvidenceStage::OutcomeUnknown => {
+            UserVisibleDeliveryState::Unknown
         }
     }
 }
@@ -837,36 +923,123 @@ mod tests {
             ),
         ];
         for (outcome, expected) in cases {
-            let stage = DeliveryEvidenceStage::from(outcome);
-            assert_eq!(stage, expected);
+            assert_eq!(DeliveryEvidenceStage::from(outcome), expected);
             assert_ne!(
-                stage.user_visible_state(),
+                user_visible_delivery_state(expected, "msg-1", "recipient-1", None),
                 UserVisibleDeliveryState::Delivered
             );
         }
     }
 
+    struct TestReceiptVerifier;
+
+    impl TrustedRecipientReceiptVerifier for TestReceiptVerifier {
+        fn verify(
+            &self,
+            encoded_receipt: &[u8],
+            expected_logical_message_id: &str,
+            expected_recipient_id: &str,
+        ) -> Result<(), ReceiptVerificationError> {
+            if encoded_receipt == b"valid-test-receipt"
+                && expected_logical_message_id == "msg-1"
+                && expected_recipient_id == "recipient-1"
+            {
+                Ok(())
+            } else {
+                Err(ReceiptVerificationError::InvalidReceipt)
+            }
+        }
+    }
+
     #[test]
-    fn adapter_acknowledgements_do_not_claim_recipient_delivery() {
+    fn only_verified_receipt_bound_to_exact_message_and_recipient_maps_to_delivered() {
+        let verifier = TestReceiptVerifier;
+        let receipt = VerifiedRecipientReceipt::verify(
+            &verifier,
+            b"valid-test-receipt",
+            "msg-1",
+            "recipient-1",
+        )
+        .unwrap();
+        assert_eq!(
+            user_visible_delivery_state(
+                DeliveryEvidenceStage::GatewayAcknowledged,
+                "msg-1",
+                "recipient-1",
+                Some(&receipt),
+            ),
+            UserVisibleDeliveryState::Delivered
+        );
+        assert_eq!(
+            user_visible_delivery_state(
+                DeliveryEvidenceStage::GatewayAcknowledged,
+                "msg-2",
+                "recipient-1",
+                Some(&receipt),
+            ),
+            UserVisibleDeliveryState::Pending
+        );
+        assert_eq!(
+            user_visible_delivery_state(
+                DeliveryEvidenceStage::GatewayAcknowledged,
+                "msg-1",
+                "recipient-2",
+                Some(&receipt),
+            ),
+            UserVisibleDeliveryState::Pending
+        );
+    }
+
+    #[test]
+    fn invalid_or_empty_receipt_cannot_issue_verified_token() {
+        let verifier = TestReceiptVerifier;
+        assert_eq!(
+            VerifiedRecipientReceipt::verify(
+                &verifier,
+                b"untrusted-receipt",
+                "msg-1",
+                "recipient-1",
+            ),
+            Err(ReceiptVerificationError::InvalidReceipt)
+        );
+        assert_eq!(
+            VerifiedRecipientReceipt::verify(
+                &verifier,
+                b"",
+                "msg-1",
+                "recipient-1",
+            ),
+            Err(ReceiptVerificationError::InvalidContext)
+        );
+        assert_eq!(
+            VerifiedRecipientReceipt::verify(
+                &verifier,
+                b"valid-test-receipt",
+                "",
+                "recipient-1",
+            ),
+            Err(ReceiptVerificationError::InvalidContext)
+        );
+    }
+
+    #[test]
+    fn non_receipt_stages_never_map_to_delivered_without_verified_token() {
         for stage in [
+            DeliveryEvidenceStage::NotAttempted,
             DeliveryEvidenceStage::LocallyQueued,
             DeliveryEvidenceStage::AcceptedByAdapter,
             DeliveryEvidenceStage::LinkLayerAcknowledged,
             DeliveryEvidenceStage::GatewayAcknowledged,
+            DeliveryEvidenceStage::TemporarilyUnavailable,
+            DeliveryEvidenceStage::FailedPermanently,
+            DeliveryEvidenceStage::Expired,
+            DeliveryEvidenceStage::OutcomeUnknown,
         ] {
             assert_ne!(
-                stage.user_visible_state(),
+                user_visible_delivery_state(stage, "msg-1", "recipient-1", None),
                 UserVisibleDeliveryState::Delivered
             );
         }
-        assert_eq!(
-            DeliveryEvidenceStage::RecipientReceiptVerified.user_visible_state(),
-            UserVisibleDeliveryState::Delivered
-        );
-        assert_eq!(
-            DeliveryEvidenceStage::OutcomeUnknown.user_visible_state(),
-            UserVisibleDeliveryState::Unknown
-        );
     }
 
     #[test]
