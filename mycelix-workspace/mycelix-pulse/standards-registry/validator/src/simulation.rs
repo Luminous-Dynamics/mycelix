@@ -893,14 +893,14 @@ mod tests {
             .paths
             .iter()
             .find(|path| path.id == "cellular-radio-a")
-            .expect("first carrier path exists")
-            .clone();
+            .cloned()
+            .expect("first carrier path exists");
         let path_b = scenario
             .paths
             .iter()
             .find(|path| path.id == "cellular-radio-b")
-            .expect("second carrier path exists")
-            .clone();
+            .cloned()
+            .expect("second carrier path exists");
 
         scenario.failure_correlation_basis_points = 0;
         let independent_disagreements = (0..1_000)
