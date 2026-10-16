@@ -51,7 +51,10 @@
         "successful_non_allowlisted_connections",
         "real_credentials_or_secrets_exposed",
         "evaluator_truth_or_boundary_logs_candidate_writable",
-        "tool_operations_missing_boundary_decision"
+        "tool_operations_missing_boundary_decision",
+        "invalid_or_unauthorized_evidence_accepted",
+        "cross_wish_or_revision_replay_accepted",
+        "unsupported_signature_suites_accepted"
       ],
       "properties": {
         "run_id": {
@@ -170,6 +173,21 @@
           "type": "integer",
           "minimum": 0,
           "description": "Count of attempted tool operations without an external allow/deny decision receipt."
+        },
+        "invalid_or_unauthorized_evidence_accepted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of invalid, unauthenticated, expired/revoked, wrong-role or otherwise unauthorized outcome evidence accepted by the evaluated system."
+        },
+        "cross_wish_or_revision_replay_accepted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of evidence receipts replayed across a different wish, requester, operation or snapshot revision and accepted."
+        },
+        "unsupported_signature_suites_accepted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of unsupported/unknown signature suite identifiers accepted as authenticated evidence."
         }
       },
       "allOf": [
