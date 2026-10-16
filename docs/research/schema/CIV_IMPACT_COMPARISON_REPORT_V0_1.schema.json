@@ -199,7 +199,7 @@
               "required": [
                 "method",
                 "resamples",
-                "confidence_level",
+                "central_interval_level",
                 "resampling_unit",
                 "stratification",
                 "bootstrap_seed_sha256",
@@ -214,9 +214,6 @@
                 },
                 "resamples": {
                   "const": 10000
-                },
-                "confidence_level": {
-                  "const": 0.95
                 },
                 "resampling_unit": {
                   "type": "string",
@@ -240,6 +237,9 @@
                 },
                 "claim_ceiling": {
                   "const": "descriptive_uncertainty_for_this_synthetic_corpus; not causal or economic qualification"
+                },
+                "central_interval_level": {
+                  "const": 0.95
                 }
               }
             }
