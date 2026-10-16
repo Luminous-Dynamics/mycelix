@@ -352,7 +352,7 @@ fn run_cell(world: World, strategy: &'static str, seed: u64, units_count: usize,
     let cost = cost_units(strategy, design, units_count);
     let treated_units = units.iter().filter(|unit| unit.treatment == Some(true)).count();
     let control_units = units.iter().filter(|unit| unit.treatment == Some(false)).count();
-    let run_id = format!("{}/{}/rep-{replication:06}", world.id, strategy);
+    let run_id = format!("{}/{}/seed-{seed}/rep-{replication:06}", world.id, strategy);
     let row = json!({
         "run_id": run_id,
         "regime": world.id,
@@ -605,6 +605,23 @@ mod tests {
         assert_eq!(report["complete"], true);
         assert_eq!(report["results"].as_array().unwrap().len(), 90);
         assert_eq!(report["summary"].as_array().unwrap().len(), 30);
+    }
+
+    #[test]
+    fn wilson_interval_does_not_imply_zero_uncertainty_after_zero_observed_events() {
+        let (low, high) = wilson_interval(&vec![0.0; 30]).unwrap();
+        assert_eq!(low, 0.0);
+        assert!(high > 0.0 && high < 0.2);
+    }
+
+    #[test]
+    fn summary_emits_monte_carlo_uncertainty_fields() {
+        let report = build_report(4, 64, 17);
+        let row = report["summary"].as_array().unwrap().iter()
+            .find(|row| row["regime"] == "null_effect" && row["strategy"] == "observational_naive").unwrap();
+        assert!(row.get("false_directional_claim_wilson95_low").is_some());
+        assert!(row.get("false_directional_claim_wilson95_high").is_some());
+        assert!(row.get("mean_absolute_error_mc_se").is_some());
     }
 
     #[test]
