@@ -621,6 +621,15 @@ fn validate_support_claim(
 ) {
     let status = entry.get("support_status").and_then(Value::as_str);
     let evidence = entry.get("evidence").and_then(Value::as_array);
+    let has_source_digest = entry
+        .get("source_digest_sha256")
+        .and_then(Value::as_str)
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        });
     let has_evidence = |kind: &str| {
         evidence.is_some_and(|items| {
             items
@@ -631,6 +640,20 @@ fn validate_support_claim(
 
     match status {
         Some("unreviewed") | Some("explicitly_excluded") => {}
+        Some("metadata_reviewed" | "prototype" | "profile_tested" | "externally_certified")
+            if !has_source_digest =>
+        {
+            errors.push(format!(
+                "{label}: support state '{status:?}' requires a captured source_digest_sha256"
+            ));
+        }
+        Some("metadata_reviewed" | "prototype" | "profile_tested" | "externally_certified")
+            if !has_evidence("source_review") =>
+        {
+            errors.push(format!(
+                "{label}: support state '{status:?}' requires source_review evidence"
+            ));
+        }
         Some("metadata_reviewed") if !has_evidence("source_review") => {
             errors.push(format!(
                 "{label}: metadata_reviewed requires source_review evidence"
@@ -735,6 +758,23 @@ mod tests {
         }]);
         let errors = validate_registry(&registry, &schema());
         assert!(errors.iter().any(|e| e.contains("self-referential relation")));
+    }
+
+    #[test]
+    fn reviewed_support_state_requires_captured_source_digest() {
+        let mut registry = seed();
+        registry["entries"][0]["support_status"] = json!("metadata_reviewed");
+        registry["entries"][0]["evidence"] = json!([{
+            "kind": "source_review",
+            "url": "https://example.org/source",
+            "exact_subject_sha": null,
+            "claim": "Authority page reviewed, source content not pinned.",
+            "verified_on": "2026-10-16"
+        }]);
+        let errors = validate_registry(&registry, &schema());
+        assert!(errors.iter().any(|error| {
+            error.contains("requires a captured source_digest_sha256")
+        }));
     }
 
     #[test]
