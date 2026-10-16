@@ -45,8 +45,10 @@ fn main() -> ExitCode {
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: route-sim [--traces PATH] [--messages COUNT] [--seed N]\n\n                     Runs deterministic synthetic path comparisons. Output never establishes real delivery or hardware qualification."
-                );
+                println!("Usage: route-sim [--traces PATH] [--messages COUNT] [--seed N]");
+                println!();
+                println!("Runs deterministic synthetic path comparisons.");
+                println!("Output never establishes real delivery or hardware qualification.");
                 return ExitCode::SUCCESS;
             }
             unknown => {
