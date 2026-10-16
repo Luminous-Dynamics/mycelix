@@ -377,7 +377,7 @@ fn offer_rejection(
         if offer.failure_domain_valid_until < request.evaluated_at {
             return Some(RejectionReason::DependencyExpired);
         }
-        if offer.failure_domains.iter().all(|domain| !non_empty(domain)) {
+        if offer.failure_domains.is_empty() || offer.failure_domains.iter().any(|domain| !non_empty(domain)) {
             return Some(RejectionReason::MissingFailureDomain);
         }
     }
@@ -455,9 +455,9 @@ impl SearchState<'_> {
         allocations: &[u32],
     ) -> Result<bool, PortfolioError> {
         let mut total_quantity = 0u64;
-        let mut supplier_quantities: BTreeMap<&str, u64> = BTreeMap::new();
-        let mut pool_quantities: BTreeMap<&str, u64> = BTreeMap::new();
-        let mut pool_caps: BTreeMap<&str, u32> = BTreeMap::new();
+        let mut supplier_quantities: BTreeMap<String, u64> = BTreeMap::new();
+        let mut pool_quantities: BTreeMap<String, u64> = BTreeMap::new();
+        let mut pool_caps: BTreeMap<String, u32> = BTreeMap::new();
 
         for (offer, quantity) in self.offers.iter().zip(allocations.iter()).take(index + 1) {
             total_quantity = total_quantity
@@ -466,15 +466,15 @@ impl SearchState<'_> {
             if *quantity == 0 {
                 continue;
             }
-            let supplier_total = supplier_quantities.entry(&offer.supplier_id).or_default();
+            let supplier_total = supplier_quantities.entry(offer.supplier_id.clone()).or_default();
             *supplier_total = supplier_total
                 .checked_add(u64::from(*quantity))
                 .ok_or(PortfolioError::ArithmeticOverflow)?;
-            let pool_total = pool_quantities.entry(&offer.capacity_pool_id).or_default();
+            let pool_total = pool_quantities.entry(offer.capacity_pool_id.clone()).or_default();
             *pool_total = pool_total
                 .checked_add(u64::from(*quantity))
                 .ok_or(PortfolioError::ArithmeticOverflow)?;
-            pool_caps.insert(&offer.capacity_pool_id, offer.capacity_pool_quantity);
+            pool_caps.insert(offer.capacity_pool_id.clone(), offer.capacity_pool_quantity);
         }
 
         if total_quantity > u64::from(self.request.required_quantity) {
@@ -483,8 +483,7 @@ impl SearchState<'_> {
         if supplier_quantities.len() > self.effective_max_suppliers() {
             return Ok(false);
         }
-        for (supplier, quantity) in &supplier_quantities {
-            let _ = supplier;
+        for (_supplier, quantity) in &supplier_quantities {
             if quantity.checked_mul(BPS_SCALE).ok_or(PortfolioError::ArithmeticOverflow)?
                 > u64::from(self.request.required_quantity)
                     .checked_mul(u64::from(self.request.max_supplier_share_bps))
@@ -494,7 +493,7 @@ impl SearchState<'_> {
             }
         }
         for (pool, quantity) in pool_quantities {
-            if quantity > u64::from(*pool_caps.get(pool).expect("pool cap inserted with usage")) {
+            if quantity > u64::from(*pool_caps.get(&pool).expect("pool cap inserted with usage")) {
                 return Ok(false);
             }
         }
@@ -635,7 +634,7 @@ pub fn evaluate_portfolios(
     }
 
     let mut offer_ids = BTreeSet::new();
-    let mut pool_snapshots: BTreeMap<&str, CapacityPoolSnapshot> = BTreeMap::new();
+    let mut pool_snapshots: BTreeMap<String, CapacityPoolSnapshot> = BTreeMap::new();
     for offer in offers {
         if !offer_ids.insert(offer.offer_id.as_str()) {
             return Err(PortfolioError::DuplicateOfferId);
@@ -649,12 +648,12 @@ pub fn evaluate_portfolios(
                 status: offer.capacity_status,
                 origin: offer.capacity_origin,
             };
-            if let Some(existing) = pool_snapshots.get(offer.capacity_pool_id.as_str()) {
+            if let Some(existing) = pool_snapshots.get(&offer.capacity_pool_id) {
                 if existing != &snapshot {
                     return Err(PortfolioError::InconsistentCapacityPool);
                 }
             } else {
-                pool_snapshots.insert(offer.capacity_pool_id.as_str(), snapshot);
+                pool_snapshots.insert(offer.capacity_pool_id.clone(), snapshot);
             }
         }
     }
