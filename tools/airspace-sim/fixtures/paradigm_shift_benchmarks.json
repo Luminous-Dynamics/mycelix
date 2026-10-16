@@ -30,7 +30,8 @@
     "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
     "uncertainty_composition_preserves_dependencies_and_bounds",
     "assurance_independence_is_evidenced_not_declared",
-    "heterogeneous_uncertainty_requires_explicit_dimensional_projection"
+    "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+    "unrecognized_contract_fields_fail_closed"
   ],
   "benchmarks": [
     {
@@ -780,6 +781,44 @@
         "all_results_bind_exact_inputs_models_rules_and_checker"
       ],
       "scope": "test-only synthetic integer uncertainty composition with explicit typed units and declared sensitivities; no geodetic transformation, real clock synchronization, validated dynamics, qualified reachable set or operational aviation authority"
+    },
+    {
+      "id": "AIR-PB-024",
+      "name": "strict_typed_schema_and_differential_lineage_oracle",
+      "paradigm": "schemas_are_executable_contracts_and_checkers_use_a_distinct_representation",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Rejecting unknown fields and comparing the typed evaluator against exhaustive assignments catches silent schema drift, coefficient-grouping defects and term-order sensitivity before lineage metadata can influence a decision.",
+      "baseline": "Permissive deserialization can ignore misspelled metadata, while a checker using the same aggregation path can repeat evaluator defects.",
+      "stimulus": "Mutate valid typed-lineage JSON by inserting an unknown/misspelled field; generate 500 seeded typed domains mixing position and clock-offset dimensions with shared dependencies; evaluate each domain by exhaustive per-dependency assignment and compare with the typed evaluator; reverse term order.",
+      "success_conditions": [
+        "Unknown fields in the typed-term, case, output-contract or fixture-envelope schema are rejected.",
+        "All 500 seeded generated domains match the term-wise exhaustive assignment oracle exactly after outward rounding.",
+        "All 500 term-order reversals preserve the output bounds.",
+        "Position and clock-offset dependency dimensions cannot be mixed by reusing one dependency ID.",
+        "Any oracle disagreement or unknown-field acceptance fails closed; none is converted to numerical clearance or silent default."
+      ],
+      "falsifiers": [
+        "A typo or unknown field is ignored while a result is still accepted.",
+        "Any generated typed-lineage domain disagrees with the independent assignment oracle.",
+        "Term permutation changes normalized bounds.",
+        "A shared dependency ID silently changes quantity dimension or validity contract."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output for strict deserialization and 500 generated differential cases",
+        "Pinned generator seed and generator implementation identity",
+        "Exact typed-lineage fixture digest and schema version",
+        "Observed disagreement and unknown-field mutation counts",
+        "Explicit separation between schema conformance, synthetic arithmetic correctness and physical model qualification"
+      ],
+      "hard_invariants": [
+        "unrecognized_contract_fields_fail_closed",
+        "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only synthetic typed uncertainty contract; no authenticated provenance, real geodetic transformation, live clock synchronization, validated aircraft dynamics or operational aviation authority"
     }
   ]
 }
