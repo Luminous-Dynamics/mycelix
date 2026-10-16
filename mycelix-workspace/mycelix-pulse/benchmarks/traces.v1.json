@@ -444,5 +444,30 @@
       ],
       "notes": "The first 3,000 message indices model a shared carrier-core outage on both cellular adapters. Both adapters also share one deterministic success draw outside that outage window. The independent community relay has its own domain and stays available. This is a synthetic scenario, not a measured reliability model."
     }
-  ]
+  ],
+  "evaluation_split": {
+    "schema_version": "1.0.0",
+    "split_id": "pulse-routing-evaluation-split-v1",
+    "rule": "Scenario-level holdout is declared before evaluation and must be a disjoint, exhaustive partition. Holdout scenarios are evaluated but not used to tune candidate policies.",
+    "development_scenario_ids": [
+      "scheduled-ip-outage",
+      "local-only-first-contact",
+      "compact-narrowband-message",
+      "oversize-envelope",
+      "all-links-unavailable",
+      "deadline-disallows-primary"
+    ],
+    "holdout_scenario_ids": [
+      "stable-ip",
+      "privacy-policy-excludes-relay",
+      "flapping-primary",
+      "energy-constrained",
+      "shared-carrier-failure-domain"
+    ],
+    "limitations": [
+      "This split is for synthetic model development/evaluation only.",
+      "A split declaration does not itself prove no prior tuning used these scenarios.",
+      "Seeds are deterministic model replicates, not independent real-world network samples."
+    ]
+  }
 }
