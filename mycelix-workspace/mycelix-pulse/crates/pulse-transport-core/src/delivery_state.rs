@@ -440,13 +440,11 @@ impl DeliveryLifecycle {
         }
 
         self.revoked = true;
-        if let Some(attempt_id) = self.active_attempt_id.take() {
+        if self.active_attempt_id.is_some() {
             // A reserved/in-flight attempt may already have crossed the
-            // network boundary. Preserve uncertainty so a verified receipt can
-            // still resolve it, but never authorize another transmission.
-            if let Some(attempt) = self.attempts.get_mut(&attempt_id) {
-                attempt.outcome = Some(AttemptOutcome::OutcomeUnknown);
-            }
+            // network boundary. Keep it unresolved so a late authenticated
+            // adapter result can still be recorded; revoked=true blocks every
+            // subsequent attempt regardless of that result.
             self.may_have_reached_recipient = true;
         }
         self.next_attempt_at = None;
@@ -754,6 +752,15 @@ mod tests {
             item.start_attempt("attempt-2", UnixMillis::new(3)),
             Err(LifecycleError::TerminalState)
         );
+        assert_eq!(
+            item.record_outcome(
+                "attempt-1",
+                AttemptOutcome::GatewayAcknowledged,
+                UnixMillis::new(3),
+            ),
+            Ok(true)
+        );
+        assert_eq!(item.status(), DeliveryStatus::OutcomeUnknown);
         assert_eq!(
             item.record_verified_receipt(&verified_receipt(), UnixMillis::new(4)),
             Ok(true)
