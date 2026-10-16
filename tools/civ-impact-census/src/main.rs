@@ -937,6 +937,11 @@ mod tests {
     }
 
     #[test]
+    fn rejects_overflowing_schedule_before_large_allocation() {
+        assert!(build_schedule(usize::MAX, 1).unwrap_err().contains("overflow"));
+    }
+
+    #[test]
     fn identical_input_generates_identical_scenario_identity() {
         let left = build_schedule(10, 3).expect("left");
         let right = build_schedule(10, 3).expect("right");
