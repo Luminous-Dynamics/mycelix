@@ -46,6 +46,25 @@ fn now_unix_seconds() -> u64 {
     }
 }
 
+fn evidence_checked_at(evidence: PublicationEvidence) -> Option<u64> {
+    match evidence {
+        PublicationEvidence::NoOperationData { checked_at_unix_seconds }
+        | PublicationEvidence::ReceiptsObserved { checked_at_unix_seconds, .. } => {
+            Some(checked_at_unix_seconds)
+        }
+        _ => None,
+    }
+}
+
+fn format_timestamp(unix_seconds: u64) -> String {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(
+        unix_seconds as f64 * 1_000.0,
+    ));
+    date.to_iso_string()
+        .as_string()
+        .unwrap_or_else(|| "timestamp unavailable".into())
+}
+
 #[component]
 pub fn PublicationEvidenceStatus() -> impl IntoView {
     let publication = use_hearth().publication_evidence;
@@ -59,6 +78,9 @@ pub fn PublicationEvidenceStatus() -> impl IntoView {
                 publication.get().map(|notice| {
                     let class = evidence_class(notice.evidence);
                     let copy = publication_evidence_copy(notice.evidence, now_unix_seconds());
+                    let checked_at = evidence_checked_at(notice.evidence)
+                        .map(format_timestamp)
+                        .unwrap_or_else(|| "observation time unavailable".into());
                     let subject = notice.subject;
                     let action_ref = notice.action_hash_prefix;
 
@@ -73,7 +95,7 @@ pub fn PublicationEvidenceStatus() -> impl IntoView {
                             <div class="publication-evidence__copy">
                                 <strong>{format!("Publication evidence · {subject}")}</strong>
                                 <p>{copy}</p>
-                                <small>{format!("Action reference: {action_ref}…")}</small>
+                                <small>{format!("Action reference: {action_ref}… · Observed at {checked_at}")}</small>
                             </div>
                         </aside>
                     }
