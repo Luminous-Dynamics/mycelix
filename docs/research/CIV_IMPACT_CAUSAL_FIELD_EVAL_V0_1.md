@@ -27,7 +27,7 @@ The primary randomized comparison should preserve each unit in its assigned arm,
 
 ### 3. Treat assignment evidence as a first-class artifact
 
-The plan commits to the exact assignment-manifest bytes. The outcome ledger repeats hashes of the frozen plan and assignment manifest. The verifier reconciles all assigned units to exactly one outcome or explicit missing/withdrawal disposition, rejects duplicate or unassigned units, and checks cluster boundaries. It checks file consistency—not allocation authenticity. V0.1 has no signature verifier or independent transparency log, so an external allocator's attestation is a review requirement rather than a cryptographically proven fact.
+The plan commits to the exact assignment-manifest bytes. The outcome ledger repeats hashes of the frozen plan and assignment manifest. The verifier reconciles all assigned units to exactly one outcome or explicit missing/withdrawal disposition, rejects duplicate or unassigned units, and checks cluster boundaries. It checks file consistency—not allocation authenticity. V0.1 emits the exact outcome-ledger digest for a downstream result-freeze receipt, but has no signature verifier or independent transparency log. An external allocator's attestation and an externally retained signed/checkpointed result freeze are review requirements, not cryptographically proven facts. The initial profile assumes a fixed enrolled cohort whose assignment manifest can be frozen before outcome collection; rolling enrollment needs batch commitments and a separately qualified assignment service.
 
 ### 4. Missingness and interference are part of the result
 
@@ -111,5 +111,5 @@ These publications motivate a direction. They do not validate this repository's 
 - No field experiment, participant recruitment, live data ingestion, spending, dispatch, or other external intervention.
 - No statistical effect estimator in this slice.
 - No second evaluator identity or generalized transportability implementation.
-- No assertion that file hashes authenticate authorship, timestamp, allocation randomness, ethics approval, or outcome truth.
+- No assertion that file hashes authenticate authorship, timestamp, allocation randomness, ethics approval, or outcome truth. The outcome digest is emitted but not independently anchored by this slice.
 - No score or synthetic test result is treated as real-world impact.
