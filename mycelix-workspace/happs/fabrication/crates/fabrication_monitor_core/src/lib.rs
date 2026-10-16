@@ -673,7 +673,7 @@ mod tests {
         DetectorConfig {
             detector_id: "cincinnati.robust-reference".into(),
             detector_version: "1.0.0".into(),
-            reference_dataset_id: "fixture:synthetic-healthy-reference-v1".into,
+            reference_dataset_id: "fixture:synthetic-healthy-reference-v1".into(),
             robust_z_threshold: 3.5,
             minimum_scale_by_signal: [
                 0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0, 0.5, 2.0,
