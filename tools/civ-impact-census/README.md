@@ -113,6 +113,6 @@ Do not benchmark against third-party instances until source identity, exact obje
 
 ## Tests
 
-The crate defines 25 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, reproducible scenario-cluster resampling, incomplete-pair visibility, zero-service handling, and Rust/schema field-set agreement, and stale-result rejection after a schedule artifact change.
+The crate defines 27 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, reproducible scenario-cluster resampling, incomplete-pair visibility, zero-service handling, and Rust/schema field-set agreement, and stale-result rejection after a schedule artifact change.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
