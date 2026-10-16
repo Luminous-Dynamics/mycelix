@@ -18,8 +18,9 @@
 
 use crate::action_lifecycle::{ActionAttempt, ActionKind, AttemptStatus};
 
-/// A prepared operation can only be obtained after the journal accepted its
-/// Prepared state. Its fields are private so callers cannot forge this permit.
+/// A prepared operation can only be obtained after the supplied journal writer
+/// accepted its Prepared state. Callers cannot instantiate the token directly;
+/// the persistence guarantee still depends on the writer's actual contract.
 #[derive(Debug, PartialEq, Eq)]
 pub struct PreparedAction {
     attempt: ActionAttempt,
