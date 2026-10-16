@@ -154,6 +154,25 @@ struct VerificationReport {
 }
 
 #[derive(Debug, Serialize)]
+struct BootstrapInterval {
+    lower_2_5_percentile: f64,
+    upper_97_5_percentile: f64,
+}
+
+#[derive(Debug, Serialize)]
+struct BootstrapUncertainty {
+    method: String,
+    resamples: usize,
+    confidence_level: f64,
+    resampling_unit: String,
+    stratification: String,
+    bootstrap_seed_sha256: String,
+    relative_cost_per_served_unit_change_percent: BootstrapInterval,
+    candidate_minus_baseline_cost_per_served_unit_microcredits: BootstrapInterval,
+    candidate_minus_baseline_service_rate_percentage_points: BootstrapInterval,
+    claim_ceiling: String,
+}
+
 struct ComparisonReport {
     benchmark_id: String,
     evidence_class: String,
@@ -175,6 +194,7 @@ struct ComparisonReport {
     candidate_minus_baseline_cost_per_served_unit_microcredits: Option<f64>,
     relative_cost_per_served_unit_change_percent: Option<f64>,
     cost_per_served_unit_defined_for_all_pairs: bool,
+    stratified_scenario_cluster_bootstrap_95: Option<BootstrapUncertainty>,
     descriptive_only: bool,
     economic_benefit_established: bool,
     claim_ceiling: String,
@@ -658,9 +678,186 @@ fn mean(values: &[f64]) -> Option<f64> {
     }
 }
 
+const BOOTSTRAP_RESAMPLES: usize = 10_000;
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Aggregate {
+    cost_microcredits: u128,
+    served_units: u128,
+    demand_units: u128,
+}
+
+#[derive(Debug, Clone)]
+struct ScenarioAggregate {
+    scenario_id: String,
+    regime: String,
+    baseline: Aggregate,
+    candidate: Aggregate,
+}
+
+fn scenario_arm_aggregate(
+    scenario: &Scenario,
+    arm_id: &str,
+    results_by_id: &HashMap<&str, &RunResult>,
+    seed_count: usize,
+) -> Result<Option<Aggregate>, String> {
+    let mut aggregate = Aggregate::default();
+    let demand = effective_demand(scenario)? as u128;
+    for seed in 1..=seed_count as u64 {
+        let run_id = format!("{}:seed-{seed:04}:{arm_id}", scenario.scenario_id);
+        let result = results_by_id
+            .get(run_id.as_str())
+            .ok_or_else(|| format!("missing result while aggregating {run_id}"))?;
+        if result.disposition != Disposition::Completed {
+            return Ok(None);
+        }
+        let Some(metrics) = result.metrics.as_ref() else {
+            return Ok(None);
+        };
+        if metrics.served_units == 0 {
+            return Ok(None);
+        }
+        aggregate.cost_microcredits += metrics.total_cost_microcredits as u128;
+        aggregate.served_units += metrics.served_units as u128;
+        aggregate.demand_units += demand;
+    }
+    Ok(Some(aggregate))
+}
+
+fn bootstrap_percentile(values: &mut [f64], quantile: f64) -> Result<f64, String> {
+    if values.is_empty() || !(0.0..=1.0).contains(&quantile) {
+        return Err("invalid percentile input".into());
+    }
+    if values.iter().any(|value| !value.is_finite()) {
+        return Err("bootstrap produced a non-finite statistic".into());
+    }
+    values.sort_by(f64::total_cmp);
+    let rank = ((quantile * values.len() as f64).ceil() as usize)
+        .saturating_sub(1)
+        .min(values.len() - 1);
+    Ok(values[rank])
+}
+
+fn stratified_scenario_cluster_bootstrap(
+    schedule: &Schedule,
+    results_by_id: &HashMap<&str, &RunResult>,
+    seed: u64,
+    seed_digest: &str,
+) -> Result<Option<BootstrapUncertainty>, String> {
+    let mut scenario_aggregates = Vec::with_capacity(schedule.scenarios.len());
+    for scenario in &schedule.scenarios {
+        let Some(baseline) = scenario_arm_aggregate(
+            scenario,
+            "incumbent_baseline",
+            results_by_id,
+            schedule.seed_count,
+        )? else {
+            return Ok(None);
+        };
+        let Some(candidate) = scenario_arm_aggregate(
+            scenario,
+            "full_stack",
+            results_by_id,
+            schedule.seed_count,
+        )? else {
+            return Ok(None);
+        };
+        // Relative cost change is undefined if an entire baseline cluster has zero cost.
+        // Fail closed rather than dropping such a cluster from bootstrap replicates.
+        if baseline.cost_microcredits == 0 || baseline.served_units == 0 || candidate.served_units == 0 {
+            return Ok(None);
+        }
+        scenario_aggregates.push(ScenarioAggregate {
+            scenario_id: scenario.scenario_id.clone(),
+            regime: scenario.regime.clone(),
+            baseline,
+            candidate,
+        });
+    }
+
+    let mut strata: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (index, aggregate) in scenario_aggregates.iter().enumerate() {
+        strata.entry(aggregate.regime.clone()).or_default().push(index);
+    }
+    if strata.len() != REGIMES.len() || strata.values().any(|indices| indices.is_empty()) {
+        return Err("bootstrap requires all registered, non-empty scenario strata".into());
+    }
+
+    let mut rng = XorShift64::new(seed);
+    let mut relative_cost_changes = Vec::with_capacity(BOOTSTRAP_RESAMPLES);
+    let mut absolute_cost_changes = Vec::with_capacity(BOOTSTRAP_RESAMPLES);
+    let mut service_changes = Vec::with_capacity(BOOTSTRAP_RESAMPLES);
+
+    for _ in 0..BOOTSTRAP_RESAMPLES {
+        let mut baseline = Aggregate::default();
+        let mut candidate = Aggregate::default();
+        for indices in strata.values() {
+            // Resample whole scenarios within each registered regime. All seeds from
+            // one scenario stay together, so seeds do not masquerade as independent sites.
+            for _ in 0..indices.len() {
+                let picked = rng.range(0, indices.len() as u64) as usize;
+                let cluster = &scenario_aggregates[indices[picked]];
+                baseline.cost_microcredits += cluster.baseline.cost_microcredits;
+                baseline.served_units += cluster.baseline.served_units;
+                baseline.demand_units += cluster.baseline.demand_units;
+                candidate.cost_microcredits += cluster.candidate.cost_microcredits;
+                candidate.served_units += cluster.candidate.served_units;
+                candidate.demand_units += cluster.candidate.demand_units;
+            }
+        }
+        if baseline.cost_microcredits == 0
+            || baseline.served_units == 0
+            || candidate.served_units == 0
+            || baseline.demand_units == 0
+        {
+            return Err("bootstrap resample has undefined primary statistics".into());
+        }
+        let baseline_cost_per_served =
+            baseline.cost_microcredits as f64 / baseline.served_units as f64;
+        let candidate_cost_per_served =
+            candidate.cost_microcredits as f64 / candidate.served_units as f64;
+        if baseline_cost_per_served <= 0.0 {
+            return Err("bootstrap baseline cost per served unit is not positive".into());
+        }
+        relative_cost_changes.push(
+            (candidate_cost_per_served / baseline_cost_per_served - 1.0) * 100.0,
+        );
+        absolute_cost_changes.push(candidate_cost_per_served - baseline_cost_per_served);
+
+        let base_service_rate = baseline.served_units as f64 / baseline.demand_units as f64;
+        let candidate_service_rate =
+            candidate.served_units as f64 / candidate.demand_units as f64;
+        service_changes.push((candidate_service_rate - base_service_rate) * 100.0);
+    }
+
+    Ok(Some(BootstrapUncertainty {
+        method: "stratified scenario-cluster percentile bootstrap".into(),
+        resamples: BOOTSTRAP_RESAMPLES,
+        confidence_level: 0.95,
+        resampling_unit: "scenario cluster; all seeds and paired arms within a sampled scenario".into(),
+        stratification: "resample with replacement within each registered stress regime".into(),
+        bootstrap_seed_sha256: seed_digest.to_owned(),
+        relative_cost_per_served_unit_change_percent: BootstrapInterval {
+            lower_2_5_percentile: bootstrap_percentile(&mut relative_cost_changes, 0.025)?,
+            upper_97_5_percentile: bootstrap_percentile(&mut relative_cost_changes, 0.975)?,
+        },
+        candidate_minus_baseline_cost_per_served_unit_microcredits: BootstrapInterval {
+            lower_2_5_percentile: bootstrap_percentile(&mut absolute_cost_changes, 0.025)?,
+            upper_97_5_percentile: bootstrap_percentile(&mut absolute_cost_changes, 0.975)?,
+        },
+        candidate_minus_baseline_service_rate_percentage_points: BootstrapInterval {
+            lower_2_5_percentile: bootstrap_percentile(&mut service_changes, 0.025)?,
+            upper_97_5_percentile: bootstrap_percentile(&mut service_changes, 0.975)?,
+        },
+        claim_ceiling: "descriptive_uncertainty_for_this_synthetic_corpus; not causal or economic qualification".into(),
+    }))
+}
+
 fn make_comparison(
     schedule: &Schedule,
     result_file: &ResultsFile,
+    bootstrap_seed: u64,
+    bootstrap_seed_digest: &str,
 ) -> Result<ComparisonReport, String> {
     // This also proves the census is complete and all included metric rows are internally consistent.
     verify_census(schedule, result_file)?;
@@ -765,6 +962,17 @@ fn make_comparison(
         _ => None,
     };
 
+    let bootstrap = if all_pairs_cost_per_served_defined {
+        stratified_scenario_cluster_bootstrap(
+            schedule,
+            &results_by_id,
+            bootstrap_seed,
+            bootstrap_seed_digest,
+        )?
+    } else {
+        None
+    };
+
     Ok(ComparisonReport {
         benchmark_id: schedule.benchmark_id.clone(),
         evidence_class: schedule.evidence_class.clone(),
@@ -786,9 +994,10 @@ fn make_comparison(
         candidate_minus_baseline_cost_per_served_unit_microcredits: served_cost_delta,
         relative_cost_per_served_unit_change_percent: served_cost_relative_change,
         cost_per_served_unit_defined_for_all_pairs: all_pairs_cost_per_served_defined,
+        stratified_scenario_cluster_bootstrap_95: bootstrap,
         descriptive_only: true,
         economic_benefit_established: false,
-        claim_ceiling: "paired_descriptive_metrics_only; no_uncertainty_interval_or_economic_qualification".into(),
+        claim_ceiling: "descriptive_only; bootstrap_uncertainty_does_not_establish_causal_or_economic_benefit".into(),
     })
 }
 
@@ -878,7 +1087,15 @@ fn command_analyze(args: &[String]) -> Result<(), Box<dyn Error>> {
     let results_bytes = fs::read(&args[3])?;
     let schedule: Schedule = serde_json::from_slice(&schedule_bytes)?;
     let results: ResultsFile = serde_json::from_slice(&results_bytes)?;
-    let report = make_comparison(&schedule, &results)
+    let mut seed_hasher = Sha256::new();
+    seed_hasher.update(&schedule_bytes);
+    seed_hasher.update(&results_bytes);
+    let seed_digest_bytes = seed_hasher.finalize();
+    let seed_digest = seed_digest_bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    let mut seed_prefix = [0u8; 8];
+    seed_prefix.copy_from_slice(&seed_digest_bytes[..8]);
+    let bootstrap_seed = u64::from_be_bytes(seed_prefix);
+    let report = make_comparison(&schedule, &results, bootstrap_seed, &seed_digest)
         .map_err(|error| format!("paired analysis failed: {error}"))?;
     println!(
         "{}",
@@ -1156,7 +1373,7 @@ mod tests {
     fn reports_paired_cost_and_service_tradeoff_without_claiming_benefit() {
         let schedule = small_schedule();
         let results = complete_results_with_known_cost_tradeoff(&schedule);
-        let report = make_comparison(&schedule, &results).expect("paired descriptive comparison");
+        let report = make_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("paired descriptive comparison");
         assert_eq!(report.expected_pairs, 10);
         assert_eq!(report.complete_pairs, 10);
         assert_eq!(report.incomplete_pairs, 0);
@@ -1168,16 +1385,24 @@ mod tests {
         assert!(report.candidate_minus_baseline_service_rate_percentage_points.expect("service delta") < 0.0);
         assert!(!report.economic_benefit_established);
         assert!(report.descriptive_only);
+        let interval = report.stratified_scenario_cluster_bootstrap_95
+            .expect("complete paired corpus has bootstrap uncertainty");
+        assert_eq!(interval.resamples, BOOTSTRAP_RESAMPLES);
+        assert_eq!(interval.confidence_level, 0.95);
+        assert!(interval.relative_cost_per_served_unit_change_percent.lower_2_5_percentile <=
+            interval.relative_cost_per_served_unit_change_percent.upper_97_5_percentile);
+        assert_eq!(interval.bootstrap_seed_sha256, "a".repeat(64));
     }
 
     #[test]
     fn incomplete_pair_census_is_reported_not_silently_dropped() {
         let schedule = small_schedule();
         let results = complete_noncompleted_census(&schedule);
-        let report = make_comparison(&schedule, &results).expect("valid but uncompleted census");
+        let report = make_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("valid but uncompleted census");
         assert_eq!(report.complete_pairs, 0);
         assert_eq!(report.incomplete_pairs, report.expected_pairs);
         assert_eq!(report.candidate_mean_cost_per_demand_unit_microcredits, None);
+        assert!(report.stratified_scenario_cluster_bootstrap_95.is_none());
         assert!(!report.economic_benefit_established);
     }
 
@@ -1192,10 +1417,11 @@ mod tests {
         }).expect("full-stack row");
         let metrics = results.runs[row_index].metrics.as_mut().expect("metrics");
         metrics.served_units = 0;
-        let report = make_comparison(&schedule, &results).expect("valid zero-service outcome");
+        let report = make_comparison(&schedule, &results, 42, &"a".repeat(64)).expect("valid zero-service outcome");
         assert_eq!(report.zero_service_pairs, 1);
         assert!(!report.cost_per_served_unit_defined_for_all_pairs);
         assert_eq!(report.candidate_mean_cost_per_served_unit_microcredits, None);
+        assert!(report.stratified_scenario_cluster_bootstrap_95.is_none());
     }
 
     #[test]
