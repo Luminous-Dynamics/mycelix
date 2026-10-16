@@ -17,18 +17,15 @@
 
 use std::collections::BTreeSet;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EvidenceStatus {
-    Verified,
-    Unknown,
-    Stale,
-    Contested,
-}
+// Reuse the crate-wide evidence semantics; do not mint a sourcing-specific duplicate.
+pub use super::{EvidenceOrigin, EvidenceStatus};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourcingRequest {
     /// Explicit evaluation time; no hidden wall-clock dependency.
     pub as_of: u64,
+    /// Prevents live evidence and synthetic simulation records from being mixed.
+    pub required_evidence_origin: EvidenceOrigin,
     pub request_id: String,
     /// Canonical capability identifier, not a retailer-specific SKU.
     pub capability_id: String,
@@ -60,6 +57,7 @@ impl SourcingRequest {
         .all(|value| !value.trim().is_empty())
             && self.quantity > 0
             && self.deliver_by >= self.as_of
+            && self.required_evidence_origin != EvidenceOrigin::Unknown
     }
 }
 
@@ -74,6 +72,8 @@ pub struct SupplierOffer {
     pub source_payload_digest: String,
     /// Version/digest identifying the extraction profile that produced the fields.
     pub extractor_profile_id: String,
+    pub quote_evidence_origin: EvidenceOrigin,
+    pub supplier_credential_origin: EvidenceOrigin,
     pub capability_id: String,
     pub capability_profile_digest: String,
     pub unit: String,
@@ -106,6 +106,8 @@ pub enum EvaluationError {
 pub enum RejectionReason {
     InvalidOfferIdentity,
     MissingSourceProvenance,
+    QuoteEvidenceOriginMismatch,
+    SupplierCredentialOriginMismatch,
     CapabilityMismatch,
     CapabilityProfileMismatch,
     UnitMismatch,
@@ -132,6 +134,8 @@ pub struct EvaluatedOffer {
     pub source_uri: String,
     pub source_payload_digest: String,
     pub extractor_profile_id: String,
+    pub quote_evidence_origin: EvidenceOrigin,
+    pub supplier_credential_origin: EvidenceOrigin,
     pub landed_cost_minor: u64,
     pub arrival_at: u64,
     pub lead_time_secs: u64,
@@ -145,6 +149,8 @@ pub struct RejectedOffer {
     pub source_uri: String,
     pub source_payload_digest: String,
     pub extractor_profile_id: String,
+    pub quote_evidence_origin: EvidenceOrigin,
+    pub supplier_credential_origin: EvidenceOrigin,
     pub reason: RejectionReason,
 }
 
@@ -208,6 +214,12 @@ fn evaluate_offer(
     if offer.risk_model_digest != request.risk_model_digest {
         return Err(RejectionReason::RiskModelMismatch);
     }
+    if offer.quote_evidence_origin != request.required_evidence_origin {
+        return Err(RejectionReason::QuoteEvidenceOriginMismatch);
+    }
+    if offer.supplier_credential_origin != request.required_evidence_origin {
+        return Err(RejectionReason::SupplierCredentialOriginMismatch);
+    }
     if offer.risk_bps > 10_000 {
         return Err(RejectionReason::RiskValueOutOfRange);
     }
@@ -252,6 +264,8 @@ fn evaluate_offer(
         source_uri: offer.source_uri.clone(),
         source_payload_digest: offer.source_payload_digest.clone(),
         extractor_profile_id: offer.extractor_profile_id.clone(),
+        quote_evidence_origin: offer.quote_evidence_origin,
+        supplier_credential_origin: offer.supplier_credential_origin,
         landed_cost_minor: total,
         arrival_at,
         lead_time_secs: offer.lead_time_secs,
@@ -301,6 +315,8 @@ pub fn evaluate_sourcing(
                 source_uri: offer.source_uri.clone(),
                 source_payload_digest: offer.source_payload_digest.clone(),
                 extractor_profile_id: offer.extractor_profile_id.clone(),
+                quote_evidence_origin: offer.quote_evidence_origin,
+                supplier_credential_origin: offer.supplier_credential_origin,
                 reason,
             }),
         }
@@ -337,6 +353,7 @@ mod tests {
     fn request() -> SourcingRequest {
         SourcingRequest {
             as_of: 100,
+            required_evidence_origin: EvidenceOrigin::SyntheticSimulation,
             request_id: "need-1".into(),
             capability_id: "solar-charge-control".into(),
             capability_profile_digest: "profile-sha256-v1".into(),
@@ -357,6 +374,8 @@ mod tests {
             source_uri: format!("https://supplier.example/offers/{id}"),
             source_payload_digest: format!("fixture-source-digest-{id}"),
             extractor_profile_id: "fixture-extractor-v1".into(),
+            quote_evidence_origin: EvidenceOrigin::SyntheticSimulation,
+            supplier_credential_origin: EvidenceOrigin::SyntheticSimulation,
             capability_id: "solar-charge-control".into(),
             capability_profile_digest: "profile-sha256-v1".into(),
             unit: "each".into(),
@@ -564,6 +583,15 @@ mod tests {
 
         let report = evaluate_sourcing(&request(), &[invalid_risk]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::RiskValueOutOfRange);
+    }
+
+    #[test]
+    fn live_and_synthetic_evidence_origins_cannot_be_mixed() {
+        let mut candidate = offer("live-in-simulation", 100, 10, 100);
+        candidate.quote_evidence_origin = EvidenceOrigin::LiveDomain;
+        let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::QuoteEvidenceOriginMismatch);
+        assert!(report.pareto_frontier.is_empty());
     }
 
     #[test]
