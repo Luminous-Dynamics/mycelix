@@ -153,6 +153,31 @@ struct VerificationReport {
     economic_benefit_established: bool,
 }
 
+#[derive(Debug, Serialize)]
+struct ComparisonReport {
+    benchmark_id: String,
+    evidence_class: String,
+    baseline_arm: String,
+    candidate_arm: String,
+    expected_pairs: usize,
+    complete_pairs: usize,
+    incomplete_pairs: usize,
+    zero_service_pairs: usize,
+    baseline_mean_cost_per_demand_unit_microcredits: Option<f64>,
+    candidate_mean_cost_per_demand_unit_microcredits: Option<f64>,
+    candidate_minus_baseline_cost_per_demand_unit_microcredits: Option<f64>,
+    relative_cost_per_demand_change_percent: Option<f64>,
+    baseline_mean_service_rate: Option<f64>,
+    candidate_mean_service_rate: Option<f64>,
+    candidate_minus_baseline_service_rate_percentage_points: Option<f64>,
+    baseline_mean_cost_per_served_unit_microcredits: Option<f64>,
+    candidate_mean_cost_per_served_unit_microcredits: Option<f64>,
+    cost_per_served_unit_defined_for_all_pairs: bool,
+    descriptive_only: bool,
+    economic_benefit_established: bool,
+    claim_ceiling: String,
+}
+
 struct XorShift64(u64);
 
 impl XorShift64 {
@@ -585,6 +610,136 @@ fn verify_census(schedule: &Schedule, result_file: &ResultsFile) -> Result<BTree
     Ok(dispositions)
 }
 
+fn mean(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        None
+    } else {
+        Some(values.iter().sum::<f64>() / values.len() as f64)
+    }
+}
+
+fn make_comparison(
+    schedule: &Schedule,
+    result_file: &ResultsFile,
+) -> Result<ComparisonReport, String> {
+    // This also proves the census is complete and all included metric rows are internally consistent.
+    verify_census(schedule, result_file)?;
+
+    let results_by_id: HashMap<&str, &RunResult> = result_file
+        .runs
+        .iter()
+        .map(|result| (result.run_id.as_str(), result))
+        .collect();
+    let expected_pairs = schedule
+        .scenario_count
+        .checked_mul(schedule.seed_count)
+        .ok_or_else(|| "paired comparison count overflow".to_string())?;
+    let mut complete_pairs = 0usize;
+    let mut incomplete_pairs = 0usize;
+    let mut zero_service_pairs = 0usize;
+    let mut baseline_cost_per_demand = Vec::new();
+    let mut candidate_cost_per_demand = Vec::new();
+    let mut baseline_service_rates = Vec::new();
+    let mut candidate_service_rates = Vec::new();
+    let mut baseline_cost_per_served = Vec::new();
+    let mut candidate_cost_per_served = Vec::new();
+
+    for scenario in &schedule.scenarios {
+        let demand = effective_demand(scenario)?;
+        for seed in 1..=schedule.seed_count as u64 {
+            let baseline_id = format!("{}:seed-{seed:04}:incumbent_baseline", scenario.scenario_id);
+            let candidate_id = format!("{}:seed-{seed:04}:full_stack", scenario.scenario_id);
+            let baseline = results_by_id
+                .get(baseline_id.as_str())
+                .ok_or_else(|| format!("missing baseline row {baseline_id}"))?;
+            let candidate = results_by_id
+                .get(candidate_id.as_str())
+                .ok_or_else(|| format!("missing full-stack row {candidate_id}"))?;
+
+            let (Some(base_metrics), Some(candidate_metrics)) = (
+                baseline.metrics.as_ref().filter(|_| baseline.disposition == Disposition::Completed),
+                candidate.metrics.as_ref().filter(|_| candidate.disposition == Disposition::Completed),
+            ) else {
+                incomplete_pairs += 1;
+                continue;
+            };
+
+            complete_pairs += 1;
+            let base_rate = base_metrics.served_units as f64 / demand as f64;
+            let candidate_rate = candidate_metrics.served_units as f64 / demand as f64;
+            let base_cost_per_demand = base_metrics.total_cost_microcredits as f64 / demand as f64;
+            let candidate_cost_per_demand = candidate_metrics.total_cost_microcredits as f64 / demand as f64;
+
+            baseline_cost_per_demand.push(base_cost_per_demand);
+            candidate_cost_per_demand.push(candidate_cost_per_demand);
+            baseline_service_rates.push(base_rate);
+            candidate_service_rates.push(candidate_rate);
+
+            if base_metrics.served_units == 0 || candidate_metrics.served_units == 0 {
+                zero_service_pairs += 1;
+            } else {
+                baseline_cost_per_served.push(
+                    base_metrics.total_cost_microcredits as f64 / base_metrics.served_units as f64,
+                );
+                candidate_cost_per_served.push(
+                    candidate_metrics.total_cost_microcredits as f64 / candidate_metrics.served_units as f64,
+                );
+            }
+        }
+    }
+
+    let baseline_cost_mean = mean(&baseline_cost_per_demand);
+    let candidate_cost_mean = mean(&candidate_cost_per_demand);
+    let paired_cost_delta = match (baseline_cost_mean, candidate_cost_mean) {
+        (Some(base), Some(candidate)) => Some(candidate - base),
+        _ => None,
+    };
+    let relative_cost_change = match (baseline_cost_mean, candidate_cost_mean) {
+        (Some(base), Some(candidate)) if base != 0.0 => Some((candidate / base - 1.0) * 100.0),
+        _ => None,
+    };
+    let baseline_rate_mean = mean(&baseline_service_rates);
+    let candidate_rate_mean = mean(&candidate_service_rates);
+    let service_delta_pp = match (baseline_rate_mean, candidate_rate_mean) {
+        (Some(base), Some(candidate)) => Some((candidate - base) * 100.0),
+        _ => None,
+    };
+    let all_pairs_cost_per_served_defined =
+        complete_pairs == expected_pairs && incomplete_pairs == 0 && zero_service_pairs == 0;
+
+    Ok(ComparisonReport {
+        benchmark_id: schedule.benchmark_id.clone(),
+        evidence_class: schedule.evidence_class.clone(),
+        baseline_arm: "incumbent_baseline".into(),
+        candidate_arm: "full_stack".into(),
+        expected_pairs,
+        complete_pairs,
+        incomplete_pairs,
+        zero_service_pairs,
+        baseline_mean_cost_per_demand_unit_microcredits: baseline_cost_mean,
+        candidate_mean_cost_per_demand_unit_microcredits: candidate_cost_mean,
+        candidate_minus_baseline_cost_per_demand_unit_microcredits: paired_cost_delta,
+        relative_cost_per_demand_change_percent: relative_cost_change,
+        baseline_mean_service_rate: baseline_rate_mean,
+        candidate_mean_service_rate: candidate_rate_mean,
+        candidate_minus_baseline_service_rate_percentage_points: service_delta_pp,
+        baseline_mean_cost_per_served_unit_microcredits: if all_pairs_cost_per_served_defined {
+            mean(&baseline_cost_per_served)
+        } else {
+            None
+        },
+        candidate_mean_cost_per_served_unit_microcredits: if all_pairs_cost_per_served_defined {
+            mean(&candidate_cost_per_served)
+        } else {
+            None
+        },
+        cost_per_served_unit_defined_for_all_pairs: all_pairs_cost_per_served_defined,
+        descriptive_only: true,
+        economic_benefit_established: false,
+        claim_ceiling: "paired_descriptive_metrics_only; no_uncertainty_interval_or_economic_qualification".into(),
+    })
+}
+
 fn write_json(path: &Path, value: &impl Serialize) -> Result<(), Box<dyn Error>> {
     let bytes = serde_json::to_vec_pretty(value)?;
     fs::write(path, bytes)?;
@@ -663,13 +818,36 @@ fn command_verify(args: &[String]) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn command_analyze(args: &[String]) -> Result<(), Box<dyn Error>> {
+    if args.len() != 4 {
+        return Err("usage: civ-impact-census analyze <schedule.json> <results.json>".into());
+    }
+    let schedule_bytes = fs::read(&args[2])?;
+    let results_bytes = fs::read(&args[3])?;
+    let schedule: Schedule = serde_json::from_slice(&schedule_bytes)?;
+    let results: ResultsFile = serde_json::from_slice(&results_bytes)?;
+    let report = make_comparison(&schedule, &results)
+        .map_err(|error| format!("paired analysis failed: {error}"))?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "report": report,
+            "schedule_artifact_sha256": sha256_hex(&schedule_bytes),
+            "results_artifact_sha256": sha256_hex(&results_bytes),
+            "notice": "Descriptive paired metrics only. This command calculates no confidence interval and establishes no economic benefit."
+        }))?
+    );
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("generate") => command_generate(&args),
         Some("verify") => command_verify(&args),
+        Some("analyze") => command_analyze(&args),
         _ => Err(
-            "usage: civ-impact-census <generate <output-dir> [scenario-count] [seed-count] | verify <schedule.json> <results.json>>"
+            "usage: civ-impact-census <generate <output-dir> [scenario-count] [seed-count] | verify <schedule.json> <results.json> | analyze <schedule.json> <results.json>>"
                 .into(),
         ),
     }
@@ -859,6 +1037,96 @@ mod tests {
         let counts = verify_census(&schedule, &results).expect("valid completed result");
         assert_eq!(counts.get("completed"), Some(&1));
         assert_eq!(counts.get("non_converged"), Some(&(schedule.runs.len() - 1)));
+    }
+
+    fn complete_results_with_known_cost_tradeoff(schedule: &Schedule) -> ResultsFile {
+        let runs = schedule.runs.iter().map(|run| {
+            let scenario = schedule.scenarios.iter()
+                .find(|scenario| scenario.scenario_id == run.scenario_id)
+                .expect("scheduled scenario");
+            let demand = effective_demand(scenario).expect("effective demand");
+            let unit_cost = match run.arm_id.as_str() {
+                "incumbent_baseline" => 100u64,
+                "full_stack" => 90u64,
+                _ => 95u64,
+            };
+            let served_units = if run.arm_id == "full_stack" {
+                demand.saturating_sub(demand / 20)
+            } else {
+                demand
+            };
+            let total_cost = demand * unit_cost;
+            RunResult {
+                run_id: run.run_id.clone(),
+                scenario_id: run.scenario_id.clone(),
+                seed: run.seed,
+                arm_id: run.arm_id.clone(),
+                disposition: Disposition::Completed,
+                metrics: Some(RunMetrics {
+                    observed_demand_units: demand,
+                    served_units,
+                    compute_cost_microcredits: total_cost,
+                    data_cost_microcredits: 0,
+                    integration_cost_microcredits: 0,
+                    human_review_cost_microcredits: 0,
+                    coordination_cost_microcredits: 0,
+                    failure_recovery_cost_microcredits: 0,
+                    total_cost_microcredits: total_cost,
+                    completion_latency_ms: 100,
+                }),
+                failure_reason: None,
+            }
+        }).collect();
+        ResultsFile {
+            manifest_version: MANIFEST_VERSION.into(),
+            benchmark_id: schedule.benchmark_id.clone(),
+            scenario_set_sha256: schedule.scenario_set_sha256.clone(),
+            runs,
+        }
+    }
+
+    #[test]
+    fn reports_paired_cost_and_service_tradeoff_without_claiming_benefit() {
+        let schedule = small_schedule();
+        let results = complete_results_with_known_cost_tradeoff(&schedule);
+        let report = make_comparison(&schedule, &results).expect("paired descriptive comparison");
+        assert_eq!(report.expected_pairs, 10);
+        assert_eq!(report.complete_pairs, 10);
+        assert_eq!(report.incomplete_pairs, 0);
+        assert_eq!(report.zero_service_pairs, 0);
+        assert!(report.cost_per_served_unit_defined_for_all_pairs);
+        assert!((report.relative_cost_per_demand_change_percent.expect("cost delta") + 10.0).abs() < 1e-9);
+        assert!(report.candidate_minus_baseline_service_rate_percentage_points.expect("service delta") < 0.0);
+        assert!(!report.economic_benefit_established);
+        assert!(report.descriptive_only);
+    }
+
+    #[test]
+    fn incomplete_pair_census_is_reported_not_silently_dropped() {
+        let schedule = small_schedule();
+        let results = complete_noncompleted_census(&schedule);
+        let report = make_comparison(&schedule, &results).expect("valid but uncompleted census");
+        assert_eq!(report.complete_pairs, 0);
+        assert_eq!(report.incomplete_pairs, report.expected_pairs);
+        assert_eq!(report.candidate_mean_cost_per_demand_unit_microcredits, None);
+        assert!(!report.economic_benefit_established);
+    }
+
+    #[test]
+    fn zero_service_makes_cost_per_served_unit_undefined_for_report() {
+        let schedule = small_schedule();
+        let mut results = complete_results_with_known_cost_tradeoff(&schedule);
+        let row_index = schedule.runs.iter().position(|run| {
+            run.scenario_id == schedule.scenarios[0].scenario_id
+                && run.seed == 1
+                && run.arm_id == "full_stack"
+        }).expect("full-stack row");
+        let metrics = results.runs[row_index].metrics.as_mut().expect("metrics");
+        metrics.served_units = 0;
+        let report = make_comparison(&schedule, &results).expect("valid zero-service outcome");
+        assert_eq!(report.zero_service_pairs, 1);
+        assert!(!report.cost_per_served_unit_defined_for_all_pairs);
+        assert_eq!(report.candidate_mean_cost_per_served_unit_microcredits, None);
     }
 
     #[test]
