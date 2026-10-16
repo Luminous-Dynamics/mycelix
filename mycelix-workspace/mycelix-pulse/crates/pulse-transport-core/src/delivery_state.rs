@@ -116,7 +116,9 @@ impl DeliveryStatus {
             Self::Delivered => UserVisibleDeliveryState::Delivered,
             Self::Failed => UserVisibleDeliveryState::Failed,
             Self::Expired => UserVisibleDeliveryState::Expired,
-            Self::Revoked => UserVisibleDeliveryState::Failed,
+            // The shared UI enum has no dedicated revoked state. Unknown is
+            // safer than presenting a policy stop as a transport failure.
+            Self::Revoked => UserVisibleDeliveryState::Unknown,
             Self::OutcomeUnknown => UserVisibleDeliveryState::Unknown,
         }
     }
@@ -215,6 +217,10 @@ impl DeliveryLifecycle {
     pub const fn status(&self) -> DeliveryStatus { self.status }
     pub fn attempt_count(&self) -> u32 { self.attempts.len() as u32 }
     pub const fn next_attempt_at(&self) -> Option<UnixMillis> { self.next_attempt_at }
+    /// Start time for one retained attempt; useful for audit/replay adapters.
+    pub fn attempt_started_at(&self, attempt_id: &str) -> Option<UnixMillis> {
+        self.attempts.get(attempt_id).map(|attempt| attempt.started_at)
+    }
     pub const fn expires_at(&self) -> UnixMillis { self.expires_at }
     pub const fn retry_policy(&self) -> RetryPolicy { self.retry_policy }
 
@@ -232,19 +238,19 @@ impl DeliveryLifecycle {
         if !valid_identifier(&attempt_id, MAX_ATTEMPT_ID_BYTES) {
             return Err(LifecycleError::InvalidAttemptId);
         }
+        if self.status.is_terminal() {
+            return Err(if self.status == DeliveryStatus::Expired {
+                LifecycleError::MessageExpired
+            } else {
+                LifecycleError::TerminalState
+            });
+        }
         if let Some(existing) = self.attempts.get(&attempt_id) {
             let attempt_number = self.attempt_number(&attempt_id);
             return Ok(if existing.outcome.is_some() {
                 AttemptStart::AlreadyCompleted { attempt_number }
             } else {
                 AttemptStart::AlreadyStarted { attempt_number }
-            });
-        }
-        if self.status.is_terminal() {
-            return Err(if self.status == DeliveryStatus::Expired {
-                LifecycleError::MessageExpired
-            } else {
-                LifecycleError::TerminalState
             });
         }
         if self.status == DeliveryStatus::RetryScheduled {
@@ -536,6 +542,25 @@ mod tests {
         ));
     }
 
+ 
+    #[test]
+    fn chronological_attempt_metadata_does_not_depend_on_attempt_id_sort_order() {
+        let mut item = lifecycle(10_000, 3);
+        item.start_attempt("z-first", UnixMillis::new(100)).unwrap();
+        assert_eq!(item.attempt_started_at("z-first"), Some(UnixMillis::new(100)));
+        item.record_outcome(
+            "z-first",
+            AttemptOutcome::TemporarilyUnavailable,
+            UnixMillis::new(100),
+        ).unwrap();
+        let retry_at = item.next_attempt_at().unwrap();
+        assert_eq!(
+            item.start_attempt("a-second", retry_at).unwrap(),
+            AttemptStart::Started { attempt_number: 2 }
+        );
+        assert_eq!(item.attempt_count(), 2);
+    }
+
     #[test]
     fn adapter_ack_is_not_delivery_and_exhaustion_remains_unknown() {
         let mut item = lifecycle(100_000, 1);
@@ -577,13 +602,31 @@ mod tests {
             Err(LifecycleError::TerminalState)
         );
 
-        let wrong = VerifiedRecipientReceipt::verify(
-            &TestVerifier,
-            b"verified",
+        struct PermissiveTestVerifier;
+        impl TrustedRecipientReceiptVerifier for PermissiveTestVerifier {
+            fn verify(
+                &self,
+                bytes: &[u8],
+                _logical_message_id: &str,
+                _recipient_id: &str,
+            ) -> Result<(), ReceiptVerificationError> {
+                if bytes == b"verified-any-key" {
+                    Ok(())
+                } else {
+                    Err(ReceiptVerificationError::InvalidReceipt)
+                }
+            }
+        }
+        let wrong_binding = VerifiedRecipientReceipt::verify(
+            &PermissiveTestVerifier,
+            b"verified-any-key",
             "other-message",
             "recipient-1",
-        ).unwrap_err();
-        assert_eq!(wrong, ReceiptVerificationError::InvalidReceipt);
+        ).unwrap();
+        assert_eq!(
+            item.record_verified_receipt(&wrong_binding, UnixMillis::new(5)),
+            Err(LifecycleError::ReceiptBindingMismatch)
+        );
     }
 
     #[test]
