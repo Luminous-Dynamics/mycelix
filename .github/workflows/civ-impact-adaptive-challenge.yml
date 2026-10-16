@@ -1,0 +1,52 @@
+name: CIV-IMPACT Adaptive Challenge
+
+on:
+  pull_request:
+    paths:
+      - "tools/civ-impact-adaptive-challenge/**"
+      - "docs/research/CIV_IMPACT_ADAPTIVE_CHALLENGE_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_ADAPTIVE_*.schema.json"
+      - ".github/workflows/civ-impact-adaptive-challenge.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/civ-impact-adaptive-challenge/**"
+      - "docs/research/CIV_IMPACT_ADAPTIVE_CHALLENGE_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_ADAPTIVE_*.schema.json"
+      - ".github/workflows/civ-impact-adaptive-challenge.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-impact-adaptive-challenge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  adaptive-challenge:
+    name: Rust verifier, schemas, and exposure-ledger negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust and rustfmt
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt
+
+      - name: Validate schema JSON syntax
+        run: |
+          set -euo pipefail
+          jq empty docs/research/schema/CIV_IMPACT_ADAPTIVE_PREREGISTRATION_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_ADAPTIVE_EXPOSURE_LEDGER_V0_1.schema.json
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/civ-impact-adaptive-challenge/Cargo.toml -- --check
+
+      - name: Run unit and schema contract tests
+        run: cargo test --manifest-path tools/civ-impact-adaptive-challenge/Cargo.toml
+
+      - name: Check verifier CLI
+        run: cargo run --manifest-path tools/civ-impact-adaptive-challenge/Cargo.toml -- --help
