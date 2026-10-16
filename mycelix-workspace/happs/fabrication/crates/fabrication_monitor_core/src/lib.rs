@@ -130,8 +130,10 @@ impl Signal {
 pub struct DetectorConfig {
     /// Stable detector identifier.
     pub detector_id: String,
-    /// Detector implementation/configuration version.
+    /// Detector implementation version.
     pub detector_version: String,
+    /// Immutable exact threshold/noise-floor configuration identifier or digest.
+    pub configuration_id: String,
     /// Exact healthy-reference trace/corpus identifier, preferably a content digest.
     pub reference_dataset_id: String,
     /// Robust-z threshold at which a deviation is reported.
@@ -152,6 +154,9 @@ impl DetectorConfig {
         }
         if self.detector_version.trim().is_empty() {
             return Err(ConfigError::EmptyDetectorVersion);
+        }
+        if self.configuration_id.trim().is_empty() {
+            return Err(ConfigError::EmptyConfigurationId);
         }
         if self.reference_dataset_id.trim().is_empty() {
             return Err(ConfigError::EmptyReferenceDatasetId);
@@ -182,6 +187,8 @@ pub enum ConfigError {
     EmptyDetectorId,
     /// Detector version was empty.
     EmptyDetectorVersion,
+    /// Exact detector-configuration identity was empty.
+    EmptyConfigurationId,
     /// Exact reference dataset identity was empty.
     EmptyReferenceDatasetId,
     /// Robust-z threshold was non-finite or non-positive.
@@ -402,6 +409,8 @@ pub enum ObservationDisposition {
 /// Complete deterministic output for one observation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObservationReport {
+    /// Immutable exact threshold/noise-floor configuration identity used for this report.
+    pub configuration_id: String,
     /// Exact healthy-reference dataset or corpus identifier used by the baseline.
     pub reference_dataset_id: String,
     /// Session identity to which this report belongs.
@@ -551,6 +560,7 @@ impl MonitoringEngine {
         uncalibrated_signals: Vec<Signal>,
     ) -> ObservationReport {
         ObservationReport {
+            configuration_id: self.baseline.detector_config.configuration_id.clone(),
             reference_dataset_id: self.baseline.detector_config.reference_dataset_id.clone(),
             session_id: frame.session_id.clone(),
             sequence: frame.sequence,
@@ -673,6 +683,7 @@ mod tests {
         DetectorConfig {
             detector_id: "cincinnati.robust-reference".into(),
             detector_version: "1.0.0".into(),
+            configuration_id: "config:robust-z-v1-test-profile".into(),
             reference_dataset_id: "fixture:synthetic-healthy-reference-v1".into(),
             robust_z_threshold: 3.5,
             minimum_scale_by_signal: [
@@ -913,6 +924,10 @@ mod tests {
         assert_eq!(
             report.reference_dataset_id,
             "fixture:synthetic-healthy-reference-v1"
+        );
+        assert_eq!(
+            report.configuration_id,
+            "config:robust-z-v1-test-profile"
         );
     }
 
