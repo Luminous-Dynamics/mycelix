@@ -111,6 +111,8 @@
         "observed_demand_units",
         "served_units",
         "compute_cost_microcredits",
+        "operational_cost_microcredits",
+        "capital_amortization_cost_microcredits",
         "data_cost_microcredits",
         "integration_cost_microcredits",
         "human_review_cost_microcredits",
@@ -148,6 +150,12 @@
           "$ref": "#/$defs/nonNegativeInteger"
         },
         "completion_latency_ms": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "operational_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "capital_amortization_cost_microcredits": {
           "$ref": "#/$defs/nonNegativeInteger"
         }
       }
