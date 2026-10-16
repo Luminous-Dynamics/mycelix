@@ -33,10 +33,10 @@ The cue_guided signal is noisy and is not the hidden SCM parameter. The policy d
 
 ## Metrics
 
-- Cohort-average true effect vs estimate; signed and absolute error.
-- Sign recovery for non-null effects.
-- Nominal 95% Wald interval coverage for the estimator's declared design.
-- Rate of a directional interval-excludes-zero claim in the null-effect regime.
+- Cohort-average true effect vs estimate; signed and absolute error, with Monte Carlo standard errors across replications.
+- Sign recovery for non-null effects, with Wilson 95% intervals over replications.
+- Nominal 95% Wald interval coverage for the estimator's declared design, with Wilson 95% intervals to prevent small repetition counts from looking more precise than they are.
+- Rate of a directional interval-excludes-zero claim in the null-effect regime, with Wilson 95% intervals.
 - Cost units and nominal inverse-variance precision per cost unit; precision alone is never treated as causal quality.
 - Estimability and abstention rates; every strategy/regime/replication row is retained.
 
@@ -57,7 +57,7 @@ Coverage is a diagnostic for these small, synthetic linear models. Wald interval
     cargo test --manifest-path tools/civ-impact-causal-arena/Cargo.toml
     cargo run --release --manifest-path tools/civ-impact-causal-arena/Cargo.toml -- run --replications 128 --units 256 --seed 20261016 > arena-report.json
 
-The report binds the exact source digest, includes every regime/strategy/seed cell, reports the complete/missing census, and follows the closed Draft 2020-12 schema. It contains no network requests or live interventions.
+The report binds the exact source digest, includes each cell's treatment/control counts and every regime/strategy/seed row, reports the complete/missing census, MC standard errors for error summaries, and Wilson 95% intervals for empirical rates; it follows the closed Draft 2020-12 schema. It contains no network requests or live interventions.
 
 ## Research basis
 
