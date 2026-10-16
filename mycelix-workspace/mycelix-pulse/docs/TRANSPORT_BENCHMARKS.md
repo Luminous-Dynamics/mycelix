@@ -35,6 +35,7 @@ The numerical values below are engineering targets for the first qualification p
 | Outbox durability | 100% of accepted queued ciphertext survives process restart and is either delivered, expired, or surfaced as failed/unknown; never silently lost | Crash/restart tests at each state transition |
 | Truthful receipts | 100% of outcomes distinguish local queue acceptance, link acknowledgement, gateway receipt, recipient cryptographic receipt, and unknown outcome | State-machine tests plus user-visible contract checks |
 | Multi-path resilience | **At least 20% relative improvement** in authenticated deliveries before deadline versus a predeclared preferred-single-path baseline on a fixed mixed-outage corpus, with no security/policy regression | Same traces/seeds and eligible routes for both implementations; include confidence intervals and failures |
+| Failure-domain correctness | **100%** of common-cause outage fixtures disable every affected adapter; a shared failure domain is not counted as independent redundancy | Domain IDs, correlated outage windows, negative controls with one truly independent route; report shared-domain and independent-domain scenarios separately |
 | Route-decision latency | P95 **≤10 ms** for ranking up to 64 eligible adapters on a declared reference host, excluding OS scans, discovery, and radio handshake | Optimized local benchmark, warm/cold-start distinction, exact host/toolchain/commit |
 | Scaling | No superlinear blow-up in route selection when candidate count doubles; record runtime/allocation curves at 1, 4, 16, 64, and 256 candidates | Local Criterion-style or equivalent repeatable Rust benchmark; include variance |
 | Offline recovery | 100% of unexpired eligible messages resume retry after restored connectivity; expired items are not sent; policy-revoked paths are not reused | Time-controlled trace replay, queue snapshots and event log |
@@ -75,7 +76,7 @@ Initial scenarios:
 13. Device permission revoked during queueing; do not reopen or transmit without renewed authorization.
 14. Power-limited endpoint; compare delivery/cost trade-offs under an explicit energy budget.
 15. Partitioned community/store-carry-forward topology with bounded storage and expiring items.
-16. Two nominally separate adapters share a failure domain; compare with an independent relay.
+16. Two nominally separate adapters share a failure domain; compare with an independent relay. Correlate success draws and a declared outage window across the shared domain.
 
 For pull-request-speed local checks, use a fixed seed and a short corpus. For qualification, use at least 30 declared seeds and 10,000 logical messages per scenario, or document why a specific hardware test uses a smaller safe sample. Synthetic runs do not establish RF performance.
 
