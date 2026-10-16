@@ -18,6 +18,7 @@ Verify a results file produced by an external harness:
 
 ```sh
 cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- verify /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
+cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- analyze /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
 ```
 
 The results file must use manifest version `0.1`, match the benchmark ID and scenario-set digest, and include one result per scheduled `run_id`. A complete example row has this shape:
