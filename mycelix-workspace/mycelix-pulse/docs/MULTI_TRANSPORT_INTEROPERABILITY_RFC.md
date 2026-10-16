@@ -64,6 +64,7 @@ The useful paradigm shift is not to write a custom driver for every waveform. It
 - **Reticulum** documents a medium-agnostic network abstraction that can use varied digital links, including serial and radio interfaces. Study its interface-boundary and constrained-link goals before inventing another lower-layer network stack. Its project documentation is a design reference, not an adopted standard, independent certification, or proof that Pulse can directly interoperate with Reticulum.
 - **BPv7 (RFC 9171)** supplies a store-carry-forward overlay and relies on convergence-layer adapters (CLAs) to move opaque bundles over a native link. **TCPCLv4 (RFC 9174)** is one example of a specific CLA. This separation maps well to Pulse if its existing encrypted envelope is carried opaquely and delivery receipts retain their precise meaning.
 - **BPSec (RFC 9172) and default security contexts (RFC 9173)** apply security services at the bundle layer. They are not a substitute for Pulse's current end-to-end message encryption/signature policy. The exact key-management model, errata and threat boundaries must be reviewed before an adoption decision.
+- **QUIC streams (RFC 9000) and QUIC DATAGRAM (RFC 9221)** are distinct delivery primitives. QUIC packet acknowledgement is not an application-recipient receipt; DATAGRAM frames are explicitly unreliable. The adapter must expose the framing semantics and keep retries, deduplication, expiry and authenticated recipient receipts above the transport layer. BPv7 (RFC 9171) likewise states that it does not itself ensure end-to-end bundle delivery, and its delivery status report means the payload reached the application agent—not that the application processed it.
 
 Sources: [Briar quick start](https://briarproject.org/quick-start/), [Reticulum architecture](https://reticulum.network/manual/understanding.html), [Reticulum hardware interfaces](https://reticulum.network/manual/hardware.html), [RFC 9171](https://www.rfc-editor.org/info/rfc9171), [RFC 9173](https://www.rfc-editor.org/info/rfc9173), [RFC 9174](https://www.rfc-editor.org/info/rfc9174).
 
@@ -73,9 +74,13 @@ Sources: [Briar quick start](https://briarproject.org/quick-start/), [Reticulum 
 
 ## 3B. First Rust contract implementation
 
-The branch also adds an isolated starter crate at `crates/pulse-transport-core/`. It defines transport/profile/failure-domain identifiers, declared adapter capabilities, fresh-versus-stale link observations, a route-eligibility function that rejects unknown consent/privacy/regulatory state, payload/profile/direction/expiry gates, and delivery-state mapping. The adapter trait accepts opaque envelope bytes and can report adapter/link/gateway outcomes, but has no recipient-delivered result.
+The branch adds an isolated starter crate at `crates/pulse-transport-core/`. It defines transport and failure-domain identifiers; separate `EnvelopeProfileId` and `TransportProfileId` types; explicit send and non-blocking receive outcomes; fail-closed route eligibility; opaque inbound/outbound frames; and separate clock types for monotonic link-observation freshness and Unix-epoch message expiry.
 
-This is an **experimental contract prototype**, not a live Pulse integration or radio implementation. `OpaqueEnvelope` validates basic metadata only; it does not prove bytes are encrypted. Callers must provide the output of Pulse's existing crypto path, run the trusted receipt verifier before emitting `RecipientReceiptVerified`, and call the route-eligibility function before send. The isolated crate has a checked-in dependency-free lockfile so its own tests can run with `--locked`; the standards-registry validator still lacks a checked-in lockfile and its workflow records that distinction.
+The profile separation is essential: the same Pulse envelope must be eligible for multiple adapters that use different framing (for example, a QUIC stream profile and a Bluetooth GATT profile), provided each adapter declares support for the envelope version and meets payload, permission, expiry, direction, and freshness gates. The core selects a transport profile independently; an adapter is not permitted to silently reinterpret the envelope as plaintext or alter the canonical application profile.
+
+Delivery state is also capability-gated. A public enum variant can no longer be selected to claim recipient delivery. Instead, the configured trusted receipt-verification boundary can issue an opaque `VerifiedRecipientReceipt` token tied to the exact logical message ID and recipient; the state mapper returns “Delivered” only when that token matches both. Adapter, link and gateway outcomes cannot produce that token.
+
+This is an **experimental contract prototype**, not a live Pulse integration or radio implementation. `OpaqueEnvelope` validates basic metadata only; it does not prove bytes are encrypted. The real Pulse integration must supply bytes from its existing end-to-end cryptographic pipeline, implement the trusted verifier against Pulse's actual receipt format, and route all sends/receives through the existing authorization and crypto checks. The isolated crate has a checked-in dependency-free lockfile for `--locked` tests; the standards-registry validator still lacks a checked-in lockfile and its workflow records that distinction.
 
 ## 4. Adapter contract
 
@@ -233,6 +238,7 @@ These are starting points for a maintained registry. Before claiming conformance
 - LoRa Alliance TS014, TS018 and TR016 announcement (2026-08-04; normative documents still need direct review): https://resources.lora-alliance.org/lora-alliance-news/new-lora-alliance-standards-make-lorawan-deployments-faster-simpler-and-more-scalable
 - 3GPP non-terrestrial networks overview: https://www.3gpp.org/technologies/ntn-overview
 - IETF QUIC RFC 9000: https://www.rfc-editor.org/rfc/rfc9000
+- IETF QUIC DATAGRAM Extension RFC 9221: https://www.rfc-editor.org/rfc/rfc9221
 - IETF Bundle Protocol v7 RFC 9171 (check updates and errata): https://www.rfc-editor.org/rfc/rfc9171
 - IETF RFC 9713, Bundle Protocol Version 7 Administrative Record Types Registry (updates RFC 9171): https://www.rfc-editor.org/info/rfc9713
 - IETF RFC 9758, Updates to the 'ipn' URI Scheme (updates RFC 9171 endpoint-identifier handling): https://www.rfc-editor.org/info/rfc9758
