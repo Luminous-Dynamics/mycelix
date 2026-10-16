@@ -1,0 +1,11 @@
+[package]
+name = "economic-coordination-reference"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Dependency-free reference model for Mycelix's need-to-fulfilment coordination contract"
+
+[lib]
+path = "src/lib.rs"
