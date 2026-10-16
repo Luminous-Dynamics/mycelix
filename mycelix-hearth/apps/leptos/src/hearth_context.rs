@@ -36,6 +36,8 @@ pub struct HearthCtx {
     pub my_agent: RwSignal<String>,
     /// Latest one-shot publication evidence check tied to a returned action hash.
     pub(crate) publication_evidence: RwSignal<Option<PublicationEvidenceNotice>>,
+    /// Monotonic request generation preventing late evidence queries from replacing newer snapshots.
+    pub(crate) publication_evidence_generation: RwSignal<u64>,
 }
 
 /// Initialize hearth context.
@@ -62,6 +64,7 @@ pub fn provide_hearth_context() -> HearthCtx {
         autonomy_profiles: RwSignal::new(mock_data::mock_autonomy_profiles()),
         my_agent: RwSignal::new("agent_rowan".into()),
         publication_evidence: RwSignal::new(None),
+        publication_evidence_generation: RwSignal::new(0),
     };
 
     provide_context(ctx.clone());

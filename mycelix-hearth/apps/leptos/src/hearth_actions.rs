@@ -76,6 +76,7 @@ pub fn tend_bond(bond_hash: String) {
     };
 
     let publication_evidence = hearth.publication_evidence;
+    let publication_evidence_generation = hearth.publication_evidence_generation;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -100,7 +101,11 @@ pub fn tend_bond(bond_hash: String) {
                     ToastKind::Custom("bond".into()),
                 );
                 crate::publication_evidence::check_and_store(
-                    &hc, publication_evidence, &updated_record, "Bond update"
+                    &hc,
+                    publication_evidence,
+                    publication_evidence_generation,
+                    &updated_record,
+                    "Bond update",
                 ).await;
             }
             Err(e) => {
@@ -161,6 +166,7 @@ pub fn express_gratitude(to_agent: String, message: String) {
     };
 
     let publication_evidence = hearth.publication_evidence;
+    let publication_evidence_generation = hearth.publication_evidence_generation;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -189,7 +195,11 @@ pub fn express_gratitude(to_agent: String, message: String) {
                     ToastKind::Custom("gratitude".into()),
                 );
                 crate::publication_evidence::check_and_store(
-                    &hc, publication_evidence, &record, "Gratitude expression"
+                    &hc,
+                    publication_evidence,
+                    publication_evidence_generation,
+                    &record,
+                    "Gratitude expression",
                 ).await;
             },
             Err(e) => {
@@ -241,6 +251,7 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
     };
 
     let publication_evidence = hearth.publication_evidence;
+    let publication_evidence_generation = hearth.publication_evidence_generation;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -261,7 +272,11 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
                     ToastKind::Custom("decision".into()),
                 );
                 crate::publication_evidence::check_and_store(
-                    &hc, publication_evidence, &record, "Vote submission"
+                    &hc,
+                    publication_evidence,
+                    publication_evidence_generation,
+                    &record,
+                    "Vote submission",
                 ).await;
             },
             Err(e) => {
@@ -316,6 +331,7 @@ pub fn change_presence(new_status: PresenceStatusType) {
     };
 
     let publication_evidence = hearth.publication_evidence;
+    let publication_evidence_generation = hearth.publication_evidence_generation;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -340,7 +356,11 @@ pub fn change_presence(new_status: PresenceStatusType) {
                     ToastKind::Custom("presence".into()),
                 );
                 crate::publication_evidence::check_and_store(
-                    &hc, publication_evidence, &record, "Presence update"
+                    &hc,
+                    publication_evidence,
+                    publication_evidence_generation,
+                    &record,
+                    "Presence update",
                 ).await;
             },
             Err(e) => {
@@ -401,6 +421,7 @@ pub fn complete_care_task(task_hash: String) {
     };
 
     let publication_evidence = hearth.publication_evidence;
+    let publication_evidence_generation = hearth.publication_evidence_generation;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -417,7 +438,11 @@ pub fn complete_care_task(task_hash: String) {
                     ToastKind::Custom("care".into()),
                 );
                 crate::publication_evidence::check_and_store(
-                    &hc, publication_evidence, &record, "Care task completion"
+                    &hc,
+                    publication_evidence,
+                    publication_evidence_generation,
+                    &record,
+                    "Care task completion",
                 ).await;
             },
             Err(e) => {

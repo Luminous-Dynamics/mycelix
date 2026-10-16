@@ -9,6 +9,12 @@ Keep the mutation result and replication evidence as separate timelines. A succe
 
 The view stores only one latest operation status. It does not poll continuously, block the write button on receipt collection, infer household-wide synchronization, or use publication status as an authorization signal.
 
+## Concurrent query ordering (HTH-UX-009)
+
+Multiple successful actions can start publication-evidence queries whose responses arrive out of order. Because this view intentionally stores one latest snapshot, every query reserves a monotonically advancing generation before awaiting the conductor. A response may update the shared status only when its generation still matches the current generation; stale responses are discarded without retry. The generation protects the subject, action reference, and evidence as one tuple.
+
+This is a client-side latest-snapshot ordering rule. It does not cancel conductor work, prove mutation ordering, create durable history, or turn publication evidence into an action outcome.
+
 ## Flow
 
 1. A live mutation returns a decodable WireRecord.
@@ -52,7 +58,7 @@ The frontend now has tests for:
 - invalid timestamps fail closed;
 - status styling distinguishes unknown, progress, threshold-complete, and attention states.
 
-These tests are authored but not yet executed. They test the local decoder/presentation contract, not an actual browser WebSocket call.
+These tests are authored but not yet executed. They test the local decoder/presentation contract and latest-request generation guard, not actual browser scheduling or a WebSocket call.
 
 ## Benchmarks (targets, not results)
 
@@ -64,7 +70,8 @@ These tests are authored but not yet executed. They test the local decoder/prese
 6. At most one post-action publication query per successful mutation in V1; zero continuous polling.
 7. 100% of checked-but-empty results distinguished from not-checked and unavailable.
 8. At least 90% of study participants distinguish "saved" from "receipt thresholds observed"; at least 90% understand neither guarantees every peer has the latest state.
-9. Qualify the exact head with Leptos 0.8 WASM compilation, frontend unit tests, and browser-side call mock before merge. Queued/skipped/absent is not PASS.
+9. 100% of stale evidence-query completions are prevented from replacing the latest requested evidence snapshot.
+10. Qualify the exact head with Leptos 0.8 WASM compilation, frontend unit tests, and browser-side call mock before merge. Queued/skipped/absent is not PASS.
 
 ## Nonclaims
 

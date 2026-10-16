@@ -168,12 +168,28 @@ fn map_report(
 /// Do one follow-up query for the exact action returned by the user's own write.
 /// The caller should emit the source-chain-saved toast before awaiting this
 /// function. Receipt failure never rewrites the mutation's earlier result.
+/// Only the request generation that still owns the shared latest-evidence slot may publish.
+/// Receipt queries may finish; stale results are discarded, not retried.
+fn next_request_generation(current_generation: u64) -> u64 {
+    current_generation.wrapping_add(1)
+}
+
+fn is_current_request(request_generation: u64, current_generation: u64) -> bool {
+    request_generation == current_generation
+}
+
 pub(crate) async fn check_and_store(
     hc: &HolochainCtx,
     publication_signal: RwSignal<Option<PublicationEvidenceNotice>>,
+    request_generation_signal: RwSignal<u64>,
     record: &WireRecord,
     subject: &'static str,
 ) {
+    // Reserve the shared snapshot slot before awaiting the conductor. If a later
+    // successful action starts another query, its generation supersedes this one.
+    let request_generation = next_request_generation(request_generation_signal.get_untracked());
+    request_generation_signal.set(request_generation);
+
     let action_hash = record.signed_action.hashed.hash.clone();
     let action_hash_prefix = record.action_hash_b64().chars().take(10).collect::<String>();
 
@@ -206,6 +222,13 @@ pub(crate) async fn check_and_store(
         Ok(report) => map_report(&action_hash, report),
         Err(_error) => PublicationEvidence::Unavailable,
     };
+
+    // The requested action hash was checked above, but the single shared UI
+    // slot may now belong to a newer request. Never let an older completion
+    // replace that newer subject/hash/evidence tuple.
+    if !is_current_request(request_generation, request_generation_signal.get_untracked()) {
+        return;
+    }
 
     publication_signal.set(Some(PublicationEvidenceNotice {
         subject: subject.to_string(),
@@ -334,6 +357,26 @@ mod tests {
     #[test]
     fn negative_timestamp_fails_closed() {
         assert_eq!(checked_at_seconds(-1), None);
+    }
+
+    #[test]
+    fn stale_query_cannot_publish_over_a_newer_request() {
+        let older_request = super::next_request_generation(0);
+        let newer_request = super::next_request_generation(older_request);
+
+        assert_eq!(older_request, 1);
+        assert_eq!(newer_request, 2);
+        assert!(!super::is_current_request(older_request, newer_request));
+        assert!(super::is_current_request(newer_request, newer_request));
+    }
+
+    #[test]
+    fn request_generation_wrap_does_not_authorize_the_immediately_previous_request() {
+        let previous_request = u64::MAX;
+        let current_request = super::next_request_generation(previous_request);
+        assert_eq!(current_request, 0);
+        assert!(!super::is_current_request(previous_request, current_request));
+        assert!(super::is_current_request(current_request, current_request));
     }
 
     #[test]
