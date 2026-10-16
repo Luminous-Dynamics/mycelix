@@ -31,6 +31,184 @@ use mycelix_bridge_common::{
 use mycelix_zome_helpers as _;
 
 // ============================================================================
+// Authoring-conductor publication evidence
+// ============================================================================
+
+/// Whether the host returned operation-level publication evidence for an action.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum PublicationEvidenceAvailability {
+    /// The caller did not author this action, or the action is not locally
+    /// available. No receipt metadata is exposed in this case.
+    NotAvailableToCaller,
+    /// The query succeeded but yielded no operation sets. This is unknown,
+    /// never vacuous evidence that publication is complete.
+    NoOperationData,
+    /// One or more DHT operation receipt sets were observed on this conductor
+    /// for an action authored by the current agent.
+    Observed,
+}
+
+/// Privacy-minimized summary of receipt evidence for one DHT operation.
+/// Neither the operation hash nor validator identities are exposed.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct PublicationOperationEvidence {
+    pub operation_type: String,
+    /// Number of receipt records returned for this operation; not a count of
+    /// unique validators or a guarantee of current peer availability.
+    pub receipt_record_count: u32,
+    pub valid_receipt_record_count: u32,
+    pub rejected_receipt_record_count: u32,
+    pub abandoned_receipt_record_count: u32,
+    /// Holochain's configured receipt-threshold flag for this operation.
+    pub receipts_complete: bool,
+}
+
+/// Evidence observed through the current authoring conductor for an action.
+/// This is deliberately not a global synchronization or current-DHT-health claim.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ActionPublicationEvidence {
+    pub action_hash: ActionHash,
+    /// Observation time after the host query, in Holochain timestamp microseconds.
+    pub checked_at_micros: i64,
+    pub availability: PublicationEvidenceAvailability,
+    pub operation_count: u32,
+    pub receipt_record_count: u32,
+    pub receipt_threshold_complete_operation_count: u32,
+    pub rejected_operation_count: u32,
+    /// False for zero operation sets, even though an empty iterator's all()
+    /// would otherwise return true.
+    pub all_receipt_thresholds_complete: bool,
+    pub operations: Vec<PublicationOperationEvidence>,
+}
+
+fn bounded_count(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn empty_publication_evidence(
+    action_hash: ActionHash,
+    checked_at_micros: i64,
+    availability: PublicationEvidenceAvailability,
+) -> ActionPublicationEvidence {
+    ActionPublicationEvidence {
+        action_hash,
+        checked_at_micros,
+        availability,
+        operation_count: 0,
+        receipt_record_count: 0,
+        receipt_threshold_complete_operation_count: 0,
+        rejected_operation_count: 0,
+        all_receipt_thresholds_complete: false,
+        operations: Vec::new(),
+    }
+}
+
+fn summarize_publication_receipts(
+    action_hash: ActionHash,
+    receipt_sets: Vec<ValidationReceiptSet>,
+    checked_at_micros: i64,
+) -> ActionPublicationEvidence {
+    let operations: Vec<PublicationOperationEvidence> = receipt_sets
+        .into_iter()
+        .map(|set| {
+            let valid_count = set
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.validation_status == ValidationStatus::Valid)
+                .count();
+            let rejected_count = set
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.validation_status == ValidationStatus::Rejected)
+                .count();
+            let abandoned_count = set
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.validation_status == ValidationStatus::Abandoned)
+                .count();
+
+            PublicationOperationEvidence {
+                operation_type: set.op_type,
+                receipt_record_count: bounded_count(set.receipts.len()),
+                valid_receipt_record_count: bounded_count(valid_count),
+                rejected_receipt_record_count: bounded_count(rejected_count),
+                abandoned_receipt_record_count: bounded_count(abandoned_count),
+                receipts_complete: set.receipts_complete,
+            }
+        })
+        .collect();
+
+    let operation_count = bounded_count(operations.len());
+    let receipt_record_count = operations
+        .iter()
+        .fold(0u32, |sum, op| sum.saturating_add(op.receipt_record_count));
+    let receipt_threshold_complete_operation_count = bounded_count(
+        operations.iter().filter(|op| op.receipts_complete).count(),
+    );
+    let rejected_operation_count =
+        bounded_count(operations.iter().filter(|op| op.rejected_receipt_record_count > 0).count());
+    let all_receipt_thresholds_complete = !operations.is_empty()
+        && operations.iter().all(|op| op.receipts_complete);
+    let availability = if operations.is_empty() {
+        PublicationEvidenceAvailability::NoOperationData
+    } else {
+        PublicationEvidenceAvailability::Observed
+    };
+
+    ActionPublicationEvidence {
+        action_hash,
+        checked_at_micros,
+        availability,
+        operation_count,
+        receipt_record_count,
+        receipt_threshold_complete_operation_count,
+        rejected_operation_count,
+        all_receipt_thresholds_complete,
+        operations,
+    }
+}
+
+/// Query validation-receipt evidence held by this action's authoring conductor.
+///
+/// HDK 0.6 only has the receipts recorded on the same conductor that authored
+/// the action (and same-DNA cells on that conductor). The result intentionally
+/// omits operation hashes and validator keys. Empty data stays NoOperationData;
+/// it is not evidence that all operations are complete. Receipt-threshold
+/// completion is historical publication evidence, not a guarantee all peers
+/// currently hold the data.
+#[hdk_extern]
+pub fn get_action_publication_evidence(
+    action_hash: ActionHash,
+) -> ExternResult<ActionPublicationEvidence> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    let local_record = get(action_hash.clone(), GetOptions::local())?;
+
+    // HDK can return receipt sets for any action authored on this conductor,
+    // including a different agent's action. This endpoint deliberately narrows
+    // that host capability to the current caller's own locally authored action.
+    // Missing and non-owned actions share one result to avoid a disclosure oracle.
+    if !matches!(
+        local_record.as_ref(),
+        Some(record) if record.action().author() == &caller
+    ) {
+        return Ok(empty_publication_evidence(
+            action_hash,
+            sys_time()?.as_micros(),
+            PublicationEvidenceAvailability::NotAvailableToCaller,
+        ));
+    }
+
+    let receipt_sets =
+        get_validation_receipts(GetValidationReceiptsInput::new(action_hash.clone()))?;
+    let checked_at_micros = sys_time()?.as_micros();
+    Ok(summarize_publication_receipts(
+        action_hash,
+        receipt_sets,
+        checked_at_micros,
+    ))
+}
+
+// ============================================================================
 // Allowed zome names -- security boundary for dispatch
 // ============================================================================
 
@@ -1526,4 +1704,111 @@ mod tests {
         assert!(back.export_milestones);
         assert_eq!(back.new_role, MemberRole::Adult);
     }
+
+    // ---- Publication evidence aggregation (HDK 0.6 contract) ----
+
+    fn receipt_set(
+        seed: u8,
+        operation_type: &str,
+        receipts_complete: bool,
+        statuses: &[ValidationStatus],
+    ) -> ValidationReceiptSet {
+        ValidationReceiptSet {
+            op_hash: DhtOpHash::from_raw_36(vec![seed; 36]),
+            op_type: operation_type.to_string(),
+            receipts_complete,
+            receipts: statuses
+                .iter()
+                .map(|status| ValidationReceiptInfo {
+                    validation_status: *status,
+                    validators: Vec::new(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn empty_receipt_query_is_unknown_not_vacuously_complete() {
+        let report = summarize_publication_receipts(
+            ActionHash::from_raw_36(vec![0; 36]),
+            Vec::new(),
+            123,
+        );
+
+        assert_eq!(report.availability, PublicationEvidenceAvailability::NoOperationData);
+        assert_eq!(report.operation_count, 0);
+        assert_eq!(report.receipt_record_count, 0);
+        assert_eq!(report.receipt_threshold_complete_operation_count, 0);
+        assert!(!report.all_receipt_thresholds_complete);
+        assert!(report.operations.is_empty());
+        assert_eq!(report.checked_at_micros, 123);
+    }
+
+    #[test]
+    fn partial_receipts_keep_threshold_progress_and_rejection_separate() {
+        let report = summarize_publication_receipts(
+            ActionHash::from_raw_36(vec![9; 36]),
+            vec![
+                receipt_set(
+                    1,
+                    "StoreRecord",
+                    false,
+                    &[
+                        ValidationStatus::Valid,
+                        ValidationStatus::Rejected,
+                        ValidationStatus::Abandoned,
+                    ],
+                ),
+                receipt_set(2, "RegisterAgentActivity", true, &[ValidationStatus::Valid]),
+            ],
+            999,
+        );
+
+        assert_eq!(report.availability, PublicationEvidenceAvailability::Observed);
+        assert_eq!(report.operation_count, 2);
+        assert_eq!(report.receipt_record_count, 4);
+        assert_eq!(report.receipt_threshold_complete_operation_count, 1);
+        assert_eq!(report.rejected_operation_count, 1);
+        assert!(!report.all_receipt_thresholds_complete);
+        assert_eq!(report.operations[0].valid_receipt_record_count, 1);
+        assert_eq!(report.operations[0].rejected_receipt_record_count, 1);
+        assert_eq!(report.operations[0].abandoned_receipt_record_count, 1);
+        assert_eq!(report.operations[0].receipt_record_count, 3);
+        assert!(!report.operations[0].receipts_complete);
+        assert!(report.operations[1].receipts_complete);
+    }
+
+    #[test]
+    fn all_operation_thresholds_only_count_complete_when_operation_sets_exist() {
+        let report = summarize_publication_receipts(
+            ActionHash::from_raw_36(vec![8; 36]),
+            vec![
+                receipt_set(3, "StoreRecord", true, &[ValidationStatus::Valid]),
+                receipt_set(4, "RegisterAgentActivity", true, &[ValidationStatus::Valid]),
+            ],
+            100,
+        );
+
+        assert_eq!(report.operation_count, 2);
+        assert_eq!(report.receipt_threshold_complete_operation_count, 2);
+        assert!(report.all_receipt_thresholds_complete);
+        assert_eq!(report.rejected_operation_count, 0);
+    }
+
+    #[test]
+    fn receipt_evidence_does_not_expose_op_hashes_or_validator_identities() {
+        let report = summarize_publication_receipts(
+            ActionHash::from_raw_36(vec![7; 36]),
+            vec![receipt_set(5, "StoreRecord", false, &[ValidationStatus::Valid])],
+            101,
+        );
+
+        let encoded = serde_json::to_value(&report).unwrap();
+        let operation = &encoded["operations"][0];
+        assert!(operation.get("op_hash").is_none());
+        assert!(operation.get("validators").is_none());
+        assert!(operation.get("operation_type").is_some());
+        assert!(operation.get("receipt_record_count").is_some());
+    }
+
 }

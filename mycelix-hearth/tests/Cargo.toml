@@ -69,6 +69,10 @@ path = "sweettest_milestones.rs"
 name = "sweettest_stories"
 path = "sweettest_stories.rs"
 
+[[test]]
+name = "sweettest_publication_evidence"
+path = "sweettest_publication_evidence.rs"
+
 [dev-dependencies]
 holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
 holochain_types = "0.6"
