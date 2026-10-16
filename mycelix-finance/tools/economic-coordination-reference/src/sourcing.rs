@@ -186,6 +186,16 @@ pub struct RejectedOffer {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourcingReport {
+    /// Immutable request/evaluation context needed to interpret and replay this report.
+    pub request_id: String,
+    pub evaluated_at: u64,
+    pub required_evidence_origin: EvidenceOrigin,
+    pub capability_id: String,
+    pub capability_profile_digest: String,
+    pub unit: String,
+    pub currency: String,
+    pub quantity: u64,
+    pub risk_model_digest: String,
     /// All eligible offers that are not dominated on every declared objective.
     /// Multiple frontier members mean the system has found a trade-off, not a winner.
     pub pareto_frontier: Vec<EvaluatedOffer>,
@@ -355,14 +365,14 @@ impl PrefixMinFenwick {
 
     fn query_prefix_min(&self, coordinate_index: usize) -> Option<u16> {
         let mut index = coordinate_index + 1;
-        let mut minimum = None;
+        let mut minimum: Option<u16> = None;
         while index > 0 {
-            minimum = Some(match (minimum, self.tree[index]) {
-                (Some(previous), Some(value)) => previous.min(value),
-                (Some(previous), None) => previous,
-                (None, Some(value)) => value,
-                (None, None) => continue,
-            });
+            minimum = match (minimum, self.tree[index]) {
+                (Some(previous), Some(value)) => Some(previous.min(value)),
+                (Some(previous), None) => Some(previous),
+                (None, Some(value)) => Some(value),
+                (None, None) => None,
+            };
             index &= index - 1;
         }
         minimum
@@ -509,6 +519,15 @@ pub fn evaluate_sourcing(
     let (pareto_frontier, dominated) = classify_frontier(eligible);
 
     Ok(SourcingReport {
+        request_id: request.request_id.clone(),
+        evaluated_at: request.as_of,
+        required_evidence_origin: request.required_evidence_origin,
+        capability_id: request.capability_id.clone(),
+        capability_profile_digest: request.capability_profile_digest.clone(),
+        unit: request.unit.clone(),
+        currency: request.currency.clone(),
+        quantity: request.quantity,
+        risk_model_digest: request.risk_model_digest.clone(),
         pareto_frontier,
         dominated,
         rejected,
@@ -807,6 +826,20 @@ mod tests {
         assert_eq!(selected.quote_valid_until, 140);
         assert_eq!(selected.inventory_observed_at, 90);
         assert_eq!(selected.inventory_valid_until, 150);
+    }
+
+    #[test]
+    fn report_binds_request_and_objective_model_context() {
+        let report = evaluate_sourcing(&request(), &[offer("context", 100, 10, 100)]).unwrap();
+        assert_eq!(report.request_id, "need-1");
+        assert_eq!(report.evaluated_at, 100);
+        assert_eq!(report.required_evidence_origin, EvidenceOrigin::SyntheticSimulation);
+        assert_eq!(report.capability_id, "solar-charge-control");
+        assert_eq!(report.capability_profile_digest, "profile-sha256-v1");
+        assert_eq!(report.unit, "each");
+        assert_eq!(report.currency, "USD");
+        assert_eq!(report.quantity, 1);
+        assert_eq!(report.risk_model_digest, "risk-model-v1");
     }
 
     #[test]
