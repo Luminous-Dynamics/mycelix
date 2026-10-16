@@ -192,8 +192,18 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
             &format!("{label}.publication_period"),
             &mut errors,
         );
-        check_date(object.get("published_on"), &format!("{label}.published_on"), true, &mut errors);
-        check_date(object.get("last_checked"), &format!("{label}.last_checked"), true, &mut errors);
+        check_date(
+            object.get("published_on"),
+            &format!("{label}.published_on"),
+            true,
+            &mut errors,
+        );
+        check_date(
+            object.get("last_checked"),
+            &format!("{label}.last_checked"),
+            true,
+            &mut errors,
+        );
         check_date(
             object.get("next_review_due"),
             &format!("{label}.next_review_due"),
@@ -228,7 +238,12 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
         );
         for field in ["region_scope", "review_flags"] {
             if object.contains_key(field) {
-                check_string_array(object.get(field), &format!("{label}.{field}"), None, &mut errors);
+                check_string_array(
+                    object.get(field),
+                    &format!("{label}.{field}"),
+                    None,
+                    &mut errors,
+                );
             }
         }
         for field in ["errata_urls"] {
@@ -255,7 +270,9 @@ pub fn validate_registry(registry: &Value, schema: &Value) -> Vec<String> {
                     ));
                 }
                 if target == id {
-                    errors.push(format!("registry entry '{id}': self-referential relation is not allowed"));
+                    errors.push(format!(
+                        "registry entry '{id}': self-referential relation is not allowed"
+                    ));
                 }
             }
         }
