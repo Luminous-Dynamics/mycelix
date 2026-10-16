@@ -65,7 +65,7 @@ Initial scenarios:
 3. All paths unavailable, then recover; durable queue must resume.
 4. Rapidly flapping link; prevent retry storms and route oscillation.
 5. High-latency, low-bandwidth path; queue a compact envelope without silent truncation.
-6. Low-payload path; exercise fragmentation/reassembly limits.
+6. Low-payload path; the current model checks whole-envelope payload eligibility only. Fragmentation/reassembly limits remain a future adapter-level test.
 7. Duplicate delivery across two paths and repeated restarts.
 8. Malformed, replayed, expired, wrong-recipient and tampered frame attempts.
 9. Gateway acknowledges receipt but recipient is offline; UI must not claim recipient delivery.
@@ -75,6 +75,7 @@ Initial scenarios:
 13. Device permission revoked during queueing; do not reopen or transmit without renewed authorization.
 14. Power-limited endpoint; compare delivery/cost trade-offs under an explicit energy budget.
 15. Partitioned community/store-carry-forward topology with bounded storage and expiring items.
+16. Two nominally separate adapters share a failure domain; compare with an independent relay.
 
 For pull-request-speed local checks, use a fixed seed and a short corpus. For qualification, use at least 30 declared seeds and 10,000 logical messages per scenario, or document why a specific hardware test uses a smaller safe sample. Synthetic runs do not establish RF performance.
 
@@ -91,9 +92,9 @@ just simulate-transport-smoke
 just simulate-transport
 ```
 
-The corpus starts with ten explicit synthetic scenarios and 10,000 logical messages per scenario. Each run uses a fixed seed and compares the same per-path deterministic outcome draws under three policies: preferred single path, sequential failover, and parallel redundancy. It reports deadline success, P50/P95 latency, attempts, illustrative cost units and illustrative energy units. The model applies payload budget, explicit permission, link availability and message-index outage ranges before any send attempt.
+The corpus starts with eleven explicit synthetic scenarios and 10,000 logical messages per scenario. Each run uses a fixed seed and compares the same deterministic draws, correlated within declared failure domains, under three policies: preferred single path, sequential failover, and parallel redundancy. It reports deadline success, P50/P95 latency, attempts, illustrative cost units and illustrative energy units. The model applies payload budget, explicit permission, link availability and message-index outage ranges before any send attempt.
 
-**Important limitation:** this is a route-policy smoke model, not a radio simulator. It uses independent synthetic link outcomes and fixed latency/cost inputs; it does not model RF propagation, interference, congestion, fragmentation, hardware, real joules, end-to-end cryptography or authenticated recipient receipts. Its reported “delivery” means only a modeled path success before deadline. The JSON report hard-codes these non-claims.
+**Important limitation:** this is a route-policy smoke model, not a radio simulator. It uses synthetic success thresholds correlated within declared failure domains and fixed latency/cost inputs; it does not model RF propagation, interference, congestion, fragmentation, hardware, real joules, end-to-end cryptography or authenticated recipient receipts. Its reported “delivery” means only a modeled path success before deadline. The JSON report hard-codes these non-claims.
 
 Any model-level relative improvement is useful only as a harness sanity check. It cannot establish that the real Pulse adapter will produce the same improvement. Qualification must later replay measured traces, exercise the actual transport contract, and verify cryptographic recipient receipts.
 
