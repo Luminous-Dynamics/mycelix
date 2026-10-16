@@ -20,6 +20,7 @@ use crate::action_lifecycle::{ActionAttempt, ActionKind, AttemptStatus};
 
 /// A prepared operation can only be obtained after the journal accepted its
 /// Prepared state. Its fields are private so callers cannot forge this permit.
+#[derive(Debug, PartialEq, Eq)]
 pub struct PreparedAction {
     attempt: ActionAttempt,
 }
@@ -212,13 +213,20 @@ mod tests {
     fn committed_submitted_state_precedes_transport_and_confirmation() {
         let mut journal = FakeJournal::default();
         let mut permit = persist_prepared(attempt(), |a| journal.persist(a)).unwrap();
-        let mut observed_commits_at_dispatch = Vec::new();
+        let submitted_committed = std::cell::Cell::new(false);
 
         let result = dispatch_after_journal(
             &mut permit,
-            |a| journal.persist(a),
+            |a| {
+                let status = a.status();
+                let persisted = journal.persist(a);
+                if persisted.is_ok() && status == AttemptStatus::Submitted {
+                    submitted_committed.set(true);
+                }
+                persisted
+            },
             |_| {
-                observed_commits_at_dispatch = journal.committed.clone();
+                assert!(submitted_committed.get(), "transport ran before Submitted commit");
                 Ok::<_, ()>("remote-record")
             },
         );
@@ -229,10 +237,6 @@ mod tests {
                 response: "remote-record",
                 confirmation_persisted: true,
             }
-        );
-        assert_eq!(
-            observed_commits_at_dispatch,
-            vec![AttemptStatus::Prepared, AttemptStatus::Submitted]
         );
         assert_eq!(
             journal.committed,
