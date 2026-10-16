@@ -68,10 +68,8 @@ fn main() -> ExitCode {
             .get("entries")
             .and_then(Value::as_array)
             .map_or(0, Vec::len);
-        println!(
-            "VALID: {entry_count} standards records; unique IDs and relation targets checked; no support state is accepted without its required evidence."
-        );
-        println!("Note: this is the versioned registry-contract validator, not a generic JSON Schema engine or standards conformance test.");
+        println!("VALID: {entry_count} standards records; unique IDs and relation targets checked.");
+        println!("Support evidence gates checked; not a generic JSON Schema or conformance test.");
     } else {
         eprintln!("INVALID: {} registry contract error(s):", errors.len());
         for error in &errors {
