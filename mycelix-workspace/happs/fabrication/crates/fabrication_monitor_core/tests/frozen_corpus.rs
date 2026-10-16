@@ -28,6 +28,7 @@ fn config() -> DetectorConfig {
     DetectorConfig {
         detector_id: "cincinnati.robust-reference".into(),
         detector_version: "1.0.0".into(),
+        reference_dataset_id: "sha256:synthetic-healthy-reference-v1".into(),
         robust_z_threshold: 3.5,
         minimum_scale_by_signal: [
             0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0, 0.5, 2.0,
@@ -94,7 +95,7 @@ fn parse_disposition(value: &str) -> ObservationDisposition {
                 ("NonFinite", "HotendTemperature") => {
                     InputError::NonFinite(Signal::HotendTemperature)
                 }
-                ("Negative", "XCurrent") => InputError::Negative(Signal::XCurrent),
+                ("Negative", "VibrationRms") => InputError::Negative(Signal::VibrationRms),
                 ("OutOfRange", "Humidity") => InputError::OutOfRange(Signal::Humidity),
                 other => panic!("unknown invalid-observation reason in corpus: {other:?}"),
             };
@@ -153,7 +154,8 @@ fn run_scenario(scenario: &str) -> (ObservationDisposition, Vec<Signal>, Vec<Sig
             sample.profile.environment_profile = "environment:open-shop-profile-v1".into();
         }
         "nonfinite-hotend" => sample.hotend_temp_c = f64::NAN,
-        "negative-current" => sample.stepper_current_ma[0] = -1.0,
+        "negative-vibration" => sample.vibration_rms_g = -1.0,
+        "signed-current" => sample.stepper_current_ma[0] = -50.0,
         "humidity-out-of-range" => sample.humidity_pct = Some(101.0),
         "session-mismatch" => sample.session_id = "other-session".into(),
         "sequence-gap" => {
