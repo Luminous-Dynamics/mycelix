@@ -617,22 +617,34 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
             }
             match outcome {
                 AttemptOutcome::TemporarilyUnavailable => {
-                    let Some(not_before) = retry_at else {
-                        return Err(JournalError::RetryTimeInvalid);
-                    };
-                    if not_before <= event.occurred_at {
-                        return Err(JournalError::RetryTimeInvalid);
+                    if snapshot.revoked {
+                        if retry_at.is_some() {
+                            return Err(JournalError::InvalidTransition);
+                        }
+                        snapshot.next_attempt_at = None;
+                        snapshot.status = if snapshot.may_have_reached_recipient {
+                            DurableDeliveryStatus::OutcomeUnknown
+                        } else {
+                            DurableDeliveryStatus::Revoked
+                        };
+                    } else {
+                        let Some(not_before) = retry_at else {
+                            return Err(JournalError::RetryTimeInvalid);
+                        };
+                        if not_before <= event.occurred_at {
+                            return Err(JournalError::RetryTimeInvalid);
+                        }
+                        snapshot.next_attempt_at = if not_before < snapshot.expires_at {
+                            Some(*not_before)
+                        } else {
+                            None
+                        };
+                        snapshot.status = if snapshot.next_attempt_at.is_some() {
+                            DurableDeliveryStatus::RetryScheduled
+                        } else {
+                            DurableDeliveryStatus::AwaitingDeadline
+                        };
                     }
-                    snapshot.next_attempt_at = if not_before < snapshot.expires_at {
-                        Some(*not_before)
-                    } else {
-                        None
-                    };
-                    snapshot.status = if snapshot.next_attempt_at.is_some() {
-                        DurableDeliveryStatus::RetryScheduled
-                    } else {
-                        DurableDeliveryStatus::AwaitingDeadline
-                    };
                 }
                 _ => {
                     if retry_at.is_some() {
@@ -698,14 +710,10 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
             }
             snapshot.policy_generation = *policy_generation;
             snapshot.revoked = true;
-            if let Some(attempt_id) = snapshot.active_attempt_id.take() {
+            if snapshot.active_attempt_id.is_some() {
                 // The send may already have crossed the network boundary.
-                // Mark it ambiguous so a verified receipt can still resolve
-                // the outcome, but never permit a further attempt.
-                snapshot.attempts.insert(
-                    attempt_id,
-                    Some(AttemptOutcome::OutcomeUnknown),
-                );
+                // Preserve the unresolved attempt so its late adapter outcome
+                // remains auditable; revoked=true fences every new attempt.
                 snapshot.may_have_reached_recipient = true;
             }
             snapshot.next_attempt_at = None;
@@ -1123,6 +1131,10 @@ mod tests {
         assert_eq!(
             journal.snapshot(&identity).unwrap().status(),
             DurableDeliveryStatus::OutcomeUnknown
+        );
+        assert_eq!(
+            journal.snapshot(&identity).unwrap().active_attempt_id(),
+            Some("attempt-1")
         );
         assert_eq!(
             journal.append(4, event(
