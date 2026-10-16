@@ -65,7 +65,9 @@ The useful paradigm shift is not to write a custom driver for every waveform. It
 
 Sources: [Briar quick start](https://briarproject.org/quick-start/), [Reticulum architecture](https://reticulum.network/manual/understanding.html), [Reticulum hardware interfaces](https://reticulum.network/manual/hardware.html), [RFC 9171](https://www.rfc-editor.org/info/rfc9171), [RFC 9173](https://www.rfc-editor.org/info/rfc9173), [RFC 9174](https://www.rfc-editor.org/info/rfc9174).
 
-**Architectural choice:** first build a Pulse adapter API and one well-defined store-and-forward profile; prefer integrating or interoperating with existing mature network stacks over reimplementing routing, discovery and radio drivers wholesale. Any integration must be preceded by an interop spike and a threat-model comparison, not by assuming wire compatibility from similar goals.
+**Architectural choice:** first build a Pulse adapter API and one well-defined store-and-forward profile; prefer integrating or interoperating with existing mature network stacks over reimplementing routing, discovery and radio drivers wholesale.
+
+**Errata are part of the active compatibility contract.** As checked on 2026-10-16, the RFC Editor lists nine errata for RFC 9171 (three verified, one reported, four held for document update, one rejected), and four reported errata for RFC 9172. At least one reported BPSec erratum explicitly proposes additional constraints on using Abstract Security Block fields before cryptographic validation. The registry records each disposition separately: a reported/held correction must not be treated as an accepted normative change, but the concern should still be reviewed for security and interoperability impact before adopting a profile. References: [RFC 9171 errata index](https://www.rfc-editor.org/errata_search.php?presentation=records&rec_status=15&rfc=9171), [RFC 9172 errata index](https://www.rfc-editor.org/errata/rfc9172), [RFC 9172 erratum 8312](https://www.rfc-editor.org/errata/eid8312). Any integration must be preceded by an interop spike and a threat-model comparison, not by assuming wire compatibility from similar goals.
 
 ## 4. Adapter contract
 
