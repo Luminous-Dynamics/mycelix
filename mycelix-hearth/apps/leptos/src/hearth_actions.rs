@@ -179,7 +179,7 @@ pub fn express_gratitude(to_agent: String, message: String) {
             },
         ).await {
             Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::Confirmed, "Gratitude expression"),
+                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Gratitude expression"),
                 ToastKind::Custom("gratitude".into()),
             ),
             Err(e) => {
@@ -245,7 +245,7 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
             &CastVoteInput { decision_hash: decision_hash_bytes, choice, reasoning },
         ).await {
             Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::Confirmed, "Vote submission"),
+                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Vote submission"),
                 ToastKind::Custom("decision".into()),
             ),
             Err(e) => {
@@ -318,7 +318,7 @@ pub fn change_presence(new_status: PresenceStatusType) {
             },
         ).await {
             Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::Confirmed, "Presence update"),
+                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Presence update"),
                 ToastKind::Custom("presence".into()),
             ),
             Err(e) => {
@@ -389,7 +389,7 @@ pub fn complete_care_task(task_hash: String) {
             &CompleteTaskInput { schedule_hash: schedule_hash_bytes },
         ).await {
             Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::Confirmed, "Care task completion"),
+                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Care task completion"),
                 ToastKind::Custom("care".into()),
             ),
             Err(e) => {

@@ -27,7 +27,7 @@ pub enum AttemptStatus {
     /// Dispatch was durably recorded before the remote call began.
     Submitted,
     /// A successful, decodable domain response was received.
-    Confirmed,
+    SourceChainCommitted,
     /// A typed domain-level rejection proved the mutation was not applied.
     ExplicitlyRejected,
     /// The remote effect may or may not have happened.
@@ -44,7 +44,7 @@ impl AttemptStatus {
     pub const ALL: [Self; 8] = [
         Self::Prepared,
         Self::Submitted,
-        Self::Confirmed,
+        Self::SourceChainCommitted,
         Self::ExplicitlyRejected,
         Self::OutcomeUnknown,
         Self::ReconciledApplied,
@@ -64,7 +64,7 @@ impl AttemptStatus {
     pub const fn is_terminal(self) -> bool {
         matches!(
             self,
-            Self::Confirmed
+            Self::SourceChainCommitted
                 | Self::ExplicitlyRejected
                 | Self::ReconciledApplied
                 | Self::ReconciledNotApplied
@@ -87,7 +87,7 @@ pub const fn transition_allowed(from: AttemptStatus, to: AttemptStatus) -> bool 
         (from, to),
         (AttemptStatus::Prepared, AttemptStatus::Prepared)
             | (AttemptStatus::Submitted, AttemptStatus::Submitted)
-            | (AttemptStatus::Confirmed, AttemptStatus::Confirmed)
+            | (AttemptStatus::SourceChainCommitted, AttemptStatus::SourceChainCommitted)
             | (AttemptStatus::ExplicitlyRejected, AttemptStatus::ExplicitlyRejected)
             | (AttemptStatus::OutcomeUnknown, AttemptStatus::OutcomeUnknown)
             | (AttemptStatus::ReconciledApplied, AttemptStatus::ReconciledApplied)
@@ -101,7 +101,7 @@ pub const fn transition_allowed(from: AttemptStatus, to: AttemptStatus) -> bool 
         (from, to),
         (AttemptStatus::Prepared, AttemptStatus::Submitted)
             | (AttemptStatus::Prepared, AttemptStatus::NotSent)
-            | (AttemptStatus::Submitted, AttemptStatus::Confirmed)
+            | (AttemptStatus::Submitted, AttemptStatus::SourceChainCommitted)
             | (AttemptStatus::Submitted, AttemptStatus::ExplicitlyRejected)
             | (AttemptStatus::Submitted, AttemptStatus::OutcomeUnknown)
             | (AttemptStatus::OutcomeUnknown, AttemptStatus::ReconciledApplied)
@@ -215,10 +215,10 @@ mod tests {
         (AttemptStatus::Prepared, AttemptStatus::Submitted),
         (AttemptStatus::Prepared, AttemptStatus::NotSent),
         (AttemptStatus::Submitted, AttemptStatus::Submitted),
-        (AttemptStatus::Submitted, AttemptStatus::Confirmed),
+        (AttemptStatus::Submitted, AttemptStatus::SourceChainCommitted),
         (AttemptStatus::Submitted, AttemptStatus::ExplicitlyRejected),
         (AttemptStatus::Submitted, AttemptStatus::OutcomeUnknown),
-        (AttemptStatus::Confirmed, AttemptStatus::Confirmed),
+        (AttemptStatus::SourceChainCommitted, AttemptStatus::SourceChainCommitted),
         (AttemptStatus::ExplicitlyRejected, AttemptStatus::ExplicitlyRejected),
         (AttemptStatus::OutcomeUnknown, AttemptStatus::OutcomeUnknown),
         (AttemptStatus::OutcomeUnknown, AttemptStatus::ReconciledApplied),
@@ -254,12 +254,12 @@ mod tests {
         assert!(op.dispatch_eligible());
         op.transition(AttemptStatus::Submitted).unwrap();
         assert!(!op.dispatch_eligible());
-        op.transition(AttemptStatus::Confirmed).unwrap();
+        op.transition(AttemptStatus::SourceChainCommitted).unwrap();
         assert!(op.status().is_terminal());
         assert!(matches!(
             op.transition(AttemptStatus::Submitted),
             Err(LifecycleError::InvalidTransition {
-                from: AttemptStatus::Confirmed,
+                from: AttemptStatus::SourceChainCommitted,
                 to: AttemptStatus::Submitted,
             })
         ));
@@ -275,7 +275,7 @@ mod tests {
 
         for forbidden in [
             AttemptStatus::Submitted,
-            AttemptStatus::Confirmed,
+            AttemptStatus::SourceChainCommitted,
             AttemptStatus::ExplicitlyRejected,
             AttemptStatus::Prepared,
         ] {
@@ -389,7 +389,7 @@ mod tests {
     #[test]
     fn restart_recovery_leaves_proven_terminal_states_unchanged() {
         for terminal in [
-            AttemptStatus::Confirmed,
+            AttemptStatus::SourceChainCommitted,
             AttemptStatus::ExplicitlyRejected,
             AttemptStatus::ReconciledApplied,
             AttemptStatus::ReconciledNotApplied,

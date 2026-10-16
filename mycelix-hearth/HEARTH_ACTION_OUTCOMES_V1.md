@@ -5,14 +5,14 @@
 
 ## Core paradigm
 
-The UI must report only what it knows. A request is not a confirmed change; a local demo mutation is not a synchronized household event; and a transport/decode error does not necessarily prove that the remote operation failed.
+The UI must report only what it knows. Holochain distinguishes source-chain commit/return from background publication and peer validation receipts; a successful zome response is not a global synchronization receipt. A request is not a confirmed change; a local demo mutation is not a synchronized household event; a successful Holochain zome response establishes a source-chain commit result but does not establish peer validation/integration; and a transport/decode error does not necessarily prove that the operation failed.
 
 Use four states:
 
 | State | Meaning | Copy rule |
 |---|---|---|
 | Preview only | Local sample/demo state changed | Explicitly say local-only and not synced |
-| Confirmed | A successful remote response was received | Say the action was confirmed |
+| Source-chain committed | A successful decodable zome response returned its record | Use resident-friendly wording that says it was saved while sharing/peer validation may still be in progress |
 | Outcome unknown | The app cannot establish whether a remote action took effect | Tell the resident to check current state before retrying |
 | Not sent | Required target or identity was missing before dispatch | Say no request was sent and name the missing requirement |
 
@@ -20,7 +20,7 @@ Do not derive a "rejected" result from an untyped transport error. Until a struc
 
 ## Implemented in this tranche
 
-- Added a pure Rust copy-policy module with tests for Preview only, Confirmed, Outcome unknown, and Not sent.
+- Added a pure Rust copy-policy module with tests for Preview only, Source-chain committed, Outcome unknown, and Not sent.
 - Replaced ordinary success phrasing in mock-only branches for bond tending, gratitude, votes, presence, care completion, and invitation with explicit preview/local-only copy.
 - Removed the live care path's unconditional "task completed" feedback; it now checks the call result.
 - Fixed a wire-contract mismatch found by inspecting the actual zome signatures: the five mutation zomes return a Record, while the frontend was deserializing their return into unit (()). The Leptos calls now decode a WireRecord.
@@ -48,7 +48,7 @@ A later action-lifecycle tranche should use an operation ID/idempotency key wher
 - 100% of mock-mode mutation feedback states that it is local-only and unsynchronized.
 - 100% of ambiguous remote errors state that the outcome is unknown and guide users to verify before retry.
 - At least 4/5 user-test participants choose "check current state" rather than immediately resubmitting after an outcome-unknown message.
-- No success toast before a successful remote call result.
+- No source-chain-committed message before a successful decodable zome response.
 
 ## Verification required before merge
 
