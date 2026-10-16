@@ -15,7 +15,8 @@
       "sequential_failover",
       "parallel_redundancy"
     ],
-    "limitations": "Synthetic independent per-path outcomes with fixed latency and costs. No cryptography, RF propagation, interference, fragmentation, congestion, discovery, real device power measurement, or authenticated-recipient receipt is modeled."
+    "limitations": "Synthetic route eligibility, fixed latency/cost estimates, per-path success thresholds, shared deterministic outcomes within failure domains, and independent outcomes between domains. No RF propagation, interference, fragmentation, congestion, physical common-cause fault estimation, cryptography, real device power measurement, or authenticated-recipient receipt is modeled.",
+    "failure_domain_id": "Paths with the same failure_domain_id share the same deterministic synthetic success draw; this models maximally correlated outcomes at equal success rates. Distinct IDs receive independent draws. It is a conservative toy correlation model, not a measured model of carrier or hardware failures."
   },
   "scenarios": [
     {
@@ -34,7 +35,8 @@
           "payload_budget_bytes": 65536,
           "cost_units": 1,
           "energy_millijoules": 30,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "home-uplink"
         }
       ]
     },
@@ -59,7 +61,8 @@
               2000,
               8000
             ]
-          ]
+          ],
+          "failure_domain_id": "mobile-uplink-a"
         },
         {
           "id": "wifi-direct",
@@ -71,7 +74,8 @@
           "payload_budget_bytes": 4096,
           "cost_units": 2,
           "energy_millijoules": 90,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-wifi"
         }
       ]
     },
@@ -91,7 +95,8 @@
           "payload_budget_bytes": 65536,
           "cost_units": 1,
           "energy_millijoules": 20,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "home-uplink"
         },
         {
           "id": "bluetooth-le",
@@ -103,7 +108,8 @@
           "payload_budget_bytes": 1024,
           "cost_units": 1,
           "energy_millijoules": 35,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "nearby-radio"
         }
       ]
     },
@@ -128,7 +134,8 @@
               0,
               7000
             ]
-          ]
+          ],
+          "failure_domain_id": "cellular-uplink"
         },
         {
           "id": "lpwan-gateway-profile",
@@ -140,7 +147,8 @@
           "payload_budget_bytes": 200,
           "cost_units": 3,
           "energy_millijoules": 80,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "lpwan-gateway"
         },
         {
           "id": "bluetooth-le",
@@ -152,7 +160,8 @@
           "payload_budget_bytes": 512,
           "cost_units": 1,
           "energy_millijoules": 40,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "nearby-radio"
         }
       ]
     },
@@ -172,7 +181,8 @@
           "payload_budget_bytes": 180,
           "cost_units": 1,
           "energy_millijoules": 45,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "lpwan-network"
         },
         {
           "id": "ip",
@@ -184,7 +194,8 @@
           "payload_budget_bytes": 65536,
           "cost_units": 2,
           "energy_millijoules": 65,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "wired-uplink"
         }
       ]
     },
@@ -204,7 +215,8 @@
           "payload_budget_bytes": 65536,
           "cost_units": 1,
           "energy_millijoules": 20,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "untrusted-relay-node"
         },
         {
           "id": "permitted-direct-link",
@@ -216,7 +228,8 @@
           "payload_budget_bytes": 2048,
           "cost_units": 1,
           "energy_millijoules": 70,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-direct-link"
         }
       ]
     },
@@ -236,7 +249,8 @@
           "payload_budget_bytes": 65536,
           "cost_units": 1,
           "energy_millijoules": 20,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "home-uplink"
         },
         {
           "id": "bluetooth-le",
@@ -248,7 +262,8 @@
           "payload_budget_bytes": 2048,
           "cost_units": 1,
           "energy_millijoules": 40,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "nearby-radio"
         }
       ]
     },
@@ -268,7 +283,8 @@
           "payload_budget_bytes": 8192,
           "cost_units": 8,
           "energy_millijoules": 400,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "satellite-provider"
         },
         {
           "id": "local-radio-link",
@@ -280,7 +296,8 @@
           "payload_budget_bytes": 1024,
           "cost_units": 1,
           "energy_millijoules": 45,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-radio"
         }
       ]
     },
@@ -317,7 +334,8 @@
               7800,
               9000
             ]
-          ]
+          ],
+          "failure_domain_id": "mobile-uplink"
         },
         {
           "id": "stable-local-link",
@@ -329,7 +347,8 @@
           "payload_budget_bytes": 2048,
           "cost_units": 1,
           "energy_millijoules": 55,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "local-radio"
         }
       ]
     },
@@ -349,7 +368,8 @@
           "payload_budget_bytes": 2048,
           "cost_units": 1,
           "energy_millijoules": 10,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "low-energy-radio"
         },
         {
           "id": "fast-radio",
@@ -361,7 +381,55 @@
           "payload_budget_bytes": 2048,
           "cost_units": 2,
           "energy_millijoules": 260,
-          "unavailable_ranges": []
+          "unavailable_ranges": [],
+          "failure_domain_id": "high-energy-radio"
+        }
+      ]
+    },
+    {
+      "id": "shared-carrier-failure-domain",
+      "purpose": "Two adapters sharing a carrier failure domain must not be counted as independent redundancy; an independent community relay provides diversity.",
+      "deadline_ms": 2500,
+      "envelope_bytes": 200,
+      "paths": [
+        {
+          "id": "cellular-radio-a",
+          "priority": 0,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 100,
+          "success_basis_points": 9000,
+          "payload_budget_bytes": 4096,
+          "cost_units": 1,
+          "energy_millijoules": 50,
+          "unavailable_ranges": [],
+          "failure_domain_id": "carrier-core-a"
+        },
+        {
+          "id": "cellular-radio-b",
+          "priority": 1,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 150,
+          "success_basis_points": 9000,
+          "payload_budget_bytes": 4096,
+          "cost_units": 1,
+          "energy_millijoules": 55,
+          "unavailable_ranges": [],
+          "failure_domain_id": "carrier-core-a"
+        },
+        {
+          "id": "independent-community-relay",
+          "priority": 2,
+          "available": true,
+          "permitted": true,
+          "latency_ms": 300,
+          "success_basis_points": 7000,
+          "payload_budget_bytes": 1024,
+          "cost_units": 2,
+          "energy_millijoules": 85,
+          "unavailable_ranges": [],
+          "failure_domain_id": "community-relay-b"
         }
       ]
     }
