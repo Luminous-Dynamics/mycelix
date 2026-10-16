@@ -6,13 +6,6 @@ on:
       - "mycelix-workspace/crates/mycelix-region-policy/**"
       - "mycelix-workspace/Cargo.toml"
       - ".github/workflows/region-policy.yml"
-  push:
-    branches:
-      - "feat/region-policy-core-v1"
-    paths:
-      - "mycelix-workspace/crates/mycelix-region-policy/**"
-      - "mycelix-workspace/Cargo.toml"
-      - ".github/workflows/region-policy.yml"
   workflow_dispatch:
 
 permissions:
