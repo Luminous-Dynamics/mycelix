@@ -289,6 +289,23 @@ impl DeliveryLifecycle {
                 AttemptStart::AlreadyStarted { attempt_number }
             });
         }
+        if self.active_attempt_id.is_none()
+            && self.attempt_count() >= self.retry_policy.max_attempts()
+            && matches!(
+                self.status,
+                DeliveryStatus::Queued
+                    | DeliveryStatus::RetryScheduled
+                    | DeliveryStatus::OutcomeUnknown
+            )
+        {
+            self.status = if self.may_have_reached_recipient {
+                DeliveryStatus::OutcomeUnknown
+            } else {
+                DeliveryStatus::Failed
+            };
+            self.next_attempt_at = None;
+            return Err(LifecycleError::AttemptLimitReached);
+        }
         if self.status == DeliveryStatus::RetryScheduled {
             if let Some(retry_at) = self.next_attempt_at {
                 if now < retry_at {
@@ -300,16 +317,6 @@ impl DeliveryLifecycle {
         } else if self.status != DeliveryStatus::Queued {
             return Err(LifecycleError::TerminalState);
         }
-        if self.attempt_count() >= self.retry_policy.max_attempts() {
-            self.status = if self.may_have_reached_recipient {
-                DeliveryStatus::OutcomeUnknown
-            } else {
-                DeliveryStatus::Failed
-            };
-            self.next_attempt_at = None;
-            return Err(LifecycleError::AttemptLimitReached);
-        }
-
         let attempt_number = self.attempt_count() + 1;
         self.attempts.insert(
             attempt_id.clone(),
@@ -615,7 +622,7 @@ mod tests {
         assert_ne!(item.status().user_visible(), UserVisibleDeliveryState::Delivered);
         assert_eq!(
             item.start_attempt("attempt-2", UnixMillis::new(500)),
-            Err(LifecycleError::TerminalState)
+            Err(LifecycleError::AttemptLimitReached)
         );
     }
 
