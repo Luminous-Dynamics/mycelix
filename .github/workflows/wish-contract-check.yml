@@ -1,0 +1,35 @@
+name: Wish contract qualification
+
+on:
+  pull_request:
+    paths:
+      - "docs/research/WISH_TO_OUTCOME_PROTOCOL_V0_1.md"
+      - "docs/research/schemas/wish-request-v0.1.schema.json"
+      - "tools/wish-contract-check/**"
+      - ".github/workflows/wish-contract-check.yml"
+  push:
+    branches:
+      - "research/wish-to-outcome-contract-v0-1"
+    paths:
+      - "docs/research/WISH_TO_OUTCOME_PROTOCOL_V0_1.md"
+      - "docs/research/schemas/wish-request-v0.1.schema.json"
+      - "tools/wish-contract-check/**"
+      - ".github/workflows/wish-contract-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/wish-contract-check/Cargo.toml -- --check
+      - name: Run schema and adversarial fixture tests
+        run: cargo test --manifest-path tools/wish-contract-check/Cargo.toml
+      - name: Emit deterministic fixture census
+        run: cargo run --manifest-path tools/wish-contract-check/Cargo.toml
