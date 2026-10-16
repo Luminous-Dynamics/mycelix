@@ -200,6 +200,7 @@ pub struct DeliveryLifecycle {
     active_attempt_id: Option<String>,
     next_attempt_at: Option<UnixMillis>,
     may_have_reached_recipient: bool,
+    revoked: bool,
 }
 
 impl DeliveryLifecycle {
@@ -229,6 +230,7 @@ impl DeliveryLifecycle {
             active_attempt_id: None,
             next_attempt_at: None,
             may_have_reached_recipient: false,
+            revoked: false,
         })
     }
 
@@ -291,6 +293,9 @@ impl DeliveryLifecycle {
             } else {
                 AttemptStart::AlreadyStarted { attempt_number }
             });
+        }
+        if self.revoked {
+            return Err(LifecycleError::TerminalState);
         }
         if self.active_attempt_id.is_none()
             && self.attempt_count() >= self.retry_policy.max_attempts()
@@ -433,9 +438,23 @@ impl DeliveryLifecycle {
         if self.status == DeliveryStatus::Delivered || self.status.is_terminal() {
             return false;
         }
-        self.status = DeliveryStatus::Revoked;
-        self.active_attempt_id = None;
+
+        self.revoked = true;
+        if let Some(attempt_id) = self.active_attempt_id.take() {
+            // A reserved/in-flight attempt may already have crossed the
+            // network boundary. Preserve uncertainty so a verified receipt can
+            // still resolve it, but never authorize another transmission.
+            if let Some(attempt) = self.attempts.get_mut(&attempt_id) {
+                attempt.outcome = Some(AttemptOutcome::OutcomeUnknown);
+            }
+            self.may_have_reached_recipient = true;
+        }
         self.next_attempt_at = None;
+        self.status = if self.may_have_reached_recipient {
+            DeliveryStatus::OutcomeUnknown
+        } else {
+            DeliveryStatus::Revoked
+        };
         true
     }
 
@@ -458,6 +477,15 @@ impl DeliveryLifecycle {
     ) {
         if outcome_may_have_sent {
             self.status = DeliveryStatus::AwaitingReceipt;
+        }
+        if self.revoked {
+            self.next_attempt_at = None;
+            self.status = if self.may_have_reached_recipient {
+                DeliveryStatus::OutcomeUnknown
+            } else {
+                DeliveryStatus::Revoked
+            };
+            return;
         }
         if self.attempt_count() >= self.retry_policy.max_attempts() {
             self.next_attempt_at = None;
@@ -713,6 +741,24 @@ mod tests {
             item.record_verified_receipt(&wrong_binding, UnixMillis::new(5)),
             Err(LifecycleError::ReceiptBindingMismatch)
         );
+    }
+
+    #[test]
+    fn revocation_stops_future_sends_but_preserves_inflight_receipt_evidence() {
+        let mut item = lifecycle(10_000, 3);
+        item.start_attempt("attempt-1", UnixMillis::new(1)).unwrap();
+
+        assert!(item.revoke(UnixMillis::new(2)));
+        assert_eq!(item.status(), DeliveryStatus::OutcomeUnknown);
+        assert_eq!(
+            item.start_attempt("attempt-2", UnixMillis::new(3)),
+            Err(LifecycleError::TerminalState)
+        );
+        assert_eq!(
+            item.record_verified_receipt(&verified_receipt(), UnixMillis::new(4)),
+            Ok(true)
+        );
+        assert_eq!(item.status(), DeliveryStatus::Delivered);
     }
 
     #[test]
