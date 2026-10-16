@@ -149,6 +149,8 @@ Use a declared measurement boundary and horizon. A useful primary metric for the
 
 This equation is incomplete until every numerator term has a stated inclusion rule, unit, observation source, and allocation method. Publish those rules.
 
+The analyzer reports both a macro-average (mean of per-run ratios) and a pooled ratio (sum of the registered cost numerator divided by sum of successfully served units). They represent different estimands: equal weight per run versus equal weight per served unit. Select the primary estimand before confirmatory evaluation based on the intended population and decision; retain the alternative as a sensitivity view. A change in weighting must not be chosen after observing which version favors the treatment.
+
 Distinguish **net new value** from **transfers**. A payment shifted from one participant to another is not, by itself, an increase in total system value. Show distributional transfers in separate fields. Report non-monetized outcomes and externalities even when they cannot defensibly be reduced to dollars.
 
 Do not collapse the vector into a universal “flourishing score.” If a decision-specific utility function is necessary, publish its units, weights, provenance, sensitivity and stakeholder authority; register it before evaluation; and retain the full underlying metric vector.
