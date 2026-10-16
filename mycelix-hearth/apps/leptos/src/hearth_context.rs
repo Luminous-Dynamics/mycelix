@@ -35,7 +35,7 @@ pub struct HearthCtx {
     pub autonomy_profiles: RwSignal<Vec<AutonomyProfileView>>,
     pub my_agent: RwSignal<String>,
     /// Latest one-shot publication evidence check tied to a returned action hash.
-    pub publication_evidence: RwSignal<Option<PublicationEvidenceNotice>>,
+    pub(crate) publication_evidence: RwSignal<Option<PublicationEvidenceNotice>>,
 }
 
 /// Initialize hearth context.
