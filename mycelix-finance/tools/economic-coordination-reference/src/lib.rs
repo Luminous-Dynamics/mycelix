@@ -13,6 +13,9 @@ pub mod fulfillment_escrow;
 /// Multi-replica fixed-rights simulation for isolated partitioned reservations.
 pub mod fulfillment_escrow_partition;
 
+/// Single-authority claim identity registry; deliberately unavailable under partition.
+pub mod fulfillment_claim_identity;
+
 /// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
 pub mod fulfillment_tranches;
 
