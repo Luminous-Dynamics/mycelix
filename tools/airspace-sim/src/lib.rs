@@ -2027,7 +2027,7 @@ mod tests {
         let benchmarks = manifest["benchmarks"]
             .as_array()
             .expect("benchmark cases must be an array");
-        assert_eq!(benchmarks.len(), 26);
+        assert_eq!(benchmarks.len(), 27);
         let mut ids = std::collections::BTreeSet::new();
         let allowed_statuses = [
             "implemented_pending_exact_head_verification",
@@ -2070,7 +2070,7 @@ mod tests {
             "AIR-PB-001", "AIR-PB-002", "AIR-PB-003", "AIR-PB-004",
             "AIR-PB-005", "AIR-PB-006", "AIR-PB-007", "AIR-PB-008",
             "AIR-PB-009", "AIR-PB-010", "AIR-PB-011", "AIR-PB-012",
-            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017", "AIR-PB-018", "AIR-PB-019", "AIR-PB-020", "AIR-PB-021", "AIR-PB-022", "AIR-PB-023", "AIR-PB-024", "AIR-PB-025", "AIR-PB-026",
+            "AIR-PB-013", "AIR-PB-014", "AIR-PB-015", "AIR-PB-016", "AIR-PB-017", "AIR-PB-018", "AIR-PB-019", "AIR-PB-020", "AIR-PB-021", "AIR-PB-022", "AIR-PB-023", "AIR-PB-024", "AIR-PB-025", "AIR-PB-026", "AIR-PB-027",
         ] {
             assert!(ids.contains(required), "required research case missing: {required}");
         }
@@ -2171,6 +2171,27 @@ mod tests {
             adapter_contract["success_conditions"].as_array().unwrap().iter()
                 .any(|condition| condition.as_str().unwrap_or("").contains("numeric interval is unchanged")),
             "AIR-PB-026 must detect metadata drift even when numeric bounds are unchanged"
+        );
+
+        let adapter_receipt_contract = benchmarks.iter()
+            .find(|benchmark| benchmark["id"] == "AIR-PB-027")
+            .expect("typed adapter byte-receipt benchmark must exist");
+        assert_eq!(
+            adapter_receipt_contract["status"].as_str(),
+            Some("implemented_pending_exact_head_verification")
+        );
+        assert!(
+            adapter_receipt_contract["stimulus"].as_str().unwrap_or("").contains("exact raw bytes"),
+            "AIR-PB-027 must bind exact fixture bytes"
+        );
+        assert!(
+            adapter_receipt_contract["success_conditions"].as_array().unwrap().iter()
+                .any(|condition| condition.as_str().unwrap_or("").contains("remains valid JSON")),
+            "AIR-PB-027 must exercise a semantically inert byte mutation"
+        );
+        assert!(
+            adapter_receipt_contract["scope"].as_str().unwrap_or("").contains("does not authenticate publishers"),
+            "AIR-PB-027 must keep receipt scope explicitly non-authenticating"
         );
 
         let receipt_contract = benchmarks.iter()
