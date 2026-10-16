@@ -1,0 +1,868 @@
+//! Pure, deterministic regional-federation policy kernel.
+//!
+//! This module does not perform network I/O, read the system clock, interpret
+//! law, or claim that a physical storage location has been independently
+//! attested. Trust adapters must authenticate profiles and consent grants
+//! before constructing the opaque verified wrappers exposed by this crate.
+
+use std::collections::BTreeSet;
+
+const SUPPORTED_SCHEMA_VERSION: u16 = 1;
+const MAX_PROFILE_ID_BYTES: usize = 256;
+const MAX_PROFILE_VERSION_BYTES: usize = 128;
+const MAX_SCOPE_ID_BYTES: usize = 256;
+const MAX_SIGNING_KEY_ID_BYTES: usize = 256;
+const MAX_GRANT_ID_BYTES: usize = 256;
+const MAX_RECIPIENT_ID_BYTES: usize = 512;
+const MAX_PURPOSE_BYTES: usize = 512;
+const MAX_SIGNATURE_BYTES: usize = 4096;
+const MAX_RULES: usize = 64;
+const MAX_SCOPES_PER_RULE: usize = 256;
+const MAX_ACTIONS_PER_RULE: usize = 8;
+
+/// Sensitivity class asserted by the trusted classification adapter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DataClass {
+    Public,
+    Community,
+    Personal,
+    Sensitive,
+    Restricted,
+}
+
+impl DataClass {
+    const fn tag(self) -> u8 {
+        match self {
+            Self::Public => 1,
+            Self::Community => 2,
+            Self::Personal => 3,
+            Self::Sensitive => 4,
+            Self::Restricted => 5,
+        }
+    }
+}
+
+/// Actions that cross a scope boundary and therefore need bilateral policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BoundaryAction {
+    Replicate,
+    Export,
+    Backup,
+    Telemetry,
+    Disclose,
+}
+
+impl BoundaryAction {
+    const fn tag(self) -> u8 {
+        match self {
+            Self::Replicate => 1,
+            Self::Export => 2,
+            Self::Backup => 3,
+            Self::Telemetry => 4,
+            Self::Disclose => 5,
+        }
+    }
+}
+
+/// One rule for exactly one data class. Scope identifiers are opaque,
+/// case-sensitive identifiers, not geolocation claims.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlacementRule {
+    pub data_class: DataClass,
+    pub allowed_actions: Vec<BoundaryAction>,
+    /// Exact destination scope IDs to which the source may send this class.
+    pub allowed_destination_scopes: Vec<String>,
+    /// Exact source scope IDs this destination agrees to receive from.
+    pub allowed_source_scopes: Vec<String>,
+    pub purpose_required: bool,
+    pub recipient_required: bool,
+    pub consent_required: bool,
+}
+
+/// Signed profile metadata plus canonical policy content.
+///
+/// The signature and digest are intentionally verified by an adapter whose
+/// trust roots and cryptographic implementation are configured by deployment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegionalProfile {
+    pub schema_version: u16,
+    pub profile_id: String,
+    pub profile_version: String,
+    pub scope_id: String,
+    pub valid_from_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
+    pub rules: Vec<PlacementRule>,
+    /// Lowercase hex digest of canonical_payload(), using the deployment's
+    /// declared digest algorithm (the first production profile version should
+    /// fix one algorithm rather than negotiate it per request).
+    pub content_digest: String,
+    pub signing_key_id: String,
+    /// Opaque bytes interpreted only by the configured verifier.
+    pub signature: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProfileValidationError {
+    UnsupportedSchemaVersion,
+    InvalidIdentifier,
+    InvalidValidityWindow,
+    InvalidDigestFormat,
+    InvalidSignatureLength,
+    EmptyRules,
+    TooManyRules,
+    DuplicateDataClassRule,
+    EmptyActionList,
+    TooManyActions,
+    DuplicateAction,
+    TooManyScopes,
+    InvalidScope,
+    DuplicateScope,
+    ProfileNotActive,
+    VerificationFailed(ProfileVerificationFailure),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProfileVerificationFailure {
+    DigestMismatch,
+    InvalidSignature,
+    UnknownSigner,
+    RevokedSigner,
+    StaleTrustRoots,
+    UnsupportedAlgorithm,
+}
+
+/// Deployment-owned implementation must validate the canonical digest,
+/// signature, signer trust root, key validity, and revocation state. It must
+/// bind the signature to signature_message(), not only to a profile ID.
+pub trait ProfileVerifier {
+    fn verify_profile(
+        &self,
+        profile: &RegionalProfile,
+    ) -> Result<(), ProfileVerificationFailure>;
+}
+
+impl RegionalProfile {
+    /// Validate structure without claiming signature authenticity.
+    pub fn validate_shape(&self) -> Result<(), ProfileValidationError> {
+        if self.schema_version != SUPPORTED_SCHEMA_VERSION {
+            return Err(ProfileValidationError::UnsupportedSchemaVersion);
+        }
+        if !valid_text(&self.profile_id, MAX_PROFILE_ID_BYTES)
+            || !valid_text(&self.profile_version, MAX_PROFILE_VERSION_BYTES)
+            || !valid_text(&self.scope_id, MAX_SCOPE_ID_BYTES)
+            || !valid_text(&self.signing_key_id, MAX_SIGNING_KEY_ID_BYTES)
+        {
+            return Err(ProfileValidationError::InvalidIdentifier);
+        }
+        if self.valid_from_unix_ms >= self.valid_until_unix_ms {
+            return Err(ProfileValidationError::InvalidValidityWindow);
+        }
+        if self.content_digest.len() != 64
+            || !self
+                .content_digest
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        {
+            return Err(ProfileValidationError::InvalidDigestFormat);
+        }
+        if self.signature.is_empty() || self.signature.len() > MAX_SIGNATURE_BYTES {
+            return Err(ProfileValidationError::InvalidSignatureLength);
+        }
+        if self.rules.is_empty() {
+            return Err(ProfileValidationError::EmptyRules);
+        }
+        if self.rules.len() > MAX_RULES {
+            return Err(ProfileValidationError::TooManyRules);
+        }
+
+        let mut classes = BTreeSet::new();
+        for rule in &self.rules {
+            if !classes.insert(rule.data_class) {
+                return Err(ProfileValidationError::DuplicateDataClassRule);
+            }
+            if rule.allowed_actions.is_empty() {
+                return Err(ProfileValidationError::EmptyActionList);
+            }
+            if rule.allowed_actions.len() > MAX_ACTIONS_PER_RULE {
+                return Err(ProfileValidationError::TooManyActions);
+            }
+            let mut actions = BTreeSet::new();
+            for action in &rule.allowed_actions {
+                if !actions.insert(*action) {
+                    return Err(ProfileValidationError::DuplicateAction);
+                }
+            }
+            validate_scope_list(&rule.allowed_destination_scopes)?;
+            validate_scope_list(&rule.allowed_source_scopes)?;
+        }
+        Ok(())
+    }
+
+    /// Deterministic domain-separated serialization for digest verification.
+    ///
+    /// Set-like vectors are sorted before encoding. Duplicate entries are still
+    /// rejected by validate_shape(), so reordering cannot change profile
+    /// identity and duplicate values cannot be smuggled in as aliases.
+    pub fn canonical_payload(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_REGIONAL_PROFILE_V1\0");
+        output.extend_from_slice(&self.schema_version.to_le_bytes());
+        append_string(&mut output, &self.profile_id);
+        append_string(&mut output, &self.profile_version);
+        append_string(&mut output, &self.scope_id);
+        output.extend_from_slice(&self.valid_from_unix_ms.to_le_bytes());
+        output.extend_from_slice(&self.valid_until_unix_ms.to_le_bytes());
+
+        let mut rules: Vec<&PlacementRule> = self.rules.iter().collect();
+        rules.sort_by_key(|rule| rule.data_class);
+        append_u32(&mut output, rules.len() as u32);
+        for rule in rules {
+            output.push(rule.data_class.tag());
+
+            let mut actions = rule.allowed_actions.clone();
+            actions.sort_unstable();
+            append_u32(&mut output, actions.len() as u32);
+            output.extend(actions.into_iter().map(BoundaryAction::tag));
+
+            append_sorted_strings(&mut output, &rule.allowed_destination_scopes);
+            append_sorted_strings(&mut output, &rule.allowed_source_scopes);
+            output.push(u8::from(rule.purpose_required));
+            output.push(u8::from(rule.recipient_required));
+            output.push(u8::from(rule.consent_required));
+        }
+        output
+    }
+
+    /// Domain-separated signature message. The signing-key identifier is
+    /// included so the same digest cannot be re-labelled under another key ID.
+    pub fn signature_message(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_REGIONAL_PROFILE_SIGNATURE_V1\0");
+        append_string(&mut output, &self.profile_id);
+        append_string(&mut output, &self.signing_key_id);
+        append_string(&mut output, &self.content_digest);
+        output
+    }
+
+    fn active_at(&self, now_ms: u64) -> bool {
+        self.valid_from_unix_ms <= now_ms && now_ms < self.valid_until_unix_ms
+    }
+}
+
+/// Opaque profile wrapper: the only public constructor validates shape,
+/// time validity, and the caller-supplied trusted verification adapter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedProfile {
+    profile: RegionalProfile,
+}
+
+impl VerifiedProfile {
+    pub fn verify<V: ProfileVerifier>(
+        profile: RegionalProfile,
+        now_ms: u64,
+        verifier: &V,
+    ) -> Result<Self, ProfileValidationError> {
+        profile.validate_shape()?;
+        if !profile.active_at(now_ms) {
+            return Err(ProfileValidationError::ProfileNotActive);
+        }
+        verifier
+            .verify_profile(&profile)
+            .map_err(ProfileValidationError::VerificationFailed)?;
+        Ok(Self { profile })
+    }
+
+    pub fn profile(&self) -> &RegionalProfile {
+        &self.profile
+    }
+}
+
+/// Grant fields that must be authenticated exactly by the consent verifier.
+/// The policy kernel does not regard possession of this struct alone as proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConsentGrant {
+    pub grant_id: String,
+    pub recipient_id: String,
+    pub purpose: String,
+    pub valid_from_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
+}
+
+/// Verifies the exact grant, issuer, recipient/purpose binding and current
+/// revocation state. Returns the deadline until which that verification remains
+/// trustworthy; callers must not return an arbitrary far-future deadline.
+pub trait ConsentVerifier {
+    fn verify_current_grant(
+        &self,
+        grant: &ConsentGrant,
+        now_ms: u64,
+    ) -> Result<u64, ConsentVerificationFailure>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConsentVerificationFailure {
+    InvalidGrant,
+    InvalidSignature,
+    UnknownIssuer,
+    Revoked,
+    StaleRevocationState,
+    NotAuthorized,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConsentValidationError {
+    InvalidGrantShape,
+    InvalidValidityWindow,
+    GrantNotActive,
+    VerificationFailed(ConsentVerificationFailure),
+}
+
+/// Opaque, verifier-backed consent evidence. Evidence validity is bounded by
+/// both the grant expiry and the trusted adapter's revocation-freshness deadline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedConsentGrant {
+    grant: ConsentGrant,
+    evidence_valid_until_unix_ms: u64,
+}
+
+impl VerifiedConsentGrant {
+    pub fn verify<V: ConsentVerifier>(
+        grant: ConsentGrant,
+        now_ms: u64,
+        verifier: &V,
+    ) -> Result<Self, ConsentValidationError> {
+        if !valid_text(&grant.grant_id, MAX_GRANT_ID_BYTES)
+            || !valid_text(&grant.recipient_id, MAX_RECIPIENT_ID_BYTES)
+            || !valid_text(&grant.purpose, MAX_PURPOSE_BYTES)
+        {
+            return Err(ConsentValidationError::InvalidGrantShape);
+        }
+        if grant.valid_from_unix_ms >= grant.valid_until_unix_ms {
+            return Err(ConsentValidationError::InvalidValidityWindow);
+        }
+        if !(grant.valid_from_unix_ms <= now_ms && now_ms < grant.valid_until_unix_ms) {
+            return Err(ConsentValidationError::GrantNotActive);
+        }
+
+        let evidence_until = verifier
+            .verify_current_grant(&grant, now_ms)
+            .map_err(ConsentValidationError::VerificationFailed)?;
+        if evidence_until <= now_ms {
+            return Err(ConsentValidationError::VerificationFailed(
+                ConsentVerificationFailure::StaleRevocationState,
+            ));
+        }
+
+        Ok(Self {
+            evidence_valid_until_unix_ms: evidence_until.min(grant.valid_until_unix_ms),
+            grant,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransferRequest<'a> {
+    pub action: BoundaryAction,
+    pub data_class: DataClass,
+    pub purpose: Option<&'a str>,
+    pub recipient_id: Option<&'a str>,
+    pub consent: Option<&'a VerifiedConsentGrant>,
+    pub evaluated_at_unix_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DenialReason {
+    SameScopeIsNotFederation,
+    SourceProfileInactive,
+    DestinationProfileInactive,
+    SourceRuleMissing,
+    DestinationRuleMissing,
+    ActionNotAllowedBySource,
+    ActionNotAllowedByDestination,
+    DestinationNotAllowedBySource,
+    SourceNotAllowedByDestination,
+    PurposeRequired,
+    RecipientRequired,
+    ConsentRequired,
+    ConsentEvidenceStale,
+    ConsentRecipientMismatch,
+    ConsentPurposeMismatch,
+    ConsentNotYetValid,
+    ConsentExpired,
+}
+
+/// A policy denial carries stable reason codes only, never the sensitive record,
+/// raw credential, grant contents, or personal data.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PolicyDecision {
+    pub allowed: bool,
+    pub reasons: Vec<DenialReason>,
+}
+
+impl PolicyDecision {
+    fn from_reasons(reasons: Vec<DenialReason>) -> Self {
+        Self {
+            allowed: reasons.is_empty(),
+            reasons,
+        }
+    }
+}
+
+/// Evaluate one cross-scope action against both verified profiles.
+///
+/// This is a policy gate, not a complete authorization system: adapters must
+/// enforce it again at storage/transport/backup/telemetry boundaries. Scope IDs
+/// do not attest physical location; independent placement evidence is a
+/// separate deployment requirement.
+pub fn evaluate_transfer(
+    source: &VerifiedProfile,
+    destination: &VerifiedProfile,
+    request: &TransferRequest<'_>,
+) -> PolicyDecision {
+    let mut reasons = Vec::new();
+    let source_profile = source.profile();
+    let destination_profile = destination.profile();
+    let now_ms = request.evaluated_at_unix_ms;
+
+    if source_profile.scope_id == destination_profile.scope_id {
+        push_reason(&mut reasons, DenialReason::SameScopeIsNotFederation);
+    }
+    if !source_profile.active_at(now_ms) {
+        push_reason(&mut reasons, DenialReason::SourceProfileInactive);
+    }
+    if !destination_profile.active_at(now_ms) {
+        push_reason(&mut reasons, DenialReason::DestinationProfileInactive);
+    }
+
+    let source_rule = source_profile
+        .rules
+        .iter()
+        .find(|rule| rule.data_class == request.data_class);
+    let destination_rule = destination_profile
+        .rules
+        .iter()
+        .find(|rule| rule.data_class == request.data_class);
+
+    let Some(source_rule) = source_rule else {
+        push_reason(&mut reasons, DenialReason::SourceRuleMissing);
+        return PolicyDecision::from_reasons(reasons);
+    };
+    let Some(destination_rule) = destination_rule else {
+        push_reason(&mut reasons, DenialReason::DestinationRuleMissing);
+        return PolicyDecision::from_reasons(reasons);
+    };
+
+    if !source_rule.allowed_actions.contains(&request.action) {
+        push_reason(&mut reasons, DenialReason::ActionNotAllowedBySource);
+    }
+    if !destination_rule.allowed_actions.contains(&request.action) {
+        push_reason(&mut reasons, DenialReason::ActionNotAllowedByDestination);
+    }
+    if !source_rule
+        .allowed_destination_scopes
+        .contains(&destination_profile.scope_id)
+    {
+        push_reason(&mut reasons, DenialReason::DestinationNotAllowedBySource);
+    }
+    if !destination_rule
+        .allowed_source_scopes
+        .contains(&source_profile.scope_id)
+    {
+        push_reason(&mut reasons, DenialReason::SourceNotAllowedByDestination);
+    }
+
+    let purpose_required = source_rule.purpose_required || destination_rule.purpose_required;
+    let recipient_required = source_rule.recipient_required || destination_rule.recipient_required;
+    let consent_required = source_rule.consent_required || destination_rule.consent_required;
+
+    if purpose_required && request.purpose.is_none_or(|purpose| purpose.trim().is_empty()) {
+        push_reason(&mut reasons, DenialReason::PurposeRequired);
+    }
+    if recipient_required
+        && request
+            .recipient_id
+            .is_none_or(|recipient| recipient.trim().is_empty())
+    {
+        push_reason(&mut reasons, DenialReason::RecipientRequired);
+    }
+
+    if consent_required {
+        match request.consent {
+            None => push_reason(&mut reasons, DenialReason::ConsentRequired),
+            Some(consent) => {
+                if !(consent.grant.valid_from_unix_ms <= now_ms
+                    && now_ms < consent.grant.valid_until_unix_ms)
+                {
+                    if now_ms < consent.grant.valid_from_unix_ms {
+                        push_reason(&mut reasons, DenialReason::ConsentNotYetValid);
+                    } else {
+                        push_reason(&mut reasons, DenialReason::ConsentExpired);
+                    }
+                }
+                if now_ms >= consent.evidence_valid_until_unix_ms {
+                    push_reason(&mut reasons, DenialReason::ConsentEvidenceStale);
+                }
+                if request.recipient_id != Some(consent.grant.recipient_id.as_str()) {
+                    push_reason(&mut reasons, DenialReason::ConsentRecipientMismatch);
+                }
+                if request.purpose != Some(consent.grant.purpose.as_str()) {
+                    push_reason(&mut reasons, DenialReason::ConsentPurposeMismatch);
+                }
+            }
+        }
+    }
+    PolicyDecision::from_reasons(reasons)
+}
+
+fn validate_scope_list(scopes: &[String]) -> Result<(), ProfileValidationError> {
+    if scopes.len() > MAX_SCOPES_PER_RULE {
+        return Err(ProfileValidationError::TooManyScopes);
+    }
+    let mut seen = BTreeSet::new();
+    for scope in scopes {
+        if !valid_text(scope, MAX_SCOPE_ID_BYTES) {
+            return Err(ProfileValidationError::InvalidScope);
+        }
+        if !seen.insert(scope) {
+            return Err(ProfileValidationError::DuplicateScope);
+        }
+    }
+    Ok(())
+}
+
+fn valid_text(value: &str, max_bytes: usize) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= max_bytes
+        && !value.chars().any(char::is_control)
+}
+
+fn append_string(output: &mut Vec<u8>, value: &str) {
+    append_u32(output, value.len() as u32);
+    output.extend_from_slice(value.as_bytes());
+}
+
+fn append_sorted_strings(output: &mut Vec<u8>, values: &[String]) {
+    let mut sorted: Vec<&str> = values.iter().map(String::as_str).collect();
+    sorted.sort_unstable();
+    append_u32(output, sorted.len() as u32);
+    for value in sorted {
+        append_string(output, value);
+    }
+}
+
+fn append_u32(output: &mut Vec<u8>, value: u32) {
+    output.extend_from_slice(&value.to_le_bytes());
+}
+
+fn push_reason(reasons: &mut Vec<DenialReason>, reason: DenialReason) {
+    if !reasons.contains(&reason) {
+        reasons.push(reason);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct AcceptProfiles;
+    impl ProfileVerifier for AcceptProfiles {
+        fn verify_profile(
+            &self,
+            _profile: &RegionalProfile,
+        ) -> Result<(), ProfileVerificationFailure> {
+            Ok(())
+        }
+    }
+
+    struct RejectProfiles;
+    impl ProfileVerifier for RejectProfiles {
+        fn verify_profile(
+            &self,
+            _profile: &RegionalProfile,
+        ) -> Result<(), ProfileVerificationFailure> {
+            Err(ProfileVerificationFailure::InvalidSignature)
+        }
+    }
+
+    struct AcceptConsent {
+        evidence_until_ms: u64,
+    }
+    impl ConsentVerifier for AcceptConsent {
+        fn verify_current_grant(
+            &self,
+            _grant: &ConsentGrant,
+            _now_ms: u64,
+        ) -> Result<u64, ConsentVerificationFailure> {
+            Ok(self.evidence_until_ms)
+        }
+    }
+
+    fn rule(
+        allowed_destination_scopes: &[&str],
+        allowed_source_scopes: &[&str],
+        consent_required: bool,
+    ) -> PlacementRule {
+        PlacementRule {
+            data_class: DataClass::Personal,
+            allowed_actions: vec![BoundaryAction::Disclose, BoundaryAction::Backup],
+            allowed_destination_scopes: allowed_destination_scopes
+                .iter()
+                .map(|scope| (*scope).to_owned())
+                .collect(),
+            allowed_source_scopes: allowed_source_scopes
+                .iter()
+                .map(|scope| (*scope).to_owned())
+                .collect(),
+            purpose_required: true,
+            recipient_required: true,
+            consent_required,
+        }
+    }
+
+    fn profile(
+        scope: &str,
+        destinations: &[&str],
+        sources: &[&str],
+    ) -> RegionalProfile {
+        RegionalProfile {
+            schema_version: SUPPORTED_SCHEMA_VERSION,
+            profile_id: format!("profile-{scope}"),
+            profile_version: "1.0.0".to_owned(),
+            scope_id: scope.to_owned(),
+            valid_from_unix_ms: 100,
+            valid_until_unix_ms: 1_000,
+            rules: vec![rule(destinations, sources, true)],
+            content_digest: "a".repeat(64),
+            signing_key_id: "test-key".to_owned(),
+            signature: vec![1; 64],
+        }
+    }
+
+    fn verified(scope: &str, destinations: &[&str], sources: &[&str]) -> VerifiedProfile {
+        VerifiedProfile::verify(
+            profile(scope, destinations, sources),
+            200,
+            &AcceptProfiles,
+        )
+        .expect("fixture profile should verify through test adapter")
+    }
+
+    fn verified_consent(
+        recipient: &str,
+        purpose: &str,
+        valid_from_ms: u64,
+        valid_until_ms: u64,
+        evidence_until_ms: u64,
+        now_ms: u64,
+    ) -> VerifiedConsentGrant {
+        VerifiedConsentGrant::verify(
+            ConsentGrant {
+                grant_id: "grant-1".to_owned(),
+                recipient_id: recipient.to_owned(),
+                purpose: purpose.to_owned(),
+                valid_from_unix_ms: valid_from_ms,
+                valid_until_unix_ms: valid_until_ms,
+            },
+            now_ms,
+            &AcceptConsent {
+                evidence_until_ms,
+            },
+        )
+        .expect("fixture consent should verify through test adapter")
+    }
+
+    #[test]
+    fn permits_only_explicitly_authorized_bilateral_route() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(decision.allowed, "unexpected denial: {:?}", decision.reasons);
+        assert!(decision.reasons.is_empty());
+    }
+
+    #[test]
+    fn denies_asymmetric_destination_policy() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &[]);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::SourceNotAllowedByDestination));
+    }
+
+    #[test]
+    fn denies_missing_consent_even_when_route_is_allowed() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ConsentRequired));
+    }
+
+    #[test]
+    fn denies_consent_bound_to_another_recipient_or_purpose() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let consent = verified_consent("service:other", "marketing", 150, 500, 300, 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ConsentRecipientMismatch));
+        assert!(decision.reasons.contains(&DenialReason::ConsentPurposeMismatch));
+    }
+
+    #[test]
+    fn denies_when_revocation_evidence_is_stale() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let consent = verified_consent("service:education", "credential-check", 150, 500, 220, 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ConsentEvidenceStale));
+    }
+
+    #[test]
+    fn denies_after_profile_expires() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 1_000,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::SourceProfileInactive));
+        assert!(decision.reasons.contains(&DenialReason::DestinationProfileInactive));
+    }
+
+    #[test]
+    fn rejects_profile_that_trusted_adapter_does_not_verify() {
+        let result = VerifiedProfile::verify(
+            profile("community-a", &["community-b"], &[]),
+            200,
+            &RejectProfiles,
+        );
+        assert_eq!(
+            result,
+            Err(ProfileValidationError::VerificationFailed(
+                ProfileVerificationFailure::InvalidSignature
+            ))
+        );
+    }
+
+    #[test]
+    fn rejects_unsupported_profile_schema_before_verification() {
+        let mut invalid = profile("community-a", &["community-b"], &[]);
+        invalid.schema_version = SUPPORTED_SCHEMA_VERSION + 1;
+        assert_eq!(
+            invalid.validate_shape(),
+            Err(ProfileValidationError::UnsupportedSchemaVersion)
+        );
+    }
+
+    #[test]
+    fn canonical_payload_is_independent_of_set_order() {
+        let mut first = profile("community-a", &["community-b", "community-c"], &[]);
+        first.rules[0].allowed_actions = vec![BoundaryAction::Disclose, BoundaryAction::Backup];
+        let mut second = profile("community-a", &["community-c", "community-b"], &[]);
+        second.rules[0].allowed_actions = vec![BoundaryAction::Backup, BoundaryAction::Disclose];
+        assert_eq!(first.canonical_payload(), second.canonical_payload());
+    }
+
+    #[test]
+    fn rejects_duplicate_rule_classes_and_duplicate_scopes() {
+        let mut duplicate_class = profile("community-a", &["community-b"], &[]);
+        duplicate_class.rules.push(duplicate_class.rules[0].clone());
+        assert_eq!(
+            duplicate_class.validate_shape(),
+            Err(ProfileValidationError::DuplicateDataClassRule)
+        );
+
+        let mut duplicate_scope = profile("community-a", &["community-b", "community-b"], &[]);
+        assert_eq!(
+            duplicate_scope.validate_shape(),
+            Err(ProfileValidationError::DuplicateScope)
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_digest_and_empty_signature() {
+        let mut bad_digest = profile("community-a", &["community-b"], &[]);
+        bad_digest.content_digest = "not-a-digest".to_owned();
+        assert_eq!(
+            bad_digest.validate_shape(),
+            Err(ProfileValidationError::InvalidDigestFormat)
+        );
+
+        let mut bad_signature = profile("community-a", &["community-b"], &[]);
+        bad_signature.signature.clear();
+        assert_eq!(
+            bad_signature.validate_shape(),
+            Err(ProfileValidationError::InvalidSignatureLength)
+        );
+    }
+
+    #[test]
+    fn missing_purpose_and_recipient_are_denied() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            data_class: DataClass::Personal,
+            purpose: None,
+            recipient_id: None,
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::PurposeRequired));
+        assert!(decision.reasons.contains(&DenialReason::RecipientRequired));
+        assert!(decision.reasons.contains(&DenialReason::ConsentRecipientMismatch));
+        assert!(decision.reasons.contains(&DenialReason::ConsentPurposeMismatch));
+    }
+}
