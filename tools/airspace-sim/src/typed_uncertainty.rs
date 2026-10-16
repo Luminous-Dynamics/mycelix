@@ -790,7 +790,7 @@ mod tests {
             upper_mm: widened.upper_mm - 1,
         };
         assert!(
-            !bounds_enclose(narrowed_mutant, baseline),
+            !bounds_enclose(narrowed_mutant, widened),
             "the metamorphic containment control failed to detect a narrowed-output mutant"
         );
     }
