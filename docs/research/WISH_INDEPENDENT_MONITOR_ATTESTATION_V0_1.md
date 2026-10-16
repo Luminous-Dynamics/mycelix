@@ -12,7 +12,7 @@ This profile moves from **self-reported safety counters** to **independently att
 
 ## Envelope and canonicalization
 
-The envelope schema is `docs/research/schemas/wish-monitor-attestation-v0.1.schema.json`.
+The envelope schema is `docs/research/schemas/wish-monitor-attestation-v0.1.schema.json`. The monitor section now requires a qualification evidence reference and digest plus a claimed status. A verifier must independently validate that qualification; the status field is not self-authenticating. The schema forbids `no_violation_observed` unless coverage is complete and the claimed qualification status is `qualified`.
 
 1. Validate strict JSON first; reject duplicate object keys before any canonicalization.
 2. Validate the envelope against the Draft 2020-12 schema with format assertion enabled.
@@ -50,6 +50,10 @@ Do not collapse these into a single trust score. A cryptographic proof authentic
 - `coverage_complete=true` requires zero dropped events, no sequence gaps, and successful verification of the monitor chain. Schema conditions enforce only part of these invariants; the verifier must enforce the rest.
 - Missing attestation, verifier outage, stale status, unexplained chain break or incomplete coverage means the run is **unqualified/unresolved**. It must never be imputed as zero violations.
 - A `no_violation_observed` disposition is allowed only when coverage is complete, the monitor is qualified for the event family, and every hard-gate counter is zero. Denied egress attempts are reported separately: an attempted-but-blocked request is not itself a breach. A `violation_observed` disposition requires at least one hard-gate counter above zero. A violation remains a failure even when coverage is otherwise complete.
+
+## Conformance vectors
+
+The machine-readable vector catalogue is `docs/research/WISH_MONITOR_ATTESTATION_CONFORMANCE_VECTORS_V0_1.json`. It separates structural/integrity mutations that can be checked against this schema from cryptographic, credential, run-binding and monitor-capability cases that require the existing verifier interface and an independent monitor harness. It is a test oracle catalogue, not evidence that the vectors have executed.
 
 ## Minimum synthetic conformance corpus
 
@@ -103,4 +107,4 @@ Recent long-horizon agent evaluation emphasizes specific deliverables, rich tool
 
 ## Validation boundary
 
-The JSON schema content is authored in this slice, but its Draft 2020-12 meta-validation, canonicalization implementation, signature verification, monitor isolation, fixtures and integration tests have **not** been executed here. The local session lacks Cargo/Rust and no test pass is claimed. The schema constrains disposition/counter consistency and envelope shape, but cannot authenticate the proof or the independence of the producer.
+The JSON schema content is authored in this slice, but its Draft 2020-12 meta-validation, canonicalization implementation, signature verification, monitor isolation, fixtures and integration tests have **not** been executed here. The local session lacks Cargo/Rust and no test pass is claimed. The schema constrains disposition/counter/qualification consistency and envelope shape, but cannot authenticate the proof, validate referenced qualification evidence, or prove the independence of the producer.
