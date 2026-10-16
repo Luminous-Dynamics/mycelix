@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/civ-impact-causal-outcome-ledger-v0.1.schema.json",
+  "title": "CIV-IMPACT causal outcome ledger v0.1",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "trial_id", "trial_plan_sha256", "assignment_manifest_sha256", "entries"],
+  "properties": {
+    "schema_version": { "const": "civ-impact-causal-outcome-ledger-v0.1" },
+    "trial_id": { "type": "string", "minLength": 3 },
+    "trial_plan_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "assignment_manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "entries": {
+      "type": "array", "minItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["unit_id", "outcome_status", "primary_outcome_value", "harm_outcomes", "noncompliance", "deviation_codes"],
+        "properties": {
+          "unit_id": { "type": "string", "minLength": 1 },
+          "outcome_status": { "enum": ["observed", "missing", "withdrawn", "not_measured"] },
+          "primary_outcome_value": { "type": ["number", "null"] },
+          "harm_outcomes": { "type": "object", "additionalProperties": { "type": ["number", "boolean", "string", "null"] } },
+          "noncompliance": { "type": "boolean" },
+          "deviation_codes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    }
+  }
+}
