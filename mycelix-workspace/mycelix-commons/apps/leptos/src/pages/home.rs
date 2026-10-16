@@ -107,8 +107,9 @@ pub fn HomePage() -> impl IntoView {
                     </div>
                     <div class="mesh-card transport">
                         <h3>"Transport"</h3>
-                        <p>"67 shared vehicles, 12 routes"</p>
-                        <span class="mesh-status online">"Online"</span>
+                        <p>"Illustrative sample: 67 vehicles, 12 routes"</p>
+                        <span class="mesh-status warning">"Sample only — not connected"</span>
+                        <a href="/transport/logistics" class="logistics-entry-link">"Open logistics preview →"</a>
                     </div>
                     <div class="mesh-card mutual-aid">
                         <h3>"Mutual Aid"</h3>
