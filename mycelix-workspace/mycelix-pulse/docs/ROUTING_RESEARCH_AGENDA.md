@@ -133,16 +133,18 @@ The 20% resilience gate is a target, not a prior belief. If a baseline is near 1
 
 **Exit:** isolated contract tests compile and pass at the exact PR head; no claim until that evidence exists.
 
-### P1 — Better independent evaluation (implementation added; execution pending)
+### P1 — Paired evaluation and failure-correlation sensitivity (implementation added; execution pending)
 
 - Added `standards-registry/validator/src/evaluation.rs`, a paired multi-seed evaluator comparing sequential failover or parallel redundancy to preferred-single-path on the declared holdout scenarios.
-- Added an exhaustive, disjoint scenario split: five development scenarios and six holdout scenarios, with three separately declared resilience scenarios, including stable-network non-regression, privacy exclusion, flapping links, energy trade-offs, and shared-carrier failure.
-- Added per-holdout scenario rates, absolute percentage-point change, relative point-estimate improvement, a paired seed-level interval, and a model-only screen against the proposed 20% resilience / -2 percentage-point stable-network gates.
-- Added manifest-bound CLI flags for the checked-out subject SHA and SHA-256 of a generated input manifest. CI is configured for a 30-seed × 1,000-message smoke evaluation; `just evaluate-transport` defines the heavier 30-seed × 10,000-message run.
-- The interval explicitly measures variation in this synthetic model only. It is not empirical uncertainty about real network performance, and even a model-screen pass is not release qualification.
-- This tranche does **not** yet implement calibrated weak/unknown failure-correlation models, a true held-out test process history, hardware traces, or real device metrics.
+- Added an exhaustive, disjoint scenario split: five development scenarios and six holdout scenarios, with three explicitly declared resilience scenarios. Stable-network non-regression is checked separately.
+- Added per-holdout scenario rates, absolute percentage-point change, relative point-estimate improvement, attempts/cost/illustrative energy, a paired seed-level interval, and a model-only screen against the proposed 20% resilience / -2 percentage-point stable-network gates.
+- Added a configurable common-draw mixture weight with five declared sensitivity points (0, 2500, 5000, 7500, 10000). This is a synthetic common/independent draw mixture—not a fitted Pearson correlation coefficient. Explicit common-cause outage windows remain in force under every setting.
+- Fixed smoke-trace sampling: when message count is overridden, outage windows scale over the entire declared 10,000-message reference timeline so smoke runs retain outage and recovery phases rather than only sampling the initial prefix.
+- Added manifest-bound CLI flags for the checked-out subject SHA and SHA-256 of a generated input manifest. CI smoke is configured for 30 seeds × 500 messages per scenario across the sensitivity grid; `just evaluate-transport` defines the heavier 30-seed × 10,000-message run.
+- The interval measures variation in this synthetic model only. It is not empirical uncertainty about real network performance; even a model-screen pass is not release qualification.
+- This tranche still lacks empirically calibrated correlation distributions, a true development process history, measured network traces, hardware evidence, and receipt-verifier integration.
 
-**Exit:** exact-head Rust formatting, tests, and paired evaluation execute successfully; artifact subject/input hashes match the tested commit; negative controls pass; no performance result is claimed before that evidence appears.
+**Exit:** exact-head Rust formatting, tests and sensitivity runs execute successfully; artifact subject/input hashes match the tested commit; negative controls pass; no performance result is claimed before that evidence exists.
 
 ### P2 — Durable messaging semantics
 
