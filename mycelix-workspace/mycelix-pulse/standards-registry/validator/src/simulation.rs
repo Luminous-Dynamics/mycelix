@@ -61,10 +61,11 @@ impl Aggregate {
     fn to_json(&self) -> Value {
         json!({
             "logical_messages": self.messages,
-            "delivered_before_deadline": self.delivered,
-            "delivery_rate_basis_points": rate_basis_points(self.delivered, self.messages),
-            "p50_delivery_latency_ms": percentile(&self.latencies_ms, 50),
-            "p95_delivery_latency_ms": percentile(&self.latencies_ms, 95),
+            "modeled_path_successes_before_deadline": self.delivered,
+            "modeled_path_success_rate_basis_points": rate_basis_points(self.delivered, self.messages),
+            "latency_percentile_population": "modeled successes only; misses count toward deadline success rate but are not in latency percentiles",
+            "p50_modeled_latency_ms": percentile(&self.latencies_ms, 50),
+            "p95_modeled_latency_ms": percentile(&self.latencies_ms, 95),
             "attempts_per_1000_messages": scaled_per_message(self.attempts, self.messages, 1000),
             "mean_cost_units_x1000": scaled_per_message(self.cost_units, self.messages, 1000),
             "mean_energy_millijoules_x1000": scaled_per_message(
@@ -658,17 +659,52 @@ mod tests {
         let single = results
             .iter()
             .find(|row| row["strategy"] == "preferred_single_path")
-            .unwrap()["metrics"]["delivered_before_deadline"]
+            .unwrap()["metrics"]["modeled_path_successes_before_deadline"]
             .as_u64()
             .unwrap();
         let failover = results
             .iter()
             .find(|row| row["strategy"] == "sequential_failover")
-            .unwrap()["metrics"]["delivered_before_deadline"]
+            .unwrap()["metrics"]["modeled_path_successes_before_deadline"]
             .as_u64()
             .unwrap();
         assert!(failover > single, "single={single}, failover={failover}");
         assert_eq!(report["authenticated_delivery_established"], false);
+    }
+
+    #[test]
+    fn common_cause_outage_disables_all_paths_in_that_failure_domain() {
+        let corpus = corpus();
+        let value = corpus["scenarios"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|scenario| scenario["id"] == "shared-carrier-failure-domain")
+            .expect("shared failure-domain scenario exists");
+        let scenario = parse_scenario(value, 10).expect("scenario parses");
+        let path_a = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-a")
+            .expect("first carrier path exists");
+        let path_b = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "cellular-radio-b")
+            .expect("second carrier path exists");
+        let independent = scenario
+            .paths
+            .iter()
+            .find(|path| path.id == "independent-community-relay")
+            .expect("independent relay exists");
+
+        for message_index in [0, 1_500, 2_999] {
+            assert!(!eligible(&scenario, path_a, message_index));
+            assert!(!eligible(&scenario, path_b, message_index));
+            assert!(eligible(&scenario, independent, message_index));
+        }
+        assert!(eligible(&scenario, path_a, 3_000));
+        assert!(eligible(&scenario, path_b, 3_000));
     }
 
     #[test]
@@ -735,11 +771,11 @@ mod tests {
             .iter()
             .find(|row| row["strategy"] == "preferred_single_path")
             .unwrap();
-        assert_eq!(single["metrics"]["delivered_before_deadline"], 0);
+        assert_eq!(single["metrics"]["modeled_path_successes_before_deadline"], 0);
         let failover = rows
             .iter()
             .find(|row| row["strategy"] == "sequential_failover")
             .unwrap();
-        assert!(failover["metrics"]["delivered_before_deadline"].as_u64().unwrap() > 0);
+        assert!(failover["metrics"]["modeled_path_successes_before_deadline"].as_u64().unwrap() > 0);
     }
 }
