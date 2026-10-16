@@ -257,7 +257,7 @@ cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- analyze /tmp/civ
 cargo test --manifest-path tools/civ-impact-census/Cargo.toml
 ```
 
-The verifier consumes a result file from a separately implemented evaluator. The paired analyzer reports descriptive cost-per-demand and service-rate deltas, but computes no uncertainty interval and does not qualify causal savings or real-world behavior.
+The verifier consumes a result file from a separately implemented evaluator. The paired analyzer reports descriptive cost-per-demand, cost-per-successfully-served-unit and service-rate deltas, but computes no uncertainty interval and does not qualify causal savings or real-world behavior.
 
 ## 14. Current status
 
