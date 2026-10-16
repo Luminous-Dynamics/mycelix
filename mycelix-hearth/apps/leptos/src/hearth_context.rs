@@ -11,6 +11,7 @@ use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use hearth_leptos_types::*;
 use crate::mock_data;
+use crate::action_feedback::PublicationEvidenceNotice;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use crate::record_bridge::{self, WireRecord};
 
@@ -33,6 +34,8 @@ pub struct HearthCtx {
     pub milestones: RwSignal<Vec<MilestoneView>>,
     pub autonomy_profiles: RwSignal<Vec<AutonomyProfileView>>,
     pub my_agent: RwSignal<String>,
+    /// Latest one-shot publication evidence check tied to a returned action hash.
+    pub(crate) publication_evidence: RwSignal<Option<PublicationEvidenceNotice>>,
 }
 
 /// Initialize hearth context.
@@ -58,6 +61,7 @@ pub fn provide_hearth_context() -> HearthCtx {
         milestones: RwSignal::new(mock_data::mock_milestones()),
         autonomy_profiles: RwSignal::new(mock_data::mock_autonomy_profiles()),
         my_agent: RwSignal::new("agent_rowan".into()),
+        publication_evidence: RwSignal::new(None),
     };
 
     provide_context(ctx.clone());

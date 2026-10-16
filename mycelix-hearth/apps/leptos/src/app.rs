@@ -7,7 +7,7 @@ use leptos_router::{
     path,
 };
 
-use crate::components::{DataTrustNotice, Nav, DevPanel};
+use crate::components::{DataTrustNotice, PublicationEvidenceStatus, Nav, DevPanel};
 use crate::hearth_context::provide_hearth_context;
 use crate::pages::*;
 use crate::pages::personal;
@@ -64,6 +64,7 @@ fn AppInner() -> impl IntoView {
             <a href="#main-content" class="skip-to-content">"skip to content"</a>
             <Nav />
             <DataTrustNotice />
+            <PublicationEvidenceStatus />
             <DevPanel />
             // Ambient campfire — persistent warmth from the founding ceremony
             <crate::components::HearthFlame mode=crate::components::FlameMode::Ambient />

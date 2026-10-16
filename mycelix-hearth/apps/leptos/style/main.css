@@ -2250,6 +2250,52 @@ section h2 {
 .data-trust--unavailable { border-left-color: var(--bond-neglected); }
 .data-trust--unavailable .data-trust-mark { color: var(--bond-neglected); }
 
+/* === Authoring-conductor publication evidence ===
+   Shown separately from source-chain action feedback; never implies global sync. */
+.publication-evidence {
+    width: min(900px, calc(100% - 2rem));
+    margin: 0.5rem auto 0;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-soft);
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+.publication-evidence__copy { min-width: 0; }
+.publication-evidence__copy strong {
+    display: block;
+    margin-bottom: 0.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.publication-evidence__copy p {
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+.publication-evidence__copy small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+.publication-evidence--checking,
+.publication-evidence--progress { border-left-color: var(--bond-decaying); }
+.publication-evidence--thresholds { border-left-color: var(--text-secondary); }
+.publication-evidence--attention { border-left-color: var(--bond-neglected); }
+.publication-evidence--unknown { border-left-color: var(--text-muted); }
+
+@media (max-width: 480px) {
+    .publication-evidence {
+        width: calc(100% - 1rem);
+        margin-top: 0.4rem;
+        padding: 0.65rem 0.75rem;
+    }
+}
+
 /* Native secondary navigation: no hover-only activation and no JS menu state. */
 .nav-more { position: relative; flex: 0 0 auto; }
 .nav-more > summary {
