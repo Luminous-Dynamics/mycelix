@@ -12,7 +12,7 @@ cargo run --manifest-path tools/civ-impact-causal-field/Cargo.toml -- verify-tri
 
 The verify-trial command validates all three files against the repository schemas; verifies the exact assignment-manifest byte digest named by the plan and the exact plan/assignment byte digests repeated by the outcome ledger; checks trial identity, unique units, arm coverage, cluster assignment integrity, complete outcomes/dispositions, observed-versus-missing value consistency, and the preregistered missingness ceiling.
 
-A successful report means only **artifact and design-gate consistency**. It does not prove that the allocator actually randomized, that an attestation is authentic, that endpoints are valid, that there is no unmeasured confounding or interference, or that the estimated effect is statistically significant. Confirmatory interpretation requires independent allocator authentication, a justified estimator and sample-size/precision plan, domain/ethics review, and exact-head test evidence.
+A successful report means only **artifact and design-gate consistency**. It emits the outcome-ledger digest so an independent steward can sign and anchor a finalization receipt, but v0.1 does not implement that signature/transparency layer. It does not prove that the allocator actually randomized, that an attestation is authentic, that endpoints are valid, that there is no unmeasured confounding or interference, or that an effect is statistically significant. Confirmatory interpretation requires independent allocator authentication, an externally anchored result freeze, a justified estimator and sample-size/precision plan, domain/ethics review, and exact-head test evidence.
 
 ## Claim discipline
 
