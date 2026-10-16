@@ -1748,6 +1748,31 @@ mod tests {
     }
 
     #[test]
+    fn service_rate_bootstrap_interval_matches_equal_scenario_point_estimand() {
+        let mut schedule = small_schedule();
+        for scenario in &mut schedule.scenarios {
+            scenario.demand_units = 10_000;
+        }
+        let scenario_bytes = serde_json::to_vec(&schedule.scenarios)
+            .expect("serialize modified scenario set");
+        schedule.scenario_set_sha256 = sha256_hex(&scenario_bytes);
+
+        let results = complete_results_with_known_cost_tradeoff(&schedule);
+        let report = make_test_comparison(&schedule, &results, 456, &"f".repeat(64))
+            .expect("uniform-rate comparison");
+        let point = report
+            .candidate_minus_baseline_service_rate_percentage_points
+            .expect("point service-rate delta");
+        let interval = report.stratified_scenario_cluster_bootstrap_95
+            .expect("complete schedule produces bootstrap interval");
+        assert!((point + 5.0).abs() < 1e-9);
+        assert!((interval.candidate_minus_baseline_service_rate_percentage_points
+            .lower_2_5_percentile + 5.0).abs() < 1e-9);
+        assert!((interval.candidate_minus_baseline_service_rate_percentage_points
+            .upper_97_5_percentile + 5.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn bootstrap_interval_is_reproducible_for_identical_artifacts() {
         let schedule = build_schedule(10, 3).expect("larger schedule with multiple scenarios per stratum");
         let mut results = complete_results_with_known_cost_tradeoff(&schedule);
