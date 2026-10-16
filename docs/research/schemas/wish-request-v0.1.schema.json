@@ -1,0 +1,650 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/wish-request-v0.1.schema.json",
+  "title": "Wish-to-Outcome Request v0.1",
+  "description": "A requester-owned statement of desired outcome, constraints, privacy, consent scope and evaluation policy. This request is not a promise of fulfillment and grants no execution or spending authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "wish_id",
+    "created_at",
+    "requester_ref",
+    "visibility",
+    "goal",
+    "constraints",
+    "resource_needs",
+    "consent",
+    "risk_tier",
+    "lifecycle_status",
+    "outcome_status",
+    "requested_budget",
+    "evidence_policy",
+    "authorization_refs",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wish-request/0.1"
+    },
+    "wish_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]+$",
+      "description": "Opaque identifier. Must not encode names, email addresses, phone numbers or other personal data."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requester_ref": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$",
+      "description": "Opaque reference to the requester in an access-controlled identity system; not a public identity."
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "private",
+        "shared_with_approved_participants",
+        "public_summary_approved"
+      ],
+      "default": "private",
+      "description": "Public visibility requires explicit requester approval of the exact summary. A need is not public reputation data."
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "success_criteria",
+        "non_goals",
+        "accepts_partial_outcome"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "success_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "criterion_id",
+              "description",
+              "evidence_mode",
+              "required"
+            ],
+            "properties": {
+              "criterion_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "evidence_mode": {
+                "type": "string",
+                "enum": [
+                  "requester_confirmation",
+                  "deliverable_reference",
+                  "measurable_test",
+                  "independent_review",
+                  "dual_confirmation",
+                  "not_yet_defined"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              }
+            }
+          },
+          "description": "Success criteria are defined or approved by the requester. They must not be silently replaced with an aggregate model score."
+        },
+        "non_goals": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "description": "Outcomes, trade-offs or actions the requester does not want."
+        },
+        "deadline": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "accepts_partial_outcome": {
+          "type": "boolean"
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "constraint_id",
+          "category",
+          "statement",
+          "required",
+          "source",
+          "visibility"
+        ],
+        "properties": {
+          "constraint_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "budget",
+              "time",
+              "accessibility",
+              "privacy",
+              "geography",
+              "resource",
+              "safety",
+              "legal_or_policy",
+              "other"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "requester",
+              "system_proposal",
+              "policy",
+              "authorized_domain_reviewer"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "approved_participants",
+              "public_summary_approved"
+            ]
+          }
+        }
+      }
+    },
+    "resource_needs": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "need_id",
+          "kind",
+          "description",
+          "required"
+        ],
+        "properties": {
+          "need_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "digital_capability",
+              "human_time",
+              "material_good",
+              "service",
+              "access",
+              "funding",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "quantity": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "description": "Describes required resource types only. It does not assert that any resource is available or committed."
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "granted_scopes",
+        "consent_record_ref"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_requested",
+            "requested",
+            "granted",
+            "partially_granted",
+            "denied",
+            "revoked",
+            "expired"
+          ]
+        },
+        "granted_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "plan",
+              "share_minimal_request_with_approved_participants",
+              "contact_provider",
+              "share_progress_with_requester",
+              "execute_low_risk_digital_action",
+              "retain_minimal_audit_receipts"
+            ]
+          },
+          "description": "Scope-limited consent only. These values never replace a separate action-boundary authorization."
+        },
+        "consent_record_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 8,
+          "maxLength": 160,
+          "description": "Opaque reference to a separately preserved consent record; null before any record exists."
+        },
+        "granted_by_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 8,
+          "maxLength": 160
+        },
+        "granted_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "granted",
+                  "partially_granted"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "granted_by_ref",
+              "granted_at",
+              "expires_at"
+            ],
+            "properties": {
+              "granted_scopes": {
+                "minItems": 1
+              },
+              "granted_by_ref": {
+                "type": "string",
+                "minLength": 8
+              },
+              "granted_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "revoked"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "revoked_at"
+            ],
+            "properties": {
+              "revoked_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": [
+        "low",
+        "moderate",
+        "high",
+        "prohibited",
+        "not_assessed"
+      ],
+      "description": "High, prohibited or unassessed risk must trigger the applicable block/review policy; the schema alone does not enforce runtime policy."
+    },
+    "lifecycle_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "consented",
+        "planning",
+        "awaiting_resources",
+        "ready_for_authorization",
+        "authorized",
+        "in_progress",
+        "outcome_pending_verification",
+        "blocked",
+        "declined",
+        "withdrawn",
+        "cancelled",
+        "expired",
+        "fulfilled",
+        "partially_fulfilled",
+        "outcome_unknown",
+        "disputed"
+      ]
+    },
+    "outcome_status": {
+      "type": "string",
+      "enum": [
+        "not_assessed",
+        "no_outcome",
+        "partial",
+        "claimed_fulfilled",
+        "verified_fulfilled",
+        "blocked",
+        "declined",
+        "withdrawn",
+        "cancelled",
+        "expired",
+        "unknown",
+        "disputed"
+      ],
+      "description": "A claimed or verified outcome is separate from workflow status. Fulfilled must not be inferred solely from a plan, action attempt or attestation."
+    },
+    "requested_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "max_spend"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Three-letter currency code. No conversion or FX source is implied by this schema."
+        },
+        "max_spend": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_contributor_hours": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "budget_notes": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "description": "A requester-defined planning cap only. It is not authorization to spend or commit funds."
+    },
+    "evidence_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fulfillment_requires_recipient_confirmation",
+        "independent_verification",
+        "required_receipt_types"
+      ],
+      "properties": {
+        "fulfillment_requires_recipient_confirmation": {
+          "type": "boolean"
+        },
+        "independent_verification": {
+          "type": "string",
+          "enum": [
+            "not_required",
+            "required_if_feasible",
+            "required"
+          ]
+        },
+        "required_receipt_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "resource_commitment",
+              "authorization",
+              "action",
+              "delivery",
+              "recipient_feedback",
+              "independent_verification",
+              "cancellation_or_reconciliation"
+            ]
+          }
+        }
+      }
+    },
+    "authorization_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 160,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+      },
+      "description": "References to separate authorizations when they exist. Presence of a wish request does not authorize any action."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created_by_kind",
+        "producer_id",
+        "producer_version",
+        "canonicalization_profile",
+        "content_sha256"
+      ],
+      "properties": {
+        "created_by_kind": {
+          "type": "string",
+          "enum": [
+            "requester",
+            "requester_with_assistance",
+            "authorized_delegate",
+            "system_import"
+          ]
+        },
+        "producer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "producer_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "canonicalization_profile": {
+          "type": "string",
+          "const": "RFC8785-SHA-256-excluding-provenance-content_sha256/0.1"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "SHA-256 over the RFC 8785 canonical JSON representation with this content_sha256 value omitted; the digest does not prove the claims in the request."
+        },
+        "source_refs": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "description": "References to allowed source artifacts; use opaque or access-controlled references for private sources."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Namespaced extension data. Extensions must not weaken consent, authority, privacy or lifecycle invariants.",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_.-]{1,80}:[a-zA-Z0-9_.-]{1,100}$"
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "const": "fulfilled"
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome_status": {
+            "const": "verified_fulfilled"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "const": "partially_fulfilled"
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome_status": {
+            "const": "partial"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle_status": {
+            "const": "outcome_unknown"
+          }
+        },
+        "required": [
+          "lifecycle_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome_status": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  ]
+}
