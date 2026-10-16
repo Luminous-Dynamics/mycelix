@@ -69,6 +69,11 @@ pub fn evaluate_paired_seeds(
         "evaluation_split.holdout_scenario_ids",
         &mut errors,
     );
+    let resilience_ids = parse_id_list(
+        split.and_then(|value| value.get("resilience_scenario_ids")),
+        "evaluation_split.resilience_scenario_ids",
+        &mut errors,
+    );
 
     let scenarios = match corpus.get("scenarios").and_then(Value::as_array) {
         Some(values) if !values.is_empty() => values,
@@ -92,14 +97,23 @@ pub fn evaluate_paired_seeds(
 
     let development_set = development_ids.iter().cloned().collect::<BTreeSet<_>>();
     let holdout_set = holdout_ids.iter().cloned().collect::<BTreeSet<_>>();
-    if development_ids.is_empty() || holdout_ids.is_empty() {
-        errors.push("development and holdout scenario lists must both be non-empty".to_owned());
+    let resilience_set = resilience_ids.iter().cloned().collect::<BTreeSet<_>>();
+    if development_ids.is_empty() || holdout_ids.is_empty() || resilience_ids.is_empty() {
+        errors.push(
+            "development, holdout, and resilience scenario lists must all be non-empty".to_owned(),
+        );
     }
     if development_set.len() != development_ids.len() {
         errors.push("development scenario IDs must be unique".to_owned());
     }
     if holdout_set.len() != holdout_ids.len() {
         errors.push("holdout scenario IDs must be unique".to_owned());
+    }
+    if resilience_set.len() != resilience_ids.len() {
+        errors.push("resilience scenario IDs must be unique".to_owned());
+    }
+    if !resilience_set.is_subset(&holdout_set) {
+        errors.push("resilience scenario IDs must be a subset of the holdout set".to_owned());
     }
     if !development_set.is_disjoint(&holdout_set) {
         errors.push("development and holdout scenario IDs must be disjoint".to_owned());
@@ -126,9 +140,12 @@ pub fn evaluate_paired_seeds(
         return Err(vec!["message count must be greater than zero".to_owned()]);
     }
 
-    let mut deltas_percentage_points = Vec::with_capacity(seed_count as usize);
+    let mut holdout_deltas_percentage_points = Vec::with_capacity(seed_count as usize);
+    let mut resilience_deltas_percentage_points = Vec::with_capacity(seed_count as usize);
     let mut total_baseline_successes = 0_u128;
     let mut total_candidate_successes = 0_u128;
+    let mut total_resilience_baseline_successes = 0_u128;
+    let mut total_resilience_candidate_successes = 0_u128;
     let mut scenario_totals = BTreeMap::<String, ScenarioTotals>::new();
 
     for offset in 0..seed_count {
@@ -147,6 +164,8 @@ pub fn evaluate_paired_seeds(
 
         let mut seed_baseline_successes = 0_u128;
         let mut seed_candidate_successes = 0_u128;
+        let mut seed_resilience_baseline_successes = 0_u128;
+        let mut seed_resilience_candidate_successes = 0_u128;
 
         for row in rows {
             let Some(scenario_id) = row.get("scenario_id").and_then(Value::as_str) else {
@@ -201,37 +220,89 @@ pub fn evaluate_paired_seeds(
             totals.candidate_cost_per_1000 += u128::from(candidate_cost);
             totals.baseline_energy_millijoules_per_1000 += u128::from(baseline_energy);
             totals.candidate_energy_millijoules_per_1000 += u128::from(candidate_energy);
+            if resilience_set.contains(scenario_id) {
+                seed_resilience_baseline_successes += u128::from(baseline);
+                seed_resilience_candidate_successes += u128::from(candidate);
+            }
         }
 
         total_baseline_successes += seed_baseline_successes;
         total_candidate_successes += seed_candidate_successes;
-        let denominator = (messages_per_scenario as f64) * (holdout_set.len() as f64);
-        let baseline_rate = seed_baseline_successes as f64 / denominator;
-        let candidate_rate = seed_candidate_successes as f64 / denominator;
-        deltas_percentage_points.push((candidate_rate - baseline_rate) * 100.0);
+        total_resilience_baseline_successes += seed_resilience_baseline_successes;
+        total_resilience_candidate_successes += seed_resilience_candidate_successes;
+
+        let holdout_denominator =
+            (messages_per_scenario as f64) * (holdout_set.len() as f64);
+        let holdout_baseline_rate = seed_baseline_successes as f64 / holdout_denominator;
+        let holdout_candidate_rate = seed_candidate_successes as f64 / holdout_denominator;
+        holdout_deltas_percentage_points
+            .push((holdout_candidate_rate - holdout_baseline_rate) * 100.0);
+
+        let resilience_denominator =
+            (messages_per_scenario as f64) * (resilience_set.len() as f64);
+        let resilience_baseline_rate =
+            seed_resilience_baseline_successes as f64 / resilience_denominator;
+        let resilience_candidate_rate =
+            seed_resilience_candidate_successes as f64 / resilience_denominator;
+        resilience_deltas_percentage_points
+            .push((resilience_candidate_rate - resilience_baseline_rate) * 100.0);
     }
 
     let seed_count_f = seed_count as f64;
-    let messages_total = seed_count_f
+    let holdout_messages_total = seed_count_f
         * (messages_per_scenario as f64)
         * (holdout_set.len() as f64);
-    let baseline_rate = total_baseline_successes as f64 / messages_total;
-    let candidate_rate = total_candidate_successes as f64 / messages_total;
-    let relative_improvement = if baseline_rate > 0.0 {
-        Some(((candidate_rate - baseline_rate) / baseline_rate) * 100.0)
+    let holdout_baseline_rate =
+        total_baseline_successes as f64 / holdout_messages_total;
+    let holdout_candidate_rate =
+        total_candidate_successes as f64 / holdout_messages_total;
+    let holdout_relative_improvement = if holdout_baseline_rate > 0.0 {
+        Some(
+            ((holdout_candidate_rate - holdout_baseline_rate) / holdout_baseline_rate) * 100.0,
+        )
     } else {
         None
     };
 
-    let mean_delta = deltas_percentage_points.iter().sum::<f64>() / seed_count_f;
-    let sample_variance = deltas_percentage_points
+    let resilience_messages_total = seed_count_f
+        * (messages_per_scenario as f64)
+        * (resilience_set.len() as f64);
+    let resilience_baseline_rate =
+        total_resilience_baseline_successes as f64 / resilience_messages_total;
+    let resilience_candidate_rate =
+        total_resilience_candidate_successes as f64 / resilience_messages_total;
+    let resilience_relative_improvement = if resilience_baseline_rate > 0.0 {
+        Some(
+            ((resilience_candidate_rate - resilience_baseline_rate) / resilience_baseline_rate)
+                * 100.0,
+        )
+    } else {
+        None
+    };
+
+    let mean_holdout_delta =
+        holdout_deltas_percentage_points.iter().sum::<f64>() / seed_count_f;
+    let holdout_variance = holdout_deltas_percentage_points
         .iter()
-        .map(|delta| (delta - mean_delta).powi(2))
+        .map(|delta| (delta - mean_holdout_delta).powi(2))
         .sum::<f64>()
         / (seed_count_f - 1.0);
-    let standard_error = sample_variance.sqrt() / seed_count_f.sqrt();
-    let ci_low = mean_delta - CONSERVATIVE_95_MULTIPLIER * standard_error;
-    let ci_high = mean_delta + CONSERVATIVE_95_MULTIPLIER * standard_error;
+    let holdout_se = holdout_variance.sqrt() / seed_count_f.sqrt();
+    let holdout_ci_low = mean_holdout_delta - CONSERVATIVE_95_MULTIPLIER * holdout_se;
+    let holdout_ci_high = mean_holdout_delta + CONSERVATIVE_95_MULTIPLIER * holdout_se;
+
+    let mean_resilience_delta =
+        resilience_deltas_percentage_points.iter().sum::<f64>() / seed_count_f;
+    let resilience_variance = resilience_deltas_percentage_points
+        .iter()
+        .map(|delta| (delta - mean_resilience_delta).powi(2))
+        .sum::<f64>()
+        / (seed_count_f - 1.0);
+    let resilience_se = resilience_variance.sqrt() / seed_count_f.sqrt();
+    let resilience_ci_low =
+        mean_resilience_delta - CONSERVATIVE_95_MULTIPLIER * resilience_se;
+    let resilience_ci_high =
+        mean_resilience_delta + CONSERVATIVE_95_MULTIPLIER * resilience_se;
 
     let per_scenario = holdout_ids
         .iter()
@@ -266,8 +337,9 @@ pub fn evaluate_paired_seeds(
         .find(|row| row["scenario_id"] == "stable-ip")
         .and_then(|row| row["absolute_delta_percentage_points"].as_f64());
     let stable_non_regression = stable_delta.map(|delta| delta >= -2.0);
-    let relative_target_met = relative_improvement.is_some_and(|delta| delta >= 20.0);
-    let interval_excludes_zero = ci_low > 0.0;
+    let relative_target_met =
+        resilience_relative_improvement.is_some_and(|delta| delta >= 20.0);
+    let interval_excludes_zero = resilience_ci_low > 0.0;
 
     Ok(json!({
         "report_version": "1.0.0",
@@ -285,23 +357,35 @@ pub fn evaluate_paired_seeds(
         "messages_per_scenario_per_seed": messages_per_scenario,
         "development_scenario_ids": development_ids,
         "holdout_scenario_ids": holdout_ids,
+        "resilience_scenario_ids": resilience_ids,
         "holdout_scenario_count": holdout_set.len(),
+        "resilience_scenario_count": resilience_set.len(),
         "paired_evaluation": true,
         "confidence_interval": {
+            "population": "declared resilience scenarios only",
             "method": "paired seed-level mean delta with sample standard error",
             "multiplier": CONSERVATIVE_95_MULTIPLIER,
             "nominal_coverage_percent": 95,
-            "lower_delta_percentage_points": ci_low,
-            "upper_delta_percentage_points": ci_high,
+            "lower_delta_percentage_points": resilience_ci_low,
+            "upper_delta_percentage_points": resilience_ci_high,
             "note": "Conservative t-critical approximation for at least 30 seed replicates; interval summarizes variation in this synthetic model only, not field-network uncertainty."
         },
         "holdout_aggregate": {
-            "baseline_success_rate_percent": baseline_rate * 100.0,
-            "candidate_success_rate_percent": candidate_rate * 100.0,
-            "absolute_delta_percentage_points": (candidate_rate - baseline_rate) * 100.0,
-            "relative_improvement_percent": relative_improvement
+            "baseline_success_rate_percent": holdout_baseline_rate * 100.0,
+            "candidate_success_rate_percent": holdout_candidate_rate * 100.0,
+            "absolute_delta_percentage_points": (holdout_candidate_rate - holdout_baseline_rate) * 100.0,
+            "relative_improvement_percent": holdout_relative_improvement,
+            "paired_interval_lower_percentage_points": holdout_ci_low,
+            "paired_interval_upper_percentage_points": holdout_ci_high
+        },
+        "resilience_aggregate": {
+            "baseline_success_rate_percent": resilience_baseline_rate * 100.0,
+            "candidate_success_rate_percent": resilience_candidate_rate * 100.0,
+            "absolute_delta_percentage_points": (resilience_candidate_rate - resilience_baseline_rate) * 100.0,
+            "relative_improvement_percent": resilience_relative_improvement
         },
         "model_only_screen": {
+            "target_population": "resilience_scenario_ids only; stable-ip is reported separately",
             "relative_improvement_target_percent": 20,
             "relative_improvement_target_point_estimate_met": relative_target_met,
             "paired_interval_excludes_zero": interval_excludes_zero,
@@ -385,6 +469,13 @@ mod tests {
         assert_eq!(
             first["holdout_scenario_count"],
             first["per_holdout_scenario"].as_array().unwrap().len()
+        );
+        assert_eq!(first["resilience_scenario_count"], 3);
+        assert!(
+            first["confidence_interval"]["population"]
+                .as_str()
+                .unwrap()
+                .contains("resilience")
         );
         assert_eq!(first["model_only_screen"]["not_a_release_qualification"], true);
         assert!(
