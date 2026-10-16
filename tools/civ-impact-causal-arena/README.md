@@ -11,7 +11,7 @@ Default: 64 replications, 256 units per replication, seed 20261016. The report i
 
 ## Contract
 
-Five causal regimes × six strategies are compared on paired seeds. The report includes exact source SHA-256, cohort-average truth, estimate and standard error, nominal 95% interval coverage, directional claims, causal-identification status, cost units, and a full scheduled/completed/missing cell census.
+Five causal regimes × six strategies are compared on paired seeds. The report includes exact source SHA-256, treatment/control counts, cohort-average truth, estimate and standard error, nominal 95% interval coverage, directional claims, causal-identification status, cost units, and a full scheduled/completed/missing cell census. Aggregate effect-error metrics include Monte Carlo standard errors; repeated-run sign recovery, interval coverage, and null-world directional-claim rates include Wilson 95% intervals.
 
 The strategy called cue_guided sees only a noisy risk cue; it does not receive the hidden world parameters. The evaluator scores against the known structural causal model. always_abstain is a control, not a high-performing strategy: estimability and abstention rates remain visible.
 
