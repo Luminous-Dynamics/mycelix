@@ -24,7 +24,7 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target; AIR-PB-023 covers typed dimensional projection of uncertainty; AIR-PB-024 covers strict-schema parsing and generated differential verification.
+Scope: AIR-PB-015 and test-only scalar affine prototypes tracked by AIR-PB-017 through AIR-PB-019; AIR-PB-021 defines receipt-integrity checks; AIR-PB-022 sets the diverse-oracle target; AIR-PB-023 covers typed dimensional projection of uncertainty; AIR-PB-024 covers strict-schema parsing and generated differential verification; AIR-PB-025 adds traceable metamorphic laws over equivalent representation changes and uncertainty widening.
 
 Proposed targets:
 
@@ -35,6 +35,7 @@ Proposed targets:
 - 100% rejection of absent uncertainty models, conflicting bounds or typed contracts for a shared dependency ID, unsupported units/frames/time bases, noncanonical identifiers, invalid/expired validity windows, unsupported provenance claims, arithmetic overflow, and configured work/domain violations.
 - For AIR-PB-023, require explicit quantity kind/unit, validity basis, source and dependency identity, transform identity/source/target frame, and a declared sensitivity model when projecting clock offsets into position space. Unknown dimensions, incompatible dependency contracts, expired evidence, and inward rounding must reject or remain unresolved.
 - For AIR-PB-024, reject unknown fields at every typed-lineage schema boundary and target exact agreement with a separate term-wise finite-domain oracle on 500 seeded generated cases, including 500 order-reversal checks. Publish all disagreements and mutation outcomes; no warning-only conversion of schema/oracle failures.
+- For AIR-PB-025, run 500 additional seeded typed domains and report each relation independently: target 500/500 exact-bound matches after source-label renaming, 500/500 after equivalent sensitivity splitting, and 500/500 successful containment after consistently widening one shared dependency interval. The intentionally narrowed-output control must be rejected. Preserve failing examples and seed; one counterexample blocks the relation. These properties complement, but do not replace, the distinct finite-domain oracle.
 - Retain source IDs, dependency IDs, and coefficient contributions so a reviewer can distinguish origin from dependence. A source ID alone must not justify cancellation; a shared dependency ID may group contributions only under the declared synthetic contract. Neither ID is cryptographic identity or proof that physical errors truly share a cause.
 
 Important: these are targets for the scalar affine subset only. They do not validate nonlinear transformations, clocks, multi-axis geometry, stochastic assumptions, aircraft reachability, or physical sensor coverage.
@@ -113,6 +114,8 @@ Every result package must contain:
 - [FAA UTM Pilot Program Phase 2 Final Report](https://www.faa.gov/sites/faa.gov/files/uas/research_development/traffic_management/utm_pilot_program/FY20_UPP2_Final_Report.pdf): documents evaluations including strategic deconfliction and USS data-exchange performance. It is a useful baseline for reporting service-level metrics, not evidence that this prototype meets them.
 - [ASTM F3548-21](https://store.astm.org/f3548-21.html): defines UTM service-provider interoperability and strategic roles; its stated scope does not establish flight authorization or comprehensive tactical/manned/non-participating aircraft conflict coverage.
 - [NASA Software Assurance and IV&V (8 April 2026)](https://sma.nasa.gov/news/articles/newsitem/2026/04/08/reducing-risk-in-software-driven-hazards-across-nasa-programs-how-software-assurance-and-iv-v-strengthens-mission-safety): discusses common-cause failures, data validity, timing and targeted fault injection.
+- [FAA UTM Field Test](https://www.faa.gov/uas/research_development/traffic_management/field_test): the 2023 field-test programme covered complex operating environments and examined data correlation and strategic deconfliction. Use it as domain context, not as a directly comparable score for this synthetic harness.
+- [Traceable Metamorphic Test Cases for Robust Safety-Critical Systems (2026)](https://doi.org/10.1002/stvr.70020): motivates tying each metamorphic relation to a stated defect hypothesis. AIR-PB-025 follows that principle with named relations, explicit falsifiers, and a narrowed-output negative control.
 
 ## Non-claims
 
