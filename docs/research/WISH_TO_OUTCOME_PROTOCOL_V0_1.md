@@ -131,3 +131,8 @@ These benchmarks are complementary reference points, not interchangeable baselin
 5. **Comparative impact claim:** only after preregistered baselines, suitable sample-size reasoning, uncertainty intervals, distributional analysis and full failure/cost accounting. The 100-episode/10-stratum contract corpus is a smoke/contract target, not by itself a statistically powered impact study.
 
 Do not optimize a single “wish fulfillment rate” metric. Publish outcome quality, delay, lifecycle cost per verified outcome, resource realization, false-fulfillment, access, agency and all unserved/failed dispositions as a dashboard. A synthetic fixture passing is not evidence that a real person was helped.
+
+
+### Exact-value rule for budgets
+
+The request schema represents `requested_budget.max_spend` as a non-negative decimal **string**, not a JSON floating-point number (for example `"12.50"`). This avoids silently rounding a money cap through binary floating-point parsing. Before any real commitment or payment, the execution boundary must validate that value against a pinned currency metadata version, reject excess fractional digits, use exact decimal/minor-unit arithmetic, and independently enforce the authorized amount. The schema's string pattern does not by itself establish the currency's permitted precision and does not authorize spending.
