@@ -28,6 +28,7 @@ fn config() -> DetectorConfig {
     DetectorConfig {
         detector_id: "cincinnati.robust-reference".into(),
         detector_version: "1.0.0".into(),
+        configuration_id: "config:robust-z-v1-test-profile".into(),
         reference_dataset_id: "fixture:synthetic-healthy-reference-v1".into(),
         robust_z_threshold: 3.5,
         minimum_scale_by_signal: [
