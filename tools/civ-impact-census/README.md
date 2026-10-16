@@ -50,6 +50,12 @@ The figures above are a format illustration only, **not benchmark data or a prop
 
 A non-completed run uses one of `invalid_input`, `timeout`, `non_converged`, `missing_output`, or `evaluator_error`, includes a non-empty `failure_reason`, and does not advertise complete metrics. Failed and incomplete runs must remain visible in the census.
 
+## Paired descriptive analyzer
+
+The `analyze` command validates the census first, then pairs the incumbent and full-stack runs by the exact scenario ID and seed. It reports mean cost per demand unit, service rate, and—only when every expected pair is complete and neither arm has a zero-service pair—cost per successfully served unit, including absolute and relative changes.
+
+This is a descriptive summary of the supplied data, not a statistical test. No confidence intervals, preregistered significance test, causal estimate, or economic-benefit qualification are computed. Incomplete pairs remain visible in `incomplete_pairs`; zero-service outcomes prevent a misleading finite cost-per-served-unit comparison. The output contract is documented in [CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json](https://github.com/Luminous-Dynamics/mycelix/blob/research/civ-impact-benchmark-v0-1/docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json).
+
 ## Comparison arms
 
 The generated schedule includes:
@@ -97,6 +103,6 @@ Do not benchmark against third-party instances until source identity, exact obje
 
 ## Tests
 
-The crate defines 17 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, incomplete-pair visibility, and zero-service handling.
+The crate defines 18 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, incomplete-pair visibility, and zero-service handling.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
