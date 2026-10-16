@@ -408,6 +408,141 @@ pub fn evaluate_paired_seeds(
     }))
 }
 
+/// Evaluate a candidate across a declared grid of common-draw mixture
+/// weights, varying only the designated resilience scenarios. The weight is
+/// a synthetic model knob, not a fitted or empirical correlation coefficient.
+pub fn evaluate_correlation_sweep(
+    corpus: &Value,
+    messages: Option<u64>,
+    first_seed: u64,
+    seed_count: u64,
+    candidate_strategy: &str,
+) -> Result<Value, Vec<String>> {
+    let split = corpus.get("evaluation_split");
+    let weights_value = split
+        .and_then(|value| value.get("correlation_sweep_basis_points"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            vec![
+                "evaluation_split.correlation_sweep_basis_points must be an array".to_owned()
+            ]
+        })?;
+    let mut weights = Vec::with_capacity(weights_value.len());
+    for (index, value) in weights_value.iter().enumerate() {
+        match value.as_u64() {
+            Some(weight) if weight <= 10_000 => weights.push(weight),
+            _ => {
+                return Err(vec![format!(
+                    "evaluation_split.correlation_sweep_basis_points[{index}] must be an integer in [0, 10000]"
+                )]);
+            }
+        }
+    }
+    let unique_weights = weights.iter().copied().collect::<BTreeSet<_>>();
+    if weights.len() < 2
+        || unique_weights.len() != weights.len()
+        || !unique_weights.contains(&0)
+        || !unique_weights.contains(&10_000)
+    {
+        return Err(vec![
+            "correlation sweep must have at least two unique weights and include both 0 and 10000"
+                .to_owned(),
+        ]);
+    }
+
+    let resilience_ids = split
+        .and_then(|value| value.get("resilience_scenario_ids"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| vec!["resilience_scenario_ids must be an array".to_owned()])?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .filter(|text| !text.trim().is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| {
+                    vec!["resilience_scenario_ids must contain non-empty strings".to_owned()]
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let resilience_set = resilience_ids.iter().cloned().collect::<BTreeSet<_>>();
+    if resilience_set.is_empty() || resilience_set.len() != resilience_ids.len() {
+        return Err(vec![
+            "resilience_scenario_ids must be non-empty and unique".to_owned()
+        ]);
+    }
+
+    let mut points = Vec::with_capacity(weights.len());
+    for weight in &weights {
+        let mut weighted_corpus = corpus.clone();
+        let scenarios = weighted_corpus
+            .get_mut("scenarios")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| vec!["scenarios must be an array".to_owned()])?;
+        let mut found = BTreeSet::new();
+        for scenario in scenarios {
+            let Some(id) = scenario.get("id").and_then(Value::as_str) else {
+                continue;
+            };
+            if resilience_set.contains(id) {
+                scenario["failure_correlation_basis_points"] = json!(weight);
+                found.insert(id.to_owned());
+            }
+        }
+        if found != resilience_set {
+            let missing = resilience_set.difference(&found).cloned().collect::<Vec<_>>();
+            return Err(vec![format!(
+                "resilience_scenario_ids include unknown scenarios: {}",
+                missing.join(", ")
+            )]);
+        }
+
+        let report = evaluate_paired_seeds(
+            &weighted_corpus,
+            messages,
+            first_seed,
+            seed_count,
+            candidate_strategy,
+        )?;
+        points.push(json!({
+            "common_draw_mixture_basis_points": weight,
+            "resilience_aggregate": report["resilience_aggregate"].clone(),
+            "confidence_interval": report["confidence_interval"].clone(),
+            "model_only_screen": report["model_only_screen"].clone(),
+            "per_holdout_scenario": report["per_holdout_scenario"].clone()
+        }));
+    }
+
+    Ok(json!({
+        "report_version": "1.0.0",
+        "report_type": "synthetic_routing_correlation_sensitivity",
+        "corpus_id": corpus.get("corpus_id").and_then(Value::as_str),
+        "candidate_strategy": candidate_strategy,
+        "baseline_strategy": BASELINE_STRATEGY,
+        "seed_start": first_seed,
+        "seed_count": seed_count,
+        "messages_per_scenario_per_seed": messages
+            .or_else(|| corpus.get("default_message_count").and_then(Value::as_u64)),
+        "sensitivity_axis": {
+            "name": "common_draw_mixture_basis_points",
+            "interpretation": "At 0, same-domain path-success draws are independent conditional on explicit outage windows. At 10000, same-domain paths share one uniform draw. Intermediate values mix shared and path-specific draws. This is not a Pearson correlation coefficient and has not been calibrated against measured networks.",
+            "applies_to": resilience_ids
+        },
+        "simulation_only": true,
+        "authenticated_delivery_established": false,
+        "real_world_reliability_established": false,
+        "hardware_qualification": false,
+        "points": points,
+        "limitations": [
+            "The sensitivity sweep varies only the synthetic draw-sharing assumption on resilience scenarios.",
+            "Explicit outage windows remain common-cause outages regardless of the mixture weight.",
+            "Seed intervals describe the synthetic model only.",
+            "Modeled path success is not authenticated recipient delivery.",
+            "No RF, hardware, calibrated correlation, or real energy evidence is evaluated."
+        ]
+    }))
+}
+
 fn parse_id_list(value: Option<&Value>, label: &str, errors: &mut Vec<String>) -> Vec<String> {
     let Some(items) = value.and_then(Value::as_array) else {
         errors.push(format!("{label} must be an array of scenario IDs"));
