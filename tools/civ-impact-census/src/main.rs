@@ -223,7 +223,18 @@ impl XorShift64 {
     }
 
     fn range(&mut self, lower: u64, upper_exclusive: u64) -> u64 {
-        lower + (self.next() % (upper_exclusive - lower))
+        assert!(lower < upper_exclusive, "range must be non-empty");
+        let span = upper_exclusive - lower;
+        // XorShift64 emits the non-zero u64 domain [1, u64::MAX]. Reject its
+        // short tail so each residue class has exactly the same number of
+        // accepted values; this avoids modulo bias in regime resampling.
+        let accepted_count = u64::MAX - (u64::MAX % span);
+        loop {
+            let value = self.next();
+            if value <= accepted_count {
+                return lower + ((value - 1) % span);
+            }
+        }
     }
 }
 
@@ -1388,6 +1399,16 @@ mod tests {
     #[test]
     fn rejects_overflowing_schedule_before_large_allocation() {
         assert!(build_schedule(usize::MAX, 1).unwrap_err().contains("overflow"));
+    }
+
+    #[test]
+    fn rng_range_is_bounded_and_singleton_ranges_are_exact() {
+        let mut rng = XorShift64::new(7);
+        for _ in 0..10_000 {
+            assert_eq!(rng.range(19, 20), 19);
+            let sampled = rng.range(3, 13);
+            assert!((3..13).contains(&sampled));
+        }
     }
 
     #[test]
