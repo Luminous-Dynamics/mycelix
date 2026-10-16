@@ -52,6 +52,20 @@ This crate is **experimental and not wired into the supported alpha send path**.
 cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
 ```
 
+## Synthetic routing evaluation
+
+The synthetic trace harness compares preferred-single-path, sequential failover, and parallel redundancy. Its paired evaluator uses a declared development/holdout split, reports per-scenario attempts/cost/illustrative energy, and can sweep the common-draw mixture weight over 0, 2500, 5000, 7500 and 10000 for explicitly designated resilience scenarios. The weight is a synthetic sensitivity knob, not a calibrated empirical correlation coefficient. Short smoke runs scale declared outage windows across the whole reference trace so they include outage and recovery phases.
+
+From the Pulse workspace root:
+
+```sh
+just simulate-transport-smoke
+just evaluate-transport-smoke
+just evaluate-transport
+```
+
+The smoke command uses 30 seeds and 500 messages per scenario; the heavier evaluation uses 30 seeds and 10,000 messages per scenario in release mode. Reports include the subject SHA, hashed input-manifest digest, and generated validator lockfile as evidence. The evaluator and tests are not considered passing until exact-head CI artifacts confirm execution. All route-success, confidence-interval, cost, and energy numbers are synthetic-model diagnostics—not authenticated delivery, RF behavior, or hardware measurements.
+
 ## Runtime truth
 
 The UI exposes three states: `Live`, `Demo`, and `Unavailable`. Connection,
