@@ -236,7 +236,7 @@ fn frozen_cincinnati_v1_corpus_matches_expected_dispositions_and_signals() {
         }
     }
 
-    assert_eq!(ids.len(), 23, "corpus cardinality is versioned and must not drift silently");
+    assert_eq!(ids.len(), 24, "corpus cardinality is versioned and must not drift silently");
 }
 
 #[test]
