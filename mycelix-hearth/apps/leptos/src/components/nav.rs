@@ -41,6 +41,7 @@ pub fn Nav() -> impl IntoView {
             <details class="nav-more">
                 <summary aria-label="more household destinations">"more"</summary>
                 <div class="nav-more-menu" role="group" aria-label="more destinations">
+                    <A href="/found">"founding ceremony"</A>
                     <A href="/milestones">"milestones"</A>
                     <A href="/resources">"resources"</A>
                     <A href="/autonomy">"autonomy"</A>
