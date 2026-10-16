@@ -145,7 +145,7 @@ These counts are an initial floor to exercise the protocol, not evidence that th
 
 Use a declared measurement boundary and horizon. A useful primary metric for the transport profile is:
 
-`fully loaded cost per completed unit = (operational + data + compute + integration + review + coordination + failure/recovery costs) / successfully served units`
+`fully loaded cost per completed unit = (operational + capital amortization + data + compute + integration + review + coordination + failure/recovery costs) / successfully served units`
 
 This equation is incomplete until every numerator term has a stated inclusion rule, unit, observation source, and allocation method. Publish those rules.
 
