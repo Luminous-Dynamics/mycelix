@@ -11,7 +11,7 @@ publish = false
 jsonschema = { version = "=0.58.6", default-features = false }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.149", features = ["float_roundtrip"] }
-serde_json_canonicalizer = "=0.3.2"
+serde_json_canonicalizer = "=0.4.1"
 sha2 = "=0.10.9"
 
 [lints.rust]
