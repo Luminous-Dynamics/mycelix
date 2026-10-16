@@ -105,6 +105,12 @@ The tool does **not**:
 
 Do not benchmark against third-party instances until source identity, exact objective convention, license/usage terms, transformation lineage, and reference-solution semantics have been audited and pinned.
 
+## Reproducibility status
+
+- `rust-toolchain.toml` pins Rust `1.99.1`.
+- Direct crate dependencies are version-pinned in `Cargo.toml`.
+- A generated and committed `Cargo.lock` is still required to pin transitive dependency resolution before treating builds as fully reproducible or using the harness for confirmatory research. The current checkout cannot generate that lock locally because no Rust toolchain is installed in this authoring environment.
+
 ## Tests
 
 The crate defines 21 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, incomplete-pair visibility, and zero-service handling.
