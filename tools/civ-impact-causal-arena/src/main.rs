@@ -350,6 +350,8 @@ fn run_cell(world: World, strategy: &'static str, seed: u64, units_count: usize,
             Design::None => false,
         };
     let cost = cost_units(strategy, design, units_count);
+    let treated_units = units.iter().filter(|unit| unit.treatment == Some(true)).count();
+    let control_units = units.iter().filter(|unit| unit.treatment == Some(false)).count();
     let run_id = format!("{}/{}/rep-{replication:06}", world.id, strategy);
     let row = json!({
         "run_id": run_id,
@@ -357,6 +359,8 @@ fn run_cell(world: World, strategy: &'static str, seed: u64, units_count: usize,
         "strategy": strategy,
         "seed": seed,
         "confounding_signal_high": high_signal,
+        "treated_units": treated_units,
+        "control_units": control_units,
         "truth_ate": truth,
         "estimate": estimate,
         "standard_error": standard_error,
@@ -390,6 +394,25 @@ fn mean(values: &[f64]) -> Option<f64> {
     if values.is_empty() { None } else { Some(values.iter().sum::<f64>() / values.len() as f64) }
 }
 
+fn standard_error_of_mean(values: &[f64]) -> Option<f64> {
+    if values.len() < 2 { return None; }
+    let average = mean(values)?;
+    let sum_squares = values.iter().map(|value| (value - average).powi(2)).sum::<f64>();
+    Some((sum_squares / ((values.len() - 1) * values.len()) as f64).sqrt())
+}
+
+fn wilson_interval(binary_values: &[f64]) -> Option<(f64, f64)> {
+    if binary_values.is_empty() { return None; }
+    let n = binary_values.len() as f64;
+    let successes = binary_values.iter().filter(|value| **value >= 0.5).count() as f64;
+    let proportion = successes / n;
+    let z2 = Z95 * Z95;
+    let denominator = 1.0 + z2 / n;
+    let center = (proportion + z2 / (2.0 * n)) / denominator;
+    let half = Z95 * ((proportion * (1.0 - proportion) / n) + (z2 / (4.0 * n * n))).sqrt() / denominator;
+    Some(((center - half).max(0.0), (center + half).min(1.0)))
+}
+
 fn summarize(world: World, strategy: &str, cells: &[CellResult]) -> Value {
     let estimates: Vec<&CellResult> = cells.iter().filter(|cell| cell.estimate.is_some()).collect();
     let errors: Vec<f64> = estimates.iter().map(|cell| cell.estimate.unwrap() - cell.truth).collect();
@@ -407,16 +430,19 @@ fn summarize(world: World, strategy: &str, cells: &[CellResult]) -> Value {
         }))
         .collect();
     let costs: Vec<f64> = cells.iter().map(|cell| cell.cost).collect();
+    let sign_interval = wilson_interval(&signs);
+    let coverage_interval = wilson_interval(&coverage);
+    let false_directional_values: Option<Vec<f64>> = if world.id == "null_effect" {
+        Some(cells.iter().map(|cell| if matches!(cell.directional_claim, "positive" | "negative") { 1.0 } else { 0.0 }).collect())
+    } else {
+        None
+    };
+    let false_directional_interval = false_directional_values.as_deref().and_then(wilson_interval);
     let identified = cells.iter().filter(|cell| cell.causally_identified).count() as f64
         / cells.len() as f64;
     let abstention = cells.iter().filter(|cell| cell.directional_claim == "abstain").count() as f64
         / cells.len() as f64;
-    let false_directional = if world.id == "null_effect" {
-        Some(cells.iter().filter(|cell| matches!(cell.directional_claim, "positive" | "negative")).count() as f64
-            / cells.len() as f64)
-    } else {
-        None
-    };
+    let false_directional = false_directional_values.as_deref().and_then(mean);
 
     json!({
         "regime": world.id,
@@ -425,10 +451,18 @@ fn summarize(world: World, strategy: &str, cells: &[CellResult]) -> Value {
         "estimable_fraction": estimates.len() as f64 / cells.len() as f64,
         "causal_identification_rate": identified,
         "mean_error": mean(&errors),
+        "mean_error_mc_se": standard_error_of_mean(&errors),
         "mean_absolute_error": mean(&absolute_errors),
+        "mean_absolute_error_mc_se": standard_error_of_mean(&absolute_errors),
         "sign_recovery_rate": mean(&signs),
+        "sign_recovery_wilson95_low": sign_interval.map(|value| value.0),
+        "sign_recovery_wilson95_high": sign_interval.map(|value| value.1),
         "ci95_coverage": mean(&coverage),
+        "ci95_coverage_wilson95_low": coverage_interval.map(|value| value.0),
+        "ci95_coverage_wilson95_high": coverage_interval.map(|value| value.1),
         "false_directional_claim_rate_when_null": false_directional,
+        "false_directional_claim_wilson95_low": false_directional_interval.map(|value| value.0),
+        "false_directional_claim_wilson95_high": false_directional_interval.map(|value| value.1),
         "mean_cost_units": mean(&costs).unwrap_or(0.0),
         "mean_standard_error": mean(&ses),
         "nominal_precision_per_cost": mean(&precision),
