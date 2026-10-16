@@ -44,6 +44,20 @@ The model in `src/action_lifecycle.rs` is deliberately pure; it does not supply 
 
 The durable adapter must also handle an error after a remote commit but before the local journal records the response. The only safe answer is reconciliation or server-supported idempotency, not a client-generated claim of exactly-once execution.
 
+## Holochain-specific consistency boundary
+
+The frontend lifecycle must not overstate what a Holochain zome return or a DHT lookup proves.
+
+- Zome-call writes are atomic/transactional on the caller's source chain, but their resulting DHT operations are validated individually, not as one globally atomic transaction.
+- Integrity validation must be deterministic. A validation rule cannot safely enforce uniqueness by consulting a mutable, incomplete view of global DHT state.
+- Parallel calls against the same source chain can conflict (for example, with a chain-head-moved rollback). Do not equate every call error with an authoritative domain rejection; classify the observed error according to a typed contract.
+- A future idempotency record should bind an operation ID to a canonical payload digest, actor/authorization scope, domain target, and stored outcome. Reusing an operation ID with a different payload must be rejected.
+- Decide explicitly whether deduplication is only within one agent's source-chain scope or requires cross-agent coordination. Do not claim globally unique operation IDs or global exactly-once behavior merely because a DHT record or link is addressable.
+- A repeated logical operation should return or link to the prior recorded result under the specified scope. The implementation must be tested with concurrent same-key calls, a lost response after commit, duplicate requests on restart, and stale/incomplete DHT reads.
+- Keep result evidence separate from authority: a valid signed record shows that a record was committed under the DNA's validation rules, not that the user was authorized for every downstream physical, civic, or financial effect.
+
+Official background: [Holochain validation](https://developer.holochain.org/build/validation/), [zome functions and atomic transactions](https://developer.holochain.org/build/zome-functions/), and [identifiers](https://developer.holochain.org/build/identifiers/). These docs inform the contract boundary; this PR does not implement a Holochain idempotency protocol.
+
 ## Identity and privacy constraints
 
 - Operation ID is immutable within an attempt and unique in the relevant persistence scope.
