@@ -1270,12 +1270,13 @@ mod tests {
         ].into_iter().map(str::to_owned).collect();
         let report_properties = &schema["$defs"]["comparisonReport"]["properties"];
         assert_eq!(object_keys(report_properties), expected_report);
-        assert_eq!(
-            object_keys(report_properties),
-            schema["$defs"]["comparisonReport"]["required"]
-                .as_array().expect("report required array")
-                .iter().map(|value| value.as_str().expect("required key").to_owned()).collect()
-        );
+        let required_report: BTreeSet<String> = schema["$defs"]["comparisonReport"]["required"]
+            .as_array()
+            .expect("report required array")
+            .iter()
+            .map(|value| value.as_str().expect("required key").to_owned())
+            .collect();
+        assert_eq!(object_keys(report_properties), required_report);
 
         let bootstrap_properties = &report_properties["stratified_scenario_cluster_bootstrap_95"]["oneOf"][1]["properties"];
         let expected_bootstrap: BTreeSet<String> = [
