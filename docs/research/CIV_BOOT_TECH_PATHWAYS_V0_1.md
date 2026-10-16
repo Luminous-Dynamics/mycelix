@@ -170,7 +170,7 @@ Therefore keep the existing semiconductor placeholder blocked until its critical
 
 #### Frozen synthetic corpus for independent verification
 
-The companion [computer reproduction corpus](./CIV_BOOT_COMPUTER_REPRO_CORPUS_V0_1.json) preregisters 13 scenario outcomes across 22 state fields, including host-assisted success, verified host removal, hidden-host negative control, missing compute module, stale calibration, incomplete offline toolchain, revision drift, unrecorded intervention, imported-IC board assembly, separate-node transfer eligibility, and tool-renewal failure. It is a scenario specification—not physical evidence.
+The companion [computer reproduction corpus](./CIV_BOOT_COMPUTER_REPRO_CORPUS_V0_1.json) preregisters 14 synthetic fixtures across 26 state fields, including repairability/post-repair test, host-assisted success, verified host removal, a hidden-host negative control, missing or unknown compute-module stock, stale calibration, incomplete offline toolchain, revision drift, unrecorded intervention, imported-IC board assembly, separate-node transfer eligibility, and tool-renewal failure. It is a scenario specification—not physical evidence.
 
 The next implementation should be a dependency-light Rust validator/projection in the canonical Symthaea closure stack, with a deterministic report that names each blocked claim and missing dependency. Reuse [CIV-BOOT-002D #5789](https://github.com/Luminous-Dynamics/symthaea/issues/5789)'s PIE↔Rust differential methodology and [COMPUTE-MFG-002 #7658](https://github.com/Luminous-Dynamics/symthaea/issues/7658)'s physical host-removal campaign. Do not create a second closure engine in Mycelix.
 
