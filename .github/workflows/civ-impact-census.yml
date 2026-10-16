@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install stable Rust and rustfmt
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: rustfmt
 
@@ -44,16 +44,19 @@ jobs:
           jq empty docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json
 
       - name: Check Rust formatting
-        run: cargo fmt --manifest-path tools/civ-impact-census/Cargo.toml -- --check
+        working-directory: tools/civ-impact-census
+        run: cargo fmt -- --check
 
       - name: Run unit tests
-        run: cargo test --manifest-path tools/civ-impact-census/Cargo.toml
+        working-directory: tools/civ-impact-census
+        run: cargo test
 
       - name: Generate and inspect default schedule
+        working-directory: tools/civ-impact-census
         run: |
           set -euo pipefail
           out_dir="$(mktemp -d)"
-          cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- generate "$out_dir" 100 30 | tee "$out_dir/summary.json"
+          cargo run -- generate "$out_dir" 100 30 | tee "$out_dir/summary.json"
           jq -e '
             .status == "schedule_generated_not_executed" and
             .scenario_count == 100 and
