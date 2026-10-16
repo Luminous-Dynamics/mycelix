@@ -323,3 +323,65 @@ fn valid_subject_sha(value: &str) -> bool {
 fn is_hex_digest(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sha256(path: &PathBuf) -> String {
+        let output = Command::new("sha256sum")
+            .arg(path)
+            .output()
+            .expect("sha256sum must be available for evidence verification tests");
+        assert!(output.status.success());
+        String::from_utf8_lossy(&output.stdout)
+            .split_whitespace()
+            .next()
+            .expect("sha256sum must emit a digest")
+            .to_owned()
+    }
+
+    #[test]
+    fn evidence_binding_checks_head_manifest_contents_and_digest() {
+        let head = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("git must be available for evidence verification tests");
+        assert!(head.status.success());
+        let subject = String::from_utf8_lossy(&head.stdout).trim().to_owned();
+
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/evaluation.rs");
+        let source_manifest = Command::new("sha256sum")
+            .arg(&source)
+            .output()
+            .expect("sha256sum must be available");
+        assert!(source_manifest.status.success());
+
+        let manifest = env::temp_dir().join(format!(
+            "pulse-route-sim-evidence-{}.sha256",
+            std::process::id()
+        ));
+        fs::write(&manifest, source_manifest.stdout).expect("write temporary hash manifest");
+        let digest = sha256(&manifest);
+
+        let verified = verify_evidence_binding(&subject, &manifest, &digest)
+            .expect("current HEAD and an intact input manifest should verify");
+        assert_eq!(verified.0, subject);
+
+        let wrong_subject = "0".repeat(subject.len());
+        assert!(
+            verify_evidence_binding(&wrong_subject, &manifest, &digest).is_err(),
+            "mismatched subject must fail closed"
+        );
+
+        let mut tampered = fs::read_to_string(&manifest).expect("read manifest");
+        tampered.push_str(&format!("{}  {}\n", "0".repeat(64), source.display()));
+        fs::write(&manifest, tampered).expect("write tampered manifest");
+        let tampered_digest = sha256(&manifest);
+        assert!(
+            verify_evidence_binding(&subject, &manifest, &tampered_digest).is_err(),
+            "a manifest with a mismatched input hash must fail closed even when its own digest matches"
+        );
+        let _ = fs::remove_file(manifest);
+    }
+}
