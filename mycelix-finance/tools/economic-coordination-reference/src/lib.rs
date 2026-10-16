@@ -1,17 +1,17 @@
 #![forbid(unsafe_code)]
 
-/// Experimental escrow allocation for partition-tolerant local reservations; not a distributed protocol.
-pub mod fulfillment_escrow;
-
-/// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
-pub mod fulfillment_tranches;
-
 //! A small, deterministic reference model for one need-to-fulfilment lifecycle.
 //!
 //! This crate is intentionally NOT a Holochain zome, production ledger, payment
 //! adapter, signature verifier, or economic-policy optimizer. Callers supply
 //! evidence-verification outcomes; this model checks the consequences of those
 //! outcomes and keeps financial and physical states distinct.
+
+/// Experimental escrow allocation for partition-tolerant local reservations; not a distributed protocol.
+pub mod fulfillment_escrow;
+
+/// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
+pub mod fulfillment_tranches;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
