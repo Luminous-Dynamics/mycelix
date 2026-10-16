@@ -6,7 +6,7 @@ Run:
 - cargo fmt --manifest-path tools/wish-benchmark-census/Cargo.toml -- --check
 - cargo test --manifest-path tools/wish-benchmark-census/Cargo.toml
 - cargo run --manifest-path tools/wish-benchmark-census/Cargo.toml -- generate docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json /tmp/w2o-schedule
-- cargo run --manifest-path tools/wish-benchmark-census/Cargo.toml -- verify-census /tmp/w2o-schedule/planned-runs.json results.json report.json
+- cargo run --manifest-path tools/wish-benchmark-census/Cargo.toml -- verify-census docs/research/WISH_OUTCOME_BENCHMARK_MANIFEST_V0_1.json /tmp/w2o-schedule/planned-runs.json /tmp/w2o-schedule/policy-visible-episodes.json results.json report.json
 
 Generation emits planned-runs.json (controller-side schedule) and policy-visible-episodes.json (synthetic request/observation inputs). Pass only each policy episode to the candidate; keep controller metadata and scoring outside the candidate sandbox.
 
