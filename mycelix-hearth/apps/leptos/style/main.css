@@ -2332,3 +2332,105 @@ section h2 {
         padding: 0.75rem;
     }
 }
+
+
+/* === Intent-first household brief === */
+.household-brief {
+    margin: 0 0 2rem;
+}
+.brief-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.9rem;
+}
+.brief-eyebrow,
+.brief-category {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+}
+.brief-heading h2 {
+    margin-top: 0.15rem;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+.brief-subtitle {
+    max-width: 18rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+.brief-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+.brief-card {
+    min-width: 0;
+    min-height: 13rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-soft);
+    background: var(--bg-raised);
+}
+.brief-card--attention {
+    border-color: color-mix(in srgb, var(--emergency-red) 48%, var(--border));
+}
+.brief-number {
+    color: var(--primary);
+    font-size: 1.8rem;
+    font-weight: 500;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+.brief-card--attention .brief-number { color: var(--emergency-red); }
+.brief-card h3 {
+    color: var(--text-primary);
+    font-size: 0.96rem;
+    font-weight: 500;
+    line-height: 1.35;
+}
+.brief-description {
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+.brief-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0.35rem;
+}
+.brief-link:hover { text-decoration: underline; text-underline-offset: 0.15em; }
+@media (max-width: 768px) {
+    .brief-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .brief-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .brief-card { min-height: 12rem; padding: 0.85rem; }
+    .brief-card:last-child { grid-column: 1 / -1; }
+    .brief-link { min-height: 48px; }
+}
+@media (max-width: 420px) {
+    .brief-grid { grid-template-columns: minmax(0, 1fr); }
+    .brief-card:last-child { grid-column: auto; }
+    .brief-card { min-height: auto; }
+}
