@@ -1,7 +1,7 @@
 {
-  "schema": "airspace-affine-uncertainty-vectors-v1",
-  "status": "synthetic_research_vectors_not_physical_model",
-  "scope": "test-only scalar additive integer affine forms; IDs are asserted provenance labels and are not authenticated identities",
+  "schema": "airspace-affine-uncertainty-v2",
+  "status": "synthetic_research_vectors_with_declared_dependencies_not_authenticated_provenance",
+  "scope": "test-only scalar additive integer-affine forms; source_id records origin, dependency_id declares shared latent error identity; neither identifier is authenticated",
   "units": "synthetic_mm",
   "cases": [
     {
@@ -11,13 +11,15 @@
           "source_id": "observation",
           "lower_mm": -2,
           "upper_mm": 3,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_id": "observation"
         },
         {
           "source_id": "transform",
           "lower_mm": -4,
           "upper_mm": 1,
-          "coefficient": 2
+          "coefficient": 2,
+          "dependency_id": "transform"
         }
       ],
       "expected_bounds_mm": [
@@ -32,7 +34,8 @@
           "source_id": "clock-error",
           "lower_mm": -2,
           "upper_mm": 3,
-          "coefficient": -2
+          "coefficient": -2,
+          "dependency_id": "clock-error"
         }
       ],
       "expected_bounds_mm": [
@@ -47,13 +50,15 @@
           "source_id": "datum-bias",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_id": "datum-bias"
         },
         {
           "source_id": "datum-bias",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": -1
+          "coefficient": -1,
+          "dependency_id": "datum-bias"
         }
       ],
       "expected_bounds_mm": [
@@ -68,13 +73,15 @@
           "source_id": "source-a",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_id": "source-a"
         },
         {
           "source_id": "source-b",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": -1
+          "coefficient": -1,
+          "dependency_id": "source-b"
         }
       ],
       "expected_bounds_mm": [
@@ -89,16 +96,18 @@
           "source_id": "same",
           "lower_mm": -10,
           "upper_mm": 10,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_id": "same"
         },
         {
           "source_id": "same",
           "lower_mm": -11,
           "upper_mm": 10,
-          "coefficient": -1
+          "coefficient": -1,
+          "dependency_id": "same"
         }
       ],
-      "expected_error": "source_bounds_mismatch"
+      "expected_error": "dependency_bounds_mismatch"
     },
     {
       "id": "AIR-UNC-006",
@@ -107,7 +116,8 @@
           "source_id": " datum ",
           "lower_mm": -1,
           "upper_mm": 1,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_id": " datum "
         }
       ],
       "expected_error": "non_canonical_source_id"
@@ -124,19 +134,22 @@
           "source_id": "same",
           "lower_mm": -1,
           "upper_mm": 1,
-          "coefficient": 1000000
+          "coefficient": 1000000,
+          "dependency_id": "same"
         },
         {
           "source_id": "same",
           "lower_mm": -1,
           "upper_mm": 1,
-          "coefficient": 1000000
+          "coefficient": 1000000,
+          "dependency_id": "same"
         },
         {
           "source_id": "same",
           "lower_mm": -1,
           "upper_mm": 1,
-          "coefficient": -1000000
+          "coefficient": -1000000,
+          "dependency_id": "same"
         }
       ],
       "expected_bounds_mm": [
@@ -151,7 +164,8 @@
           "source_id": "bad",
           "lower_mm": 2,
           "upper_mm": 1,
-          "coefficient": 1
+          "coefficient": 1,
+          "dependency_id": "bad"
         }
       ],
       "expected_error": "invalid_source_bounds"
@@ -163,7 +177,8 @@
           "source_id": "wide",
           "lower_mm": -1000000000000,
           "upper_mm": 1000000000000,
-          "coefficient": 1000000
+          "coefficient": 1000000,
+          "dependency_id": "wide"
         }
       ],
       "expected_error": "output_bounds_too_wide"
@@ -175,7 +190,8 @@
           "source_id": "bad-coefficient",
           "lower_mm": -1,
           "upper_mm": 1,
-          "coefficient": 1000001
+          "coefficient": 1000001,
+          "dependency_id": "bad-coefficient"
         }
       ],
       "expected_error": "coefficient_out_of_range"
