@@ -18,6 +18,9 @@ const MAX_RECIPIENT_ID_BYTES: usize = 512;
 const MAX_EVENT_ID_BYTES: usize = 128;
 const MAX_ATTEMPT_ID_BYTES: usize = 128;
 const MAX_ATTEMPTS: usize = 32;
+/// Bound retained contract events per logical message; a backend may compact only
+/// after preserving the evidence and replay guarantees required by policy.
+const MAX_EVENTS_PER_MESSAGE: usize = 256;
 
 /// Stable logical identity plus a cryptographic commitment to the exact
 /// protected envelope. The caller computes the digest with a versioned,
@@ -348,6 +351,8 @@ pub enum JournalError {
     InvalidAttemptId,
     RevisionConflict { expected: u64, actual: u64 },
     RevisionExhausted,
+    EventLimitReached,
+    StorageFailure,
     EventIdConflict,
     MessageIdentityConflict,
     MissingQueueAcceptance,
@@ -384,9 +389,20 @@ pub trait DeliveryJournal {
         event: JournalEvent,
     ) -> Result<AppendOutcome, JournalError>;
 
-    fn snapshot(&self, identity: &MessageIdentity) -> Option<&JournalSnapshot>;
+    /// Return an owned snapshot so a database-backed implementation need not
+    /// retain references into a process-local cache.
+    fn snapshot(
+        &self,
+        identity: &MessageIdentity,
+    ) -> Result<Option<JournalSnapshot>, JournalError>;
 
-    fn history(&self, identity: &MessageIdentity) -> Option<&[JournalEntry]>;
+    /// Return an owned, bounded history. Persistent backends must enforce the
+    /// event retention limit and surface storage failures instead of pretending
+    /// an unavailable read means an empty stream.
+    fn history(
+        &self,
+        identity: &MessageIdentity,
+    ) -> Result<Vec<JournalEntry>, JournalError>;
 }
 
 /// Deterministic reference model used for contract tests. Its memory disappears
@@ -432,6 +448,13 @@ impl DeliveryJournal for InMemoryDeliveryJournal {
                 actual: actual_revision,
             });
         }
+        if self
+            .streams
+            .get(&event.identity)
+            .is_some_and(|(_, history)| history.len() >= MAX_EVENTS_PER_MESSAGE)
+        {
+            return Err(JournalError::EventLimitReached);
+        }
 
         let mut next = match self.streams.get(&event.identity) {
             Some((snapshot, _)) => {
@@ -469,14 +492,25 @@ impl DeliveryJournal for InMemoryDeliveryJournal {
         Ok(AppendOutcome::Appended { revision })
     }
 
-    fn snapshot(&self, identity: &MessageIdentity) -> Option<&JournalSnapshot> {
-        self.streams.get(identity).map(|(snapshot, _)| snapshot)
+    fn snapshot(
+        &self,
+        identity: &MessageIdentity,
+    ) -> Result<Option<JournalSnapshot>, JournalError> {
+        Ok(self
+            .streams
+            .get(identity)
+            .map(|(snapshot, _)| snapshot.clone()))
     }
 
-    fn history(&self, identity: &MessageIdentity) -> Option<&[JournalEntry]> {
-        self.streams
+    fn history(
+        &self,
+        identity: &MessageIdentity,
+    ) -> Result<Vec<JournalEntry>, JournalError> {
+        Ok(self
+            .streams
             .get(identity)
-            .map(|(_, history)| history.as_slice())
+            .map(|(_, history)| history.clone())
+            .unwrap_or_default())
     }
 }
 
@@ -861,7 +895,7 @@ mod tests {
             )),
             Err(JournalError::RevisionConflict { expected: 0, actual: 1 })
         );
-        assert_eq!(journal.snapshot(&identity).unwrap().revision(), 1);
+        assert_eq!(journal.snapshot(&identity).unwrap().unwrap().revision(), 1);
     }
 
     #[test]
@@ -900,7 +934,7 @@ mod tests {
             )),
             Err(JournalError::MessageIdentityConflict)
         );
-        assert_eq!(journal.snapshot(&identity).unwrap().revision(), 1);
+        assert_eq!(journal.snapshot(&identity).unwrap().unwrap().revision(), 1);
     }
 
     #[test]
@@ -957,7 +991,7 @@ mod tests {
             Err(JournalError::StaleWorkerEpoch { expected: 2, actual: 1 })
         );
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::OutcomeUnknown
         );
     }
@@ -984,10 +1018,10 @@ mod tests {
             JournalEventKind::RecipientReceiptVerified { evidence },
         )).unwrap();
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::Delivered
         );
-        assert_eq!(journal.snapshot(&identity).unwrap().revision(), 2);
+        assert_eq!(journal.snapshot(&identity).unwrap().unwrap().revision(), 2);
     }
 
     #[test]
@@ -1040,7 +1074,7 @@ mod tests {
             )),
             Err(JournalError::MessageExpired)
         );
-        assert_eq!(journal.snapshot(&identity).unwrap().revision(), 4);
+        assert_eq!(journal.snapshot(&identity).unwrap().unwrap().revision(), 4);
     }
 
     #[test]
@@ -1074,7 +1108,7 @@ mod tests {
             Err(JournalError::MessageExpired)
         );
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::Expired
         );
     }
@@ -1127,13 +1161,13 @@ mod tests {
             JournalActor::System,
             JournalEventKind::PolicyRevoked { policy_generation: 2 },
         )).unwrap();
-        assert!(journal.snapshot(&identity).unwrap().revoked());
+        assert!(journal.snapshot(&identity).unwrap().unwrap().revoked());
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::OutcomeUnknown
         );
         assert_eq!(
-            journal.snapshot(&identity).unwrap().active_attempt_id(),
+            journal.snapshot(&identity).unwrap().unwrap().active_attempt_id(),
             Some("attempt-1")
         );
         assert_eq!(
@@ -1160,9 +1194,9 @@ mod tests {
                 retry_at: None,
             },
         )).unwrap();
-        assert!(journal.snapshot(&identity).unwrap().revoked());
+        assert!(journal.snapshot(&identity).unwrap().unwrap().revoked());
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::AwaitingReceipt
         );
 
@@ -1182,8 +1216,54 @@ mod tests {
             JournalEventKind::RecipientReceiptVerified { evidence },
         )).unwrap();
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::Delivered
+        );
+    }
+
+    #[test]
+    fn journal_history_is_bounded_and_overflow_does_not_mutate_state() {
+        let mut journal = InMemoryDeliveryJournal::default();
+        let identity = queued(&mut journal);
+        for epoch in 1..MAX_EVENTS_PER_MESSAGE as u64 {
+            let event_id = format!("event-epoch-{epoch}");
+            let revision = journal.snapshot(&identity).unwrap().unwrap().revision();
+            journal.append(
+                revision,
+                event(
+                    &event_id,
+                    identity.clone(),
+                    epoch + 1,
+                    JournalActor::System,
+                    JournalEventKind::WorkerEpochAdvanced { new_epoch: epoch },
+                ),
+            )
+            .unwrap();
+        }
+        let before = journal.snapshot(&identity).unwrap().unwrap().revision();
+        assert_eq!(before as usize, MAX_EVENTS_PER_MESSAGE);
+        assert_eq!(
+            journal.append(
+                before,
+                event(
+                    "event-over-limit",
+                    identity.clone(),
+                    MAX_EVENTS_PER_MESSAGE as u64 + 2,
+                    JournalActor::System,
+                    JournalEventKind::WorkerEpochAdvanced {
+                        new_epoch: MAX_EVENTS_PER_MESSAGE as u64,
+                    },
+                ),
+            ),
+            Err(JournalError::EventLimitReached)
+        );
+        assert_eq!(
+            journal.history(&identity).unwrap().len(),
+            MAX_EVENTS_PER_MESSAGE
+        );
+        assert_eq!(
+            journal.snapshot(&identity).unwrap().unwrap().revision(),
+            before
         );
     }
 
@@ -1217,7 +1297,7 @@ mod tests {
             },
         )).unwrap();
         assert_eq!(
-            journal.snapshot(&identity).unwrap().status(),
+            journal.snapshot(&identity).unwrap().unwrap().status(),
             DurableDeliveryStatus::AwaitingReceipt
         );
     }
