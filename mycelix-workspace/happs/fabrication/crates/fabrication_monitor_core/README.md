@@ -16,16 +16,16 @@ The baseline is invalid for a frame from another design, process recipe, equipme
 
 ## Metrics and limitations
 
-The engine reports robust-z deviations, not defect diagnoses. Temperature/current/vibration/tension changes can have multiple physical causes, so a deviation must not be treated as a proven defect. The configured minimum scales and threshold are profile-bound values; no unit-independent defaults are supplied.
+The engine reports robust-z deviations for hotend/bed/ambient temperature, X/Y/Z/extruder current, vibration, filament tension and relative humidity, not defect diagnoses. Changes can have multiple physical causes, so a deviation must not be treated as a proven defect. The configured minimum scales and threshold are profile-bound values; no unit-independent defaults are supplied.
 
-Optional filament tension can be omitted during fitting. If a later observation contains tension without reference coverage, the report explicitly marks it uncalibrated while retaining results for the other covered signals. Missing sequence numbers or excessive sample intervals are not scored.
+Optional filament tension, ambient temperature and humidity can be omitted during fitting. If a later observation contains a value without reference coverage, the report explicitly marks that signal uncalibrated while retaining results for other covered signals. Missing sequence numbers or excessive sample intervals are not scored. Relative humidity is constrained to 0–100%.
 
 ## Frozen synthetic corpus
 
 - Corpus ID: CINCINNATI-MONITOR-SYNTHETIC-V1
 - Fixture: tests/fixtures/cincinnati_v1.tsv
-- SHA-256: e1206515e6a7c03b9e6fbdd077b7ab4ca470bb9abb02beb78e17241231739eaa
-- 15 cases: nominal trace, four signal deviations, uncalibrated optional signal, profile mismatch, invalid input, sequence/timestamp gaps, ordering violations and session mismatch.
+- SHA-256: 1c394903df0bb3671fb79f42b3e925af89a45dc110dbae746491c9ffce654138
+- 23 cases: nominal trace, temperature/current/vibration/environment deviations, optional-sensor coverage, design/recipe/equipment/material/environment/calibration mismatch, invalid input, sequence/timestamp gaps, ordering violations and session mismatch.
 - The independent integration evaluator in tests/frozen_corpus.rs checks disposition and signal-level expected outputs against the frozen fixture.
 
 This hash identifies the TSV bytes only. The corpus remains synthetic and is not evidence of physical defect sensitivity, production yield, safety, cost improvement or generalized cross-process performance.
@@ -42,9 +42,8 @@ These commands are intended acceptance checks; a command being listed here is no
 
 ## Next steps
 
-1. Independently review and run the crate tests.
-2. Add frozen positive and negative synthetic traces with corpus manifest and exact counts.
-3. Add an adapter from the existing Fabrication common SensorSnapshot type without changing existing hApp contracts.
-4. Compare this detector with fixed engineering limits and a conventional statistical-process-control baseline.
-5. Evaluate against recorded, process-appropriate data before making any physical quality or savings claim.
-6. Keep monitoring in shadow/recommendation mode until control authority and hardware safety have a separate verified design.
+1. Independently review and run the crate tests against the exact PR head.
+2. Add an adapter from the existing Fabrication common SensorSnapshot type without changing existing hApp contracts.
+3. Compare this detector with fixed engineering limits and a conventional statistical-process-control baseline.
+4. Evaluate against recorded, process-appropriate data using run- or batch-level holdouts before making any physical quality or savings claim.
+5. Keep monitoring in shadow/recommendation mode until control authority and hardware safety have a separate verified design.
