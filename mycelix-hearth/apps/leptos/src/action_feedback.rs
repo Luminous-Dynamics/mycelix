@@ -139,7 +139,7 @@ mod tests {
         ];
         let variants = [
             (ActionFeedbackKind::PreviewOnly, "Preview only:"),
-            (ActionFeedbackKind::SourceChainCommitted, "saved to your Holochain source chain"),
+            (ActionFeedbackKind::SourceChainCommitted, "saved."),
             (ActionFeedbackKind::OutcomeUnknown, "couldn't confirm whether"),
             (ActionFeedbackKind::NotSent { requirement: "sufficient information" }, "Not sent:"),
         ];
