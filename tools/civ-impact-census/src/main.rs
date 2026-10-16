@@ -308,7 +308,7 @@ fn build_schedule(scenario_count: usize, seed_count: usize) -> Result<Schedule, 
     if seed_count == 0 {
         return Err("seed count must be at least 1".into());
     }
-    let scenarios = build_scenarios(scenario_count)?;
+    // Bound allocation before constructing the scenario vector from user-supplied CLI sizes.
     let arms = build_arms();
     let expected = scenario_count
         .checked_mul(seed_count)
@@ -317,6 +317,7 @@ fn build_schedule(scenario_count: usize, seed_count: usize) -> Result<Schedule, 
     if expected > MAX_RUNS {
         return Err(format!("planned run count {expected} exceeds safety cap {MAX_RUNS}"));
     }
+    let scenarios = build_scenarios(scenario_count)?;
 
     let scenarios_bytes = serde_json::to_vec(&scenarios).map_err(|e| e.to_string())?;
     let scenario_set_sha256 = sha256_hex(&scenarios_bytes);
