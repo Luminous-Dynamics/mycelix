@@ -108,6 +108,19 @@ The test-only proof of concept in `tools/airspace-sim/src/typed_uncertainty.rs` 
 - Sensitivity is stored at a fixed scale of 1,000; output intervals are rounded outward to whole millimetres. Unknown units, invalid target frames, missing sensitivity models and contract mismatches are negative controls. The schema uses strict deserialization: unknown fields in terms, cases, output contracts or the fixture envelope must be rejected rather than ignored. AIR-PB-024 adds a seeded differential-oracle target for 500 generated domains and 500 term-order reversals; these are synthetic test-only conformance checks.
 
 This is a **test-only synthetic integer model**. Sensitivity values and transform identities are caller-declared fixture inputs, not authenticated or independently qualified physical evidence. The module validates declared dimensional consistency; it does not compute geographic coordinate transformations, synchronize real clocks, infer aircraft dynamics, or establish operational separation safety. AIR-PB-023 remains `implemented_pending_exact_head_verification` until the exact-head Rust tests finish.
+## 3.2 Versioned typed-lineage adapter boundary (AIR-PB-026)
+
+The `AdapterEnvelopeV1` test contract in `tools/airspace-sim/src/typed_uncertainty.rs` intentionally uses a differently named field map from the core typed term. It is a **test-only adapter conformance fixture**, not yet a production cross-project implementation.
+
+- Require an explicit schema version, fixture identity, evaluation time, and immutable authority ceiling at every boundary.
+- Preserve origin identity separately from dependency identity. Also preserve quantity kind, unit, frame, validity basis and interval, input bounds, fixed-point sensitivity and its basis, transformation identity/source/target frame, and sensitivity-model identity.
+- Distinguish a field explicitly present as `null` from a property omitted by the sender. Nullable fields remain required in the v1 adapter contract; unknown properties and unsupported schema versions are errors, not extension points.
+- Compare both field-level contract equivalence and normalized output/error parity. **Equal numeric bounds alone are insufficient**: the negative control changes a dependency key while preserving this fixture's bounds, so a value-only comparison would miss the metadata drift.
+- The authored test round-trips seven pinned fixtures and 500 seeded generated domains. Separate controls target missing required metadata, omitted nullable metadata, unknown fields, schema-version drift, blank fixture identity, authority-ceiling drift, and a changed dependency key.
+- Any future Mycelix / Symtropy / Sol-Atlas implementation should be a separately implemented consumer with its own source identity and negative controls; this same-crate prototype does not yet establish independent checker diversity.
+
+All AIR-PB-026 results remain `implemented_pending_exact_head_verification` until a Rust test run is completed on the exact commit. Neither round-trip equivalence nor a digest authenticates a publisher, qualifies a physical model, proves a reachable set, or grants aviation authority.
+
 
 ## 4. Project-specific adapter responsibilities
 
