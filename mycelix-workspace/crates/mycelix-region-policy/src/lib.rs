@@ -414,6 +414,11 @@ impl PolicyDecision {
 /// enforce it again at storage/transport/backup/telemetry boundaries. Scope IDs
 /// do not attest physical location; independent placement evidence is a
 /// separate deployment requirement.
+///
+/// The caller must supply evaluated_at_unix_ms from a trusted runtime clock.
+/// Never accept the evaluation timestamp from the requesting client. This pure
+/// kernel intentionally reads no wall clock, so time authority remains an
+/// explicit part of the adapter contract.
 pub fn evaluate_transfer(
     source: &VerifiedProfile,
     destination: &VerifiedProfile,
@@ -533,7 +538,7 @@ fn validate_scope_list(scopes: &[String]) -> Result<(), ProfileValidationError> 
 fn valid_text(value: &str, max_bytes: usize) -> bool {
     !value.trim().is_empty()
         && value.len() <= max_bytes
-        && !value.chars().any(char::is_control)
+        && !value.chars().any(|character| character.is_control())
 }
 
 fn append_string(output: &mut Vec<u8>, value: &str) {
