@@ -4,14 +4,14 @@ on:
   pull_request:
     paths:
       - "tools/civ-impact-census/**"
-      - "docs/research/CIV_IMPACT_*.schema.json"
+      - "docs/research/schema/CIV_IMPACT_*.schema.json"
       - "docs/research/CIV_IMPACT_BENCHMARK_V0_1.md"
       - ".github/workflows/civ-impact-census.yml"
   push:
     branches: ["main"]
     paths:
       - "tools/civ-impact-census/**"
-      - "docs/research/CIV_IMPACT_*.schema.json"
+      - "docs/research/schema/CIV_IMPACT_*.schema.json"
       - "docs/research/CIV_IMPACT_BENCHMARK_V0_1.md"
       - ".github/workflows/civ-impact-census.yml"
 
