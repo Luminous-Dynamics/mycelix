@@ -819,6 +819,42 @@
         "all_results_bind_exact_inputs_models_rules_and_checker"
       ],
       "scope": "test-only synthetic typed uncertainty contract; no authenticated provenance, real geodetic transformation, live clock synchronization, validated aircraft dynamics or operational aviation authority"
+    },
+    {
+      "id": "AIR-PB-025",
+      "name": "typed_lineage_metamorphic_laws_and_under_approximation_detection",
+      "paradigm": "correctness_is_invariant_under_equivalent_representations_and_monotone_under_uncertainty_widening",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Typed uncertainty bounds should obey algebraic relations even where an individual expected-answer fixture is absent: source-label renaming and sensitivity splitting preserve bounds, while widening a shared dependency interval cannot shrink them.",
+      "baseline": "Example-based assertions and finite-domain oracles cover selected inputs but may miss representation-sensitive defects or fail to detect incorrect bounds for a generated input without a separately pinned expected answer.",
+      "stimulus": "Run 500 seeded typed domains through three metamorphic relations: rename source labels, split one contribution into two sensitivities with the same exact sum, and widen one dependency interval consistently across every term sharing that dependency. Include a deliberately narrowed-output mutation control.",
+      "success_conditions": [
+        "All 500 generated source-label renamings preserve output bounds exactly.",
+        "All 500 sensitivity-split transformations preserve output bounds exactly, including negative and odd fixed-point sensitivities.",
+        "All 500 consistent dependency-interval widenings produce an output interval that contains the original interval.",
+        "The explicit narrowed-output mutant violates containment and is detected.",
+        "The generator seed, transformations, relation counts and exact test source are pinned; every failure reports the generated case index and relevant dependency."
+      ],
+      "falsifiers": [
+        "Equivalent source-label renaming changes numeric bounds.",
+        "Splitting a coefficient into summands with an identical total changes bounds.",
+        "Widening any shared dependency interval excludes a previously possible output.",
+        "The narrowed-output mutation control passes containment.",
+        "A metamorphic pass is described as validating physical aircraft dynamics, operational risk, or aviation safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust test output and immutable commit SHA",
+        "Generator seed and exact relation implementations",
+        "Per-relation denominator and mismatch count for 500 generated domains",
+        "Observed detection of the deliberately narrowed-output mutant",
+        "Separate differential-oracle evidence and explicit synthetic-only scope"
+      ],
+      "hard_invariants": [
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted"
+      ],
+      "scope": "test-only metamorphic checks over bounded synthetic integer typed-lineage domains; does not validate oracle independence formally, physical uncertainty distributions, reachable sets, real aircraft dynamics, or operational aviation safety"
     }
   ]
 }
