@@ -339,7 +339,10 @@ mod tests {
         assert_eq!(first["paired_evaluation"], true);
         assert_eq!(first["simulation_only"], true);
         assert_eq!(first["real_world_reliability_established"], false);
-        assert_eq!(first["holdout_scenario_count"], first["per_holdout_scenario"].as_array().unwrap().len());
+        assert_eq!(
+            first["holdout_scenario_count"],
+            first["per_holdout_scenario"].as_array().unwrap().len()
+        );
         assert_eq!(first["model_only_screen"]["not_a_release_qualification"], true);
     }
 
@@ -347,13 +350,18 @@ mod tests {
     fn paired_evaluator_rejects_too_few_seeds_and_unknown_candidate() {
         let corpus = corpus();
         assert!(evaluate_paired_seeds(&corpus, Some(10), 7, 2, "sequential_failover").is_err());
-        assert!(evaluate_paired_seeds(&corpus, Some(10), 7, MIN_SEEDS, "oracle").is_err());
+        assert!(
+            evaluate_paired_seeds(&corpus, Some(10), 7, MIN_SEEDS, "oracle").is_err()
+        );
     }
 
     #[test]
     fn paired_evaluator_rejects_overlapping_or_incomplete_split() {
         let mut corpus = corpus();
         corpus["evaluation_split"]["holdout_scenario_ids"][0] = json!("scheduled-ip-outage");
-        assert!(evaluate_paired_seeds(&corpus, Some(10), 7, MIN_SEEDS, "sequential_failover").is_err());
+        assert!(
+            evaluate_paired_seeds(&corpus, Some(10), 7, MIN_SEEDS, "sequential_failover")
+                .is_err()
+        );
     }
 }
