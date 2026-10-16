@@ -17,7 +17,7 @@ const MAX_ABS_SOURCE_BOUND_MM: i128 = 1_000_000_000_000;
 const MAX_ABS_COEFFICIENT: i128 = 1_000_000;
 const MAX_ABS_COMPOSED_BOUND_MM: i128 = 1_000_000_000_000_000;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 struct DependencyContract {
     quantity_kind: String,
     unit: String,
@@ -269,6 +269,7 @@ impl AffineUncertainty {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
 
     fn contribution(
         source_id: &str,
@@ -322,6 +323,78 @@ mod tests {
         expected_bounds_mm: Option<[i64; 2]>,
         expected_error: Option<String>,
         evaluation_time_s: Option<i64>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct EvidenceReceiptContract {
+        schema: String,
+        status: String,
+        hash_algorithm: String,
+        input_fixture_path: String,
+        input_fixture_sha256: String,
+        supported_dependency_contract_sha256: String,
+        expected_outcomes_sha256: String,
+        evaluator_id: String,
+        checker_id: String,
+        evaluation_time_policy: String,
+        case_count: usize,
+        source_revision_binding: String,
+        signature_status: String,
+        authority_ceiling: String,
+    }
+
+    #[derive(Debug, Clone, serde::Serialize)]
+    struct ObservedCaseOutcome {
+        id: String,
+        evaluation_time_s: i64,
+        outcome: String,
+        lower_mm: Option<i64>,
+        upper_mm: Option<i64>,
+        error_code: Option<String>,
+    }
+
+    fn sha256_hex(bytes: &[u8]) -> String {
+        use std::fmt::Write as _;
+        let digest = Sha256::digest(bytes);
+        let mut output = String::with_capacity(64);
+        for byte in digest {
+            write!(&mut output, "{byte:02x}")
+                .expect("writing to a String cannot fail");
+        }
+        output
+    }
+
+    fn is_sha256_hex(value: &str) -> bool {
+        value.len() == 64
+            && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    }
+
+    fn observed_fixture_outcomes(fixture: &FixtureSet) -> Vec<ObservedCaseOutcome> {
+        fixture.cases.iter().map(|case| {
+            let evaluation_time_s = case.evaluation_time_s.unwrap_or(0);
+            let result = match AffineUncertainty::new(case.terms.clone()) {
+                Err(error) => Err(error),
+                Ok(model) => model.bounds_at(evaluation_time_s),
+            };
+            match result {
+                Ok(bounds) => ObservedCaseOutcome {
+                    id: case.id.clone(),
+                    evaluation_time_s,
+                    outcome: "bounds".to_owned(),
+                    lower_mm: Some(bounds.lower_mm),
+                    upper_mm: Some(bounds.upper_mm),
+                    error_code: None,
+                },
+                Err(error) => ObservedCaseOutcome {
+                    id: case.id.clone(),
+                    evaluation_time_s,
+                    outcome: "error".to_owned(),
+                    lower_mm: None,
+                    upper_mm: None,
+                    error_code: Some(error_code(error).to_owned()),
+                },
+            }
+        }).collect()
     }
 
     fn error_code(error: UncertaintyError) -> &'static str {
@@ -822,6 +895,95 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn replay_evidence_receipt_binds_exact_inputs_supported_contract_and_observed_outcomes() {
+        let receipt: EvidenceReceiptContract = serde_json::from_str(include_str!(
+            "../fixtures/uncertainty_evidence_receipt_contract.json"
+        )).expect("evidence receipt contract must parse");
+        let fixture: FixtureSet = serde_json::from_str(include_str!(
+            "../fixtures/uncertainty_vectors.json"
+        )).expect("vector fixture must parse");
+
+        assert_eq!(receipt.schema, "airspace-uncertainty-evidence-receipt-v1");
+        assert_eq!(receipt.status, "expected_digest_contract_not_runtime_attestation");
+        assert_eq!(receipt.hash_algorithm, "sha-256");
+        assert_eq!(
+            receipt.input_fixture_path,
+            "tools/airspace-sim/fixtures/uncertainty_vectors.json"
+        );
+        assert!(is_sha256_hex(&receipt.input_fixture_sha256));
+        assert!(is_sha256_hex(&receipt.supported_dependency_contract_sha256));
+        assert!(is_sha256_hex(&receipt.expected_outcomes_sha256));
+        assert_eq!(
+            receipt.input_fixture_sha256,
+            sha256_hex(include_bytes!("../fixtures/uncertainty_vectors.json"))
+        );
+
+        let supported_contract = serde_json::to_vec(&default_dependency_contract())
+            .expect("supported dependency contract must serialize deterministically");
+        assert_eq!(
+            receipt.supported_dependency_contract_sha256,
+            sha256_hex(&supported_contract)
+        );
+
+        let outcome_bytes = serde_json::to_vec(&observed_fixture_outcomes(&fixture))
+            .expect("observed outcomes must serialize deterministically");
+        assert_eq!(
+            receipt.expected_outcomes_sha256,
+            sha256_hex(&outcome_bytes),
+            "replayed outcomes did not match the receipt's pinned result digest"
+        );
+        assert_eq!(receipt.case_count, fixture.cases.len());
+        assert_eq!(receipt.evaluator_id, "scalar_affine_interval_v3");
+        assert_eq!(
+            receipt.checker_id,
+            "golden_vectors_plus_finite_domain_point_oracle_v1"
+        );
+        assert_eq!(receipt.evaluation_time_policy, "case_override_else_zero");
+        assert_eq!(
+            receipt.source_revision_binding,
+            "external_exact_head_ci_context_required"
+        );
+        assert_eq!(receipt.signature_status, "unsigned");
+        assert_eq!(
+            receipt.authority_ceiling,
+            "offline_synthetic_research_only_no_operational_aviation_authority"
+        );
+    }
+
+    #[test]
+    fn replay_evidence_receipt_detects_input_contract_and_output_mutations() {
+        let fixture_bytes = include_bytes!("../fixtures/uncertainty_vectors.json");
+        let original_input_digest = sha256_hex(fixture_bytes);
+        let mut changed_input = fixture_bytes.to_vec();
+        changed_input.push(b' ');
+        assert_ne!(sha256_hex(&changed_input), original_input_digest);
+
+        let supported_contract = default_dependency_contract();
+        let original_contract_digest = sha256_hex(
+            &serde_json::to_vec(&supported_contract).unwrap()
+        );
+        let mut changed_contract = supported_contract;
+        changed_contract.unit = "feet".to_owned();
+        assert_ne!(
+            sha256_hex(&serde_json::to_vec(&changed_contract).unwrap()),
+            original_contract_digest
+        );
+
+        let fixture: FixtureSet = serde_json::from_str(include_str!(
+            "../fixtures/uncertainty_vectors.json"
+        )).unwrap();
+        let outcomes = observed_fixture_outcomes(&fixture);
+        let original_outcome_digest = sha256_hex(&serde_json::to_vec(&outcomes).unwrap());
+        let mut changed_outcomes = outcomes;
+        let first = changed_outcomes.first_mut().expect("fixture is non-empty");
+        first.lower_mm = Some(first.lower_mm.expect("first outcome has a lower bound") + 1);
+        assert_ne!(
+            sha256_hex(&serde_json::to_vec(&changed_outcomes).unwrap()),
+            original_outcome_digest
+        );
+    }
 
     #[test]
     fn dependency_contract_rejects_unknown_units_frames_time_bases_and_provenance() {
