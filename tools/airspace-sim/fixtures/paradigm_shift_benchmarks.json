@@ -855,6 +855,48 @@
         "unknown_behavior_is_unresolved_not_defaulted"
       ],
       "scope": "test-only metamorphic checks over bounded synthetic integer typed-lineage domains; does not validate oracle independence formally, physical uncertainty distributions, reachable sets, real aircraft dynamics, or operational aviation safety"
+    },
+    {
+      "id": "AIR-PB-026",
+      "name": "versioned_typed_lineage_adapter_preserves_metadata_and_fail_closed_semantics",
+      "paradigm": "evidence_equivalence_requires_metadata_preservation_not_only_equal_numeric_outputs",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "A schema adapter can preserve numerical bounds while silently changing a dependency identity or dropping an explicit-null metadata field; a checker must compare the typed contract and reject omissions rather than relying on outcome equality alone.",
+      "baseline": "A value-only round-trip test can pass when the dependency graph's identity metadata changed, because the mutated dependency may not change this particular interval result.",
+      "stimulus": "Serialize typed fixture and generated lineage through a separately named, versioned adapter schema with explicit field mapping. Round-trip all seven committed typed-lineage fixtures and 500 seeded generated domains. Remove a required dependency field, remove an explicitly-null optional transform field, inject an unknown field, alter a dependency key while preserving numeric bounds, and mutate the adapter schema or authority ceiling.",
+      "success_conditions": [
+        "All seven committed cases preserve every source ID, dependency ID, dimension, unit, frame, time basis, validity bound, input interval, sensitivity, transform identity and sensitivity-model identifier exactly.",
+        "All 500 generated domains preserve exact term structures and produce identical bounds or identical typed errors before and after the adapter round-trip.",
+        "Missing required fields and omitted nullable fields are rejected; explicit null remains distinct from a missing property.",
+        "Unknown adapter fields, unsupported schema versions, missing fixture identity and authority-ceiling mutation fail closed.",
+        "A dependency identity mutation is detected by the metadata comparison even when the numeric interval is unchanged.",
+        "Evidence binds the exact head, adapter schema, fixture bytes, generator seed, per-control outcomes and authority ceiling; no adapter integrity claim is called authentication."
+      ],
+      "falsifiers": [
+        "An omitted field deserializes into a default/null value and is accepted.",
+        "Any required typed metadata changes during a round-trip.",
+        "Any of the 500 generated bounds or typed errors changes during round-trip.",
+        "The dependency-key mutation passes metadata equivalence solely because numeric bounds match.",
+        "The checker accepts unknown fields or a changed authority ceiling.",
+        "A serialization pass is described as source authentication, aircraft-model qualification or operational aviation safety."
+      ],
+      "required_evidence": [
+        "Exact-head Rust tests, build/toolchain identity and commit SHA",
+        "Adapter schema version and canonical fixture digest",
+        "Seed and generator implementation identity for 500 generated cases",
+        "Field-by-field metadata equality results and bounds/error parity results",
+        "Rejection evidence for omitted-required, omitted-nullable and unknown-field controls",
+        "A reproducible same-bounds/different-metadata negative control",
+        "Explicit unsigned/integrity-only and synthetic-only scope"
+      ],
+      "hard_invariants": [
+        "producer_output_is_checked_independently",
+        "all_results_bind_exact_inputs_models_rules_and_checker",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+        "unrecognized_contract_fields_fail_closed"
+      ],
+      "scope": "test-only versioned serialization adapter over synthetic typed-lineage terms; a successful round-trip establishes contract preservation only for the declared test schema and domain, not authenticated provenance, a qualified transformation engine, physical reachability or operational aviation safety"
     }
   ]
 }
