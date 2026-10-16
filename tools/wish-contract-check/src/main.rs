@@ -397,6 +397,9 @@ fn validate_benchmark_manifest() -> Result<(usize, usize, usize), String> {
         "false_fulfillment_acceptances",
         "initiated_episodes_missing_from_census",
         "repeated_deterministic_report_mismatches",
+        "invalid_or_unauthorized_evidence_accepted",
+        "cross_wish_or_revision_replay_accepted",
+        "unsupported_signature_suites_accepted",
     ] {
         if gates.get(required_gate).and_then(Value::as_u64) != Some(0) {
             return Err(format!("hard gate must remain zero: {required_gate}"));
