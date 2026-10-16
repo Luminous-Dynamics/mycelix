@@ -29,7 +29,8 @@
     "access_outcomes_are_audited_by_declared_group",
     "operator_identity_or_reputation_is_not_an_implicit_priority_rule",
     "uncertainty_composition_preserves_dependencies_and_bounds",
-    "assurance_independence_is_evidenced_not_declared"
+    "assurance_independence_is_evidenced_not_declared",
+    "heterogeneous_uncertainty_requires_explicit_dimensional_projection"
   ],
   "benchmarks": [
     {
@@ -740,6 +741,45 @@
         "all_results_bind_exact_inputs_models_rules_and_checker"
       ],
       "scope": "bounded synthetic integer domains and test-only differential verification; not a proof of oracle independence, formal verification, a qualified reachable-set model or operational aviation safety"
+    },
+    {
+      "id": "AIR-PB-023",
+      "name": "typed_uncertainty_lineage_and_dimensionally_explicit_projection",
+      "paradigm": "uncertainty_is_a_typed_dependency_graph_not_an_unlabelled_scalar",
+      "status": "implemented_pending_exact_head_verification",
+      "hypothesis": "Observation position error, transformation residual and clock-offset error can compose into a common output-space bound only when every input unit, frame, validity window and conversion sensitivity is explicit and compatible.",
+      "baseline": "A scalar uncertainty field can silently add a time quantity to a position quantity, hide transformation-frame mistakes, or treat a missing velocity/time sensitivity as zero.",
+      "stimulus": "Replay the pinned typed-lineage fixture mixing synthetic millimetre position error, synthetic millisecond clock offset and transform residuals. Mutate unit labels, transform target frames, sensitivity-model identity, validity bounds, dependency dimension and shared-source grouping.",
+      "success_conditions": [
+        "Typed observation and transform residuals map only into the declared synthetic output frame and millimetre dimension.",
+        "A clock offset requires a declared millimetre-per-millisecond sensitivity basis and sensitivity-model identity before it contributes to position bounds.",
+        "Transform residuals name transform identity, source frame and target frame; the target must equal the declared output frame.",
+        "Contributions sharing a dependency retain one common input interval and one typed dependency contract; unlike quantities cannot be coalesced under a reused dependency ID.",
+        "Rational sensitivity conversion uses outward rounding at the output boundary and never narrows the declared bound.",
+        "Unknown units, missing conversion evidence, stale dependencies, incompatible dimensions or frame mismatch yield explicit errors, never an implicit zero or a clear classification."
+      ],
+      "falsifiers": [
+        "A clock offset is added to millimetres without an explicit sensitivity basis.",
+        "A transform residual is admitted with a target frame different from the output frame.",
+        "Two different quantity dimensions sharing one dependency ID are silently combined.",
+        "Fractional millimetre conversion rounds inward.",
+        "An absent sensitivity model, expired source or unsupported unit returns numerical bounds."
+      ],
+      "required_evidence": [
+        "Exact-head Rust unit-test output for the typed lineage fixture",
+        "Pinned fixture digest and exact source/model identifiers",
+        "Independent calculation for mixed-error outward bounds",
+        "Negative controls for unit, frame, validity and shared-dependency mutations",
+        "Explicit statement that transform/model sensitivity is caller-declared synthetic evidence, not physical qualification"
+      ],
+      "hard_invariants": [
+        "heterogeneous_uncertainty_requires_explicit_dimensional_projection",
+        "uncertainty_composition_preserves_dependencies_and_bounds",
+        "producer_output_is_checked_independently",
+        "unknown_behavior_is_unresolved_not_defaulted",
+        "all_results_bind_exact_inputs_models_rules_and_checker"
+      ],
+      "scope": "test-only synthetic integer uncertainty composition with explicit typed units and declared sensitivities; no geodetic transformation, real clock synchronization, validated dynamics, qualified reachable set or operational aviation authority"
     }
   ]
 }
