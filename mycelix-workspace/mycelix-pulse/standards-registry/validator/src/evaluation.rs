@@ -481,12 +481,16 @@ pub fn evaluate_correlation_sweep(
             .ok_or_else(|| vec!["scenarios must be an array".to_owned()])?;
         let mut found = BTreeSet::new();
         for scenario in scenarios {
-            let Some(id) = scenario.get("id").and_then(Value::as_str) else {
+            let Some(id) = scenario
+                .get("id")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+            else {
                 continue;
             };
-            if resilience_set.contains(id) {
+            if resilience_set.contains(&id) {
                 scenario["failure_correlation_basis_points"] = json!(weight);
-                found.insert(id.to_owned());
+                found.insert(id);
             }
         }
         if found != resilience_set {
