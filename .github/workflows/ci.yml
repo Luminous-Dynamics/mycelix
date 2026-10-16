@@ -485,7 +485,7 @@ jobs:
             --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 \
             > evidence/standards-registry-ci/simulation-report.json
           cat evidence/standards-registry-ci/simulation-report.json
-      - name: Run paired held-out routing evaluation smoke
+      - name: Run paired correlation-sensitivity evaluation smoke
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
           for input in \
