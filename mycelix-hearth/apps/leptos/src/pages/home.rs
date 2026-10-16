@@ -4,7 +4,7 @@
 use leptos::prelude::*;
 use crate::hearth_context::{use_hearth, member_name};
 use mycelix_leptos_core::use_homeostasis;
-use crate::components::MemberAvatar;
+use crate::components::{HouseholdBrief, MemberAvatar};
 use crate::visualization::KinshipCanvas;
 use hearth_leptos_types::*;
 
@@ -13,14 +13,9 @@ pub fn HomePage() -> impl IntoView {
     let hearth = use_hearth();
     let homeostasis = use_homeostasis();
 
-    let neglected_bonds = move || {
-        hearth.bonds.get().iter()
-            .filter(|b| b.strength_bp < 4000)
-            .count()
-    };
-
     view! {
         <div class="page home-page">
+            <HouseholdBrief />
             {move || {
                 if homeostasis.in_homeostasis.get() {
                     view! {
@@ -63,17 +58,6 @@ pub fn HomePage() -> impl IntoView {
                             <div class="home-web">
                                 <KinshipCanvas />
                             </div>
-
-                            // Gentle nudge if bonds need tending (not a KPI alarm)
-                            {move || {
-                                let n = neglected_bonds();
-                                (n > 0).then(|| view! {
-                                    <div class="nudge">
-                                        {format!("{} bond{} could use some warmth",
-                                            n, if n > 1 { "s" } else { "" })}
-                                    </div>
-                                })
-                            }}
 
                             // Who's here right now
                             <section class="presence-strip">
