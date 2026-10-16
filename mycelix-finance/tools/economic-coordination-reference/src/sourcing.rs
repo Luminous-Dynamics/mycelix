@@ -79,6 +79,11 @@ pub struct SupplierOffer {
     pub unit: String,
     pub currency: String,
     pub available_quantity: u64,
+    /// Exact time at which the stock observation was made.
+    pub inventory_observed_at: u64,
+    pub inventory_valid_until: u64,
+    pub inventory_evidence_status: EvidenceStatus,
+    pub inventory_evidence_origin: EvidenceOrigin,
     /// Integer minor units, multiplied by the requested quantity.
     pub unit_price_minor: u64,
     /// All fixed costs are expressed in the request's currency and minor units.
@@ -108,6 +113,11 @@ pub enum RejectionReason {
     MissingSourceProvenance,
     QuoteEvidenceOriginMismatch,
     SupplierCredentialOriginMismatch,
+    InventoryOriginMismatch,
+    InventoryNotVerified,
+    InventoryFromFuture,
+    InventoryStale,
+    InventoryExpired,
     CapabilityMismatch,
     CapabilityProfileMismatch,
     UnitMismatch,
@@ -225,6 +235,21 @@ fn evaluate_offer(
     }
     if offer.quote_evidence_status != EvidenceStatus::Verified {
         return Err(RejectionReason::QuoteNotVerified);
+    }
+    if offer.inventory_evidence_origin != request.required_evidence_origin {
+        return Err(RejectionReason::InventoryOriginMismatch);
+    }
+    if offer.inventory_evidence_status != EvidenceStatus::Verified {
+        return Err(RejectionReason::InventoryNotVerified);
+    }
+    if offer.inventory_observed_at > request.as_of {
+        return Err(RejectionReason::InventoryFromFuture);
+    }
+    if request.as_of - offer.inventory_observed_at > request.max_quote_age_secs {
+        return Err(RejectionReason::InventoryStale);
+    }
+    if offer.inventory_valid_until < request.as_of {
+        return Err(RejectionReason::InventoryExpired);
     }
     if offer.supplier_credential_status != EvidenceStatus::Verified {
         return Err(RejectionReason::SupplierCredentialNotVerified);
@@ -381,6 +406,10 @@ mod tests {
             unit: "each".into(),
             currency: "USD".into(),
             available_quantity: 100,
+            inventory_observed_at: 100,
+            inventory_valid_until: 200,
+            inventory_evidence_status: EvidenceStatus::Verified,
+            inventory_evidence_origin: EvidenceOrigin::SyntheticSimulation,
             unit_price_minor: cost,
             shipping_minor: 0,
             taxes_minor: 0,
@@ -591,6 +620,31 @@ mod tests {
         candidate.quote_evidence_origin = EvidenceOrigin::LiveDomain;
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::QuoteEvidenceOriginMismatch);
+        assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn fresh_quote_does_not_rescue_stale_or_unverified_inventory() {
+        let mut stale_stock = offer("stale-stock", 10, 1, 10);
+        stale_stock.inventory_observed_at = 39;
+        let mut unverified_stock = offer("unverified-stock", 10, 1, 10);
+        unverified_stock.inventory_evidence_status = EvidenceStatus::Unknown;
+        let mut expired_stock = offer("expired-stock", 10, 1, 10);
+        expired_stock.inventory_valid_until = 99;
+
+        let report = evaluate_sourcing(&request(), &[stale_stock, unverified_stock, expired_stock]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::InventoryExpired);
+        assert_eq!(report.rejected[1].reason, RejectionReason::InventoryNotVerified);
+        assert_eq!(report.rejected[2].reason, RejectionReason::InventoryStale);
+        assert!(report.pareto_frontier.is_empty());
+    }
+
+    #[test]
+    fn inventory_origin_must_match_the_request_origin() {
+        let mut candidate = offer("inventory-live-in-simulation", 10, 1, 10);
+        candidate.inventory_evidence_origin = EvidenceOrigin::LiveDomain;
+        let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
+        assert_eq!(report.rejected[0].reason, RejectionReason::InventoryOriginMismatch);
         assert!(report.pareto_frontier.is_empty());
     }
 
