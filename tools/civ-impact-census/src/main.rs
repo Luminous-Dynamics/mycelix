@@ -154,7 +154,6 @@ struct VerificationReport {
 }
 
 #[derive(Debug, Serialize)]
-#[derive(Debug, Serialize)]
 struct BootstrapInterval {
     lower_2_5_percentile: f64,
     upper_97_5_percentile: f64,
@@ -1427,6 +1426,54 @@ mod tests {
         assert!(interval.relative_pooled_cost_per_served_unit_change_percent.lower_2_5_percentile <=
             interval.relative_pooled_cost_per_served_unit_change_percent.upper_97_5_percentile);
         assert_eq!(interval.bootstrap_seed_sha256, "a".repeat(64));
+    }
+
+    #[test]
+    fn bootstrap_interval_is_reproducible_for_identical_artifacts() {
+        let schedule = build_schedule(10, 3).expect("larger schedule with multiple scenarios per stratum");
+        let mut results = complete_results_with_known_cost_tradeoff(&schedule);
+        for row in &mut results.runs {
+            let scenario_index: u64 = row.scenario_id
+                .trim_start_matches("syn-transport-")
+                .parse()
+                .expect("synthetic scenario index");
+            let scenario = schedule.scenarios.iter()
+                .find(|item| item.scenario_id == row.scenario_id)
+                .expect("scenario exists");
+            let demand = effective_demand(scenario).expect("effective demand");
+            if row.disposition == Disposition::Completed {
+                let metrics = row.metrics.as_mut().expect("completed metrics");
+                let unit_cost = match row.arm_id.as_str() {
+                    "incumbent_baseline" => 100 + (scenario_index % 7),
+                    "full_stack" => 88 + (scenario_index % 11),
+                    _ => 95,
+                };
+                metrics.total_cost_microcredits = demand * unit_cost;
+                metrics.compute_cost_microcredits = metrics.total_cost_microcredits;
+                metrics.served_units = if row.arm_id == "full_stack" {
+                    demand.saturating_sub(demand / (20 + scenario_index % 5))
+                } else {
+                    demand
+                };
+            }
+        }
+        let seed_digest = "b".repeat(64);
+        let first = make_comparison(&schedule, &results, 12345, &seed_digest)
+            .expect("first analysis");
+        let second = make_comparison(&schedule, &results, 12345, &seed_digest)
+            .expect("repeat analysis");
+        let first_interval = first.stratified_scenario_cluster_bootstrap_95
+            .expect("bootstrap interval");
+        let second_interval = second.stratified_scenario_cluster_bootstrap_95
+            .expect("repeat bootstrap interval");
+        assert_eq!(
+            first_interval.relative_pooled_cost_per_served_unit_change_percent.lower_2_5_percentile,
+            second_interval.relative_pooled_cost_per_served_unit_change_percent.lower_2_5_percentile
+        );
+        assert_eq!(
+            first_interval.relative_pooled_cost_per_served_unit_change_percent.upper_97_5_percentile,
+            second_interval.relative_pooled_cost_per_served_unit_change_percent.upper_97_5_percentile
+        );
     }
 
     #[test]
