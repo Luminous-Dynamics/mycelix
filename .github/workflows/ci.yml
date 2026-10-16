@@ -471,6 +471,13 @@ jobs:
             --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 \
             > evidence/standards-registry-ci/simulation-report.json
           cat evidence/standards-registry-ci/simulation-report.json
+      - name: Exercise source-linked standards retrieval
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          cargo run --manifest-path standards-registry/validator/Cargo.toml --bin standards-search -- \
+            --query BPSec --errata-status reported --limit 20 \
+            > evidence/standards-registry-ci/standards-search.json
+          cat evidence/standards-registry-ci/standards-search.json
       - name: Record exact subject, tools, and input hashes
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse
@@ -486,6 +493,7 @@ jobs:
             standards-registry/validator/src/simulation.rs \
             standards-registry/validator/src/main.rs \
             standards-registry/validator/src/bin/route-sim.rs \
+            standards-registry/validator/src/bin/standards-search.rs \
             benchmarks/traces.v1.json
           do
             sha256sum "$input"
