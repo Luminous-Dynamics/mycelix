@@ -111,13 +111,64 @@ def validate_resolution_event_record(
     if recorded_at > _parse_utc(contract["resolution_policy"]["resolution_deadline_at"]):
         errors.append("semantic:event recorded after resolution deadline")
 
+    seen_artifact_ids: set[str] = set()
     for i, artifact in enumerate(event["evidence_artifacts"]):
+        artifact_id = artifact.get("artifact_id")
+        if artifact_id in seen_artifact_ids:
+            errors.append(f"semantic:evidence_artifacts/{i}:duplicate artifact_id")
+        seen_artifact_ids.add(artifact_id)
         published = artifact.get("published_at")
         retrieved = _parse_utc(artifact["retrieved_at"])
         if published is not None and retrieved < _parse_utc(published):
             errors.append(f"semantic:evidence_artifacts/{i}:retrieval precedes publication")
         if retrieved > recorded_at:
             errors.append(f"semantic:evidence_artifacts/{i}:event recorded before evidence retrieval")
+    return sorted(errors)
+
+
+def validate_evidence_artifact_bytes(
+    event: dict[str, Any], retained_artifacts: dict[str, bytes]
+) -> list[str]:
+    """Compare retained source bytes with each artifact's declared SHA-256 commitment.
+
+    The caller must obtain bytes through a separately trusted retention/collection process.
+    This function proves only that the supplied bytes hash to the declared digest; it does not
+    authenticate the source URI, publication time, publisher, or external-world truth.
+    """
+    if not isinstance(event, dict):
+        return ["artifact-bytes:event is not an object"]
+    artifacts = event.get("evidence_artifacts")
+    if not isinstance(artifacts, list):
+        return ["artifact-bytes:evidence_artifacts is not a list"]
+
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            errors.append(f"artifact-bytes:evidence_artifacts/{index}:not an object")
+            continue
+        artifact_id = artifact.get("artifact_id")
+        expected_digest = artifact.get("content_digest_sha256")
+        if not isinstance(artifact_id, str) or not artifact_id.strip():
+            errors.append(f"artifact-bytes/evidence_artifacts/{index}:invalid artifact_id")
+            continue
+        if artifact_id in seen_ids:
+            errors.append(f"artifact-bytes/evidence_artifacts/{index}:duplicate artifact_id")
+            continue
+        seen_ids.add(artifact_id)
+        if not isinstance(expected_digest, str):
+            errors.append(f"artifact-bytes/{artifact_id}:missing content digest")
+            continue
+        content = retained_artifacts.get(artifact_id)
+        if content is None:
+            errors.append(f"artifact-bytes/{artifact_id}:retained bytes missing")
+            continue
+        actual_digest = hashlib.sha256(content).hexdigest()
+        if actual_digest.lower() != expected_digest.lower():
+            errors.append(f"artifact-bytes/{artifact_id}:SHA-256 digest mismatch")
+
+    for artifact_id in sorted(set(retained_artifacts) - seen_ids):
+        errors.append(f"artifact-bytes/{artifact_id}:unreferenced retained bytes")
     return sorted(errors)
 
 
