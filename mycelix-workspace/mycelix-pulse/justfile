@@ -42,11 +42,27 @@ simulate-transport-smoke:
 
 # Paired multi-seed holdout smoke evaluation (model-only, 1,000 messages per scenario).
 evaluate-transport-smoke:
-    @mkdir -p evidence/transport-evaluation && git rev-parse HEAD > evidence/transport-evaluation/subject.sha && sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256 && cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 1000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha $(cat evidence/transport-evaluation/subject.sha) --input-manifest-sha256 $(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1) > evidence/transport-evaluation/paired-evaluation.json && cat evidence/transport-evaluation/paired-evaluation.json
+    @set -eu; \
+      mkdir -p evidence/transport-evaluation; \
+      git rev-parse HEAD > evidence/transport-evaluation/subject.sha; \
+      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256; \
+      if [ -f standards-registry/validator/Cargo.lock ]; then sha256sum standards-registry/validator/Cargo.lock >> evidence/transport-evaluation/inputs.sha256; else echo "MISSING Cargo.lock: dependency resolution is not lockfile-pinned" >> evidence/transport-evaluation/inputs.sha256; fi; \
+      manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
+      subject=$$(cat evidence/transport-evaluation/subject.sha); \
+      cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 1000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/paired-evaluation.json; \
+      cat evidence/transport-evaluation/paired-evaluation.json
 
 # Model-level evaluation target: at least 30 paired seeds x 10,000 messages per scenario.
 evaluate-transport:
-    @mkdir -p evidence/transport-evaluation && git rev-parse HEAD > evidence/transport-evaluation/subject.sha && sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256 && cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha $(cat evidence/transport-evaluation/subject.sha) --input-manifest-sha256 $(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1) > evidence/transport-evaluation/paired-evaluation.json && cat evidence/transport-evaluation/paired-evaluation.json
+    @set -eu; \
+      mkdir -p evidence/transport-evaluation; \
+      git rev-parse HEAD > evidence/transport-evaluation/subject.sha; \
+      sha256sum standards-registry/validator/Cargo.toml standards-registry/validator/src/lib.rs standards-registry/validator/src/simulation.rs standards-registry/validator/src/evaluation.rs standards-registry/validator/src/bin/route-sim.rs benchmarks/traces.v1.json > evidence/transport-evaluation/inputs.sha256; \
+      if [ -f standards-registry/validator/Cargo.lock ]; then sha256sum standards-registry/validator/Cargo.lock >> evidence/transport-evaluation/inputs.sha256; else echo "MISSING Cargo.lock: dependency resolution is not lockfile-pinned" >> evidence/transport-evaluation/inputs.sha256; fi; \
+      manifest=$$(sha256sum evidence/transport-evaluation/inputs.sha256 | cut -d ' ' -f 1); \
+      subject=$$(cat evidence/transport-evaluation/subject.sha); \
+      cargo run --release --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- --evaluate --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 --seed-count 30 --candidate sequential_failover --subject-sha "$$subject" --input-manifest-sha256 "$$manifest" > evidence/transport-evaluation/paired-evaluation.json; \
+      cat evidence/transport-evaluation/paired-evaluation.json
 
 # Shared Pulse V2 primitives: native behavior plus browser-target compilation.
 test-crypto:
@@ -58,7 +74,7 @@ test-zomes:
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-holochain-target} cargo test --manifest-path holochain/Cargo.toml --lib
 
 # Fast canonical alpha gate. Formatting commands are checks and do not rewrite files.
-check: fmt-check check-ui test-protocol test-crypto test-zomes validate-standards-registry test-standards-registry simulate-transport-smoke standards-search-smoke test-transport-core
+check: fmt-check check-ui test-protocol test-crypto test-zomes validate-standards-registry test-standards-registry simulate-transport-smoke evaluate-transport-smoke standards-search-smoke test-transport-core
 
 fmt-check:
     cargo fmt --manifest-path apps/leptos/Cargo.toml -- --check
