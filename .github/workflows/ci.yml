@@ -506,17 +506,17 @@ jobs:
           input_manifest_sha256="$(sha256sum evidence/standards-registry-ci/routing-evaluation-inputs.sha256 | cut -d ' ' -f 1)"
           subject_sha="$(git rev-parse HEAD)"
           cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
-            --evaluate --traces benchmarks/traces.v1.json --messages 1000 \
+            --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 \
             --seed 20261016 --seed-count 30 --candidate sequential_failover \
             --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
-            > evidence/standards-registry-ci/paired-sequential-evaluation.json
+            > evidence/standards-registry-ci/correlation-sweep-sequential.json
           cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
-            --evaluate --traces benchmarks/traces.v1.json --messages 1000 \
+            --evaluate --correlation-sweep --traces benchmarks/traces.v1.json --messages 500 \
             --seed 20261016 --seed-count 30 --candidate parallel_redundancy \
             --subject-sha "$subject_sha" --input-manifest-sha256 "$input_manifest_sha256" \
-            > evidence/standards-registry-ci/paired-parallel-evaluation.json
-          cat evidence/standards-registry-ci/paired-sequential-evaluation.json
-          cat evidence/standards-registry-ci/paired-parallel-evaluation.json
+            > evidence/standards-registry-ci/correlation-sweep-parallel.json
+          cat evidence/standards-registry-ci/correlation-sweep-sequential.json
+          cat evidence/standards-registry-ci/correlation-sweep-parallel.json
       - name: Exercise source-linked standards retrieval
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
