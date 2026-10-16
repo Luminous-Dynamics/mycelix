@@ -388,7 +388,7 @@
     },
     {
       "id": "shared-carrier-failure-domain",
-      "purpose": "Two adapters sharing a carrier failure domain must not be counted as independent redundancy; an independent community relay provides diversity.",
+      "purpose": "Two adapters in a shared carrier failure domain fail together during a declared outage and share success draws otherwise; an independent relay provides diversity.",
       "deadline_ms": 2500,
       "envelope_bytes": 200,
       "paths": [
@@ -402,7 +402,12 @@
           "payload_budget_bytes": 4096,
           "cost_units": 1,
           "energy_millijoules": 50,
-          "unavailable_ranges": [],
+          "unavailable_ranges": [
+            [
+              0,
+              3000
+            ]
+          ],
           "failure_domain_id": "carrier-core-a"
         },
         {
@@ -415,7 +420,12 @@
           "payload_budget_bytes": 4096,
           "cost_units": 1,
           "energy_millijoules": 55,
-          "unavailable_ranges": [],
+          "unavailable_ranges": [
+            [
+              0,
+              3000
+            ]
+          ],
           "failure_domain_id": "carrier-core-a"
         },
         {
@@ -431,7 +441,8 @@
           "unavailable_ranges": [],
           "failure_domain_id": "community-relay-b"
         }
-      ]
+      ],
+      "notes": "The first 3,000 message indices model a shared carrier-core outage on both cellular adapters. Both adapters also share one deterministic success draw outside that outage window. The independent community relay has its own domain and stays available. This is a synthetic scenario, not a measured reliability model."
     }
   ]
 }
