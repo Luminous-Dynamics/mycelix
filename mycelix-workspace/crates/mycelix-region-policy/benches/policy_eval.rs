@@ -2,8 +2,10 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use mycelix_region_policy::{
-    BoundaryAction, DataClass, PlacementRule, ProfileVerificationFailure, ProfileVerifier,
-    RegionalProfile, TransferRequest, VerifiedProfile, evaluate_transfer,
+    BoundaryAction, ClassificationClaim, ClassificationVerificationFailure,
+    ClassificationVerifier, DataClass, PlacementRule, ProfileVerificationFailure,
+    ProfileVerifier, RegionalProfile, TransferRequest, VerifiedClassification,
+    VerifiedProfile, evaluate_transfer,
 };
 
 struct BenchmarkVerifier;
@@ -12,6 +14,19 @@ impl ProfileVerifier for BenchmarkVerifier {
         // Measures only the already-verified policy decision path.
         // This test adapter is not a cryptographic verifier.
         Ok(())
+    }
+}
+
+struct BenchmarkClassificationVerifier {
+    evidence_until_ms: u64,
+}
+impl ClassificationVerifier for BenchmarkClassificationVerifier {
+    fn verify_classification(
+        &self,
+        _claim: &ClassificationClaim,
+        _now_ms: u64,
+    ) -> Result<u64, ClassificationVerificationFailure> {
+        Ok(self.evidence_until_ms)
     }
 }
 
@@ -60,9 +75,24 @@ fn main() {
         NOW_MS,
         &BenchmarkVerifier,
     ).expect("benchmark destination fixture");
+    let content_digest = "b".repeat(64);
+    let classification = VerifiedClassification::verify(
+        ClassificationClaim {
+            resource_id: "record:benchmark".to_owned(),
+            content_digest: content_digest.clone(),
+            data_class: DataClass::Personal,
+            valid_from_unix_ms: 1,
+            valid_until_unix_ms: 10_000_000,
+        },
+        NOW_MS,
+        &BenchmarkClassificationVerifier { evidence_until_ms: 10_000_000 },
+    )
+    .expect("benchmark classification fixture");
     let request = TransferRequest {
         action: BoundaryAction::Disclose,
-        data_class: DataClass::Personal,
+        resource_id: "record:benchmark",
+        content_digest: &content_digest,
+        classification: &classification,
         purpose: Some("credential-check"),
         recipient_id: Some("service:education"),
         consent: None,
