@@ -3,7 +3,7 @@
 //! Run from the repository root:
 //! cargo run --release --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml --example sourcing_benchmark
 //!
-//! Output is TSV sample rows plus machine-readable summary comments. Candidate
+//! Output is TSV sample rows and summary rows under one tabular header. Candidate
 //! construction is outside the timed region; evaluation includes validation,
 //! sorting, Pareto classification and report construction. This does not fetch
 //! supplier data or imply real-world sourcing quality.
@@ -90,7 +90,7 @@ fn main() {
     println!("#arch={}", std::env::consts::ARCH);
     println!("#debug_assertions={}", cfg!(debug_assertions));
     println!("#timing_scope=full evaluator call; candidate construction excluded");
-    println!("record\toffers\titeration\telapsed_ns\teligible_count\tfrontier_count");
+    println!("record\toffers\titeration\telapsed_ns\tp50_ns\tp95_ns\tmax_ns\teligible_count\tfrontier_count");
 
     for (offer_count, iterations) in cases {
         let offers = make_offers(offer_count);
@@ -114,7 +114,7 @@ fn main() {
             black_box((&report, eligible_count, frontier_count));
             elapsed.push(elapsed_ns);
             println!(
-                "sample\t{offer_count}\t{iteration}\t{elapsed_ns}\t{eligible_count}\t{frontier_count}"
+                "sample\t{offer_count}\t{iteration}\t{elapsed_ns}\t\t\t\t{eligible_count}\t{frontier_count}"
             );
         }
 
@@ -123,7 +123,7 @@ fn main() {
         let p95 = percentile(&elapsed, 95, 100);
         let maximum = *elapsed.last().expect("at least one timing sample");
         println!(
-            "#summary offers={offer_count} samples={iterations} p50_ns={p50} p95_ns={p95} max_ns={maximum} eligible={eligible_count} frontier={frontier_count}"
+            "summary\t{offer_count}\t{iterations}\t\t{p50}\t{p95}\t{maximum}\t{eligible_count}\t{frontier_count}"
         );
     }
 }
