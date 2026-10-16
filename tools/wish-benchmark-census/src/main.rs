@@ -1,3 +1,4 @@
+use jsonschema::draft202012;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
@@ -7,6 +8,8 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::path::Path;
+
+const RESULT_SCHEMA_TEXT: &str = include_str!("../../../docs/research/schemas/wish-run-results-v0.1.schema.json");
 
 #[derive(Debug)]
 struct StrictValue(Value);
@@ -583,6 +586,19 @@ fn verify_policy_dataset(schedule: &ScheduleEnvelope, path: &Path) -> Result<(),
     Ok(())
 }
 
+fn validate_result_schema(value: &Value) -> Result<(), String> {
+    let schema: Value = parse_strict(RESULT_SCHEMA_TEXT)
+        .map_err(|e| format!("parse run-result schema: {e}"))?;
+    if !draft202012::meta::is_valid(&schema) {
+        return Err("run-result schema fails Draft 2020-12 meta-schema validation".into());
+    }
+    let validator = draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+        .map_err(|e| format!("compile run-result schema: {e}"))?;
+    validator.validate(value).map_err(|e| format!("run-result schema validation: {e}"))
+}
+
 fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path, results_path: &Path, report_path: &Path) -> Result<(), String> {
     let manifest_raw = fs::read_to_string(manifest_path).map_err(|e| format!("read pinned manifest: {e}"))?;
     let manifest = parse_strict(&manifest_raw).map_err(|e| format!("parse pinned manifest: {e}"))?;
@@ -591,6 +607,7 @@ fn verify_census(manifest_path: &Path, schedule_path: &Path, policy_path: &Path,
     verify_policy_dataset(&schedule, policy_path)?;
     let raw = fs::read_to_string(results_path).map_err(|e| format!("read results: {e}"))?;
     let parsed = parse_strict(&raw).map_err(|e| format!("parse results: {e}"))?;
+    validate_result_schema(&parsed)?;
     let results: ResultsEnvelope = serde_json::from_value(parsed).map_err(|e| format!("decode results: {e}"))?;
     if results.schema_version != "wish-run-results/0.1" { return Err("unsupported result schema version".into()); }
     if results.schedule_sha256 != schedule.schedule_sha256 { return Err("results bound to a different schedule digest".into()); }
@@ -841,6 +858,13 @@ mod tests {
         let mut no_reason = result.clone();
         no_reason.terminal_reason = Some(" ".into());
         assert!(validate_run_result(&no_reason, &plan).is_err());
+    }
+
+    #[test]
+    fn run_result_schema_validates_against_its_draft_meta_schema() {
+        let schema = parse_strict(RESULT_SCHEMA_TEXT).expect("run-result schema JSON");
+        assert!(draft202012::meta::is_valid(&schema));
+        assert!(validate_result_schema(&json!({"schema_version":"wish-run-results/0.1","schedule_sha256":"0".repeat(64),"results":[]})).is_ok());
     }
 
     #[test]
