@@ -104,6 +104,9 @@ The separate `fulfillment_claim_identity.rs` prototype chooses a single serializ
 | Pending semantics | Loss of registry reachability never implies acceptance or releases a reservation by itself |
 | Durable successor | Zero duplicate finalizations after process restart, stale restore or authority failover, demonstrated against durable storage/consensus—not this in-memory model |
 
-The nine authored registry unit tests cover invalid identity fields, exact retry idempotency, cross-replica claim replay, cross-request replay, payload/quantity mismatch, non-mutating invalid finalization, conflicting finalization, unknown claims and one accepted identity in a serial authoritative history. These are source-level tests until an exact-head Rust run is observed.
+The ten authored registry unit tests cover invalid identity fields, exact retry idempotency, cross-replica claim replay, cross-request replay, payload/quantity mismatch, non-mutating invalid finalization, conflicting finalization, unknown claims, one accepted identity in a serial authoritative history, and a 10,000-claim adversarial campaign. These are source-level tests until an exact-head Rust run is observed.
 
 The key research question is the availability/consistency boundary: which reservations can proceed using preallocated local rights, and which identity/finality transitions must be delayed until an authority is reachable? Do not flatten this into a single "decentralization" or throughput score.
+
+
+The generated identity campaign is authored but unexecuted at the inspected head. It attempts 10,000 distinct claim IDs and 90,000 registry API calls: one registration, one exact replay, four conflicting registration attempts, one finalization, one exact finalization replay, and one conflicting finalization per claim. The expected journal is exactly 20,000 entries (one registration plus one finalization per claim); all 70,000 replay/conflict attempts must add no journal entries. The expected accepted total is the deterministic sum of half the claimed quantity for each generated claim. This is a serial-authority stress test, not a distributed-consensus test.
