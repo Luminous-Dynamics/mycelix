@@ -197,6 +197,15 @@ pub fn assess_textile_recovery(record: &TextileRecoveryRecord) -> TextileRecover
                         .into(),
             });
         }
+        if record.custody_strategy == Some(CustodyStrategy::IdentityPreserved) {
+            fiber_blockers.push(TextileClaimBlocker {
+                plane: TextileEvidencePlane::CustodyStrategy,
+                decision: Decision::Rejected,
+                reason:
+                    "fiber transformation creates a new output material subject; use a valid batch/segregated lineage method instead of item-identity continuity"
+                        .into(),
+            });
+        }
 
         require_accepted(
             &mut fiber_blockers,
@@ -420,6 +429,22 @@ mod tests {
         assert!(assessment.blockers.iter().any(|blocker| {
             blocker.plane == TextileEvidencePlane::CustodyStrategy
                 && blocker.decision == Decision::Rejected
+        }));
+    }
+
+    #[test]
+    fn item_identity_cannot_be_claimed_across_fiber_transformation() {
+        let mut record = valid_record(TextileLifecycleEvent::FiberToFiberRecycled);
+        record.custody_strategy = Some(CustodyStrategy::IdentityPreserved);
+        let assessment = assess_textile_recovery(&record);
+
+        assert_eq!(
+            assessment.fiber_to_fiber_eligibility,
+            Some(Decision::Rejected)
+        );
+        assert!(assessment.blockers.iter().any(|blocker| {
+            blocker.plane == TextileEvidencePlane::CustodyStrategy
+                && blocker.reason.contains("new output material subject")
         }));
     }
 
