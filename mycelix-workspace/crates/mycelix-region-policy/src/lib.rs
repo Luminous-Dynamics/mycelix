@@ -221,10 +221,14 @@ pub enum ProfileVerificationFailure {
 /// signature, signer trust root, key validity, and revocation state. It must
 /// bind the signature to signature_message(), not only to a profile ID.
 pub trait ProfileVerifier {
+    /// Verify canonical digest/signature, trust root, key validity and revocation.
+    /// Return the deadline until those checks may still be trusted; it must not
+    /// be an arbitrary far-future timestamp.
     fn verify_profile(
         &self,
         profile: &RegionalProfile,
-    ) -> Result<(), ProfileVerificationFailure>;
+        now_ms: u64,
+    ) -> Result<u64, ProfileVerificationFailure>;
 }
 
 impl RegionalProfile {
@@ -340,6 +344,7 @@ impl RegionalProfile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedProfile {
     profile: RegionalProfile,
+    evidence_valid_until_unix_ms: u64,
 }
 
 impl VerifiedProfile {
@@ -352,10 +357,18 @@ impl VerifiedProfile {
         if !profile.active_at(now_ms) {
             return Err(ProfileValidationError::ProfileNotActive);
         }
-        verifier
-            .verify_profile(&profile)
+        let evidence_until = verifier
+            .verify_profile(&profile, now_ms)
             .map_err(ProfileValidationError::VerificationFailed)?;
-        Ok(Self { profile })
+        if evidence_until <= now_ms {
+            return Err(ProfileValidationError::VerificationFailed(
+                ProfileVerificationFailure::StaleTrustRoots,
+            ));
+        }
+        Ok(Self {
+            evidence_valid_until_unix_ms: evidence_until.min(profile.valid_until_unix_ms),
+            profile,
+        })
     }
 
     pub fn profile(&self) -> &RegionalProfile {
@@ -470,6 +483,8 @@ pub enum DenialReason {
     ClassificationEvidenceStale,
     SourceProfileInactive,
     DestinationProfileInactive,
+    SourceProfileEvidenceStale,
+    DestinationProfileEvidenceStale,
     SourceRuleMissing,
     DestinationRuleMissing,
     ActionNotAllowedBySource,
@@ -545,8 +560,14 @@ pub fn evaluate_transfer(
     if !source_profile.active_at(now_ms) {
         push_reason(&mut reasons, DenialReason::SourceProfileInactive);
     }
+    if now_ms >= source.evidence_valid_until_unix_ms {
+        push_reason(&mut reasons, DenialReason::SourceProfileEvidenceStale);
+    }
     if !destination_profile.active_at(now_ms) {
         push_reason(&mut reasons, DenialReason::DestinationProfileInactive);
+    }
+    if now_ms >= destination.evidence_valid_until_unix_ms {
+        push_reason(&mut reasons, DenialReason::DestinationProfileEvidenceStale);
     }
 
     let data_class = classification.claim.data_class;
@@ -680,13 +701,16 @@ fn push_reason(reasons: &mut Vec<DenialReason>, reason: DenialReason) {
 mod tests {
     use super::*;
 
-    struct AcceptProfiles;
+    struct AcceptProfiles {
+        evidence_until_ms: u64,
+    }
     impl ProfileVerifier for AcceptProfiles {
         fn verify_profile(
             &self,
             _profile: &RegionalProfile,
-        ) -> Result<(), ProfileVerificationFailure> {
-            Ok(())
+            _now_ms: u64,
+        ) -> Result<u64, ProfileVerificationFailure> {
+            Ok(self.evidence_until_ms)
         }
     }
 
@@ -695,7 +719,8 @@ mod tests {
         fn verify_profile(
             &self,
             _profile: &RegionalProfile,
-        ) -> Result<(), ProfileVerificationFailure> {
+            _now_ms: u64,
+        ) -> Result<u64, ProfileVerificationFailure> {
             Err(ProfileVerificationFailure::InvalidSignature)
         }
     }
@@ -771,7 +796,7 @@ mod tests {
         VerifiedProfile::verify(
             profile(scope, destinations, sources),
             200,
-            &AcceptProfiles,
+            &AcceptProfiles { evidence_until_ms: 900 },
         )
         .expect("fixture profile should verify through test adapter")
     }
