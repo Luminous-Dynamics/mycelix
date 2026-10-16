@@ -430,8 +430,33 @@ fn load_schedule(path: &Path) -> Result<ScheduleEnvelope, String> {
         return Err("declared schedule counts do not match arrays".into());
     }
     let mut ids = HashSet::new();
+    let mut episode_ids = HashSet::new();
+    for episode in &envelope.payload.episodes {
+        if !episode_ids.insert(episode.episode_id.clone()) {
+            return Err(format!("duplicate schedule episode ID: {}", episode.episode_id));
+        }
+        if !is_sha256(&episode.policy_input_sha256) {
+            return Err(format!("invalid policy-input digest for {}", episode.episode_id));
+        }
+    }
+    if envelope.payload.planned_run_count != envelope.payload.episode_count * envelope.payload.arm_count {
+        return Err("planned run count must equal episode count × arm count".into());
+    }
+    let mut pairs = HashSet::new();
     for run in &envelope.payload.planned_runs {
         if !ids.insert(run.run_id.clone()) { return Err(format!("duplicate schedule run ID: {}", run.run_id)); }
+        if !episode_ids.contains(&run.episode_id) {
+            return Err(format!("run references absent episode ID: {}", run.episode_id));
+        }
+        if !is_sha256(&run.seed_sha256) || !is_sha256(&run.arm_definition_sha256) || !is_sha256(&run.policy_input_sha256) {
+            return Err(format!("run contains malformed digest: {}", run.run_id));
+        }
+        if !pairs.insert((run.episode_id.clone(),run.arm_id.clone())) {
+            return Err(format!("duplicate episode/arm pair: {} / {}",run.episode_id,run.arm_id));
+        }
+    }
+    if pairs.len() != envelope.payload.planned_run_count {
+        return Err("episode/arm pair census does not match planned run count".into());
     }
     Ok(envelope)
 }
@@ -455,6 +480,7 @@ fn verify_census(schedule_path: &Path, results_path: &Path, report_path: &Path) 
     let mut extras = HashSet::new();
     let mut invalid = HashSet::new();
     let mut completion: HashMap<(String,String), bool> = HashMap::new();
+    let mut arm_configs: HashMap<String,(String,String,String)> = HashMap::new();
     let mut totals = [0u64; 5];
 
     for result in &results.results {
@@ -483,6 +509,18 @@ fn verify_census(schedule_path: &Path, results_path: &Path, report_path: &Path) 
                 if !result.terminal_reason.as_deref().is_some_and(|v| !v.trim().is_empty()) { valid = false; }
                 if result.result_sha256.as_deref().is_some_and(|v| !is_sha256(v)) { valid = false; }
             }
+        }
+        if let Some((first_build,first_config,first_run)) = arm_configs.get(&result.arm_id) {
+            if first_build != &result.policy_build_sha256 || first_config != &result.policy_config_sha256 {
+                invalid.insert(result.run_id.clone());
+                invalid.insert(first_run.clone());
+            }
+        } else {
+            arm_configs.insert(result.arm_id.clone(),(
+                result.policy_build_sha256.clone(),
+                result.policy_config_sha256.clone(),
+                result.run_id.clone()
+            ));
         }
         if !valid { invalid.insert(result.run_id.clone()); }
         match result.disposition {
@@ -602,7 +640,7 @@ mod tests {
     }
 
     #[test]
-    fn all_thirteen_if_using_new_stratum_else_twelve_templates_are_present() {
+    fn every_preregistered_stratum_has_a_policy_input_template() {
         let m = manifest();
         for s in m["strata"].as_array().unwrap() {
             assert!(policy_input(s["id"].as_str().unwrap(),1).is_ok());
