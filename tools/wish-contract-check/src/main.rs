@@ -207,6 +207,7 @@ fn run_census() -> Result<(), String> {
             return Err(format!("duplicate fixture path in manifest: {}", case.path));
         }
         let fixture_path = safe_fixture_path(&fixture_root, &case.path)?;
+        let fixture_path = canonical_fixture_path(&fixture_root, &fixture_path)?;
         match verify_case(&validator, &fixture_path, &case.expect) {
             Ok(()) => {
                 println!("PASS {} expected={}", case.path, case.expect);
@@ -364,6 +365,23 @@ fn safe_fixture_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     Ok(root.join(relative_path))
 }
 
+fn canonical_fixture_path(root: &Path, candidate: &Path) -> Result<PathBuf, String> {
+    let canonical_root = fs::canonicalize(root)
+        .map_err(|e| format!("canonicalize fixture root {}: {e}", root.display()))?;
+    let canonical_candidate = fs::canonicalize(candidate)
+        .map_err(|e| format!("canonicalize fixture {}: {e}", candidate.display()))?;
+    if !canonical_candidate.starts_with(&canonical_root) {
+        return Err(format!(
+            "fixture resolves outside the fixture root: {}",
+            candidate.display()
+        ));
+    }
+    if !canonical_candidate.is_file() {
+        return Err(format!("fixture is not a regular file: {}", candidate.display()));
+    }
+    Ok(canonical_candidate)
+}
+
 fn verify_case(
     validator: &jsonschema::Validator,
     fixture_path: &Path,
@@ -420,22 +438,8 @@ fn verify_case(
 }
 
 fn validate_semantics(instance: &Value) -> Result<(), Rejection> {
-    let revision = instance.get("snapshot_revision").and_then(Value::as_u64).ok_or(Rejection::SnapshotLineage)?;
-    let snapshot_ref = instance.get("snapshot_ref").and_then(Value::as_str).ok_or(Rejection::SnapshotLineage)?;
-    let supersedes = instance.get("supersedes_snapshot_ref").ok_or(Rejection::SnapshotLineage)?;
-    if revision == 1 {
-        if !supersedes.is_null() { return Err(Rejection::SnapshotLineage); }
-    } else {
-        let previous = supersedes.as_str().filter(|value| !value.is_empty()).ok_or(Rejection::SnapshotLineage)?;
-        if previous == snapshot_ref { return Err(Rejection::SnapshotLineage); }
-    }
-    ensure_unique_ids(
-        instance.pointer("/goal/success_criteria"),
-        "criterion_id",
-    )?;
-    ensure_unique_ids(instance.get("constraints"), "constraint_id")?;
-    ensure_unique_ids(instance.get("resource_needs"), "need_id")?;
-
+    // Integrity comes first so a corrupt document cannot be classified as a
+    // different semantic rejection merely because one field looks malicious.
     let mut digest_view = instance.clone();
     let declared_digest = digest_view
         .pointer("/provenance/content_sha256")
@@ -457,6 +461,40 @@ fn validate_semantics(instance: &Value) -> Result<(), Rejection> {
     if actual_digest != declared_digest {
         return Err(Rejection::Digest);
     }
+
+    // JSON Schema constrains revision 1 vs later revisions; this semantic
+    // check additionally prevents a snapshot from superseding itself.
+    let revision = instance
+        .get("snapshot_revision")
+        .and_then(Value::as_u64)
+        .ok_or(Rejection::SnapshotLineage)?;
+    let snapshot_ref = instance
+        .get("snapshot_ref")
+        .and_then(Value::as_str)
+        .ok_or(Rejection::SnapshotLineage)?;
+    let supersedes = instance
+        .get("supersedes_snapshot_ref")
+        .ok_or(Rejection::SnapshotLineage)?;
+    if revision == 1 {
+        if !supersedes.is_null() {
+            return Err(Rejection::SnapshotLineage);
+        }
+    } else {
+        let previous = supersedes
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .ok_or(Rejection::SnapshotLineage)?;
+        if previous == snapshot_ref {
+            return Err(Rejection::SnapshotLineage);
+        }
+    }
+
+    ensure_unique_ids(
+        instance.pointer("/goal/success_criteria"),
+        "criterion_id",
+    )?;
+    ensure_unique_ids(instance.get("constraints"), "constraint_id")?;
+    ensure_unique_ids(instance.get("resource_needs"), "need_id")?;
 
     Ok(())
 }
@@ -516,5 +554,24 @@ mod tests {
         assert!(safe_fixture_path(root, "../../etc/passwd").is_err());
         assert!(safe_fixture_path(root, "/etc/passwd").is_err());
         assert!(safe_fixture_path(root, "valid/minimal-draft.json").is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fixture_symlink_cannot_escape_fixture_root() {
+        use std::os::unix::fs::symlink;
+
+        let base = std::env::temp_dir().join(format!("wish-contract-check-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let root = base.join("fixtures");
+        fs::create_dir_all(&root).expect("create temp fixture root");
+        let outside = base.join("outside.json");
+        fs::write(&outside, "{}").expect("write outside file");
+        let link = root.join("escape.json");
+        symlink(&outside, &link).expect("create fixture symlink");
+
+        assert!(canonical_fixture_path(&root, &link).is_err());
+
+        fs::remove_dir_all(&base).expect("clean up temporary fixtures");
     }
 }
