@@ -11,7 +11,7 @@ Integrate by contract, not by merging responsibilities.
 
 OMSI should remain an offline-capable, vendor-neutral profile, validator and replay contract. Mycelix should add optional decentralized identity, issuer credentials, revocation evidence, epistemic claims, review/endorsement workflows, and evidence-receipt references. Mycelix must not re-implement manufacturing numeric semantics ad hoc, and OMSI must not require a Holochain conductor or a MATL score to perform its deterministic evaluation.
 
-No Mycelix runtime bridge, receipt entry type, or production integration is asserted to exist by this proposal. The counterpart OMSI draft PR #53 now contains local `audit-adapter-map`, `apply-adapter-map`, and `verify-transform-vectors` CLI commands, with a synthetic 10-case decimal/unit transformation corpus. These are source-side mapping/accounting tools only: their two current transforms are deliberately narrow, and they do not constitute a Mycelix adapter, vendor certification, or production integration.
+No Mycelix runtime bridge, receipt entry type, or production integration is asserted to exist by this proposal. The counterpart OMSI draft PR #53 now contains local `audit-adapter-map`, `apply-adapter-map`, `verify-transform-vectors`, `create-provenance-manifest`, and `verify-provenance-manifest` CLI commands. Its synthetic 10-case decimal/unit transformation corpus remains deliberately narrow. The new provenance manifest links six artifacts and four typed activities; its downstream verifier reconstructs the expected manifest from those artifacts. These are same-implementation, local consistency checks—not source authentication, an independent verifier, a Mycelix adapter, vendor certification, or production integration.
 
 ## Why these projects complement rather than duplicate one another
 
@@ -76,6 +76,18 @@ The current Fabrication hApp has committed source files and an explicit verifica
 5. **Publish a minimal receipt.** Create or link a Mycelix evidence-receipt object with the envelope digest, pinned profile/rule IDs, outcome, agent/issuer references, credential status evidence, opaque subject reference and visibility/retention classes. Avoid the full report and raw process data in a public DHT entry unless an explicit disclosure review approves those fields.
 6. **Review independently.** A second agent verifies the receipt and envelope. Reviewers may add independent attestations or conflicts, not overwrite the original source claim or OMSI's deterministic result.
 7. **Keep release separate.** Any quality-release or control action requires a separate domain authority, approver policy, hazard analysis, audit trail and safety case.
+
+## Provenance manifest: useful chain evidence, not an attestation
+
+The OMSI draft now models manufacturing evidence as a derivation graph rather than a stand-alone JSON verdict. The local manifest names six artifacts—source record, adapter map, projection report, semantic input, semantic report and replay envelope—and four activities: adapter projection, semantic-input extraction, semantic evaluation and replay-envelope creation. Nine typed edges express which artifacts each activity used and generated. The graph declares a constrained `w3c-prov-dm-aligned-subset/0.1` vocabulary; it does not claim complete PROV-DM serialization conformance.
+
+The `create-provenance-manifest` command refuses to construct a bundle when adapter re-execution differs from the supplied projection, when the semantic input is not the projection payload, when the report does not match a fresh evaluation, or when replay verification fails. `verify-provenance-manifest` reconstructs the expected manifest from the same six artifact bytes and rejects field/digest/edge drift. Both commands are local, same-implementation checks. The manifest is unsigned and cannot establish who originated the source, that a calibration or physical reading is valid, or that a release is authorized.
+
+**Mycelix integration rule:** do not treat `local_chain_consistent` or `manifest_verified` as an identity credential, truth claim, consensus result, or release permission. If the user policy needs authenticated production history, the next layer should use per-step attestations with signer identity, key lifecycle and policy verification. The in-toto Link predicate, for example, relates each named step to its input materials and output subjects; this is a candidate envelope for a later integration, not yet implemented here. <https://github.com/in-toto/attestation/blob/main/spec/predicates/link.md>
+
+The public receipt should store only the needed digest references, version identifiers, issuer/policy/status evidence and disclosure metadata. Keep the raw/high-rate telemetry and confidential manufacturing parameters in the authorized storage system; apply a separate privacy review before exposing even stable artifact or tenant identifiers.
+
+**Proposed hard gate:** every valid chain fixture must build and verify; changes to each of the six artifacts, an altered manifest digest, or any broken derivation edge must reject. The current OMSI draft has tests authored for each artifact mutation, but its exact-head CI remains pending/queued and no pass is claimed. Mycelix receipt/bridge code remains unimplemented.
 
 ## Proposed receipt contract (not yet implemented)
 
