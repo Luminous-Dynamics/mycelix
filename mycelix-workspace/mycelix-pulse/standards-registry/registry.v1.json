@@ -1309,6 +1309,88 @@
       ],
       "next_review_due": "2027-01-14",
       "notes": "Reported erratum proposes a constraint on combinations of integrity operations that target security-block metadata as authenticated data, because moving a security block can invalidate results. Treat as a required review item before adopting a BPSec profile, not as a verified correction."
+    },
+    {
+      "id": "ietf.rfc-9000",
+      "title": "QUIC: A UDP-Based Multiplexed and Secure Transport",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9000",
+      "version": "RFC 9000",
+      "published_on": null,
+      "publication_period": "May 2021",
+      "last_checked": "2026-10-16",
+      "source_status": "published",
+      "source_digest_sha256": null,
+      "layers": [
+        "transport",
+        "security"
+      ],
+      "region_scope": [],
+      "relations": [],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9000"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "packet-acknowledgement-is-not-application-delivery"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/rfc/rfc9000.html",
+          "exact_subject_sha": null,
+          "claim": "RFC 9000 specifies QUIC as a secure, multiplexed transport over UDP. Transport packet acknowledgements describe packet processing and stream data enqueueing, not authenticated application-recipient processing.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Treat QUIC as one transport profile. Its packet protection and acknowledgements are distinct from Pulse's end-to-end message protection and recipient receipt."
+    },
+    {
+      "id": "ietf.rfc-9221",
+      "title": "An Unreliable Datagram Extension to QUIC",
+      "authority": "IETF / RFC Editor",
+      "artifact_kind": "rfc",
+      "canonical_url": "https://www.rfc-editor.org/info/rfc9221",
+      "version": "RFC 9221",
+      "published_on": null,
+      "publication_period": "March 2022",
+      "last_checked": "2026-10-16",
+      "source_status": "published",
+      "source_digest_sha256": null,
+      "layers": [
+        "transport"
+      ],
+      "region_scope": [],
+      "relations": [
+        {
+          "type": "depends_on",
+          "target_id": "ietf.rfc-9000",
+          "source_url": "https://www.rfc-editor.org/info/rfc9221",
+          "notes": "The DATAGRAM extension operates within a QUIC connection; datagram payload delivery is not retransmission-reliable by default."
+        }
+      ],
+      "errata_urls": [
+        "https://www.rfc-editor.org/errata/rfc9221"
+      ],
+      "review_flags": [
+        "source-content-digest-not-captured",
+        "unreliable-datagram-profile-requires-application-level-loss-handling"
+      ],
+      "support_status": "unreviewed",
+      "evidence": [
+        {
+          "kind": "source_review",
+          "url": "https://www.rfc-editor.org/rfc/rfc9221.html",
+          "exact_subject_sha": null,
+          "claim": "RFC 9221 defines unreliable datagrams over a QUIC connection; it must not be treated as interchangeable with QUIC streams' reliable byte delivery.",
+          "verified_on": "2026-10-16"
+        }
+      ],
+      "next_review_due": "2027-01-14",
+      "notes": "Potential low-latency framing option where loss tolerance is explicit. Application-level expiry, retry, deduplication, and authenticated recipient receipts remain Pulse responsibilities."
     }
   ],
   "schema_uri": "./schema.v1.json"
