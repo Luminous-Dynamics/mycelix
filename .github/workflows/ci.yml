@@ -488,21 +488,32 @@ jobs:
       - name: Run paired correlation-sensitivity evaluation smoke
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
+          cargo generate-lockfile --manifest-path standards-registry/validator/Cargo.toml
+          rustc --version > evidence/standards-registry-ci/routing-evaluation-toolchain.txt
+          cargo --version >> evidence/standards-registry-ci/routing-evaluation-toolchain.txt
+          printf '%s\\n' \
+            'mode=correlation-sweep' \
+            'messages_per_scenario=500' \
+            'seed_start=20261016' \
+            'seed_count=30' \
+            'candidate_strategies=sequential_failover,parallel_redundancy' \
+            'correlation_weights=0,2500,5000,7500,10000' \
+            > evidence/standards-registry-ci/routing-evaluation-config.txt
           for input in \
             standards-registry/validator/Cargo.toml \
+            standards-registry/validator/Cargo.lock \
             standards-registry/validator/src/lib.rs \
             standards-registry/validator/src/simulation.rs \
             standards-registry/validator/src/evaluation.rs \
             standards-registry/validator/src/bin/route-sim.rs \
-            benchmarks/traces.v1.json
+            benchmarks/traces.v1.json \
+            evidence/standards-registry-ci/routing-evaluation-toolchain.txt \
+            evidence/standards-registry-ci/routing-evaluation-config.txt \
+            justfile \
+            ../../.github/workflows/ci.yml
           do
             sha256sum "$input"
           done > evidence/standards-registry-ci/routing-evaluation-inputs.sha256
-          if [ -f standards-registry/validator/Cargo.lock ]; then
-            sha256sum standards-registry/validator/Cargo.lock >> evidence/standards-registry-ci/routing-evaluation-inputs.sha256
-          else
-            echo "MISSING Cargo.lock: dependency resolution is not lockfile-pinned" >> evidence/standards-registry-ci/routing-evaluation-inputs.sha256
-          fi
           input_manifest_sha256="$(sha256sum evidence/standards-registry-ci/routing-evaluation-inputs.sha256 | cut -d ' ' -f 1)"
           subject_sha="$(git rev-parse HEAD)"
           cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
