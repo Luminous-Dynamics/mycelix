@@ -1,0 +1,52 @@
+name: CIV-IMPACT Causal Field
+on:
+  pull_request:
+    paths:
+      - "tools/civ-impact-causal-field/**"
+      - "docs/research/CIV_IMPACT_CAUSAL_FIELD_EVAL_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_CAUSAL_*.schema.json"
+      - ".github/workflows/civ-impact-causal-field.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/civ-impact-causal-field/**"
+      - "docs/research/CIV_IMPACT_CAUSAL_FIELD_EVAL_V0_1.md"
+      - "docs/research/schema/CIV_IMPACT_CAUSAL_*.schema.json"
+      - ".github/workflows/civ-impact-causal-field.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-impact-causal-field-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  causal-field:
+    name: Rust artifact verifier, schemas, and causal-claim negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust and rustfmt
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt
+
+      - name: Validate schema JSON syntax
+        run: |
+          set -euo pipefail
+          jq empty docs/research/schema/CIV_IMPACT_CAUSAL_TRIAL_PLAN_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_CAUSAL_ASSIGNMENT_MANIFEST_V0_1.schema.json
+          jq empty docs/research/schema/CIV_IMPACT_CAUSAL_OUTCOME_LEDGER_V0_1.schema.json
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/civ-impact-causal-field/Cargo.toml -- --check
+
+      - name: Run semantic and schema contract tests
+        run: cargo test --manifest-path tools/civ-impact-causal-field/Cargo.toml
+
+      - name: Check verifier CLI
+        run: cargo run --manifest-path tools/civ-impact-causal-field/Cargo.toml -- --help
