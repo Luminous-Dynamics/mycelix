@@ -75,6 +75,7 @@ pub fn tend_bond(bond_hash: String) {
         return;
     };
 
+    let publication_evidence = hearth.publication_evidence;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -93,11 +94,14 @@ pub fn tend_bond(bond_hash: String) {
                 quality_bp: 500,
             },
         ).await {
-            Ok(_updated_record) => {
+            Ok(updated_record) => {
                 toasts.push(
-                    "Bond update confirmed. The displayed details may be stale until this view is refreshed.",
+                    feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Bond update"),
                     ToastKind::Custom("bond".into()),
                 );
+                crate::publication_evidence::check_and_store(
+                    &hc, publication_evidence, &updated_record, "Bond update"
+                ).await;
             }
             Err(e) => {
                 web_sys::console::log_1(&format!("tend_bond outcome unknown: {e}").into());
@@ -156,6 +160,7 @@ pub fn express_gratitude(to_agent: String, message: String) {
         return;
     };
 
+    let publication_evidence = hearth.publication_evidence;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -178,10 +183,15 @@ pub fn express_gratitude(to_agent: String, message: String) {
                 visibility: HearthVisibility::AllMembers,
             },
         ).await {
-            Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Gratitude expression"),
-                ToastKind::Custom("gratitude".into()),
-            ),
+            Ok(record) => {
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Gratitude expression"),
+                    ToastKind::Custom("gratitude".into()),
+                );
+                crate::publication_evidence::check_and_store(
+                    &hc, publication_evidence, &record, "Gratitude expression"
+                ).await;
+            },
             Err(e) => {
                 web_sys::console::log_1(&format!("express_gratitude outcome unknown: {e}").into());
                 toasts.push(
@@ -230,6 +240,7 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
         return;
     };
 
+    let publication_evidence = hearth.publication_evidence;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -244,10 +255,15 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
             "cast_vote",
             &CastVoteInput { decision_hash: decision_hash_bytes, choice, reasoning },
         ).await {
-            Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Vote submission"),
-                ToastKind::Custom("decision".into()),
-            ),
+            Ok(record) => {
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Vote submission"),
+                    ToastKind::Custom("decision".into()),
+                );
+                crate::publication_evidence::check_and_store(
+                    &hc, publication_evidence, &record, "Vote submission"
+                ).await;
+            },
             Err(e) => {
                 web_sys::console::log_1(&format!("cast_vote outcome unknown: {e}").into());
                 toasts.push(
@@ -299,6 +315,7 @@ pub fn change_presence(new_status: PresenceStatusType) {
         return;
     };
 
+    let publication_evidence = hearth.publication_evidence;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -317,10 +334,15 @@ pub fn change_presence(new_status: PresenceStatusType) {
                 expected_return: None,
             },
         ).await {
-            Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Presence update"),
-                ToastKind::Custom("presence".into()),
-            ),
+            Ok(record) => {
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Presence update"),
+                    ToastKind::Custom("presence".into()),
+                );
+                crate::publication_evidence::check_and_store(
+                    &hc, publication_evidence, &record, "Presence update"
+                ).await;
+            },
             Err(e) => {
                 web_sys::console::log_1(&format!("set_presence outcome unknown: {e}").into());
                 toasts.push(
@@ -378,6 +400,7 @@ pub fn complete_care_task(task_hash: String) {
         return;
     };
 
+    let publication_evidence = hearth.publication_evidence;
     let hc = hc.clone();
     spawn_local(async move {
         #[derive(serde::Serialize)]
@@ -388,10 +411,15 @@ pub fn complete_care_task(task_hash: String) {
             "complete_task",
             &CompleteTaskInput { schedule_hash: schedule_hash_bytes },
         ).await {
-            Ok(_record) => toasts.push(
-                feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Care task completion"),
-                ToastKind::Custom("care".into()),
-            ),
+            Ok(record) => {
+                toasts.push(
+                    feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Care task completion"),
+                    ToastKind::Custom("care".into()),
+                );
+                crate::publication_evidence::check_and_store(
+                    &hc, publication_evidence, &record, "Care task completion"
+                ).await;
+            },
             Err(e) => {
                 web_sys::console::log_1(&format!("complete_task outcome unknown: {e}").into());
                 toasts.push(
