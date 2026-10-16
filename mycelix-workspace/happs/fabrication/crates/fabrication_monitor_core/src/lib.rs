@@ -11,7 +11,7 @@
 use std::fmt;
 
 /// Number of independently monitored scalar signals in v1.
-pub const SIGNAL_COUNT: usize = 8;
+pub const SIGNAL_COUNT: usize = 10;
 
 /// Exact identity binding for a process-specific reference trace.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,6 +20,12 @@ pub struct ProcessProfile {
     pub design_revision: String,
     /// Immutable process recipe revision identifier or digest.
     pub recipe_revision: String,
+    /// Exact machine identity and relevant configuration revision.
+    pub equipment_profile: String,
+    /// Material grade/condition profile used for this run.
+    pub material_profile: String,
+    /// Declared environment profile for this baseline's applicability.
+    pub environment_profile: String,
     /// Calibration and measurement-system profile identifier.
     pub calibration_profile: String,
 }
@@ -45,6 +51,10 @@ pub struct SensorFrame {
     pub vibration_rms_g: f64,
     /// Optional filament tension in grams.
     pub filament_tension_g: Option<f64>,
+    /// Optional ambient temperature in degrees Celsius.
+    pub ambient_temp_c: Option<f64>,
+    /// Optional relative humidity percentage in the range 0-100.
+    pub humidity_pct: Option<f64>,
 }
 
 /// Signals understood by the v1 detector, in canonical metric-array order.
@@ -66,6 +76,10 @@ pub enum Signal {
     VibrationRms,
     /// Optional filament tension.
     FilamentTension,
+    /// Optional ambient temperature.
+    AmbientTemperature,
+    /// Optional relative humidity percentage.
+    Humidity,
 }
 
 impl Signal {
@@ -79,6 +93,8 @@ impl Signal {
         Signal::ExtruderCurrent,
         Signal::VibrationRms,
         Signal::FilamentTension,
+        Signal::AmbientTemperature,
+        Signal::Humidity,
     ];
 
     /// Stable index into the detector's minimum-scale array.
@@ -92,11 +108,16 @@ impl Signal {
             Signal::ExtruderCurrent => 5,
             Signal::VibrationRms => 6,
             Signal::FilamentTension => 7,
+            Signal::AmbientTemperature => 8,
+            Signal::Humidity => 9,
         }
     }
 
     const fn is_optional(self) -> bool {
-        matches!(self, Signal::FilamentTension)
+        matches!(
+            self,
+            Signal::FilamentTension | Signal::AmbientTemperature | Signal::Humidity
+        )
     }
 }
 
@@ -206,6 +227,8 @@ pub enum InputError {
     NonFinite(Signal),
     /// A non-negative physical signal had a negative value.
     Negative(Signal),
+    /// Relative humidity was outside its supported 0-100 percentage range.
+    OutOfRange(Signal),
 }
 
 /// Robust location and scale estimated from a healthy reference trace.
@@ -315,6 +338,8 @@ pub enum DeviationKind {
     VibrationDeviation,
     /// Filament tension differs from the healthy reference distribution.
     FilamentTensionDeviation,
+    /// Ambient relative humidity differs from the healthy reference distribution.
+    HumidityDeviation,
 }
 
 /// One deviation from the fitted healthy reference distribution.
@@ -535,6 +560,9 @@ impl std::error::Error for EngineError {}
 fn validate_process_profile(profile: &ProcessProfile) -> Result<(), BaselineError> {
     if profile.design_revision.trim().is_empty()
         || profile.recipe_revision.trim().is_empty()
+        || profile.equipment_profile.trim().is_empty()
+        || profile.material_profile.trim().is_empty()
+        || profile.environment_profile.trim().is_empty()
         || profile.calibration_profile.trim().is_empty()
     {
         return Err(BaselineError::EmptyProcessProfileIdentity);
@@ -554,9 +582,15 @@ fn validate_frame(frame: &SensorFrame) -> Result<(), InputError> {
             if value < 0.0 && matches!(
                 signal,
                 Signal::XCurrent | Signal::YCurrent | Signal::ZCurrent
-                    | Signal::ExtruderCurrent | Signal::VibrationRms | Signal::FilamentTension
+                    | Signal::ExtruderCurrent
+                    | Signal::VibrationRms
+                    | Signal::FilamentTension
+                    | Signal::Humidity
             ) {
                 return Err(InputError::Negative(signal));
+            }
+            if signal == Signal::Humidity && value > 100.0 {
+                return Err(InputError::OutOfRange(signal));
             }
         }
     }
@@ -573,6 +607,8 @@ fn signal_value(frame: &SensorFrame, signal: Signal) -> Option<f64> {
         Signal::ExtruderCurrent => Some(frame.stepper_current_ma[3]),
         Signal::VibrationRms => Some(frame.vibration_rms_g),
         Signal::FilamentTension => frame.filament_tension_g,
+        Signal::AmbientTemperature => frame.ambient_temp_c,
+        Signal::Humidity => frame.humidity_pct,
     }
 }
 
@@ -595,6 +631,8 @@ const fn deviation_kind(signal: Signal) -> DeviationKind {
         Signal::ExtruderCurrent => DeviationKind::ExtrusionCurrentDeviation,
         Signal::VibrationRms => DeviationKind::VibrationDeviation,
         Signal::FilamentTension => DeviationKind::FilamentTensionDeviation,
+        Signal::AmbientTemperature => DeviationKind::TemperatureDeviation,
+        Signal::Humidity => DeviationKind::HumidityDeviation,
     }
 }
 
@@ -606,6 +644,9 @@ mod tests {
         ProcessProfile {
             design_revision: "design:bracket@sha256:test-a".into(),
             recipe_revision: "recipe:pla-0.2mm@sha256:test-b".into(),
+            equipment_profile: "equipment:printer-7:config-r3".into(),
+            material_profile: "material:PLA-grade-A:lot-2026-10-01".into(),
+            environment_profile: "environment:enclosed-lab-profile-v1".into(),
             calibration_profile: "calibration:printer-7:2026-10-01".into(),
         }
     }
@@ -615,7 +656,9 @@ mod tests {
             detector_id: "cincinnati.robust-reference".into(),
             detector_version: "1.0.0".into(),
             robust_z_threshold: 3.5,
-            minimum_scale_by_signal: [0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0],
+            minimum_scale_by_signal: [
+                0.5, 0.5, 10.0, 10.0, 10.0, 10.0, 0.01, 2.0, 0.5, 2.0,
+            ],
             minimum_baseline_samples: 5,
             maximum_sample_gap_ms: 1_000,
         }
@@ -633,6 +676,8 @@ mod tests {
             stepper_current_ma: [100.0 + i, 200.0 + i, 150.0 + i, 300.0 + 2.0 * i],
             vibration_rms_g: 0.10 + i * 0.001,
             filament_tension_g: Some(50.0 + i * 0.5),
+            ambient_temp_c: Some(25.0 + i * 0.05),
+            humidity_pct: Some(45.0 + i * 0.2),
         }
     }
 
