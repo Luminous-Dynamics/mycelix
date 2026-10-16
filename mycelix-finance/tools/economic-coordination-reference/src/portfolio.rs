@@ -243,6 +243,7 @@ pub struct PortfolioReport {
     pub required_quantity: u32,
     pub required_evidence_origin: EvidenceOrigin,
     pub minimum_independent_sources: usize,
+    pub independence_constraint_assessed: bool,
     pub policy_id: String,
     pub policy_digest: String,
     pub scenario_set_id: String,
@@ -390,23 +391,44 @@ fn offer_rejection(
     None
 }
 
-fn allocation_choices(offer: &PortfolioOffer, request_quantity: u32) -> Vec<u32> {
+fn allocation_choices(
+    offer: &PortfolioOffer,
+    request_quantity: u32,
+    max_choice_count: u64,
+) -> Result<Vec<u32>, PortfolioError> {
     let max_quantity = offer
         .max_allocatable_quantity
         .min(offer.capacity_pool_quantity)
         .min(request_quantity);
-    let mut choices = vec![0];
-    let mut quantity = offer.minimum_order_quantity;
-    while quantity <= max_quantity {
-        choices.push(quantity);
-        let Some(next) = quantity.checked_add(offer.order_increment) else {
-            break;
-        };
-        quantity = next;
+    let non_zero_choices = if offer.minimum_order_quantity <= max_quantity {
+        u64::from((max_quantity - offer.minimum_order_quantity) / offer.order_increment) + 1
+    } else {
+        0
+    };
+    let total_choices = non_zero_choices
+        .checked_add(1)
+        .ok_or(PortfolioError::ArithmeticOverflow)?;
+    if total_choices > max_choice_count {
+        return Err(PortfolioError::SearchSpaceExceeded);
     }
-    choices
+    let capacity = usize::try_from(total_choices).map_err(|_| PortfolioError::SearchSpaceExceeded)?;
+    let mut choices = Vec::with_capacity(capacity);
+    choices.push(0);
+    if non_zero_choices > 0 {
+        let mut quantity = offer.minimum_order_quantity;
+        loop {
+            choices.push(quantity);
+            let Some(next) = quantity.checked_add(offer.order_increment) else {
+                break;
+            };
+            if next > max_quantity {
+                break;
+            }
+            quantity = next;
+        }
+    }
+    Ok(choices)
 }
-
 struct SearchState<'a> {
     request: &'a PortfolioRequest,
     offers: &'a [PortfolioOffer],
@@ -684,7 +706,8 @@ pub fn evaluate_portfolios(
     let mut scenario_ids = BTreeSet::new();
     for scenario in scenarios {
         if !non_empty(&scenario.scenario_id)
-            || scenario.failed_domains.iter().all(|domain| !non_empty(domain))
+            || scenario.failed_domains.is_empty()
+            || scenario.failed_domains.iter().any(|domain| !non_empty(domain))
         {
             return Err(PortfolioError::InvalidScenario);
         }
@@ -736,10 +759,22 @@ pub fn evaluate_portfolios(
     eligible.sort_by(|a, b| a.offer_id.cmp(&b.offer_id));
     rejected_offers.sort_by(|a, b| a.offer_id.cmp(&b.offer_id));
 
-    let choices = eligible
-        .iter()
-        .map(|offer| allocation_choices(offer, request.required_quantity))
-        .collect();
+    let mut choices = Vec::with_capacity(eligible.len());
+    let mut total_choice_count = 0u64;
+    for offer in &eligible {
+        let offer_choices = allocation_choices(
+            offer,
+            request.required_quantity,
+            request.max_search_nodes,
+        )?;
+        total_choice_count = total_choice_count
+            .checked_add(u64::try_from(offer_choices.len()).map_err(|_| PortfolioError::SearchSpaceExceeded)?)
+            .ok_or(PortfolioError::ArithmeticOverflow)?;
+        if total_choice_count > request.max_search_nodes {
+            return Err(PortfolioError::SearchSpaceExceeded);
+        }
+        choices.push(offer_choices);
+    }
     let mut search = SearchState {
         request,
         offers: &eligible,
