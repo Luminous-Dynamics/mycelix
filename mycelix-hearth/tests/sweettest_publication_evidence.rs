@@ -38,6 +38,7 @@ struct CreateHearthInput {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 enum PublicationEvidenceAvailability {
+    NotAvailableToCaller,
     NoOperationData,
     Observed,
 }
@@ -214,7 +215,60 @@ async fn publication_evidence_does_not_claim_receipts_for_another_conductor() {
     assert_eq!(report.action_hash, remote_action_hash);
     assert_eq!(
         report.availability,
-        PublicationEvidenceAvailability::NoOperationData
+        PublicationEvidenceAvailability::NotAvailableToCaller
+    );
+    assert_eq!(report.operation_count, 0);
+    assert_eq!(report.receipt_record_count, 0);
+    assert!(!report.all_receipt_thresholds_complete);
+    assert_summary_is_self_consistent(&report);
+}
+
+
+/// HDK 0.6 exposes the conductor's receipt store across agents on that
+/// conductor. Hearth narrows this to the current author to avoid cross-agent
+/// receipt metadata disclosure.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor and packed DNA (nix develop)"]
+async fn publication_evidence_does_not_expose_another_local_agents_receipts() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+    let (alice,) = conductor
+        .setup_app("publication-evidence-alice", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = conductor
+        .setup_app("publication-evidence-bob", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let alice_record: Record = conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Alice Publication Evidence Hearth".to_string(),
+                description: "Author-scope isolation fixture".to_string(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(10),
+            },
+        )
+        .await;
+    let alice_action_hash = alice_record.action_address().clone();
+
+    let report: ActionPublicationEvidence = conductor
+        .call(
+            &bob.zome("hearth_bridge"),
+            "get_action_publication_evidence",
+            alice_action_hash.clone(),
+        )
+        .await;
+
+    assert_eq!(report.action_hash, alice_action_hash);
+    assert_eq!(
+        report.availability,
+        PublicationEvidenceAvailability::NotAvailableToCaller
     );
     assert_eq!(report.operation_count, 0);
     assert_eq!(report.receipt_record_count, 0);
