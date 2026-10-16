@@ -24,7 +24,7 @@ Money budgets are encoded as exact decimal strings, not floating-point JSON numb
 
 ## Fixture census v0.1
 
-The initial manifest contains eleven cases: one minimal accepted request; four schema-rejection controls (false fulfillment, unapproved public summary, consent without a record, and an authorized state without an authorization reference); one floating-point money representation rejection; one duplicate-ID semantic rejection; one digest-tampering rejection; and malformed/duplicate-key parser rejections.
+The initial manifest contains twelve cases: one minimal accepted request; four schema-rejection controls (false fulfillment, unapproved public summary, consent without a record, and an authorized state without an authorization reference); one floating-point money representation rejection; one duplicate-ID semantic rejection; one digest-tampering rejection; and malformed/duplicate-key parser rejections.
 
 The corpus is a contract smoke test, not a statistically powered benchmark, not a model-quality measure, and not evidence of real-world wish fulfillment. Additional property-based, fuzz, lifecycle-transition, authorization-boundary and blinded holdout tests are required before production use.
 
