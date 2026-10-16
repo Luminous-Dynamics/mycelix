@@ -4,6 +4,8 @@
 //! provenance requirements, and cross-record graph. It is not a generic JSON
 //! Schema implementation and does not claim standards conformance.
 
+pub mod simulation;
+
 use serde_json::Value;
 use std::collections::BTreeSet;
 
