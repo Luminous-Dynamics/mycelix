@@ -43,7 +43,17 @@ The ValueFlows specification distinguishes planned flows (`Intent` / `Commitment
 - Duplicate account/capacity declarations are non-destructive.
 - Replayed lifecycle transitions cannot post the same contract twice.
 
-The reference model currently contains **38 authored unit tests**. This is a source-level count, not a claim that the tests have executed successfully.
+The v1 reference and additive partial-fulfilment experiment currently contain **52 authored unit tests** (38 v1 tests plus 14 tranche-ledger tests). This is a source-level count, not a claim that the tests have executed successfully.
+
+## Experimental partial-fulfilment tranche ledger
+
+The additive `fulfillment_tranches` Rust module explores a ValueFlows-aligned gap: one request may be fulfilled by multiple delivery tranches, each independently verified. It does not change the existing v1 single-claim lifecycle and is not wired into the v1 capacity book or settlement engine.
+
+- Pending, indeterminate, and disputed tranches reserve their full claimed quantity. Verified accepted quantities count only when both evidence status and origin are acceptable.
+- Partial acceptance counts only the accepted amount and releases the unaccepted remainder for a replacement tranche.
+- Duplicate claim IDs and evidence IDs are rejected. Final tranches cannot be accepted twice. Disputed resolution requires a different verifier.
+- Claims and verification decisions are retained in an append-only journal. This is a serial reference model, not a distributed concurrency protocol or financial posting authorization.
+- Fourteen regression tests are authored for multiple tranches, partial acceptance, replay, overcommitment, over-fulfilment, unknown/synthetic evidence, independence, dispute resolution, deadline checks, and journal ordering. They remain unexecuted until qualification records show otherwise.
 
 ## Explicit limitations
 
