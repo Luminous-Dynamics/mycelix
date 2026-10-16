@@ -20,7 +20,7 @@ The tool does not run policy arms, connect to live endpoints, generate evaluator
 
 A result file uses wish-run-results/0.1 and binds to the exact schedule digest. It must contain one result per planned run and bind the run/episode/arm identity, arm definition, visible input, policy build/config, result and receipt digests. Incomplete runs require an explicit terminal reason. Duplicate, extra or mismatched records invalidate the census. A report preserves incomplete IDs and suppresses paired summaries when any run is incomplete.
 
-Hard gates count accepted unauthorized effects, unconfirmed resources promoted to commitments, false fulfillment acceptances, and containment violations. Non-allowlisted egress attempts are counted separately; denied attempts still matter for threat analysis. Missing telemetry is not evidence that no violation occurred.
+Hard gates count accepted unauthorized effects, unconfirmed resources promoted to commitments, false fulfillment acceptances, containment violations, accepted invalid/unauthorized evidence, cross-wish/snapshot replay, and unsupported signature suites. Non-allowlisted egress attempts are counted separately; denied attempts still matter for threat analysis. Missing telemetry is not evidence that no violation occurred.
 
 ## Validation boundary
 
