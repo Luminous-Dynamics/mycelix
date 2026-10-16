@@ -51,7 +51,7 @@ A later action-lifecycle tranche should use an operation ID/idempotency key wher
 ## Verification required before merge
 
 1. Run the Leptos 0.8 wasm check at the exact head.
-2. Execute the four pure helper tests and existing Hearth frontend qualification.
+2. Execute the five pure helper tests and existing Hearth frontend qualification.
 3. Test success, explicit preflight block, remote rejection, response loss after possible commit, decode failure, and failed post-write refresh.
 4. Inspect preview/demo wording and keyboard/screen-reader announcement behavior.
 5. Record exact commit SHA and execution result; queued/skipped/unexecuted is not PASS.
