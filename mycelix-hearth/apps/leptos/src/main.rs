@@ -5,6 +5,7 @@ use leptos::prelude::*;
 
 mod ambient_sound;
 mod app;
+mod action_feedback;
 mod circadian;
 mod components;
 pub mod hearth_actions;
