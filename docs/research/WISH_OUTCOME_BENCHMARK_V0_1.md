@@ -10,7 +10,7 @@ The benchmark evaluates the complete workflow: request understanding → evidenc
 
 ## Phase 0: contract qualification
 
-The current `tools/wish-contract-check/` corpus has twelve declared fixtures: two acceptable request states and ten negative/invalid cases spanning false fulfillment, evidence gaps, consent, authorization, exact money representation, duplicate IDs, digest integrity and ambiguous JSON. The local Python reference check matched 12/12 expected dispositions. This is not execution of the Rust checker or full JSON Schema validation; those remain explicit gates.
+The current `tools/wish-contract-check/` corpus has sixteen declared fixtures: three acceptable states (initial draft, linked later snapshot, and evidence-backed fulfillment) plus thirteen negative/invalid cases spanning false fulfillment, evidence gaps, consent, authorization, exact money representation, snapshot lineage, duplicate IDs, digest integrity and ambiguous JSON. The local Python reference check matched 12/12 expected dispositions. This is not execution of the Rust checker or full JSON Schema validation; those remain explicit gates.
 
 Contract acceptance criteria:
 - schema meta-validation under JSON Schema Draft 2020-12 and format validation;
