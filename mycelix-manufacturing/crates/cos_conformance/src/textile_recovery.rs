@@ -202,7 +202,7 @@ pub fn assess_textile_recovery(record: &TextileRecoveryRecord) -> TextileRecover
                 plane: TextileEvidencePlane::CustodyStrategy,
                 decision: Decision::Rejected,
                 reason:
-                    "fiber transformation creates a new output lot; item-identity continuity is not established"
+                    "fiber transformation creates a new lot; item identity is not continuous"
                         .into(),
             });
         }
@@ -444,7 +444,7 @@ mod tests {
         );
         assert!(assessment.blockers.iter().any(|blocker| {
             blocker.plane == TextileEvidencePlane::CustodyStrategy
-                && blocker.reason.contains("new output material subject")
+                && blocker.reason.contains("new lot")
         }));
     }
 
