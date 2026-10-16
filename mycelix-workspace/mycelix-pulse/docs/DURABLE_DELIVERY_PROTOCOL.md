@@ -36,7 +36,7 @@ A delivery receipt must be authenticated by Pulse's trusted verifier and bind at
 
 1. logical message ID;
 2. intended recipient identity;
-3. envelope commitment (or an equally strong immutable protocol-context binding);
+3. the exact immutable envelope commitment (or equally strong context), which the trusted verifier must authenticate from the receipt—not merely compare against caller-supplied metadata;
 4. receipt protocol/version and the semantics of the acknowledgement;
 5. authenticated recipient-receive time if the product wants to distinguish on-time from late receipt;
 6. anti-replay material or a receipt/event ID scoped to the verifier's replay policy.
@@ -145,7 +145,7 @@ The isolated crate now has `crates/pulse-transport-core/src/delivery_journal.rs`
 - bounded attempt count, attempt outcome transitions, retry-not-before checks, expiry/revocation and receipt binding;
 - receipt event evidence that retains the encoded signed bytes and verifier-version label alongside the verifier-issued capability, so a durable adapter can persist source evidence and re-verify it during replay.
 
-The reference model does not claim production cryptographic verification itself: the receipt verifier remains a trust boundary. It also does not survive process exit, provide a database transaction, serialize a stable storage schema, or prove filesystem/power-loss durability. Every future database backend must implement compare-and-swap, event-ID uniqueness, the immutable identity constraint, and fencing atomically—not as separate read-then-write operations. The event's raw receipt material must be re-verified on load; a saved status/boolean or process-local capability is not cryptographic evidence.
+The reference model carries the envelope commitment through the receipt-verifier API and refuses to map a token to `Delivered` for a different commitment, message or recipient. This protects the local contract boundary; it does not prove that a real receipt signature cryptographically encodes the commitment. The configured production verifier must verify the signed receipt's commitment field (or equivalent immutable context). The reference model does not claim production cryptographic verification itself: the receipt verifier remains a trust boundary. It also does not survive process exit, provide a database transaction, serialize a stable storage schema, or prove filesystem/power-loss durability. Every future database backend must implement compare-and-swap, event-ID uniqueness, the immutable identity constraint, and fencing atomically—not as separate read-then-write operations. The event's raw receipt material must be re-verified on load; a saved status/boolean or process-local capability is not cryptographic evidence.
 
 This code is a contract test harness and integration seam, not the supported Pulse outbox/inbox implementation. Rust compile/test evidence remains required.
 
