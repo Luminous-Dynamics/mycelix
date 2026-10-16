@@ -6,29 +6,22 @@
   "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/3807",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5063",
   "rules": {
-    "graph_semantics": {
-      "requires_all": "Every listed prerequisite must be qualified.",
-      "requires_any": "At least one listed alternative must be qualified; alternatives do not inherit the evidence of each other.",
-      "empty_alternative_list": "No alternative branch is declared.",
-      "unknown_prerequisite": "The capability is unresolved or blocked; never assume true.",
-      "evidence": "Evidence is attached to a specific claim under a specific profile, not to a technology name globally.",
-      "local_use_vs_reproduction": "Use, maintenance, repair, replacement-part production, equipment reproduction, reference-chain renewal, and independent transfer are distinct states.",
-      "historical_sequence": "Edges are dependency hypotheses, not an assertion that every community must follow a linear sequence.",
-      "physical_authority": "This graph grants no authority to purchase, allocate resources, energize equipment, manufacture products, or operate machinery."
-    },
-    "profiles": [
-      "L_low_tool",
-      "S_salvage",
-      "M_modern_leapfrog"
-    ],
-    "evidence_tiers": {
-      "E0": "Conceptual proposal or hypothesis.",
-      "E1": "Credible historical account or specialist reference.",
-      "E2": "Directly documented process with known conditions.",
-      "E3": "Independently reproduced controlled demonstration.",
-      "E4": "Field demonstrated under a bounded local profile.",
-      "E5": "Reproduced by a separately operated node using transferred knowledge and qualified inputs."
-    }
+    "requires_all": "Every listed prerequisite must be qualified.",
+    "requires_any": "At least one listed alternative must be qualified; alternatives do not inherit one another's evidence.",
+    "external_tokens": "Tokens prefixed or named as imported, salvaged, qualified, or locally demonstrated are explicit scenario assertions and need their own evidence in any real profile.",
+    "unknown_prerequisite": "Unknown or conflicting prerequisites block the stronger capability claim; never assume true.",
+    "evidence": "Evidence attaches to a specific claim under a specific profile, not to a technology name globally.",
+    "state_ladder": ["use", "maintain", "repair", "replacement_part_production", "productive_equipment_reproduction", "metrology_and_tooling_renewal", "independent_transfer"],
+    "history": "Edges are dependency hypotheses, not a universal chronology. Alternative modern routes may leapfrog historical stages but cannot erase their own real dependencies.",
+    "physical_authority": "No graph result grants authority to allocate resources, purchase, energize equipment, manufacture products, or operate machinery."
+  },
+  "evidence_tiers": {
+    "E0": "Conceptual proposal or hypothesis.",
+    "E1": "Credible historical account or specialist reference.",
+    "E2": "Directly documented process with known conditions.",
+    "E3": "Independently reproduced controlled demonstration.",
+    "E4": "Field demonstrated under a bounded local profile.",
+    "E5": "Reproduced by a separately operated node using transferred knowledge and qualified inputs."
   },
   "sources": [
     {
@@ -47,7 +40,7 @@
       "title": "Connecting the Scientific and Industrial Revolutions: The Role of Practical Mathematics",
       "year": 2022,
       "url": "https://doi.org/10.1017/S0022050722000250",
-      "use": "Research anchor for the relationships between practical mathematics, precision measurement, instrument-making and machine tools.",
+      "use": "Research anchor for relationships between practical mathematics, precision measurement, instrument-making and machine tools.",
       "limits": "Historical explanatory evidence; not direct qualification of a modern local production route."
     },
     {
@@ -63,9 +56,8 @@
       "id": "S4",
       "type": "community_knowledge_guidance",
       "title": "UNESCO: Traditional craftsmanship",
-      "year": 2003,
       "url": "https://ich.unesco.org/en/traditional-craftsmanship-00057",
-      "use": "Guidance on the transmission and community context of traditional craft skills.",
+      "use": "Guidance on transmission and community context of traditional craft skills.",
       "limits": "Not a technical process specification; community consent and knowledge restrictions must be respected."
     },
     {
@@ -74,7 +66,7 @@
       "title": "UNESCO: Transmission",
       "url": "https://ich.unesco.org/en/transmission-00078",
       "use": "Guidance on knowledge and skills transfer across generations.",
-      "limits": "Not a technical process specification; local practitioners remain active knowledge holders."
+      "limits": "Not a technical process specification; practitioners remain active knowledge holders."
     }
   ],
   "nodes": [
@@ -82,11 +74,10 @@
       "id": "N01_observation_and_shared_records",
       "label": "Observation, counting, shared measures and recordkeeping",
       "family": "knowledge",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": [],
       "requires_any": [],
-      "state_dimensions": ["use", "maintenance", "transfer"],
-      "open_questions": ["Which local measures are repeatable and comparable?", "Who maintains records and teaches the practice?"],
+      "separate_capabilities": ["use", "maintain", "transfer"],
+      "questions": ["Which local measures are repeatable and comparable?", "Who maintains records and teaches the practice?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S2", "S4", "S5"]
     },
@@ -94,11 +85,9 @@
       "id": "N02_resource_and_skill_census",
       "label": "Local resource, tool, energy and skill census",
       "family": "assessment",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N01_observation_and_shared_records"],
       "requires_any": [],
-      "state_dimensions": ["observation", "maintenance", "transfer"],
-      "open_questions": ["Are inventories observed or merely reported?", "Which seasonal, ecological and access constraints apply?"],
+      "questions": ["Are inventories observed or only reported?", "Which seasonal, ecological and access constraints apply?"],
       "evidence_tier": "E0",
       "source_refs": ["S1"]
     },
@@ -106,11 +95,10 @@
       "id": "N03_manual_tools_and_workholding",
       "label": "Manual tools, workholding and basic repair",
       "family": "tools",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N02_resource_and_skill_census"],
       "requires_any": [],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts"],
-      "open_questions": ["Which tools and materials are actually present?", "Which tasks require an unrepresented specialist skill?"],
+      "separate_capabilities": ["use", "maintain", "repair", "replacement_part_production"],
+      "questions": ["Which tools and materials are actually present?", "Which tasks require unrepresented specialist skill?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S4"]
     },
@@ -118,11 +106,10 @@
       "id": "N04_material_processing_routes",
       "label": "Bounded material shaping, joining and transformation routes",
       "family": "materials",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N02_resource_and_skill_census", "N03_manual_tools_and_workholding"],
       "requires_any": [],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts", "reproduction"],
-      "open_questions": ["Which resource and material grades are verified?", "What energy, waste and environmental limits apply?", "Which transformation routes are locally demonstrated?"],
+      "separate_capabilities": ["use", "maintain", "repair", "replacement_part_production", "productive_equipment_reproduction"],
+      "questions": ["Which resource and material grades are verified?", "What energy, waste and ecological limits apply?", "Which routes are locally demonstrated?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S4"]
     },
@@ -130,11 +117,10 @@
       "id": "N05_repeatable_measurement_and_references",
       "label": "Repeatable measurement and reference-artifact continuity",
       "family": "metrology",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N01_observation_and_shared_records"],
       "requires_any": [],
-      "state_dimensions": ["use", "maintenance", "calibration", "reference_renewal", "transfer"],
-      "open_questions": ["What is the uncertainty of the reference?", "How is the reference checked and renewed?", "Which claims require external calibration?"],
+      "separate_capabilities": ["use", "maintain", "calibrate", "reference_renewal", "transfer"],
+      "questions": ["What is the uncertainty of the reference?", "How is it checked and renewed?", "Which claims require external calibration?"],
       "evidence_tier": "E0",
       "source_refs": ["S2", "S3"]
     },
@@ -142,152 +128,153 @@
       "id": "N06_cutting_tools_and_fixtures",
       "label": "Renewable cutting tools, jigs, fixtures and workholding",
       "family": "precision_tools",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N04_material_processing_routes", "N05_repeatable_measurement_and_references"],
       "requires_any": [],
-      "state_dimensions": ["use", "maintenance", "repair", "tooling_renewal"],
-      "open_questions": ["What material properties and tolerances are required?", "Can wear surfaces and cutting edges be renewed?"],
+      "separate_capabilities": ["use", "maintain", "repair", "tooling_renewal"],
+      "questions": ["What material properties and tolerances are required?", "Can wear surfaces and cutting edges be renewed?"],
       "evidence_tier": "E0",
       "source_refs": ["S2", "S3"]
     },
     {
       "id": "N07_usable_mechanical_drive",
-      "label": "A qualified useful-work drive and mechanical transmission",
+      "label": "A bounded useful-work drive and mechanical transmission",
       "family": "power",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N03_manual_tools_and_workholding"],
       "requires_any": ["manual_or_animal_power", "site_suitable_water_or_wind_power", "salvaged_or_imported_power_unit"],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts"],
-      "open_questions": ["Is the resource seasonal?", "Are bearings, lubrication, structures and guards available?", "Can safe operating limits be established?"],
+      "questions": ["Is the resource seasonal?", "Are bearings, lubrication, structures and guards available?", "Can operating limits be established?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S3"]
     },
     {
-      "id": "N08_basic_machine_tool_capability",
-      "label": "A bounded machine-tool capability with inspectable output",
+      "id": "N08_operational_machine_tool",
+      "label": "Use of an available machine tool for a bounded task",
       "family": "manufacturing",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
-      "requires_all": ["N04_material_processing_routes", "N05_repeatable_measurement_and_references", "N06_cutting_tools_and_fixtures", "N07_usable_mechanical_drive"],
-      "requires_any": ["salvaged_or_imported_machine_tool", "locally_demonstrated_machine_tool_route"],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts", "productive_equipment_reproduction"],
-      "open_questions": ["Which parts and tolerance classes are demonstrated?", "Which spindles, slides, bearings, motors and controls remain external?", "What calibration and inspection chain is required?"],
+      "requires_all": ["N07_usable_mechanical_drive"],
+      "requires_any": ["salvaged_or_imported_machine_tool", "qualified_existing_machine_tool"],
+      "separate_capabilities": ["use"],
+      "questions": ["Is the actual machine operational and correctly configured?", "What tasks, materials and limits are qualified?", "What does not follow about maintenance or local reproduction?"],
       "evidence_tier": "E0",
       "source_refs": ["S2", "S3"]
     },
     {
-      "id": "N09_electrical_generation_and_conversion",
-      "label": "Bounded electricity generation or conversion capability",
+      "id": "N09_inspectable_machine_tool_output",
+      "label": "Production with a stated, valid inspection basis",
+      "family": "quality",
+      "requires_all": ["N08_operational_machine_tool", "N05_repeatable_measurement_and_references"],
+      "requires_any": ["qualified_inspection_route", "locally_demonstrated_inspection_route"],
+      "separate_capabilities": ["conforming_output"],
+      "questions": ["Are measurement uncertainty and calibration current?", "Are material identity, process revision and acceptance criteria traceable?"],
+      "evidence_tier": "E0",
+      "source_refs": ["S2", "S3"]
+    },
+    {
+      "id": "N10_local_machine_tool_reproduction",
+      "label": "Locally reproduced machine-tool capability",
+      "family": "productive_equipment_reproduction",
+      "requires_all": ["N04_material_processing_routes", "N05_repeatable_measurement_and_references", "N06_cutting_tools_and_fixtures", "N07_usable_mechanical_drive"],
+      "requires_any": ["locally_demonstrated_lower_tool_machine_route", "qualified_machine_tool_assisted_reproduction_route"],
+      "separate_capabilities": ["replacement_part_production", "productive_equipment_reproduction", "tooling_renewal"],
+      "questions": ["Which spindles, slides, bearings, motors and controls remain external?", "Can the calibration and cutting-tool renewal chains also be maintained?"],
+      "evidence_tier": "E0",
+      "source_refs": ["S2", "S3"]
+    },
+    {
+      "id": "N11_usable_electrical_supply",
+      "label": "Use of an existing or locally demonstrated electrical supply",
       "family": "electrical",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
-      "requires_all": ["N05_repeatable_measurement_and_references", "N07_usable_mechanical_drive"],
-      "requires_any": ["salvaged_or_imported_generator_or_supply", "locally_demonstrated_electromechanical_route"],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts", "productive_equipment_reproduction"],
-      "open_questions": ["What conductor, insulation, magnetic-material, bearing and protection requirements apply?", "Can output and fault conditions be measured safely?", "What remains import-dependent?"],
+      "requires_all": [],
+      "requires_any": ["qualified_imported_or_existing_electrical_service", "qualified_local_electrical_supply"],
+      "separate_capabilities": ["use"],
+      "questions": ["Are protection, insulation, grounding, storage and load limits qualified?", "Which supply and replacement dependencies remain external?"],
+      "evidence_tier": "E0",
+      "source_refs": ["S1"]
+    },
+    {
+      "id": "N12_local_electromechanical_reproduction",
+      "label": "Local reproduction of selected electromechanical equipment",
+      "family": "productive_equipment_reproduction",
+      "requires_all": ["N04_material_processing_routes", "N05_repeatable_measurement_and_references", "N06_cutting_tools_and_fixtures", "N07_usable_mechanical_drive"],
+      "requires_any": ["locally_demonstrated_generator_or_motor_route", "qualified_machine_tool_assisted_electromechanical_route"],
+      "separate_capabilities": ["replacement_part_production", "productive_equipment_reproduction", "metrology_and_tooling_renewal"],
+      "questions": ["Which conductors, insulation, magnetic materials, bearings, controls and test equipment are mandatory?", "What electrical safety and qualification evidence is required?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S3"]
     },
     {
-      "id": "N10_safe_electrical_service",
-      "label": "Safe, bounded electrical service for selected loads",
-      "family": "electrical",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
-      "requires_all": ["N05_repeatable_measurement_and_references"],
-      "requires_any": ["N09_electrical_generation_and_conversion", "qualified_imported_or_existing_electrical_service"],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts"],
-      "open_questions": ["Are protection, insulation, grounding, storage and inspection prerequisites satisfied?", "Which dependencies are external?"],
-      "evidence_tier": "E0",
-      "source_refs": ["S1"]
-    },
-    {
-      "id": "N11_computation_and_communication_use",
-      "label": "Use of a computer or communications module",
+      "id": "N13_computation_and_communication_use",
+      "label": "Use of an available computer or communications module",
       "family": "information",
-      "profile_relevance": ["S_salvage", "M_modern_leapfrog"],
-      "requires_all": ["N01_observation_and_shared_records", "N10_safe_electrical_service"],
-      "requires_any": ["salvaged_or_imported_computing_module", "locally_repairable_qualified_computing_module"],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts"],
-      "open_questions": ["What power, storage, interface, language, security and maintenance constraints apply?", "What fails if networking is absent?"],
+      "requires_all": ["N01_observation_and_shared_records"],
+      "requires_any": ["N11_usable_electrical_supply", "qualified_battery_power"],
+      "requires_any_module": ["salvaged_or_imported_computing_module", "qualified_existing_computing_module"],
+      "separate_capabilities": ["use"],
+      "questions": ["What power, storage, interface, language and maintenance constraints apply?", "What remains usable without the network?"],
       "evidence_tier": "E0",
       "source_refs": ["S1"]
     },
     {
-      "id": "N12_electronics_maintenance_and_repair",
-      "label": "Qualified diagnostics and repair of selected electronic assemblies",
+      "id": "N14_electronics_maintenance_and_repair",
+      "label": "Diagnostics and repair of selected electronic assemblies",
       "family": "electronics",
-      "profile_relevance": ["S_salvage", "M_modern_leapfrog"],
-      "requires_all": ["N05_repeatable_measurement_and_references", "N10_safe_electrical_service", "N11_computation_and_communication_use"],
-      "requires_any": [],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts"],
-      "open_questions": ["What test equipment and schematics are available?", "Which components and packages can actually be replaced?", "What electrostatic and electrical protections are needed?"],
+      "requires_all": ["N05_repeatable_measurement_and_references"],
+      "requires_any": ["N11_usable_electrical_supply", "qualified_battery_power"],
+      "requires_any_module": ["qualified_electronics_diagnostic_tools_and_parts", "locally_demonstrated_electronics_repair_route"],
+      "separate_capabilities": ["use", "maintain", "repair", "replacement_part_production"],
+      "questions": ["What test equipment, schematics and skills are available?", "Which components can actually be replaced and tested?", "What protections are required?"],
       "evidence_tier": "E0",
       "source_refs": ["S1"]
     },
     {
-      "id": "N13_semiconductor_device_manufacturing",
-      "label": "Advanced semiconductor-device manufacturing capability",
+      "id": "N15_semiconductor_manufacturing_unresolved",
+      "label": "Advanced semiconductor-device manufacturing: placeholder with unresolved critical dependencies",
       "family": "advanced_manufacturing",
-      "profile_relevance": ["M_modern_leapfrog"],
-      "requires_all": ["N05_repeatable_measurement_and_references", "N08_basic_machine_tool_capability", "N10_safe_electrical_service"],
-      "requires_any": ["qualified_purchased_semiconductor_process_equipment", "separately_qualified_local_process_equipment_route"],
-      "state_dimensions": ["use", "maintenance", "repair", "replacement_parts", "productive_equipment_reproduction"],
-      "open_questions": ["Ultra-pure materials, contamination control, vacuum, deposition/etch, lithography, process chemicals, water, metrology, yield and supply requirements remain unmapped in this pilot."],
+      "requires_all": [],
+      "requires_any": [],
+      "closure_status": "blocked_unknown_dependencies",
+      "unresolved_required_dependency_classes": ["ultra_pure_feedstocks", "ultra_pure_process_chemicals_and_water", "contamination_control", "vacuum", "deposition_and_etch", "lithography", "precision_metrology", "process_equipment_maintenance_and_reproduction", "yield_control", "specialist_workforce_and_training", "reliable_power_and_thermal_management", "packaging_and_test"],
+      "separate_capabilities": ["use", "maintain", "repair", "replacement_part_production", "productive_equipment_reproduction"],
+      "questions": ["Do not count this node as closed until each required dependency is modeled and qualified."],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S2"]
     },
     {
-      "id": "N14_durable_technical_knowledge_packet",
-      "label": "Versioned, duplicateable technical knowledge packet and training pathway",
+      "id": "N16_durable_technical_knowledge_packet",
+      "label": "Versioned, duplicateable technical knowledge packet and training path",
       "family": "knowledge",
-      "profile_relevance": ["L_low_tool", "S_salvage", "M_modern_leapfrog"],
       "requires_all": ["N01_observation_and_shared_records"],
       "requires_any": ["durable_printed_or_manual_archive", "qualified_digital_archive"],
-      "state_dimensions": ["use", "maintenance", "versioning", "skill_transfer", "independent_reproduction"],
-      "open_questions": ["Are diagrams, worked examples, failure modes, units, revisions, rights and training/assessment methods included?", "Can people use this offline?"],
+      "separate_capabilities": ["use", "maintenance", "versioning", "skill_transfer", "independent_reproduction"],
+      "questions": ["Are diagrams, worked examples, units, revisions, failure modes, rights and training/assessment methods included?", "Can the packet be used offline?"],
       "evidence_tier": "E0",
       "source_refs": ["S1", "S4", "S5"]
     }
-  ],
-  "explicit_external_prerequisite_tokens": [
-    "manual_or_animal_power",
-    "site_suitable_water_or_wind_power",
-    "salvaged_or_imported_power_unit",
-    "salvaged_or_imported_machine_tool",
-    "locally_demonstrated_machine_tool_route",
-    "salvaged_or_imported_generator_or_supply",
-    "locally_demonstrated_electromechanical_route",
-    "qualified_imported_or_existing_electrical_service",
-    "salvaged_or_imported_computing_module",
-    "locally_repairable_qualified_computing_module",
-    "qualified_purchased_semiconductor_process_equipment",
-    "separately_qualified_local_process_equipment_route",
-    "durable_printed_or_manual_archive",
-    "qualified_digital_archive"
   ],
   "profiles": [
     {
       "id": "L_low_tool",
       "initial_capabilities": ["N01_observation_and_shared_records", "N02_resource_and_skill_census"],
-      "notes": "Initial nodes are declared scenario inputs for the pilot; their presence must be justified for a real profile."
+      "candidate_external_tokens": ["manual_or_animal_power", "site_suitable_water_or_wind_power", "durable_printed_or_manual_archive"],
+      "notes": "Profile claims are fixture inputs; presence of tools, materials and skills must be justified for any real place."
     },
     {
       "id": "S_salvage",
       "initial_capabilities": ["N01_observation_and_shared_records", "N02_resource_and_skill_census"],
-      "candidate_external_tokens": ["salvaged_or_imported_power_unit", "salvaged_or_imported_machine_tool", "salvaged_or_imported_generator_or_supply", "qualified_imported_or_existing_electrical_service", "salvaged_or_imported_computing_module", "durable_printed_or_manual_archive"],
-      "notes": "Possession of equipment is not proof that it is operable, maintainable, repairable, or renewable."
+      "candidate_external_tokens": ["salvaged_or_imported_power_unit", "salvaged_or_imported_machine_tool", "qualified_imported_or_existing_electrical_service", "qualified_battery_power", "salvaged_or_imported_computing_module", "durable_printed_or_manual_archive"],
+      "notes": "Possession does not prove operation, maintenance, repair, replacement-part production or reproduction."
     },
     {
       "id": "M_modern_leapfrog",
       "initial_capabilities": ["N01_observation_and_shared_records", "N02_resource_and_skill_census"],
-      "candidate_external_tokens": ["qualified_imported_or_existing_electrical_service", "salvaged_or_imported_computing_module", "qualified_purchased_semiconductor_process_equipment", "qualified_digital_archive"],
-      "notes": "Represents selected external/modern modules without assuming local production of the complete upstream industrial system."
+      "candidate_external_tokens": ["qualified_imported_or_existing_electrical_service", "qualified_battery_power", "qualified_existing_computing_module", "qualified_digital_archive"],
+      "notes": "Selected modern modules can be used without a local historical reconstruction sequence; upstream repair and supply dependencies remain visible."
     }
   ],
   "required_future_tests": [
-    "Changing local resource/energy/skill constraints must not rewrite source claims.",
-    "Removing a required prerequisite must block closure unless a declared qualified alternative exists.",
-    "An imported module can count as usable only under its declared availability and qualification evidence; it must not count as locally reproducible.",
-    "The semiconductor node must remain explicitly unresolved until its high-purity process and toolchain dependencies are modeled.",
-    "All present E0 nodes must stay E0 until claim-specific evidence is admitted.",
-    "The independent verifier must reject forged transition receipts and missing critical dependency tokens."
+    "Use of imported equipment must not imply local manufacture of that equipment.",
+    "A machine's operation and the conformity of its output are separate claims.",
+    "Removing a required prerequisite must block closure unless a qualified alternate path is available.",
+    "Unknown critical semiconductor dependencies keep N15 blocked.",
+    "All proposed nodes remain E0 until claim-specific evidence is admitted.",
+    "The independent verifier rejects missing dependency tokens and forged transition receipts."
   ]
 }
