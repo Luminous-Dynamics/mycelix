@@ -12,6 +12,9 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Bounded retry/deadline lifecycle primitive; durable storage is supplied by the caller.
+pub mod delivery_state;
+
 const MAX_IDENTIFIER_BYTES: usize = 64;
 const MAX_MESSAGE_ID_BYTES: usize = 128;
 const MAX_RECIPIENT_ID_BYTES: usize = 512;
