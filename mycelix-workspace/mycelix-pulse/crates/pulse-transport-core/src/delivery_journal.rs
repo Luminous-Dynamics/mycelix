@@ -270,6 +270,7 @@ pub enum PersistedJournalEventKind {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PersistedJournalEvent {
+    schema_version: u16,
     event_id: String,
     identity: MessageIdentity,
     occurred_at: UnixMillis,
@@ -278,6 +279,8 @@ pub struct PersistedJournalEvent {
 }
 
 impl PersistedJournalEvent {
+    pub const CURRENT_SCHEMA_VERSION: u16 = 1;
+
     pub fn new(
         event_id: impl Into<String>,
         identity: MessageIdentity,
@@ -285,6 +288,29 @@ impl PersistedJournalEvent {
         actor: JournalActor,
         kind: PersistedJournalEventKind,
     ) -> Result<Self, JournalError> {
+        Self::new_versioned(
+            Self::CURRENT_SCHEMA_VERSION,
+            event_id,
+            identity,
+            occurred_at,
+            actor,
+            kind,
+        )
+    }
+
+    /// Used by storage decoders. Unsupported versions fail closed so an
+    /// unknown schema is never silently interpreted as the current contract.
+    pub fn new_versioned(
+        schema_version: u16,
+        event_id: impl Into<String>,
+        identity: MessageIdentity,
+        occurred_at: UnixMillis,
+        actor: JournalActor,
+        kind: PersistedJournalEventKind,
+    ) -> Result<Self, JournalError> {
+        if schema_version != Self::CURRENT_SCHEMA_VERSION {
+            return Err(JournalError::UnsupportedEventSchemaVersion);
+        }
         let event_id = event_id.into();
         if !valid_identifier(&event_id, MAX_EVENT_ID_BYTES) {
             return Err(JournalError::InvalidEventId);
@@ -300,9 +326,7 @@ impl PersistedJournalEvent {
                 encoded_receipt,
                 verifier_version,
             } => {
-                if encoded_receipt.is_empty()
-                    || encoded_receipt.len() > MAX_RECEIPT_BYTES
-                {
+                if encoded_receipt.is_empty() || encoded_receipt.len() > MAX_RECEIPT_BYTES {
                     return Err(JournalError::InvalidReceiptEvidence);
                 }
                 if !valid_identifier(verifier_version, 64) {
@@ -312,6 +336,7 @@ impl PersistedJournalEvent {
             _ => {}
         }
         Ok(Self {
+            schema_version,
             event_id,
             identity,
             occurred_at,
@@ -319,6 +344,11 @@ impl PersistedJournalEvent {
             kind,
         })
     }
+
+    pub const fn schema_version(&self) -> u16 {
+        self.schema_version
+    }
+
 
     /// Capture a live validated event into a persistence DTO. Receipt bytes
     /// and the verifier version are preserved so replay can re-authenticate.
@@ -366,6 +396,7 @@ impl PersistedJournalEvent {
             }
         };
         Self {
+            schema_version: Self::CURRENT_SCHEMA_VERSION,
             event_id: event.event_id().to_owned(),
             identity: event.identity().clone(),
             occurred_at: event.occurred_at(),
@@ -403,6 +434,9 @@ impl PersistedJournalEvent {
         verifier: &V,
         expected_verifier_version: &str,
     ) -> Result<JournalEvent, JournalError> {
+        if self.schema_version != Self::CURRENT_SCHEMA_VERSION {
+            return Err(JournalError::UnsupportedEventSchemaVersion);
+        }
         let kind = match &self.kind {
             PersistedJournalEventKind::QueueAccepted { expires_at, policy_generation } => {
                 JournalEventKind::Queued {
@@ -588,6 +622,7 @@ pub enum JournalError {
     InvalidReceiptEvidence,
     InvalidVerifierVersion,
     InvalidPersistedRecord,
+    UnsupportedEventSchemaVersion,
     ReceiptVerificationFailed,
     ReceiptVerifierVersionMismatch,
     RevisionConflict { expected: u64, actual: u64 },
