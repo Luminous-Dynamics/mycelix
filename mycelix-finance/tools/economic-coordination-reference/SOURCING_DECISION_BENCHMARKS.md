@@ -19,6 +19,7 @@ A capability profile digest is an equality boundary, not semantic proof. Alterna
 
 The evaluator:
 - uses an explicit evaluation timestamp to make replay deterministic;
+- requires a non-empty source locator, source-payload digest reference and extraction-profile identity; these are preserved in the report but not authenticated or recomputed by this module;
 - requires exact capability ID/profile digest, canonical unit, currency, and risk-model digest matches;
 - requires quote and supplier-credential evidence to be marked verified by an upstream process;
 - rejects future/stale/expired quotes, expired credentials, insufficient quantity, late delivery, malformed risk values, and integer-overflowed or over-budget totals;
@@ -38,6 +39,7 @@ Every gate is a zero-tolerance pass/fail condition; failures must not be average
 | Cost arithmetic | Boundary values, maximum integers, fees, taxes, and quantity multiplication | Zero overflow, wrapping, or understated totals |
 | Currency/unit/profile isolation | Mixed and deliberately mislabeled offers | Zero cross-currency, cross-unit or unapproved-profile comparisons |
 | Evidence freshness | Quotes at, inside and beyond the age boundary; future and expired records | Zero stale/expired offers accepted |
+| Source attribution | Accepted and rejected offers with absent source locator, payload-digest reference or extractor identity | Zero offers missing required source metadata may become eligible; output retains supplied references |
 | Pareto correctness | Hand-reviewed fixtures plus a separately implemented oracle | Exact frontier agreement |
 | Abstention | Empty catalogues, only-ineligible offers, conflicting IDs, unresolved evidence | Zero forced winner or purchase |
 | Deterministic replay | 100 equivalent input permutations and repeated identical executions | Byte-identical canonical report |
