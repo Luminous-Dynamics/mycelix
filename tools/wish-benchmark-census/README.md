@@ -12,7 +12,7 @@ Generation emits planned-runs.json (controller-side schedule) and policy-visible
 
 ## Important holdout boundary
 
-The manifest, input templates, generator and development episodes are public. This is a public development corpus, not a sealed holdout. It cannot establish resistance to benchmark gaming or generalization. Stronger evaluation requires an independently generated, access-controlled holdout with a separate truth/scorer boundary and pinned version metadata.
+The manifest, input templates, generator and development episodes are public. This is a public development corpus, not a sealed holdout. It cannot establish resistance to benchmark gaming or generalization. The independent no-egress overlay is a separate 40-probe qualification and is not counted in the 1,440 scheduled policy/episode runs. Stronger evaluation requires an independently generated, access-controlled holdout with a separate truth/scorer boundary and pinned version metadata.
 
 The tool does not run policy arms, connect to live endpoints, generate evaluator-truth labels, or claim that a wish was fulfilled. Actual policy/build/config digests must be captured in every run receipt.
 
