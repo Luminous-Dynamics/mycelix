@@ -172,6 +172,8 @@ struct ComparisonReport {
     candidate_minus_baseline_service_rate_percentage_points: Option<f64>,
     baseline_mean_cost_per_served_unit_microcredits: Option<f64>,
     candidate_mean_cost_per_served_unit_microcredits: Option<f64>,
+    candidate_minus_baseline_cost_per_served_unit_microcredits: Option<f64>,
+    relative_cost_per_served_unit_change_percent: Option<f64>,
     cost_per_served_unit_defined_for_all_pairs: bool,
     descriptive_only: bool,
     economic_benefit_established: bool,
@@ -744,6 +746,24 @@ fn make_comparison(
     };
     let all_pairs_cost_per_served_defined =
         complete_pairs == expected_pairs && incomplete_pairs == 0 && zero_service_pairs == 0;
+    let baseline_served_cost_mean = if all_pairs_cost_per_served_defined {
+        mean(&baseline_cost_per_served)
+    } else {
+        None
+    };
+    let candidate_served_cost_mean = if all_pairs_cost_per_served_defined {
+        mean(&candidate_cost_per_served)
+    } else {
+        None
+    };
+    let served_cost_delta = match (baseline_served_cost_mean, candidate_served_cost_mean) {
+        (Some(base), Some(candidate)) => Some(candidate - base),
+        _ => None,
+    };
+    let served_cost_relative_change = match (baseline_served_cost_mean, candidate_served_cost_mean) {
+        (Some(base), Some(candidate)) if base != 0.0 => Some((candidate / base - 1.0) * 100.0),
+        _ => None,
+    };
 
     Ok(ComparisonReport {
         benchmark_id: schedule.benchmark_id.clone(),
@@ -761,16 +781,10 @@ fn make_comparison(
         baseline_mean_service_rate: baseline_rate_mean,
         candidate_mean_service_rate: candidate_rate_mean,
         candidate_minus_baseline_service_rate_percentage_points: service_delta_pp,
-        baseline_mean_cost_per_served_unit_microcredits: if all_pairs_cost_per_served_defined {
-            mean(&baseline_cost_per_served)
-        } else {
-            None
-        },
-        candidate_mean_cost_per_served_unit_microcredits: if all_pairs_cost_per_served_defined {
-            mean(&candidate_cost_per_served)
-        } else {
-            None
-        },
+        baseline_mean_cost_per_served_unit_microcredits: baseline_served_cost_mean,
+        candidate_mean_cost_per_served_unit_microcredits: candidate_served_cost_mean,
+        candidate_minus_baseline_cost_per_served_unit_microcredits: served_cost_delta,
+        relative_cost_per_served_unit_change_percent: served_cost_relative_change,
         cost_per_served_unit_defined_for_all_pairs: all_pairs_cost_per_served_defined,
         descriptive_only: true,
         economic_benefit_established: false,
@@ -1149,6 +1163,8 @@ mod tests {
         assert_eq!(report.zero_service_pairs, 0);
         assert!(report.cost_per_served_unit_defined_for_all_pairs);
         assert!((report.relative_cost_per_demand_change_percent.expect("cost delta") + 10.0).abs() < 1e-9);
+        let served_cost_change = report.relative_cost_per_served_unit_change_percent.expect("served cost delta");
+        assert!(served_cost_change < 0.0 && served_cost_change > -10.0);
         assert!(report.candidate_minus_baseline_service_rate_percentage_points.expect("service delta") < 0.0);
         assert!(!report.economic_benefit_established);
         assert!(report.descriptive_only);
