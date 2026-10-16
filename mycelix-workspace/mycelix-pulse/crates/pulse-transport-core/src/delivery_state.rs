@@ -754,8 +754,8 @@ mod tests {
                 random = random
                     .wrapping_mul(6_364_136_223_846_793_005)
                     .wrapping_add(1_442_695_040_888_963_407);
-                let now = UnixMillis::new(step.saturating_mul(17));
-                match random % 7 {
+                let now = UnixMillis::new(step.saturating_mul(31));
+                match random % 9 {
                     0 | 1 => {
                         if active_attempt.is_none() {
                             attempt_nonce += 1;
@@ -770,11 +770,12 @@ mod tests {
                     }
                     2 | 3 | 4 => {
                         if let Some(attempt_id) = active_attempt.clone() {
-                            let outcome = match random % 5 {
+                            let outcome = match random % 6 {
                                 0 => AttemptOutcome::AcceptedByAdapter,
                                 1 => AttemptOutcome::LinkLayerAcknowledged,
                                 2 => AttemptOutcome::GatewayAcknowledged,
                                 3 => AttemptOutcome::TemporarilyUnavailable,
+                                4 => AttemptOutcome::PermanentlyRejected,
                                 _ => AttemptOutcome::OutcomeUnknown,
                             };
                             if item.record_outcome(&attempt_id, outcome, now).is_ok() {
@@ -782,17 +783,22 @@ mod tests {
                             }
                         }
                     }
-                    5 => {
-                        if item.record_verified_receipt(&verified_receipt(), now) == Ok(true) {
+                    6 => {
+                        item.advance_time(now);
+                    }
+                    7 => {
+                        if step >= 40
+                            && item.record_verified_receipt(&verified_receipt(), now) == Ok(true)
+                        {
                             accepted_receipt = true;
                         }
                     }
-                    6 => {
-                        if item.revoke(now) {
+                    8 => {
+                        if step >= 50 && item.revoke(now) {
                             active_attempt = None;
                         }
                     }
-                    _ => unreachable!("random modulo seven is bounded"),
+                    _ => unreachable!("random modulo nine is bounded"),
                 }
 
                 item.advance_time(now);
