@@ -18,7 +18,8 @@
     "C5": "After verified removal of the original host, the first copy independently runs the preserved workflow to build/program/cold-boot/test another copy.",
     "C6": "A particular bare-PCB process is locally demonstrated under a separately qualified profile.",
     "C7": "A separately qualified semiconductor die fabrication chain exists; this is out of scope for the initial campaign.",
-    "E5": "Independent reproduction by a separately operated node using transferred knowledge and qualified inputs; not inferable from a same-host second run."
+    "E5": "Independent reproduction by a separately operated node using transferred knowledge and qualified inputs; not inferable from a same-host second run.",
+    "C1": "Diagnose and repair a declared failed subsystem using qualified tools/parts, then independently pass the post-repair acceptance test."
   },
   "state_fields": {
     "baseline_computer_operational": "A currently working target exists; this alone grants no manufacturing capability.",
@@ -43,7 +44,10 @@
     "qualified_semiconductor_die_process": "Every required die-fabrication dependency is independently modeled and qualified for the declared semiconductor profile.",
     "separate_node_transfer": "A separately operated node/operator reproduces the profile from transferred knowledge and qualified inputs.",
     "tool_renewal_closed": "Tools, calibration and maintenance resources required for subsequent generations can be renewed/reproduced under the declared horizon.",
-    "qualified_seed_clone_available": "A previously built first-generation copy has independently passed the declared acceptance suite and is the C5 reproducing host."
+    "qualified_seed_clone_available": "A previously built first-generation copy has independently passed the declared acceptance suite and is the C5 reproducing host.",
+    "diagnostics_and_rework_qualified": "A diagnostic, repair/rework, and post-repair verification route is qualified for the declared subsystem profile.",
+    "declared_replacement_parts_stock": "Required declared replacement parts for the profile are in stock or available through a qualified, declared source.",
+    "repair_post_test_available": "Independent post-repair tests and required current measurement references are available."
   },
   "outcome_fields": {
     "baseline_use": "true|false|unresolved",
@@ -55,7 +59,8 @@
     "E5_independent_transfer": "eligible|not_eligible|unresolved",
     "multigeneration_renewal": "pass|fail|unresolved|not_evaluated",
     "PCB_local_fabrication": "pass|fail|unresolved|not_evaluated (independent branch; not an ordered reproduction level)",
-    "DIE_local_fabrication": "pass|fail|unresolved|not_evaluated (independent deep-industrial branch; not inferred from computer replication)"
+    "DIE_local_fabrication": "pass|fail|unresolved|not_evaluated (independent deep-industrial branch; not inferred from computer replication)",
+    "C1_repair": "pass|fail|unresolved|not_evaluated"
   },
   "fixtures": [
     {
@@ -84,7 +89,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": false
+        "qualified_seed_clone_available": false,
+        "diagnostics_and_rework_qualified": false,
+        "declared_replacement_parts_stock": false,
+        "repair_post_test_available": false
       },
       "expected": {
         "baseline_use": "true",
@@ -96,7 +104,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "fail",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "fail"
       },
       "why": "An operational computer does not establish local assembly, repair, manufacturing, tooling or semiconductor capability."
     },
@@ -126,7 +135,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": false
+        "qualified_seed_clone_available": false,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -138,7 +150,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "Host-assisted replication can pass C4, while no host-removal, locally fabricated bare-PCB, die-fabrication or renewal claim follows."
     },
@@ -168,7 +181,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -180,7 +196,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "This is a synthetic expected result only. A physical C5 claim needs independent observation and receipts; imported ICs and tooling remain."
     },
@@ -210,7 +227,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -222,7 +242,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "A clone may appear to work while still delegating active work to the original host."
     },
@@ -252,7 +273,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": false,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -264,7 +288,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "fail"
       },
       "why": "Local chassis/fixture capability cannot substitute for a missing qualified compute module."
     },
@@ -294,7 +319,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -306,7 +334,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "unresolved"
       },
       "why": "Assembly evidence cannot be upgraded to qualified-copy evidence when required calibration is stale."
     },
@@ -336,7 +365,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -348,7 +380,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "Board population/repair uses purchased bare PCBs and imported components; this must not close PCB substrate or chip fabrication planes."
     },
@@ -378,7 +411,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -390,7 +426,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "A working binary or a surviving computer is insufficient when the archived toolchain/source/licenses needed for reproduction are incomplete."
     },
@@ -420,7 +457,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -432,7 +472,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "unresolved",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "unresolved"
       },
       "why": "A changed BOM, firmware or process revision requires binding/qualification; do not silently inherit evidence from another build."
     },
@@ -462,7 +503,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -474,7 +518,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "unresolved"
       },
       "why": "The receipt must account for every human operation and outside service; otherwise the claimed reproduction boundary is not proven."
     },
@@ -504,7 +549,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -516,7 +564,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "No level below C7 implies semiconductor die fabrication; external foundry runs, RTL, GDS, package/test or PCB assembly are separate claims."
     },
@@ -546,7 +595,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": true,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -558,7 +610,8 @@
         "E5_independent_transfer": "eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "This synthetic case indicates eligibility for E5 review only; a physical qualification requires an independent node's raw evidence and qualified inputs."
     },
@@ -588,7 +641,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": true,
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -600,7 +656,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "fail",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "pass"
       },
       "why": "Successful duplication consumes stock and tool life. Continued/generational renewal is a separate claim requiring its own horizon, spares and calibration evidence."
     },
@@ -630,7 +687,10 @@
         "qualified_semiconductor_die_process": false,
         "separate_node_transfer": false,
         "tool_renewal_closed": false,
-        "qualified_seed_clone_available": true
+        "qualified_seed_clone_available": true,
+        "diagnostics_and_rework_qualified": true,
+        "declared_replacement_parts_stock": "unknown",
+        "repair_post_test_available": true
       },
       "expected": {
         "baseline_use": "true",
@@ -642,7 +702,8 @@
         "E5_independent_transfer": "not_eligible",
         "multigeneration_renewal": "unresolved",
         "PCB_local_fabrication": "fail",
-        "DIE_local_fabrication": "fail"
+        "DIE_local_fabrication": "fail",
+        "C1_repair": "unresolved"
       },
       "why": "Unknown stock is not an empty stock declaration and not evidence of availability. The affected production claims stay unresolved."
     }
