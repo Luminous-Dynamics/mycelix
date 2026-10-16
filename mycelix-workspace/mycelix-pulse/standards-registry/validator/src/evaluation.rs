@@ -387,8 +387,15 @@ mod tests {
             first["per_holdout_scenario"].as_array().unwrap().len()
         );
         assert_eq!(first["model_only_screen"]["not_a_release_qualification"], true);
-        assert!(first["per_holdout_scenario"][0]["candidate_attempts_per_1000_messages"].is_number());
-        assert!(first["per_holdout_scenario"][0]["candidate_illustrative_energy_millijoules_per_1000_messages"].is_number());
+        assert!(
+            first["per_holdout_scenario"][0]["candidate_attempts_per_1000_messages"]
+                .is_number()
+        );
+        assert!(
+            first["per_holdout_scenario"][0]
+                ["candidate_illustrative_energy_millijoules_per_1000_messages"]
+                .is_number()
+        );
     }
 
     #[test]
