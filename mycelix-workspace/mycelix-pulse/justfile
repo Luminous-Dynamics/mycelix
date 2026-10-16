@@ -25,6 +25,10 @@ validate-standards-registry:
 test-standards-registry:
     cargo test --manifest-path standards-registry/validator/Cargo.toml
 
+# Test transport eligibility, stale-link handling, failure domains, and delivery-state truth.
+test-transport-core:
+    cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
+
 # Query standards with source links and explicit support/errata dispositions.
 standards-search-smoke:
     cargo run --manifest-path standards-registry/validator/Cargo.toml --bin standards-search -- --query BPSec --errata-status reported --limit 20
@@ -46,12 +50,13 @@ test-zomes:
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-holochain-target} cargo test --manifest-path holochain/Cargo.toml --lib
 
 # Fast canonical alpha gate. Formatting commands are checks and do not rewrite files.
-check: fmt-check check-ui test-protocol test-crypto test-zomes validate-standards-registry test-standards-registry simulate-transport-smoke standards-search-smoke
+check: fmt-check check-ui test-protocol test-crypto test-zomes validate-standards-registry test-standards-registry simulate-transport-smoke standards-search-smoke test-transport-core
 
 fmt-check:
     cargo fmt --manifest-path apps/leptos/Cargo.toml -- --check
     cargo fmt --manifest-path crates/mail-leptos-types/Cargo.toml -- --check
     cargo fmt --manifest-path standards-registry/validator/Cargo.toml -- --check
+    cargo fmt --manifest-path crates/pulse-transport-core/Cargo.toml -- --check
     cargo fmt --manifest-path holochain/Cargo.toml \
       -p contacts_integrity -p contacts \
       -p mail_profiles_integrity -p mail_profiles \
