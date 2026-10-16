@@ -1153,7 +1153,8 @@ mod tests {
                 &candidate(&receive_only, available_observation()),
                 &policy(),
                 &envelope(50, UnixMillis::new(20_000)),
-                1_500,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
             ),
             Err(IneligibilityReason::SendUnsupported)
         );
@@ -1166,7 +1167,8 @@ mod tests {
                 &candidate(&online, available_observation()),
                 &store_forward_policy,
                 &envelope(50, UnixMillis::new(20_000)),
-                1_500,
+                UnixMillis::new(1_500),
+                MonotonicMillis::new(1_500),
             ),
             Err(IneligibilityReason::StoreAndForwardRequired)
         );
