@@ -89,6 +89,7 @@ exclude = [
     "happs/epistemic-markets/research/results",
     "happs/epistemic-markets/sdk-ts",
     "happs/epistemic-markets/sdk-ts",
+    "simulations/logistics-commons-s0",
     "happs/epistemic-markets/simulations",
     "happs/epistemic-markets/target",
     "happs/epistemic-markets/tests",
