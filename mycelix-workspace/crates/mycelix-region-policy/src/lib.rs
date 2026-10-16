@@ -79,6 +79,93 @@ pub struct PlacementRule {
     pub consent_required: bool,
 }
 
+/// Authenticated classification claim bound to one exact object identity and
+/// content digest. A caller must not be able to choose a less-sensitive class by
+/// editing TransferRequest; the verifier is the authority for this claim.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassificationClaim {
+    pub resource_id: String,
+    /// Lowercase BLAKE3-256 digest of the exact object bytes.
+    pub content_digest: String,
+    pub data_class: DataClass,
+    pub valid_from_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClassificationVerificationFailure {
+    InvalidSignature,
+    UnknownIssuer,
+    RevokedIssuer,
+    StaleAuthority,
+    UnsupportedClassificationMethod,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClassificationValidationError {
+    InvalidResourceId,
+    InvalidContentDigest,
+    InvalidValidityWindow,
+    ClaimNotActive,
+    VerificationFailed(ClassificationVerificationFailure),
+}
+
+/// Trusted adapter must authenticate the exact resource ID, content digest,
+/// classification label, issuer authority and validity window. It returns the
+/// deadline until its evidence can be relied upon, including revocation freshness.
+pub trait ClassificationVerifier {
+    fn verify_classification(
+        &self,
+        claim: &ClassificationClaim,
+        now_ms: u64,
+    ) -> Result<u64, ClassificationVerificationFailure>;
+}
+
+/// Opaque verifier-backed classification. Only this type is accepted by the
+/// transfer evaluator, so a raw caller-supplied DataClass is insufficient.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedClassification {
+    claim: ClassificationClaim,
+    evidence_valid_until_unix_ms: u64,
+}
+
+impl VerifiedClassification {
+    pub fn verify<V: ClassificationVerifier>(
+        claim: ClassificationClaim,
+        now_ms: u64,
+        verifier: &V,
+    ) -> Result<Self, ClassificationValidationError> {
+        if !valid_text(&claim.resource_id, MAX_RECIPIENT_ID_BYTES) {
+            return Err(ClassificationValidationError::InvalidResourceId);
+        }
+        if claim.content_digest.len() != 64
+            || !claim.content_digest.bytes().all(|byte| {
+                byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()
+            })
+        {
+            return Err(ClassificationValidationError::InvalidContentDigest);
+        }
+        if claim.valid_from_unix_ms >= claim.valid_until_unix_ms {
+            return Err(ClassificationValidationError::InvalidValidityWindow);
+        }
+        if !(claim.valid_from_unix_ms <= now_ms && now_ms < claim.valid_until_unix_ms) {
+            return Err(ClassificationValidationError::ClaimNotActive);
+        }
+        let evidence_until = verifier
+            .verify_classification(&claim, now_ms)
+            .map_err(ClassificationValidationError::VerificationFailed)?;
+        if evidence_until <= now_ms {
+            return Err(ClassificationValidationError::VerificationFailed(
+                ClassificationVerificationFailure::StaleAuthority,
+            ));
+        }
+        Ok(Self {
+            evidence_valid_until_unix_ms: evidence_until.min(claim.valid_until_unix_ms),
+            claim,
+        })
+    }
+}
+
 /// Signed profile metadata plus canonical policy content.
 ///
 /// The signature and digest are intentionally verified by an adapter whose
@@ -363,7 +450,11 @@ impl VerifiedConsentGrant {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransferRequest<'a> {
     pub action: BoundaryAction,
-    pub data_class: DataClass,
+    /// Stable identity of the exact object being transferred.
+    pub resource_id: &'a str,
+    /// Digest of the exact bytes being transferred; must match the verified claim.
+    pub content_digest: &'a str,
+    pub classification: &'a VerifiedClassification,
     pub purpose: Option<&'a str>,
     pub recipient_id: Option<&'a str>,
     pub consent: Option<&'a VerifiedConsentGrant>,
@@ -373,6 +464,11 @@ pub struct TransferRequest<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DenialReason {
     SameScopeIsNotFederation,
+    ClassificationSubjectMismatch,
+    ClassificationContentMismatch,
+    ClassificationNotYetValid,
+    ClassificationExpired,
+    ClassificationEvidenceStale,
     SourceProfileInactive,
     DestinationProfileInactive,
     SourceRuleMissing,
@@ -432,6 +528,21 @@ pub fn evaluate_transfer(
     if source_profile.scope_id == destination_profile.scope_id {
         push_reason(&mut reasons, DenialReason::SameScopeIsNotFederation);
     }
+    let classification = request.classification;
+    if classification.claim.resource_id != request.resource_id {
+        push_reason(&mut reasons, DenialReason::ClassificationSubjectMismatch);
+    }
+    if classification.claim.content_digest != request.content_digest {
+        push_reason(&mut reasons, DenialReason::ClassificationContentMismatch);
+    }
+    if now_ms < classification.claim.valid_from_unix_ms {
+        push_reason(&mut reasons, DenialReason::ClassificationNotYetValid);
+    } else if now_ms >= classification.claim.valid_until_unix_ms {
+        push_reason(&mut reasons, DenialReason::ClassificationExpired);
+    }
+    if now_ms >= classification.evidence_valid_until_unix_ms {
+        push_reason(&mut reasons, DenialReason::ClassificationEvidenceStale);
+    }
     if !source_profile.active_at(now_ms) {
         push_reason(&mut reasons, DenialReason::SourceProfileInactive);
     }
@@ -439,14 +550,15 @@ pub fn evaluate_transfer(
         push_reason(&mut reasons, DenialReason::DestinationProfileInactive);
     }
 
+    let data_class = classification.claim.data_class;
     let source_rule = source_profile
         .rules
         .iter()
-        .find(|rule| rule.data_class == request.data_class);
+        .find(|rule| rule.data_class == data_class);
     let destination_rule = destination_profile
         .rules
         .iter()
-        .find(|rule| rule.data_class == request.data_class);
+        .find(|rule| rule.data_class == data_class);
 
     let Some(source_rule) = source_rule else {
         push_reason(&mut reasons, DenialReason::SourceRuleMissing);
@@ -589,6 +701,19 @@ mod tests {
         }
     }
 
+    struct AcceptClassification {
+        evidence_until_ms: u64,
+    }
+    impl ClassificationVerifier for AcceptClassification {
+        fn verify_classification(
+            &self,
+            _claim: &ClassificationClaim,
+            _now_ms: u64,
+        ) -> Result<u64, ClassificationVerificationFailure> {
+            Ok(self.evidence_until_ms)
+        }
+    }
+
     struct AcceptConsent {
         evidence_until_ms: u64,
     }
@@ -652,6 +777,23 @@ mod tests {
         .expect("fixture profile should verify through test adapter")
     }
 
+    const TEST_CONTENT_DIGEST: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    fn verified_classification(resource_id: &str, now_ms: u64) -> VerifiedClassification {
+        VerifiedClassification::verify(
+            ClassificationClaim {
+                resource_id: resource_id.to_owned(),
+                content_digest: TEST_CONTENT_DIGEST.to_owned(),
+                data_class: DataClass::Personal,
+                valid_from_unix_ms: 150,
+                valid_until_unix_ms: 500,
+            },
+            now_ms,
+            &AcceptClassification { evidence_until_ms: 300 },
+        )
+        .expect("fixture classification should verify through test adapter")
+    }
+
     fn verified_consent(
         recipient: &str,
         purpose: &str,
@@ -680,10 +822,13 @@ mod tests {
     fn permits_only_explicitly_authorized_bilateral_route() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -700,7 +845,9 @@ mod tests {
         let destination = verified("community-b", &[], &[]);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -715,9 +862,12 @@ mod tests {
     fn denies_missing_consent_even_when_route_is_allowed() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -732,10 +882,13 @@ mod tests {
     fn denies_consent_bound_to_another_recipient_or_purpose() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:other", "marketing", 150, 500, 300, 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -751,10 +904,13 @@ mod tests {
     fn denies_when_revocation_evidence_is_stale() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 220, 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -769,9 +925,12 @@ mod tests {
     fn denies_after_profile_expires() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
-            data_class: DataClass::Personal,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -854,6 +1013,7 @@ mod tests {
     fn missing_purpose_and_recipient_are_denied() {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
@@ -870,4 +1030,65 @@ mod tests {
         assert!(decision.reasons.contains(&DenialReason::ConsentRecipientMismatch));
         assert!(decision.reasons.contains(&DenialReason::ConsentPurposeMismatch));
     }
+    #[test]
+    fn denies_transfer_of_a_different_object_than_the_classification_claim() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:other", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ClassificationSubjectMismatch));
+    }
+
+    #[test]
+    fn denies_changed_content_after_classification() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let changed_digest = "c".repeat(64);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: &changed_digest,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ClassificationContentMismatch));
+    }
+
+    #[test]
+    fn denies_when_classification_evidence_is_stale() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 300,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ClassificationEvidenceStale));
+    }
+
 }
