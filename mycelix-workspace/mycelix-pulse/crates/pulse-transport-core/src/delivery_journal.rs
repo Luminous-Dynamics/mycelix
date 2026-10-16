@@ -92,6 +92,7 @@ impl VerifiedReceiptEvidence {
         encoded_receipt: &[u8],
         expected_logical_message_id: &str,
         expected_recipient_id: &str,
+        expected_envelope_commitment: [u8; 32],
         verifier_version: impl Into<String>,
     ) -> Result<Self, ReceiptVerificationError> {
         let verifier_version = verifier_version.into();
@@ -101,11 +102,12 @@ impl VerifiedReceiptEvidence {
         {
             return Err(ReceiptVerificationError::InvalidContext);
         }
-        let evidence = VerifiedReceiptEvidence::verify(
+        let receipt = VerifiedRecipientReceipt::verify(
             verifier,
             encoded_receipt,
             expected_logical_message_id,
             expected_recipient_id,
+            expected_envelope_commitment,
         )?;
         Ok(Self {
             encoded_receipt: encoded_receipt.to_vec(),
@@ -122,8 +124,17 @@ impl VerifiedReceiptEvidence {
         &self.verifier_version
     }
 
-    fn matches(&self, logical_message_id: &str, recipient_id: &str) -> bool {
-        self.receipt.matches(logical_message_id, recipient_id)
+    fn matches(
+        &self,
+        logical_message_id: &str,
+        recipient_id: &str,
+        envelope_commitment: &[u8; 32],
+    ) -> bool {
+        self.receipt.matches(
+            logical_message_id,
+            recipient_id,
+            envelope_commitment,
+        )
     }
 }
 
@@ -702,6 +713,7 @@ fn apply_event(snapshot: &mut JournalSnapshot, event: &JournalEvent) -> Result<(
             if !evidence.matches(
                 snapshot.identity.logical_message_id(),
                 snapshot.identity.recipient_id(),
+                snapshot.identity.envelope_commitment(),
             ) {
                 return Err(JournalError::ReceiptBindingMismatch);
             }
@@ -737,10 +749,12 @@ mod tests {
             bytes: &[u8],
             logical_message_id: &str,
             recipient_id: &str,
+            envelope_commitment: &[u8; 32],
         ) -> Result<(), ReceiptVerificationError> {
             if bytes == b"receipt-ok"
                 && logical_message_id == "message-1"
                 && recipient_id == "recipient-1"
+                && envelope_commitment == &ZERO_COMMITMENT
             {
                 Ok(())
             } else {
@@ -925,6 +939,7 @@ mod tests {
             b"receipt-ok",
             "message-1",
             "recipient-1",
+            ZERO_COMMITMENT,
             "pulse-test-v1",
         ).unwrap();
 
@@ -1012,6 +1027,7 @@ mod tests {
             b"receipt-ok",
             "message-1",
             "recipient-1",
+            ZERO_COMMITMENT,
             "pulse-test-v1",
         ).unwrap();
         assert_eq!(
