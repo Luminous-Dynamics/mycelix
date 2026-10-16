@@ -1,9 +1,11 @@
 use jsonschema::draft202012;
-use serde::Deserialize;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::env;
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -26,9 +28,134 @@ struct FixtureCase {
 
 #[derive(Debug, PartialEq, Eq)]
 enum Rejection {
-    Schema,
     Digest,
     DuplicateIdentifier,
+}
+
+#[derive(Debug)]
+struct StrictValue(Value);
+
+struct StrictValueVisitor;
+
+impl<'de> Deserialize<'de> for StrictValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(StrictValueVisitor)
+    }
+}
+
+impl<'de> Visitor<'de> for StrictValueVisitor {
+    type Value = StrictValue;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON value without duplicate object keys")
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::Bool(value)))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::Number(value.into())))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::Number(value.into())))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let number = serde_json::Number::from_f64(value)
+            .ok_or_else(|| E::custom("non-finite number is not valid JSON"))?;
+        Ok(StrictValue(Value::Number(number)))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::String(value.to_owned())))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::String(value)))
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::Null))
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(StrictValue(Value::Null))
+    }
+
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        StrictValue::deserialize(deserializer)
+    }
+
+    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut values = Vec::new();
+        while let Some(StrictValue(value)) = sequence.next_element::<StrictValue>()? {
+            values.push(value);
+        }
+        Ok(StrictValue(Value::Array(values)))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut values = serde_json::Map::new();
+        let mut seen_keys = HashSet::new();
+
+        while let Some(key) = map.next_key::<String>()? {
+            if !seen_keys.insert(key.clone()) {
+                return Err(de::Error::custom(format!(
+                    "duplicate JSON object key is not permitted: {key}"
+                )));
+            }
+            let StrictValue(value) = map.next_value::<StrictValue>()?;
+            values.insert(key, value);
+        }
+
+        Ok(StrictValue(Value::Object(values)))
+    }
+}
+
+fn parse_strict_json(raw: &str) -> Result<Value, String> {
+    let mut deserializer = serde_json::Deserializer::from_str(raw);
+    let StrictValue(value) =
+        StrictValue::deserialize(&mut deserializer).map_err(|e| e.to_string())?;
+    deserializer.end().map_err(|e| e.to_string())?;
+    Ok(value)
 }
 
 fn main() {
@@ -90,7 +217,7 @@ fn run_census() -> Result<(), String> {
     }
 
     println!(
-        "WISH-CONTRACT-CHECK: PASS {passed}/{} declared fixtures; schema=Draft202012; formats=enabled",
+        "WISH-CONTRACT-CHECK: PASS {passed}/{} declared fixtures; schema=Draft202012; formats=enabled; duplicate-object-keys=rejected",
         manifest.cases.len()
     );
     Ok(())
@@ -115,18 +242,19 @@ fn verify_case(
 ) -> Result<(), String> {
     let raw = fs::read_to_string(fixture_path)
         .map_err(|e| format!("read fixture {}: {e}", fixture_path.display()))?;
-    let parsed = serde_json::from_str::<Value>(&raw);
+    let parsed = parse_strict_json(&raw);
 
     if expected == "parse_reject" {
         return if parsed.is_err() {
             Ok(())
         } else {
-            Err("fixture unexpectedly parsed as JSON".into())
+            Err("fixture unexpectedly parsed as unambiguous JSON".into())
         };
     }
 
-    let instance =
-        parsed.map_err(|e| format!("fixture JSON is malformed but parse_reject was not expected: {e}"))?;
+    let instance = parsed.map_err(|e| {
+        format!("fixture JSON is malformed or has duplicate keys but parse_reject was not expected: {e}")
+    })?;
 
     let schema_result = validator.validate(&instance);
     if expected == "schema_reject" {
@@ -180,8 +308,8 @@ fn validate_semantics(instance: &Value) -> Result<(), Rejection> {
 
     // RFC 8785 canonical JSON is used for the digest. Never hash pretty-printed
     // fixture bytes or rely on insertion-order JSON serialization.
-    let canonical = serde_json_canonicalizer::to_vec(&digest_view)
-        .map_err(|_| Rejection::Digest)?;
+    let canonical =
+        serde_json_canonicalizer::to_vec(&digest_view).map_err(|_| Rejection::Digest)?;
     let actual_digest = format!("{:x}", Sha256::digest(canonical));
     if actual_digest != declared_digest {
         return Err(Rejection::Digest);
@@ -218,12 +346,17 @@ mod tests {
 
     #[test]
     fn canonicalization_is_independent_of_object_key_order() {
-        let left: Value = serde_json::from_str(r#"{"z":1,"a":{"y":2,"b":3}}"#).unwrap();
-        let right: Value = serde_json::from_str(r#"{"a":{"b":3,"y":2},"z":1}"#).unwrap();
+        let left: Value = parse_strict_json(r#"{"z":1,"a":{"y":2,"b":3}}"#).unwrap();
+        let right: Value = parse_strict_json(r#"{"a":{"b":3,"y":2},"z":1}"#).unwrap();
         assert_eq!(
             serde_json_canonicalizer::to_vec(&left).unwrap(),
             serde_json_canonicalizer::to_vec(&right).unwrap()
         );
+    }
+
+    #[test]
+    fn duplicate_json_object_keys_are_rejected_before_canonicalization() {
+        assert!(parse_strict_json(r#"{"wish_id":"one","wish_id":"two"}"#).is_err());
     }
 
     #[test]
