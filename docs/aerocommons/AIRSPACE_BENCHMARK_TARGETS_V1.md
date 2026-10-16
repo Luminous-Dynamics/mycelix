@@ -24,16 +24,16 @@ Release rule: one missed critical negative control blocks promotion regardless o
 
 ## Tier 1 — Uncertainty composition
 
-Scope: AIR-PB-015 and the intentionally narrow AIR-PB-017 scalar integer-affine prototype.
+Scope: AIR-PB-015, AIR-PB-017, and the narrow test-only scalar integer-affine prototype tracked by AIR-PB-018.
 
 Proposed targets:
 
 - 100% agreement with hand-derived, committed vectors for the prototype's declared scalar domain.
-- Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus, including a distinct oracle that enumerates each shared latent source once where multiple contributions reference the same declared source ID.
+- Zero interval under-approximations across exhaustive finite-domain tests on bounded small integers and a predeclared, reproducibly seeded generated corpus, including a distinct oracle that enumerates each shared latent source once where multiple contributions reference the same declared dependency ID; separately test two origins sharing one dependency and one origin with two independent dependency IDs.
 - 100% agreement across 1,000 deterministic generated shared-source domains, plus 1,000 independent-source domains; include a deliberately narrowed interval mutant that the oracle must reject.
 - 100% order invariance for canonicalization and final results across all permutations for small vectors, plus 100,000 deterministic permutations for larger generated cases.
-- 100% rejection of absent uncertainty models, conflicting bounds for a shared source ID, noncanonical source IDs, arithmetic overflow, and configured work/domain violations.
-- Retain source IDs and coefficient contributions in the test report so a reviewer can distinguish justified same-source cancellation from accidental cancellation. A source ID is a declared provenance label, not cryptographic identity or proof that two physical errors truly share a cause.
+- 100% rejection of absent uncertainty models, conflicting bounds for a shared dependency ID, noncanonical source and dependency IDs, arithmetic overflow, and configured work/domain violations.
+- Retain source IDs, dependency IDs, and coefficient contributions so a reviewer can distinguish origin from dependence. A source ID alone must not justify cancellation; a shared dependency ID may group contributions only under the declared synthetic contract. Neither ID is cryptographic identity or proof that physical errors truly share a cause.
 
 Important: these are targets for the scalar affine subset only. They do not validate nonlinear transformations, clocks, multi-axis geometry, stochastic assumptions, aircraft reachability, or physical sensor coverage.
 
