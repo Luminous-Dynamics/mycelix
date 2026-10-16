@@ -28,7 +28,7 @@ pub(crate) fn feedback_copy(kind: ActionFeedbackKind, subject: &str) -> String {
             format!("Preview only: {subject} changed local demo state; nothing was synced.")
         }
         ActionFeedbackKind::SourceChainCommitted => format!(
-            "{subject} was saved to your Holochain source chain. Sharing with other peers may still be in progress."
+            "{subject} saved. Sharing with other peers may still be in progress."
         ),
         ActionFeedbackKind::OutcomeUnknown => format!(
             "We couldn't confirm whether {subject} succeeded. Check its current state before retrying."
@@ -70,7 +70,7 @@ mod tests {
             ActionFeedbackKind::SourceChainCommitted,
             "Care task completion",
         );
-        assert!(copy.contains("saved to your Holochain source chain"));
+        assert!(copy.contains("saved."));
         assert!(copy.contains("Sharing with other peers may still be in progress"));
         assert!(!copy.to_lowercase().contains("globally synchronized"));
         assert!(!copy.contains("every peer has the update"));
