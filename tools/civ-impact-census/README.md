@@ -1,0 +1,100 @@
+# CIV-IMPACT Census Verifier (0.1)
+
+This is a **small standalone Rust research tool** for the Mycelix CIV-IMPACT-001 benchmark protocol.
+
+It is intentionally not a simulator, router, optimizer, economic model, or production adapter. It creates a deterministic paired-run schedule and validates the completeness and basic internal consistency of a result census produced by a separate evaluator.
+
+## Commands
+
+Generate the proposed initial synthetic schedule (100 scenarios × 30 seeds × 7 comparison arms = 21,000 scheduled runs):
+
+```sh
+cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- generate /tmp/civ-impact-run 100 30
+```
+
+This writes `scenarios.json` and `schedule.json`. Both the generated scenarios and schedule are labeled synthetic-only. The command does not execute any of the scheduled arms.
+
+Verify a results file produced by an external harness:
+
+```sh
+cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- verify /tmp/civ-impact-run/schedule.json /tmp/civ-impact-run/results.json
+```
+
+The results file must use manifest version `0.1`, match the benchmark ID and scenario-set digest, and include one result per scheduled `run_id`. A complete example row has this shape:
+
+```json
+{
+  "run_id": "syn-transport-0000:seed-0001:incumbent_baseline",
+  "scenario_id": "syn-transport-0000",
+  "seed": 1,
+  "arm_id": "incumbent_baseline",
+  "disposition": "completed",
+  "metrics": {
+    "observed_demand_units": 3000,
+    "served_units": 2900,
+    "compute_cost_microcredits": 10,
+    "data_cost_microcredits": 5,
+    "integration_cost_microcredits": 20,
+    "human_review_cost_microcredits": 15,
+    "coordination_cost_microcredits": 5,
+    "failure_recovery_cost_microcredits": 0,
+    "total_cost_microcredits": 55,
+    "completion_latency_ms": 120
+  },
+  "failure_reason": null
+}
+```
+
+The figures above are a format illustration only, **not benchmark data or a proposed result**. The `microcredits` labels are synthetic accounting units and must not be interpreted as dollars, tokens issued by Mycelix, or monetary value. An empirical profile needs a registered currency/unit and a defensible mapping of each cost category to measured or modeled data.
+
+A non-completed run uses one of `invalid_input`, `timeout`, `non_converged`, `missing_output`, or `evaluator_error`, includes a non-empty `failure_reason`, and does not advertise complete metrics. Failed and incomplete runs must remain visible in the census.
+
+## Comparison arms
+
+The generated schedule includes:
+- `incumbent_baseline`: placeholder for a real baseline; replace and pin the implementation before any confirmatory run.
+- `symtropy_only`: single-component comparison.
+- `full_stack`: Symthaea + Symtropy + Sol-Atlas + Mycelix.
+- `without_symthaea`, `without_symtropy`, `without_sol_atlas`, `without_mycelix`: leave-one-out ablations.
+
+Implementation references in this generated schedule are explicitly placeholders. They are not qualified implementation identities, and the schedule is not preregistered until those references, objective, budgets, metric, holdout, rights manifest, evaluator, guardrails and stopping rule are frozen through the protocol process.
+
+## Determinism and integrity
+
+- Scenario IDs, scenario parameter generation, run IDs, and ordering are deterministic for the same arguments and tool version.
+- Scenario generation uses an explicitly named XorShift64 variant for reproducibility, not cryptographic randomness.
+- The scenario-set SHA-256 hashes the exact compact JSON serialization produced by this implementation. Independent implementations must duplicate the serialization contract or compare the provided scenario file's exact bytes instead.
+- The verification report separately hashes the exact schedule and result file bytes.
+- The verifier rejects missing/duplicate/unexpected run identities, mismatched schedule identities, missing failure dispositions/reasons, served demand above registered demand, absent completed-run metrics, and total-cost arithmetic that does not equal the sum of registered cost components.
+
+These are integrity controls, not authentication. A party can rewrite an artifact and recompute its hash; immutable storage, signed or independently anchored preregistration, evaluator separation and access controls remain external requirements. The verifier also does not prove that an evaluator truthfully measured its metrics.
+
+## How the synthetic stress parameters should be interpreted
+
+Five balanced families are generated: nominal, demand shock, capacity loss, stale spatial data, and coordinator outage. The records are generic aggregate fixtures, not road geometries, route costs, observed capacities, real disruption probabilities or operational data. Scenario parameters are deterministic synthetic inputs, not forecasts of any actual network.
+
+The tool does **not**:
+- implement vehicle routing or call Symtropy;
+- read or redistribute CVRPLIB, OSM, or other third-party datasets;
+- model real service operations;
+- calculate benchmark improvements, confidence intervals, social welfare or ROI;
+- authorize dispatch, reserve resources, issue payments or change system state;
+- turn a valid JSON file, completed CI job, or hash into evidence of real-world truth.
+
+## Existing work to compose, not duplicate
+
+- [CIV-IMPACT-001 protocol and issue #5046](https://github.com/Luminous-Dynamics/mycelix/issues/5046)
+- [Mycelix CIV-ECON-006 Civilization Twin](https://github.com/Luminous-Dynamics/mycelix/issues/4816)
+- [Mycelix CIV-CORE-003 independent evaluator boundary](https://github.com/Luminous-Dynamics/mycelix/issues/4835)
+- [Mycelix logistics proposal seam #5044](https://github.com/Luminous-Dynamics/mycelix/issues/5044)
+- [Symtropy global transport benchmark PR #1662](https://github.com/Luminous-Dynamics/symtropy/pull/1662)
+- [Symtropy resilience envelope #1660](https://github.com/Luminous-Dynamics/symtropy/issues/1660)
+- [CVRPLIB best-known-solution challenge](https://galgos.inf.puc-rio.br/cvrplib/index.php/en/bks_challenge/overview)
+
+Do not benchmark against third-party instances until source identity, exact objective convention, license/usage terms, transformation lineage, and reference-solution semantics have been audited and pinned.
+
+## Tests
+
+The crate defines unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds and missing failure reasons.
+
+**Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
