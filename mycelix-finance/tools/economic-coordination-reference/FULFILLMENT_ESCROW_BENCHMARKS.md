@@ -96,12 +96,14 @@ The separate `fulfillment_claim_identity.rs` prototype chooses a single serializ
 
 | Gate | Proposed target |
 |---|---|
-| Cross-replica identity | A claim ID binds to exactly one replica, delivery digest and quantity in a single authoritative history |
+| Scoped identity | A claim ID binds to exactly one request, replica, delivery digest and quantity in a single authoritative history |
+| Cross-replica identity | Reusing one claim ID from another replica is rejected without a second journal record |
+| Cross-request replay | Reusing one claim ID against another request is rejected |
 | Exact retry | 10,000 retries of an identical registration/finalization produce no extra journal records |
 | Conflicting replay | 100% of cross-replica, digest-mismatch, quantity-mismatch and conflicting-finalization attempts fail closed |
 | Pending semantics | Loss of registry reachability never implies acceptance or releases a reservation by itself |
 | Durable successor | Zero duplicate finalizations after process restart, stale restore or authority failover, demonstrated against durable storage/consensus—not this in-memory model |
 
-The eight authored registry unit tests cover invalid identity fields, exact retry idempotency, cross-replica claim replay, payload/quantity mismatch, non-mutating invalid finalization, conflicting finalization, unknown claims and one accepted identity in a serial authoritative history. These are source-level tests until an exact-head Rust run is observed.
+The nine authored registry unit tests cover invalid identity fields, exact retry idempotency, cross-replica claim replay, cross-request replay, payload/quantity mismatch, non-mutating invalid finalization, conflicting finalization, unknown claims and one accepted identity in a serial authoritative history. These are source-level tests until an exact-head Rust run is observed.
 
 The key research question is the availability/consistency boundary: which reservations can proceed using preallocated local rights, and which identity/finality transitions must be delayed until an authority is reachable? Do not flatten this into a single "decentralization" or throughput score.
