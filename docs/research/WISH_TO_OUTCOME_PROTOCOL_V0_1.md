@@ -108,3 +108,26 @@ These references inform design; they do not endorse, certify or validate this im
 ## 10. Current evidence boundary
 
 This document and its schema define a research contract only. No runtime implementation, production integration, real-user pilot, benchmark execution, or CI result is implied. Synthetic evidence must be labelled synthetic; queued or skipped checks are not passes.
+
+
+## 11. Benchmark research update (2026-10-16)
+
+W2O should compose with existing agent benchmarks instead of relabeling them as proof of wish fulfillment:
+
+- **AgencyBench (ACL 2026)** covers 138 long-horizon tasks across 32 scenarios, using deliverables and rubric-based sandbox checks. It is a useful source of ideas for multi-step task breakdown, feedback loops and functional evidence, but its software/research/game tasks do not establish recipient-defined real-world benefit. https://aclanthology.org/2026.acl-long.337/
+- **τ³-bench / current τ-bench release line** covers tool-agent-user interaction and has continued to revise task sets and grading; the published July 2026 release notes say a banking-knowledge grading update changes affected scores and older/newer scores are not directly comparable. W2O should pin dataset, task version, evaluator and tool semantics in every result artifact. https://github.com/sierra-research/tau2-bench
+- **JSON Schema Draft 2020-12** is the selected request-contract dialect. The Rust harness should explicitly validate the schema itself, enable date/time format checks, and test acceptance and rejection cases. https://json-schema.org/specification
+- **RFC 8785 / JCS** defines deterministic JSON canonicalization suitable for hashing structured receipts; canonical bytes establish integrity of a representation, not truth of the claims inside it. https://www.rfc-editor.org/rfc/rfc8785.html
+- **Agentic reward-hacking research** warns that agents may game objectives, evaluation or environment. Keep candidate input separate from evaluator-only truth, preserve negative controls, test invalid/replayed receipts, and do not let the system under test rewrite the scoring inputs. https://link.springer.com/article/10.1007/s44163-026-01980-z
+
+These benchmarks are complementary reference points, not interchangeable baselines. W2O adds a missing distinction: a completed digital artifact, a user's reported benefit and a verified physical/service outcome are separate evidence levels.
+
+### Evaluation ladder
+
+1. **Contract conformance:** schema-meta-validation, format validation, lifecycle constraints, canonical digest checks, duplicate-ID checks, adversarial fixtures and deterministic reports.
+2. **Synthetic closed world:** sealed truth, equal budgets, seeded scenarios, baseline/ablation/negative-control arms and a complete census including unserved requests.
+3. **Shadow mode:** evaluate proposed plans against human adjudication without external side effects; record disagreements and decision latency.
+4. **Opt-in, bounded pilot:** low-risk tasks, explicit consent, human steward, clear cancellation/complaint paths, recipient-defined success criteria and independent checks where feasible.
+5. **Comparative impact claim:** only after preregistered baselines, suitable sample-size reasoning, uncertainty intervals, distributional analysis and full failure/cost accounting. The 100-episode/10-stratum contract corpus is a smoke/contract target, not by itself a statistically powered impact study.
+
+Do not optimize a single “wish fulfillment rate” metric. Publish outcome quality, delay, lifecycle cost per verified outcome, resource realization, false-fulfillment, access, agency and all unserved/failed dispositions as a dashboard. A synthetic fixture passing is not evidence that a real person was helped.
