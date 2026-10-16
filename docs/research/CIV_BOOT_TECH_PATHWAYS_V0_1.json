@@ -787,8 +787,7 @@
       "requires_all": [
         "N22_computer_assisted_manufacturing_cell",
         "N23_first_clone_independently_boots_and_passes_tests",
-        "qualified_second_clone_BOM_stock",
-        "independent_host_removal_reproduction_test"
+        "qualified_second_clone_BOM_stock"
       ],
       "requires_any": [],
       "separate_capabilities": [
@@ -821,6 +820,13 @@
         "S6",
         "S7",
         "S8"
+      ],
+      "required_evidence": [
+        "The original host is disconnected from the active production workflow.",
+        "The first clone runs the pinned manufacturing workflow using the preserved source/toolchain/design/firmware package.",
+        "The next copy is built, programmed, cold-booted and independently tested.",
+        "All imported parts, consumables, external services, human interventions and failed attempts are recorded.",
+        "The clone has not inherited a physical-closure claim merely because it can use imported devices."
       ]
     }
   ],
@@ -1111,7 +1117,7 @@
       {
         "id": "C5",
         "node": "N24_second_generation_clone_reproduces_computer",
-        "acceptance": "Disconnect original host; first clone operates the documented workflow and builds/tests another copy."
+        "acceptance": "Acceptance test: disconnect the original host, then have the first copy run the archived workflow to build, cold-boot and independently test the next copy."
       },
       {
         "id": "C6",
@@ -1134,7 +1140,8 @@
       "number of complete reproduction generations demonstrated",
       "capabilities and outputs that become blocked when each critical imported class is removed",
       "source/build/toolchain/firmware availability without network access",
-      "independent evaluator agreement and separately operated-node reproduction"
+      "independent evaluator agreement and separately operated-node reproduction",
+      "unrecorded manual interventions: target zero; any unrecorded intervention invalidates the claimed reproduction run"
     ],
     "adversarial_tests": [
       "remove compute module or memory; system must not claim a complete computer was built",
