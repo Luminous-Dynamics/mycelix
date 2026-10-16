@@ -151,7 +151,8 @@ fn make_units(seed: u64, world: World, count: usize) -> Vec<Unit> {
         .map(|_| {
             let confounder = rng.uniform() < 0.5;
             let noise = (rng.uniform() * 2.0 - 1.0) * 1.2;
-            let y0 = 1.0 + world.gamma * f64::from(confounder) + noise;
+            let u_value = if confounder { 1.0 } else { 0.0 };
+            let y0 = 1.0 + world.gamma * u_value + noise;
             let y1 = y0 + true_effect(world, confounder);
             Unit {
                 confounder,
@@ -314,7 +315,7 @@ fn direction(estimate: Option<f64>, lower: Option<f64>, upper: Option<f64>, desi
     }
 }
 
-fn run_cell(world: World, strategy: &str, seed: u64, units_count: usize, replication: usize) -> CellResult {
+fn run_cell(world: World, strategy: &'static str, seed: u64, units_count: usize, replication: usize) -> CellResult {
     let mut units = make_units(seed, world, units_count);
     let truth = units
         .iter()
