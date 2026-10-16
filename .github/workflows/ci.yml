@@ -434,6 +434,77 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # Small exact-head checks for the Pulse communications standards and route model.
+  # This job is independent of the monorepo path-filtered jobs and runs on draft PRs too.
+  test-pulse-standards-registry:
+    name: Pulse standards registry and synthetic routing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Initialize exact-head evidence
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: mkdir -p evidence/standards-registry-ci
+      - name: Check validator formatting
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: cargo fmt --manifest-path standards-registry/validator/Cargo.toml -- --check
+      - name: Run registry validator and negative controls
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: cargo test --manifest-path standards-registry/validator/Cargo.toml
+      - name: Validate standards inventory
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          cargo run --manifest-path standards-registry/validator/Cargo.toml -- \
+            --registry standards-registry/registry.v1.json \
+            --schema standards-registry/schema.v1.json --json \
+            > evidence/standards-registry-ci/registry-validation.json
+          cat evidence/standards-registry-ci/registry-validation.json
+      - name: Run deterministic synthetic routing corpus
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          cargo run --manifest-path standards-registry/validator/Cargo.toml --bin route-sim -- \
+            --traces benchmarks/traces.v1.json --messages 10000 --seed 20261016 \
+            > evidence/standards-registry-ci/simulation-report.json
+          cat evidence/standards-registry-ci/simulation-report.json
+      - name: Record exact subject, tools, and input hashes
+        if: always()
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          git rev-parse HEAD > evidence/standards-registry-ci/subject.sha
+          rustc --version > evidence/standards-registry-ci/toolchain.txt
+          cargo --version >> evidence/standards-registry-ci/toolchain.txt
+          for input in \
+            standards-registry/schema.v1.json \
+            standards-registry/registry.v1.json \
+            standards-registry/validator/Cargo.toml \
+            standards-registry/validator/src/lib.rs \
+            standards-registry/validator/src/simulation.rs \
+            standards-registry/validator/src/main.rs \
+            standards-registry/validator/src/bin/route-sim.rs \
+            benchmarks/traces.v1.json
+          do
+            sha256sum "$input"
+          done > evidence/standards-registry-ci/input-sha256.txt
+          if [ -f standards-registry/validator/Cargo.lock ]; then
+            sha256sum standards-registry/validator/Cargo.lock >> evidence/standards-registry-ci/input-sha256.txt
+            cp standards-registry/validator/Cargo.lock evidence/standards-registry-ci/validator.Cargo.lock
+          else
+            echo "MISSING Cargo.lock: dependency resolution is not lockfile-pinned" >> evidence/standards-registry-ci/input-sha256.txt
+          fi
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-standards-registry-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mycelix-workspace/mycelix-pulse/evidence/standards-registry-ci/
+          if-no-files-found: warn
+          retention-days: 30
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -452,6 +523,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-pulse-standards-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +544,11 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "Pulse standards registry: ${{ needs.test-pulse-standards-registry.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
+          if [ "${{ needs.test-pulse-standards-registry.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-pulse-standards-registry.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
