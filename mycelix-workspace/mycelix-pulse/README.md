@@ -44,9 +44,9 @@ normative byte contract and exact exclusions are in
 
 ## Experimental multi-transport contract
 
-The isolated `crates/pulse-transport-core/` crate defines the first transport-neutral contracts for future adapters: bounded opaque payloads, transport-profile and payload eligibility, timestamped link observations, fail-closed consent/privacy/regulatory decisions, failure-domain identity, and user-visible delivery-evidence stages.
+The isolated `crates/pulse-transport-core/` crate defines the first transport-neutral contracts for future adapters: bounded opaque payloads, distinct `EnvelopeProfileId` and `TransportProfileId` values, send and non-blocking receive outcomes, separate monotonic link freshness and Unix-epoch expiry types, fail-closed consent/privacy/regulatory checks, failure-domain identity, and user-visible delivery-evidence stages. A `VerifiedRecipientReceipt` token is bound to the exact message ID and recipient; transport acknowledgements alone can never map to “Delivered.”
 
-This crate is **experimental and not wired into the supported alpha send path**. It does not implement a radio driver, encrypt payloads, verify recipient receipts, or establish network interoperability. Its standalone contract tests are in the exact-head CI job; do not infer test success until the matching commit has a completed artifact.
+This crate is **experimental and not wired into the supported alpha send path**. It does not implement a radio driver, encrypt payloads, or verify Pulse's production receipt format. Its contract tests are in the exact-head CI job; do not infer test success until the matching commit has a completed artifact.
 
 ```sh
 cargo test --locked --manifest-path crates/pulse-transport-core/Cargo.toml
