@@ -182,6 +182,21 @@ However, the README says the design is intended for hobbyist and educational use
 
 Select the final hardware target only after auditing: design/BOM completeness, firmware/toolchain, software and hardware licenses, component availability, manufacturing files, testability, operator skill requirements, and whether the resulting computer can run the production controller needed for the claimed replication level. If no existing design satisfies those constraints, create a deliberately minimal original design from permissively usable parts and preserve its full design history.
 
+#### Two-track hardware target: controller learning rig versus C4/C5 host
+
+Research indicates that **one board should not be forced to satisfy both early learning and host-removal reproduction**.
+
+- **Track A — C0–C3 controller/board learning rig:** [KiCad Open Hardware Blocks](https://github.com/landrylelouche/kicad_hw_reference) documents a GD32VF103 RISC-V MCU reference block with schematic, routed KiCad PCB, part-numbered BOM, Gerber/drill files, and a CERN-OHL-P v2 license. This is a candidate for learning board assembly, repair, programming and verification. It is a microcontroller building block—not a complete Linux host or a C4/C5 production computer. Verify current source, exact BOM, part availability, board revision, and physical qualification before selection.
+- **Track B — C4/C5 host and clone:** select a small Linux-capable SBC/SoM platform whose clone can run the archived production-control and test workflow. It is acceptable for the compute module and bare PCB to remain purchased/imported during the first experiment. Require a complete carrier/mechanical design package, version-pinned firmware/software build, diagnostic image, programming interface, and a way to independently test a cold-booted copy.
+
+The [Workbench mobile-home-robot hardware tree](https://github.com/Quchaosheng/workbench-mobile-home-robot/tree/main/hardware) is an additional, more complex controller reference to survey, but its subassemblies, exact per-file license scope, BOM completeness and revision/qualification status must be audited before reuse. Do not select it just because the repository contains robot runtime software.
+
+This split avoids a category error: a controller that is locally repairable is valuable even if it cannot operate a manufacturing cell; a C4/C5 host must actually run the production workflow even if its processor remains imported.
+
+#### Reproducible software/toolchain packet
+
+The transfer packet must pin source commits or release archives, compiler/build tools, dependencies, flags/target, firmware and generated artifacts. The [Reproducible Builds guidance on building toolchains from source](https://reproducible-builds.org/docs/build-toolchain-from-source/) recommends exact, cacheable references and explains the trade-offs among fetching, vendoring and distributing toolchains. Its [build-plan guidance](https://reproducible-builds.org/docs/plans/) emphasizes varied-environment rebuilds and output comparison. For C5, hash the source packet and produced artifacts, vary at least host name/path/time/network availability where relevant, and declare what must be bit-identical versus functionally equivalent.
+
 #### Acceptance benchmarks
 
 1. **BOM closure:** every line in the declared target BOM has identity, revision, source class, quantity and status; no omitted “miscellaneous” critical items.
