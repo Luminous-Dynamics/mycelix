@@ -359,7 +359,9 @@ fn offer_rejection(
     if offer.minimum_order_quantity == 0 || offer.order_increment == 0 {
         return Some(RejectionReason::InvalidLotPolicy);
     }
-    if offer.minimum_order_quantity > offer.max_allocatable_quantity.min(offer.capacity_pool_quantity) {
+    if offer.minimum_order_quantity
+        > offer.max_allocatable_quantity.min(offer.capacity_pool_quantity).min(request.required_quantity)
+    {
         return Some(RejectionReason::LotExceedsOfferCapacity);
     }
     if offer.arrival_at > request.deliver_by {
@@ -1090,6 +1092,33 @@ mod tests {
         actual.sort();
         assert_eq!(actual, expected);
         assert_eq!(expected, vec![(14, 120, 6), (15, 120, 5)]);
+    }
+
+    #[test]
+    fn conflicting_snapshots_for_one_capacity_pool_fail_closed() {
+        let req = request();
+        let first = offer("offer-a", "supplier-a", "shared-pool", 6, 1, 110, "region-a");
+        let second = offer("offer-b", "supplier-b", "shared-pool", 5, 2, 120, "region-b");
+        assert_eq!(
+            evaluate_portfolios(&req, &[first, second], &[]),
+            Err(PortfolioError::InconsistentCapacityPool)
+        );
+    }
+
+    #[test]
+    fn oversized_choice_space_returns_no_partial_frontier() {
+        let mut req = request();
+        req.required_quantity = 100_000;
+        req.max_search_nodes = 100;
+        req.max_feasible_portfolios = 100;
+        req.max_supplier_share_bps = 10_000;
+        req.minimum_independent_sources = 1;
+        req.max_suppliers = 1;
+        let candidate = offer("offer-a", "supplier-a", "pool-a", 100_000, 1, 110, "region-a");
+        assert_eq!(
+            evaluate_portfolios(&req, &[candidate], &[]),
+            Err(PortfolioError::SearchSpaceExceeded)
+        );
     }
 
     #[test]
