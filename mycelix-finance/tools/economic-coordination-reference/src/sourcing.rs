@@ -7,7 +7,12 @@
 //!
 //! Authority ceiling: deterministic comparison only. This module does not
 //! authenticate supplier evidence, prove physical inventory, call the web, create
-//! purchase orders, authorize spending, or execute transactions. A future adapter
+//! purchase orders, authorize spending, or execute transactions.
+//!
+//! The public structs are evaluator input projections, not canonical supplier-listing
+//! or physical-component identities. Compose with upstream component/substitution,
+//! EPI provenance, and supply-chain contracts rather than treating this crate as a
+//! second product or supplier master-data registry. A future adapter
 //! must supply independently qualified evidence and obtain separate authorization.
 
 use std::collections::BTreeSet;
@@ -59,6 +64,7 @@ impl SourcingRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Minimal offer projection for deterministic comparison, not a canonical listing record.
 pub struct SupplierOffer {
     pub offer_id: String,
     pub supplier_id: String,
