@@ -122,4 +122,4 @@ The new `sourcing` module evaluates a capability-level request against supplier 
 
 A capability profile digest is not itself proof of equivalence. A reviewed versioned mapping must establish that a candidate product meets the requested capability. Evidence-status fields are caller-supplied reference inputs; this module does not authenticate suppliers, verify live stock, search the web, issue purchase orders, or authorize spending.
 
-See SOURCING_DECISION_BENCHMARKS.md for the hard safety gates, independent-oracle plan, baseline comparisons, proposed scale targets and cross-project boundaries. The benchmarks are proposed, not measured. Fourteen focused source-level unit tests are authored but have not been qualified by an exact-head runner in this PR.
+See SOURCING_DECISION_BENCHMARKS.md for the hard safety gates, independent-oracle plan, baseline comparisons, proposed scale targets and cross-project boundaries. The benchmarks are proposed, not measured. Fourteen focused inline unit tests and a separate brute-force frontier oracle (2,048 deterministic cases × 32 offers) are authored but have not been qualified by an exact-head runner in this PR.
