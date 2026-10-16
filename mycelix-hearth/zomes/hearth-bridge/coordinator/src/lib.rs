@@ -117,14 +117,9 @@ fn summarize_publication_receipts(
         .collect();
 
     let operation_count = bounded_count(operations.len());
-    let receipt_record_count = bounded_count(
-        operations
-            .iter()
-            .map(|op| op.receipt_record_count as u64)
-            .sum::<u64>()
-            .try_into()
-            .unwrap_or(usize::MAX),
-    );
+    let receipt_record_count = operations
+        .iter()
+        .fold(0u32, |sum, op| sum.saturating_add(op.receipt_record_count));
     let receipt_threshold_complete_operation_count = bounded_count(
         operations.iter().filter(|op| op.receipts_complete).count(),
     );
