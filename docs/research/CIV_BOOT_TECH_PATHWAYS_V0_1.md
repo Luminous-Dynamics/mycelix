@@ -115,6 +115,72 @@ The knowledge system is infrastructure. Manuals alone do not preserve tacit skil
 - [UNESCO: Traditional craftsmanship](https://ich.unesco.org/en/traditional-craftsmanship-00057)
 - [UNESCO: Transmission](https://ich.unesco.org/en/transmission-00078)
 
+
+
+### Path E — A computer that can make more computers
+
+This is an explicit target, not a claim that the computer can manufacture its own semiconductor dies. Compose the existing **[Symthaea COMPUTE-MFG-001 #5796](https://github.com/Luminous-Dynamics/symthaea/issues/5796)** and **[COMPUTE-MFG-001A #5798](https://github.com/Luminous-Dynamics/symthaea/issues/5798)** hardware-closure work. The Atlas supplies a source-backed pathway view; it must not fork the canonical computer/BOM closure semantics.
+
+#### The practical, achievable meaning
+
+A first useful milestone is a repairable low-complexity computer or controller plus a small manufacturing cell. The host computer uses a documented toolchain to create selected mechanical parts, fixtures, cable/harness assemblies, board-layout outputs, firmware images, programming jobs, and test reports. The cell assembles another computer from that work and qualified inventory. The copy boots and passes a test suite, then runs the same documented workflow to build the next copy.
+
+A computer that does this **can produce more computers under a bounded profile**, even though its CPU, memory, some ICs, PCB substrate, solder, connectors, tooling, or measurement instruments may still be imported. This is meaningful partial closure, not semiconductor independence.
+
+#### Replication ladder
+
+| Level | Demonstrated capability | What it does not prove |
+|---|---|---|
+| C0 — Assemble | Build a declared computer from a complete, revision-pinned BOM and boot/test it | Local manufacture of any part |
+| C1 — Repair | Diagnose and replace declared field-replaceable components with inspection evidence | Ability to replenish replacement ICs |
+| C2 — Fabricate support | Make qualified enclosure parts, brackets, ducts, fixtures, and selected harnesses with a documented process | PCB/IC production |
+| C3 — Board production | Assemble/rework a board from a purchased bare PCB and stocked ICs/passives, then electrically test it | Local bare-PCB fabrication or semiconductor closure |
+| C4 — Computer-assisted clone | Host controls the qualified cell, programs and tests a second computer; the second computer independently boots its required software | A self-sustaining toolchain or chips made locally |
+| C5 — Second-generation reproduction | Remove the original host from the active workflow. The first copy runs the archived toolchain and cell workflow to build and qualify another copy | Independence from imported components and manufacturing equipment |
+| C6 — Dependency reduction | Demonstrate specific new local routes for a previously imported class, such as a bounded PCB, connector, enclosure, or test fixture | Any other closure dimension not tested |
+| C7 — Semiconductor localization | Separately qualified semiconductor process chain with materials, process equipment, metrology, packaging/test and maintenance closure | Not an early milestone; a different industrial program |
+
+C4/C5 must be demonstrated on real assemblies in the relevant test environment before they may be labeled physically demonstrated. Graph closure or simulation alone is insufficient.
+
+#### The “vitamin” ledger
+
+RepRap's project documentation explicitly discusses non-printed components as “vitamins” and different replication factors; this is a useful engineering analogy for dependencies that the machine cannot yet reproduce ([RepRap Development Pathway](https://reprap.org/wiki/Development_Pathway)). For computers, the ledger should include at least:
+
+- compute IC/module; memory; storage; clock and reset components;
+- PCB substrate and finishes; passives; connectors; cable and wire;
+- power-conversion modules; cooling; fasteners and enclosure materials;
+- solder/flux and assembly consumables;
+- programming/debug interfaces, test loads, probes, reference instruments and calibration;
+- firmware, boot artifacts, compiler/build system, CAD/CAM, drivers, licenses and offline documentation;
+- manufacturing-tool wear parts, maintenance spares, and the equipment needed to renew those tools.
+
+For every BOM line, report its exact identity/revision, quantity, source class, available stock, known substitutes, qualification state, lead-time evidence, and whether the **production toolchain itself** depends on it.
+
+Do not collapse these into one “self-replication percentage.” Report distinct views for item count, cost (where sourced), material mass (where meaningful), criticality, unique external supply classes, stock runway under declared usage, and capability impact if the class disappears. Component count or mass alone can produce misleadingly favorable results.
+
+#### The dependency boundary
+
+Use purchased or salvaged ICs initially. Modern semiconductor fabrication depends on deeply specialized equipment, materials, process controls, metrology and multiple supplier tiers. NIST identifies high-purity feedstock measurement and provenance as continuing semiconductor manufacturing challenges ([NIST semiconductor metrology](https://www.nist.gov/chips/research-development-programs/metrology-program); [NIST supplier/facility overview](https://www.nist.gov/chips/vision-success-facilities-semiconductor-materials-and-manufacturing-equipment)). The Semiconductor Industry Association likewise documents multi-tier, geographically dispersed equipment/material dependencies ([SIA supply-chain overview](https://www.semiconductors.org/understanding-dependencies-in-the-u-s-semiconductor-supply-chain/)).
+
+Therefore keep the existing semiconductor placeholder blocked until its critical process dependencies are modeled and evidence-qualified. The first goal is not to build an advanced CPU fab in a garage. It is to build a small computer-production cell that can make a useful replacement computer from an auditable stock of imported components, then steadily reduce the most consequential dependencies.
+
+#### Acceptance benchmarks
+
+1. **BOM closure:** every line in the declared target BOM has identity, revision, source class, quantity and status; no omitted “miscellaneous” critical items.
+2. **First boot:** an independently assembled target boots a version-pinned diagnostic image and passes the profile's declared CPU/memory/storage/I/O tests.
+3. **Build reproducibility:** source, compiler/toolchain, firmware and generated artifacts are versioned; independent rebuilds match the declared reproducibility properties.
+4. **Manufacturing repeatability:** at least 3 consecutive copies pass the same independent functional and electrical acceptance tests; report all failed builds, rework, scrap and operator intervention.
+5. **C4 host-assisted clone:** the original host manufactures or assembles the declared localizable parts, programs the clone and produces a complete test receipt.
+6. **C5 host-removal test:** power down or remove the first host. The clone must independently run the preserved manufacturing workflow and build/test the next generation. Human steps and external services remain recorded, not hidden.
+7. **Import-removal challenges:** remove one declared critical imported class at a time (for example CPU/module, memory, power conversion, bare PCB or programming interface) and report whether production continues, degrades, or becomes blocked. Do not fabricate substitutes or assume unknown compatibility.
+8. **Toolchain-loss challenge:** remove internet/network access and verify that essential source archives, build tools, firmware, design outputs, licenses, programming interfaces and recovery instructions remain available as declared.
+9. **Metrology challenge:** make the required test instrument/reference unavailable or stale; output must not pass if the profile requires that evidence.
+10. **Economic/energy accounting:** measure material, consumed stock, energy, elapsed time, skilled human time, rework and equipment amortization for the defined runs. Publish raw values and scope; do not extrapolate beyond the tested profile.
+11. **Independent replication:** a separate operator or node reproduces the declared C4/C5 outcome using the transfer packet and qualified inventory, with undocumented intervention explicitly counted as a failure or unresolved dependency.
+12. **No hidden closure:** the report explicitly separates local mechanical fabrication, local board assembly, local bare-PCB manufacture, local IC packaging/test, and local semiconductor-die fabrication.
+
+Initial target: **C4, followed by C5**, for one modest, repairable controller or computer profile. That is an ambitious but testable definition of “a computer that can make more computers.” C7 should remain a distinct long-range program.
+
 ## 4. Starting profiles to compare
 
 | Profile | Initial condition | Planning question |
