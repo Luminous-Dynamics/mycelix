@@ -14,6 +14,8 @@ use std::fmt;
 
 const MAX_IDENTIFIER_BYTES: usize = 64;
 const MAX_MESSAGE_ID_BYTES: usize = 128;
+const MAX_RECIPIENT_ID_BYTES: usize = 512;
+const MAX_RECEIPT_BYTES: usize = 16 * 1024;
 
 /// Monotonic process-local time used only for freshness and elapsed durations.
 /// Never serialize it as a cross-device message expiry.
@@ -715,10 +717,12 @@ impl VerifiedRecipientReceipt {
         expected_recipient_id: &str,
     ) -> Result<Self, ReceiptVerificationError> {
         if !valid_receipt_binding(expected_logical_message_id, MAX_MESSAGE_ID_BYTES)
-            || !valid_receipt_binding(expected_recipient_id, 512)
-            || encoded_receipt.is_empty()
+            || !valid_receipt_binding(expected_recipient_id, MAX_RECIPIENT_ID_BYTES)
         {
             return Err(ReceiptVerificationError::InvalidContext);
+        }
+        if encoded_receipt.is_empty() || encoded_receipt.len() > MAX_RECEIPT_BYTES {
+            return Err(ReceiptVerificationError::InvalidReceipt);
         }
         verifier.verify(
             encoded_receipt,
@@ -1403,6 +1407,15 @@ mod tests {
                 "recipient-1",
             ),
             Err(ReceiptVerificationError::InvalidContext)
+        );
+        assert_eq!(
+            VerifiedRecipientReceipt::verify(
+                &verifier,
+                &vec![0_u8; MAX_RECEIPT_BYTES + 1],
+                "msg-1",
+                "recipient-1",
+            ),
+            Err(ReceiptVerificationError::InvalidReceipt)
         );
         assert_eq!(
             VerifiedRecipientReceipt::verify(
