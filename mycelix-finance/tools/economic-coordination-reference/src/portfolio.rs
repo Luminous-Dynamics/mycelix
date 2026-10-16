@@ -40,6 +40,8 @@ pub struct PortfolioRequest {
     pub policy_digest: String,
     pub scenario_set_id: String,
     pub scenario_set_digest: String,
+    /// Digest of the exact candidate/scenario input manifest.
+    pub input_manifest_digest: String,
     /// Exact bound on recursive search nodes. Exceeding it returns no partial result.
     pub max_search_nodes: u64,
     /// Bound on feasible allocations retained for frontier analysis.
@@ -58,6 +60,7 @@ impl PortfolioRequest {
             self.policy_digest.as_str(),
             self.scenario_set_id.as_str(),
             self.scenario_set_digest.as_str(),
+            self.input_manifest_digest.as_str(),
         ]
         .iter()
         .any(|value| value.trim().is_empty())
@@ -109,6 +112,7 @@ pub struct PortfolioOffer {
     pub capacity_status: EvidenceStatus,
     pub capacity_origin: EvidenceOrigin,
     pub capacity_pool_id: String,
+    pub capacity_snapshot_digest: String,
     /// Shared ceiling for all offers referencing this capacity pool.
     pub capacity_pool_quantity: u32,
     /// A source may expose multiple offers against the same pool, but pool capacity is counted once.
@@ -197,6 +201,11 @@ pub struct RejectedOffer {
 pub struct PortfolioAllocation {
     pub offer_id: String,
     pub supplier_id: String,
+    pub qualification_receipt_id: String,
+    pub source_uri: String,
+    pub source_payload_digest: String,
+    pub capacity_pool_id: String,
+    pub capacity_snapshot_digest: String,
     pub quantity: u32,
 }
 
@@ -222,6 +231,17 @@ pub struct PortfolioReport {
     pub evaluator_profile: &'static str,
     pub request_id: String,
     pub evaluated_at: u64,
+    pub capability_id: String,
+    pub capability_profile_digest: String,
+    pub unit: String,
+    pub currency: String,
+    pub required_quantity: u32,
+    pub required_evidence_origin: EvidenceOrigin,
+    pub policy_id: String,
+    pub policy_digest: String,
+    pub scenario_set_id: String,
+    pub scenario_set_digest: String,
+    pub input_manifest_digest: String,
     pub input_offer_count: usize,
     pub eligible_offer_count: usize,
     pub rejected_offers: Vec<RejectedOffer>,
@@ -239,30 +259,13 @@ struct CapacityPoolSnapshot {
     quantity: u32,
     observed_at: u64,
     valid_until: u64,
+    snapshot_digest: String,
     status: EvidenceStatus,
     origin: EvidenceOrigin,
 }
 
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
-}
-
-fn is_fresh(
-    observed_at: u64,
-    valid_until: u64,
-    evaluated_at: u64,
-    max_age_secs: u64,
-) -> Result<(), RejectionReason> {
-    if observed_at > evaluated_at {
-        return Err(RejectionReason::CapacityFromFuture);
-    }
-    if evaluated_at - observed_at > max_age_secs {
-        return Err(RejectionReason::CapacityStale);
-    }
-    if valid_until < evaluated_at {
-        return Err(RejectionReason::CapacityExpired);
-    }
-    Ok(())
 }
 
 fn offer_rejection(
@@ -277,6 +280,7 @@ fn offer_rejection(
         || !non_empty(&offer.extraction_profile_id)
         || !non_empty(&offer.qualification_receipt_id)
         || !non_empty(&offer.capacity_pool_id)
+        || !non_empty(&offer.capacity_snapshot_digest)
     {
         return Some(RejectionReason::InvalidIdentityOrProvenance);
     }
@@ -548,6 +552,11 @@ impl SearchState<'_> {
             built_allocations.push(PortfolioAllocation {
                 offer_id: offer.offer_id.clone(),
                 supplier_id: offer.supplier_id.clone(),
+                qualification_receipt_id: offer.qualification_receipt_id.clone(),
+                source_uri: offer.source_uri.clone(),
+                source_payload_digest: offer.source_payload_digest.clone(),
+                capacity_pool_id: offer.capacity_pool_id.clone(),
+                capacity_snapshot_digest: offer.capacity_snapshot_digest.clone(),
                 quantity: *quantity,
             });
         }
@@ -636,6 +645,7 @@ pub fn evaluate_portfolios(
                 quantity: offer.capacity_pool_quantity,
                 observed_at: offer.capacity_observed_at,
                 valid_until: offer.capacity_valid_until,
+                snapshot_digest: offer.capacity_snapshot_digest.clone(),
                 status: offer.capacity_status,
                 origin: offer.capacity_origin,
             };
@@ -710,6 +720,17 @@ pub fn evaluate_portfolios(
         evaluator_profile: PORTFOLIO_EVALUATOR_PROFILE,
         request_id: request.request_id.clone(),
         evaluated_at: request.evaluated_at,
+        capability_id: request.capability_id.clone(),
+        capability_profile_digest: request.capability_profile_digest.clone(),
+        unit: request.unit.clone(),
+        currency: request.currency.clone(),
+        required_quantity: request.required_quantity,
+        required_evidence_origin: request.required_evidence_origin,
+        policy_id: request.policy_id.clone(),
+        policy_digest: request.policy_digest.clone(),
+        scenario_set_id: request.scenario_set_id.clone(),
+        scenario_set_digest: request.scenario_set_digest.clone(),
+        input_manifest_digest: request.input_manifest_digest.clone(),
         input_offer_count: offers.len(),
         eligible_offer_count: eligible.len(),
         rejected_offers,
@@ -747,6 +768,7 @@ mod tests {
             policy_digest: "sha256:policy-v1".into(),
             scenario_set_id: "scenarios:test-v1".into(),
             scenario_set_digest: "sha256:scenarios-v1".into(),
+            input_manifest_digest: "sha256:manifest-v1".into(),
             max_search_nodes: 50_000,
             max_feasible_portfolios: 2_000,
         }
@@ -778,6 +800,7 @@ mod tests {
             capacity_status: EvidenceStatus::Verified,
             capacity_origin: EvidenceOrigin::SyntheticSimulation,
             capacity_pool_id: pool.into(),
+            capacity_snapshot_digest: format!("sha256:capacity-{pool}"),
             capacity_pool_quantity: capacity,
             max_allocatable_quantity: capacity,
             capacity_observed_at: 98,
