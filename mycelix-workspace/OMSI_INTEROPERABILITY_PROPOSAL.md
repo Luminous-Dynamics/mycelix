@@ -35,6 +35,8 @@ GitHub's Contents API returns the content of `mycelix-workspace/happs/manufactur
 
 This is an absolute machine-local symlink target rather than a portable repository-relative path. Its intended tracked source, submodule or pinned external repository is not established by that symlink response. A clean-checkout build/package audit must repair or replace this reference before treating the dedicated Manufacturing hApp as a stable adapter target.
 
+A narrowly scoped [portability fix is now proposed in Mycelix PR #5045](https://github.com/Luminous-Dynamics/mycelix/pull/5045), changing the alias to `../mycelix-manufacturing`. This is an attempted fix, not a resolved blocker: the clean-checkout path, Holochain packaging, workspace build and multi-agent qualification still need exact-head verification.
+
 The current Fabrication hApp has committed source files and an explicit verification zome, so it is a sensible **first design target** for a synthetic print-quality workflow while the Manufacturing path is resolved. That does not mean Fabrication is production-ready; check its current maturity and multi-agent test status separately.
 
 ## Architecture boundaries
