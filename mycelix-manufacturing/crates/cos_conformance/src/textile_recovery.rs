@@ -176,7 +176,7 @@ pub fn assess_textile_recovery(record: &TextileRecoveryRecord) -> TextileRecover
                 plane: TextileEvidencePlane::MassAttribution,
                 decision: Decision::Rejected,
                 reason:
-                    "attributable output exceeds attributable input plus separately evidenced additions"
+                    "output attribution exceeds input plus evidenced additions"
                         .into(),
             });
         }
@@ -193,7 +193,7 @@ pub fn assess_textile_recovery(record: &TextileRecoveryRecord) -> TextileRecover
                 plane: TextileEvidencePlane::CustodyStrategy,
                 decision: Decision::Rejected,
                 reason:
-                    "book-and-claim attribution does not establish a physical output-lot fiber-to-fiber pathway"
+                    "book-and-claim cannot prove physical output-lot fiber-to-fiber lineage"
                         .into(),
             });
         }
@@ -202,7 +202,7 @@ pub fn assess_textile_recovery(record: &TextileRecoveryRecord) -> TextileRecover
                 plane: TextileEvidencePlane::CustodyStrategy,
                 decision: Decision::Rejected,
                 reason:
-                    "fiber transformation creates a new output material subject; use a valid batch/segregated lineage method instead of item-identity continuity"
+                    "fiber transformation creates a new output lot; item-identity continuity is not established"
                         .into(),
             });
         }
