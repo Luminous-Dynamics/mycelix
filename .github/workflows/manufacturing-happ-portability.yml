@@ -1,0 +1,57 @@
+name: Manufacturing hApp portability
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/happs/manufacturing"
+      - "mycelix-workspace/mycelix-manufacturing/**"
+      - ".github/workflows/manufacturing-happ-portability.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "mycelix-workspace/happs/manufacturing"
+      - "mycelix-workspace/mycelix-manufacturing/**"
+      - ".github/workflows/manufacturing-happ-portability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relative-alias:
+    name: Verify relative hApp source alias
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify manufacturing alias resolves inside the checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          alias_path="mycelix-workspace/happs/manufacturing"
+          source_path="mycelix-workspace/mycelix-manufacturing"
+
+          test -L "$alias_path"
+          target="$(readlink "$alias_path")"
+          test "$target" = "../mycelix-manufacturing" || {
+            echo "Expected repository-relative alias; got: $target" >&2
+            exit 1
+          }
+          case "$target" in
+            /*)
+              echo "Absolute symlink targets are not portable: $target" >&2
+              exit 1
+              ;;
+          esac
+
+          resolved_alias="$(realpath -e "$alias_path")"
+          resolved_source="$(realpath -e "$source_path")"
+          test "$resolved_alias" = "$resolved_source"
+
+          test -f "$resolved_alias/Cargo.toml"
+          test -f "$resolved_alias/dna/dna.yaml"
+          test -f "$resolved_alias/mycelix-manufacturing-happ.yaml"
+
+          echo "Manufacturing hApp alias resolves to the tracked source tree."
+          echo "This checks checkout portability only; it does not qualify WASM builds or Holochain packaging."
