@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-region-policy"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "AGPL-3.0-or-later"
+description = "Pure fail-closed policy kernel for Mycelix regional federation"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[workspace]
