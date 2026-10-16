@@ -8,7 +8,7 @@
   "default_message_count": 10000,
   "semantics": {
     "success_basis_points": "10000 means every permitted attempt succeeds in this synthetic model; 0 means all attempts fail.",
-    "unavailable_ranges": "Half-open [start_message, end_message) index ranges; path is unavailable for those logical-message indices.",
+    "unavailable_ranges": "Half-open [start_message, end_message) ranges are defined on the default_message_count reference timeline. If a run overrides the message count, ranges are scaled to preserve outage/recovery phases across the whole reference timeline; this is a synthetic time-warp for smoke testing, not observed network time.",
     "payload_budget_bytes": "Maximum whole-envelope size for this deliberately non-fragmenting first model. Oversize envelopes are ineligible on that path.",
     "strategies": [
       "preferred_single_path",
@@ -16,8 +16,8 @@
       "parallel_redundancy"
     ],
     "limitations": "Synthetic route eligibility, fixed latency/cost estimates, per-path success thresholds, shared deterministic outcomes within failure domains, and independent outcomes between domains. No RF propagation, interference, fragmentation, congestion, physical common-cause fault estimation, cryptography, real device power measurement, or authenticated-recipient receipt is modeled.",
-    "failure_domain_id": "Paths with the same failure_domain_id share the same deterministic synthetic success draw; this models maximally correlated outcomes at equal success rates. Distinct IDs receive independent draws. It is a conservative toy correlation model, not a measured model of carrier or hardware failures.",
-    "failure_correlation_basis_points": "Optional per-scenario integer in [0,10000]. It is the mixture weight for shared-domain synthetic success draws (0=path-specific draws; 10000=one shared draw); it is not an empirical Pearson correlation coefficient. Explicit unavailable_ranges remain common-cause outages at all weights.",
+    "failure_domain_id": "Paths with the same failure_domain_id share outcomes with the declared common-draw mixture weight outside explicit outages. Distinct IDs share no synthetic success draw. Correlation weight is a sensitivity knob, not a fit to measured failure data.",
+    "failure_correlation_basis_points": "Optional per-scenario integer in [0,10000]. This is a common-draw mixture weight, not an empirical Pearson correlation coefficient: 0 uses path-specific synthetic draws, 10000 shares one draw for same-domain paths; intermediate values probabilistically mix shared and path-specific draws. Explicit unavailable_ranges remain common-cause outages under every setting.",
     "default_failure_correlation_basis_points": 10000
   },
   "scenarios": [
