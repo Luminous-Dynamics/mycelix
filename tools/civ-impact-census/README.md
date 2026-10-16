@@ -108,11 +108,11 @@ Do not benchmark against third-party instances until source identity, exact obje
 ## Reproducibility status
 
 - `rust-toolchain.toml` pins Rust `1.99.1`.
-- Direct crate dependencies are version-pinned in `Cargo.toml`.
+- Direct crate dependencies are version-pinned in `Cargo.toml`, including `jsonschema = 0.58.6` for Draft 2020-12 meta-schema and instance validation.
 - A generated and committed `Cargo.lock` is still required to pin transitive dependency resolution before treating builds as fully reproducible or using the harness for confirmatory research. The current checkout cannot generate that lock locally because no Rust toolchain is installed in this authoring environment.
 
 ## Tests
 
-The crate defines 27 unit tests for the default 21,000-run schedule, balanced regime generation, deterministic identity, complete paired coverage, missing/duplicate result rejection, digest mismatch, scenario tampering, cost reconciliation, served-demand bounds, completed and failed records, descriptive paired deltas, reproducible scenario-cluster resampling, incomplete-pair visibility, zero-service handling, and Rust/schema field-set agreement, and stale-result rejection after a schedule artifact change.
+The crate defines 27 unit tests covering the default 21,000-run schedule; balanced stress regimes; deterministic identities; complete paired coverage; missing/duplicate results; scenario and schedule digest tampering; cost reconciliation and demand bounds; paired descriptive metrics; reproducible scenario-cluster resampling; incomplete and zero-service outcomes; JSON Schema meta-validation; serialized result/report instance validation; and Rust/schema field-set agreement.
 
 **Execution status:** tests have been authored but are not reported as run here. An exact-head `cargo test --manifest-path tools/civ-impact-census/Cargo.toml` result is required before claiming code-level qualification. Queued, skipped, cancelled, or absent workflow runs are not passes.
