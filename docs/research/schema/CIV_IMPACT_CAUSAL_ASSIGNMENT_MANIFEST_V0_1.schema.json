@@ -17,7 +17,7 @@
         "properties": {
           "unit_id": { "type": "string", "minLength": 1 },
           "assigned_arm": { "enum": ["intervention", "comparator"] },
-          "cluster_id": { "type": ["string", "null"] },
+          "cluster_id": { "type": ["string", "null"], "minLength": 1 },
           "assignment_receipt_id": { "type": "string", "minLength": 1 },
           "assignment_time": { "type": "string", "format": "date-time" }
         }
