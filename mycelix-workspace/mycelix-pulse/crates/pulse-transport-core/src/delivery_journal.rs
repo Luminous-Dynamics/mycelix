@@ -271,6 +271,7 @@ pub enum PersistedJournalEventKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PersistedJournalEvent {
     schema_version: u16,
+    stream_revision: u64,
     event_id: String,
     identity: MessageIdentity,
     occurred_at: UnixMillis,
@@ -282,6 +283,7 @@ impl PersistedJournalEvent {
     pub const CURRENT_SCHEMA_VERSION: u16 = 1;
 
     pub fn new(
+        stream_revision: u64,
         event_id: impl Into<String>,
         identity: MessageIdentity,
         occurred_at: UnixMillis,
@@ -290,6 +292,7 @@ impl PersistedJournalEvent {
     ) -> Result<Self, JournalError> {
         Self::new_versioned(
             Self::CURRENT_SCHEMA_VERSION,
+            stream_revision,
             event_id,
             identity,
             occurred_at,
@@ -302,6 +305,7 @@ impl PersistedJournalEvent {
     /// unknown schema is never silently interpreted as the current contract.
     pub fn new_versioned(
         schema_version: u16,
+        stream_revision: u64,
         event_id: impl Into<String>,
         identity: MessageIdentity,
         occurred_at: UnixMillis,
@@ -310,6 +314,9 @@ impl PersistedJournalEvent {
     ) -> Result<Self, JournalError> {
         if schema_version != Self::CURRENT_SCHEMA_VERSION {
             return Err(JournalError::UnsupportedEventSchemaVersion);
+        }
+        if stream_revision == 0 {
+            return Err(JournalError::InvalidStreamRevision);
         }
         let event_id = event_id.into();
         if !valid_identifier(&event_id, MAX_EVENT_ID_BYTES) {
@@ -337,6 +344,7 @@ impl PersistedJournalEvent {
         }
         Ok(Self {
             schema_version,
+            stream_revision,
             event_id,
             identity,
             occurred_at,
@@ -349,10 +357,15 @@ impl PersistedJournalEvent {
         self.schema_version
     }
 
+    pub const fn stream_revision(&self) -> u64 {
+        self.stream_revision
+    }
+
 
     /// Capture a live validated event into a persistence DTO. Receipt bytes
     /// and the verifier version are preserved so replay can re-authenticate.
-    pub fn capture(event: &JournalEvent) -> Self {
+    pub fn capture(event: &JournalEvent, stream_revision: u64) -> Self {
+        assert!(stream_revision > 0, "persisted events need a committed stream revision");
         let kind = match event.kind() {
             JournalEventKind::Queued { expires_at, policy_generation } => {
                 PersistedJournalEventKind::QueueAccepted {
@@ -397,6 +410,7 @@ impl PersistedJournalEvent {
         };
         Self {
             schema_version: Self::CURRENT_SCHEMA_VERSION,
+            stream_revision,
             event_id: event.event_id().to_owned(),
             identity: event.identity().clone(),
             occurred_at: event.occurred_at(),
@@ -423,6 +437,33 @@ impl PersistedJournalEvent {
 
     pub const fn kind(&self) -> &PersistedJournalEventKind {
         &self.kind
+    }
+
+    /// Reverify and append this record at its recorded sequence. Gaps,
+    /// reordering, or a forged sequence fail with compare-and-swap conflict.
+    /// Exact duplicate replay remains idempotent only at the original revision.
+    pub fn replay_into<J: DeliveryJournal, V: TrustedRecipientReceiptVerifier>(
+        &self,
+        journal: &mut J,
+        verifier: &V,
+        expected_verifier_version: &str,
+    ) -> Result<AppendOutcome, JournalError> {
+        let expected_revision = self
+            .stream_revision
+            .checked_sub(1)
+            .ok_or(JournalError::InvalidStreamRevision)?;
+        let event = self.reverify(verifier, expected_verifier_version)?;
+        match journal.append(expected_revision, event)? {
+            AppendOutcome::Appended { revision } if revision == self.stream_revision => {
+                Ok(AppendOutcome::Appended { revision })
+            }
+            AppendOutcome::Duplicate { original_revision }
+                if original_revision == self.stream_revision =>
+            {
+                Ok(AppendOutcome::Duplicate { original_revision })
+            }
+            _ => Err(JournalError::StreamRevisionMismatch),
+        }
     }
 
     /// Rehydrate after decoding stored bytes. A receipt can be restored only
@@ -622,6 +663,8 @@ pub enum JournalError {
     InvalidReceiptEvidence,
     InvalidVerifierVersion,
     InvalidPersistedRecord,
+    InvalidStreamRevision,
+    StreamRevisionMismatch,
     UnsupportedEventSchemaVersion,
     ReceiptVerificationFailed,
     ReceiptVerifierVersionMismatch,
@@ -1140,10 +1183,39 @@ mod tests {
     }
 
     #[test]
+    fn persisted_replay_rejects_out_of_order_stream_revisions() {
+        let mut source = InMemoryDeliveryJournal::default();
+        let identity = queued(&mut source);
+        source.append(1, event(
+            "event-epoch",
+            identity.clone(),
+            2,
+            JournalActor::System,
+            JournalEventKind::WorkerEpochAdvanced { new_epoch: 1 },
+        )).unwrap();
+        let entries = source.history(&identity).unwrap();
+        let first = PersistedJournalEvent::capture(entries[0].event(), entries[0].revision());
+        let second = PersistedJournalEvent::capture(entries[1].event(), entries[1].revision());
+
+        let mut replayed = InMemoryDeliveryJournal::default();
+        assert_eq!(
+            second.replay_into(&mut replayed, &TestVerifier, "pulse-test-v1"),
+            Err(JournalError::RevisionConflict { expected: 1, actual: 0 })
+        );
+        first.replay_into(&mut replayed, &TestVerifier, "pulse-test-v1").unwrap();
+        second.replay_into(&mut replayed, &TestVerifier, "pulse-test-v1").unwrap();
+        assert_eq!(
+            replayed.snapshot(&identity).unwrap().unwrap().revision(),
+            2
+        );
+    }
+
+    #[test]
     fn persisted_event_schema_versions_fail_closed() {
         assert_eq!(
             PersistedJournalEvent::new_versioned(
                 99,
+                1,
                 "event-queue",
                 identity(),
                 UnixMillis::new(1),
@@ -1156,6 +1228,7 @@ mod tests {
             Err(JournalError::UnsupportedEventSchemaVersion)
         );
         let persisted = PersistedJournalEvent::new(
+            1,
             "event-queue",
             identity(),
             UnixMillis::new(1),
@@ -1188,7 +1261,7 @@ mod tests {
             JournalActor::System,
             JournalEventKind::RecipientReceiptVerified { evidence },
         );
-        let persisted = PersistedJournalEvent::capture(&live);
+        let persisted = PersistedJournalEvent::capture(&live, 2);
         let restored = persisted
             .reverify(&TestVerifier, "pulse-test-v1")
             .unwrap();
@@ -1212,7 +1285,7 @@ mod tests {
             JournalActor::System,
             JournalEventKind::RecipientReceiptVerified { evidence },
         );
-        let persisted = PersistedJournalEvent::capture(&live);
+        let persisted = PersistedJournalEvent::capture(&live, 2);
         assert_eq!(
             persisted.reverify(&TestVerifier, "pulse-test-v0"),
             Err(JournalError::ReceiptVerifierVersionMismatch)
@@ -1236,7 +1309,7 @@ mod tests {
             JournalActor::System,
             JournalEventKind::RecipientReceiptVerified { evidence },
         );
-        let persisted = PersistedJournalEvent::capture(&live);
+        let persisted = PersistedJournalEvent::capture(&live, 2);
 
         let mut tampered_bytes = persisted.clone();
         if let PersistedJournalEventKind::RecipientReceiptVerified {
@@ -1313,15 +1386,10 @@ mod tests {
         let expected = original.snapshot(&identity).unwrap().unwrap();
         let mut replayed = InMemoryDeliveryJournal::default();
         for entry in source_history {
-            let persisted = PersistedJournalEvent::capture(entry.event());
-            let verified = persisted
-                .reverify(&TestVerifier, "pulse-test-v1")
+            let persisted = PersistedJournalEvent::capture(entry.event(), entry.revision());
+            persisted
+                .replay_into(&mut replayed, &TestVerifier, "pulse-test-v1")
                 .unwrap();
-            let revision = replayed
-                .snapshot(&identity)
-                .unwrap()
-                .map_or(0, |snapshot| snapshot.revision());
-            replayed.append(revision, verified).unwrap();
         }
         assert_eq!(
             replayed.snapshot(&identity).unwrap().unwrap(),
