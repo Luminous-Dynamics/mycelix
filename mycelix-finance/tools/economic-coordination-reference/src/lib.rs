@@ -10,6 +10,9 @@
 /// Experimental escrow allocation for partition-tolerant local reservations; not a distributed protocol.
 pub mod fulfillment_escrow;
 
+/// Multi-replica fixed-rights simulation for isolated partitioned reservations.
+pub mod fulfillment_escrow_partition;
+
 /// Experimental append-only model for partial fulfilment; not wired into v1 settlement.
 pub mod fulfillment_tranches;
 
