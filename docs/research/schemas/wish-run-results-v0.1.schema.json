@@ -39,7 +39,9 @@
         "policy_config_sha256",
         "disposition",
         "receipt_sha256",
+        "receipt_payload",
         "result_sha256",
+        "result_payload",
         "terminal_reason",
         "unauthorized_effects_accepted",
         "unconfirmed_resources_marked_committed",
@@ -95,14 +97,16 @@
         },
         "receipt_sha256": {
           "type": "string",
-          "pattern": "^[A-Fa-f0-9]{64}$"
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "SHA-256 over RFC 8785 canonical JSON for receipt_payload."
         },
         "result_sha256": {
           "type": [
             "string",
             "null"
           ],
-          "pattern": "^[A-Fa-f0-9]{64}$"
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "SHA-256 over RFC 8785 canonical JSON for result_payload, or null only when no result payload exists."
         },
         "terminal_reason": {
           "type": [
@@ -130,6 +134,17 @@
         "containment_violations": {
           "type": "integer",
           "minimum": 0
+        },
+        "receipt_payload": {
+          "type": "object",
+          "description": "Canonical receipt payload. The independent verifier recomputes receipt_sha256 from this exact object; an external boundary log or signature is still needed to authenticate the producer."
+        },
+        "result_payload": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Canonical outcome payload for completed runs. The verifier recomputes result_sha256 from this exact object. Null for non-completed runs where no result artifact exists."
         }
       },
       "allOf": [
@@ -152,6 +167,9 @@
               },
               "terminal_reason": {
                 "type": "null"
+              },
+              "result_payload": {
+                "type": "object"
               }
             }
           }
@@ -179,6 +197,12 @@
               "terminal_reason": {
                 "type": "string",
                 "minLength": 1
+              },
+              "result_payload": {
+                "type": [
+                  "object",
+                  "null"
+                ]
               }
             }
           }
