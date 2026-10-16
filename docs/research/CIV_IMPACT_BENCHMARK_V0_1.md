@@ -244,7 +244,7 @@ A first standalone Rust tool is being authored under [tools/civ-impact-census](h
 - `generate` deterministically emits a balanced five-regime synthetic scenario set and paired comparison schedule (default: 100 scenarios × 30 seeds × seven arms = 21,000 planned runs).
 - `verify` checks schedule/result identity, complete run census, unique run IDs, explicit failure dispositions, completed-run demand bounds and cost-component arithmetic.
 - `CIV_IMPACT_RUN_CENSUS_V0_1.schema.json` provides the machine-readable structural contract for run results.
-- `CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json` defines the descriptive paired-comparison report shape and hard-codes the non-qualification claim flags.
+- `CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json` defines the descriptive paired-comparison report shape, the stratified resampling interval shape, and the non-qualification claim flags.
 - The tool's report states that benchmark validity and economic benefit are **not** established. A generated plan does not execute any arm; synthetic stress parameters are not operational data or estimated disruption probabilities.
 - Generated arm implementation references are placeholders. They must be replaced with pinned implementations under a frozen preregistration before confirmatory use.
 - Scenario hashing binds a deterministic serialization, and result receipts hash exact schedule/result bytes. Hashes alone are not authentication or immutable preregistration; anchoring and independent evaluator controls remain necessary.
@@ -257,7 +257,7 @@ cargo run --manifest-path tools/civ-impact-census/Cargo.toml -- analyze /tmp/civ
 cargo test --manifest-path tools/civ-impact-census/Cargo.toml
 ```
 
-The verifier consumes a result file from a separately implemented evaluator. The paired analyzer reports descriptive cost-per-demand, cost-per-successfully-served-unit and service-rate deltas, but computes no uncertainty interval and does not qualify causal savings or real-world behavior.
+The verifier consumes a result file from a separately implemented evaluator. The paired analyzer reports descriptive cost-per-demand and cost-per-successfully-served-unit estimands plus service-rate changes. When the primary pair set is complete and nonzero-service, it also computes a reproducible, regime-stratified scenario-cluster percentile resampling interval (10,000 replicates). These are descriptive resampling intervals for the registered synthetic corpus, **not population confidence intervals or evidence of real-world generalization**. The analysis does not qualify causal savings or economic benefit.
 
 ## 14. Current status
 
