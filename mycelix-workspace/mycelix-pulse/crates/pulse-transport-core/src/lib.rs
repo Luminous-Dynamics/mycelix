@@ -1421,6 +1421,17 @@ mod tests {
                 DeliveryEvidenceStage::GatewayAcknowledged,
                 "msg-1",
                 "recipient-2",
+                &[0; 32],
+                Some(&receipt),
+            ),
+            UserVisibleDeliveryState::Pending
+        );
+        assert_eq!(
+            user_visible_delivery_state(
+                DeliveryEvidenceStage::GatewayAcknowledged,
+                "msg-1",
+                "recipient-1",
+                &[1; 32],
                 Some(&receipt),
             ),
             UserVisibleDeliveryState::Pending
@@ -1469,6 +1480,16 @@ mod tests {
                 [0; 32],
             ),
             Err(ReceiptVerificationError::InvalidContext)
+        );
+        assert_eq!(
+            VerifiedRecipientReceipt::verify(
+                &verifier,
+                b"valid-test-receipt",
+                "msg-1",
+                "recipient-1",
+                [1; 32],
+            ),
+            Err(ReceiptVerificationError::InvalidReceipt)
         );
     }
 
