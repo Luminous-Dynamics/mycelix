@@ -164,6 +164,31 @@ def run_one_size(target_flows: int, warmups: int):
     record, observed_flows = expand_synthetic_record(module, target_flows)
     preparation_ms = (time.perf_counter() - prep_started) * 1000.0
 
+    all_flows = [flow for scenario in record["scenarios"] for flow in scenario["flow_records"]]
+    workload_features = {
+        "distinct_metric_count": len({flow["metric_id"] for flow in all_flows}),
+        "flows_with_uncertainty_count": sum("uncertainty" in flow for flow in all_flows),
+        "distributional_impact_count": len(record.get("distributional_impacts", [])),
+        "distributional_coverage_count": int("distributional_coverage" in record),
+        "causal_evaluation_count": len(record.get("causal_evaluations", [])),
+        "conservation_check_count": sum(len(scenario["conservation_checks"]) for scenario in record["scenarios"]),
+    }
+    minimum_features = {
+        "distinct_metric_count": 3,
+        "flows_with_uncertainty_count": 4,
+        "distributional_impact_count": 1,
+        "distributional_coverage_count": 1,
+        "causal_evaluation_count": 1,
+        "conservation_check_count": 1,
+    }
+    missing_features = [
+        f"{key}={workload_features[key]} (minimum {minimum})"
+        for key, minimum in minimum_features.items()
+        if workload_features[key] < minimum
+    ]
+    if missing_features:
+        raise RuntimeError("benchmark workload lost required feature coverage: " + "; ".join(missing_features))
+
     def schema_check():
         errors = list(validator.iter_errors(record))
         if errors:
@@ -186,17 +211,11 @@ def run_one_size(target_flows: int, warmups: int):
     semantic_check()
     semantic_ms = (time.perf_counter() - started) * 1000.0
 
-    all_flows = [flow for scenario in record["scenarios"] for flow in scenario["flow_records"]]
     return {
         "requested_flows": target_flows,
         "observed_flows": observed_flows,
-        "distinct_metric_count": len({flow["metric_id"] for flow in all_flows}),
-        "flows_with_uncertainty_count": sum("uncertainty" in flow for flow in all_flows),
-        "distributional_impact_count": len(record.get("distributional_impacts", [])),
-        "distributional_coverage_count": int("distributional_coverage" in record),
-        "causal_evaluation_count": len(record.get("causal_evaluations", [])),
+        **workload_features,
         "referenced_evidence_count": sum(len(flow.get("evidence_refs", [])) for flow in all_flows),
-        "conservation_check_count": sum(len(scenario["conservation_checks"]) for scenario in record["scenarios"]),
         "preparation_ms_excluded_from_validation": round(preparation_ms, 3),
         "schema_validation_ms": round(schema_ms, 3),
         "semantic_validation_ms": round(semantic_ms, 3),
