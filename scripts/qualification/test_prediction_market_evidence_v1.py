@@ -145,6 +145,11 @@ class PredictionMarketEvidenceTests(unittest.TestCase):
     def test_empty_resolution_chain_is_not_vacuously_valid(self):
         self.assertTrue(validate_resolution_event_chain([], CONTRACT, EV))
 
+    def test_resolution_chain_rejects_non_object_records_without_crashing(self):
+        self.assertTrue(validate_resolution_event_chain([None], CONTRACT, EV))
+        second = _challenge_event(2, EVENT, 2)
+        self.assertTrue(validate_resolution_event_chain([EVENT, None, second], CONTRACT, EV))
+
     def test_revision_two_requires_predecessor_contract_digest(self):
         candidate = copy.deepcopy(CONTRACT)
         candidate["revision"] = 2

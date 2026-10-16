@@ -121,7 +121,7 @@ def validate_resolution_event_record(
 
 
 def validate_resolution_event_chain(
-    events: list[dict[str, Any]],
+    events: list[Any],
     contract: dict[str, Any],
     validator: Draft202012Validator,
 ) -> list[str]:
@@ -134,6 +134,10 @@ def validate_resolution_event_chain(
     seen_indices: set[int] = set()
 
     for position, event in enumerate(events, start=1):
+        if not isinstance(event, dict):
+            errors.append(f"lineage:event at position {position} is not an object")
+            continue
+
         event_errors = validate_resolution_event_record(event, contract, validator)
         errors.extend(f"event[{position}]:{error}" for error in event_errors)
 
@@ -159,6 +163,9 @@ def validate_resolution_event_chain(
             continue
 
         previous = events[position - 2]
+        if not isinstance(previous, dict):
+            errors.append(f"lineage:previous event at position {position - 1} is not an object")
+            continue
         expected_predecessor = previous.get("event_digest_sha256")
         actual_predecessor = event.get("predecessor_event_digest_sha256")
         if actual_predecessor != expected_predecessor:
