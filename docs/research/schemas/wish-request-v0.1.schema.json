@@ -9,6 +9,10 @@
     "schema_version",
     "wish_id",
     "created_at",
+    "snapshot_ref",
+    "snapshot_revision",
+    "snapshot_created_at",
+    "supersedes_snapshot_ref",
     "requester_ref",
     "visibility",
     "goal",
@@ -659,6 +663,33 @@
       "minLength": 8,
       "maxLength": 160,
       "description": "Reference to a separate outcome assessment. Required for verified fulfillment or partial fulfillment; the schema validates the reference shape, not the truth of the assessment."
+    },
+    "snapshot_ref": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$",
+      "description": "Opaque immutable identifier for this exact request snapshot; distinct revisions must have distinct references."
+    },
+    "snapshot_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic per-wish snapshot revision. Consecutive revisions and fork/conflict resolution are enforced by the append-only event verifier, not this schema alone."
+    },
+    "snapshot_created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation time of this exact immutable snapshot. `created_at` remains the original wish's creation time."
+    },
+    "supersedes_snapshot_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 8,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$",
+      "description": "Null only for revision 1; later revisions point to the immediately preceding snapshot, which must be resolved and checked by the event verifier."
     }
   },
   "allOf": [
@@ -1004,6 +1035,45 @@
           },
           "delivery_evidence_refs": {
             "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "snapshot_revision": {
+            "const": 1
+          }
+        },
+        "required": [
+          "snapshot_revision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "supersedes_snapshot_ref": {
+            "const": null
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "snapshot_revision": {
+            "minimum": 2
+          }
+        },
+        "required": [
+          "snapshot_revision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "supersedes_snapshot_ref": {
+            "type": "string",
+            "minLength": 8
           }
         }
       }
