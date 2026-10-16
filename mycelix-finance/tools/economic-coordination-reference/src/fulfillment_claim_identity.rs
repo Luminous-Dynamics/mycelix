@@ -385,6 +385,86 @@ mod tests {
     }
 
     #[test]
+    fn deterministic_10k_claim_campaign_rejects_conflicts_without_journal_growth() {
+        let mut registry = ClaimIdentityRegistry::new();
+
+        for seed in 1_u64..=10_000 {
+            let request_id = format!("request-{seed}");
+            let claim_id = format!("claim-{seed}");
+            let replica_id = format!("replica-{}", seed % 8);
+            let quantity = seed % 97 + 1;
+            let accepted = quantity / 2;
+
+            assert_eq!(
+                registry.register(&request_id, &claim_id, &replica_id, DIGEST_A, quantity),
+                Ok(ClaimRegistrationOutcome::Registered),
+                "seed={seed}"
+            );
+            assert_eq!(
+                registry.register(&request_id, &claim_id, &replica_id, DIGEST_A, quantity),
+                Ok(ClaimRegistrationOutcome::ExactReplay),
+                "exact replay seed={seed}"
+            );
+            assert_eq!(
+                registry.register(
+                    &format!("other-{seed}"),
+                    &claim_id,
+                    &replica_id,
+                    DIGEST_A,
+                    quantity
+                ),
+                Err(ClaimRegistryError::ConflictingClaimIdentity),
+                "cross-request replay seed={seed}"
+            );
+            assert_eq!(
+                registry.register(
+                    &request_id,
+                    &claim_id,
+                    &format!("other-{replica_id}"),
+                    DIGEST_A,
+                    quantity
+                ),
+                Err(ClaimRegistryError::ConflictingClaimIdentity),
+                "cross-replica replay seed={seed}"
+            );
+            assert_eq!(
+                registry.register(&request_id, &claim_id, &replica_id, DIGEST_B, quantity),
+                Err(ClaimRegistryError::ConflictingClaimIdentity),
+                "digest substitution seed={seed}"
+            );
+            assert_eq!(
+                registry.register(&request_id, &claim_id, &replica_id, DIGEST_A, quantity + 1),
+                Err(ClaimRegistryError::ConflictingClaimIdentity),
+                "quantity substitution seed={seed}"
+            );
+            assert_eq!(
+                registry.finalize(&claim_id, accepted),
+                Ok(ClaimFinalizationOutcome::Finalized),
+                "finalize seed={seed}"
+            );
+            assert_eq!(
+                registry.finalize(&claim_id, accepted),
+                Ok(ClaimFinalizationOutcome::ExactReplay),
+                "finalization replay seed={seed}"
+            );
+            let conflicting = if accepted < quantity { accepted + 1 } else { accepted - 1 };
+            assert_eq!(
+                registry.finalize(&claim_id, conflicting),
+                Err(ClaimRegistryError::ConflictingFinalization),
+                "conflicting finalization seed={seed}"
+            );
+        }
+
+        assert_eq!(registry.claim_count(), 10_000);
+        assert_eq!(registry.journal().len(), 20_000);
+        assert_eq!(registry.pending_quantity(), Ok(0));
+        assert_eq!(
+            registry.accepted_quantity(),
+            Ok((1_u64..=10_000).map(|seed| (seed % 97 + 1) / 2).sum())
+        );
+    }
+
+    #[test]
     fn one_identity_is_accepted_once_in_the_serial_authoritative_history() {
         let mut registry = ClaimIdentityRegistry::new();
         registry
