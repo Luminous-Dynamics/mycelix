@@ -10,7 +10,8 @@
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-use crate::hearth_context::{use_hearth, member_name, mock_now};
+use crate::hearth_context::{use_hearth, mock_now};
+use crate::action_feedback::{feedback_copy, ActionFeedbackKind};
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{use_toasts, ToastKind};
 use hearth_leptos_types::*;
@@ -52,10 +53,8 @@ pub fn tend_bond(bond_hash: String) {
             if let Some(bond) = bonds.iter_mut().find(|b| b.hash == bond_hash) {
                 bond.strength_bp = (bond.strength_bp + 500).min(BOND_MAX);
                 bond.last_tended = mock_now();
-                let name_a = member_name(&members, &bond.member_a);
-                let name_b = member_name(&members, &bond.member_b);
                 toasts.push(
-                    format!("you tended the bond between {name_a} and {name_b}"),
+                    feedback_copy(ActionFeedbackKind::PreviewOnly, "the bond update"),
                     ToastKind::Custom("bond".into()),
                 );
             }
@@ -85,17 +84,31 @@ pub fn tend_bond(bond_hash: String) {
                 },
             ).await {
                 Ok(_) => {
-                    // Refresh bonds from conductor
-                    if let Ok(bonds) = hc.call_zome_default::<(), Vec<BondView>>(
+                    match hc.call_zome_default::<(), Vec<BondView>>(
                         "hearth_kinship", "get_kinship_graph", &()
                     ).await {
-                        hearth.bonds.set(bonds);
+                        Ok(bonds) => {
+                            hearth.bonds.set(bonds);
+                            toasts.push(
+                                feedback_copy(ActionFeedbackKind::Confirmed, "Bond update"),
+                                ToastKind::Custom("bond".into()),
+                            );
+                        }
+                        Err(e) => {
+                            web_sys::console::log_1(&format!("bond update succeeded but refresh failed: {e}").into());
+                            toasts.push(
+                                "Bond update confirmed, but the view could not refresh. Displayed details may be stale.",
+                                ToastKind::Custom("bond".into()),
+                            );
+                        }
                     }
-                    toasts.push("bond tended", ToastKind::Custom("bond".into()));
                 }
                 Err(e) => {
-                    web_sys::console::log_1(&format!("tend_bond failed: {e}").into());
-                    toasts.push("couldn’t tend that bond right now", ToastKind::Custom("bond".into()));
+                    web_sys::console::log_1(&format!("tend_bond outcome unknown: {e}").into());
+                    toasts.push(
+                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the bond update"),
+                        ToastKind::Custom("bond".into()),
+                    );
                 }
             }
         });
@@ -113,11 +126,6 @@ pub fn express_gratitude(to_agent: String, message: String) {
 
     if hc.is_mock() {
         let from = hearth.my_agent.get_untracked();
-        let members = hearth.members.get_untracked();
-        let from_name = member_name(&members, &from);
-        let to_name = member_name(&members, &to_agent);
-        let msg_preview = message.clone();
-
         hearth.gratitude.update(|g| {
             g.insert(0, GratitudeExpressionView {
                 hash: format!("grat_user_{}", g.len()),
@@ -129,9 +137,8 @@ pub fn express_gratitude(to_agent: String, message: String) {
                 created_at: mock_now(),
             });
         });
-
         toasts.push(
-            format!("{from_name} → {to_name}: “{msg_preview}”"),
+            feedback_copy(ActionFeedbackKind::PreviewOnly, "the gratitude expression"),
             ToastKind::Custom("gratitude".into()),
         );
     } else {
@@ -146,9 +153,13 @@ pub fn express_gratitude(to_agent: String, message: String) {
                 visibility: HearthVisibility,
             }
 
-            let hearth_hash = hearth.current_hearth.get_untracked()
-                .map(|h| h.hash)
-                .unwrap_or_default();
+            let Some(hearth_hash) = hearth.current_hearth.get_untracked().map(|h| h.hash) else {
+                toasts.push(
+                    "Gratitude not sent: no current household is selected.",
+                    ToastKind::Custom("gratitude".into()),
+                );
+                return;
+            };
 
             match hc.call_zome_default::<ExpressGratitudeInput, ()>(
                 "hearth_gratitude",
@@ -161,9 +172,16 @@ pub fn express_gratitude(to_agent: String, message: String) {
                     visibility: HearthVisibility::AllMembers,
                 },
             ).await {
-                Ok(_) => toasts.push("gratitude expressed", ToastKind::Custom("gratitude".into())),
+                Ok(_) => toasts.push(
+                    feedback_copy(ActionFeedbackKind::Confirmed, "Gratitude expression"),
+                    ToastKind::Custom("gratitude".into()),
+                ),
                 Err(e) => {
-                    web_sys::console::log_1(&format!("express_gratitude failed: {e}").into());
+                    web_sys::console::log_1(&format!("express_gratitude outcome unknown: {e}").into());
+                    toasts.push(
+                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the gratitude expression"),
+                        ToastKind::Custom("gratitude".into()),
+                    );
                 }
             }
         });
@@ -192,7 +210,10 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
                 created_at: mock_now(),
             });
         });
-        toasts.push("vote cast", ToastKind::Custom("decision".into()));
+        toasts.push(
+            feedback_copy(ActionFeedbackKind::PreviewOnly, "the vote"),
+            ToastKind::Custom("decision".into()),
+        );
     } else {
         let hc = hc.clone();
         spawn_local(async move {
@@ -208,9 +229,16 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
                 "cast_vote",
                 &CastVoteInput { decision_hash, choice, reasoning },
             ).await {
-                Ok(_) => toasts.push("vote cast", ToastKind::Custom("decision".into())),
+                Ok(_) => toasts.push(
+                    feedback_copy(ActionFeedbackKind::Confirmed, "Vote submission"),
+                    ToastKind::Custom("decision".into()),
+                ),
                 Err(e) => {
-                    web_sys::console::log_1(&format!("cast_vote failed: {e}").into());
+                    web_sys::console::log_1(&format!("cast_vote outcome unknown: {e}").into());
+                    toasts.push(
+                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the vote submission"),
+                        ToastKind::Custom("decision".into()),
+                    );
                 }
             }
         });
@@ -224,15 +252,29 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
 pub fn change_presence(new_status: PresenceStatusType) {
     let hc = use_holochain();
     let hearth = use_hearth();
+    let toasts = use_toasts();
 
     if hc.is_mock() {
         let my_agent = hearth.my_agent.get_untracked();
+        let mut changed = false;
         hearth.presence.update(|plist| {
             if let Some(p) = plist.iter_mut().find(|p| p.agent == my_agent) {
                 p.status = new_status;
                 p.updated_at = mock_now();
+                changed = true;
             }
         });
+        if changed {
+            toasts.push(
+                feedback_copy(ActionFeedbackKind::PreviewOnly, "the presence update"),
+                ToastKind::Custom("presence".into()),
+            );
+        } else {
+            toasts.push(
+                "Preview only: no matching sample presence record was found; nothing changed.",
+                ToastKind::Custom("presence".into()),
+            );
+        }
     } else {
         let hc = hc.clone();
         spawn_local(async move {
@@ -243,11 +285,15 @@ pub fn change_presence(new_status: PresenceStatusType) {
                 expected_return: Option<i64>,
             }
 
-            let hearth_hash = hearth.current_hearth.get_untracked()
-                .map(|h| h.hash)
-                .unwrap_or_default();
+            let Some(hearth_hash) = hearth.current_hearth.get_untracked().map(|h| h.hash) else {
+                toasts.push(
+                    "Presence update not sent: no current household is selected.",
+                    ToastKind::Custom("presence".into()),
+                );
+                return;
+            };
 
-            let _ = hc.call_zome_default::<SetPresenceInput, ()>(
+            match hc.call_zome_default::<SetPresenceInput, ()>(
                 "hearth_rhythms",
                 "set_presence",
                 &SetPresenceInput {
@@ -255,7 +301,19 @@ pub fn change_presence(new_status: PresenceStatusType) {
                     status: new_status,
                     expected_return: None,
                 },
-            ).await;
+            ).await {
+                Ok(_) => toasts.push(
+                    feedback_copy(ActionFeedbackKind::Confirmed, "Presence update"),
+                    ToastKind::Custom("presence".into()),
+                ),
+                Err(e) => {
+                    web_sys::console::log_1(&format!("set_presence outcome unknown: {e}").into());
+                    toasts.push(
+                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the presence update"),
+                        ToastKind::Custom("presence".into()),
+                    );
+                }
+            }
         });
     }
 }
@@ -270,33 +328,54 @@ pub fn complete_care_task(task_hash: String) {
     let toasts = use_toasts();
 
     if hc.is_mock() {
+        let exists = hearth.care_schedules.get_untracked().iter().any(|task| task.hash == task_hash);
+        if !exists {
+            toasts.push(
+                "Preview only: care item not found in sample data; nothing changed.",
+                ToastKind::Custom("care".into()),
+            );
+            return;
+        }
+
         hearth.care_schedules.update(|schedules| {
             if let Some(task) = schedules.iter_mut().find(|s| s.hash == task_hash) {
                 task.status = CareScheduleStatus::Completed;
                 task.completed_at = Some(mock_now());
             }
         });
-        // Update homeostasis
         if let Some(set_care) = use_context::<WriteSignal<u32>>() {
             let active = hearth.care_schedules.get_untracked().iter()
                 .filter(|c| c.status == CareScheduleStatus::Active)
                 .count() as u32;
             set_care.set(active);
         }
-        toasts.push("task completed", ToastKind::Custom("care".into()));
+        toasts.push(
+            feedback_copy(ActionFeedbackKind::PreviewOnly, "the care task completion"),
+            ToastKind::Custom("care".into()),
+        );
     } else {
         let hc = hc.clone();
         spawn_local(async move {
-            // Conductor expects ActionHash for schedule_hash
             #[derive(serde::Serialize)]
             struct CompleteTaskInput { schedule_hash: String }
 
-            let _ = hc.call_zome_default::<CompleteTaskInput, ()>(
+            match hc.call_zome_default::<CompleteTaskInput, ()>(
                 "hearth_care",
                 "complete_task",
                 &CompleteTaskInput { schedule_hash: task_hash },
-            ).await;
-            toasts.push("task completed", ToastKind::Custom("care".into()));
+            ).await {
+                Ok(_) => toasts.push(
+                    feedback_copy(ActionFeedbackKind::Confirmed, "Care task completion"),
+                    ToastKind::Custom("care".into()),
+                ),
+                Err(e) => {
+                    web_sys::console::log_1(&format!("complete_task outcome unknown: {e}").into());
+                    toasts.push(
+                        feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the care task completion"),
+                        ToastKind::Custom("care".into()),
+                    );
+                }
+            }
         });
     }
 }
@@ -315,43 +394,22 @@ pub fn invite_member(display_name: String, role: MemberRole) {
         hearth.members.update(|members| {
             members.push(MemberView {
                 agent: agent_key,
-                display_name: display_name.clone(),
+                display_name,
                 role,
                 status: MembershipStatus::Invited,
                 joined_at: mock_now(),
             });
         });
-        toasts.push(format!("invited {display_name} to the hearth"), ToastKind::Custom("presence".into()));
+        toasts.push(
+            feedback_copy(ActionFeedbackKind::PreviewOnly, "the sample invitation"),
+            ToastKind::Custom("presence".into()),
+        );
     } else {
-        let hc = hc.clone();
-        spawn_local(async move {
-            // Real invite requires AgentPubKey of invitee (not just a name).
-            // In production, the inviter would select from a DID/agent lookup.
-            // For now, we send the display_name as a placeholder.
-            #[derive(serde::Serialize)]
-            struct InviteInput {
-                hearth_hash: String,
-                invitee_agent: String, // AgentPubKey on the wire
-                proposed_role: MemberRole,
-                message: String,
-                expires_at: i64,
-            }
-
-            let hearth_hash = hearth.current_hearth.get_untracked()
-                .map(|h| h.hash)
-                .unwrap_or_default();
-
-            let _ = hc.call_zome_default::<InviteInput, ()>(
-                "hearth_kinship",
-                "invite_member",
-                &InviteInput {
-                    hearth_hash,
-                    invitee_agent: display_name, // placeholder — needs real AgentPubKey
-                    proposed_role: role,
-                    message: "you are invited to join the hearth".into(),
-                    expires_at: mock_now() + 7 * 86400, // 7 days
-                },
-            ).await;
-        });
+        // The current UI only supplies a display name, not a verified AgentPubKey.
+        // Do not submit a human-readable name where an authenticated identity is required.
+        toasts.push(
+            feedback_copy(ActionFeedbackKind::NotSent, "this invitation"),
+            ToastKind::Custom("presence".into()),
+        );
     }
 }
