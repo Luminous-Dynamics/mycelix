@@ -68,6 +68,8 @@ fn parse_signal(value: &str) -> Signal {
         "ExtruderCurrent" => Signal::ExtruderCurrent,
         "VibrationRms" => Signal::VibrationRms,
         "FilamentTension" => Signal::FilamentTension,
+        "AmbientTemperature" => Signal::AmbientTemperature,
+        "Humidity" => Signal::Humidity,
         other => panic!("unknown signal in frozen corpus: {other}"),
     }
 }
@@ -232,7 +234,7 @@ fn frozen_cincinnati_v1_corpus_matches_expected_dispositions_and_signals() {
         }
     }
 
-    assert_eq!(ids.len(), 15, "corpus cardinality is versioned and must not drift silently");
+    assert_eq!(ids.len(), 23, "corpus cardinality is versioned and must not drift silently");
 }
 
 #[test]
