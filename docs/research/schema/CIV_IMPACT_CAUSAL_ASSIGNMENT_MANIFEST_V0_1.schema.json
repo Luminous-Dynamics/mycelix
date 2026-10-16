@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/civ-impact-causal-assignment-manifest-v0.1.schema.json",
+  "title": "CIV-IMPACT causal assignment manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "trial_id", "entries"],
+  "properties": {
+    "schema_version": { "const": "civ-impact-causal-assignment-manifest-v0.1" },
+    "trial_id": { "type": "string", "minLength": 3 },
+    "entries": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["unit_id", "assigned_arm", "cluster_id", "assignment_receipt_id", "assignment_time"],
+        "properties": {
+          "unit_id": { "type": "string", "minLength": 1 },
+          "assigned_arm": { "enum": ["intervention", "comparator"] },
+          "cluster_id": { "type": ["string", "null"] },
+          "assignment_receipt_id": { "type": "string", "minLength": 1 },
+          "assignment_time": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
