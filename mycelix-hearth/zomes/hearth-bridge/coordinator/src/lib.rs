@@ -31,6 +31,149 @@ use mycelix_bridge_common::{
 use mycelix_zome_helpers as _;
 
 // ============================================================================
+// Authoring-conductor publication evidence
+// ============================================================================
+
+/// Whether the host returned operation-level publication evidence for an action.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum PublicationEvidenceAvailability {
+    /// The query succeeded but yielded no operation sets. This is unknown,
+    /// never vacuous evidence that publication is complete.
+    NoOperationData,
+    /// One or more DHT operation receipt sets were observed on this conductor.
+    Observed,
+}
+
+/// Privacy-minimized summary of receipt evidence for one DHT operation.
+/// Neither the operation hash nor validator identities are exposed.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct PublicationOperationEvidence {
+    pub operation_type: String,
+    /// Number of receipt records returned for this operation; not a count of
+    /// unique validators or a guarantee of current peer availability.
+    pub receipt_record_count: u32,
+    pub valid_receipt_record_count: u32,
+    pub rejected_receipt_record_count: u32,
+    pub abandoned_receipt_record_count: u32,
+    /// Holochain's configured receipt-threshold flag for this operation.
+    pub receipts_complete: bool,
+}
+
+/// Evidence observed through the current authoring conductor for an action.
+/// This is deliberately not a global synchronization or current-DHT-health claim.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ActionPublicationEvidence {
+    pub action_hash: ActionHash,
+    /// Observation time after the host query, in Holochain timestamp microseconds.
+    pub checked_at_micros: i64,
+    pub availability: PublicationEvidenceAvailability,
+    pub operation_count: u32,
+    pub receipt_record_count: u32,
+    pub receipt_threshold_complete_operation_count: u32,
+    pub rejected_operation_count: u32,
+    /// False for zero operation sets, even though an empty iterator's all()
+    /// would otherwise return true.
+    pub all_receipt_thresholds_complete: bool,
+    pub operations: Vec<PublicationOperationEvidence>,
+}
+
+fn bounded_count(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn summarize_publication_receipts(
+    action_hash: ActionHash,
+    receipt_sets: Vec<ValidationReceiptSet>,
+    checked_at_micros: i64,
+) -> ActionPublicationEvidence {
+    let operations: Vec<PublicationOperationEvidence> = receipt_sets
+        .into_iter()
+        .map(|set| {
+            let valid_count = set
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.validation_status == ValidationStatus::Valid)
+                .count();
+            let rejected_count = set
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.validation_status == ValidationStatus::Rejected)
+                .count();
+            let abandoned_count = set
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.validation_status == ValidationStatus::Abandoned)
+                .count();
+
+            PublicationOperationEvidence {
+                operation_type: set.op_type,
+                receipt_record_count: bounded_count(set.receipts.len()),
+                valid_receipt_record_count: bounded_count(valid_count),
+                rejected_receipt_record_count: bounded_count(rejected_count),
+                abandoned_receipt_record_count: bounded_count(abandoned_count),
+                receipts_complete: set.receipts_complete,
+            }
+        })
+        .collect();
+
+    let operation_count = bounded_count(operations.len());
+    let receipt_record_count = bounded_count(
+        operations
+            .iter()
+            .map(|op| op.receipt_record_count as u64)
+            .sum::<u64>()
+            .try_into()
+            .unwrap_or(usize::MAX),
+    );
+    let receipt_threshold_complete_operation_count = bounded_count(
+        operations.iter().filter(|op| op.receipts_complete).count(),
+    );
+    let rejected_operation_count =
+        bounded_count(operations.iter().filter(|op| op.rejected_receipt_record_count > 0).count());
+    let all_receipt_thresholds_complete = !operations.is_empty()
+        && operations.iter().all(|op| op.receipts_complete);
+    let availability = if operations.is_empty() {
+        PublicationEvidenceAvailability::NoOperationData
+    } else {
+        PublicationEvidenceAvailability::Observed
+    };
+
+    ActionPublicationEvidence {
+        action_hash,
+        checked_at_micros,
+        availability,
+        operation_count,
+        receipt_record_count,
+        receipt_threshold_complete_operation_count,
+        rejected_operation_count,
+        all_receipt_thresholds_complete,
+        operations,
+    }
+}
+
+/// Query validation-receipt evidence held by this action's authoring conductor.
+///
+/// HDK 0.6 only has the receipts recorded on the same conductor that authored
+/// the action (and same-DNA cells on that conductor). The result intentionally
+/// omits operation hashes and validator keys. Empty data stays NoOperationData;
+/// it is not evidence that all operations are complete. Receipt-threshold
+/// completion is historical publication evidence, not a guarantee all peers
+/// currently hold the data.
+#[hdk_extern]
+pub fn get_action_publication_evidence(
+    action_hash: ActionHash,
+) -> ExternResult<ActionPublicationEvidence> {
+    let receipt_sets =
+        get_validation_receipts(GetValidationReceiptsInput::new(action_hash.clone()))?;
+    let checked_at_micros = sys_time()?.as_micros();
+    Ok(summarize_publication_receipts(
+        action_hash,
+        receipt_sets,
+        checked_at_micros,
+    ))
+}
+
+// ============================================================================
 // Allowed zome names -- security boundary for dispatch
 // ============================================================================
 
