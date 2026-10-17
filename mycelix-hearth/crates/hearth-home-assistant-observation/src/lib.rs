@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Bounded JSON parser that rejects duplicate object keys without exposing payloads.
+pub mod strict_json;
 /// Pure HA WebSocket protocol machine; contains no transport or credential API.
 pub mod websocket_protocol;
 /// Projects compact provider events into profile-minimized entity frames.
