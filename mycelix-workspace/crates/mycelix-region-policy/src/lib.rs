@@ -465,6 +465,209 @@ impl VerifiedConsentGrant {
     }
 }
 
+/// Bilateral agreement binding two exact regional-profile versions to a limited
+/// set of data classes, actions, purposes and recipient identifiers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FederationAgreement {
+    pub schema_version: u16,
+    pub agreement_id: String,
+    pub agreement_version: String,
+    pub source_profile_id: String,
+    pub source_profile_digest: String,
+    pub destination_profile_id: String,
+    pub destination_profile_digest: String,
+    pub valid_from_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
+    pub allowed_data_classes: Vec<DataClass>,
+    pub allowed_actions: Vec<BoundaryAction>,
+    /// Exact purposes; wildcard matching is not permitted.
+    pub allowed_purposes: Vec<String>,
+    /// Exact stable service/operator identifiers; wildcard matching is not permitted.
+    pub allowed_recipient_ids: Vec<String>,
+    /// Lowercase hex BLAKE3-256 digest of canonical_payload().
+    pub content_digest: String,
+    pub signing_key_id: String,
+    pub signature: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgreementVerificationFailure {
+    DigestMismatch,
+    InvalidSignature,
+    UnknownSigner,
+    RevokedSigner,
+    StaleTrustRoots,
+    UnsupportedAlgorithm,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgreementValidationError {
+    UnsupportedSchemaVersion,
+    InvalidIdentifier,
+    InvalidValidityWindow,
+    InvalidDigestFormat,
+    InvalidSignatureLength,
+    EmptyDataClasses,
+    DuplicateDataClass,
+    EmptyActions,
+    DuplicateAction,
+    EmptyPurposeAllowlist,
+    EmptyRecipientAllowlist,
+    InvalidAllowlistValue,
+    DuplicateAllowlistValue,
+    AgreementNotActive,
+    VerificationFailed(AgreementVerificationFailure),
+}
+
+/// Deployment-owned verifier hashes canonical_payload(), verifies
+/// signature_message(), validates key trust/revocation, and returns the latest
+/// time at which that evidence remains trustworthy.
+pub trait AgreementVerifier {
+    fn verify_agreement(
+        &self,
+        agreement: &FederationAgreement,
+        now_ms: u64,
+    ) -> Result<u64, AgreementVerificationFailure>;
+}
+
+impl FederationAgreement {
+    pub fn validate_shape(&self) -> Result<(), AgreementValidationError> {
+        if self.schema_version != SUPPORTED_SCHEMA_VERSION {
+            return Err(AgreementValidationError::UnsupportedSchemaVersion);
+        }
+        if !valid_text(&self.agreement_id, MAX_PROFILE_ID_BYTES)
+            || !valid_text(&self.agreement_version, MAX_PROFILE_VERSION_BYTES)
+            || !valid_text(&self.source_profile_id, MAX_PROFILE_ID_BYTES)
+            || !valid_text(&self.destination_profile_id, MAX_PROFILE_ID_BYTES)
+            || !valid_text(&self.signing_key_id, MAX_SIGNING_KEY_ID_BYTES)
+        {
+            return Err(AgreementValidationError::InvalidIdentifier);
+        }
+        if !valid_digest(&self.source_profile_digest)
+            || !valid_digest(&self.destination_profile_digest)
+            || !valid_digest(&self.content_digest)
+        {
+            return Err(AgreementValidationError::InvalidDigestFormat);
+        }
+        if self.valid_from_unix_ms >= self.valid_until_unix_ms {
+            return Err(AgreementValidationError::InvalidValidityWindow);
+        }
+        if self.signature.is_empty() || self.signature.len() > MAX_SIGNATURE_BYTES {
+            return Err(AgreementValidationError::InvalidSignatureLength);
+        }
+        if self.allowed_data_classes.is_empty() {
+            return Err(AgreementValidationError::EmptyDataClasses);
+        }
+        let mut classes = BTreeSet::new();
+        for class in &self.allowed_data_classes {
+            if !classes.insert(*class) {
+                return Err(AgreementValidationError::DuplicateDataClass);
+            }
+        }
+        if self.allowed_actions.is_empty() {
+            return Err(AgreementValidationError::EmptyActions);
+        }
+        let mut actions = BTreeSet::new();
+        for action in &self.allowed_actions {
+            if !actions.insert(*action) {
+                return Err(AgreementValidationError::DuplicateAction);
+            }
+        }
+        validate_allowlist(
+            &self.allowed_purposes,
+            MAX_PURPOSE_BYTES,
+            AgreementValidationError::EmptyPurposeAllowlist,
+        )?;
+        validate_allowlist(
+            &self.allowed_recipient_ids,
+            MAX_RECIPIENT_ID_BYTES,
+            AgreementValidationError::EmptyRecipientAllowlist,
+        )?;
+        Ok(())
+    }
+
+    /// Canonical bytes. Set-like lists are sorted and duplicates are rejected.
+    pub fn canonical_payload(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_FEDERATION_AGREEMENT_V1\0");
+        output.extend_from_slice(&self.schema_version.to_le_bytes());
+        append_string(&mut output, &self.agreement_id);
+        append_string(&mut output, &self.agreement_version);
+        append_string(&mut output, &self.source_profile_id);
+        append_string(&mut output, &self.source_profile_digest);
+        append_string(&mut output, &self.destination_profile_id);
+        append_string(&mut output, &self.destination_profile_digest);
+        output.extend_from_slice(&self.valid_from_unix_ms.to_le_bytes());
+        output.extend_from_slice(&self.valid_until_unix_ms.to_le_bytes());
+
+        let mut classes = self.allowed_data_classes.clone();
+        classes.sort_unstable();
+        append_u32(&mut output, classes.len() as u32);
+        output.extend(classes.into_iter().map(DataClass::tag));
+
+        let mut actions = self.allowed_actions.clone();
+        actions.sort_unstable();
+        append_u32(&mut output, actions.len() as u32);
+        output.extend(actions.into_iter().map(BoundaryAction::tag));
+
+        append_sorted_strings(&mut output, &self.allowed_purposes);
+        append_sorted_strings(&mut output, &self.allowed_recipient_ids);
+        output
+    }
+
+    pub fn signature_message(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_FEDERATION_AGREEMENT_SIGNATURE_V1\0");
+        append_string(&mut output, &self.agreement_id);
+        append_string(&mut output, &self.signing_key_id);
+        append_string(&mut output, &self.content_digest);
+        output
+    }
+
+    fn active_at(&self, now_ms: u64) -> bool {
+        self.valid_from_unix_ms <= now_ms && now_ms < self.valid_until_unix_ms
+    }
+}
+
+/// Opaque agreement that passed structural checks, validity checks and a
+/// deployment trust adapter. Both profile digests are rechecked per request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedFederationAgreement {
+    agreement: FederationAgreement,
+    verified_at_unix_ms: u64,
+    evidence_valid_until_unix_ms: u64,
+}
+
+impl VerifiedFederationAgreement {
+    pub fn verify<V: AgreementVerifier>(
+        agreement: FederationAgreement,
+        now_ms: u64,
+        verifier: &V,
+    ) -> Result<Self, AgreementValidationError> {
+        agreement.validate_shape()?;
+        if !agreement.active_at(now_ms) {
+            return Err(AgreementValidationError::AgreementNotActive);
+        }
+        let evidence_until = verifier
+            .verify_agreement(&agreement, now_ms)
+            .map_err(AgreementValidationError::VerificationFailed)?;
+        if evidence_until <= now_ms {
+            return Err(AgreementValidationError::VerificationFailed(
+                AgreementVerificationFailure::StaleTrustRoots,
+            ));
+        }
+        Ok(Self {
+            verified_at_unix_ms: now_ms,
+            evidence_valid_until_unix_ms: evidence_until.min(agreement.valid_until_unix_ms),
+            agreement,
+        })
+    }
+
+    pub fn agreement(&self) -> &FederationAgreement {
+        &self.agreement
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransferRequest<'a> {
     pub action: BoundaryAction,
@@ -473,6 +676,7 @@ pub struct TransferRequest<'a> {
     /// Digest of the exact bytes being transferred; must match the verified claim.
     pub content_digest: &'a str,
     pub classification: &'a VerifiedClassification,
+    pub agreement: &'a VerifiedFederationAgreement,
     pub purpose: Option<&'a str>,
     pub recipient_id: Option<&'a str>,
     pub consent: Option<&'a VerifiedConsentGrant>,
@@ -488,6 +692,16 @@ pub enum DenialReason {
     ClassificationExpired,
     ClassificationEvidenceStale,
     ClassificationVerifiedAfterDecisionTime,
+    AgreementSourceProfileMismatch,
+    AgreementDestinationProfileMismatch,
+    AgreementNotYetValid,
+    AgreementExpired,
+    AgreementEvidenceStale,
+    AgreementVerifiedAfterDecisionTime,
+    AgreementActionNotAllowed,
+    AgreementDataClassNotAllowed,
+    AgreementPurposeNotAllowed,
+    AgreementRecipientNotAllowed,
     SourceProfileInactive,
     DestinationProfileInactive,
     SourceProfileEvidenceStale,
@@ -518,6 +732,9 @@ pub struct PolicyDecision {
     pub allowed: bool,
     pub reasons: Vec<DenialReason>,
     /// Non-sensitive identifiers and versioned policy digests for audit.
+    pub agreement_id: String,
+    pub agreement_version: String,
+    pub agreement_digest: String,
     pub source_profile_id: String,
     pub source_profile_version: String,
     pub source_profile_digest: String,
@@ -540,6 +757,9 @@ impl PolicyDecision {
         Self {
             allowed: reasons.is_empty(),
             reasons,
+            agreement_id: request.agreement.agreement.agreement_id.clone(),
+            agreement_version: request.agreement.agreement.agreement_version.clone(),
+            agreement_digest: request.agreement.agreement.content_digest.clone(),
             source_profile_id: source.profile_id.clone(),
             source_profile_version: source.profile_version.clone(),
             source_profile_digest: source.content_digest.clone(),
@@ -579,6 +799,46 @@ pub fn evaluate_transfer(
         push_reason(&mut reasons, DenialReason::SameScopeIsNotFederation);
     }
     let classification = request.classification;
+    let agreement = request.agreement;
+    if now_ms < agreement.verified_at_unix_ms {
+        push_reason(&mut reasons, DenialReason::AgreementVerifiedAfterDecisionTime);
+    }
+    if !agreement.agreement.active_at(now_ms) {
+        if now_ms < agreement.agreement.valid_from_unix_ms {
+            push_reason(&mut reasons, DenialReason::AgreementNotYetValid);
+        } else {
+            push_reason(&mut reasons, DenialReason::AgreementExpired);
+        }
+    }
+    if now_ms >= agreement.evidence_valid_until_unix_ms {
+        push_reason(&mut reasons, DenialReason::AgreementEvidenceStale);
+    }
+    if agreement.agreement.source_profile_id != source_profile.profile_id
+        || agreement.agreement.source_profile_digest != source_profile.content_digest
+    {
+        push_reason(&mut reasons, DenialReason::AgreementSourceProfileMismatch);
+    }
+    if agreement.agreement.destination_profile_id != destination_profile.profile_id
+        || agreement.agreement.destination_profile_digest != destination_profile.content_digest
+    {
+        push_reason(&mut reasons, DenialReason::AgreementDestinationProfileMismatch);
+    }
+    if !agreement.agreement.allowed_actions.contains(&request.action) {
+        push_reason(&mut reasons, DenialReason::AgreementActionNotAllowed);
+    }
+    if !agreement.agreement.allowed_data_classes.contains(&classification.claim.data_class) {
+        push_reason(&mut reasons, DenialReason::AgreementDataClassNotAllowed);
+    }
+    if request.purpose.is_none_or(|purpose| {
+        !agreement.agreement.allowed_purposes.iter().any(|allowed| allowed == purpose)
+    }) {
+        push_reason(&mut reasons, DenialReason::AgreementPurposeNotAllowed);
+    }
+    if request.recipient_id.is_none_or(|recipient| {
+        !agreement.agreement.allowed_recipient_ids.iter().any(|allowed| allowed == recipient)
+    }) {
+        push_reason(&mut reasons, DenialReason::AgreementRecipientNotAllowed);
+    }
     if now_ms < classification.verified_at_unix_ms {
         push_reason(
             &mut reasons,
@@ -702,6 +962,36 @@ pub fn evaluate_transfer(
     PolicyDecision::from_reasons(reasons, source_profile, destination_profile, request)
 }
 
+fn valid_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+fn validate_allowlist(
+    values: &[String],
+    max_bytes: usize,
+    empty_error: AgreementValidationError,
+) -> Result<(), AgreementValidationError> {
+    if values.is_empty() {
+        return Err(empty_error);
+    }
+    if values.len() > MAX_SCOPES_PER_RULE {
+        return Err(AgreementValidationError::InvalidAllowlistValue);
+    }
+    let mut seen = BTreeSet::new();
+    for value in values {
+        if !valid_text(value, max_bytes) {
+            return Err(AgreementValidationError::InvalidAllowlistValue);
+        }
+        if !seen.insert(value) {
+            return Err(AgreementValidationError::DuplicateAllowlistValue);
+        }
+    }
+    Ok(())
+}
+
 fn validate_scope_list(scopes: &[String]) -> Result<(), ProfileValidationError> {
     if scopes.len() > MAX_SCOPES_PER_RULE {
         return Err(ProfileValidationError::TooManyScopes);
@@ -789,6 +1079,19 @@ mod tests {
         }
     }
 
+    struct AcceptAgreements {
+        evidence_until_ms: u64,
+    }
+    impl AgreementVerifier for AcceptAgreements {
+        fn verify_agreement(
+            &self,
+            _agreement: &FederationAgreement,
+            _now_ms: u64,
+        ) -> Result<u64, AgreementVerificationFailure> {
+            Ok(self.evidence_until_ms)
+        }
+    }
+
     struct AcceptConsent {
         evidence_until_ms: u64,
     }
@@ -854,6 +1157,36 @@ mod tests {
 
     const TEST_CONTENT_DIGEST: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
+    fn verified_agreement(
+        source: &VerifiedProfile,
+        destination: &VerifiedProfile,
+    ) -> VerifiedFederationAgreement {
+        let agreement = FederationAgreement {
+            schema_version: 1,
+            agreement_id: "agreement-community-a-to-b".to_owned(),
+            agreement_version: "1.0.0".to_owned(),
+            source_profile_id: source.profile().profile_id.clone(),
+            source_profile_digest: source.profile().content_digest.clone(),
+            destination_profile_id: destination.profile().profile_id.clone(),
+            destination_profile_digest: destination.profile().content_digest.clone(),
+            valid_from_unix_ms: 100,
+            valid_until_unix_ms: 900,
+            allowed_data_classes: vec![DataClass::Personal],
+            allowed_actions: vec![BoundaryAction::Disclose, BoundaryAction::Backup],
+            allowed_purposes: vec!["credential-check".to_owned()],
+            allowed_recipient_ids: vec!["service:education".to_owned()],
+            content_digest: "c".repeat(64),
+            signing_key_id: "agreement-test-key".to_owned(),
+            signature: vec![2; 64],
+        };
+        VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 850 },
+        )
+        .expect("fixture agreement should verify through test adapter")
+    }
+
     fn verified_classification(resource_id: &str, now_ms: u64) -> VerifiedClassification {
         VerifiedClassification::verify(
             ClassificationClaim {
@@ -899,11 +1232,13 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -919,11 +1254,13 @@ mod tests {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &[]);
         let classification = verified_classification("record:education-credential", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -939,11 +1276,13 @@ mod tests {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -960,11 +1299,13 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:other", "marketing", 150, 500, 300, 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -982,11 +1323,13 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 220, 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -1002,11 +1345,13 @@ mod tests {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -1091,11 +1436,13 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: None,
             recipient_id: None,
             consent: Some(&consent),
@@ -1113,11 +1460,13 @@ mod tests {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:other", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -1134,11 +1483,13 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
         let changed_digest = "c".repeat(64);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: &changed_digest,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -1154,11 +1505,13 @@ mod tests {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -1174,11 +1527,13 @@ mod tests {
         let source = verified("community-a", &["community-b"], &[]);
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -1197,11 +1552,13 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
         let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -1244,11 +1601,13 @@ mod tests {
                     300,
                     200,
                 );
-                let request = TransferRequest {
+                let agreement = verified_agreement(&source, &destination);
+        let request = TransferRequest {
                     action: BoundaryAction::Disclose,
                     resource_id: "record:education-credential",
                     content_digest: TEST_CONTENT_DIGEST,
                     classification: &classification,
+            agreement: &agreement,
                     purpose: Some("credential-check"),
                     recipient_id: Some("service:education"),
                     consent: Some(&consent),
@@ -1278,11 +1637,13 @@ mod tests {
             300,
             220,
         );
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -1306,11 +1667,13 @@ mod tests {
             300,
             200,
         );
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: Some(&consent),
@@ -1354,11 +1717,13 @@ mod tests {
         .expect("profile is active and its trust evidence is initially fresh");
         let destination = verified("community-b", &[], &["community-a"]);
         let classification = verified_classification("record:education-credential", 200);
+        let agreement = verified_agreement(&source, &destination);
         let request = TransferRequest {
             action: BoundaryAction::Disclose,
             resource_id: "record:education-credential",
             content_digest: TEST_CONTENT_DIGEST,
             classification: &classification,
+            agreement: &agreement,
             purpose: Some("credential-check"),
             recipient_id: Some("service:education"),
             consent: None,
@@ -1367,6 +1732,77 @@ mod tests {
         let decision = evaluate_transfer(&source, &destination, &request);
         assert!(!decision.allowed);
         assert!(decision.reasons.contains(&DenialReason::SourceProfileEvidenceStale));
+    }
+
+    #[test]
+    fn rejects_agreement_bound_to_another_profile_version() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut agreement = verified_agreement(&source, &destination).agreement;
+        agreement.source_profile_id = "profile-community-other".to_owned();
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 850 },
+        )
+        .expect("fixture verifier accepts this profile-binding negative control");
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementSourceProfileMismatch));
+    }
+
+    #[test]
+    fn denies_action_not_in_agreement_even_if_both_profiles_allow_route() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut agreement = verified_agreement(&source, &destination).agreement;
+        agreement.allowed_actions = vec![BoundaryAction::Backup];
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 850 },
+        )
+        .expect("fixture agreement verifies");
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementActionNotAllowed));
+    }
+
+    #[test]
+    fn agreement_canonical_payload_is_independent_of_allowlist_order() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut first = verified_agreement(&source, &destination).agreement;
+        let mut second = first.clone();
+        first.allowed_purposes = vec!["credential-check".to_owned(), "care-coordination".to_owned()];
+        second.allowed_purposes = vec!["care-coordination".to_owned(), "credential-check".to_owned()];
+        first.allowed_recipient_ids = vec!["service:education".to_owned(), "service:care".to_owned()];
+        second.allowed_recipient_ids = vec!["service:care".to_owned(), "service:education".to_owned()];
+        assert_eq!(first.canonical_payload(), second.canonical_payload());
     }
 
 }
