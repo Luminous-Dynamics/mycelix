@@ -31,6 +31,10 @@ pub struct JointRequest {
 pub struct JointOffer {
     pub offer_id: String,
     pub supplier_id: String,
+    /// Stable source record reference and caller-supplied payload digest.
+    pub source_uri: String,
+    pub source_payload_digest: String,
+    pub qualification_receipt_id: String,
     pub offered_capability_id: String,
     pub offered_profile_digest: String,
     pub unit: String,
@@ -136,6 +140,7 @@ pub enum JointAllocationError {
     MissingCapabilityMapping,
     UnitMismatch,
     CurrencyMismatch,
+    RequestDeadlineExpired,
     DeadlineMiss,
     DemandExceeded,
     OfferCapacityExceeded,
@@ -201,6 +206,13 @@ pub struct AllocationWitness {
     pub request_profile_digest: String,
     pub offer_id: String,
     pub supplier_id: String,
+    pub offer_source_uri: String,
+    pub offer_source_payload_digest: String,
+    pub qualification_receipt_id: String,
+    pub offer_evidence_status: EvidenceStatus,
+    pub offer_evidence_origin: EvidenceOrigin,
+    pub offer_evidence_observed_at: u64,
+    pub offer_evidence_valid_until: u64,
     pub capability_mapping_id: String,
     pub capability_mapping_digest: String,
     pub capacity_pool_id: String,
@@ -275,6 +287,9 @@ pub fn validate_joint_allocation(
 
     let mut requests: BTreeMap<String, &JointRequest> = BTreeMap::new();
     for request in &input.requests {
+        if request.deliver_by < input.evaluated_at {
+            return Err(JointAllocationError::RequestDeadlineExpired);
+        }
         if [
             request.request_id.as_str(),
             request.capability_id.as_str(),
@@ -328,6 +343,9 @@ pub fn validate_joint_allocation(
         if [
             offer.offer_id.as_str(),
             offer.supplier_id.as_str(),
+            offer.source_uri.as_str(),
+            offer.source_payload_digest.as_str(),
+            offer.qualification_receipt_id.as_str(),
             offer.offered_capability_id.as_str(),
             offer.offered_profile_digest.as_str(),
             offer.unit.as_str(),
@@ -613,6 +631,13 @@ pub fn validate_joint_allocation(
             request_profile_digest: request.capability_profile_digest.clone(),
             offer_id: offer.offer_id.clone(),
             supplier_id: offer.supplier_id.clone(),
+            offer_source_uri: offer.source_uri.clone(),
+            offer_source_payload_digest: offer.source_payload_digest.clone(),
+            qualification_receipt_id: offer.qualification_receipt_id.clone(),
+            offer_evidence_status: offer.evidence_status,
+            offer_evidence_origin: offer.evidence_origin,
+            offer_evidence_observed_at: offer.evidence_observed_at,
+            offer_evidence_valid_until: offer.evidence_valid_until,
             capability_mapping_id: mapping.mapping_id.clone(),
             capability_mapping_digest: mapping.mapping_digest.clone(),
             capacity_pool_id: pool.capacity_pool_id.clone(),
@@ -674,6 +699,9 @@ mod tests {
         JointOffer {
             offer_id: id.to_owned(),
             supplier_id: format!("supplier-{id}"),
+            source_uri: format!("https://example.invalid/offers/{id}"),
+            source_payload_digest: format!("sha256-offer-{id}"),
+            qualification_receipt_id: format!("qualification-{id}"),
             offered_capability_id: "repair-kit".to_owned(),
             offered_profile_digest: "repair-kit-profile-v1".to_owned(),
             unit: "kit".to_owned(),
@@ -1045,6 +1073,29 @@ mod tests {
             validate_joint_allocation(&input),
             Err(JointAllocationError::InvalidManifest)
         );
+    }
+
+    #[test]
+    fn already_expired_request_cannot_receive_a_new_allocation() {
+        let mut input = fixture();
+        input.requests[0].deliver_by = input.evaluated_at - 1;
+        assert_eq!(
+            validate_joint_allocation(&input),
+            Err(JointAllocationError::RequestDeadlineExpired)
+        );
+    }
+
+    #[test]
+    fn allocation_witness_keeps_offer_source_and_evidence_references() {
+        let report = validate_joint_allocation(&fixture()).expect("valid fixture");
+        let row = report.assignments.iter().find(|row| row.offer_id == "offer-a").unwrap();
+        assert_eq!(row.offer_source_uri, "https://example.invalid/offers/offer-a");
+        assert_eq!(row.offer_source_payload_digest, "sha256-offer-offer-a");
+        assert_eq!(row.qualification_receipt_id, "qualification-offer-a");
+        assert_eq!(row.offer_evidence_status, EvidenceStatus::Verified);
+        assert_eq!(row.offer_evidence_origin, EvidenceOrigin::LiveDomain);
+        assert_eq!(row.offer_evidence_observed_at, 10);
+        assert_eq!(row.offer_evidence_valid_until, 1_000);
     }
 
     #[test]
