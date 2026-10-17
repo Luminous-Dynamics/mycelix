@@ -76,7 +76,7 @@ The production crash/restart, multi-node uniqueness, fencing, and effect+nonce t
 
 ## Effect-journal lifecycle reference cases
 
-Nine source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
+Twelve source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
@@ -91,7 +91,7 @@ Nine source-level state-machine tests are authored in `src/effect_journal.rs`; t
 | RPK-JOURNAL-009 | Invalid identity/reason codes | `invalid_identity_and_reason_code_are_rejected` |
 | RPK-JOURNAL-010 | Rejecting verifier | `sink_verifier_rejection_does_not_create_verified_outcome` |
 
-The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
+The snapshot model adds round-trip restoration of Submitted/OutcomeUnknown and rejection of impossible phase-field combinations. The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
 
 ## Mandatory extension corpus before production
 
