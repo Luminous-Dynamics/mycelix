@@ -744,9 +744,13 @@ mod tests {
         // optimized frontier must not contain that allocation.
         let report = optimize_joint_allocation(&input).unwrap();
         assert!(report.frontier.iter().all(|candidate| {
-            candidate.assignments.iter().all(|assignment| {
-                assignment.offer_id != "offer-a" || assignment.quantity != 1
-            })
+            let quantity: u32 = candidate
+                .assignments
+                .iter()
+                .filter(|assignment| assignment.offer_id == "offer-a")
+                .map(|assignment| assignment.quantity)
+                .sum();
+            quantity == 0 || (quantity >= 2 && (quantity - 2) % 2 == 0)
         }));
     }
 
