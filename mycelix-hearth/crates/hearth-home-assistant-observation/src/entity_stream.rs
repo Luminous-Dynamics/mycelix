@@ -340,10 +340,16 @@ impl EntityStreamProjector {
                 state.apply_diff(id, diff)?;
                 let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
                 state.validate_profile_metadata(id, rule)?;
-                // A rename/icon/context-only update must not refresh the
-                // observation freshness window for an unchanged semantic value.
+                // Cache updates and semantic observation emission are
+                // separate concerns. Optional, unasserted metadata may evolve
+                // in Home Assistant without changing the meaning of the mapped
+                // value; it must not refresh local observation freshness.
+                // Expected unit/device-class changes have already failed closed
+                // in validate_profile_metadata above.
                 if state != before {
-                    changed_states.insert(id.clone(), state.clone());
+                    if state.state != before.state {
+                        changed_states.insert(id.clone(), state.clone());
+                    }
                     staged_states.insert(id.clone(), state);
                 }
             }
@@ -575,6 +581,49 @@ mod tests {
         assert!(out.frames.is_empty());
         assert!(out.removed_entity_ids.is_empty());
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
+    }
+
+    #[test]
+    fn unasserted_unit_and_device_class_changes_update_cache_without_refreshing_observation() {
+        let mut p = profile();
+        p.rules[0].expected_unit = None;
+        p.rules[0].expected_device_class = None;
+        let mut projector = EntityStreamProjector::new(&p).unwrap();
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+
+        let metadata_only = json!({
+            "c": {
+                "sensor.living_room_temperature": {
+                    "+": {
+                        "a": {
+                            "unit_of_measurement": "°F",
+                            "device_class": "humidity"
+                        },
+                        "lu": 1700000123
+                    }
+                }
+            }
+        });
+        let out = projector.apply(EntityStreamKind::Changes, &metadata_only, 999_999).unwrap();
+
+        assert!(out.frames.is_empty(), "unasserted metadata is not a new semantic observation");
+        assert!(out.removed_entity_ids.is_empty());
+        let cached = &projector.state["sensor.living_room_temperature"];
+        assert_eq!(cached.state, "21.5");
+        assert_eq!(cached.unit_of_measurement.as_deref(), Some("°F"));
+        assert_eq!(cached.device_class.as_deref(), Some("humidity"));
+
+        // A subsequent semantic state change emits a frame using the latest
+        // cached metadata, but its value remains the allowlisted primary state.
+        let changed = projector.apply(
+            EntityStreamKind::Changes,
+            &json!({"c": {"sensor.living_room_temperature": {"+": {"s": "22.0"}}}}),
+            1_000_000,
+        ).unwrap();
+        assert_eq!(changed.frames.len(), 1);
+        assert_eq!(changed.frames[0].state, "22.0");
+        assert_eq!(changed.frames[0].unit_of_measurement.as_deref(), Some("°F"));
+        assert_eq!(changed.frames[0].device_class.as_deref(), Some("humidity"));
     }
 
     #[test]
