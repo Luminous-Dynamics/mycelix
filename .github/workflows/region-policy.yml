@@ -29,6 +29,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Validate machine-readable effect fault corpus
+        run: |
+          jq -e '
+            .corpus_id == "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS" and
+            (.cases | length == 22) and
+            ([.cases[].id] | unique | length == 22) and
+            .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"]
+          ' EFFECT_JOURNAL_FAULT_CORPUS_V1.json >/dev/null
+          jq -e '.required | index("cases") != null' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
       - name: Formatting
         run: cargo fmt --all --check
       - name: Unit and adversarial policy tests
