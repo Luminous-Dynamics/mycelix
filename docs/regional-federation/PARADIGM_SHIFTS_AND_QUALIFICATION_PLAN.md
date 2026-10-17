@@ -80,6 +80,13 @@ These sources point toward adapters and evidence inventories, not blanket contin
 - **Latin America and the Caribbean:** BIS Paper 153 (7 March 2025) finds that fast-payment systems are expanding, while interoperability, fraud/cybersecurity, end-user and participant fees, and universal access remain important design challenges. Measure those outcomes instead of assuming the availability of a payment API proves inclusion.
   - https://www.bis.org/publications/paper-153-fast-payments-and-financial-inclusion-latin-america-and-caribbean
 
+- **Credential interoperability:** the W3C Verifiable Credentials 2.0 family became a W3C Recommendation on 15 May 2025, including data model, data integrity, JOSE/COSE, controlled identifiers, and the privacy-preserving Bitstring Status List. OpenID for Verifiable Credential Issuance 1.0 became a final specification on 16 September 2025. The next identity increment should implement standards adapters and a conformance matrix instead of inventing another incompatible credential wire format. These specifications do not by themselves solve jurisdiction authority, consent law, physical data placement, or issuer governance.
+  - https://www.w3.org/news/2025/the-verifiable-credentials-2-0-family-of-specifications-is-now-a-w3c-recommendation/
+  - https://www.w3.org/TR/vc-data-model/
+  - https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+- **Holochain deterministic validation:** Holochain's official validation guidance says validation results must be deterministic across peers and time; time-dependent freshness checks belong in a runtime authorization/execution gate, not an integrity callback that requires the current wall clock. Integrity validation should check structural and action-bound invariants; the coordinator/adapter must check current profiles, trust-root status, consent freshness, and the exact action immediately before a protected side effect.
+  - https://developer.holochain.org/build/validation/
+
 ## Benchmarks: hard safety gates first
 
 All targets below are proposed. Report the exact commit, environment, corpus digest and result. Unit test success must never be presented as deployment security or legal compliance.
@@ -101,9 +108,9 @@ Never compress these into one overall score that lets a security or rights failu
 
 ## Qualification ladder: what must happen next
 
-1. **Kernel review and compile:** run formatting, unit tests, and warnings-denied Clippy on the exact PR head. Current code in this branch has not been locally compiled; queued CI is not a pass.
+1. **Kernel review and compile:** run formatting, unit tests, and warnings-denied Clippy on the exact PR head. The current code has not been locally compiled in the authoring environment; queued, cancelled, or skipped CI is not a pass. The standalone workflow now runs on each commit to the feature branch so its evidence is not gated on merging the parent architecture RFC.
 2. **Production profile verifier:** choose and pin canonical digest and signature rules; verify exact bytes and key IDs; define signer trust roots, validity periods, threshold approval, rotation, revocation, recovery, and audit evidence. Algorithm agility must not permit an unreviewed downgrade.
-3. **Production consent verifier:** authenticate the precise grant and issuer; query authoritative revocation state or use a bounded evidence freshness window; bind recipient, purpose, validity and action.
+3. **Production consent verifier:** authenticate the precise grant and issuer; query authoritative revocation state or use a bounded evidence freshness window; bind recipient, purpose, validity and action. The kernel currently requires verifier-provided freshness deadlines for profile, classification and consent evidence, and rejects decisions backdated before evidence verification; production adapters still have to provide trustworthy time and revocation semantics.
 4. **Conformance fixtures:** publish valid and invalid profile/consent fixtures with expected stable denial codes, test corpus version, and fixture digests. Include malformed serialization and canonicalization cases.
 5. **One real boundary integration:** place the kernel before one concrete persistence/replication/export boundary; instrument the attempted egress paths and prove denial is enforced below the UI.
 6. **Adversarial integration:** test DHT/gossip, backups, queues, telemetry, crash reports, cache/index rebuilds, time rollback, offline replay and recovery. If any path bypasses policy, disable the affected data class or transport until repaired.
