@@ -159,6 +159,26 @@ Only proceed to longer pilots after E0–E3 behavior is qualified and human over
 
 No fixed “zero harm in the field” claim is supportable. The quality target is timely detection, transparent reporting, response, and prevention of repeatable failure.
 
+## 5A. Applied vertical slice: city belonging and community-service discovery
+
+The first applied cross-scale use case should be **helping urban residents find a suitable real-world social, cultural, spiritual, peer-support, mutual-aid, or practical service, with a realistic next step**. See the companion [Sol-Atlas City Belonging Navigator](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/123).
+
+This is not a claim that a directory alone reduces loneliness. Existing social-prescribing systems combine directories with person-centred human support, and a 2025 systematic review of 30 studies reported mixed findings with substantial methodological heterogeneity. The value should be tested through task completion, data freshness, access constraints, wanted first contact, and opt-in follow-up—not click-through or engagement alone. Reference: https://pubmed.ncbi.nlm.nih.gov/40862008/
+
+Use Open Referral HSDS 3.1+ as the interoperable service-data baseline and reuse Mycelix #2878 for the geographic-data boundary. Do not create a competing service taxonomy or treat OpenStreetMap geometry as proof of service operation. A provider's service listing, a verified current service, and a completed referral are different states.
+
+The navigator should support anonymous, low-bandwidth, list-first discovery; optional user-chosen spiritual/secular frames; sourced cost, language, schedule, accessibility, eligibility and freshness; clear first-visit information; corrections from providers/community stewards; and payload-specific consent for any human referral. It must not infer religion, loneliness, mental-health status, or developmental stage. It must never promise a human handoff unless an actual receiving organisation has accepted responsibility for it.
+
+Initial pilot criteria should include:
+- every surfaced listing has source provenance, reuse permission, retrieval timestamp and explicit freshness status;
+- unknown cost, eligibility, availability, language or accessibility is shown as unknown rather than presumed positive;
+- compare discovery task success against keyword-search and existing local channels, where available;
+- measure the user's ability to name a realistic next action, and optionally whether the wanted connection occurred with explicit opt-in;
+- report outdated/incorrect listing rate, no-match rate, subgroup access gaps, and qualitative feedback from local organisations and residents;
+- make no effectiveness claim until there is a bounded source audit and appropriate independent evaluation.
+
+The actual data inventory for Johannesburg or another city must be researched and verified before a live directory is described as available. This architecture does not presume any local service partner or complete city coverage.
+
 ## 6. How the projects connect without merging responsibilities
 
 | Project | Responsibility | Not its responsibility |
