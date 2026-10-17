@@ -13,6 +13,7 @@ use crate::{
     decode_state, EntityObservationRule, HomeAssistantObservationProfile, HomeAssistantStateFrame,
     HA_STATE_UNAVAILABLE, HA_STATE_UNKNOWN, MAX_METADATA_BYTES, MAX_RAW_STATE_BYTES,
 };
+use crate::strict_json::{parse_bounded_json, StrictJsonError};
 use crate::websocket_protocol::EntityStreamKind;
 use hearth_automation_types::AutomationValue;
 use serde_json::{Map, Value};
@@ -23,6 +24,7 @@ use std::fmt;
 pub enum EntityStreamProjectionError {
     InvalidProfile(String),
     InvalidPayload(String),
+    InvalidJson(StrictJsonError),
     DuplicateEntityAddition { entity_id: String },
     UnknownEntityChange { entity_id: String },
     InvalidEntityState { entity_id: String, reason: String },
@@ -33,6 +35,7 @@ impl fmt::Display for EntityStreamProjectionError {
         match self {
             Self::InvalidProfile(message) => write!(f, "invalid observation profile: {message}"),
             Self::InvalidPayload(message) => write!(f, "invalid compact entity-stream payload: {message}"),
+            Self::InvalidJson(error) => write!(f, "invalid compact entity-stream JSON: {error}"),
             Self::DuplicateEntityAddition { entity_id } => write!(
                 f,
                 "added entity already exists in the active stream cache: {entity_id}"
@@ -224,10 +227,25 @@ impl EntityStreamProjector {
         self.state.len()
     }
 
-    /// Apply one event body from the active subscription. The caller must first
-    /// validate epoch and subscription ID with the protocol state machine.
-    /// All changes are staged on a clone and committed only on complete success.
-    pub fn apply(
+    /// Decode and apply one raw compact event body. This public entry point
+    /// rejects oversized frames and duplicate JSON keys before interpreting
+    /// semantic fields. The caller must first validate epoch and subscription
+    /// ID with the protocol state machine.
+    pub fn apply_json(
+        &mut self,
+        kind: EntityStreamKind,
+        json_bytes: &[u8],
+        received_at_micros: i64,
+    ) -> Result<EntityStreamProjection, EntityStreamProjectionError> {
+        let event = parse_bounded_json(json_bytes)
+            .map_err(EntityStreamProjectionError::InvalidJson)?;
+        self.apply_value(kind, &event, received_at_micros)
+    }
+
+    /// Value-level core. Private so external transport callers cannot bypass
+    /// the strict decoder and lose duplicate-key evidence before projection.
+    /// All changes are staged and committed only on complete success.
+    fn apply_value(
         &mut self,
         kind: EntityStreamKind,
         event: &Value,
@@ -551,7 +569,7 @@ mod tests {
     #[test]
     fn initial_snapshot_projects_only_profile_allowlisted_fields() {
         let mut projector = projector();
-        let out = projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10_000_000).unwrap();
+        let out = projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10_000_000).unwrap();
         assert!(out.initial_snapshot);
         assert_eq!(out.frames.len(), 1);
         assert_eq!(out.frames[0].entity_id, "sensor.living_room_temperature");
