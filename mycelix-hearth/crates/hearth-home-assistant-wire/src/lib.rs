@@ -10,8 +10,8 @@
 
 use hearth_home_assistant_observation::{HomeAssistantStateFrame, ObservationError};
 use hearth_home_assistant_protocol::{CommandId, ReadOnlyCommand};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::de::{DeserializeOwned, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 
 pub const MAX_AUTH_MESSAGE_BYTES: usize = 4 * 1024;
@@ -257,8 +257,9 @@ pub fn parse_state_changed_event(
     validate_entity_id(&raw.event.data.entity_id)?;
 
     let new_state = match raw.event.data.new_state {
-        Some(state) => Some(minimize_state(state, received_at_micros)?),
-        None => None,
+        NullableRawState::Missing => return Err(WireError::InvalidField("event.data.new_state")),
+        NullableRawState::Null => None,
+        NullableRawState::State(state) => Some(minimize_state(state, received_at_micros)?),
     };
 
     Ok(StateChangedEvent {
@@ -457,8 +458,58 @@ struct RawEvent {
 #[derive(Debug, Deserialize)]
 struct RawStateChangedData {
     entity_id: String,
+    /// Preserve field presence: only explicit JSON null means an entity removal.
+    /// A missing field is malformed input and must not invalidate prior evidence.
     #[serde(default)]
-    new_state: Option<RawState>,
+    new_state: NullableRawState,
+}
+
+#[derive(Debug, Default)]
+enum NullableRawState {
+    #[default]
+    Missing,
+    Null,
+    State(RawState),
+}
+
+impl<'de> Deserialize<'de> for NullableRawState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct NullableRawStateVisitor;
+
+        impl<'de> Visitor<'de> for NullableRawStateVisitor {
+            type Value = NullableRawState;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a Home Assistant state object or explicit null")
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(NullableRawState::Null)
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(NullableRawState::Null)
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                RawState::deserialize(deserializer).map(NullableRawState::State)
+            }
+        }
+
+        deserializer.deserialize_option(NullableRawStateVisitor)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -597,6 +648,25 @@ mod tests {
         assert_eq!(parsed.entity_id, "sensor.room_temperature");
         assert_eq!(parsed.new_state, None);
         assert_eq!(parsed.received_at_micros, 999);
+    }
+
+    #[test]
+    fn state_changed_missing_new_state_is_malformed_not_a_removal() {
+        let input = br#"{
+            "id":2,
+            "type":"event",
+            "event":{
+                "event_type":"state_changed",
+                "data":{
+                    "entity_id":"sensor.room_temperature",
+                    "old_state":{"ignored":true}
+                }
+            }
+        }"#;
+        assert_eq!(
+            parse_state_changed_event(input, 999),
+            Err(WireError::InvalidField("event.data.new_state"))
+        );
     }
 
     #[test]
