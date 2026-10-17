@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 28 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 30 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -45,6 +45,8 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-021 | Purpose is absent from the exact agreement allowlist | `AgreementPurposeNotAllowed` | `denies_purpose_not_explicitly_authorized_by_agreement` |
 | RPK-DENY-022 | Recipient is absent from the exact agreement allowlist | `AgreementRecipientNotAllowed` | `denies_recipient_not_explicitly_authorized_by_agreement` |
 | RPK-DENY-023 | Agreement allowlist order changes but members do not | Canonical bytes remain identical | `agreement_canonical_payload_is_independent_of_allowlist_order` |
+| RPK-DENY-024 | Agreement expiry is reached while both region profiles remain active | `AgreementExpired` | `denies_expired_agreement_even_if_source_and_destination_profiles_remain_active` |
+| RPK-DENY-025 | Agreement signer/trust evidence freshness deadline is reached | `AgreementEvidenceStale` | `denies_when_agreement_trust_evidence_becomes_stale` |
 
 
 ## Mandatory extension corpus before production
