@@ -24,7 +24,7 @@ The type system and validator intentionally prevent a synthetic record from reac
 
 ## Acceptance tests
 
-Ten tests cover typed round-trip serialization, digest syntax, sensor/calibration identity, expired/unknown calibration disclosure, nonzero pose uncertainty, duplicate measurement IDs, reviewer attribution, rejection reasons, review-field consistency, and the synthetic-versus-field boundary. The tests are committed in the stacked PR; they have not yet been reported as passing until exact-head CI completes.
+Eleven tests cover typed round-trip serialization, digest syntax, sensor/calibration identity, expired/unknown calibration disclosure, nonzero pose uncertainty, duplicate measurement IDs, reviewer attribution, rejection reasons, review-field consistency, and the synthetic-versus-field boundary. The tests are committed in the stacked PR; they have not yet been reported as passing until exact-head CI completes.
 
 ## Next integration steps
 
