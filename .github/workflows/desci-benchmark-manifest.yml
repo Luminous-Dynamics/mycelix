@@ -35,8 +35,11 @@ jobs:
         with:
           components: rustfmt
 
-      - name: Check manifest module formatting
-        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-desci/src/core/src/scientific_benchmark_manifest.rs
-
       - name: Test scientific benchmark manifest invariants
         run: cargo test --manifest-path mycelix-workspace/mycelix-desci/Cargo.toml -p mycelix-desci-core scientific_benchmark_manifest::tests
+
+      # Keep compiler/test diagnostics visible even when the edited module has
+      # formatting drift; this remains a required check before merge.
+      - name: Check manifest module formatting
+        if: always()
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-desci/src/core/src/scientific_benchmark_manifest.rs
