@@ -75,12 +75,7 @@ fn run() -> Result<(), String> {
         for offset in 0..seed_count {
             let seed = seed_start.wrapping_add(offset as u64);
             let market = synthetic_market_for_scenario(seed, participant_count, scenario)?;
-            scenario_rows.push(evaluate_market(
-                &market,
-                seed,
-                top_k,
-                round_count,
-            )?);
+            scenario_rows.push(evaluate_market(&market, seed, top_k, round_count)?);
         }
         scenarios.push((scenario, scenario_rows));
     }
@@ -110,6 +105,7 @@ fn run() -> Result<(), String> {
     }
     println!("  ],");
     println!("  \"scenarios\": [");
+
     for (scenario_index, (scenario, rows)) in scenarios.iter().enumerate() {
         println!("    {{");
         println!("      \"name\": {},", json_string(scenario.name()));
@@ -124,11 +120,29 @@ fn run() -> Result<(), String> {
             );
         }
         println!("      }},");
-        println!("      \"relative_raw_gini_reduction\": {{");
-        print_comparison(rows, 0, "quality_floor_70", "one_sided_utility", "        ");
-        print_comparison(rows, 1, "quality_floor_70", "mutual_utility", "        ");
-        print_comparison(rows, 2, "quality_floor_70", "batch_balanced_mutual", "        ");
-        print_comparison(rows, 3, "quality_floor_70", "opportunity_history_balanced", "        ");
+        println!("      \"raw_gini_reduction_vs_batch_balanced\": {{");
+        for (offset, strategy_index) in [4usize, 5, 6].iter().enumerate() {
+            print_reduction(
+                rows,
+                *strategy_index,
+                2,
+                STRATEGY_NAMES[*strategy_index],
+                "        ",
+                offset < 2,
+            );
+        }
+        println!("      }},");
+        println!("      \"raw_gini_reduction_vs_opportunity_history\": {{");
+        for (offset, strategy_index) in [4usize, 5, 6].iter().enumerate() {
+            print_reduction(
+                rows,
+                *strategy_index,
+                3,
+                STRATEGY_NAMES[*strategy_index],
+                "        ",
+                offset < 2,
+            );
+        }
         println!("      }},");
         println!("      \"per_seed\": [");
         for (row_index, row) in rows.iter().enumerate() {
@@ -138,7 +152,11 @@ fn run() -> Result<(), String> {
             println!("          \"strategies\": {{");
             for strategy_index in 0..STRATEGY_NAMES.len() {
                 println!("            {}: {{", json_string(STRATEGY_NAMES[strategy_index]));
-                print_seed_metrics(row.exposure_metrics[strategy_index], row.quality_retention[strategy_index], "              ");
+                print_seed_metrics(
+                    row.exposure_metrics[strategy_index],
+                    row.quality_retention[strategy_index],
+                    "              ",
+                );
                 println!(
                     "            }}{}",
                     if strategy_index + 1 == STRATEGY_NAMES.len() { "" } else { "," }
@@ -170,7 +188,7 @@ fn evaluate_market(
     let mut histories: [BTreeMap<u32, usize>; 7] = std::array::from_fn(|_| BTreeMap::new());
     let mut quality_samples: [Vec<f64>; 7] = std::array::from_fn(|_| Vec::new());
 
-    for _ in 0..round_count {
+    for _round in 0..round_count {
         let recommendations: [Vec<Recommendation>; 7] = [
             recommend(market, top_k, RankingPolicy::OneSidedUtility)?,
             recommend(market, top_k, RankingPolicy::MutualUtility)?,
@@ -230,9 +248,6 @@ fn append_quality_retention(
         let Some(viewer) = market.iter().find(|person| person.id == row.viewer_id) else {
             continue;
         };
-        let Some(candidate) = market.iter().find(|person| person.id == row.candidate_id) else {
-            continue;
-        };
         let chosen = row.viewer_utility.min(row.candidate_utility);
         let best = market
             .iter()
@@ -247,47 +262,93 @@ fn append_quality_retention(
 }
 
 fn print_metric_summary(rows: &[SeedResult], strategy_index: usize, indent: &str) {
-    let metrics: Vec<CumulativeExposureMetrics> = rows.iter().map(|row| row.exposure_metrics[strategy_index]).collect();
-    print_stats("candidate_coverage", &metrics.iter().filter(|m| m.eligible_candidate_users > 0).map(|m| m.candidate_coverage).collect::<Vec<_>>(), indent);
-    print_stats("raw_exposure_gini", &metrics.iter().filter(|m| m.eligible_candidate_users > 0).map(|m| m.exposure_gini).collect::<Vec<_>>(), indent);
-    print_stats("opportunity_normalized_exposure_gini", &metrics.iter().filter(|m| m.eligible_candidate_users > 0).map(|m| m.opportunity_normalized_exposure_gini).collect::<Vec<_>>(), indent);
-    let retention: Vec<f64> = rows.iter().filter_map(|row| row.quality_retention[strategy_index]).collect();
-    print_stats("relative_mutual_floor_retention", &retention, indent);
+    let metrics: Vec<CumulativeExposureMetrics> =
+        rows.iter().map(|row| row.exposure_metrics[strategy_index]).collect();
+    print_stats(
+        "candidate_coverage",
+        &metrics
+            .iter()
+            .filter(|metric| metric.eligible_candidate_users > 0)
+            .map(|metric| metric.candidate_coverage)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    print_stats(
+        "raw_exposure_gini",
+        &metrics
+            .iter()
+            .filter(|metric| metric.eligible_candidate_users > 0)
+            .map(|metric| metric.exposure_gini)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    print_stats(
+        "opportunity_normalized_exposure_gini",
+        &metrics
+            .iter()
+            .filter(|metric| metric.eligible_candidate_users > 0)
+            .map(|metric| metric.opportunity_normalized_exposure_gini)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    let retention: Vec<f64> = rows
+        .iter()
+        .filter_map(|row| row.quality_retention[strategy_index])
+        .collect();
+    print_stats("relative_mutual_floor_retention", &retention, indent, false);
 }
 
-fn print_comparison(rows: &[SeedResult], strategy_index: usize, key: &str, baseline_name: &str, indent: &str) {
-    // Each comparison preserves its own scenario/seed paired population.
-    let reductions: Vec<f64> = rows.iter().filter_map(|row| {
-        let baseline_index = STRATEGY_NAMES.iter().position(|name| *name == baseline_name)?;
-        let baseline = row.exposure_metrics[baseline_index].exposure_gini;
-        let compared = row.exposure_metrics[strategy_index].exposure_gini;
-        if baseline > 0.0 && row.exposure_metrics[baseline_index].eligible_candidate_users > 0 {
-            Some(1.0 - compared / baseline)
-        } else {
-            None
-        }
-    }).collect();
-    println!("{}{}: {{", indent, json_string(key));
-    print_stats(&format!("relative_reduction_vs_{baseline_name}"), &reductions, &format!("{indent}  "));
-    println!("{} }},", indent);
+fn print_reduction(
+    rows: &[SeedResult],
+    strategy_index: usize,
+    baseline_index: usize,
+    key: &str,
+    indent: &str,
+    trailing_comma: bool,
+) {
+    let reductions: Vec<f64> = rows
+        .iter()
+        .filter_map(|row| {
+            let baseline = row.exposure_metrics[baseline_index];
+            let compared = row.exposure_metrics[strategy_index];
+            if baseline.eligible_candidate_users > 0 && baseline.exposure_gini > 0.0 {
+                Some(1.0 - compared.exposure_gini / baseline.exposure_gini)
+            } else {
+                None
+            }
+        })
+        .collect();
+    print_stats(key, &reductions, indent, trailing_comma);
 }
 
-fn print_stats(name: &str, values: &[f64], indent: &str) {
+fn print_stats(name: &str, values: &[f64], indent: &str, trailing_comma: bool) {
+    let property_suffix = if trailing_comma { "," } else { "" };
     if values.is_empty() {
-        println!("{}{}: {{\"n\": 0, \"mean\": null, \"sample_sd\": null, \"min\": null, \"max\": null, \"ci95_normal_approx\": null}},", indent, json_string(name));
+        println!(
+            "{}{}: {{\"n\": 0, \"mean\": null, \"sample_sd\": null, \"min\": null, \"max\": null, \"ci95_normal_approx\": null}}{}",
+            indent, json_string(name), property_suffix
+        );
         return;
     }
     let average = values.iter().sum::<f64>() / values.len() as f64;
     let min = values.iter().copied().fold(f64::INFINITY, f64::min);
     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let sd = if values.len() > 1 {
-        (values.iter().map(|v| (v - average).powi(2)).sum::<f64>() / (values.len() - 1) as f64).sqrt()
+        (values
+            .iter()
+            .map(|value| (value - average).powi(2))
+            .sum::<f64>()
+            / (values.len() - 1) as f64)
+            .sqrt()
     } else {
         0.0
     };
     let margin = 1.96 * sd / (values.len() as f64).sqrt();
     println!(
-        "{}{}: {{\"n\": {}, \"mean\": {:.8}, \"sample_sd\": {:.8}, \"min\": {:.8}, \"max\": {:.8}, \"ci95_normal_approx\": {}}},",
+        "{}{}: {{\"n\": {}, \"mean\": {:.8}, \"sample_sd\": {:.8}, \"min\": {:.8}, \"max\": {:.8}, \"ci95_normal_approx\": {}}}{}",
         indent,
         json_string(name),
         values.len(),
@@ -299,11 +360,16 @@ fn print_stats(name: &str, values: &[f64], indent: &str) {
             format!("[{:.8}, {:.8}]", average - margin, average + margin)
         } else {
             "null".to_string()
-        }
+        },
+        property_suffix
     );
 }
 
-fn print_seed_metrics(metrics: CumulativeExposureMetrics, quality_retention: Option<f64>, indent: &str) {
+fn print_seed_metrics(
+    metrics: CumulativeExposureMetrics,
+    quality_retention: Option<f64>,
+    indent: &str,
+) {
     println!("{}\"eligible_candidate_users\": {},", indent, metrics.eligible_candidate_users);
     println!("{}\"exposed_candidate_users\": {},", indent, metrics.exposed_candidate_users);
     if metrics.eligible_candidate_users == 0 {
@@ -313,20 +379,27 @@ fn print_seed_metrics(metrics: CumulativeExposureMetrics, quality_retention: Opt
     } else {
         println!("{}\"candidate_coverage\": {:.8},", indent, metrics.candidate_coverage);
         println!("{}\"exposure_gini\": {:.8},", indent, metrics.exposure_gini);
-        println!("{}\"opportunity_normalized_exposure_gini\": {:.8},", indent, metrics.opportunity_normalized_exposure_gini);
+        println!(
+            "{}\"opportunity_normalized_exposure_gini\": {:.8},",
+            indent, metrics.opportunity_normalized_exposure_gini
+        );
     }
     println!("{}\"total_exposure\": {},", indent, metrics.total_exposure);
     println!(
         "{}\"relative_mutual_floor_retention\": {}",
         indent,
-        quality_retention.map(|value| format!("{value:.8}")).unwrap_or_else(|| "null".to_string())
+        quality_retention
+            .map(|value| format!("{value:.8}"))
+            .unwrap_or_else(|| "null".to_string())
     );
 }
 
 fn read_optional_commit_sha() -> Result<Option<String>, String> {
-    let Some(value) = env::var("GIT_COMMIT_SHA").ok() else { return Ok(None); };
+    let Some(value) = env::var("GIT_COMMIT_SHA").ok() else {
+        return Ok(None);
+    };
     let value = value.trim();
-    if (value.len() != 40 && value.len() != 64) || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if (value.len() != 40 && value.len() != 64) || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err("GIT_COMMIT_SHA must be an exact 40- or 64-character hexadecimal commit SHA".to_string());
     }
     Ok(Some(value.to_ascii_lowercase()))
