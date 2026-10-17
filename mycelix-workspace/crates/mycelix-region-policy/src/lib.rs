@@ -1105,6 +1105,19 @@ mod tests {
         }
     }
 
+    struct RejectAgreementVerifier {
+        failure: AgreementVerificationFailure,
+    }
+    impl AgreementVerifier for RejectAgreementVerifier {
+        fn verify_agreement(
+            &self,
+            _agreement: &FederationAgreement,
+            _now_ms: u64,
+        ) -> Result<u64, AgreementVerificationFailure> {
+            Err(self.failure.clone())
+        }
+    }
+
     struct AcceptAgreements {
         evidence_until_ms: u64,
     }
@@ -1995,6 +2008,58 @@ mod tests {
         let decision = evaluate_transfer(&source, &destination, &request);
         assert!(!decision.allowed);
         assert!(decision.reasons.contains(&DenialReason::AgreementEvidenceStale));
+    }
+
+    #[test]
+    fn source_and_destination_approval_messages_are_domain_separated() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let agreement = verified_agreement(&source, &destination).agreement;
+        let source_message = agreement.source_approval_message();
+        let destination_message = agreement.destination_approval_message();
+        assert_ne!(source_message, destination_message);
+        assert!(source_message.starts_with(b"MYCELIX_FEDERATION_AGREEMENT_APPROVAL_V1\0"));
+        assert!(destination_message.starts_with(b"MYCELIX_FEDERATION_AGREEMENT_APPROVAL_V1\0"));
+    }
+
+    #[test]
+    fn rejects_agreement_when_source_approval_verification_fails() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let agreement = verified_agreement(&source, &destination).agreement;
+        let result = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &RejectAgreementVerifier {
+                failure: AgreementVerificationFailure::InvalidSourceApproval,
+            },
+        );
+        assert_eq!(
+            result,
+            Err(AgreementValidationError::VerificationFailed(
+                AgreementVerificationFailure::InvalidSourceApproval
+            ))
+        );
+    }
+
+    #[test]
+    fn rejects_agreement_when_destination_approval_verification_fails() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let agreement = verified_agreement(&source, &destination).agreement;
+        let result = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &RejectAgreementVerifier {
+                failure: AgreementVerificationFailure::InvalidDestinationApproval,
+            },
+        );
+        assert_eq!(
+            result,
+            Err(AgreementValidationError::VerificationFailed(
+                AgreementVerificationFailure::InvalidDestinationApproval
+            ))
+        );
     }
 
 }
