@@ -153,7 +153,9 @@ impl ExternalIdentifier {
                         && groups[1].len() == 3
                         && groups[2].len() == 2
                         && groups[3].len() == 5
-                        && groups.iter().all(|group| group.chars().all(|c| c.is_ascii_alphanumeric()))
+                        && groups
+                            .iter()
+                            .all(|group| group.chars().all(|c| c.is_ascii_alphanumeric()))
                 } else {
                     value.len() == 12
                 };
@@ -857,7 +859,13 @@ mod tests {
             composition_claim(&asset, "b", Some(4000), ClaimState::Confirmed, "evidence:b"),
         ];
         assert_eq!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete).unwrap(),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::ClaimedComplete,
+            )
+            .unwrap(),
             SplitAssessment::CompleteClaimConsistent { total_basis_points: 10_000 }
         );
     }
@@ -865,9 +873,21 @@ mod tests {
     #[test]
     fn partial_split_reports_residual_without_normalizing() {
         let asset = id("work-1");
-        let claims = vec![composition_claim(&asset, "a", Some(6000), ClaimState::Confirmed, "evidence:a")];
+        let claims = vec![composition_claim(
+            &asset,
+            "a",
+            Some(6000),
+            ClaimState::Confirmed,
+            "evidence:a",
+        )];
         assert_eq!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::Partial).unwrap(),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::Partial,
+            )
+            .unwrap(),
             SplitAssessment::Partial {
                 known_basis_points: 6000,
                 residual_basis_points_not_attributed: 4000,
@@ -879,9 +899,21 @@ mod tests {
     #[test]
     fn complete_split_cannot_be_inferred_from_a_partial_declaration() {
         let asset = id("work-1");
-        let claims = vec![composition_claim(&asset, "a", Some(10_000), ClaimState::Confirmed, "evidence:a")];
+        let claims = vec![composition_claim(
+            &asset,
+            "a",
+            Some(10_000),
+            ClaimState::Confirmed,
+            "evidence:a",
+        )];
         assert!(matches!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::Partial).unwrap(),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::Partial,
+            )
+            .unwrap(),
             SplitAssessment::Partial { .. }
         ));
     }
@@ -907,7 +939,12 @@ mod tests {
             composition_claim(&asset, "b", None, ClaimState::Confirmed, "evidence:b"),
         ];
         assert_eq!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::ClaimedComplete,
+            ),
             Err(PassportError::CompleteSplitHasUnknownShares)
         );
     }
@@ -920,7 +957,12 @@ mod tests {
             composition_claim(&asset, "a", Some(5000), ClaimState::Confirmed, "evidence:a2"),
         ];
         assert_eq!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::ClaimedComplete,
+            ),
             Err(PassportError::DuplicatePartyInRightsPool)
         );
     }
@@ -928,14 +970,38 @@ mod tests {
     #[test]
     fn disputed_and_proposed_claims_cannot_be_reported_as_confirmed() {
         let asset = id("work-1");
-        let proposed = vec![composition_claim(&asset, "a", Some(10_000), ClaimState::Proposed, "evidence:a")];
+        let proposed = vec![composition_claim(
+            &asset,
+            "a",
+            Some(10_000),
+            ClaimState::Proposed,
+            "evidence:a",
+        )];
         assert!(matches!(
-            assess_split(&asset, RightsPool::Composition, &proposed, SplitCompleteness::ClaimedComplete).unwrap(),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &proposed,
+                SplitCompleteness::ClaimedComplete,
+            )
+            .unwrap(),
             SplitAssessment::Unconfirmed { .. }
         ));
-        let disputed = vec![composition_claim(&asset, "a", Some(10_000), ClaimState::Disputed, "evidence:a")];
+        let disputed = vec![composition_claim(
+            &asset,
+            "a",
+            Some(10_000),
+            ClaimState::Disputed,
+            "evidence:a",
+        )];
         assert!(matches!(
-            assess_split(&asset, RightsPool::Composition, &disputed, SplitCompleteness::ClaimedComplete).unwrap(),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &disputed,
+                SplitCompleteness::ClaimedComplete,
+            )
+            .unwrap(),
             SplitAssessment::Disputed { .. }
         ));
     }
@@ -951,7 +1017,12 @@ mod tests {
             "evidence:a",
         )];
         assert_eq!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::ClaimedComplete,
+            ),
             Err(PassportError::ClaimAssetOrPoolMismatch)
         );
     }
@@ -1000,22 +1071,46 @@ mod tests {
             GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
             UseAction::Distribute, "single-release", party("creator"), "consent:1", 10, Some(100),
         ).unwrap();
-        let exact = make_request(asset.clone(), "studio", UseAction::Distribute, "single-release", 20);
+        let exact = make_request(
+            asset.clone(),
+            "studio",
+            UseAction::Distribute,
+            "single-release",
+            20,
+        );
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &exact),
             PermissionDecision::Allowed { grant_id: GrantId::new("grant-1").unwrap() }
         );
-        let wrong_purpose = make_request(asset.clone(), "studio", UseAction::Distribute, "model-training", 20);
+        let wrong_purpose = make_request(
+            asset.clone(),
+            "studio",
+            UseAction::Distribute,
+            "model-training",
+            20,
+        );
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &wrong_purpose),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
         );
-        let wrong_party = make_request(asset.clone(), "other-studio", UseAction::Distribute, "single-release", 20);
+        let wrong_party = make_request(
+            asset.clone(),
+            "other-studio",
+            UseAction::Distribute,
+            "single-release",
+            20,
+        );
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &wrong_party),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
         );
-        let wrong_asset = make_request(other_asset, "studio", UseAction::Distribute, "single-release", 20);
+        let wrong_asset = make_request(
+            other_asset,
+            "studio",
+            UseAction::Distribute,
+            "single-release",
+            20,
+        );
         assert_eq!(
             evaluate_usage(&registry, &[grant], &wrong_asset),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
@@ -1034,9 +1129,18 @@ mod tests {
         let before = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 9);
         let start = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 10);
         let expiry = make_request(asset, "studio", UseAction::Publish, "campaign-a", 20);
-        assert_eq!(evaluate_usage(&registry, std::slice::from_ref(&grant), &before), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
-        assert!(matches!(evaluate_usage(&registry, std::slice::from_ref(&grant), &start), PermissionDecision::Allowed { .. }));
-        assert_eq!(evaluate_usage(&registry, &[grant], &expiry), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
+        assert_eq!(
+            evaluate_usage(&registry, std::slice::from_ref(&grant), &before),
+            PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+        );
+        assert!(matches!(
+            evaluate_usage(&registry, std::slice::from_ref(&grant), &start),
+            PermissionDecision::Allowed { .. }
+        ));
+        assert_eq!(
+            evaluate_usage(&registry, &[grant], &expiry),
+            PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+        );
     }
 
     #[test]
@@ -1049,10 +1153,22 @@ mod tests {
             UseAction::Publish, "campaign-a", party("creator"), "consent:1", 10, None,
         ).unwrap();
         let revoked = grant.revoked_at(20).unwrap();
-        let historical = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 19);
+        let historical = make_request(
+            asset.clone(),
+            "studio",
+            UseAction::Publish,
+            "campaign-a",
+            19,
+        );
         let future = make_request(asset, "studio", UseAction::Publish, "campaign-a", 20);
-        assert!(matches!(evaluate_usage(&registry, &[revoked.clone()], &historical), PermissionDecision::Allowed { .. }));
-        assert_eq!(evaluate_usage(&registry, &[revoked.clone()], &future), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
+        assert!(matches!(
+            evaluate_usage(&registry, &[revoked.clone()], &historical),
+            PermissionDecision::Allowed { .. }
+        ));
+        assert_eq!(
+            evaluate_usage(&registry, &[revoked.clone()], &future),
+            PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+        );
 
         // Historical exports can contain both the original grant and a later
         // revocation event. Reordering that history must not resurrect consent.
@@ -1158,7 +1274,14 @@ mod tests {
     fn ids_and_evidence_cannot_be_blank() {
         assert_eq!(AssetId::new("  "), Err(PassportError::EmptyId));
         assert_eq!(
-            SplitClaim::new(id("work"), party("writer"), RightsPool::Composition, Some(10000), ClaimState::Confirmed, " "),
+            SplitClaim::new(
+                id("work"),
+                party("writer"),
+                RightsPool::Composition,
+                Some(10000),
+                ClaimState::Confirmed,
+                " ",
+            ),
             Err(PassportError::EmptyEvidenceReference)
         );
         assert_eq!(
