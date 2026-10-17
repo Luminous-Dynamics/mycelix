@@ -241,15 +241,12 @@ fn compare_priority(
     left: &EvidenceActionAssessment,
     right: &EvidenceActionAssessment,
 ) -> Ordering {
+    // Only the largest structural decision delta, acquisition cost, and completion
+    // time determine ordering. Branch counts remain diagnostics, never implicit
+    // probabilities or a reward for enumerating more possible outcomes.
     right
         .max_frontier_symmetric_difference
         .cmp(&left.max_frontier_symmetric_difference)
-        .then_with(|| right.changed_frontier_count.cmp(&left.changed_frontier_count))
-        .then_with(|| {
-            right
-                .distinct_outcome_frontier_count
-                .cmp(&left.distinct_outcome_frontier_count)
-        })
         .then_with(|| left.acquisition_cost_minor.cmp(&right.acquisition_cost_minor))
         .then_with(|| left.latest_completion_at.cmp(&right.latest_completion_at))
         .then_with(|| left.action_id.cmp(&right.action_id))
@@ -261,14 +258,10 @@ fn dominates(
 ) -> bool {
     let no_worse = left.max_frontier_symmetric_difference
         >= right.max_frontier_symmetric_difference
-        && left.changed_frontier_count >= right.changed_frontier_count
-        && left.distinct_outcome_frontier_count >= right.distinct_outcome_frontier_count
         && left.acquisition_cost_minor <= right.acquisition_cost_minor
         && left.latest_completion_at <= right.latest_completion_at;
     let strictly_better = left.max_frontier_symmetric_difference
         > right.max_frontier_symmetric_difference
-        || left.changed_frontier_count > right.changed_frontier_count
-        || left.distinct_outcome_frontier_count > right.distinct_outcome_frontier_count
         || left.acquisition_cost_minor < right.acquisition_cost_minor
         || left.latest_completion_at < right.latest_completion_at;
     no_worse && strictly_better
@@ -693,6 +686,41 @@ mod tests {
             rank_evidence_actions(&input),
             Err(EvidenceActionError::InconsistentRequestAxes)
         );
+    }
+
+    #[test]
+    fn outcome_catalogue_size_is_diagnostic_not_a_priority_bonus() {
+        let stable = vec![objective(100, 0, 0)];
+        let changed_a = vec![objective(80, 0, 0)];
+        let changed_b = vec![objective(70, 1, 0)];
+        let mut many_outcomes = action(
+            "a-many",
+            "claim:a",
+            5,
+            20,
+            40,
+            vec![
+                branch("same-a", EvidenceOutcomeKind::Confirmed, changed_a.clone()),
+                branch("same-b", EvidenceOutcomeKind::Refuted, changed_a.clone()),
+                branch("same-c", EvidenceOutcomeKind::Inconclusive, changed_a.clone()),
+            ],
+        );
+        many_outcomes.claim_version_key = "claim:many".to_owned();
+        let one_outcome = action(
+            "z-one",
+            "claim:z",
+            5,
+            20,
+            40,
+            vec![
+                branch("different", EvidenceOutcomeKind::Confirmed, changed_b.clone()),
+                branch("stable", EvidenceOutcomeKind::Inconclusive, stable),
+            ],
+        );
+        // The priority order is based on maximum frontier delta, cost and time,
+        // not how many outcome labels happen to be supplied.
+        let report = rank_evidence_actions(&problem(vec![many_outcomes, one_outcome])).unwrap();
+        assert_eq!(report.recommended_action_ids[0], "a-many");
     }
 
     #[test]
