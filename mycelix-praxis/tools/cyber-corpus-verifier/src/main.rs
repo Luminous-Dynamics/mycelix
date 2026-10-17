@@ -474,7 +474,8 @@ fn verify(root: &Path, manifest_relative: &str) -> Result<Report, String> {
             }
         }
     }
-    if oracle_ids != case_evidence.keys().cloned().collect() {
+    let case_id_set: BTreeSet<String> = case_evidence.keys().cloned().collect();
+    if oracle_ids != case_id_set {
         return Err(fail("solver and oracle scenario ID sets differ"));
     }
 
