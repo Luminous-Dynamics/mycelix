@@ -52,6 +52,23 @@ The first implementation should map fields to existing canonical types, not crea
 - Repetition number, sample denominator, uncertainty/confidence interval and known exclusions.
 - Missing context must remain missing; do not infer device properties from file names or prose.
 
+### Task-conditioned energy and task-outcome evidence
+
+Compose with [Symthaea VIS-ENERGY-001 #7878](https://github.com/Luminous-Dynamics/symthaea/issues/7878) and its [protocol/reference package](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/VISUAL_UTILITY_PER_JOULE_PROTOCOL.md). Treat the following as evidence context, not a new canonical receipt or scoring authority:
+
+- paired baseline/treatment run IDs, exact device/profile/firmware identity, adaptation policy, declared task window and task-rubric version;
+- task trials, successful/failed/aborted/censored counts, exclusion rules, latency samples or declared quantiles, and the uncertainty/statistical method;
+- measured power-scope label kept explicit: display-only rail, rendering/GPU telemetry, gross whole-system mains power, or idle-subtracted system power;
+- power-meter type/ID, calibration record and validity interval, accuracy/range, sampling frequency, monotonic-clock basis, timestamp units, integration method, maximum accepted sample gap and missing/duplicate sample counts;
+- original power-trace digest, trace availability/access status, run start/end markers and task-window boundaries; preserve raw traces where rights permit;
+- derived energy integral, denominator and joules/successful-task value with implementation/version, and an independent recomputation reference. A zero-success denominator is undefined, never smoothed or imputed;
+- nominal luminance target and declared adaptation policy, actual emitted luminance as measured outcome, relevant contrast/readability/temporal floors, temperature and ambient conditions;
+- applicable measurement-standard identifier/edition and explicit deviations.
+
+Do not silently interpolate across a power-data gap beyond the predeclared bound. Missing trace data, unknown device/profile identity, invalid calibration, or an untraceable task denominator blocks a qualified energy claim. Negative energy saving is a valid regression and must remain visible. Task ratios are task-specific summaries, not an excuse to collapse task outcomes, latency, optical floors, energy and uncertainty into one opaque score.
+
+For mains-powered computer monitors, record whether the method follows [IEC 62087-7:2018](https://webstore.iec.ch/en/publication/27420). For audiovisual test signals, record whether the stimulus method follows [IEC 62087-2:2023](https://webstore.iec.ch/en/publication/65117). Standardized stimuli and task-conditioned experiments are complementary; neither a custom task result nor a code-level reference implies formal conformity or certification.
+
 ### HDR transfer semantics
 
 The current reference work includes a mathematical PQ decoder/encoder, while a future HLG profile is tracked in [Symtropy VIS-HDR-001 #1819](https://github.com/Luminous-Dynamics/symtropy/issues/1819). Do not label these as interchangeable “HDR gamma” curves: PQ's EOTF is an absolute display-referred code-to-luminance mapping, while HLG's OETF is scene-referred and its display-side rendering depends on explicit system/display parameters. Every derived value must state which transform and parameter set produced it.
