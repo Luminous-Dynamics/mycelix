@@ -1329,4 +1329,44 @@ mod tests {
         assert_eq!(decision.evaluated_at_unix_ms, 220);
     }
 
+    #[test]
+    fn denies_profile_when_trust_root_evidence_deadline_is_stale() {
+        let result = VerifiedProfile::verify(
+            profile("community-a", &["community-b"], &[]),
+            200,
+            &AcceptProfiles { evidence_until_ms: 200 },
+        );
+        assert_eq!(
+            result,
+            Err(ProfileValidationError::VerificationFailed(
+                ProfileVerificationFailure::StaleTrustRoots
+            ))
+        );
+    }
+
+    #[test]
+    fn denies_when_profile_trust_evidence_expires_before_profile_document() {
+        let source = VerifiedProfile::verify(
+            profile("community-a", &["community-b"], &[]),
+            200,
+            &AcceptProfiles { evidence_until_ms: 220 },
+        )
+        .expect("profile is active and its trust evidence is initially fresh");
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::SourceProfileEvidenceStale));
+    }
+
 }
