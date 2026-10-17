@@ -637,6 +637,7 @@ fn validate_transition(record: &DurableLifecycleRecord) -> Result<(), ()> {
             && record.subscription_id.is_none()
             && record.phase_after == LifecyclePhase::Dormant
             && record.active_session_epoch_after.is_none()
+            && record.active_subscription_id_after.is_none()
             && record.records.is_empty()
         {
             Ok(())
@@ -645,9 +646,25 @@ fn validate_transition(record: &DurableLifecycleRecord) -> Result<(), ()> {
         };
     }
 
+    // The requested epoch is merely a request on failed attempts. On accepted
+    // non-start transitions it must bind to the currently active session.
+    if record.failure.is_none()
+        && record.transition != DurableLifecycleTransition::SessionStart
+        && record.requested_session_epoch != record.active_session_epoch_before
+    {
+        return Err(());
+    }
+
     if record.failure.is_some() {
-        return if record.phase_after == record.phase_before
-            || record.phase_after == LifecyclePhase::NeedsNewSession
+        let valid_failure_phase = record.phase_after == record.phase_before
+            || record.phase_after == LifecyclePhase::NeedsNewSession;
+        let valid_failure_subscription = if record.phase_after == LifecyclePhase::NeedsNewSession {
+            record.active_subscription_id_after.is_none()
+        } else {
+            record.active_subscription_id_after == record.active_subscription_id_before
+        };
+        return if valid_failure_phase && valid_failure_subscription
+            && record.active_session_epoch_after == record.active_session_epoch_before
         {
             Ok(())
         } else {
@@ -660,44 +677,59 @@ fn validate_transition(record: &DurableLifecycleRecord) -> Result<(), ()> {
             record.phase_after == LifecyclePhase::AwaitingSubscription
                 && record.requested_session_epoch.is_some()
                 && record.active_session_epoch_after == record.requested_session_epoch
+                && record.active_subscription_id_after.is_none()
         }
         DurableLifecycleTransition::SubscriptionBind => {
             record.phase_before == LifecyclePhase::AwaitingSubscription
                 && record.phase_after == LifecyclePhase::AwaitingSubscriptionAck
                 && record.subscription_id.is_some_and(|id| id > 0)
                 && record.active_session_epoch_after == record.active_session_epoch_before
+                && record.active_subscription_id_before.is_none()
+                && record.active_subscription_id_after == record.subscription_id
         }
         DurableLifecycleTransition::SubscriptionAcknowledged => {
             record.phase_before == LifecyclePhase::AwaitingSubscriptionAck
                 && record.phase_after == LifecyclePhase::AwaitingSnapshot
                 && record.subscription_id.is_some_and(|id| id > 0)
+                && record.subscription_id == record.active_subscription_id_before
+                && record.active_subscription_id_after == record.active_subscription_id_before
                 && record.active_session_epoch_after == record.active_session_epoch_before
         }
         DurableLifecycleTransition::InitialSnapshotReceived => {
             record.phase_before == LifecyclePhase::AwaitingSnapshot
                 && record.phase_after == LifecyclePhase::SnapshotPendingApply
                 && record.subscription_id.is_some_and(|id| id > 0)
+                && record.subscription_id == record.active_subscription_id_before
+                && record.active_subscription_id_after == record.active_subscription_id_before
                 && record.active_session_epoch_after == record.active_session_epoch_before
         }
         DurableLifecycleTransition::DeltaReceived => {
             record.phase_before == LifecyclePhase::Live
                 && record.phase_after == LifecyclePhase::Live
                 && record.subscription_id.is_some_and(|id| id > 0)
+                && record.subscription_id == record.active_subscription_id_before
+                && record.active_subscription_id_after == record.active_subscription_id_before
                 && record.active_session_epoch_after == record.active_session_epoch_before
         }
         DurableLifecycleTransition::SnapshotApplied => {
             record.phase_before == LifecyclePhase::SnapshotPendingApply
                 && record.phase_after == LifecyclePhase::Live
                 && record.subscription_id.is_some_and(|id| id > 0)
+                && record.subscription_id == record.active_subscription_id_before
+                && record.active_subscription_id_after == record.active_subscription_id_before
                 && record.active_session_epoch_after == record.active_session_epoch_before
         }
         DurableLifecycleTransition::CurrentnessCheck | DurableLifecycleTransition::ExpirySweep => {
-            record.phase_before == record.phase_after
+            record.subscription_id.is_none()
+                && record.phase_before == record.phase_after
                 && record.active_session_epoch_after == record.active_session_epoch_before
+                && record.active_subscription_id_after == record.active_subscription_id_before
         }
         DurableLifecycleTransition::Disconnect => {
-            record.phase_after == LifecyclePhase::Closed
+            record.subscription_id.is_none()
+                && record.phase_after == LifecyclePhase::Closed
                 && record.active_session_epoch_after == record.active_session_epoch_before
+                && record.active_subscription_id_after.is_none()
         }
         DurableLifecycleTransition::RecoveryBarrier => false,
     };
