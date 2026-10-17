@@ -25,6 +25,9 @@ pub mod sourcing;
 /// Bounded exact multi-source portfolio allocation; no purchase authority.
 pub mod portfolio;
 
+/// Bounded scenario-specific flexible/backup procurement recourse; no execution authority.
+pub mod recourse;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
