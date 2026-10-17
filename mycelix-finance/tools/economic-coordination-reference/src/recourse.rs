@@ -819,6 +819,10 @@ pub fn evaluate_recourse(
     let mut sorted_options = options.to_vec();
     sorted_options.sort_by(|left, right| left.supply.offer_id.cmp(&right.supply.offer_id));
     let mut sorted_scenarios = scenarios.to_vec();
+    for scenario in &mut sorted_scenarios {
+        scenario.failed_domains.sort();
+        scenario.failed_domains.dedup();
+    }
     sorted_scenarios.sort_by(|left, right| left.scenario_id.cmp(&right.scenario_id));
 
     let scenario_budget = request.max_search_nodes / sorted_scenarios.len() as u64;
@@ -1069,6 +1073,10 @@ mod tests {
         ];
         let report = evaluate_recourse(&req, &baseline, &options, &scenarios).unwrap();
         assert_eq!(report.baseline_and_reservation_cost_minor, 15);
+        let control = report.scenario_results.iter().find(|s| s.scenario_id == "no-disruption").unwrap();
+        assert_eq!(control.base_lost_quantity, 0);
+        assert_eq!(control.recovered_quantity, 0);
+        assert_eq!(control.total_scenario_cost_minor, 15);
         let disrupted = report.scenario_results.iter().find(|s| s.scenario_id == "supplier-a-fails").unwrap();
         assert_eq!(disrupted.base_lost_quantity, 10);
         assert_eq!(disrupted.recovered_quantity, 10);
