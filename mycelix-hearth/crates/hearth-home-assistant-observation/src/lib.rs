@@ -895,7 +895,7 @@ mod tests {
             allowed_values: BTreeSet::new(),
         });
         assert!(matches!(
-            map_state(&profile, &frame("occupied\\nforged-line")),
+            map_state(&profile, &frame("occupied\nforged-line")),
             Err(ObservationError::InvalidFrame(_))
         ));
     }
