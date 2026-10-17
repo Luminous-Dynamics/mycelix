@@ -8,12 +8,12 @@ A caller timeout does not prove that a remote side effect failed. The protected 
 
 The journal lifecycle makes that uncertainty explicit:
 
-`Prepared → Submitted → Committed`
-`Prepared → Rejected` (only if dispatch never began)
-`Submitted → OutcomeUnknown → Committed | Rejected` (only after authenticated sink reconciliation)
-`Submitted → Rejected` (only with definitive authenticated sink rejection)
+`Prepared → Reserved → DispatchStarted → Committed`
+`Prepared | Reserved → Rejected` (only if dispatch never began)
+`DispatchStarted → OutcomeUnknown → Committed | Rejected` (only after authenticated sink reconciliation)
+`DispatchStarted → Committed | Rejected` (only with definitive authenticated sink evidence)
 
-`OutcomeUnknown` is never permission to submit the effect again. Reconciliation queries the destination by the original idempotency key / operation ID and exact target digest. This is the core shift from retry logic to evidence-driven recovery.
+`Reserved` means no dispatch has begun; it can be safely aborted if authority is revoked before dispatch. Once `DispatchStarted` is durably recorded, timeout/crash uncertainty becomes `OutcomeUnknown`; neither `OutcomeUnknown` nor a local error authorizes a new logical operation. Reconciliation queries the destination by the original idempotency key / operation ID and exact target digest. This is the core shift from retry logic to evidence-driven recovery.
 
 ## Composition boundary — reuse the existing durable-effect line
 
@@ -29,13 +29,13 @@ Do not classify a transaction using returned error text/code. Do not treat `Defi
 
 ## Rust reference model
 
-`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and fourteen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
+`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and sixteen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
 
 Production requirements:
 
 1. **Durable uniqueness:** enforce a unique constraint on (authority domain, idempotency key), with exact target and policy-binding digests. The reference identity and destination evidence both include the authority domain to prevent cross-community key collisions/replay. Reuse with different parameters is a hard conflict, never a new operation.
-2. **Write-ahead intent:** commit `Prepared` and the stable downstream operation ID before network dispatch.
-3. **Submit fencing:** atomically compare-and-swap the record revision before dispatch or use sink-native idempotency/fencing; no stale worker may submit after a successor takes over.
+2. **Write-ahead intent:** durably commit `Prepared`, then `Reserved` plus the stable downstream operation ID before any network dispatch.
+3. **Dispatch fencing:** atomically compare-and-swap `Reserved → DispatchStarted` before network I/O or use sink-native fencing; no stale worker may dispatch after a successor takes over.
 4. **Reconcile unknown:** query the authoritative destination with the same key and target; accept only authenticated evidence tied to that operation and digest.
 5. **Atomic terminal receipt:** durably record the verified receipt/result before reporting success to the caller.
 6. **Retention and privacy:** scope and expire keys deliberately; persist only opaque operation identifiers and digests, never record plaintext, personal identifiers, consent bodies, or raw credentials.
@@ -48,8 +48,8 @@ An idempotency key by itself is not exactly-once delivery. The destination must 
 | ID | Fault | Expected behavior |
 |---|---|---|
 | EJ-001 | New identity | Create Prepared revision 0 |
-| EJ-002 | Submit from Prepared | Persist stable operation ID before dispatch |
-| EJ-003 | Attempt second submit from Submitted or OutcomeUnknown | Reject transition |
+| EJ-002 | Reserve from Prepared | Persist stable operation ID without dispatching |
+| EJ-003 | Attempt to dispatch from Prepared, or restart dispatch from OutcomeUnknown | Reject invalid transition; unknown is reconciliation-only |
 | EJ-004 | Crash after Prepared but before dispatch | Safe to abort/restart preparation under durable CAS |
 | EJ-005 | Crash/timeout after dispatch | Mark OutcomeUnknown; do not resend |
 | EJ-006 | Lost reply after destination commits | Reconcile original key; record Committed from verified evidence |
@@ -65,7 +65,7 @@ An idempotency key by itself is not exactly-once delivery. The destination must 
 | EJ-016 | Sink proof is replayed under a different policy-binding digest | Reject proof and do not resolve the attempt |
 | EJ-017 | Sink proof is replayed across authority domains using the same key/target | Reject proof and do not resolve the attempt |
 
-Current pure source tests cover the core prepared/submitted/unknown/terminal transitions, matching proof checks, policy-binding replay rejection, invalid proof, operation-ID mismatch, and snapshot restore invariants. The crash, multi-worker, durable-store, destination integration, privacy, and idempotent-result semantics remain external qualification gates.
+Current pure source tests cover the prepared/reserved/dispatch-started/unknown/terminal transitions, matching proof checks, policy-binding replay rejection, invalid proof, operation-ID mismatch, and snapshot restore invariants. The crash, multi-worker, durable-store, destination integration, privacy, and idempotent-result semantics remain external qualification gates.
 
 ## Proposed targets (not measured)
 
