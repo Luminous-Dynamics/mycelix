@@ -7,10 +7,10 @@
 
 use hearth_automation_types::{AutomationValue, EntityRef};
 use hearth_home_assistant_observation::{
-    strict_json::{parse_bounded_json, StrictJsonError},
+    strict_json::StrictJsonError,
     EntityObservationRule, HomeAssistantObservationProfile, MappingOutcome, StateCodec,
     HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
-    entity_stream::{EntityStreamProjector, EntityStreamProjection},
+    entity_stream::{EntityStreamProjector, EntityStreamProjection, EntityStreamProjectionError},
     map_state,
     websocket_protocol::{
         EntityStreamKind, HomeAssistantWebSocketProtocol, InboundMessage, ProtocolAction,
@@ -75,6 +75,16 @@ fn send(
     protocol.handle(epoch, message)
 }
 
+fn apply_compact_value(
+    projector: &mut EntityStreamProjector,
+    kind: EntityStreamKind,
+    event: &Value,
+    received_at_micros: i64,
+) -> Result<EntityStreamProjection, EntityStreamProjectionError> {
+    let encoded = serde_json::to_vec(event).expect("fixture value should serialize");
+    projector.apply_json(kind, &encoded, received_at_micros)
+}
+
 fn project_one(
     profile: &HomeAssistantObservationProfile,
     result: &EntityStreamProjection,
@@ -102,8 +112,10 @@ fn duplicate_json_state_keys_are_rejected_before_projector_mutation() {
     }"#;
 
     assert_eq!(
-        parse_bounded_json(ambiguous),
-        Err(StrictJsonError::MalformedOrDuplicateKey)
+        projector.apply_json(EntityStreamKind::InitialSnapshot, ambiguous, 10),
+        Err(EntityStreamProjectionError::InvalidJson(
+            StrictJsonError::MalformedOrDuplicateKey
+        ))
     );
     assert_eq!(projector.cached_entity_count(), 0);
     assert!(!projector.initial_snapshot_seen());
@@ -151,7 +163,8 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
 
     // A provider payload only reaches the projector after the protocol gate
     // admitted the exact subscription/epoch and expected snapshot type.
-    let snapshot = projector.apply(
+    let snapshot = apply_compact_value(
+        &mut projector,
         EntityStreamKind::InitialSnapshot,
         &full_snapshot(),
         10_000_000,
@@ -204,7 +217,8 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
             subscription_id: 1,
         }]
     );
-    let changed = projector.apply(
+    let changed = apply_compact_value(
+        &mut projector,
         EntityStreamKind::Changes,
         &json!({
             "c": {
@@ -237,7 +251,8 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
     ));
 
     // Attribute-only changes must never refresh semantic freshness.
-    let metadata_only = projector.apply(
+    let metadata_only = apply_compact_value(
+        &mut projector,
         EntityStreamKind::Changes,
         &json!({
             "c": {
@@ -278,7 +293,7 @@ fn removal_invalidates_projected_state_without_emitting_a_positive_observation()
             subscription_id: 1,
         }]
     );
-    let initial = projector.apply(EntityStreamKind::InitialSnapshot, &full_snapshot(), 10_000_000).unwrap();
+    let initial = apply_compact_value(&mut projector, EntityStreamKind::InitialSnapshot, &full_snapshot(), 10_000_000).unwrap();
     assert_eq!(initial.frames.len(), 1);
     assert_eq!(protocol.initial_snapshot_applied(12, 1), vec![
         ProtocolAction::SessionLive { session_epoch: 12, subscription_id: 1 }
@@ -294,7 +309,8 @@ fn removal_invalidates_projected_state_without_emitting_a_positive_observation()
             subscription_id: 1,
         }]
     );
-    let removed = projector.apply(
+    let removed = apply_compact_value(
+        &mut projector,
         EntityStreamKind::Changes,
         &json!({"r": ["sensor.living_room_temperature"]}),
         20_000_000,
