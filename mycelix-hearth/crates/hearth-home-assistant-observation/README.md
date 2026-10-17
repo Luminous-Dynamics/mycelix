@@ -10,7 +10,7 @@ An observation is emitted only when an exact entity ID is allowlisted by an expl
 
 ## Privacy and trust boundary
 
-The durable profile contains no Home Assistant URL, access token, credential, cookie, network address, service-call permission, or device-control authority. Those belong to a future local edge transport.
+The profile contract has no dedicated endpoint, network-address, credential, cookie, service-call, or device-control fields. `profile_ref` is validated as a bounded local identifier rather than a URL/path or transport option. Any future local transport must keep credentials outside this observation profile.
 
 V1 maps only the entity's primary `state` plus two optional allowlisted metadata fields used to detect schema drift: `unit_of_measurement` and `device_class`. It deliberately does not ingest the arbitrary Home Assistant attribute bag.
 
