@@ -94,10 +94,19 @@ pub struct SinkOutcomeEvidence {
     pub proof: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SinkProofError {
+    InvalidSignature,
+    MissingTrustRoot,
+    StaleStatus,
+    Unavailable,
+    InvalidSemantics,
+}
+
 pub trait SinkOutcomeVerifier {
     /// Validate proof authenticity and authoritative destination state.
     /// The adapter must fail closed on missing/unavailable/stale proof sources.
-    fn verify(&self, evidence: &SinkOutcomeEvidence) -> Result<(), ()>;
+    fn verify(&self, evidence: &SinkOutcomeEvidence) -> Result<(), SinkProofError>;
 }
 
 /// Opaque destination-evidence result. It has no public constructor and cannot
@@ -149,6 +158,19 @@ impl VerifiedSinkOutcome {
 /// One attempt record. It is intentionally not Clone: callers should load the
 /// canonical durable record and apply a compare-and-swap transition, not fork
 /// independent mutable copies and treat them as authoritative.
+/// Owned persistence snapshot. A database adapter should serialize this record
+/// using its own versioned schema, then use revision as a compare-and-swap token.
+/// The snapshot contains only opaque identifiers and digests, never payload bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EffectAttemptSnapshot {
+    pub identity: EffectIdentity,
+    pub phase: AttemptPhase,
+    pub revision: u64,
+    pub operation_id: Option<String>,
+    pub outcome_digest: Option<String>,
+    pub rejection_code: Option<String>,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct EffectAttempt {
     identity: EffectIdentity,
@@ -189,6 +211,74 @@ impl EffectAttempt {
 
     pub fn outcome_digest(&self) -> Option<&str> {
         self.outcome_digest.as_deref()
+    }
+
+    /// Export a value snapshot for persistence. The adapter must persist this
+    /// with compare-and-swap on revision before performing the next external step.
+    pub fn snapshot(&self) -> EffectAttemptSnapshot {
+        EffectAttemptSnapshot {
+            identity: self.identity.clone(),
+            phase: self.phase,
+            revision: self.revision,
+            operation_id: self.operation_id.clone(),
+            outcome_digest: self.outcome_digest.clone(),
+            rejection_code: self.rejection_code.clone(),
+        }
+    }
+
+    /// Restore a persisted snapshot only after checking its state invariants.
+    /// Authenticity/rollback protection for the stored record remains the
+    /// durable adapter's responsibility.
+    pub fn restore(snapshot: EffectAttemptSnapshot) -> Result<Self, JournalError> {
+        let attempt = Self {
+            identity: snapshot.identity,
+            phase: snapshot.phase,
+            revision: snapshot.revision,
+            operation_id: snapshot.operation_id,
+            outcome_digest: snapshot.outcome_digest,
+            rejection_code: snapshot.rejection_code,
+        };
+        if !attempt.state_is_consistent() {
+            return Err(JournalError::InvalidTransition);
+        }
+        Ok(attempt)
+    }
+
+    fn state_is_consistent(&self) -> bool {
+        let op_valid = self.operation_id.as_ref()
+            .is_some_and(|id| valid_text(id, MAX_OPERATION_ID_BYTES));
+        let outcome_valid = self.outcome_digest.as_deref().is_some_and(valid_digest);
+        let reason_valid = self.rejection_code.as_deref().is_some_and(valid_reason_code);
+        match self.phase {
+            AttemptPhase::Prepared => {
+                self.revision == 0
+                    && self.operation_id.is_none()
+                    && self.outcome_digest.is_none()
+                    && self.rejection_code.is_none()
+            }
+            AttemptPhase::Submitted | AttemptPhase::OutcomeUnknown => {
+                self.revision >= 1
+                    && op_valid
+                    && self.outcome_digest.is_none()
+                    && self.rejection_code.is_none()
+            }
+            AttemptPhase::Committed => {
+                self.revision >= 2
+                    && op_valid
+                    && outcome_valid
+                    && self.rejection_code.is_none()
+            }
+            AttemptPhase::Rejected => {
+                (self.revision == 1
+                    && self.operation_id.is_none()
+                    && self.outcome_digest.is_none()
+                    && reason_valid)
+                    || (self.revision >= 2
+                        && op_valid
+                        && outcome_valid
+                        && self.rejection_code.is_none())
+            }
+        }
     }
 
     /// Record the downstream operation ID before dispatch. The adapter should
@@ -296,19 +386,19 @@ mod tests {
 
     struct AcceptSinkProof;
     impl SinkOutcomeVerifier for AcceptSinkProof {
-        fn verify(&self, evidence: &SinkOutcomeEvidence) -> Result<(), ()> {
+        fn verify(&self, evidence: &SinkOutcomeEvidence) -> Result<(), SinkProofError> {
             if evidence.proof == b"fixture-proof" {
                 Ok(())
             } else {
-                Err(())
+                Err(SinkProofError::InvalidSignature)
             }
         }
     }
 
     struct RejectSinkProof;
     impl SinkOutcomeVerifier for RejectSinkProof {
-        fn verify(&self, _evidence: &SinkOutcomeEvidence) -> Result<(), ()> {
-            Err(())
+        fn verify(&self, _evidence: &SinkOutcomeEvidence) -> Result<(), SinkProofError> {
+            Err(SinkProofError::InvalidSignature)
         }
     }
 
@@ -437,4 +527,30 @@ mod tests {
             Err(JournalError::OutcomeVerificationFailed)
         ));
     }
+    #[test]
+    fn snapshot_round_trips_submitted_and_unknown_states() {
+        let mut attempt = EffectAttempt::prepare(identity());
+        attempt.mark_submitted("sink-operation-1").expect("submit");
+        let restored = EffectAttempt::restore(attempt.snapshot()).expect("restore submitted");
+        assert_eq!(restored.phase(), AttemptPhase::Submitted);
+        assert_eq!(restored.operation_id(), Some("sink-operation-1"));
+        let mut unknown = restored;
+        unknown.mark_outcome_unknown().expect("unknown");
+        let restored_unknown = EffectAttempt::restore(unknown.snapshot()).expect("restore unknown");
+        assert_eq!(restored_unknown.phase(), AttemptPhase::OutcomeUnknown);
+        assert_eq!(restored_unknown.revision(), 2);
+    }
+
+    #[test]
+    fn restore_rejects_impossible_phase_field_combinations() {
+        let mut snapshot = EffectAttempt::prepare(identity()).snapshot();
+        snapshot.phase = AttemptPhase::Committed;
+        snapshot.revision = 1;
+        snapshot.outcome_digest = Some("c".repeat(64));
+        assert_eq!(
+            EffectAttempt::restore(snapshot),
+            Err(JournalError::InvalidTransition)
+        );
+    }
+
 }
