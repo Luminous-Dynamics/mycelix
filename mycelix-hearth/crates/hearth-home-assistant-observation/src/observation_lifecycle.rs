@@ -279,7 +279,10 @@ impl ObservationLifecycle {
     /// invalidation reason is emitted when the new snapshot is reconciled, so
     /// the ledger can distinguish a missing entity from unknown/unavailable.
     pub fn start_session(&mut self, session_epoch: u64, now_micros: i64) -> LifecycleUpdate {
+        // Reserve u64::MAX as exhausted: checkpoint restore rejects it
+        // because no strictly newer session epoch could ever be admitted.
         if session_epoch == 0
+            || session_epoch == u64::MAX
             || self
                 .highest_session_epoch
                 .is_some_and(|previous| session_epoch <= previous)
@@ -1170,6 +1173,18 @@ mod tests {
         assert_eq!(recovered.revision, None);
         assert_eq!(recovered.update.phase, LifecyclePhase::NeedsNewSession);
         assert!(recovered.update.records.is_empty());
+    }
+
+    #[test]
+    fn rejects_epoch_max_before_checkpoint_can_become_unrestorable() {
+        let mut lifecycle = ObservationLifecycle::new(&profile()).unwrap();
+        let update = lifecycle.start_session(u64::MAX, 10);
+        assert_eq!(update.failure, Some(LifecycleFailure::EpochNotIncreasing));
+        assert_eq!(lifecycle.phase(), LifecyclePhase::Dormant);
+        assert_eq!(lifecycle.current_session_epoch(), None);
+        let checkpoint = lifecycle.checkpoint();
+        assert_eq!(checkpoint.highest_session_epoch, None);
+        assert!(ObservationLifecycle::restore(&profile(), checkpoint).is_ok());
     }
 
     #[test]
