@@ -200,6 +200,7 @@ impl ObservationLifecycle {
             .map(|rule| rule.entity_id.clone())
             .collect::<BTreeSet<_>>();
         if checkpoint.highest_session_epoch == Some(0)
+            || checkpoint.highest_session_epoch == Some(u64::MAX)
             || allowlist.is_empty()
             || allowlist.len() != profile.rules.len()
             || checkpoint.entity_revisions.iter().any(|(entity_id, revision)| {
@@ -632,12 +633,12 @@ impl ObservationLifecycle {
         transition_epoch: u64,
         now_micros: i64,
     ) -> Option<(ObservationLifecycleRecord, HomeAssistantObservation)> {
-        let supersedes = self.active.remove(&entity_id).map(|active| PositiveRevisionRef {
+        let valid_until_micros = observation.observation.valid_until_micros?;
+        let supersedes = self.active.get(&entity_id).copied().map(|active| PositiveRevisionRef {
             session_epoch: active.session_epoch,
             revision: active.revision,
         });
         let revision = self.bump_revision(&entity_id)?;
-        let valid_until_micros = observation.observation.valid_until_micros?;
         self.active.insert(entity_id.clone(), ActivePositive {
             session_epoch: transition_epoch,
             revision,
