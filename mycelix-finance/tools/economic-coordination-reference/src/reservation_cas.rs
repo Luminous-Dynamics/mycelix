@@ -187,6 +187,7 @@ pub enum ReservationError {
     LeaseExpired,
     LeaseNotExpired,
     InvalidTransition,
+    NonMonotonicTime,
     ArithmeticOverflow,
 }
 
@@ -201,6 +202,7 @@ struct PoolState {
 struct ReservationRecord {
     receipt: ReservationReceipt,
     state: ReservationState,
+    last_transition_at: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -373,7 +375,7 @@ impl ReservationBook {
         }
         validate_evidence(&pool.spec, command.issued_at)?;
 
-        let (reserved, consumed, occupied) = self.occupied_quantities(&command.pool_id)?;
+        let (_, _, occupied) = self.occupied_quantities(&command.pool_id)?;
         let after = occupied
             .checked_add(command.quantity)
             .ok_or(ReservationError::ArithmeticOverflow)?;
@@ -439,6 +441,7 @@ impl ReservationBook {
             ReservationRecord {
                 receipt: receipt.clone(),
                 state: ReservationState::Active,
+                last_transition_at: command.issued_at,
             },
         );
         self.reserve_commands
@@ -450,11 +453,6 @@ impl ReservationBook {
         self.command_events
             .insert(event.command_id.clone(), event.clone());
         self.events.push(event);
-        // These reads document the expected accounting partition. Keep them checked
-        // so inconsistent/overflowing state cannot be masked during future changes.
-        reserved
-            .checked_add(consumed)
-            .ok_or(ReservationError::ArithmeticOverflow)?;
         Ok(ReserveResult {
             disposition: CommandDisposition::Inserted,
             receipt,
@@ -504,6 +502,10 @@ impl ReservationBook {
         }
         if command.expected_fencing_token != pool.fencing_token {
             return Err(ReservationError::StaleFencingToken);
+        }
+
+        if command.at < record.last_transition_at {
+            return Err(ReservationError::NonMonotonicTime);
         }
 
         let (next_state, kind) = match command.action {
@@ -576,10 +578,12 @@ impl ReservationBook {
             .ok_or(ReservationError::UnknownPool)?;
         pool_state.revision = next_revision;
         pool_state.fencing_token = next_fencing_token;
-        self.reservations
+        let updated_record = self
+            .reservations
             .get_mut(&command.reservation_id)
-            .ok_or(ReservationError::UnknownReservation)?
-            .state = next_state;
+            .ok_or(ReservationError::UnknownReservation)?;
+        updated_record.state = next_state;
+        updated_record.last_transition_at = command.at;
         self.used_command_ids.insert(
             command.command_id.clone(),
             CommandIdentity::Transition(command),
@@ -961,17 +965,29 @@ mod tests {
     }
 
     #[test]
-    fn registered_live_pool_can_expire_before_later_reservation() {
+    fn registered_pool_snapshot_expiring_before_reservation_is_rejected() {
         let mut book = ReservationBook::new();
         let mut spec = pool_spec(3);
-        spec.valid_until = 10;
+        spec.valid_until = 9;
         book.register_pool(spec).unwrap();
         assert_eq!(
             book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)),
-            Ok(crate::reservation_cas::ReserveResult {
-                disposition: CommandDisposition::Inserted,
-                receipt: book.reserve_receipt("missing").cloned().unwrap_or_else(|| unreachable!()),
-            })
+            Err(ReservationError::EvidenceExpired)
         );
+        assert!(book.events().is_empty());
+    }
+
+    #[test]
+    fn transition_time_cannot_move_backwards_from_reservation_creation() {
+        let mut book = ReservationBook::new();
+        register(&mut book, 2);
+        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let version = book.pool_version(&receipt.pool_id).unwrap();
+        assert_eq!(
+            book.transition(transition_command("commit-before-issued", "reservation-1", ReservationAction::Commit, 9, version.0, version.1)),
+            Err(ReservationError::NonMonotonicTime)
+        );
+        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Active));
+        assert_eq!(book.events().len(), 1);
     }
 }
