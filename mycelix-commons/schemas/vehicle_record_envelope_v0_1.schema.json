@@ -1,0 +1,773 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:mobility:vehicle-record-envelope:0.1",
+  "title": "Mycelix Vehicle Record Envelope v0.1",
+  "description": "Envelope shape only. This schema does not verify signatures, external evidence, ownership, workmanship, legal title, or safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "vehicle_ref",
+    "event_kind",
+    "actor_ref",
+    "occurred_at",
+    "recorded_at",
+    "payload_digest",
+    "envelope_digest",
+    "visibility_policy",
+    "claim_status",
+    "payload",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "vehicle-record-envelope/0.1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "vehicle_ref": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "description": "Opaque, non-guessable dossier reference; not a raw VIN.",
+      "pattern": "^veh_[A-Za-z0-9_-]{16,96}$"
+    },
+    "event_kind": {
+      "enum": [
+        "dossier_created",
+        "configuration_linked",
+        "ownership_claim",
+        "custody_claim",
+        "transfer_proposed",
+        "transfer_acknowledged",
+        "maintenance_performed",
+        "part_installed",
+        "inspection_evidence",
+        "recall_notice",
+        "recall_completion",
+        "cost_record",
+        "dispute_opened",
+        "correction_appended",
+        "retirement_record"
+      ]
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "description": "Pseudonymous participant reference; actor authenticity is verified separately."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value",
+        "canonicalization_version"
+      ],
+      "properties": {
+        "algorithm": {
+          "enum": [
+            "sha-256",
+            "blake3"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "canonicalization_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_kind",
+          "artifact_ref"
+        ],
+        "properties": {
+          "artifact_kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 512
+          },
+          "artifact_digest": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "scope_note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "visibility_policy": {
+      "enum": [
+        "private",
+        "shared_pseudonymous",
+        "public_source_attestation"
+      ]
+    },
+    "claim_status": {
+      "enum": [
+        "asserted",
+        "counterparty_attested",
+        "independently_verified",
+        "disputed",
+        "superseded"
+      ]
+    },
+    "supersedes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 128
+      }
+    },
+    "dispute_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 128
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer_ref",
+        "algorithm",
+        "signature_b64",
+        "signed_digest",
+        "canonicalization_version",
+        "signature_context"
+      ],
+      "properties": {
+        "signer_ref": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "signature_b64": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 8192
+        },
+        "credential_ref": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512
+        },
+        "signed_digest": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "Must equal top-level envelope_digest; recompute envelope_digest and verify the cryptographic signature in the independent verifier."
+        },
+        "canonicalization_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Must match the canonicalization profile used to compute envelope_digest."
+        },
+        "signature_context": {
+          "const": "mycelix-vehicle-record-envelope/0.1",
+          "description": "Domain separator preventing cross-contract signature reuse."
+        }
+      },
+      "description": "Signature envelope shape only; cryptographic verification and credential authorization are separate checks."
+    },
+    "privacy_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contains_direct_identifiers"
+      ],
+      "properties": {
+        "contains_direct_identifiers": {
+          "type": "boolean"
+        },
+        "consent_ref": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512
+        },
+        "review_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-kind-specific payload. Strict event-specific payload schemas are required before implementation."
+    },
+    "verification_attestations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verification_id",
+          "verifier_ref",
+          "method",
+          "scope",
+          "outcome",
+          "verified_at",
+          "credential_ref",
+          "evidence_refs"
+        ],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "verifier_ref": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "outcome": {
+            "enum": [
+              "verified",
+              "not_verified",
+              "inconclusive"
+            ]
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "credential_ref": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 512
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "description": "Scoped independent-verification assertions; signature and verifier credential must be checked outside this JSON Schema."
+    },
+    "envelope_digest": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$",
+      "description": "SHA-256 of the domain-separated canonical event envelope excluding signature and envelope_digest; the verifier must recompute it, not trust this field alone."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "visibility_policy": {
+            "enum": [
+              "shared_pseudonymous",
+              "public_source_attestation"
+            ]
+          }
+        },
+        "required": [
+          "visibility_policy"
+        ]
+      },
+      "then": {
+        "required": [
+          "privacy_review"
+        ],
+        "properties": {
+          "privacy_review": {
+            "required": [
+              "contains_direct_identifiers"
+            ],
+            "properties": {
+              "contains_direct_identifiers": {
+                "const": false
+              }
+            }
+          },
+          "payload": {
+            "$ref": "#/$defs/privacy_safe_value"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claim_status": {
+            "const": "independently_verified"
+          }
+        },
+        "required": [
+          "claim_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "evidence_refs",
+          "verification_attestations"
+        ],
+        "properties": {
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1
+          },
+          "verification_attestations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "outcome": {
+                  "const": "verified"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claim_status": {
+            "const": "disputed"
+          }
+        },
+        "required": [
+          "claim_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "dispute_refs"
+        ],
+        "properties": {
+          "dispute_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "maintenance_performed"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/maintenance_event_payload_v0_1"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "privacy_safe_value": {
+      "allOf": [
+        {
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "propertyNames": {
+              "not": {
+                "pattern": "^(owner|owner_name|owner_email|email|personal_email|phone|phone_number|driver_name|raw_vin|vin|latitude|longitude|trip_points|travel_history|precise_location|location|gps_coordinates|home_address|bank_account|account_number|account_holder|finance_agreement|registration_plate|license_plate|vehicle_registration)$"
+              }
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/privacy_safe_value"
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "array"
+          },
+          "then": {
+            "items": {
+              "$ref": "#/$defs/privacy_safe_value"
+            }
+          }
+        }
+      ]
+    },
+    "maintenance_event_payload_v0_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Event-kind-specific schema for a maintenance/repair claim. A valid record is an assertion with evidence references, not proof of workmanship or roadworthiness.",
+      "required": [
+        "work_type",
+        "repair_task_graph_ref",
+        "repair_task_graph_digest",
+        "procedure_revision",
+        "work_status",
+        "task_results",
+        "post_repair_verification"
+      ],
+      "properties": {
+        "work_type": {
+          "enum": [
+            "scheduled_service",
+            "diagnostic",
+            "repair",
+            "inspection",
+            "recall_remedy",
+            "other"
+          ]
+        },
+        "repair_task_graph_ref": {
+          "type": "string",
+          "pattern": "^art_[A-Za-z0-9_-]{16,96}$",
+          "description": "Immutable reference to the planned service procedure/task graph."
+        },
+        "repair_task_graph_digest": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "procedure_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "work_status": {
+          "enum": [
+            "performed",
+            "partial",
+            "blocked"
+          ]
+        },
+        "odometer_reading": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit",
+            "source_ref"
+          ],
+          "properties": {
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "enum": [
+                "km",
+                "mi"
+              ]
+            },
+            "source_ref": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            }
+          }
+        },
+        "task_results": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "task_id",
+              "status",
+              "component_ref",
+              "component_revision",
+              "evidence_refs"
+            ],
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "pattern": "^task_[A-Za-z0-9_-]{8,64}$"
+              },
+              "status": {
+                "enum": [
+                  "performed",
+                  "partial",
+                  "blocked",
+                  "skipped",
+                  "not_applicable"
+                ]
+              },
+              "component_ref": {
+                "type": "string",
+                "pattern": "^part_[A-Za-z0-9_-]{8,64}$"
+              },
+              "component_revision": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "duration": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value",
+                      "unit",
+                      "basis",
+                      "observation_ref",
+                      "observed_at",
+                      "source_refs"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unit": {
+                        "enum": [
+                          "s",
+                          "min",
+                          "h"
+                        ]
+                      },
+                      "basis": {
+                        "const": "observed"
+                      },
+                      "observation_ref": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 512
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "technician_ref": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 128
+                      },
+                      "tool_context": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "source_refs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 8,
+                          "maxLength": 512
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value",
+                      "unit",
+                      "basis",
+                      "estimate_note"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unit": {
+                        "enum": [
+                          "s",
+                          "min",
+                          "h"
+                        ]
+                      },
+                      "basis": {
+                        "const": "estimated"
+                      },
+                      "estimate_note": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    }
+                  }
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 512
+                }
+              }
+            }
+          }
+        },
+        "post_repair_verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "result"
+          ],
+          "properties": {
+            "result": {
+              "enum": [
+                "passed",
+                "failed",
+                "inconclusive",
+                "not_performed",
+                "not_applicable"
+              ]
+            },
+            "observation_ref": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            },
+            "evidence_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 512
+              }
+            },
+            "blocker_reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "inconclusive"
+                    ]
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "required": [
+                  "observation_ref",
+                  "evidence_refs"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "not_performed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "required": [
+                  "blocker_reason"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "not_applicable"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "required": [
+                  "rationale"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
