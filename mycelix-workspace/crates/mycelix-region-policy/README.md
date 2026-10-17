@@ -55,3 +55,5 @@ The durable production integration must compose with the existing [PR #780 commi
 
 
 Restored effect-attempt snapshots include a monotonic dispatch-crossed marker: after dispatch has started, a terminal rejection is valid only with destination-verified outcome evidence. Bounded state-space exploration is test-only and does not model a real durable store.
+
+The focused workflow checks the fault corpus's case count, unique IDs, phase sequence, and that each non-null test anchor names a Rust function in `src/`. These structural checks make the contract self-auditing but are not a substitute for a completed exact-head test run.
