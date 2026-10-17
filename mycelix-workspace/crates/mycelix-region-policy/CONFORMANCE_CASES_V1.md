@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the effect-journal module adds 17 tests and the bounded model module adds 6, for 66 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the effect-journal module adds 18 tests and the bounded model module adds 6, for 67 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -104,6 +104,8 @@ Seventeen source-level state-machine tests are authored in `src/effect_journal.r
 
 The snapshot model adds round-trip restoration of Reserved/DispatchStarted/OutcomeUnknown and rejection of impossible phase-field combinations. The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
 
+| RPK-JOURNAL-016 | Reconciled terminal revision cannot be downgraded while retaining the uncertainty marker | `restore_rejects_revision_downgrade_after_uncertainty` |
+
 ## Bounded model and fault-corpus qualification
 
 Six abstract model tests are authored in `src/effect_journal_model.rs`; they do not test a real durable store or provider.
@@ -117,8 +119,9 @@ Six abstract model tests are authored in `src/effect_journal_model.rs`; they do 
 | EJM-023 | Explore reachable abstract states to depth 8 and check effect/dispatch invariants | `bounded_state_exploration_preserves_effect_safety_invariants` |
 | EJM-024 | Restore a post-dispatch Rejected row without authenticated outcome evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
 | EJM-025 | Impossible revision for OutcomeUnknown/terminal snapshot; preserve legal revision 3/4 terminal histories | `restore_rejects_impossible_phase_and_revision_history` |
+| EJM-026 | A reconciled terminal revision cannot be downgraded while the uncertainty-history marker remains set | `restore_rejects_revision_downgrade_after_uncertainty` |
 
-The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 25 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
+The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 26 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
 
 ## Mandatory extension corpus before production
 

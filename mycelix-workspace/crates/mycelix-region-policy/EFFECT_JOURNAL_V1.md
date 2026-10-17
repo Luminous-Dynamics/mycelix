@@ -29,7 +29,7 @@ Do not classify a transaction using returned error text/code. Do not treat `Defi
 
 ## Rust reference model
 
-`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and seventeen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
+`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and eighteen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
 
 Production requirements:
 
@@ -88,7 +88,7 @@ These sources motivate the design. They are not independent validation of this i
 
 ## Machine-readable fault corpus
 
-[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 25-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 26-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
 
 
 ## Snapshot dispatch-history invariant
@@ -110,3 +110,8 @@ When concrete synchronization or durable-store adapter code is introduced, advan
 4. Test destination idempotency with independent sink observations; keep local commit classification separate from provider outcome.
 
 No Loom thread model, SQLite crash harness, actual durable adapter, or provider simulation is implemented in this tranche.
+
+
+## Revision-history marker
+
+A persisted `outcome_unknown_seen` bit records whether the attempt crossed through `OutcomeUnknown`. It is false for Prepared/Reserved/DispatchStarted and remains true after reconciliation. This disambiguates a direct revision-3 terminal result from a reconciled revision-4 terminal result; downgrading revision 4 to 3 while retaining the marker is rejected. This is a consistency invariant, not cryptographic tamper resistance: the durable adapter must still authenticate records and enforce monotonic compare-and-swap/high-water semantics.

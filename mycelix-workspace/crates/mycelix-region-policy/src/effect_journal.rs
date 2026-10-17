@@ -188,7 +188,10 @@ pub struct EffectAttemptSnapshot {
     pub phase: AttemptPhase,
     pub revision: u64,
     pub dispatch_started: bool,
+    /// Monotonic marker: an ambiguous post-dispatch outcome was observed.
+    pub outcome_unknown_seen: bool,
     pub operation_id: Option<String>,
+    
     pub outcome_digest: Option<String>,
     pub rejection_code: Option<String>,
 }
@@ -199,7 +202,9 @@ pub struct EffectAttempt {
     phase: AttemptPhase,
     revision: u64,
     dispatch_started: bool,
+    outcome_unknown_seen: bool,
     operation_id: Option<String>,
+
     outcome_digest: Option<String>,
     rejection_code: Option<String>,
 }
@@ -211,6 +216,7 @@ impl EffectAttempt {
             phase: AttemptPhase::Prepared,
             revision: 0,
             dispatch_started: false,
+            outcome_unknown_seen: false,
             operation_id: None,
             outcome_digest: None,
             rejection_code: None,
@@ -245,6 +251,7 @@ impl EffectAttempt {
             phase: self.phase,
             revision: self.revision,
             dispatch_started: self.dispatch_started,
+            outcome_unknown_seen: self.outcome_unknown_seen,
             operation_id: self.operation_id.clone(),
             outcome_digest: self.outcome_digest.clone(),
             rejection_code: self.rejection_code.clone(),
@@ -260,6 +267,7 @@ impl EffectAttempt {
             phase: snapshot.phase,
             revision: snapshot.revision,
             dispatch_started: snapshot.dispatch_started,
+            outcome_unknown_seen: snapshot.outcome_unknown_seen,
             operation_id: snapshot.operation_id,
             outcome_digest: snapshot.outcome_digest,
             rejection_code: snapshot.rejection_code,
@@ -279,6 +287,7 @@ impl EffectAttempt {
             AttemptPhase::Prepared => {
                 self.revision == 0
                     && !self.dispatch_started
+                    && !self.outcome_unknown_seen
                     && self.operation_id.is_none()
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
@@ -286,6 +295,7 @@ impl EffectAttempt {
             AttemptPhase::Reserved => {
                 self.revision == 1
                     && !self.dispatch_started
+                    && !self.outcome_unknown_seen
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
@@ -293,6 +303,7 @@ impl EffectAttempt {
             AttemptPhase::DispatchStarted => {
                 self.revision == 2
                     && self.dispatch_started
+                    && !self.outcome_unknown_seen
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
@@ -300,12 +311,14 @@ impl EffectAttempt {
             AttemptPhase::OutcomeUnknown => {
                 self.revision == 3
                     && self.dispatch_started
+                    && self.outcome_unknown_seen
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Committed => {
-                matches!(self.revision, 3 | 4)
+                ((!self.outcome_unknown_seen && self.revision == 3)
+                    || (self.outcome_unknown_seen && self.revision == 4))
                     && self.dispatch_started
                     && op_valid
                     && outcome_valid
@@ -313,15 +326,17 @@ impl EffectAttempt {
             }
             AttemptPhase::Rejected => {
                 (!self.dispatch_started
+                    && !self.outcome_unknown_seen
                     && self.outcome_digest.is_none()
                     && reason_valid
                     && ((self.revision == 1 && self.operation_id.is_none())
                         || (self.revision == 2 && op_valid)))
                     || (self.dispatch_started
-                        && matches!(self.revision, 3 | 4)
                         && op_valid
                         && outcome_valid
-                        && self.rejection_code.is_none())
+                        && self.rejection_code.is_none()
+                        && ((!self.outcome_unknown_seen && self.revision == 3)
+                            || (self.outcome_unknown_seen && self.revision == 4)))
             }
         }
     }
@@ -361,6 +376,7 @@ impl EffectAttempt {
             return Err(JournalError::InvalidTransition);
         }
         self.advance()?;
+        self.outcome_unknown_seen = true;
         self.phase = AttemptPhase::OutcomeUnknown;
         Ok(())
     }
@@ -747,6 +763,31 @@ mod tests {
             Err(JournalError::InvalidTransition)
         );
         assert_eq!(attempt.phase(), AttemptPhase::DispatchStarted);
+    }
+
+    #[test]
+    fn restore_rejects_revision_downgrade_after_uncertainty() {
+        let mut attempt = EffectAttempt::prepare(identity());
+        attempt.reserve("sink-operation-1").expect("reserve");
+        attempt.mark_dispatch_started().expect("dispatch started");
+        attempt.mark_outcome_unknown().expect("ambiguous outcome");
+        assert!(attempt.snapshot().outcome_unknown_seen);
+        attempt
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("reconciliation commits");
+        let mut snapshot = attempt.snapshot();
+        assert_eq!(snapshot.revision, 4);
+        assert!(snapshot.outcome_unknown_seen);
+        assert!(EffectAttempt::restore(snapshot.clone()).is_ok());
+
+        // A stale writer that preserves the monotonic uncertainty marker cannot
+        // make this reconciled revision-4 terminal row resemble a direct revision-3 commit.
+        snapshot.revision = 3;
+        assert_eq!(
+            EffectAttempt::restore(snapshot),
+            Err(JournalError::InvalidTransition),
+            "revision downgrade must conflict with the persisted uncertainty marker"
+        );
     }
 
     #[test]

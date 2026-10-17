@@ -223,6 +223,14 @@
       "expected": "Reject impossible phase/revision pairs while accepting direct terminal revision 3 and reconciled terminal revision 4",
       "status": "implemented_reference_test",
       "test_anchor": "restore_rejects_impossible_phase_and_revision_history"
+    },
+    {
+      "id": "EJM-026",
+      "category": "snapshot-integrity",
+      "fault": "A reconciled terminal snapshot retains outcome_unknown_seen but its revision is downgraded from 4 to 3",
+      "expected": "Reject the inconsistent terminal history while accepting the original revision-4 reconciled snapshot",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_revision_downgrade_after_uncertainty"
     }
   ]
 }
