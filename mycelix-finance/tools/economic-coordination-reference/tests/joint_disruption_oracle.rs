@@ -177,7 +177,10 @@ fn oracle_frontier(
     let all: Vec<_> = feasible.iter().cloned().collect();
     feasible
         .iter()
-        .filter(|candidate| !all.iter().any(|other| other != *candidate && dominates(other, candidate)))
+        .filter(|candidate| {
+            !all.iter()
+                .any(|other| other != *candidate && dominates(other, candidate))
+        })
         .cloned()
         .collect()
 }
