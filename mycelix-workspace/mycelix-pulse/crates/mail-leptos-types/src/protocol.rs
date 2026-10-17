@@ -411,6 +411,15 @@ impl RecipientReceiptV2 {
             return Err(ProtocolError::UnsupportedReceiptVersion(self.protocol_version));
         }
 
+        // Enforce one event identity for a given logical message, recipient,
+        // and receipt kind. Without this check callers could bypass replay
+        // classification by supplying arbitrary IDs for the same event.
+        let expected_event_id =
+            derive_receipt_event_id(&self.message_id, &self.recipient_agent, self.kind)?;
+        if self.receipt_event_id != expected_event_id {
+            return Err(ProtocolError::ReceiptEventIdentityMismatch);
+        }
+
         let expected_suite = match self.envelope_version {
             ENVELOPE_V2_HYBRID_PQC => SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
             ENVELOPE_V1 => return Err(ProtocolError::ReceiptContextMismatch),
@@ -838,7 +847,12 @@ mod tests {
     fn receipt_v2() -> RecipientReceiptV2 {
         RecipientReceiptV2 {
             protocol_version: RECEIPT_V2_PROTOCOL_VERSION,
-            receipt_event_id: [31; 32],
+            receipt_event_id: derive_receipt_event_id(
+                &MessageId([32; 32]),
+                &[33; 39],
+                ReceiptKind::Delivered,
+            )
+            .unwrap(),
             message_id: MessageId([32; 32]),
             recipient_agent: vec![33; 39],
             envelope_version: ENVELOPE_V2_HYBRID_PQC,
@@ -970,15 +984,24 @@ mod tests {
 
         let mut changed = first.clone();
         changed.receipt_event_id[0] ^= 1;
-        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+        assert_eq!(
+            changed.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptEventIdentityMismatch)
+        );
 
         let mut changed = first.clone();
         changed.message_id = MessageId([41; 32]);
-        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+        assert_eq!(
+            changed.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptEventIdentityMismatch)
+        );
 
         let mut changed = first.clone();
         changed.recipient_agent[0] ^= 1;
-        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+        assert_eq!(
+            changed.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptEventIdentityMismatch)
+        );
 
         let mut changed = first.clone();
         changed.envelope_commitment[0] ^= 1;
@@ -987,11 +1010,17 @@ mod tests {
         let mut changed = first.clone();
         changed.envelope_version = ENVELOPE_V1;
         changed.cipher_suite = SUITE_X25519_AES_256_GCM_ED25519.into();
-        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+        assert_eq!(
+            changed.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptContextMismatch)
+        );
 
         let mut changed = first.clone();
         changed.kind = ReceiptKind::Read;
-        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+        assert_eq!(
+            changed.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptEventIdentityMismatch)
+        );
 
         let mut changed = first.clone();
         changed.occurred_at_micros += 1;
@@ -1071,6 +1100,16 @@ mod tests {
                 expected: ML_DSA_65_SIGNATURE_BYTES,
                 actual: ML_DSA_65_SIGNATURE_BYTES - 1,
             })
+        );
+    }
+
+    #[test]
+    fn v2_receipt_rejects_arbitrary_event_ids_before_transcript_signing() {
+        let mut value = receipt_v2();
+        value.receipt_event_id = [0xA5; 32];
+        assert_eq!(
+            value.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptEventIdentityMismatch)
         );
     }
 
