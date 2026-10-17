@@ -827,6 +827,53 @@ mod tests {
     }
 
     #[test]
+    fn decoder_rejects_noncanonical_external_identifier_order() {
+        fn skip_string(bytes: &[u8], offset: &mut usize) {
+            let length =
+                u32::from_be_bytes(bytes[*offset..*offset + 4].try_into().unwrap()) as usize;
+            *offset += 4 + length;
+        }
+
+        let envelope = unicode_disputed_snapshot();
+        let bytes = envelope.canonical_bytes().unwrap();
+        let mut offset = MAGIC.len() + 2 + 8; // magic, version, asset count
+        skip_string(&bytes, &mut offset); // asset ID
+        offset += 2; // asset kind and absent-title tag
+        let count = u64::from_be_bytes(bytes[offset..offset + 8].try_into().unwrap());
+        offset += 8;
+        assert_eq!(count, 3);
+
+        let mut records = Vec::new();
+        for _ in 0..count {
+            let start = offset;
+            let tag = bytes[offset];
+            offset += 1;
+            match tag {
+                1 | 2 => skip_string(&bytes, &mut offset),
+                3 => {
+                    skip_string(&bytes, &mut offset);
+                    skip_string(&bytes, &mut offset);
+                }
+                _ => panic!("fixture contains an unexpected identifier tag"),
+            }
+            records.push((start, offset));
+        }
+
+        let (second_start, second_end) = records[1];
+        let (third_start, third_end) = records[2];
+        let mut altered = Vec::with_capacity(bytes.len());
+        altered.extend_from_slice(&bytes[..second_start]);
+        altered.extend_from_slice(&bytes[third_start..third_end]);
+        altered.extend_from_slice(&bytes[second_start..second_end]);
+        altered.extend_from_slice(&bytes[third_end..]);
+
+        assert_eq!(
+            CreativeAssetPassportEnvelope::from_bytes(&altered),
+            Err(PassportEnvelopeError::NonCanonicalEncoding)
+        );
+    }
+
+    #[test]
     fn decoder_rejects_unsupported_version() {
         let envelope = snapshot();
         let mut bytes = envelope.canonical_bytes().unwrap();
