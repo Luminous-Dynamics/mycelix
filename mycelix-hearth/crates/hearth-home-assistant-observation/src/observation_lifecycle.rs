@@ -235,6 +235,11 @@ impl ObservationLifecycle {
         self.current_epoch
     }
 
+    /// Current protocol subscription ID, when one is bound to this lifecycle.
+    pub fn current_subscription_id(&self) -> Option<u64> {
+        self.subscription_id
+    }
+
     /// A positive revision is current only during a live, snapshot-applied
     /// session, before its local freshness deadline. A cache hit alone is not
     /// enough to establish currentness.
