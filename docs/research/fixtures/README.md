@@ -52,4 +52,4 @@ This separate, unscored supplement covers non-pathologizing reflection on spirit
 
 ## Standalone Rust verifier
 
-The implementation and adversarial tests are in [tools/cross-scale-wisdom-verifier](../../../tools/cross-scale-wisdom-verifier/README.md). To run both corpus fixtures, follow its two CLI examples. The report status is deliberately STRUCTURALLY_VALID_UNSCORED; a successful structural check is not model-response scoring or human-efficacy evidence.
+The implementation and adversarial tests are in [tools/cross-scale-wisdom-verifier](../../../tools/cross-scale-wisdom-verifier/README.md). To verify all registered corpora, follow the three CLI examples in the tool README. The report status is deliberately STRUCTURALLY_VALID_UNSCORED; a successful structural check is not model-response scoring or human-efficacy evidence.
