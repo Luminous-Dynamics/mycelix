@@ -2,7 +2,7 @@
 
 **Status:** exploratory research tool, not product or production matching code.
 
-This isolated, dependency-free Rust crate implements the first offline slice proposed in the public Mycelix RFC at PR #5127. It generates seeded synthetic adult-only participants, applies hard eligibility constraints before ranking, compares four policies—feasibility-only pair ordering, one-sided utility, pairwise mutual utility, and an exposure-balanced mutual-utility allocator—and emits a deterministic JSON report.
+This isolated, dependency-free Rust crate implements an initial offline slice proposed in the public Mycelix RFC at PR #5127. The current source has not yet been compiled or tested on its exact branch head. It generates seeded synthetic adult-only participants, applies hard eligibility constraints before ranking, compares four policies—feasibility-only pair ordering, one-sided utility, pairwise mutual utility, and an exposure-balanced mutual-utility allocator—and emits a deterministic JSON report.
 
 ## Run
 
@@ -13,7 +13,7 @@ Use a Rust 2021 toolchain. From this directory:
 
 Arguments are seed, even participant count (minimum 4), and top-k recommendations per participant. Defaults are seed 20261017, 200 participants, and top-k 5.
 
-## What the harness does prove
+## What the harness is designed to test
 
 - All policies use the same eligibility predicate before ranking or allocation.
 - `discovery_opt_in` is modeled separately from `active`. Opt-in authorizes consideration for discovery only; it is not consent to a specific introduction.
