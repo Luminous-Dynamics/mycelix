@@ -712,7 +712,7 @@ mod tests {
             20,
             40,
             vec![
-                branch("different", EvidenceOutcomeKind::Confirmed, changed_b.clone()),
+                branch("different", EvidenceOutcomeKind::Confirmed, changed_a.clone()),
                 branch("stable", EvidenceOutcomeKind::Inconclusive, stable),
             ],
         );
