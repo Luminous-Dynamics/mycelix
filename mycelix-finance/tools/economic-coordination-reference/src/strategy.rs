@@ -211,8 +211,13 @@ pub fn evaluate_strategy(
         let selected: Vec<ContingencyOption> = options
             .iter()
             .enumerate()
-            .filter(|(index, _)| mask & (1u64 << index) != 0)
-            .map(|(_, option)| option.clone())
+            .filter_map(|(index, option)| {
+                if mask & (1u64 << index) != 0 {
+                    Some(option.clone())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         let mut candidate_request = request.clone();
@@ -508,8 +513,13 @@ mod tests {
             let selected_ids: Vec<String> = ids
                 .iter()
                 .enumerate()
-                .filter(|(index, _)| mask & (1 << index) != 0)
-                .map(|(_, id)| (*id).to_owned())
+                .filter_map(|(index, id)| {
+                    if mask & (1 << index) != 0 {
+                        Some((*id).to_owned())
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             let selected_count = selected_ids.len() as u64;
             let commitment_cost = 40 + 2 * selected_count;
