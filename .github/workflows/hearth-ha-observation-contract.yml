@@ -1,0 +1,41 @@
+name: Hearth Home Assistant observation contract
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-hearth/crates/hearth-home-assistant-observation/**"
+      - "mycelix-hearth/Cargo.toml"
+      - ".github/workflows/hearth-ha-observation-contract.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "mycelix-hearth/crates/hearth-home-assistant-observation/**"
+      - "mycelix-hearth/Cargo.toml"
+      - ".github/workflows/hearth-ha-observation-contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hearth-ha-observation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Pure observation/protocol/projector contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Rust toolchain and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting for the focused crate
+        run: cargo fmt --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation -- --check
+
+      - name: Run the focused observation/protocol/projector and integration tests
+        run: cargo test --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation
