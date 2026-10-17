@@ -451,8 +451,27 @@ pub fn change_presence(new_status: PresenceStatusType) {
 
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
+    let action_journal = hearth.action_journal;
     let hc = hc.clone();
     spawn_local(async move {
+        let journal_attempt = match prepare_live_attempt(
+            action_journal,
+            ActionKind::Presence,
+            &hearth_hash,
+            &hearth_hash,
+        )
+        .await
+        {
+            Ok(attempt) => attempt,
+            Err(_) => {
+                toasts.push(
+                    "Presence update not sent: the durable local action journal is unavailable or could not commit.",
+                    ToastKind::Custom("presence".into()),
+                );
+                return;
+            }
+        };
+
         #[derive(serde::Serialize)]
         struct SetPresenceInput {
             hearth_hash: Vec<u8>,
@@ -474,6 +493,12 @@ pub fn change_presence(new_status: PresenceStatusType) {
                     feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Presence update"),
                     ToastKind::Custom("presence".into()),
                 );
+                if !journal_attempt.mark_source_chain_committed().await {
+                    toasts.push(
+                        "Presence was saved, but its local recovery record could not be committed. Do not repeat it until reconciled.",
+                        ToastKind::Custom("presence".into()),
+                    );
+                }
                 crate::publication_evidence::check_and_store(
                     &hc,
                     publication_evidence,
@@ -488,6 +513,12 @@ pub fn change_presence(new_status: PresenceStatusType) {
                     feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the presence update"),
                     ToastKind::Custom("presence".into()),
                 );
+                if !journal_attempt.mark_outcome_unknown().await {
+                    toasts.push(
+                        "The presence outcome remains unresolved and its local recovery record could not be committed. Do not retry it.",
+                        ToastKind::Custom("presence".into()),
+                    );
+                }
             }
         }
     });
@@ -539,10 +570,41 @@ pub fn complete_care_task(task_hash: String) {
         return;
     };
 
+    let Some(hearth_scope_bytes) = hearth
+        .current_hearth
+        .get_untracked()
+        .and_then(|h| record_bridge::decode_holo_hash_b64(&h.hash))
+    else {
+        toasts.push(
+            "Care completion not sent: the selected household identity is not verified.",
+            ToastKind::Custom("care".into()),
+        );
+        return;
+    };
+
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
+    let action_journal = hearth.action_journal;
     let hc = hc.clone();
     spawn_local(async move {
+        let journal_attempt = match prepare_live_attempt(
+            action_journal,
+            ActionKind::CareCompletion,
+            &hearth_scope_bytes,
+            &schedule_hash_bytes,
+        )
+        .await
+        {
+            Ok(attempt) => attempt,
+            Err(_) => {
+                toasts.push(
+                    "Care completion not sent: the durable local action journal is unavailable or could not commit.",
+                    ToastKind::Custom("care".into()),
+                );
+                return;
+            }
+        };
+
         #[derive(serde::Serialize)]
         struct CompleteTaskInput { schedule_hash: Vec<u8> }
 
@@ -556,6 +618,12 @@ pub fn complete_care_task(task_hash: String) {
                     feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Care task completion"),
                     ToastKind::Custom("care".into()),
                 );
+                if !journal_attempt.mark_source_chain_committed().await {
+                    toasts.push(
+                        "Care completion was saved, but its local recovery record could not be committed. Do not repeat it until reconciled.",
+                        ToastKind::Custom("care".into()),
+                    );
+                }
                 crate::publication_evidence::check_and_store(
                     &hc,
                     publication_evidence,
@@ -570,6 +638,12 @@ pub fn complete_care_task(task_hash: String) {
                     feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the care task completion"),
                     ToastKind::Custom("care".into()),
                 );
+                if !journal_attempt.mark_outcome_unknown().await {
+                    toasts.push(
+                        "The care completion outcome remains unresolved and its local recovery record could not be committed. Do not retry it.",
+                        ToastKind::Custom("care".into()),
+                    );
+                }
             }
         }
     });
