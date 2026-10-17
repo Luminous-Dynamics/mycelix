@@ -43,7 +43,7 @@ Run `cargo bench --bench effect_journal --locked` to measure the reference state
 - Exhaust all **2,520** order-preserving Load → Reserve schedules for four workers contending over one revision; every schedule must have exactly one reservation winner.
 - Exhaust reachable abstract lifecycle states to depth 8; require zero invariant violations for effect count, dispatch count, commit truth, and the two distinct `OutcomeUnknown` possibilities.
 - Keep negative controls that construct duplicate-effect and false-commit states; the invariant oracle must reject both. This checks harness sensitivity, not production correctness.
-- Validate all 27 stable fault-case IDs and every declared Rust test anchor; an inventory row marked as implemented is not evidence that the test executed or passed.
+- Validate all 28 stable fault-case IDs and every declared Rust test anchor; an inventory row marked as implemented is not evidence that the test executed or passed.
 
 ## Production fault qualification ladder
 

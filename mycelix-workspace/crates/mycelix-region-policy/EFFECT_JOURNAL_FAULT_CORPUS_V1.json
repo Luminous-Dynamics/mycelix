@@ -239,6 +239,14 @@
       "expected": "Reject the snapshot when terminal phase and verified sink disposition disagree",
       "status": "implemented_reference_test",
       "test_anchor": "restore_rejects_terminal_phase_disposition_mismatch"
+    },
+    {
+      "id": "EJM-028",
+      "category": "snapshot-integrity",
+      "fault": "A nonterminal Reserved, DispatchStarted, or OutcomeUnknown snapshot carries a terminal sink disposition",
+      "expected": "Reject terminal disposition evidence before a verified terminal resolution",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_sink_disposition_before_terminal_resolution"
     }
   ]
 }

@@ -303,6 +303,7 @@ impl EffectAttempt {
                     && !self.outcome_unknown_seen
                     && op_valid
                     && self.outcome_digest.is_none()
+                    && self.outcome_disposition.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::DispatchStarted => {
@@ -311,6 +312,7 @@ impl EffectAttempt {
                     && !self.outcome_unknown_seen
                     && op_valid
                     && self.outcome_digest.is_none()
+                    && self.outcome_disposition.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::OutcomeUnknown => {
@@ -319,6 +321,7 @@ impl EffectAttempt {
                     && self.outcome_unknown_seen
                     && op_valid
                     && self.outcome_digest.is_none()
+                    && self.outcome_disposition.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Committed => {
@@ -796,6 +799,37 @@ mod tests {
             EffectAttempt::restore(snapshot),
             Err(JournalError::InvalidTransition),
             "revision downgrade must conflict with the persisted uncertainty marker"
+        );
+    }
+
+    #[test]
+    fn restore_rejects_sink_disposition_before_terminal_resolution() {
+        let mut attempt = EffectAttempt::prepare(identity());
+        attempt.reserve("sink-operation-1").expect("reserve");
+        let mut reserved = attempt.snapshot();
+        reserved.outcome_disposition = Some(SinkDisposition::Applied);
+        assert_eq!(
+            EffectAttempt::restore(reserved),
+            Err(JournalError::InvalidTransition),
+            "nonterminal snapshots cannot claim a sink disposition"
+        );
+
+        attempt.mark_dispatch_started().expect("dispatch");
+        let mut dispatched = attempt.snapshot();
+        dispatched.outcome_disposition = Some(SinkDisposition::DefinitivelyRejected);
+        assert_eq!(
+            EffectAttempt::restore(dispatched),
+            Err(JournalError::InvalidTransition),
+            "dispatch-started snapshots cannot contain terminal outcome evidence"
+        );
+
+        attempt.mark_outcome_unknown().expect("mark uncertainty");
+        let mut unknown = attempt.snapshot();
+        unknown.outcome_disposition = Some(SinkDisposition::Applied);
+        assert_eq!(
+            EffectAttempt::restore(unknown),
+            Err(JournalError::InvalidTransition),
+            "unknown snapshots cannot claim a disposition before reconciliation"
         );
     }
 

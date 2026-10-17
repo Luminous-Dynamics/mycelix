@@ -31,7 +31,7 @@ The ledger is **process-local and volatile**. It is not cryptographic, durable, 
 
 ## Evidence-driven effect recovery
 
-`src/effect_journal.rs` adds a pure lifecycle model for `Prepared`, `Reserved`, `DispatchStarted`, `OutcomeUnknown`, `Committed`, and `Rejected` states. Only destination-verified evidence may resolve an unknown attempt; an uncertain dispatch is reconciliation-only. This module is not a persistent database, exactly-once mechanism, or network adapter. See `EFFECT_JOURNAL_V1.md` for the durable adapter contract, crash matrix, and acceptance criteria. `src/effect_journal_model.rs` enumerates all 2,520 order-preserving four-worker reservation interleavings and models lost-reply recovery against an abstract idempotent sink; it is not a real database or network test. The 27-case machine-readable corpus and closed schema are `EFFECT_JOURNAL_FAULT_CORPUS_V1.json` and `EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`.
+`src/effect_journal.rs` adds a pure lifecycle model for `Prepared`, `Reserved`, `DispatchStarted`, `OutcomeUnknown`, `Committed`, and `Rejected` states. Only destination-verified evidence may resolve an unknown attempt; an uncertain dispatch is reconciliation-only. This module is not a persistent database, exactly-once mechanism, or network adapter. See `EFFECT_JOURNAL_V1.md` for the durable adapter contract, crash matrix, and acceptance criteria. `src/effect_journal_model.rs` enumerates all 2,520 order-preserving four-worker reservation interleavings and models lost-reply recovery against an abstract idempotent sink; it is not a real database or network test. The 28-case machine-readable corpus and closed schema are `EFFECT_JOURNAL_FAULT_CORPUS_V1.json` and `EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`.
 
 ## Run
 

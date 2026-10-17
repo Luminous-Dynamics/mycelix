@@ -88,7 +88,7 @@ These sources motivate the design. They are not independent validation of this i
 
 ## Machine-readable fault corpus
 
-[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 27-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 28-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
 
 
 ## Snapshot dispatch-history invariant
@@ -125,3 +125,6 @@ The corpus workflow treats `test_anchor` as an executable-test assertion, not a 
 ## Terminal disposition binding
 
 Terminal snapshots retain the sink disposition produced by the verifier. `Committed` requires `Applied`; post-dispatch `Rejected` requires `DefinitivelyRejected`; pre-dispatch rejection has no sink disposition. This redundant typed field allows restore to reject a phase-only mutation that would otherwise transform a committed result into an apparently valid rejection (or vice versa). It is a consistency check, not record authentication: production storage must still authenticate terminal records and bind the fields into its durable witness/commit-classification procedure.
+
+
+Nonterminal phases (`Reserved`, `DispatchStarted`, and `OutcomeUnknown`) must have no sink disposition. Terminal `Committed` snapshots must bind `Applied`; post-dispatch `Rejected` snapshots must bind `DefinitivelyRejected`. The restore validator rejects stray disposition claims before resolution as well as terminal phase/disposition conflicts. This check is not a substitute for durable record authentication.
