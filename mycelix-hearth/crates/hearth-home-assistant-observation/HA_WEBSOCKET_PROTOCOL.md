@@ -2,51 +2,58 @@
 
 **Scope:** pure Rust protocol contract only. No socket, URL, TLS, token, filesystem, transport dependency, state write, service call, or device-control API is included.
 
-Home Assistant documents the WebSocket auth/result/event protocol and correlation behavior in its [official WebSocket API reference](https://developers.home-assistant.io/docs/api/websocket/). One important design constraint is that an event carries the `id` of its subscription, and `get_states` plus `subscribe_events` are separate messages—not an atomic snapshot-plus-stream operation.
+This design is grounded in the [official Home Assistant WebSocket API](https://developers.home-assistant.io/docs/api/websocket/). Prefer the native `subscribe_entities` command over composing `get_states` and `subscribe_events` yourself: Home Assistant documents the entity subscription as an initial compact state snapshot followed by incremental changes, and supports restricting it to an explicit `entity_ids` list. It also binds every stream event to the exact subscription command ID.
 
-## Snapshot/stream consistency protocol
-
-This state machine deliberately subscribes **before** requesting the initial state snapshot so there is no intentional unobserved interval between the snapshot and the event subscription:
+## Protocol sequence
 
 ```text
 new session epoch
   -> auth_required
   -> transport-owned authentication request
   -> auth_ok
-  -> subscribe_events(event_type = state_changed), id = 1
+  -> subscribe_entities(entity_ids = exact validated profile allowlist), id = 1
   -> matching result(success = true, result = null)
-  -> get_states, id = 2
-  -> matching result(success = true, result = state array)
-  -> apply initial snapshot
-  -> drain buffered state_changed events in receive order
-  -> bootstrap_applied(epoch, subscription_id)
+  -> first event with id = 1 and initial entity snapshot
+  -> decode only allowlisted entities and apply the snapshot
+  -> initial_snapshot_applied(epoch, subscription_id)
   -> LIVE
+  -> subsequent events with id = 1 are incremental changes
 ```
 
-While `get_states` is in flight, correctly correlated `state_changed` events are buffered by the eventual transport. They must not be applied before the snapshot, because doing so could let the older snapshot overwrite a newer event. When the snapshot arrives, the transport applies it first, drains buffered events in original receive order, and calls `bootstrap_applied`. The state machine does not enter `Live` until that explicit acknowledgement succeeds.
+The protocol machine builds the subscription allowlist directly from the validated HA-0.1 profile. It sorts IDs deterministically, rejects invalid/empty profiles, and never asks the transport to subscribe to every entity. The transport must treat entity IDs in the compressed event maps as untrusted input and must pass only profile-allowlisted state data to the existing HA-0.1 mapper.
+
+## Snapshot/live boundary
+
+The first event must be the initial snapshot. The transport should use a single serialized receive loop: decode/apply the initial snapshot, acknowledge it with `initial_snapshot_applied`, then proceed to later events. The machine does not enter `Live` until that explicit acknowledgement succeeds. A second event before the acknowledgement fails closed rather than risking a delta being applied before its base snapshot.
+
+Home Assistant's compact stream has separate added, changed and removed entity fields. The transport must merge these according to the provider protocol, reject malformed/oversized payloads, and never treat the arbitrary attribute bag as household authority. The HA-0.1 mapper remains the policy boundary for exact allowlisted entities, state codecs, metadata drift, and local-receive-time freshness.
 
 ## Invariants
 
-- A session starts in `AwaitAuthRequired`; messages out of order fail closed.
-- Authentication failure is terminal.
-- Subscription and bootstrap results must match their exact outstanding correlation IDs and expected payload shapes.
-- Every state-change event must carry the exact active subscription ID.
-- State-change events before subscription acknowledgement are rejected; events after acknowledgement but before bootstrap completion are buffered.
-- Bootstrap success returns ordered `BootstrapReady` then `DrainBufferedStateChanges` actions. The transport must apply the snapshot before replaying buffered events and must call `bootstrap_applied` only after the drain completes.
-- A live unrelated event is ignored; only the typed `StateChanged` input for the active subscription can be surfaced for mapping.
-- Each connection has an owner-assigned session epoch. Frames tagged with an older epoch are ignored without advancing the active session.
-- Reconnection means a new machine and a fresh auth/subscription/bootstrap cycle. Old command IDs must never be routed into the new epoch.
+- Authentication failure and out-of-order messages are terminal.
+- The subscription result must match the exact command ID and a successful null result.
+- The initial snapshot event and all subsequent change events must carry the active subscription ID.
+- Only a validated, non-empty HA-0.1 entity allowlist may be subscribed.
+- No entity changes are delivered before the initial snapshot is applied.
+- Frames from stale connection epochs are ignored without advancing the active session.
+- Reconnection requires a new machine, fresh authentication, a new entity subscription, and a new initial snapshot.
 - Command-ID exhaustion fails closed.
-- Authentication secrets are not represented in this module. The eventual transport must obtain them from a local secret provider and must not log them.
+- Credentials are never represented in this module, action enum, error types or debug values.
 
 ## Contract boundary
 
-`ProtocolAction` is deliberately a closed set, not a general JSON command builder. It can request authentication, state bootstrap, and the `state_changed` subscription; there is no `call_service`, `set_states`, arbitrary command, or arbitrary event API. The future transport must still enforce URL/TLS policy, token minimization, frame-size and JSON-depth bounds, deadlines, reconnect jitter, and no-secret diagnostics.
+The protocol action set is closed. There is no `call_service`, `set_states`, arbitrary-command, registry mutation, or physical-effect constructor. The future transport must still implement bounded JSON/message decoding, explicit TLS/certificate policy, local secret-provider integration, deadlines, bounded reconnect backoff, safe error logging, and serialized handling of each session's received frames.
 
-The existing HA-0.1 `map_state` remains responsible for exact entity allowlisting, deterministic codecs, metadata drift, and local-receive-time freshness. This state machine establishes protocol ordering/correlation only; it does not authenticate the peer, prove device state, establish household authority, or qualify a provider.
+This state machine does not authenticate the remote peer by itself, establish household authority, prove physical device state, or qualify an effect/provider. Physical control still belongs behind the independent Hearth adapter admission, exclusive executor lease, durable journal, current household authority, and outcome reconciliation path.
 
 ## Test plan
 
-The pure unit tests cover happy-path ordering, auth rejection, out-of-order messages, bootstrap payload shape, both command correlation IDs, subscription ID binding, event buffering and drain ordering, explicit bootstrap completion, stale reconnect epochs, old-session replay, terminal states, ID exhaustion, and the absence of secret-bearing fields in the protocol action model.
+The pure unit tests cover authentication/order, exact sorted profile allowlisting, invalid profile rejection, result correlation and shape, initial snapshot ordering, explicit snapshot-apply acknowledgement, subscription/session identity mismatch, stale epoch handling, reconnect behavior, terminal states, ID exhaustion, and credential-free protocol actions.
 
-To run from the repository root: `cargo test --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation`. This command has not been executed in this work session.
+Run from the repository root:
+
+```sh
+cargo test --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation
+```
+
+This command has not been executed in this work session; no compilation or test pass is claimed.
