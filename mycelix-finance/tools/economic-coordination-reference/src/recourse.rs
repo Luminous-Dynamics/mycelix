@@ -1156,6 +1156,23 @@ mod tests {
     }
 
     #[test]
+    fn search_budget_exhaustion_returns_error_not_partial_result() {
+        let mut req = request();
+        req.max_search_nodes = 4;
+        let baseline = vec![base("base-a", "supplier-a", "pool-base", 10, 10, "region-a")];
+        let contingency = option(
+            "backup-b", "supplier-b", "pool-backup", 10, "region-b",
+            SupplyMode::Backup, 2, 1, 2, 2, 3,
+        );
+        let result = evaluate_recourse(&req, &baseline, &[contingency], &[RecourseScenario {
+            scenario_id: "supplier-a-fails".into(),
+            observed_at: 105,
+            failed_domains: vec!["supplier:supplier-a".into()],
+        }]);
+        assert_eq!(result, Err(RecourseError::SearchSpaceExceeded));
+    }
+
+    #[test]
     fn expired_backup_quote_cannot_be_promoted_after_disruption() {
         let req = request();
         let baseline = vec![base("base-a", "supplier-a", "pool-base", 10, 10, "region-a")];
