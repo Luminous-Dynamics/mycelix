@@ -24,6 +24,8 @@ pub mod websocket_protocol;
 pub mod entity_stream;
 /// Revokes stale positive observations and preserves per-entity replay revisions.
 pub mod observation_lifecycle;
+/// Append-and-sync lifecycle journal facade with fail-closed recovery.
+pub mod durable_observation_lifecycle;
 
 pub const HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION: u16 = 1;
 pub const HOME_ASSISTANT_NAMESPACE: &str = "home-assistant";
