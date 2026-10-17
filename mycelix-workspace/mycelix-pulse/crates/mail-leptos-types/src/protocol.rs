@@ -342,7 +342,6 @@ impl RecipientReceipt {
     }
 }
 
-
 /// V2 receipt contract. This is additive: V1 signing bytes remain unchanged.
 ///
 /// `receipt_event_id` is generated once for one logical receipt event and
@@ -756,6 +755,11 @@ mod tests {
 
         let mut changed = first.clone();
         changed.envelope_commitment[0] ^= 1;
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.envelope_version = ENVELOPE_V1;
+        changed.cipher_suite = SUITE_X25519_AES_256_GCM_ED25519.into();
         assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
 
         let mut changed = first.clone();
