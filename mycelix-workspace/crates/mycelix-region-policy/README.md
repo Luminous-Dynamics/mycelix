@@ -31,7 +31,7 @@ The ledger is **process-local and volatile**. It is not cryptographic, durable, 
 
 ## Evidence-driven effect recovery
 
-`src/effect_journal.rs` adds a pure lifecycle model for `Prepared`, `Reserved`, `DispatchStarted`, `OutcomeUnknown`, `Committed`, and `Rejected` states. Only destination-verified evidence may resolve an unknown attempt; an uncertain dispatch is reconciliation-only. This module is not a persistent database, exactly-once mechanism, or network adapter. See `EFFECT_JOURNAL_V1.md` for the durable adapter contract, crash matrix, and acceptance criteria. `src/effect_journal_model.rs` enumerates six two-worker reservation interleavings and models lost-reply recovery against an abstract idempotent sink; it is not a real database or network test. The 22-case machine-readable corpus and closed schema are `EFFECT_JOURNAL_FAULT_CORPUS_V1.json` and `EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`.
+`src/effect_journal.rs` adds a pure lifecycle model for `Prepared`, `Reserved`, `DispatchStarted`, `OutcomeUnknown`, `Committed`, and `Rejected` states. Only destination-verified evidence may resolve an unknown attempt; an uncertain dispatch is reconciliation-only. This module is not a persistent database, exactly-once mechanism, or network adapter. See `EFFECT_JOURNAL_V1.md` for the durable adapter contract, crash matrix, and acceptance criteria. `src/effect_journal_model.rs` enumerates six two-worker reservation interleavings and models lost-reply recovery against an abstract idempotent sink; it is not a real database or network test. The 24-case machine-readable corpus and closed schema are `EFFECT_JOURNAL_FAULT_CORPUS_V1.json` and `EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`.
 
 ## Run
 
@@ -52,3 +52,6 @@ No CI result is implied by these instructions. Current verification status must 
 
 
 The durable production integration must compose with the existing [PR #780 commit-classification work](https://github.com/Luminous-Dynamics/mycelix/pull/780) and [AGENT-009 #803](https://github.com/Luminous-Dynamics/mycelix/issues/803). Do not create a competing outbox or interpret a persistence verdict as retry authorization.
+
+
+Restored effect-attempt snapshots include a monotonic dispatch-crossed marker: after dispatch has started, a terminal rejection is valid only with destination-verified outcome evidence. Bounded state-space exploration is test-only and does not model a real durable store.
