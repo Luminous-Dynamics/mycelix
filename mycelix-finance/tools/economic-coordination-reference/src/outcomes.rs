@@ -449,18 +449,18 @@ impl OutcomeLedger {
         }
         let commitment_event = commitments.first().copied();
         let committed_quantity = commitment_event.and_then(|event| {
-            if let OutcomeEventKind::CommitmentAuthorized { quantity, .. } = event.kind {
-                Some(quantity)
+            if let OutcomeEventKind::CommitmentAuthorized { quantity, .. } = &event.kind {
+                Some(*quantity)
             } else { None }
         });
         let due_at = commitment_event.and_then(|event| {
-            if let OutcomeEventKind::CommitmentAuthorized { due_at, .. } = event.kind {
-                Some(due_at)
+            if let OutcomeEventKind::CommitmentAuthorized { due_at, .. } = &event.kind {
+                Some(*due_at)
             } else { None }
         });
         let authorized_landed_cost_minor = commitment_event.and_then(|event| {
-            if let OutcomeEventKind::CommitmentAuthorized { authorized_landed_cost_minor, .. } = event.kind {
-                Some(authorized_landed_cost_minor)
+            if let OutcomeEventKind::CommitmentAuthorized { authorized_landed_cost_minor, .. } = &event.kind {
+                Some(*authorized_landed_cost_minor)
             } else { None }
         });
         let currency = commitment_event.and_then(|event| {
@@ -550,17 +550,23 @@ impl OutcomeLedger {
             if let OutcomeEventKind::OutcomeFinalized {
                 net_accepted_quantity: finalized_accepted,
                 rejected_quantity: finalized_rejected,
+                currency: final_currency,
                 ..
-            } = event.kind {
-                let has_detail = events.iter().any(|candidate| matches!(candidate.kind,
+            } = &event.kind {
+                let has_detail = events.iter().any(|candidate| matches!(&candidate.kind,
                     OutcomeEventKind::AcceptanceDecided { .. } | OutcomeEventKind::ReturnObserved { .. }));
-                if has_detail && (u64::from(finalized_accepted) != net_accepted_quantity
-                    || u64::from(finalized_rejected) != rejected_quantity)
+                if has_detail && (u64::from(*finalized_accepted) != net_accepted_quantity
+                    || u64::from(*finalized_rejected) != rejected_quantity)
                 {
                     return Err(OutcomeLedgerError::FinalizationMismatch);
                 }
+                if currency.as_deref() != Some(final_currency.as_str()) {
+                    return Err(OutcomeLedgerError::FinalizationMismatch);
+                }
                 if let Some(committed) = committed_quantity {
-                    if finalized_accepted > committed || u64::from(finalized_accepted) + u64::from(finalized_rejected) > u64::from(committed) {
+                    if *finalized_accepted > committed
+                        || u64::from(*finalized_accepted) + u64::from(*finalized_rejected) > u64::from(committed)
+                    {
                         return Err(OutcomeLedgerError::OutcomeQuantityMismatch);
                     }
                 }
