@@ -488,6 +488,19 @@ mod tests {
             .expect("matching sink result reconciles");
         assert_eq!(reconciled.phase, AttemptPhase::Committed);
         assert_eq!(reconciled.effect_count, 1);
+
+        let unknown_without_sink_effect = AbstractState {
+            phase: AttemptPhase::OutcomeUnknown,
+            authority_current: true,
+            sink_applied: false,
+            effect_count: 0,
+            dispatch_count: 1,
+        };
+        assert!(abstract_step(
+            unknown_without_sink_effect,
+            AbstractEvent::Reconcile
+        )
+        .is_none());
     }
 
 }
