@@ -194,3 +194,12 @@ The benchmark contract is [JOINT_CAPACITY_BENCHMARKS_V1.md](JOINT_CAPACITY_BENCH
 
 
 The report includes canonical line-level allocation witnesses: request/offer/supplier IDs, offer source URI/digest and qualification receipt, offer evidence status/origin/freshness, mapping ID/digest, capacity-pool snapshot and time bucket, exact quantity and currency, unit cost, line cost, and deadline fields. It refuses allocations for already-expired requests. This makes each accepted line reviewable; it does not cryptographically authenticate the referenced records.
+
+
+## Bounded exact joint allocation (experimental)
+
+The joint_optimizer module enumerates integer assignments across mapped request/offer pairs and returns a Pareto frontier over one declared common-currency total cost plus a distinct shortage axis for each request. It is not a scalar winner chooser. Mixed-currency cohorts are rejected until an explicit versioned FX normalization policy exists. Each complete candidate is checked against the joint-capacity feasibility reference.
+
+The caller supplies an explicit search-node limit (1–500,000). Search exhaustion returns an error and no partial frontier. A completed result describes exact optimization only within the frozen discrete model; it does not authorize reservation, contracting, purchase, dispatch or payment.
+
+The bounded exhaustive implementation and its limits are documented in [JOINT_OPTIMIZER_BENCHMARKS_V1.md](JOINT_OPTIMIZER_BENCHMARKS_V1.md). [JOINT_OPTIMIZER_GOLDEN_CORPUS_V1.md](JOINT_OPTIMIZER_GOLDEN_CORPUS_V1.md) registers 40 fixture IDs; six optimizer tests are authored, including a literal binary-mask oracle, and remain subject to exact-head qualification.
