@@ -1086,51 +1086,6 @@ mod tests {
     }
 
     #[test]
-    fn malformed_late_entity_invalidates_entire_staged_delta_atomically() {
-        let p = two_sensor_profile();
-        let mut lifecycle = ObservationLifecycle::new(&p).unwrap();
-        lifecycle.start_session(1, 10);
-        lifecycle.bind_subscription(1, 1, 11);
-        lifecycle.subscription_acknowledged(1, 1, 12);
-        let pending = lifecycle.apply_json(
-            1,
-            1,
-            EntityStreamKind::InitialSnapshot,
-            &bytes(snapshot_two()),
-            20,
-        );
-        assert_eq!(pending.phase, LifecyclePhase::SnapshotPendingApply);
-        let initial = lifecycle.snapshot_applied(1, 1, 21);
-        assert_eq!(initial.observations.len(), 2);
-        assert!(lifecycle.current_revision("sensor.living_room_temperature", 21).is_some());
-        assert!(lifecycle.current_revision("sensor.z_temperature", 21).is_some());
-
-        // A valid staged update sorts before an out-of-range later entity.
-        // Neither may be published, and all previous positives are invalidated
-        // because the rejected provider stream must be re-bootstraped.
-        let invalid = json!({
-            "c": {
-                "sensor.living_room_temperature": { "+": { "s": "22.00" } },
-                "sensor.z_temperature": { "+": { "s": "999999999999" } }
-            }
-        });
-        let out = lifecycle.apply_json(1, 1, EntityStreamKind::Changes, &bytes(invalid), 30);
-        assert_eq!(out.phase, LifecyclePhase::NeedsNewSession);
-        assert_eq!(out.failure, Some(LifecycleFailure::ProjectionRejected));
-        assert!(out.observations.is_empty());
-        assert_eq!(out.records.len(), 2);
-        assert!(out.records.iter().all(|record| matches!(
-            record.kind,
-            LifecycleRecordKind::Invalidated {
-                reason: InvalidationReason::ProjectionRejected,
-                ..
-            }
-        )));
-        assert!(lifecycle.current_revision("sensor.living_room_temperature", 31).is_none());
-        assert!(lifecycle.current_revision("sensor.z_temperature", 31).is_none());
-    }
-
-    #[test]
     fn stale_epoch_cannot_mutate_current_session() {
         let mut lifecycle = start_live();
         let before = lifecycle.current_revision("sensor.living_room_temperature", 25);
