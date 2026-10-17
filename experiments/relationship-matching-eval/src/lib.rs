@@ -545,6 +545,172 @@ pub fn synthetic_market(seed: u64, participant_count: usize) -> Result<Vec<Parti
     Ok(people)
 }
 
+/// Repeatable synthetic market families designed to test whether ranking/allocation
+/// results generalize beyond one convenient generator configuration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MarketScenario {
+    Baseline,
+    SparseMarket,
+    DenseMarket,
+    OptOutHeavy,
+    SkewedGoals,
+    ConcentratedPreferences,
+    AdversarialBlocking,
+    ColdStart,
+}
+
+impl MarketScenario {
+    pub const ALL: [Self; 8] = [
+        Self::Baseline,
+        Self::SparseMarket,
+        Self::DenseMarket,
+        Self::OptOutHeavy,
+        Self::SkewedGoals,
+        Self::ConcentratedPreferences,
+        Self::AdversarialBlocking,
+        Self::ColdStart,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Baseline => "baseline",
+            Self::SparseMarket => "sparse_market",
+            Self::DenseMarket => "dense_market",
+            Self::OptOutHeavy => "opt_out_heavy",
+            Self::SkewedGoals => "skewed_goals",
+            Self::ConcentratedPreferences => "concentrated_preferences",
+            Self::AdversarialBlocking => "adversarial_blocking",
+            Self::ColdStart => "cold_start",
+        }
+    }
+}
+
+/// Generate a deterministic scenario using the baseline generator as its starting
+/// point, then apply a documented stress transformation. These are synthetic
+/// controls, not claims about the prevalence of any real-world population.
+pub fn synthetic_market_for_scenario(
+    seed: u64,
+    participant_count: usize,
+    scenario: MarketScenario,
+) -> Result<Vec<Participant>, String> {
+    let mut people = synthetic_market(seed, participant_count)?;
+    if scenario == MarketScenario::Baseline {
+        return Ok(people);
+    }
+
+    let mut rng = Rng::new(seed ^ 0xd1b54a32d192ed03);
+    let midpoint = participant_count / 2;
+
+    match scenario {
+        MarketScenario::Baseline => {}
+        MarketScenario::SparseMarket => {
+            for person in &mut people {
+                person.interests.clear();
+                let count = rng.range(2, 3);
+                let mut used = BTreeSet::new();
+                while person.interests.len() < count {
+                    let tag = rng.range(0, 63) as u16;
+                    if used.insert(tag) {
+                        person.interests.push(InterestWeight {
+                            tag,
+                            weight: rng.range(1, 5) as u8,
+                        });
+                    }
+                }
+                person.interests.sort_by_key(|interest| interest.tag);
+                person.minimum_shared_interests = 1;
+                person.minimum_utility = 10;
+            }
+        }
+        MarketScenario::DenseMarket => {
+            for person in &mut people {
+                person.interests.clear();
+                let count = rng.range(12, 18);
+                let mut used = BTreeSet::new();
+                while person.interests.len() < count {
+                    let tag = rng.range(0, 23) as u16;
+                    if used.insert(tag) {
+                        person.interests.push(InterestWeight {
+                            tag,
+                            weight: rng.range(1, 5) as u8,
+                        });
+                    }
+                }
+                person.interests.sort_by_key(|interest| interest.tag);
+                person.minimum_shared_interests = 1;
+                person.minimum_utility = rng.range(10, 25) as u32;
+            }
+        }
+        MarketScenario::OptOutHeavy => {
+            for person in &mut people {
+                person.active = rng.range(0, 99) < 85;
+                person.discovery_opt_in = rng.range(0, 99) < 35;
+            }
+        }
+        MarketScenario::SkewedGoals => {
+            for person in &mut people {
+                let draw = rng.range(0, 99);
+                person.goal = match person.partition {
+                    Partition::A if draw < 85 => ConnectionGoal::Dating,
+                    Partition::A if draw < 95 => ConnectionGoal::Friendship,
+                    Partition::A => ConnectionGoal::ActivityPartner,
+                    Partition::B if draw < 20 => ConnectionGoal::Dating,
+                    Partition::B if draw < 85 => ConnectionGoal::Friendship,
+                    Partition::B => ConnectionGoal::ActivityPartner,
+                };
+            }
+        }
+        MarketScenario::ConcentratedPreferences => {
+            // Construct an explicit popularity-concentration negative control:
+            // all opted-in adult participants are mutually feasible and utility ties
+            // break by identifier, causing deterministic rankers to overexpose a few.
+            for person in &mut people {
+                person.age = 30;
+                person.minimum_age = 18;
+                person.maximum_age = 120;
+                person.goal = ConnectionGoal::Dating;
+                person.interests = vec![InterestWeight { tag: 0, weight: 5 }];
+                person.minimum_shared_interests = 1;
+                person.minimum_utility = 10;
+                person.active = true;
+                person.discovery_opt_in = true;
+                person.blocked_ids.clear();
+            }
+        }
+        MarketScenario::AdversarialBlocking => {
+            // A coordinated blocking pattern suppresses the first two B-side
+            // profiles for a large fraction of A-side viewers. This is a stress
+            // case, not a claim that blocks should ever be relaxed.
+            for person in &mut people {
+                if person.partition == Partition::A && rng.range(0, 99) < 55 {
+                    for target in [midpoint as u32, (midpoint + 1).min(participant_count - 1) as u32] {
+                        if target != person.id && !person.blocked_ids.contains(&target) {
+                            person.blocked_ids.push(target);
+                        }
+                    }
+                    person.blocked_ids.sort_unstable();
+                }
+            }
+        }
+        MarketScenario::ColdStart => {
+            for person in &mut people {
+                if rng.range(0, 99) < 35 {
+                    person.interests.clear();
+                    person.interests.push(InterestWeight {
+                        tag: rng.range(24, 127) as u16,
+                        weight: rng.range(1, 5) as u8,
+                    });
+                    person.minimum_shared_interests = 1;
+                    person.minimum_utility = 10;
+                }
+            }
+        }
+    }
+
+    validate_market(&people)?;
+    Ok(people)
+}
+
 /// Stable non-cryptographic fingerprint for detecting same-input changes in this
 /// dependency-free experiment. It is not a security or provenance digest.
 pub fn corpus_fingerprint_fnv1a64(participants: &[Participant]) -> String {
@@ -678,6 +844,48 @@ mod tests {
             corpus_fingerprint_fnv1a64(&first),
             corpus_fingerprint_fnv1a64(&second)
         );
+    }
+
+    #[test]
+    fn scenario_families_are_deterministic_valid_and_safe_for_every_policy() {
+        for scenario in MarketScenario::ALL {
+            let first = synthetic_market_for_scenario(42, 40, scenario).expect("valid scenario");
+            let second = synthetic_market_for_scenario(42, 40, scenario).expect("same seed");
+            assert_eq!(first, second, "scenario {} must be deterministic", scenario.name());
+            validate_market(&first).expect("scenario remains structurally valid");
+
+            for policy in [
+                RankingPolicy::FeasibilityOnly,
+                RankingPolicy::OneSidedUtility,
+                RankingPolicy::MutualUtility,
+                RankingPolicy::ExposureBalancedMutual,
+            ] {
+                let rows = recommend(&first, 5, policy).expect("valid market");
+                let metrics = evaluate(&first, &rows);
+                assert_eq!(
+                    metrics.invalid_recommendation_count, 0,
+                    "scenario {} generated invalid recommendations under {:?}",
+                    scenario.name(), policy
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn concentration_stress_fixture_exposes_deterministic_popularity_bias() {
+        let people = synthetic_market_for_scenario(
+            20261017,
+            40,
+            MarketScenario::ConcentratedPreferences,
+        ).expect("valid concentration fixture");
+        let one_sided = recommend(&people, 5, RankingPolicy::OneSidedUtility).expect("valid");
+        let balanced = recommend(&people, 5, RankingPolicy::ExposureBalancedMutual).expect("valid");
+        let one_metrics = evaluate(&people, &one_sided);
+        let balanced_metrics = evaluate(&people, &balanced);
+
+        assert!(one_metrics.exposure_gini > 0.0);
+        assert!(balanced_metrics.exposure_gini < one_metrics.exposure_gini);
+        assert_eq!(balanced_metrics.invalid_recommendation_count, 0);
     }
 
     #[test]
