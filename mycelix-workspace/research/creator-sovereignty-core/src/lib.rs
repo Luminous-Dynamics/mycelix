@@ -4,6 +4,8 @@
 //! adapters, platform connectors, databases, or AI recommendations are added.
 //! It deliberately has no network or third-party dependencies.
 
+pub mod scenario;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
