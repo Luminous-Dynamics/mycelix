@@ -738,6 +738,11 @@ impl ObservationLifecycle {
     fn bump_revision(&mut self, entity_id: &str) -> Option<u64> {
         let current = self.revisions.get(entity_id).copied().unwrap_or(0);
         let next = current.checked_add(1)?;
+        // Checkpoints reserve the final two revision values so a restored
+        // high-water mark remains incrementable and cannot become unrestorable.
+        if next > u64::MAX - 2 {
+            return None;
+        }
         self.revisions.insert(entity_id.to_owned(), next);
         Some(next)
     }
@@ -748,7 +753,7 @@ impl ObservationLifecycle {
             .copied()
             .unwrap_or(0)
             .checked_add(increments)
-            .is_none()
+            .map_or(true, |next| next > u64::MAX - 2)
     }
 
     fn fail_session(
@@ -1203,6 +1208,37 @@ mod tests {
         assert_eq!(out.failure, Some(LifecycleFailure::EpochNotIncreasing));
         assert_eq!(lifecycle.phase(), LifecyclePhase::Live);
         assert!(lifecycle.current_revision("sensor.living_room_temperature", 30).is_some());
+    }
+
+    #[test]
+    fn revision_reserve_prevents_unrestorable_checkpoint_high_water() {
+        let mut checkpoint = ObservationLifecycle::new(&profile()).unwrap().checkpoint();
+        checkpoint.highest_session_epoch = Some(1);
+        checkpoint.entity_revisions.insert(
+            "sensor.living_room_temperature".into(),
+            u64::MAX - 2,
+        );
+        let mut lifecycle = ObservationLifecycle::restore(&profile(), checkpoint).unwrap();
+        lifecycle.start_session(2, 10);
+        lifecycle.bind_subscription(2, 1, 11);
+        lifecycle.subscription_acknowledged(2, 1, 12);
+        let pending = lifecycle.apply_json(
+            2,
+            1,
+            EntityStreamKind::InitialSnapshot,
+            &bytes(snapshot("21.50")),
+            20,
+        );
+        assert_eq!(pending.phase, LifecyclePhase::SnapshotPendingApply);
+        let applied = lifecycle.snapshot_applied(2, 1, 21);
+        assert_eq!(applied.failure, Some(LifecycleFailure::RevisionExhausted));
+        assert_eq!(applied.phase, LifecyclePhase::NeedsNewSession);
+        assert_eq!(
+            lifecycle.checkpoint().entity_revisions.get("sensor.living_room_temperature"),
+            Some(&(u64::MAX - 2))
+        );
+        assert!(ObservationLifecycle::restore(&profile(), lifecycle.checkpoint()).is_ok());
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 21).is_none());
     }
 
     #[test]
