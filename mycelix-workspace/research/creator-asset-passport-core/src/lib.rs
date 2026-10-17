@@ -652,6 +652,13 @@ pub enum PermissionDecision {
     Denied(PermissionDenial),
 }
 
+fn matches_requested_scope(grant: &UsageGrant, request: &UseRequest) -> bool {
+    grant.asset_id == request.asset_id
+        && grant.grantee_id == request.grantee_id
+        && grant.action == request.action
+        && grant.purpose == request.purpose
+}
+
 /// Evaluate a request against explicit, asset-bound grants. No permission is
 /// inherited from a related asset, credit, split claim, or external identifier.
 pub fn evaluate_usage(
@@ -665,24 +672,31 @@ pub fn evaluate_usage(
 
     // Resolve history by immutable grant ID before authorizing. An original
     // grant and its revocation may both be present in an append-only history;
-    // revocation must dominate regardless of input order. Reuse of an ID for
-    // different immutable terms or incompatible revocation timestamps blocks
-    // authorization instead of letting "first matching grant wins".
+    // revocation must dominate regardless of input order. Conflicts block only
+    // a request whose exact scope is implicated, preserving isolation between
+    // unrelated assets and parties rather than turning one bad record into a
+    // catalogue-wide denial of service.
     let mut effective: BTreeMap<GrantId, &UsageGrant> = BTreeMap::new();
+    let mut conflicting_exact_scope = false;
+
     for grant in grants {
         let should_replace = match effective.get(&grant.id) {
             None => true,
             Some(existing) => {
                 if !existing.same_terms_as(grant) {
-                    return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
-                }
-
-                match (existing.revoked_at, grant.revoked_at) {
-                    (Some(previous), Some(next)) if previous != next => {
-                        return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
+                    conflicting_exact_scope |=
+                        matches_requested_scope(existing, request)
+                            || matches_requested_scope(grant, request);
+                    false
+                } else {
+                    match (existing.revoked_at, grant.revoked_at) {
+                        (Some(previous), Some(next)) if previous != next => {
+                            conflicting_exact_scope |= matches_requested_scope(existing, request);
+                            false
+                        }
+                        (None, Some(_)) => true,
+                        _ => false,
                     }
-                    (None, Some(_)) => true,
-                    _ => false,
                 }
             }
         };
@@ -693,13 +707,13 @@ pub fn evaluate_usage(
         }
     }
 
+    if conflicting_exact_scope {
+        return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
+    }
+
     let mut has_exact_scope = false;
     for grant in effective.values() {
-        if grant.asset_id != request.asset_id
-            || grant.grantee_id != request.grantee_id
-            || grant.action != request.action
-            || grant.purpose != request.purpose
-        {
+        if !matches_requested_scope(grant, request) {
             continue;
         }
         has_exact_scope = true;
@@ -1048,6 +1062,38 @@ mod tests {
         assert_eq!(
             evaluate_usage(&registry, &[exact, conflicting], &request),
             PermissionDecision::Denied(PermissionDenial::ConflictingGrantId)
+        );
+    }
+
+    #[test]
+    fn unrelated_conflicting_grant_id_does_not_block_an_exact_valid_permission() {
+        let mut registry = AssetRegistry::new();
+        let requested_asset = id("recording-requested");
+        let unrelated_asset = id("recording-unrelated");
+        registry.register_asset(requested_asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry.register_asset(unrelated_asset.clone(), AssetKind::SoundRecording, None).unwrap();
+
+        let valid = UsageGrant::new(
+            GrantId::new("valid-grant").unwrap(), requested_asset.clone(), party("studio"),
+            UseAction::Publish, "campaign-a", party("creator"), "consent:valid", 0, None,
+        ).unwrap();
+
+        let reused_id = GrantId::new("conflicting-unrelated-id").unwrap();
+        let unrelated_a = UsageGrant::new(
+            reused_id.clone(), unrelated_asset.clone(), party("studio"),
+            UseAction::TrainModel, "model-a", party("creator"), "consent:a", 0, None,
+        ).unwrap();
+        let unrelated_b = UsageGrant::new(
+            reused_id, unrelated_asset, party("studio"),
+            UseAction::TrainModel, "model-b", party("creator"), "consent:b", 0, None,
+        ).unwrap();
+
+        let request = UseRequest::new(
+            requested_asset, party("studio"), UseAction::Publish, "campaign-a", 1,
+        ).unwrap();
+        assert_eq!(
+            evaluate_usage(&registry, &[unrelated_a, valid.clone(), unrelated_b], &request),
+            PermissionDecision::Allowed { grant_id: valid.id().clone() }
         );
     }
 
