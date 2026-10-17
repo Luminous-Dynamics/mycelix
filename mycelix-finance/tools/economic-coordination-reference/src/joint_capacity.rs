@@ -915,6 +915,88 @@ mod tests {
         );
     }
 
+    fn tiny_shared_pool_fixture(pool_quantity: u32) -> JointAllocationInput {
+        let mut input = fixture();
+        input.requests = vec![request("urgent", 1, 100), request("routine", 1, 100)];
+        input.offers = vec![offer("offer-a", "shared", 1, 10), offer("offer-b", "shared", 1, 20)];
+        input.capacity_pools = vec![pool("shared", pool_quantity)];
+        input.capability_mappings = vec![
+            mapping("urgent", "offer-a"),
+            mapping("urgent", "offer-b"),
+            mapping("routine", "offer-a"),
+            mapping("routine", "offer-b"),
+        ];
+        input.assignments.clear();
+        input
+    }
+
+    /// Independent tiny oracle for the 2-request x 2-offer binary allocation space.
+    /// It computes demand, offer and shared-pool usage directly from the bit mask;
+    /// it does not call the validator or reuse its reconciliation helpers.
+    fn tiny_allocation_feasible_oracle(mask: u8, pool_capacity: u32) -> bool {
+        let request_for_edge = [0usize, 0, 1, 1];
+        let offer_for_edge = [0usize, 1, 0, 1];
+        let unit_cost_for_edge = [10u64, 20, 10, 20];
+        let mut request_quantity = [0u32; 2];
+        let mut request_cost = [0u64; 2];
+        let mut offer_quantity = [0u32; 2];
+        let mut total_pool_quantity = 0u32;
+
+        for edge in 0..4 {
+            if mask & (1 << edge) == 0 {
+                continue;
+            }
+            let request_index = request_for_edge[edge];
+            let offer_index = offer_for_edge[edge];
+            request_quantity[request_index] += 1;
+            request_cost[request_index] += unit_cost_for_edge[edge];
+            offer_quantity[offer_index] += 1;
+            total_pool_quantity += 1;
+        }
+
+        request_quantity.iter().all(|quantity| *quantity <= 1)
+            && request_cost.iter().all(|cost| *cost <= 100)
+            && offer_quantity.iter().all(|quantity| *quantity <= 1)
+            && total_pool_quantity <= pool_capacity
+    }
+
+    #[test]
+    fn every_tiny_binary_assignment_matches_independent_feasibility_oracle() {
+        for pool_capacity in 0..=2 {
+            for mask in 0u8..16 {
+                let mut input = tiny_shared_pool_fixture(pool_capacity);
+                let edges = [
+                    ("urgent", "offer-a"),
+                    ("urgent", "offer-b"),
+                    ("routine", "offer-a"),
+                    ("routine", "offer-b"),
+                ];
+                input.assignments = edges
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(edge, (request_id, offer_id))| {
+                        if mask & (1 << edge) != 0 {
+                            Some(JointAssignment {
+                                request_id: (*request_id).to_owned(),
+                                offer_id: (*offer_id).to_owned(),
+                                quantity: 1,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                let expected = tiny_allocation_feasible_oracle(mask, pool_capacity);
+                let actual = validate_joint_allocation(&input).is_ok();
+                assert_eq!(
+                    actual, expected,
+                    "pool capacity {pool_capacity}, assignment mask {mask:04b}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn deadline_violation_is_rejected_even_with_spare_capacity() {
         let mut input = fixture();
