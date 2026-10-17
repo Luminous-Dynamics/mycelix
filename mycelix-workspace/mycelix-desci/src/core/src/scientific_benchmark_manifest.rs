@@ -368,6 +368,12 @@ impl ScientificBenchmarkManifest {
                         "verifier timestamp precedes benchmark completion".into(),
                     ));
                 }
+                if !self.metrics.iter().any(|metric| metric.reference_value.is_some()) {
+                    return Err(Error::Validation(
+                        "independent reproduction requires at least one metric compared with a declared reference value"
+                            .into(),
+                    ));
+                }
                 if reference_mismatch {
                     return Err(Error::Validation(
                         "independent reproduction exceeds a declared reference tolerance".into(),
@@ -457,6 +463,20 @@ fn validate_nonempty(value: &str, label: &str) -> Result<()> {
     Ok(())
 }
 
+/// Verify both declared byte length and canonical BLAKE3 digest for a local
+/// artifact. The caller chooses the local path; untrusted locators are never
+/// resolved implicitly.
+pub fn verify_local_artifact_binding(
+    path: impl AsRef<Path>,
+    binding: &BenchmarkArtifactBinding,
+) -> Result<bool> {
+    let metadata = std::fs::metadata(path.as_ref())?;
+    if metadata.len() != binding.size_bytes {
+        return Ok(false);
+    }
+    verify_local_artifact(path, binding.content_hash)
+}
+
 /// Hash a local artifact with the canonical BLAKE3 content digest and compare
 /// it to the manifest binding. The path is supplied by the caller; this method
 /// never resolves a locator from an untrusted manifest or follows a URL.
@@ -523,7 +543,7 @@ mod tests {
                 locator: "artifact://result/eds-z1".to_string(),
                 media_type: "application/json".to_string(),
                 content_hash: ContentHash::digest(b"{\"h_z\":198.0}"),
-                size_bytes: 14,
+                size_bytes: 13,
             }],
             reference: Some(BenchmarkReference {
                 name: "Einstein-de-Sitter analytic solution".to_string(),
@@ -606,9 +626,19 @@ mod tests {
         let artifact_path = directory.path().join("result.json");
         std::fs::write(&artifact_path, b"immutable scientific output").unwrap();
         let expected = ContentHash::digest(b"immutable scientific output");
+        let binding = BenchmarkArtifactBinding {
+            name: "result".to_string(),
+            role: BenchmarkArtifactRole::Result,
+            locator: "artifact://result".to_string(),
+            media_type: "application/octet-stream".to_string(),
+            content_hash: expected,
+            size_bytes: b"immutable scientific output".len() as u64,
+        };
         assert!(verify_local_artifact(&artifact_path, expected).unwrap());
+        assert!(verify_local_artifact_binding(&artifact_path, &binding).unwrap());
         std::fs::write(&artifact_path, b"mutated scientific output").unwrap();
         assert!(!verify_local_artifact(&artifact_path, expected).unwrap());
+        assert!(!verify_local_artifact_binding(&artifact_path, &binding).unwrap());
     }
 
     #[test]
