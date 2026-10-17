@@ -1024,10 +1024,24 @@ mod tests {
             Some(DurableLifecycleError::InvalidJournal)
         );
 
-        let mut invalid_transition = base_store;
+        let mut invalid_transition = base_store.clone();
         invalid_transition.records[1].phase_after = LifecyclePhase::Live;
         assert_eq!(
             DurableObservationLifecycle::recover(&profile(), invalid_transition, 50).err(),
+            Some(DurableLifecycleError::InvalidJournal)
+        );
+
+        let mut subscription_drift = base_store.clone();
+        subscription_drift.records[1].active_subscription_id_after = Some(99);
+        assert_eq!(
+            DurableObservationLifecycle::recover(&profile(), subscription_drift, 50).err(),
+            Some(DurableLifecycleError::InvalidJournal)
+        );
+
+        let mut wrong_session_binding = base_store;
+        wrong_session_binding.records[3].requested_session_epoch = Some(99);
+        assert_eq!(
+            DurableObservationLifecycle::recover(&profile(), wrong_session_binding, 50).err(),
             Some(DurableLifecycleError::InvalidJournal)
         );
     }
