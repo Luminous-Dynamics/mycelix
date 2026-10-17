@@ -163,6 +163,41 @@ Before any recommendation-capable release, test the following invariants:
 6. No single ranking combines money, audience, creative quality, personal health, and reputation into an opaque score.
 7. Recommendation acceptance rate, post frequency, screen time, and retention are not primary success metrics.
 
+## A domain-specific wedge: the release-to-tour loop
+
+A creator-facing product becomes more distinctive when it models a complete creative project, not an account or a post. For an independent musician, the project spine could run:
+
+1. **Create:** song or performance concept, session/work logs, source assets, contributor credits, explicit rights claims, and versioned approvals.
+2. **Prepare:** artist-selected goals, release costs, release window, approved campaign variants, and clear usage/license boundaries.
+3. **Publish and learn:** source-linked observations from creator-authorized exports; comparisons use declared windows, surface missingness, and avoid claiming one change caused a result when several things changed.
+4. **Convert voluntarily:** connect a release to creator-chosen fan memberships, direct opt-in mailing, pre-orders, tickets, or merchandise via existing tools. Do not assume that follows or platform DMs are exportable or that accounts across services identify the same person.
+5. **Reach the physical world:** only after opt-in or appropriately aggregated demand supports it, estimate venue/route alternatives, cost, expected break-even, and uncertainty. Do not expose individual fans' location or manufacture demand from noisy engagement signals.
+6. **Reconcile:** compare cash receipts, refunds, costs, work time, collaboration splits, event outcomes, and rights/disclosure completeness. Feed the evidence into the creator's next decision.
+7. **Preserve:** export the project record so the work, credits, financial evidence, and future license boundaries remain usable when one platform disappears or changes policy.
+
+This is a **project graph**, not an attempt to replace every tool in the chain. Each existing service remains replaceable; the control plane maintains the relationships among the work, authorized observations, decisions, receipts, approvals, and outcomes.
+
+### How the four projects can matter in this loop
+
+- **Symthaea:** summarize approved materials and source-linked results, propose bounded experiments, and disclose uncertainty; never decide whether art is universally good or publish without approval.
+- **Mycelix:** later support scoped permissions, collaborator claims, agreement versions, and portable evidence; avoid exposing fan-level data in public DHT storage.
+- **Symtropy:** later supply responsive stage/visual experiences or audience participation that a musician can reuse across performances.
+- **Sol-Atlas:** later compare venue, routing, travel cost, and aggregated geographic demand where the data and consent justify it.
+
+None of these integrations is a prerequisite for the first ledger. They earn their place only by improving a measurable creator workflow.
+
+### Release-loop metrics (kept separate, never collapsed to one score)
+
+- **Project accounting completeness:** percentage of declared supported receipts, refunds, fees, costs, and work-session records reconciled to source evidence. Release goal for supported records: 100%, with unknown/unsupported categories explicitly listed.
+- **Rights/credit completeness:** percentage of published project assets with creator-confirmed rights-holder/credit metadata and the required approved usage scope. Report not-applicable and unknown separately; do not infer ownership from file possession.
+- **Fan-consent integrity:** zero outbound fan contact or data reuse outside the purpose/permission recorded by the creator; export does not imply permission to contact.
+- **Release efficiency:** net contribution per recorded work-hour, by currency and declared accounting policy, with missing time treated as unknown.
+- **Voluntary conversion:** supporters, pre-orders, or ticket sales attributed only to a defined and defensible measurement method. Do not claim cross-platform attribution when the creator cannot establish it.
+- **Live-event planning quality:** compare pre-event cost/break-even forecasts with observed outcomes and report forecast error and uncertainty; do not turn estimated local interest into a guarantee of attendance.
+- **Next-decision usefulness:** blinded review of whether the post-release debrief identified evidence-supported options and trade-offs, not whether the creator obeyed the recommendation.
+
+A pilot should follow multiple releases or events over time where feasible. A single viral release is not evidence of a repeatable business model, and an event that makes money may still be a poor decision if it consumed excessive unrecorded labor or violated creator constraints.
+
 ## Evaluation workflow independent of hosted CI
 
 The synthetic corpus can be reviewed and exercised locally without platform tokens, external services, or GitHub runners:
