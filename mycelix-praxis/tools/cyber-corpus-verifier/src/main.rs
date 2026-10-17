@@ -1004,8 +1004,10 @@ mod tests {
         ] {
             schema["properties"]["external_probe"] = serde_json::json!({ "$ref": reference });
             let bytes = serde_json::to_vec(&schema).expect("schema should serialize");
-            let error = load_schema_validator(&bytes, "test schema", "cyber-challenge-v1")
-                .expect_err("external and relative schema references must be rejected");
+            let error = match load_schema_validator(&bytes, "test schema", "cyber-challenge-v1") {
+                Err(error) => error,
+                Ok(_) => panic!("external and relative schema references must be rejected"),
+            };
             assert!(
                 error.contains("external schema references are disabled"),
                 "unexpected error for {reference}: {error}"
