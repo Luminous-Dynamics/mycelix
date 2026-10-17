@@ -377,7 +377,7 @@ fn valid_case_id(value: &str) -> bool {
     let bytes = value.as_bytes();
     bytes.len() == 7
         && &bytes[0..4] == b"XSW-"
-        && bytes[4..].iter().all(u8::is_ascii_digit)
+        && bytes[4..].iter().all(|byte| byte.is_ascii_digit())
 }
 
 fn valid_evidence_id(value: &str) -> bool {
