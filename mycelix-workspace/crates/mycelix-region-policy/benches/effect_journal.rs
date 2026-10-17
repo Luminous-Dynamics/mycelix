@@ -38,7 +38,12 @@ fn main() {
         let start = Instant::now();
         for operation in 0..OPERATIONS_PER_BATCH {
             let key = format!("idem-{batch}-{operation}");
-            let identity = EffectIdentity::new("benchmark-community", &key, &target_digest, &policy_digest)
+            let identity = EffectIdentity::new(
+                "benchmark-community",
+                &key,
+                &target_digest,
+                &policy_digest,
+            )
                 .expect("benchmark identity");
             let mut attempt = EffectAttempt::prepare(identity.clone());
             let sink_operation_id = format!("sink-{batch}-{operation}");
@@ -73,5 +78,7 @@ fn main() {
         percentile(&micros_per_operation, 0.95),
         percentile(&micros_per_operation, 0.99),
     );
-    println!("notes=in-memory lifecycle transitions only; no database, network, cryptography, or durable CAS");
+    println!(
+        "notes=in-memory lifecycle transitions only; no database, network, cryptography, or durable CAS"
+    );
 }
