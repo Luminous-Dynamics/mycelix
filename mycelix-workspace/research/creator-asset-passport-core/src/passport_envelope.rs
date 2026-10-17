@@ -692,6 +692,52 @@ mod tests {
         CreativeAssetPassportEnvelope::from_parts(&registry, &claims, &GrantHistory::new()).unwrap()
     }
 
+    fn unicode_disputed_snapshot() -> CreativeAssetPassportEnvelope {
+        let mut registry = AssetRegistry::new();
+        let recording = AssetId::new("recording-δ").unwrap();
+        registry
+            .register_asset(recording.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
+        registry
+            .attach_identifier(
+                &recording,
+                ExternalIdentifier::Isrc("US-ABC-23-00001".into()),
+            )
+            .unwrap();
+        registry
+            .attach_identifier(
+                &recording,
+                ExternalIdentifier::Other {
+                    scheme: "a:".into(),
+                    value: "x".into(),
+                },
+            )
+            .unwrap();
+        registry
+            .attach_identifier(
+                &recording,
+                ExternalIdentifier::Other {
+                    scheme: "a".into(),
+                    value: "z".into(),
+                },
+            )
+            .unwrap();
+        let claims = vec![SplitClaim::new(
+            recording,
+            party("performer-Δ"),
+            RightsPool::MasterRecording,
+            None,
+            ClaimState::Disputed,
+            "evidence://争議",
+        ).unwrap()];
+        CreativeAssetPassportEnvelope::from_parts(
+            &registry,
+            &claims,
+            &GrantHistory::new(),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn canonical_bytes_match_frozen_full_snapshot_reference_vector() {
         let envelope = simple_reference_snapshot();
@@ -703,6 +749,22 @@ mod tests {
             .collect::<String>();
         let expected =
             include_str!("../tests/fixtures/creator-asset-passport-v1.hex").trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn unicode_disputed_snapshot_matches_frozen_reference_vector() {
+        let envelope = unicode_disputed_snapshot();
+        let actual = envelope
+            .canonical_bytes()
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let expected = include_str!(
+            "../tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex"
+        )
+        .trim();
         assert_eq!(actual, expected);
     }
 
