@@ -297,9 +297,12 @@ pub fn evaluate_strategy(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{evaluate_strategy, StrategyError};
     use crate::{EvidenceOrigin, EvidenceStatus};
-    use crate::recourse::{SupplyEvidence, SupplyMode};
+    use crate::recourse::{
+        BaseAllocation, ContingencyOption, RecourseRequest, RecourseScenario, SupplyEvidence,
+        SupplyMode,
+    };
 
     fn evidence(
         offer_id: &str,
