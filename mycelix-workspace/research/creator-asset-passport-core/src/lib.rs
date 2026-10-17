@@ -321,7 +321,13 @@ impl AssetRegistry {
     /// or change their recorded values.
     pub fn canonicalize_identifier_order(&mut self) {
         for asset in self.assets.values_mut() {
-            asset.identifiers.sort_by_key(ExternalIdentifier::canonical_key);
+            asset.identifiers.sort_by_key(|identifier| match identifier {
+                ExternalIdentifier::Iswc(value) => (1u8, value.clone(), String::new()),
+                ExternalIdentifier::Isrc(value) => (2u8, value.clone(), String::new()),
+                ExternalIdentifier::Other { scheme, value } => {
+                    (3u8, scheme.to_ascii_lowercase(), value.clone())
+                }
+            });
         }
     }
 
