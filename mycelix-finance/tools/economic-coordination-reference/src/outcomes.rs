@@ -762,6 +762,45 @@ mod tests {
     }
 
     #[test]
+    fn finalization_summary_supplies_quantities_when_detailed_acceptance_events_are_missing() {
+        let mut ledger = OutcomeLedger::new();
+        ledger.append(event(
+            "commit-summary",
+            "claim-commit-summary",
+            IssuerRole::Buyer,
+            20,
+            20,
+            OutcomeEventKind::CommitmentAuthorized {
+                quantity: 5,
+                due_at: 110,
+                authorized_landed_cost_minor: 500,
+                currency: "USD".to_owned(),
+                authorization_receipt_id: "auth-summary".to_owned(),
+            },
+        )).unwrap();
+        ledger.append(event(
+            "final-summary",
+            "claim-final-summary",
+            IssuerRole::IndependentVerifier,
+            120,
+            120,
+            OutcomeEventKind::OutcomeFinalized {
+                net_accepted_quantity: 2,
+                rejected_quantity: 3,
+                realized_landed_cost_minor: 525,
+                currency: "USD".to_owned(),
+                accepted_at: Some(115),
+                final_outcome_receipt_id: "summary-outcome".to_owned(),
+            },
+        )).unwrap();
+        let report = ledger.report_case("case-1", "commitment-1").unwrap();
+        assert_eq!(report.state, OutcomeState::Finalized);
+        assert_eq!(report.net_accepted_quantity, 2);
+        assert_eq!(report.rejected_quantity, 3);
+        assert_eq!(report.on_time_in_full, Some(false));
+    }
+
+    #[test]
     fn exact_retry_is_idempotent_and_claim_id_conflict_fails_closed() {
         let mut ledger = basic_finalized_ledger();
         let original = ledger.get_event("receipt-1").unwrap().clone();
