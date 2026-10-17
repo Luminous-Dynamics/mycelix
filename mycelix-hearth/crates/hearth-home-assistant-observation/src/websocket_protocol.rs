@@ -16,6 +16,7 @@
 //! It must apply the initial snapshot before processing later stream events.
 
 use super::HomeAssistantObservationProfile;
+use crate::strict_json::StrictJsonValue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionPhase {
@@ -72,6 +73,64 @@ impl CommandFailureCode {
             _ => Self::Other,
         }
     }
+}
+
+/// Redacted errors for decoding a strictly parsed HA command-result frame.
+/// No provider-controlled message or payload text is retained.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtocolDecodeError {
+    NotAResultFrame,
+    MissingOrInvalidCommandId,
+    MissingOrInvalidSuccessFlag,
+    MissingResultPayload,
+    MissingErrorCode,
+}
+
+/// Convert one strictly parsed Home Assistant `result` frame into a typed
+/// protocol fact. The source must be produced by `strict_json::parse_bounded_json`
+/// so duplicate keys have already been rejected before fields are interpreted.
+pub fn decode_command_result_frame(
+    frame: &StrictJsonValue,
+) -> Result<InboundMessage, ProtocolDecodeError> {
+    let value = frame.as_value();
+    if value.get("type").and_then(serde_json::Value::as_str) != Some("result") {
+        return Err(ProtocolDecodeError::NotAResultFrame);
+    }
+
+    let id = value
+        .get("id")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or(ProtocolDecodeError::MissingOrInvalidCommandId)?;
+    let success = value
+        .get("success")
+        .and_then(serde_json::Value::as_bool)
+        .ok_or(ProtocolDecodeError::MissingOrInvalidSuccessFlag)?;
+
+    if success {
+        let result = value
+            .get("result")
+            .ok_or(ProtocolDecodeError::MissingResultPayload)?;
+        let payload = if result.is_null() {
+            ResultPayloadKind::Null
+        } else {
+            ResultPayloadKind::Other
+        };
+        return Ok(InboundMessage::CommandResult {
+            id,
+            success: true,
+            payload,
+        });
+    }
+
+    let code = value
+        .get("error")
+        .and_then(|error| error.get("code"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or(ProtocolDecodeError::MissingErrorCode)?;
+    Ok(InboundMessage::CommandFailure {
+        id,
+        code: CommandFailureCode::from_home_assistant_error_code(code),
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -730,6 +789,55 @@ mod tests {
                 ..
             }]
         ));
+    }
+
+    #[test]
+    fn strict_result_frame_decoder_keeps_only_typed_error_codes() {
+        let parsed = crate::strict_json::parse_bounded_json(
+            br#"{"type":"result","id":1,"success":false,"error":{"code":"unknown_command","message":"private payload must not survive"}}"#,
+        ).unwrap();
+        let decoded = decode_command_result_frame(&parsed).unwrap();
+        assert_eq!(
+            decoded,
+            InboundMessage::CommandFailure {
+                id: 1,
+                code: CommandFailureCode::UnknownCommand,
+            }
+        );
+        assert!(!format!("{decoded:?}").contains("private payload"));
+    }
+
+    #[test]
+    fn strict_result_frame_decoder_classifies_unknown_errors_generically() {
+        let parsed = crate::strict_json::parse_bounded_json(
+            br#"{"type":"result","id":2,"success":false,"error":{"code":"new_provider_code","message":"do not echo"}}"#,
+        ).unwrap();
+        assert_eq!(
+            decode_command_result_frame(&parsed),
+            Ok(InboundMessage::CommandFailure {
+                id: 2,
+                code: CommandFailureCode::Other,
+            })
+        );
+    }
+
+    #[test]
+    fn strict_result_frame_decoder_rejects_missing_protocol_fields() {
+        let missing_error_code = crate::strict_json::parse_bounded_json(
+            br#"{"type":"result","id":3,"success":false,"error":{"message":"private"}}"#,
+        ).unwrap();
+        assert_eq!(
+            decode_command_result_frame(&missing_error_code),
+            Err(ProtocolDecodeError::MissingErrorCode)
+        );
+
+        let missing_payload = crate::strict_json::parse_bounded_json(
+            br#"{"type":"result","id":4,"success":true}"#,
+        ).unwrap();
+        assert_eq!(
+            decode_command_result_frame(&missing_payload),
+            Err(ProtocolDecodeError::MissingResultPayload)
+        );
     }
 
     #[test]
