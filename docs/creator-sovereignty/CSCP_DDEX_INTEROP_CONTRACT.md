@@ -1,7 +1,7 @@
 # CSCP DDEX Interoperability Contract (research draft)
 
 **Status:** conceptual field-boundary contract; not a DDEX conformance claim and not an implementation guide for a production exchange.
-**Related work:** Creator Sovereignty Control Plane RFC / draft PR #5166; asset passport core / draft PR #5182; tracker CSCP-INTEROP-001 (issue to be created).
+**Related work:** Creator Sovereignty Control Plane RFC / draft PR #5166; asset passport core / draft PR #5182; [CSCP-INTEROP-001](https://github.com/Luminous-Dynamics/mycelix/issues/5186).
 **Research checked:** 2026-10-17.
 
 ## Executive decision
