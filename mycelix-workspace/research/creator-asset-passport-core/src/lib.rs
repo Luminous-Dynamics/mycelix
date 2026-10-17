@@ -4,6 +4,7 @@
 //! identity provider, signature verifier, legal opinion, or proof of ownership.
 
 pub mod history;
+pub mod portable;
 
 use std::collections::BTreeMap;
 use std::error::Error;
