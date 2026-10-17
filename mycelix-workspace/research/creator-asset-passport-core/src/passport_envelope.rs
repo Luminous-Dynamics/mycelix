@@ -44,6 +44,7 @@ pub enum PassportEnvelopeError {
     InvalidOptionTag,
     InvalidAssetTitle,
     InvalidClaimAsset,
+    InvalidGrantAsset,
     InvalidDigestFormat,
     DigestMismatch,
     InvalidPassportField(PassportError),
@@ -89,9 +90,11 @@ impl CreativeAssetPassportEnvelope {
         let grant_history = GrantHistoryEnvelope::from_history(grant_history)?;
         let mut claims = claims.to_vec();
         sort_claims(&mut claims);
+        let mut assets = assets.clone();
+        assets.canonicalize_identifier_order();
         let envelope = Self {
             version: FORMAT_VERSION,
-            assets: assets.clone(),
+            assets,
             claims,
             grant_history,
         };
@@ -153,8 +156,14 @@ impl CreativeAssetPassportEnvelope {
         }
 
         // The embedded history envelope validates both its append-derived
-        // state and the separate event-stream reconstruction path.
+        // state and the separate event-stream reconstruction path. Every grant
+        // must resolve to a registered asset even if the grant is revoked.
         self.grant_history.canonical_bytes()?;
+        for grant in self.grant_history.replay()?.effective_grants() {
+            if self.assets.get(grant.asset_id()).is_none() {
+                return Err(PassportEnvelopeError::InvalidGrantAsset);
+            }
+        }
         Ok(())
     }
 
@@ -241,7 +250,9 @@ impl CreativeAssetPassportEnvelope {
         if history_len > MAX_ENVELOPE_BYTES as u64 {
             return Err(PassportEnvelopeError::EnvelopeTooLarge);
         }
-        let history_bytes = reader.take(history_len as usize)?;
+        let history_len = usize::try_from(history_len)
+            .map_err(|_| PassportEnvelopeError::EnvelopeTooLarge)?;
+        let history_bytes = reader.take(history_len)?;
         let grant_history = GrantHistoryEnvelope::from_bytes(history_bytes)?;
 
         if !reader.is_empty() {
