@@ -165,7 +165,7 @@ pub struct OutcomeCaseReport {
     pub rejected_quantity: u64,
     pub returned_quantity: u64,
     pub net_accepted_quantity: u64,
-    pub finalized: bool,
+    pub finalization_eligible_for_metrics: bool,
     /// None while there is no trusted, undisputed finalization.
     pub on_time_in_full: Option<bool>,
     /// actual acceptance time minus forecast point in seconds; positive is late.
@@ -630,8 +630,8 @@ impl OutcomeLedger {
         let mut landed_cost_variance_minor = None;
         let mut realized_landed_cost_minor = None;
         let mut final_accepted_at = None;
-        let finalized = finalization.is_some() && !disputed;
-        if finalized {
+        let finalization_eligible_for_metrics = finalization.is_some() && !disputed;
+        if finalization_eligible_for_metrics {
             if let Some(event) = finalization {
                 if let OutcomeEventKind::OutcomeFinalized {
                     net_accepted_quantity,
@@ -685,7 +685,7 @@ impl OutcomeLedger {
             rejected_quantity,
             returned_quantity,
             net_accepted_quantity,
-            finalized,
+            finalization_eligible_for_metrics,
             on_time_in_full,
             forecast_delivery_error_secs,
             forecast_interval_covered,
