@@ -38,7 +38,7 @@ pub fn verify_bytes(
     let expected_digest = required_string(&manifest, "corpus_sha256", "manifest")?;
     if expected_digest.len() != 64
         || !expected_digest.bytes().all(|byte| byte.is_ascii_hexdigit())
-        || expected_digest != actual_digest
+        || expected_digest != actual_digest.as_str()
     {
         return Err(format!(
             "corpus SHA-256 mismatch: manifest={expected_digest}, actual={actual_digest}"
@@ -390,7 +390,7 @@ fn valid_evidence_id(value: &str) -> bool {
 
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    digest.iter().map(|byte| format!("{byte:02x}")).collect::<Vec<_>>().join("")
 }
 
 #[cfg(test)]
