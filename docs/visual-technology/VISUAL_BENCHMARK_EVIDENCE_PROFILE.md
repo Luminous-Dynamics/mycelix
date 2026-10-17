@@ -52,6 +52,10 @@ The first implementation should map fields to existing canonical types, not crea
 - Repetition number, sample denominator, uncertainty/confidence interval and known exclusions.
 - Missing context must remain missing; do not infer device properties from file names or prose.
 
+### HDR transfer semantics
+
+An ST 2084 / PQ-decoded luminance value is a value computed from an encoded signal under a declared transfer function, not a physical measurement of a display. Store the signal input, PQ standard/edition, transfer implementation/version and computed cd/m² output as derived-analysis context. A physical display EOTF test must separately reference calibrated photometer/colorimeter readings, device mode, pattern/window size, sustained/peak duration, ambient conditions and instrument uncertainty. Do not let a correct PQ equation promote a hardware claim to measured or independently reproduced status.
+
 ### Scope and interpretation
 
 - Exact claim text or stable claim ID, metric definition, applicable device/model/conditions and intended generalization range.
