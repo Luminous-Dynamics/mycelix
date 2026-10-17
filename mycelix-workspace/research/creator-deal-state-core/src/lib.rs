@@ -668,7 +668,9 @@ mod tests {
             Err(DealError::WrongDeliverable { pending: "d1".into(), supplied: "other".into() })
         );
         assert_eq!(workflow.state(), DealState::AwaitingAcceptance);
-        assert_eq!(workflow.history().len(), 3);
+        // Three proposal/approval events plus work-start and delivery; the
+        // rejected acceptance attempt must not append a sixth event.
+        assert_eq!(workflow.history().len(), 5);
     }
 
     #[test]
