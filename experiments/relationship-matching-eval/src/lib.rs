@@ -872,6 +872,28 @@ mod tests {
     }
 
     #[test]
+    fn dense_market_has_more_feasible_pairs_than_sparse_market_on_fixed_fixture() {
+        let sparse = synthetic_market_for_scenario(20261017, 80, MarketScenario::SparseMarket)
+            .expect("valid sparse fixture");
+        let dense = synthetic_market_for_scenario(20261017, 80, MarketScenario::DenseMarket)
+            .expect("valid dense fixture");
+
+        let feasible_pair_count = |people: &[Participant]| {
+            let mut count = 0usize;
+            for left in 0..people.len() {
+                for right in (left + 1)..people.len() {
+                    if eligible_pair(&people[left], &people[right]) {
+                        count += 1;
+                    }
+                }
+            }
+            count
+        };
+
+        assert!(feasible_pair_count(&dense) > feasible_pair_count(&sparse));
+    }
+
+    #[test]
     fn concentration_stress_fixture_exposes_deterministic_popularity_bias() {
         let people = synthetic_market_for_scenario(
             20261017,
