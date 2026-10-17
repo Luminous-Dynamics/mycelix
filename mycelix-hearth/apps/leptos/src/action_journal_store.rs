@@ -26,6 +26,8 @@ const DATABASE_NAME: &str = "mycelix-hearth-action-journal";
 const DATABASE_VERSION: u32 = 1;
 const STORE_NAME: &str = "attempts";
 const SCHEMA_VERSION: u16 = 1;
+// ECMAScript Date supports epoch milliseconds only within ±8.64e15.
+const MAX_DATE_UNIX_MS: u64 = 8_640_000_000_000_000;
 
 /// Safe, explicit failures. Raw browser/record content is never included.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +135,8 @@ impl JournalEntryV1 {
         if !valid_operation_id(&self.operation_id)
             || !valid_sha256_fingerprint(&self.hearth_scope_fingerprint)
             || !valid_sha256_fingerprint(&self.target_fingerprint)
+            || self.created_at_unix_ms > MAX_DATE_UNIX_MS
+            || self.updated_at_unix_ms > MAX_DATE_UNIX_MS
             || self.updated_at_unix_ms < self.created_at_unix_ms
         {
             return Err(JournalError::InvalidRecord);
@@ -702,11 +706,33 @@ fn current_unix_ms() -> Result<u64, JournalError> {
     Ok(now.floor() as u64)
 }
 
+fn upsert_entry_snapshot(
+    entries_signal: RwSignal<Vec<JournalEntryV1>>,
+    entry: JournalEntryV1,
+) {
+    entries_signal.update(|entries| {
+        if let Some(existing) = entries
+            .iter_mut()
+            .find(|existing| existing.operation_id() == entry.operation_id())
+        {
+            *existing = entry;
+        } else {
+            entries.push(entry);
+        }
+        entries.sort_by(|a, b| {
+            a.created_at_unix_ms()
+                .cmp(&b.created_at_unix_ms())
+                .then_with(|| a.operation_id().cmp(b.operation_id()))
+        });
+    });
+}
+
 /// One locally prepared attempt. It is not an idempotency key recognized by a
 /// zome; it represents local dispatch/recovery evidence only.
 #[derive(Clone)]
 pub struct PreparedJournalAttempt {
     journal: IndexedDbJournal,
+    entries_signal: RwSignal<Vec<JournalEntryV1>>,
     operation_id: String,
     submitted_at_unix_ms: u64,
 }
@@ -722,14 +748,19 @@ impl PreparedJournalAttempt {
         let Ok(now) = current_unix_ms() else {
             return false;
         };
-        self.journal
+        let Ok(updated) = self
+            .journal
             .transition(
                 &self.operation_id,
                 AttemptStatus::SourceChainCommitted,
                 now.max(self.submitted_at_unix_ms),
             )
             .await
-            .is_ok()
+        else {
+            return false;
+        };
+        upsert_entry_snapshot(self.entries_signal, updated);
+        true
     }
 
     /// Persist ambiguity from timeout/transport/decode/restart-related errors.
@@ -738,14 +769,19 @@ impl PreparedJournalAttempt {
         let Ok(now) = current_unix_ms() else {
             return false;
         };
-        self.journal
+        let Ok(updated) = self
+            .journal
             .transition(
                 &self.operation_id,
                 AttemptStatus::OutcomeUnknown,
                 now.max(self.submitted_at_unix_ms),
             )
             .await
-            .is_ok()
+        else {
+            return false;
+        };
+        upsert_entry_snapshot(self.entries_signal, updated);
+        true
     }
 }
 
@@ -754,6 +790,7 @@ impl PreparedJournalAttempt {
 /// conductor before this function succeeds. Operation IDs remain local.
 pub async fn prepare_live_attempt(
     journal_signal: RwSignal<Option<IndexedDbJournal>, LocalStorage>,
+    entries_signal: RwSignal<Vec<JournalEntryV1>>,
     action: ActionKind,
     hearth_scope_bytes: &[u8],
     target_identity_bytes: &[u8],
@@ -778,15 +815,20 @@ pub async fn prepare_live_attempt(
         created_at,
     )?;
 
-    // Any error here returns before the caller is permitted to send.
-    journal.insert_prepared(entry).await?;
+    // Any error here returns before the caller is permitted to send. The
+    // read-only UI snapshot is updated only after the write transaction commits.
+    journal.insert_prepared(entry.clone()).await?;
+    upsert_entry_snapshot(entries_signal, entry);
+
     let submitted_at = current_unix_ms()?.max(created_at);
-    journal
+    let submitted = journal
         .transition(&operation_id, AttemptStatus::Submitted, submitted_at)
         .await?;
+    upsert_entry_snapshot(entries_signal, submitted);
 
     Ok(PreparedJournalAttempt {
         journal,
+        entries_signal,
         operation_id,
         submitted_at_unix_ms: submitted_at,
     })
@@ -1049,6 +1091,20 @@ mod tests {
                 from: AttemptStatus::OutcomeUnknown,
                 to: AttemptStatus::Submitted,
             })
+        );
+    }
+
+    #[test]
+    fn timestamps_outside_ecmascript_date_range_fail_closed() {
+        assert_eq!(
+            JournalEntryV1::new(
+                "c0ffee00-0000-4000-8000-000000000001",
+                ActionKind::CareCompletion,
+                FINGERPRINT,
+                FINGERPRINT,
+                super::MAX_DATE_UNIX_MS + 1,
+            ),
+            Err(JournalError::InvalidRecord)
         );
     }
 
