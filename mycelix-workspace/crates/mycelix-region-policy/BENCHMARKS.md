@@ -32,3 +32,7 @@ Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power
 4. Add a deterministic public fixture corpus with the profile digests, source/destination scopes, requested action, valid-time window, consent evidence state, expected decision, and expected reason codes.
 5. Measure end-to-end latency and reliability by data class, destination region, network quality, hardware tier, and payload size. Report p50/p95/p99 plus failure and denial rates.
 6. Add effect-lease issue/consume microbenchmarks including fresh reevaluation, TTL rejection, target mismatch, and replay rejection; report the reference ledger separately from any durable/distributed adapter.
+
+## Effect-journal benchmark
+
+Run `cargo bench --bench effect_journal --locked` to measure the reference state machine's prepare/submit/verify-fixture/resolve path. The harness reports p50/p95/p99 across 1,000 batches of 100 operations. Its verifier is deliberately a local fixture, and the benchmark excludes signature verification, durable storage, compare-and-swap, network transport, and process restarts. These numbers are not a production throughput claim. Record exact commit and hardware/toolchain metadata with every run.
