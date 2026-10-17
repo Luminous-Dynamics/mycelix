@@ -261,7 +261,7 @@ For each product, pick at least three real core tasks plus the shared synthetic 
 
 ### Structural qualifier (first executable seam)
 
-A standalone Rust qualifier has been added at `tools/intent-exploration-qualifier/`.
+A standalone Rust qualifier has been added at `tools/intent-exploration-qualifier/`, with a path-filtered workflow at `.github/workflows/intent-exploration-qualifier.yml` to run formatting, unit tests, and manifest validation on relevant pushes and pull requests after the workflow is available from the repository base branch.
 
 From the Mycelix repository root:
 
