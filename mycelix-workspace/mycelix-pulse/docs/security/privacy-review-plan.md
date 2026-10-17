@@ -8,6 +8,7 @@
 **Negative-control schema:** [privacy-negative-controls.schema.json](privacy-negative-controls.schema.json)  
 **Opaque mailbox architecture study:** [opaque-mailbox-architecture-study.md](opaque-mailbox-architecture-study.md)  
 **Metadata-privacy architecture tracker:** [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121)  
+**Ratchet/forward-secrecy research:** [#5122](https://github.com/Luminous-Dynamics/mycelix/issues/5122)  
 **Tracker:** [#5112](https://github.com/Luminous-Dynamics/mycelix/issues/5112)
 
 ## Why this is a paradigm shift
@@ -60,7 +61,7 @@ Two related source-reviewed surfaces also matter:
 
 Private visibility for an entry would keep its entry content on the author's source chain, but Holochain documents that the action portion remains public. That still exposes action authorship and some timing/entry-hash metadata, so it is not sufficient to hide the sender under the current action-author invariant. The recipient link/discovery contract would also need a new design.
 
-This finding is tracked in [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121). The inventory's source_observations identify exact commit, file blob, lines, symbol and fact; runtime_presence = not_audited is intentionally unchanged until runtime evidence exists.
+This finding is tracked in [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121). The source review also found an explicit current-profile limitation: V2 does not claim a PQ ratchet, forward secrecy against later static endpoint compromise, post-compromise recovery, or portable key recovery. Those questions have a separate research gate in [#5122](https://github.com/Luminous-Dynamics/mycelix/issues/5122). The inventory's source_observations identify exact commit, file blob, lines, symbol and fact; runtime_presence = not_audited is intentionally unchanged until runtime evidence exists.
 
 ## Candidate trust-boundary map
 
