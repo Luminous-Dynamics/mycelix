@@ -265,15 +265,35 @@ impl ObservationLifecycle {
         let Some(projector) = EntityStreamProjector::new(&self.profile).ok() else {
             return self.fail_session(LifecycleFailure::InvalidProfile, InvalidationReason::ProjectionRejected);
         };
+        // Revoke old positive evidence at the moment the old session stops
+        // being authoritative, not after authentication or the next snapshot.
+        // Preflight all tombstone increments so exhaustion cannot partially
+        // invalidate a multi-entity old session.
+        let previous_ids = self.active.keys().cloned().collect::<Vec<_>>();
+        if previous_ids.iter().any(|entity_id| self.revision_would_overflow(entity_id, 1)) {
+            self.last_at_micros = Some(now_micros);
+            return self.fail_session(LifecycleFailure::RevisionExhausted, InvalidationReason::ProjectionRejected);
+        }
         self.last_at_micros = Some(now_micros);
+        let mut records = Vec::new();
+        for entity_id in previous_ids {
+            if let Some(record) = self.invalidate(
+                &entity_id,
+                InvalidationReason::SessionReplaced,
+                session_epoch,
+                now_micros,
+            ) {
+                records.push(record);
+            }
+        }
+        records.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
         self.current_epoch = Some(session_epoch);
         self.highest_session_epoch = Some(session_epoch);
         self.subscription_id = None;
         self.pending_snapshot = None;
         self.projector = Some(projector);
         self.phase = LifecyclePhase::AwaitingSubscription;
-        self.last_at_micros = Some(now_micros);
-        self.update(Vec::new(), Vec::new(), None)
+        self.update(records, Vec::new(), None)
     }
 
     /// Bind the exact subscription command ID emitted by the protocol gate.
@@ -913,10 +933,16 @@ mod tests {
     }
 
     #[test]
-    fn reconnect_snapshot_omission_invalidates_old_positive() {
+    fn reconnect_omission_cannot_keep_old_positive_current() {
         let mut lifecycle = start_live();
-        assert!(lifecycle.current_revision("sensor.living_room_temperature", 22).is_some());
-        assert_eq!(lifecycle.start_session(2, 23).phase, LifecyclePhase::AwaitingSubscription);
+        let old = lifecycle.current_revision("sensor.living_room_temperature", 22).unwrap();
+        let replaced = lifecycle.start_session(2, 23);
+        assert_eq!(replaced.phase, LifecyclePhase::AwaitingSubscription);
+        assert_eq!(replaced.records.len(), 1);
+        assert!(matches!(replaced.records[0].kind, LifecycleRecordKind::Invalidated {
+            reason: InvalidationReason::SessionReplaced,
+            previous_positive: PositiveRevisionRef { session_epoch: 1, revision },
+        } if revision == old.revision));
         assert!(lifecycle.current_revision("sensor.living_room_temperature", 23).is_none());
         lifecycle.bind_subscription(2, 9, 24);
         lifecycle.subscription_acknowledged(2, 9, 25);
@@ -924,28 +950,30 @@ mod tests {
         assert_eq!(pending.phase, LifecyclePhase::SnapshotPendingApply);
         assert!(pending.observations.is_empty());
         let applied = lifecycle.snapshot_applied(2, 9, 27);
-        assert_eq!(applied.records.len(), 1);
-        assert!(matches!(applied.records[0].kind, LifecycleRecordKind::Invalidated {
-            reason: InvalidationReason::SnapshotOmitted, ..
-        }));
+        assert!(applied.records.is_empty(), "already-invalidated old state must not emit another tombstone");
         assert!(applied.observations.is_empty());
         assert!(lifecycle.current_revision("sensor.living_room_temperature", 28).is_none());
     }
 
     #[test]
-    fn reconnect_snapshot_refreshes_only_after_old_positive_is_invalidated() {
+    fn reconnect_snapshot_refreshes_only_after_early_invalidation() {
         let mut lifecycle = start_live();
         let old = lifecycle.current_revision("sensor.living_room_temperature", 22).unwrap();
-        lifecycle.start_session(2, 23);
+        let replaced = lifecycle.start_session(2, 23);
+        assert_eq!(replaced.records.len(), 1);
+        assert!(matches!(replaced.records[0].kind, LifecycleRecordKind::Invalidated {
+            reason: InvalidationReason::SessionReplaced,
+            previous_positive: PositiveRevisionRef { session_epoch: 1, revision },
+        } if revision == old.revision));
         lifecycle.bind_subscription(2, 9, 24);
         lifecycle.subscription_acknowledged(2, 9, 25);
         lifecycle.apply_json(2, 9, EntityStreamKind::InitialSnapshot, &bytes(snapshot("21.50")), 26);
         let out = lifecycle.snapshot_applied(2, 9, 27);
-        assert_eq!(out.records.len(), 2);
-        assert!(matches!(out.records[0].kind, LifecycleRecordKind::Invalidated {
-            reason: InvalidationReason::SessionReplaced,
-            previous_positive: PositiveRevisionRef { session_epoch: 1, revision } 
-        } if revision == old.revision));
+        assert_eq!(out.records.len(), 1);
+        assert!(matches!(out.records[0].kind, LifecycleRecordKind::PositiveCurrent {
+            supersedes: None,
+            ..
+        }));
         assert_eq!(out.observations.len(), 1);
         let fresh = lifecycle.current_revision("sensor.living_room_temperature", 27).unwrap();
         assert_eq!(fresh.session_epoch, 2);
