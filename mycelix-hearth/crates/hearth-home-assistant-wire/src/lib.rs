@@ -57,7 +57,10 @@ impl fmt::Display for WireError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Oversized { limit, actual } => {
-                write!(f, "Home Assistant wire message is {actual} bytes; limit is {limit}")
+                write!(
+                    f,
+                    "Home Assistant wire message is {actual} bytes; limit is {limit}"
+                )
             }
             Self::Json {
                 category,
@@ -70,7 +73,9 @@ impl fmt::Display for WireError {
             Self::Serialize => write!(f, "failed to serialize Home Assistant read-only command"),
             Self::UnexpectedMessageType => write!(f, "unexpected Home Assistant message type"),
             Self::InvalidField(field) => write!(f, "invalid Home Assistant field: {field}"),
-            Self::InvalidText(field) => write!(f, "unsafe or oversized Home Assistant text field: {field}"),
+            Self::InvalidText(field) => {
+                write!(f, "unsafe or oversized Home Assistant text field: {field}")
+            }
             Self::BootstrapTooLarge { limit, actual } => write!(
                 f,
                 "Home Assistant bootstrap contains {actual} states; limit is {limit}"
@@ -192,9 +197,7 @@ pub fn parse_states_result(
         if raw.error.is_some() {
             return Err(WireError::InvalidField("result.error"));
         }
-        let raw_states = raw
-            .result
-            .ok_or(WireError::InvalidField("result.result"))?;
+        let raw_states = raw.result.ok_or(WireError::InvalidField("result.result"))?;
         if raw_states.len() > MAX_BOOTSTRAP_STATES {
             return Err(WireError::BootstrapTooLarge {
                 limit: MAX_BOOTSTRAP_STATES,
@@ -215,9 +218,7 @@ pub fn parse_states_result(
         if raw.result.is_some() {
             return Err(WireError::InvalidField("result.result"));
         }
-        let error = raw
-            .error
-            .ok_or(WireError::InvalidField("result.error"))?;
+        let error = raw.error.ok_or(WireError::InvalidField("result.error"))?;
         Ok(StatesResult {
             id: CommandId(raw.id),
             success: false,
@@ -290,12 +291,7 @@ fn minimize_state(
 }
 
 fn validate_failure(raw: RawFailure) -> Result<WireFailure, WireError> {
-    validate_clean_text(
-        "error.code",
-        &raw.code,
-        MAX_SERVER_ERROR_CODE_BYTES,
-        false,
-    )?;
+    validate_clean_text("error.code", &raw.code, MAX_SERVER_ERROR_CODE_BYTES, false)?;
     validate_clean_text(
         "error.message",
         &raw.message,
@@ -530,12 +526,12 @@ struct RawAttributes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hearth_home_assistant_protocol::{SessionEpoch, STATE_CHANGED_EVENT_TYPE};
+    use hearth_home_assistant_protocol::{STATE_CHANGED_EVENT_TYPE, SessionEpoch};
 
     #[test]
     fn parses_auth_required() {
-        let parsed = parse_auth_required(br#"{"type":"auth_required","ha_version":"2026.9.0"}"#)
-            .unwrap();
+        let parsed =
+            parse_auth_required(br#"{"type":"auth_required","ha_version":"2026.9.0"}"#).unwrap();
         assert_eq!(parsed.ha_version, "2026.9.0");
     }
 
