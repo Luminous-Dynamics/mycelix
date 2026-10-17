@@ -178,6 +178,8 @@ These are pilot targets, not claims about existing Mycelix code.
 - [x] Proposed benchmark and privacy gates documented.
 - [x] Add the concept route to the existing public Commons Leptos app at /farm.
 - [ ] Verify route rendering in a built/browser deployment.
+- [x] Add a path-scoped standalone Leptos formatting/WASM-check workflow for draft PRs; its first exact-head run is not yet verified.
+- [ ] Check in the app workspace's resolved Cargo.lock so builds use a committed dependency graph instead of a run-generated lock.
 - [ ] Verify dependencies/permissions against the exact Holochain client.
 - [ ] Add fixture-backed component tests for offline/conflict and unit invariants.
 - [ ] Run accessibility and low-end/mobile review.
