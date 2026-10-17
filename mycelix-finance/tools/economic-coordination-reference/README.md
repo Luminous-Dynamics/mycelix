@@ -173,3 +173,12 @@ The additive `strategy` module exhaustively evaluates subsets of up to eight alr
 The first slice treats reservations as all-or-nothing at each option's maximum activation quantity. It does not size partial reservations, model mutually exclusive options, allocate across multiple simultaneous requests, establish supplier truth, execute contracts or choose an authorized award. It fails closed on exhausted search bounds. The full acceptance contract and baselines are documented in [STRATEGY_BENCHMARKS_V1.md](STRATEGY_BENCHMARKS_V1.md).
 
 The subset enumerator currently uses the same recourse reference module to score candidate sets. The test suite contains one test-local tiny two-option subset/activation-quantity oracle, but it is not yet a generalized independent recourse oracle or broad qualification corpus. Exact-head CI is also required before correctness claims. No compile/test pass or runtime measurement is claimed yet.
+
+
+## Procurement outcome evidence ledger (experimental)
+
+The additive `outcomes` module is an append-only in-memory reference for linking forecasts, authorized commitments, shipment claims, receipts, acceptance/rejection, returns, disputes and finalized outcomes. Exact retries with a stable upstream claim ID are idempotent; conflicting claim/event identity reuse fails closed. Corrections append a replacement and supersede the prior event in the derived view without deleting the original. Active events replay in deterministic occurrence-time order, independently of ingestion order.
+
+Only caller-labelled `Verified` + `LiveDomain` events contribute to trusted quantities. Untrusted, stale, contested and synthetic events remain visible as excluded counts. An open dispute suppresses OTIF and forecast-error outputs, and final quantities reconcile against detailed acceptance/return evidence when present. The module does not authenticate status, issuer role, signatures, digests or physical truth; source claim IDs cannot stop duplicate real-world facts submitted under unrelated IDs.
+
+Benchmark and claim contract: [OUTCOME_LEDGER_BENCHMARKS_V1.md](OUTCOME_LEDGER_BENCHMARKS_V1.md). It specifies identity/deduplication, append-only correction, replay, quantity, dispute and calibration targets, plus a 40-case authored corpus and 10,000 generated streams as future qualification goals. Tests are authored only; no Rust test or performance pass is claimed before exact-head CI. This is not a durable ledger, distributed protocol, buyer-authority service, payment adapter or supplier ranking engine.
