@@ -12,6 +12,7 @@ Use a Rust 2021 toolchain. From this directory:
 - **Baseline report across a 30-seed suite:** cargo run -- 20261017 200 5 30
 - **Eight-scenario robustness report:** cargo run --bin robustness_sweep -- 20261017 200 5 30
 - **Eight-scenario temporal exposure report (10 rounds by default):** cargo run --bin temporal_sweep -- 20261017 200 5 30 10
+- **Quality/fairness frontier (70%, 80%, 90% mutual-utility floor):** cargo run --bin quality_frontier -- 20261017 200 5 30 10
 
 Arguments are seed-start, even participant count (4..=2000), top-k recommendations per participant, and seed count (1..=1000; default 30). The harness evaluates consecutive seeds, emits per-seed corpus fingerprints and policy metrics, then reports means, sample standard deviations, ranges, normal-approximation 95% intervals where at least two seeds are present, and per-seed relative exposure-Gini reduction. Defaults are seed-start 20261017, 200 participants, top-k 5, and 30 seeds. A one-seed run is possible with a seed count of 1 but emits no confidence interval.
 
@@ -57,6 +58,25 @@ cargo run --bin temporal_sweep -- 20261017 200 5 30 10
 Arguments are seed-start, even participant count, top-k, seed count, and round count. It reports cumulative coverage, raw and opportunity-normalized exposure Gini, paired raw-Gini reductions, per-seed fingerprints, and optional source/toolchain metadata. The history API rejects unknown participant IDs and counter overflow. The accumulator updates atomically on overflow failure.
 
 **Interpretation limit:** participants and preferences remain static across rounds in this first temporal experiment. It demonstrates the difference between per-batch and cumulative allocation on a fixed market; it does not model join/leave events, preference drift, profile edits, changing opt-in, or a distributed durable ledger. Long-horizon production qualification must add those events and test history expiry, purpose limitation, deletion, and recovery.
+
+## Quality–fairness Pareto frontier
+
+The `quality_frontier` binary compares a small, explicit quality constraint with exposure allocation across the same eight market families and multiple repeated rounds:
+
+- One-sided declared-utility ranking.
+- Pairwise mutual-utility ranking.
+- Batch-reset exposure balancing.
+- Historical exposure balancing normalized by current feasible-counterpart count.
+- Historical exposure balancing restricted to candidates whose mutual-utility floor is at least 70%, 80%, or 90% of the viewer's best feasible mutual-utility floor.
+
+Command:
+```sh
+cargo run --bin quality_frontier -- 20261017 200 5 30 10
+```
+
+The report pairs cumulative raw and opportunity-normalized exposure Gini with a `relative_mutual_floor_retention` proxy: the selected pair's minimum directed synthetic utility divided by the viewer's best feasible pair's minimum directed utility. It is a synthetic ranking proxy, **not** a human acceptance rate, compatibility diagnosis, or relationship-quality measure. The quality thresholds are research controls, not recommended product settings. Review the scenario-level Pareto frontier: lower exposure inequality is only useful if the resulting trade-off in mutual utility is acceptable.
+
+The exposure-balancing allocator now compares cumulative exposure per currently feasible counterpart using exact rational comparison rather than raw exposure counts alone. This reduces a specific distortion when two candidates have materially different opportunity degrees. It is still a greedy allocator, not a globally optimal matching algorithm, and the current-history normalization assumes a static feasible graph within a run. A changing population requires carefully defined historical opportunity accounting, privacy scope and retention rules.
 
 ## What the harness is designed to test
 
