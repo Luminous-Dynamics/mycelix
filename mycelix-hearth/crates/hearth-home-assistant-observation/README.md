@@ -28,8 +28,16 @@ Supported V1 state codecs are:
 
 Unknown entity IDs are ignored as `NotAllowlisted`; malformed allowlisted data fails closed.
 
-## Future HA-0.2 boundary
+## HA-0.2A pure protocol contract
 
-A future read-only local WebSocket client may authenticate to Home Assistant, fetch the initial state set, and subscribe to `state_changed`. It must keep credentials local and must not expose `call_service`, REST state writes, or other actuation APIs through this observation contract.
+The [read-only WebSocket protocol state machine](HA_WEBSOCKET_PROTOCOL.md) now freezes authentication, native `subscribe_entities` correlation, initial snapshot application, reconnect epochs, and fail-closed handling before transport code is introduced. It sources the exact non-empty subscription allowlist from the validated observation profile and has no socket, URL, credential, state-write, or service-call API. The native local WebSocket client remains a later HA-0.2B step. It must version-gate `subscribe_entities`, map `unknown_command` and `not_supported` into the pure protocol's explicit `UnsupportedEntitySubscription` failure, and fail closed if unavailable unless a separately qualified legacy profile is selected. The pure `decode_command_result_frame` helper now accepts only a strictly parsed frame and extracts typed command-result fields while discarding free-form provider error text. WebSocket framing, authentication, socket lifecycle, and routing event frames remain part of the future transport. The transport must keep credentials local and must not expose `call_service`, REST state writes, or other actuation APIs through this observation contract.
+
+The pure [compact entity stream projector](src/entity_stream.rs) stages and validates the provider's added/changed/removed groups, keeps only allowlisted primary states plus unit/device-class assertions, rejects malformed updates transactionally, validates codec/range semantics before cache commit, and does not refresh observation freshness for ignored metadata or equivalent-value deltas. Its public inputs are `apply_json` (raw compact-event bytes through strict decoding) and `apply_parsed_json` (an event view extracted from a strictly parsed outer frame); the value-level mutator is private. The [strict JSON decoder](src/strict_json.rs) caps input at 8 MiB and rejects duplicate object keys at every nesting depth before `Value`-based processing; its errors never echo raw payload data.
+
+## End-to-end conformance and benchmarks
+
+The [protocol-to-projector integration tests](tests/protocol_projection_contract.rs) exercise the protocol gate → compact projector → HA-0.1 mapper path, including wrong-subscription-ID and control-character negative controls.
+
+The [observation benchmark plan](OBSERVATION_BENCHMARKS.md) defines eleven proposed acceptance objectives for transition safety, allowlist containment, transactional projection, semantic freshness, privacy, latency, memory, reconnect currentness, and capability fallback. These are targets, not measured results; performance qualification remains blocked until the native transport and executable benchmark harness exist.
 
 Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.

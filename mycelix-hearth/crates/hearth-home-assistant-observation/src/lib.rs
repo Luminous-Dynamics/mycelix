@@ -9,12 +9,17 @@
 //! observations only; it does not contribute household authority.
 
 use hearth_automation_types::EntityRef;
-use hearth_automation_types::{
-    AutomationValue, EvidenceSource, Observation, BASIS_POINTS_MAX,
-};
+use hearth_automation_types::{AutomationValue, BASIS_POINTS_MAX, EvidenceSource, Observation};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
+
+/// Projects compact provider events into profile-minimized entity frames.
+pub mod entity_stream;
+/// Bounded JSON parser that rejects duplicate object keys without exposing payloads.
+pub mod strict_json;
+/// Pure HA WebSocket protocol machine; contains no transport or credential API.
+pub mod websocket_protocol;
 
 pub const HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION: u16 = 1;
 pub const HOME_ASSISTANT_NAMESPACE: &str = "home-assistant";
@@ -64,7 +69,10 @@ impl fmt::Display for ObservationError {
                 "Home Assistant metadata mismatch for {entity_id}: {field} expected {expected:?}, got {actual:?}"
             ),
             Self::DecodeFailed { entity_id, reason } => {
-                write!(f, "Home Assistant state decode failed for {entity_id}: {reason}")
+                write!(
+                    f,
+                    "Home Assistant state decode failed for {entity_id}: {reason}"
+                )
             }
             Self::FreshnessOverflow => write!(f, "observation freshness timestamp overflow"),
         }
@@ -92,8 +100,7 @@ impl HomeAssistantObservationProfile {
             ));
         }
         validate_instance_id(&self.instance_id)?;
-        validate_profile_ref(&self.profile_ref)
-            .map_err(ObservationError::InvalidProfile)?;
+        validate_profile_ref(&self.profile_ref).map_err(ObservationError::InvalidProfile)?;
         if self.rules.is_empty() {
             return Err(ObservationError::InvalidProfile(
                 "rules must not be empty".into(),
@@ -231,9 +238,7 @@ impl StateCodec {
                     "{path}: min must be <= max"
                 )));
             }
-            Self::BasisPointsRange { min, max }
-                if min > max || *max > BASIS_POINTS_MAX =>
-            {
+            Self::BasisPointsRange { min, max } if min > max || *max > BASIS_POINTS_MAX => {
                 return Err(ObservationError::InvalidProfile(format!(
                     "{path}: invalid basis-point range"
                 )));
@@ -305,9 +310,9 @@ impl HomeAssistantStateFrame {
                 "state exceeds {MAX_RAW_STATE_BYTES} bytes"
             )));
         }
-        if self.state.contains('\0') {
+        if self.state.chars().any(char::is_control) {
             return Err(ObservationError::InvalidFrame(
-                "state must not contain NUL".into(),
+                "state must not contain control characters".into(),
             ));
         }
         validate_frame_metadata("unit_of_measurement", self.unit_of_measurement.as_deref())?;
@@ -352,7 +357,11 @@ pub fn map_state(
     profile.validate()?;
     frame.validate()?;
 
-    let Some(rule) = profile.rules.iter().find(|rule| rule.entity_id == frame.entity_id) else {
+    let Some(rule) = profile
+        .rules
+        .iter()
+        .find(|rule| rule.entity_id == frame.entity_id)
+    else {
         return Ok(MappingOutcome::NotAllowlisted {
             entity_id: frame.entity_id.clone(),
         });
@@ -424,7 +433,7 @@ pub fn map_state(
     }))
 }
 
-fn decode_state(
+pub(crate) fn decode_state(
     codec: &StateCodec,
     entity_id: &str,
     state: &str,
@@ -606,7 +615,9 @@ fn validate_profile_ref(value: &str) -> Result<(), String> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
     {
-        return Err("profile_ref suffix must contain only ASCII alphanumeric, '.', '_' or '-'".into());
+        return Err(
+            "profile_ref suffix must contain only ASCII alphanumeric, '.', '_' or '-'".into(),
+        );
     }
     Ok(())
 }
@@ -881,6 +892,18 @@ mod tests {
                 scale: 2
             }
         );
+    }
+
+    #[test]
+    fn control_characters_in_state_fail_closed_before_semantic_mapping() {
+        let profile = profile(StateCodec::Text {
+            max_bytes: 64,
+            allowed_values: BTreeSet::new(),
+        });
+        assert!(matches!(
+            map_state(&profile, &frame("occupied\nforged-line")),
+            Err(ObservationError::InvalidFrame(_))
+        ));
     }
 
     #[test]

@@ -7,4 +7,5 @@ description = "Pure Home Assistant observation mapping contract for Mycelix Hear
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
 hearth-automation-types = { workspace = true }
