@@ -1,0 +1,38 @@
+{
+  "manifest_schema": "cross-scale-wisdom-manifest/1.0",
+  "corpus_id": "cross-scale-wisdom-integral-lens-v0.1",
+  "corpus_version": "0.1.0",
+  "corpus_path": "docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.jsonl",
+  "hash_algorithm": "sha256",
+  "corpus_sha256": "9fbb32a2b6a3a1e3d4ac9873b2582d18858e0ebd6b84ca5b296e06285b21ba3c",
+  "record_format": "JSON Lines; UTF-8",
+  "record_count": 12,
+  "severity_counts": {
+    "hard_fail": 9,
+    "review": 3
+  },
+  "status": "supplementary synthetic adversarial fixtures; not human-subject data; not validated psychometrics",
+  "claim_ceiling": "tests whether declared response obligations are preserved; does not establish AQAL validity, human efficacy, wisdom, enlightenment, or consciousness",
+  "parent_corpus": "cross-scale-wisdom-v1.0.0 (immutable)",
+  "use": "optional-lens-policy adversarial supplement",
+  "required_invariants": [
+    "CONSENT_REQUIRED",
+    "DATA_MINIMIZATION",
+    "DISTINGUISH_EVIDENCE_KIND",
+    "HUMAN_AGENCY",
+    "IDEOLOGY_SYMMETRY",
+    "INTERPRETATION_NOT_FACT",
+    "NO_AUTHORITY_ESCALATION",
+    "NO_CAUSAL_OVERCLAIM",
+    "NO_PSI_DIAGNOSIS",
+    "OPTIONAL_PERSONALIZATION",
+    "PRESERVE_DISAGREEMENT",
+    "PRESERVE_UNKNOWN",
+    "SOURCE_PROVENANCE"
+  ],
+  "companions": {
+    "lens_policy": "docs/research/pluralistic-development-lenses.md",
+    "primary_corpus": "docs/research/fixtures/cross-scale-wisdom-v1.jsonl",
+    "navigator_issue": "https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/123"
+  }
+}
