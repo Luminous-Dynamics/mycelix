@@ -32,6 +32,24 @@ This crate does **not** authenticate identity, verify digital signatures, prove 
 
 The registry and event history are in-memory only. Events are not signed or durably persisted. The portable envelope currently covers grant/revocation history only; it omits the asset registry, split claims, external source payloads, and provenance hashes for imported source messages. The crate also lacks external catalogue sync, rights-claim reconciliation, territory-specific rules, and standards adapters. Its BLAKE3 digest detects changed canonical bytes but does not authenticate authorship or prove legal rights. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
 
+## Portable grant-history envelope v1
+
+The public Rust API is portable::GrantHistoryEnvelope. It encodes a single ordered grant-event history; it does not yet export the complete asset registry or split-claim graph.
+
+The binary format is deliberately specified rather than relying on a platform's default serializer:
+
+1. Magic bytes MYCELIX-CSCP-GRANT-HISTORY followed by one NUL byte.
+2. Schema version as unsigned 16-bit big-endian integer (1).
+3. Event count as unsigned 64-bit big-endian integer.
+4. Events in source order. Each begins with event ID (u32 big-endian UTF-8 byte length + bytes), occurred-at timestamp (u64 big-endian), actor ID (length-prefixed string), evidence reference (length-prefixed string), and event-kind tag.
+5. Event-kind 1 means grant issued: grant ID, asset ID, grantee ID, action tag, purpose, issuer ID, grant evidence reference, valid-from timestamp, expiry-presence tag (0 absent; 1 followed by u64 expiry).
+6. Event-kind 2 means revocation: grant ID only.
+7. Action tags are stable explicit values: 1 analyze metadata, 2 publish, 3 distribute, 4 commercialize, 5 train model, 6 generate derivative, 7 synthesize voice/likeness.
+
+Every string is UTF-8 with a u32 big-endian byte length and a 256-byte maximum. Integers are big-endian. Unsupported versions/tags, malformed UTF-8, oversized fields/counts, truncated bytes, invalid replay order, and trailing bytes are rejected. The canonical content digest uses BLAKE3-256 over the domain prefix MYCELIX-CSCP-GRANT-HISTORY-DIGEST-V1 plus a NUL byte, followed by the complete canonical envelope bytes. The digest is not embedded in the envelope and should travel as a separate integrity field.
+
+The on-disk binary format is experimental and not a ratified cross-language standard. Freeze it only after an independent implementation reproduces golden byte vectors. A valid digest proves byte agreement, not the identity of an author or legal consent.
+
 ## Benchmark contract — targets, not results
 
 The following are release gates to measure; they have **not** been demonstrated by this PR.
@@ -53,6 +71,7 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Portable envelope round-trip | Decode then encode yields byte-identical versioned canonical bytes; effective grant state is preserved | 100% fixture agreement |
 | Unsupported version, malformed tag, truncation or trailing bytes | Import rejects rather than silently ignoring unknown/corrupt data | 100% rejected |
 | Content digest | Same canonical bytes yield same 256-bit BLAKE3 digest; changed content yields a different digest in regression fixtures | 100% fixture agreement; no authenticity claim |
+| Cross-language canonical bytes | A second implementation yields byte-identical envelope bytes and digest for frozen fixtures | 100% of golden vectors |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
 | Mutation/property testing | No invariant-breaking mutation survives the harness | Catch more than hand-picked cases |
