@@ -8,8 +8,11 @@
 //! Submitted, and only then send the request. On restart, any persisted
 //! Submitted attempt is ambiguous and must be recovered as OutcomeUnknown.
 
+use serde::{Deserialize, Serialize};
+
 /// Action families currently exposed by the Hearth UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     BondUpdate,
     Gratitude,
@@ -20,7 +23,8 @@ pub enum ActionKind {
 }
 
 /// Knowledge about one operation, not a description of the UI animation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AttemptStatus {
     /// Local operation metadata exists; no request has been authorized for send.
     Prepared,
