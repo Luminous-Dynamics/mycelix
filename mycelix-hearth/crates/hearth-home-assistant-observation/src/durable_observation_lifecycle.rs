@@ -905,6 +905,57 @@ mod tests {
     }
 
     #[test]
+    fn entity_id_rename_invalidates_old_positive_without_auto_aliasing_new_id() {
+        let mut ledger = make_live();
+        let old_id = "sensor.living_room_temperature";
+        let new_id = "sensor.living_room_temperature_renamed";
+        assert!(ledger.current_revision(old_id, 21).is_some());
+
+        let rename = json!({
+            "a": {
+                "sensor.living_room_temperature_renamed": {
+                    "s": "22.00",
+                    "a": {
+                        "unit_of_measurement": "°C",
+                        "device_class": "temperature"
+                    }
+                }
+            },
+            "r": ["sensor.living_room_temperature"]
+        });
+        let update = ledger.apply_json(
+            1,
+            7,
+            EntityStreamKind::Changes,
+            &bytes(rename),
+            30,
+        ).unwrap();
+
+        assert!(update.update.observations.is_empty());
+        assert_eq!(update.update.records.len(), 1);
+        assert!(matches!(
+            update.update.records[0].kind,
+            LifecycleRecordKind::Invalidated {
+                reason: InvalidationReason::EntityRemoved,
+                ..
+            }
+        ));
+        assert!(ledger.current_revision(old_id, 30).is_none());
+        assert!(ledger.current_revision(new_id, 30).is_none());
+
+        // The rename candidate's raw state never enters the minimized journal.
+        let serialized = serde_json::to_string(ledger.store().records.last()).unwrap();
+        assert!(!serialized.contains(new_id));
+        assert!(!serialized.contains("22.00"));
+
+        let recovered =
+            DurableObservationLifecycle::recover(&profile(), ledger.into_store(), 40).unwrap();
+        assert_eq!(recovered.phase(), LifecyclePhase::Dormant);
+        assert!(recovered.current_revision(old_id, 41).is_none());
+        assert!(recovered.current_revision(new_id, 41).is_none());
+    }
+
+    #[test]
     fn recovery_never_treats_journal_read_failure_as_an_empty_history() {
         let mut store = MemoryStore::default();
         store.fail_reads = true;
