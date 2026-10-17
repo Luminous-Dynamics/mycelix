@@ -35,7 +35,26 @@ jobs:
           components: rustfmt
 
       - name: Check formatting for the focused crate
-        run: cargo fmt --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation -- --check
+        id: rustfmt
+        shell: bash
+        run: |
+          set +e
+          cargo fmt --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation -- --check
+          format_status=$?
+          echo "exit_code=$format_status" >> "$GITHUB_OUTPUT"
+          # Preserve the final gate so compilation/tests still run if formatting fails.
+          exit 0
 
       - name: Run the focused observation/protocol/projector and integration tests
+        id: tests
         run: cargo test --manifest-path mycelix-hearth/Cargo.toml -p hearth-home-assistant-observation
+
+      - name: Enforce both formatting and test results
+        if: always()
+        env:
+          FORMAT_EXIT_CODE: ${{ steps.rustfmt.outputs.exit_code }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        shell: bash
+        run: |
+          test "$FORMAT_EXIT_CODE" = "0"
+          test "$TEST_OUTCOME" = "success"
