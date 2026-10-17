@@ -444,6 +444,27 @@ mod tests {
         Timestamp::from_micros(1_700_000_000_000_000)
     }
 
+    fn measured_dimension() -> WoodMeasurementEvidence {
+        WoodMeasurementEvidence {
+            measurement_id: "measurement-board-001-thickness".to_owned(),
+            batch_id: "batch-lumber-001".to_owned(),
+            kind: WoodMeasurementKind::BoardThickness,
+            value: 25_000,
+            unit: WoodMeasurementUnit::Micrometer,
+            absolute_uncertainty: 200,
+            method: "digital_caliper".to_owned(),
+            evidence_state: WoodEvidenceState::Observed,
+            instrument_id: Some("caliper-007".to_owned()),
+            calibration_status: WoodCalibrationStatus::Current,
+            source_refs: vec![
+                "calibration-certificate-007".to_owned(),
+                "measurement-record-001".to_owned(),
+            ],
+            uncertainty_note: None,
+            recorded_at: test_timestamp(),
+        }
+    }
+
     fn observed_batch() -> WoodBatchClaim {
         WoodBatchClaim {
             batch_id: "batch-lumber-001".to_owned(),
@@ -513,6 +534,68 @@ mod tests {
         let errors = batch.validate().expect_err("invalid lineage must fail");
         assert!(errors.iter().any(|error| error.contains("itself as a parent")));
         assert!(errors.iter().any(|error| error.contains("duplicate parent")));
+    }
+
+    #[test]
+    fn measurement_preserves_units_uncertainty_and_provenance() {
+        let evidence = measured_dimension();
+        assert!(evidence.validate().is_ok());
+        let encoded = serde_json::to_string(&evidence).expect("measurement serializes");
+        let decoded: WoodMeasurementEvidence =
+            serde_json::from_str(&encoded).expect("measurement deserializes");
+        assert_eq!(decoded, evidence);
+        assert_eq!(decoded.absolute_uncertainty, 200);
+        assert_eq!(decoded.source_refs.len(), 2);
+    }
+
+    #[test]
+    fn measurement_kind_unit_mismatch_is_rejected() {
+        let mut evidence = measured_dimension();
+        evidence.unit = WoodMeasurementUnit::CubicMillimeter;
+        let errors = evidence.validate().expect_err("length cannot be expressed as volume");
+        assert!(errors.iter().any(|error| error.contains("does not match measurement kind")));
+    }
+
+    #[test]
+    fn current_calibration_requires_instrument_identity() {
+        let mut evidence = measured_dimension();
+        evidence.instrument_id = None;
+        assert!(
+            evidence.validate().expect_err("current calibration must identify an instrument")
+                .iter().any(|error| error.contains("current calibration requires"))
+        );
+    }
+
+    #[test]
+    fn uncalibrated_instrument_requires_uncertainty_note() {
+        let mut evidence = measured_dimension();
+        evidence.calibration_status = WoodCalibrationStatus::Expired;
+        evidence.uncertainty_note = None;
+        assert!(
+            evidence.validate().expect_err("expired calibration must be disclosed")
+                .iter().any(|error| error.contains("uncertainty note"))
+        );
+    }
+
+    #[test]
+    fn measured_evidence_requires_source_reference() {
+        let mut evidence = measured_dimension();
+        evidence.source_refs.clear();
+        assert!(
+            evidence.validate().expect_err("measurements must be traceable")
+                .iter().any(|error| error.contains("source reference"))
+        );
+    }
+
+    #[test]
+    fn estimated_measurement_requires_uncertainty_note() {
+        let mut evidence = measured_dimension();
+        evidence.evidence_state = WoodEvidenceState::Estimated;
+        evidence.uncertainty_note = None;
+        assert!(
+            evidence.validate().expect_err("estimate must disclose uncertainty")
+                .iter().any(|error| error.contains("uncertainty note"))
+        );
     }
 
     #[test]
