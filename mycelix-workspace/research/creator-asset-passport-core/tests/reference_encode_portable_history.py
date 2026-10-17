@@ -15,7 +15,11 @@ from pathlib import Path
 
 MAGIC = b"MYCELIX-CSCP-GRANT-HISTORY\0"
 VERSION = 1
-FIXTURE = Path(__file__).parent / "fixtures" / "creator-grant-history-v1.hex"
+FIXTURES = {
+    "creator-grant-history-v1.hex",
+    "creator-grant-history-v1-unicode-no-expiry.hex",
+}
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
 def _u16(value: int) -> bytes:
@@ -67,34 +71,61 @@ def encode_reference_vector() -> bytes:
     return MAGIC + _u16(VERSION) + _u64(2) + issue + revoke
 
 
+def encode_unicode_no_expiry_vector() -> bytes:
+    """Exercise UTF-8 byte lengths, action tag 7, and an absent expiry."""
+    issue = b"".join(
+        (
+            _string("event-unicode"),
+            _u64(0),
+            _string("artist-Δ"),
+            _string("evidence://approved"),
+            b"\x01",  # issued event
+            _string("grant-unicode"),
+            _string("recording-δ"),
+            _string("voice-service"),
+            b"\x07",  # UseAction::SynthesizeVoiceOrLikeness
+            _string("one-off-clone-demo"),
+            _string("artist-Δ"),
+            _string("consent://clip-specific"),
+            _u64(1),
+            b"\x00",  # no expiry
+        )
+    )
+    return MAGIC + _u16(VERSION) + _u64(1) + issue
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--check",
         action="store_true",
-        help="compare the reference encoder against the committed hex fixture",
+        help="compare reference encoders against committed hex fixtures",
     )
     args = parser.parse_args()
-    encoded_hex = encode_reference_vector().hex() + "\n"
+    vectors = {
+        "creator-grant-history-v1.hex": encode_reference_vector(),
+        "creator-grant-history-v1-unicode-no-expiry.hex": (
+            encode_unicode_no_expiry_vector()
+        ),
+    }
 
     if not args.check:
-        sys.stdout.write(encoded_hex)
+        for filename, encoded in vectors.items():
+            print(f"{filename}\n{encoded.hex()}")
         return 0
 
-    expected = FIXTURE.read_text(encoding="ascii")
-    if expected != encoded_hex:
-        print(
-            f"portable-history v1 vector mismatch: {FIXTURE}",
-            file=sys.stderr,
-        )
-        print(f"expected: {expected.strip()}", file=sys.stderr)
-        print(f"actual:   {encoded_hex.strip()}", file=sys.stderr)
-        return 1
+    for filename in sorted(FIXTURES):
+        encoded_hex = vectors[filename].hex() + "\n"
+        fixture = FIXTURE_DIR / filename
+        expected = fixture.read_text(encoding="ascii")
+        if expected != encoded_hex:
+            print(f"portable-history v1 vector mismatch: {fixture}", file=sys.stderr)
+            print(f"expected: {expected.strip()}", file=sys.stderr)
+            print(f"actual:   {encoded_hex.strip()}", file=sys.stderr)
+            return 1
 
-    print(
-        f"portable-history v1 reference vector passed "
-        f"({len(encode_reference_vector())} bytes)"
-    )
+    total_bytes = sum(len(value) for value in vectors.values())
+    print(f"portable-history v1 reference vectors passed ({len(vectors)} vectors, {total_bytes} bytes)")
     return 0
 
 
