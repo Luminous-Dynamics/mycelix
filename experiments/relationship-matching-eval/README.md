@@ -9,9 +9,36 @@ This isolated, dependency-free Rust crate implements an initial offline slice pr
 Use a Rust 2021 toolchain. From this directory:
 
 - **Tests:** cargo test
-- **Example report across a 30-seed suite:** cargo run -- 20261017 200 5 30
+- **Baseline report across a 30-seed suite:** cargo run -- 20261017 200 5 30
+- **Eight-scenario robustness report:** cargo run --bin robustness_sweep -- 20261017 200 5 30
 
 Arguments are seed-start, even participant count (4..=2000), top-k recommendations per participant, and seed count (1..=1000; default 30). The harness evaluates consecutive seeds, emits per-seed corpus fingerprints and policy metrics, then reports means, sample standard deviations, ranges, normal-approximation 95% intervals where at least two seeds are present, and per-seed relative exposure-Gini reduction. Defaults are seed-start 20261017, 200 participants, top-k 5, and 30 seeds. A one-seed run is possible with a seed count of 1 but emits no confidence interval.
+
+## Multi-scenario robustness sweep
+
+The added `robustness_sweep` binary evaluates the same four policies against eight seeded synthetic scenario families. From this directory:
+
+- `cargo run --bin robustness_sweep -- 20261017 200 5 30`
+- Arguments are seed-start, even participant count (4..=2000), top-k, and seed count (1..=1000).
+- Each scenario/seed combination receives a corpus fingerprint and per-policy metrics. The report includes scenario-level means, sample standard deviations, ranges, normal-approximation intervals, and paired per-seed Gini reductions versus one-sided utility.
+- The binary aborts if any policy emits an invalid recommendation row. This is a structural gate only; it does not establish that a fairness target is met.
+
+Scenario families:
+
+| Scenario | Stress dimension |
+|---|---|
+| `baseline` | Original generator, retained for comparability |
+| `sparse_market` | Few interests drawn from a larger tag universe; tests low candidate degree and disconnected pockets |
+| `dense_market` | Many interests and lower utility floors; tests high candidate density |
+| `opt_out_heavy` | Higher inactivity and discovery opt-out rates |
+| `skewed_goals` | Different connection-goal distributions across the two abstract partitions |
+| `concentrated_preferences` | Deliberately homogeneous fully feasible market; ties expose identifier-order popularity concentration |
+| `adversarial_blocking` | Coordinated blocking against two candidate profiles; blocks are respected, never relaxed |
+| `cold_start` | A subset of participants has only a rare, one-interest profile |
+
+All families are synthetic stress fixtures, not representative estimates of people or dating markets. The concentration fixture is an intentional algorithmic negative control: a deterministic ranker that creates extreme exposure concentration should be caught by metrics, not allowed to "pass" because the data generator is too convenient.
+
+The same seed value is used across scenario families, but each scenario applies a deterministic transformation and therefore has its own corpus fingerprint. Fingerprints remain non-cryptographic and are not provenance/security receipts. Bind any published result to an exact source SHA and compiler version.
 
 ## What the harness is designed to test
 
