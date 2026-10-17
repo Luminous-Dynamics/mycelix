@@ -24,6 +24,11 @@ A state value is not a permanent fact. Every positive observation is scoped by a
 | HLC-014 | Checkpoint representation | A round-trip preserves profile binding, highest epoch, and all tombstone revisions while restoring zero current positives | Not measured |
 | HLC-015 | Crash durability | No acknowledged lifecycle revision can roll back after process/power failure on the supported storage profile | Blocked on a durable persistence implementation |
 | HLC-016 | Clock-regression fail-closed | 100% of negative-time checks return no current revision, emit invalidation for each active positive, and keep prior positives non-current until a strictly newer session/bootstrap | Not measured |
+| HLC-017 | Append-before-publish fault injection | Zero candidate phase/currentness/observation publication when append-and-sync fails; wrapper becomes unhealthy and returns no positive revision | Not measured |
+| HLC-018 | Journal replay integrity | 100% rejection of sequence gaps/duplicates, unsupported schema, profile mismatch, illegal transition order, revision gaps, and invalidation references to the wrong positive revision | Not measured |
+| HLC-019 | Cold recovery | Zero positives restored as current; recovery barrier must be durable before any new event; a strictly higher epoch and fresh snapshot are required | Not measured |
+| HLC-020 | Durable append latency | Report p50/p95/p99 sync latency separately from reducer overhead on each named backend; no target until a real backend exists | Blocked on durable backend |
+| HLC-021 | Recovery rollback | Zero acknowledged ledger sequence rollback across process-kill/power-loss points on the named storage profile | Blocked on durable backend |
 
 ## Correctness workload
 
