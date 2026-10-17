@@ -298,14 +298,14 @@ impl EffectAttempt {
                     && self.rejection_code.is_none()
             }
             AttemptPhase::OutcomeUnknown => {
-                self.revision >= 3
+                self.revision == 3
                     && self.dispatch_started
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Committed => {
-                self.revision >= 3
+                matches!(self.revision, 3 | 4)
                     && self.dispatch_started
                     && op_valid
                     && outcome_valid
@@ -318,7 +318,7 @@ impl EffectAttempt {
                     && ((self.revision == 1 && self.operation_id.is_none())
                         || (self.revision == 2 && op_valid)))
                     || (self.dispatch_started
-                        && self.revision >= 3
+                        && matches!(self.revision, 3 | 4)
                         && op_valid
                         && outcome_valid
                         && self.rejection_code.is_none())
@@ -641,14 +641,66 @@ mod tests {
     }
 
     #[test]
-    fn restore_rejects_impossible_phase_field_combinations() {
-        let mut snapshot = EffectAttempt::prepare(identity()).snapshot();
-        snapshot.phase = AttemptPhase::Committed;
-        snapshot.revision = 1;
-        snapshot.outcome_digest = Some("c".repeat(64));
+    fn restore_rejects_impossible_phase_and_revision_history() {
+        let mut malformed = EffectAttempt::prepare(identity()).snapshot();
+        malformed.phase = AttemptPhase::Committed;
+        malformed.revision = 1;
+        malformed.outcome_digest = Some("c".repeat(64));
         assert_eq!(
-            EffectAttempt::restore(snapshot),
+            EffectAttempt::restore(malformed),
             Err(JournalError::InvalidTransition)
+        );
+
+        let mut unknown_attempt = EffectAttempt::prepare(identity());
+        unknown_attempt.reserve("sink-operation-1").expect("reserve");
+        unknown_attempt.mark_dispatch_started().expect("dispatch started");
+        unknown_attempt.mark_outcome_unknown().expect("outcome unknown");
+        let mut impossible_unknown = unknown_attempt.snapshot();
+        impossible_unknown.revision = 4;
+        assert_eq!(
+            EffectAttempt::restore(impossible_unknown),
+            Err(JournalError::InvalidTransition),
+            "OutcomeUnknown has exactly one legal history and revision"
+        );
+
+        let mut committed_direct = EffectAttempt::prepare(identity());
+        committed_direct.reserve("sink-operation-1").expect("reserve");
+        committed_direct.mark_dispatch_started().expect("dispatch started");
+        committed_direct
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("verified direct outcome");
+        assert_eq!(committed_direct.revision(), 3);
+        assert!(EffectAttempt::restore(committed_direct.snapshot()).is_ok());
+
+        let mut committed_after_reconcile = EffectAttempt::prepare(identity());
+        committed_after_reconcile.reserve("sink-operation-1").expect("reserve");
+        committed_after_reconcile.mark_dispatch_started().expect("dispatch started");
+        committed_after_reconcile.mark_outcome_unknown().expect("outcome unknown");
+        committed_after_reconcile
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("verified reconciled outcome");
+        assert_eq!(committed_after_reconcile.revision(), 4);
+        assert!(EffectAttempt::restore(committed_after_reconcile.snapshot()).is_ok());
+        let mut impossible_committed = committed_after_reconcile.snapshot();
+        impossible_committed.revision = 5;
+        assert_eq!(
+            EffectAttempt::restore(impossible_committed),
+            Err(JournalError::InvalidTransition),
+            "terminal revisions cannot skip state transitions"
+        );
+
+        let mut rejected = EffectAttempt::prepare(identity());
+        rejected.reserve("sink-operation-1").expect("reserve");
+        rejected.mark_dispatch_started().expect("dispatch started");
+        rejected
+            .resolve(verified_outcome(SinkDisposition::DefinitivelyRejected))
+            .expect("verified destination rejection");
+        let mut impossible_rejected = rejected.snapshot();
+        impossible_rejected.revision = 5;
+        assert_eq!(
+            EffectAttempt::restore(impossible_rejected),
+            Err(JournalError::InvalidTransition),
+            "verified rejection cannot carry an impossible revision"
         );
     }
 

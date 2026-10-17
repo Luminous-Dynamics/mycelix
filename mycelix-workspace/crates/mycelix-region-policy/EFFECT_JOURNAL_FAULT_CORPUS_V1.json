@@ -215,6 +215,14 @@
       "expected": "Reject the inconsistent snapshot; post-dispatch rejection requires authenticated sink-outcome evidence.",
       "status": "implemented_reference_test",
       "test_anchor": "restore_rejects_postdispatch_rejection_without_sink_evidence"
+    },
+    {
+      "id": "EJM-025",
+      "category": "snapshot-integrity",
+      "fault": "A restored OutcomeUnknown or terminal snapshot carries a revision that cannot result from its legal transition history",
+      "expected": "Reject impossible phase/revision pairs while accepting direct terminal revision 3 and reconciled terminal revision 4",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_impossible_phase_and_revision_history"
     }
   ]
 }

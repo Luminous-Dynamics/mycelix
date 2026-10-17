@@ -88,7 +88,7 @@ These sources motivate the design. They are not independent validation of this i
 
 ## Machine-readable fault corpus
 
-[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 24-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 25-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
 
 
 ## Snapshot dispatch-history invariant

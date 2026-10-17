@@ -95,7 +95,7 @@ Seventeen source-level state-machine tests are authored in `src/effect_journal.r
 | RPK-JOURNAL-009 | Invalid identity/reason codes | `invalid_identity_and_reason_code_are_rejected` |
 | RPK-JOURNAL-010 | Rejecting verifier | `sink_verifier_rejection_does_not_create_verified_outcome` |
 | RPK-JOURNAL-011 | Reserved/dispatch/unknown snapshot round trip | `snapshot_round_trips_reserved_dispatch_and_unknown_states` |
-| RPK-JOURNAL-012 | Impossible restored state | `restore_rejects_impossible_phase_field_combinations` |
+| RPK-JOURNAL-012 | Impossible restored state | `restore_rejects_impossible_phase_and_revision_history` |
 | RPK-JOURNAL-013 | Receipt proof replayed across different policy-binding digests | `rejects_replayed_sink_proof_for_changed_policy_binding` |
 | RPK-JOURNAL-014 | Receipt proof replayed across authority domains | `rejects_sink_proof_replayed_across_authority_domains` |
 | RPK-JOURNAL-015 | Post-dispatch restored Rejected row without authenticated sink evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
@@ -116,8 +116,9 @@ Six abstract model tests are authored in `src/effect_journal_model.rs`; they do 
 | EJM-007 | Same key reused with a different target digest | `sink_idempotency_key_reuse_for_changed_target_is_a_conflict` |
 | EJM-023 | Explore reachable abstract states to depth 8 and check effect/dispatch invariants | `bounded_state_exploration_preserves_effect_safety_invariants` |
 | EJM-024 | Restore a post-dispatch Rejected row without authenticated outcome evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
+| EJM-025 | Impossible revision for OutcomeUnknown/terminal snapshot; preserve legal revision 3/4 terminal histories | `restore_rejects_impossible_phase_and_revision_history` |
 
-The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 24 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
+The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 25 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
 
 ## Mandatory extension corpus before production
 

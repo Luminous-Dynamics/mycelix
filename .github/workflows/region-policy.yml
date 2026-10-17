@@ -33,11 +33,20 @@ jobs:
         run: |
           jq -e '
             .corpus_id == "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS" and
-            (.cases | length == 24) and
-            ([.cases[].id] | unique | length == 24) and
-            .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"]
+            (.cases | length == 25) and
+            ([.cases[].id] | unique | length == 25) and
+            .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"] and
+            (.cases | any(.[]; .id == "EJM-025" and .test_anchor == "restore_rejects_impossible_phase_and_revision_history" and .status == "implemented_reference_test")) and
+            (.cases | all(.[]; ((keys | sort) == ["category", "expected", "fault", "id", "status", "test_anchor"]) and
+              (.id | type == "string" and test("^EJM-[0-9]{3}$")) and
+              (.category | type == "string" and length > 0) and
+              (.fault | type == "string" and length > 0) and
+              (.expected | type == "string" and length > 0) and
+              (.status == "implemented_reference_model" or .status == "implemented_reference_test" or .status == "integration_gate" or .status == "integration_gate_reuse_existing") and
+              (.test_anchor == null or (.test_anchor | type == "string"))))
           ' EFFECT_JOURNAL_FAULT_CORPUS_V1.json >/dev/null
           jq -e '.required | index("cases") != null' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
+          jq -e '.properties.cases.minItems == 25 and .properties.cases.items.additionalProperties == false' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
           jq -r '.cases[].test_anchor // empty' EFFECT_JOURNAL_FAULT_CORPUS_V1.json | while IFS= read -r anchor; do
             if ! grep -REq "fn[[:space:]]+${anchor}[[:space:]]*\\(" src; then
               echo "Missing Rust test anchor: ${anchor}" >&2
