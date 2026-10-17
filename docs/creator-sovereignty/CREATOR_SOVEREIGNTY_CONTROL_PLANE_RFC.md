@@ -156,7 +156,7 @@ Every numeric observation needs units and a source. Every derived metric needs a
 
 ## Benchmark programme
 
-See the companion [CSCP Benchmark Protocol](CSCP_BENCHMARK_PROTOCOL.md) for 15 adversarial fixtures, anti-Goodhart invariants, evidence-abstention gates, and staged evaluation rules. See [Creator Resilience and Creative Optionality](CSCP_CREATOR_RESILIENCE_MODEL.md) for the next paradigm shift: model volatility, concentration, runway scenarios, creator-defined constraints, and room for self-directed work—not just revenue growth.
+See the companion [CSCP Benchmark Protocol](CSCP_BENCHMARK_PROTOCOL.md) for 15 adversarial fixtures, anti-Goodhart invariants, evidence-abstention gates, and staged evaluation rules. See [Creator Resilience and Creative Optionality](CSCP_CREATOR_RESILIENCE_MODEL.md) for the next paradigm shift: model volatility, concentration, runway scenarios, creator-defined constraints, and room for self-directed work—not just revenue growth. The [Deal-to-Cash and Repeat-Booking Model](CSCP_DEAL_TO_CASH_MODEL.md) explores a narrower operational wedge: evidence-backed agreement, delivery, acceptance, invoice, payment, and repeat-booking tracking.
 
 All targets below are **proposed gates for testing**, not achieved results, guaranteed outcomes, or external industry standards. Freeze metric definitions before confirmatory evaluation and publish negative results.
 
