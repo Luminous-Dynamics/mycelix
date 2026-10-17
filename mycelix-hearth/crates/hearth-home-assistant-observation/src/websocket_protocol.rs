@@ -884,6 +884,169 @@ mod tests {
     }
 
     #[test]
+    fn exhaustively_replays_one_million_bounded_protocol_histories() {
+        const EVENT_ALPHABET: u32 = 10;
+        const HISTORY_LENGTH: usize = 6;
+        const SCHEDULE_COUNT: u32 = 1_000_000;
+        let mut live_histories = 0usize;
+
+        for mut encoded in 0..SCHEDULE_COUNT {
+            let mut events = [0u8; HISTORY_LENGTH];
+            for event in &mut events {
+                *event = (encoded % EVENT_ALPHABET) as u8;
+                encoded /= EVENT_ALPHABET;
+            }
+
+            let mut protocol = machine(7);
+            let mut live_was_authorized = false;
+            for &symbol in &events {
+                let before = protocol.state();
+                let epoch = protocol.session_epoch();
+                let actions = match symbol {
+                    // 0: auth_required
+                    0 => protocol.handle(epoch, InboundMessage::AuthRequired),
+                    // 1: auth_ok
+                    1 => protocol.handle(epoch, InboundMessage::AuthOk),
+                    // 2: auth_invalid
+                    2 => protocol.handle(epoch, InboundMessage::AuthInvalid),
+                    // 3: matching successful subscribe_entities result
+                    3 => protocol.handle(epoch, InboundMessage::CommandResult {
+                        id: 1,
+                        success: true,
+                        payload: ResultPayloadKind::Null,
+                    }),
+                    // 4: a successful result with the wrong command ID
+                    4 => protocol.handle(epoch, InboundMessage::CommandResult {
+                        id: 99,
+                        success: true,
+                        payload: ResultPayloadKind::Null,
+                    }),
+                    // 5: the expected initial snapshot
+                    5 => protocol.handle(epoch, InboundMessage::EntityStreamUpdate {
+                        subscription_id: 1,
+                        kind: EntityStreamKind::InitialSnapshot,
+                    }),
+                    // 6: an incremental update for the active subscription
+                    6 => protocol.handle(epoch, InboundMessage::EntityStreamUpdate {
+                        subscription_id: 1,
+                        kind: EntityStreamKind::Changes,
+                    }),
+                    // 7: an update with a foreign subscription ID
+                    7 => protocol.handle(epoch, InboundMessage::EntityStreamUpdate {
+                        subscription_id: 99,
+                        kind: EntityStreamKind::Changes,
+                    }),
+                    // 8: an unrelated event
+                    8 => protocol.handle(epoch, InboundMessage::OtherEvent),
+                    // 9: explicit acknowledgement that the initial snapshot was applied
+                    9 => protocol.initial_snapshot_applied(epoch, 1),
+                    _ => unreachable!("symbol generated outside the ten-event alphabet"),
+                };
+
+                for action in &actions {
+                    match action {
+                        ProtocolAction::RequestAuthentication { session_epoch } => {
+                            assert_eq!(symbol, 0, "authentication requested for {events:?}");
+                            assert_eq!(before, ProtocolState::AwaitAuthRequired);
+                            assert_eq!(*session_epoch, epoch);
+                        }
+                        ProtocolAction::SendSubscribeEntities {
+                            session_epoch,
+                            command_id,
+                            entity_ids,
+                        } => {
+                            assert_eq!(symbol, 1, "subscription created for {events:?}");
+                            assert_eq!(before, ProtocolState::AwaitAuthResult);
+                            assert_eq!(*session_epoch, epoch);
+                            assert_eq!(*command_id, 1);
+                            assert_eq!(entity_ids, &vec!["sensor.living_room_temperature".to_string()]);
+                        }
+                        ProtocolAction::AwaitInitialEntitySnapshot {
+                            session_epoch,
+                            subscription_id,
+                        } => {
+                            assert_eq!(symbol, 3, "snapshot awaited for {events:?}");
+                            assert_eq!(before, ProtocolState::AwaitSubscriptionResult { command_id: 1 });
+                            assert_eq!(*session_epoch, epoch);
+                            assert_eq!(*subscription_id, 1);
+                        }
+                        ProtocolAction::InitialEntitySnapshotReady {
+                            session_epoch,
+                            subscription_id,
+                        } => {
+                            assert_eq!(symbol, 5, "snapshot accepted for {events:?}");
+                            assert_eq!(before, ProtocolState::AwaitInitialSnapshot { subscription_id: 1 });
+                            assert_eq!(*session_epoch, epoch);
+                            assert_eq!(*subscription_id, 1);
+                        }
+                        ProtocolAction::DeliverEntityChanges {
+                            session_epoch,
+                            subscription_id,
+                        } => {
+                            assert_eq!(symbol, 6, "change delivered for {events:?}");
+                            assert_eq!(before, ProtocolState::Live { subscription_id: 1 });
+                            assert_eq!(*session_epoch, epoch);
+                            assert_eq!(*subscription_id, 1);
+                        }
+                        ProtocolAction::SessionLive {
+                            session_epoch,
+                            subscription_id,
+                        } => {
+                            assert_eq!(symbol, 9, "session went live without explicit snapshot acknowledgement: {events:?}");
+                            assert_eq!(before, ProtocolState::AwaitInitialSnapshotApply { subscription_id: 1 });
+                            assert_eq!(*session_epoch, epoch);
+                            assert_eq!(*subscription_id, 1);
+                            live_was_authorized = true;
+                        }
+                        ProtocolAction::IgnoreUnrelatedEvent { session_epoch } => {
+                            assert_eq!(symbol, 8, "unexpected event was ignored for {events:?}");
+                            assert_eq!(before, ProtocolState::Live { subscription_id: 1 });
+                            assert_eq!(*session_epoch, epoch);
+                        }
+                        ProtocolAction::FailClosed { .. } => {
+                            assert!(matches!(protocol.state(), ProtocolState::Failed(_)));
+                        }
+                        ProtocolAction::IgnoreTerminalMessage { .. } => {
+                            assert!(matches!(before, ProtocolState::Failed(_) | ProtocolState::Closed));
+                        }
+                        ProtocolAction::IgnoreStaleEpoch { .. } => {
+                            panic!("no stale epoch event was generated in {events:?}");
+                        }
+                    }
+                }
+
+                if matches!(protocol.state(), ProtocolState::Live { .. }) {
+                    assert!(
+                        live_was_authorized,
+                        "protocol entered Live without explicit initial-snapshot acknowledgement: {events:?}"
+                    );
+                }
+                if matches!(protocol.state(), ProtocolState::Failed(_) | ProtocolState::Closed) {
+                    // Terminal states may never be revived by an in-session message.
+                    let terminal_before = protocol.state();
+                    let terminal_actions = protocol.handle(epoch, InboundMessage::AuthRequired);
+                    assert_eq!(
+                        terminal_actions,
+                        vec![ProtocolAction::IgnoreTerminalMessage { session_epoch: epoch }]
+                    );
+                    assert_eq!(protocol.state(), terminal_before);
+                }
+            }
+
+            if matches!(protocol.state(), ProtocolState::Live { .. }) {
+                live_histories += 1;
+            }
+        }
+
+        assert_eq!(SCHEDULE_COUNT, EVENT_ALPHABET.pow(HISTORY_LENGTH as u32));
+        assert!(
+            live_histories > 0,
+            "bounded generator lost the valid authentication/snapshot/apply positive control"
+        );
+        assert_eq!(live_histories, 1, "only terminal event ordering should remain live at history end");
+    }
+
+    #[test]
     fn authentication_action_carries_no_credential_value() {
         let action = ProtocolAction::RequestAuthentication { session_epoch: 1 };
         assert_eq!(
