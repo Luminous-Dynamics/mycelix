@@ -126,6 +126,7 @@ pub trait ClassificationVerifier {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedClassification {
     claim: ClassificationClaim,
+    verified_at_unix_ms: u64,
     evidence_valid_until_unix_ms: u64,
 }
 
@@ -160,6 +161,7 @@ impl VerifiedClassification {
             ));
         }
         Ok(Self {
+            verified_at_unix_ms: now_ms,
             evidence_valid_until_unix_ms: evidence_until.min(claim.valid_until_unix_ms),
             claim,
         })
@@ -344,6 +346,7 @@ impl RegionalProfile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedProfile {
     profile: RegionalProfile,
+    verified_at_unix_ms: u64,
     evidence_valid_until_unix_ms: u64,
 }
 
@@ -366,6 +369,7 @@ impl VerifiedProfile {
             ));
         }
         Ok(Self {
+            verified_at_unix_ms: now_ms,
             evidence_valid_until_unix_ms: evidence_until.min(profile.valid_until_unix_ms),
             profile,
         })
@@ -421,6 +425,7 @@ pub enum ConsentValidationError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedConsentGrant {
     grant: ConsentGrant,
+    verified_at_unix_ms: u64,
     evidence_valid_until_unix_ms: u64,
 }
 
@@ -453,6 +458,7 @@ impl VerifiedConsentGrant {
         }
 
         Ok(Self {
+            verified_at_unix_ms: now_ms,
             evidence_valid_until_unix_ms: evidence_until.min(grant.valid_until_unix_ms),
             grant,
         })
@@ -481,10 +487,13 @@ pub enum DenialReason {
     ClassificationNotYetValid,
     ClassificationExpired,
     ClassificationEvidenceStale,
+    ClassificationVerifiedAfterDecisionTime,
     SourceProfileInactive,
     DestinationProfileInactive,
     SourceProfileEvidenceStale,
+    SourceProfileVerifiedAfterDecisionTime,
     DestinationProfileEvidenceStale,
+    DestinationProfileVerifiedAfterDecisionTime,
     SourceRuleMissing,
     DestinationRuleMissing,
     ActionNotAllowedBySource,
@@ -495,6 +504,7 @@ pub enum DenialReason {
     RecipientRequired,
     ConsentRequired,
     ConsentEvidenceStale,
+    ConsentVerifiedAfterDecisionTime,
     ConsentRecipientMismatch,
     ConsentPurposeMismatch,
     ConsentNotYetValid,
@@ -507,13 +517,39 @@ pub enum DenialReason {
 pub struct PolicyDecision {
     pub allowed: bool,
     pub reasons: Vec<DenialReason>,
+    /// Non-sensitive identifiers and versioned policy digests for audit.
+    pub source_profile_id: String,
+    pub source_profile_version: String,
+    pub source_profile_digest: String,
+    pub destination_profile_id: String,
+    pub destination_profile_version: String,
+    pub destination_profile_digest: String,
+    pub action: BoundaryAction,
+    pub data_class: DataClass,
+    pub content_digest: String,
+    pub evaluated_at_unix_ms: u64,
 }
 
 impl PolicyDecision {
-    fn from_reasons(reasons: Vec<DenialReason>) -> Self {
+    fn from_reasons(
+        reasons: Vec<DenialReason>,
+        source: &RegionalProfile,
+        destination: &RegionalProfile,
+        request: &TransferRequest<'_>,
+    ) -> Self {
         Self {
             allowed: reasons.is_empty(),
             reasons,
+            source_profile_id: source.profile_id.clone(),
+            source_profile_version: source.profile_version.clone(),
+            source_profile_digest: source.content_digest.clone(),
+            destination_profile_id: destination.profile_id.clone(),
+            destination_profile_version: destination.profile_version.clone(),
+            destination_profile_digest: destination.content_digest.clone(),
+            action: request.action,
+            data_class: request.classification.claim.data_class,
+            content_digest: request.content_digest.to_owned(),
+            evaluated_at_unix_ms: request.evaluated_at_unix_ms,
         }
     }
 }
@@ -543,6 +579,12 @@ pub fn evaluate_transfer(
         push_reason(&mut reasons, DenialReason::SameScopeIsNotFederation);
     }
     let classification = request.classification;
+    if now_ms < classification.verified_at_unix_ms {
+        push_reason(
+            &mut reasons,
+            DenialReason::ClassificationVerifiedAfterDecisionTime,
+        );
+    }
     if classification.claim.resource_id != request.resource_id {
         push_reason(&mut reasons, DenialReason::ClassificationSubjectMismatch);
     }
@@ -557,11 +599,17 @@ pub fn evaluate_transfer(
     if now_ms >= classification.evidence_valid_until_unix_ms {
         push_reason(&mut reasons, DenialReason::ClassificationEvidenceStale);
     }
+    if now_ms < source.verified_at_unix_ms {
+        push_reason(&mut reasons, DenialReason::SourceProfileVerifiedAfterDecisionTime);
+    }
     if !source_profile.active_at(now_ms) {
         push_reason(&mut reasons, DenialReason::SourceProfileInactive);
     }
     if now_ms >= source.evidence_valid_until_unix_ms {
         push_reason(&mut reasons, DenialReason::SourceProfileEvidenceStale);
+    }
+    if now_ms < destination.verified_at_unix_ms {
+        push_reason(&mut reasons, DenialReason::DestinationProfileVerifiedAfterDecisionTime);
     }
     if !destination_profile.active_at(now_ms) {
         push_reason(&mut reasons, DenialReason::DestinationProfileInactive);
@@ -582,11 +630,11 @@ pub fn evaluate_transfer(
 
     let Some(source_rule) = source_rule else {
         push_reason(&mut reasons, DenialReason::SourceRuleMissing);
-        return PolicyDecision::from_reasons(reasons);
+        return PolicyDecision::from_reasons(reasons, source_profile, destination_profile, request);
     };
     let Some(destination_rule) = destination_rule else {
         push_reason(&mut reasons, DenialReason::DestinationRuleMissing);
-        return PolicyDecision::from_reasons(reasons);
+        return PolicyDecision::from_reasons(reasons, source_profile, destination_profile, request);
     };
 
     if !source_rule.allowed_actions.contains(&request.action) {
@@ -627,6 +675,9 @@ pub fn evaluate_transfer(
         match request.consent {
             None => push_reason(&mut reasons, DenialReason::ConsentRequired),
             Some(consent) => {
+                if now_ms < consent.verified_at_unix_ms {
+                    push_reason(&mut reasons, DenialReason::ConsentVerifiedAfterDecisionTime);
+                }
                 if !(consent.grant.valid_from_unix_ms <= now_ms
                     && now_ms < consent.grant.valid_until_unix_ms)
                 {
@@ -648,7 +699,7 @@ pub fn evaluate_transfer(
             }
         }
     }
-    PolicyDecision::from_reasons(reasons)
+    PolicyDecision::from_reasons(reasons, source_profile, destination_profile, request)
 }
 
 fn validate_scope_list(scopes: &[String]) -> Result<(), ProfileValidationError> {
@@ -1116,6 +1167,56 @@ mod tests {
         let decision = evaluate_transfer(&source, &destination, &request);
         assert!(!decision.allowed);
         assert!(decision.reasons.contains(&DenialReason::ClassificationEvidenceStale));
+    }
+
+    #[test]
+    fn rejects_backdated_evaluation_after_profile_was_verified() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 199,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::SourceProfileVerifiedAfterDecisionTime));
+        assert!(decision.reasons.contains(&DenialReason::DestinationProfileVerifiedAfterDecisionTime));
+        assert!(decision.reasons.contains(&DenialReason::ClassificationVerifiedAfterDecisionTime));
+    }
+
+    #[test]
+    fn includes_versioned_non_sensitive_policy_audit_context() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let consent = verified_consent("service:education", "credential-check", 150, 500, 300, 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(decision.allowed);
+        assert_eq!(decision.source_profile_id, "profile-community-a");
+        assert_eq!(decision.source_profile_version, "1.0.0");
+        assert_eq!(decision.source_profile_digest, "a".repeat(64));
+        assert_eq!(decision.destination_profile_id, "profile-community-b");
+        assert_eq!(decision.action, BoundaryAction::Disclose);
+        assert_eq!(decision.data_class, DataClass::Personal);
+        assert_eq!(decision.content_digest, TEST_CONTENT_DIGEST);
+        assert_eq!(decision.evaluated_at_unix_ms, 220);
     }
 
 }
