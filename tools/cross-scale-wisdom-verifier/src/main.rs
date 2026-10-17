@@ -1,4 +1,4 @@
-use std::{env, fs, process};
+use std::{env, process};
 
 use cross_scale_wisdom_verifier::verify_files;
 
