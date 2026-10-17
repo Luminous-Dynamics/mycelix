@@ -606,7 +606,7 @@ fn allocation_choices(
     option: &ContingencyOption,
     lost_quantity: u32,
     max_choice_count: u64,
-) -> Result<Vec<u32>, RecourseError> {
+) -> Result<u64, RecourseError> {
     let max_quantity = option.max_activation_quantity.min(lost_quantity);
     let nonzero = if option.minimum_order_quantity <= max_quantity {
         u64::from((max_quantity - option.minimum_order_quantity) / option.order_increment) + 1
@@ -617,22 +617,7 @@ fn allocation_choices(
     if choice_count > max_choice_count || choice_count > MAX_RECOURSE_QUANTITY_CHOICES {
         return Err(RecourseError::SearchSpaceExceeded);
     }
-    let mut choices = Vec::with_capacity(usize::try_from(choice_count).map_err(|_| RecourseError::SearchSpaceExceeded)?);
-    choices.push(0);
-    if nonzero > 0 {
-        let mut quantity = option.minimum_order_quantity;
-        loop {
-            choices.push(quantity);
-            let Some(next) = quantity.checked_add(option.order_increment) else {
-                break;
-            };
-            if next > max_quantity {
-                break;
-            }
-            quantity = next;
-        }
-    }
-    Ok(choices)
+    Ok(choice_count)
 }
 
 fn option_validation_reason(
@@ -874,13 +859,12 @@ pub fn evaluate_recourse(
         };
         let mut scenario_search_nodes = 0u64;
         if base_lost_quantity > 0 {
-            let mut choices = Vec::with_capacity(eligible_options.len());
             for eligible in &eligible_options {
-                choices.push(allocation_choices(
+                allocation_choices(
                     &eligible.option,
                     base_lost_quantity,
                     scenario_budget,
-                )?);
+                )?;
             }
             let mut search = ScenarioSearch {
                 options: &eligible_options,
@@ -891,9 +875,6 @@ pub fn evaluate_recourse(
                 best: None,
             };
             let mut quantities = vec![0u32; eligible_options.len()];
-            // Choice vectors are computed and bounded above. Recursion generates
-            // the same ordered quantity choices without allocating a product-sized grid.
-            let _ = choices;
             search.recurse(0, &mut quantities)?;
             scenario_search_nodes = search.nodes;
             if let Some(plan) = search.best {
