@@ -1,0 +1,72 @@
+name: ValueFlows Interoperability Qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/valueflows-interop-qualification.yml"
+      - "mycelix-finance/tests/reference/valueflows-interop/**"
+      - "mycelix-finance/tools/valueflows-interop-checker/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/valueflows-interop-qualification.yml"
+      - "mycelix-finance/tests/reference/valueflows-interop/**"
+      - "mycelix-finance/tools/valueflows-interop-checker/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: valueflows-interop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-read-only-contract:
+    name: validate read-only mapping contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (immutable commit)
+        with:
+          # pull_request defaults to the synthetic merge ref. Qualify the PR head itself.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # immutable commit inspected 2026-10-09
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert Rust toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
+
+      - name: Validate locked checker dependency graph
+        run: cargo metadata --locked --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml --format-version 1 > /dev/null
+
+      - name: Verify pinned hREA release artifact digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_url="https://github.com/h-REA/hREA/releases/download/happ-0.5.0-beta.1"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            "${release_url}/hrea.dna" -o "$RUNNER_TEMP/hrea.dna"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            "${release_url}/hrea.happ" -o "$RUNNER_TEMP/hrea.happ"
+          printf '%s  %s\n' \
+            '18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec' \
+            "$RUNNER_TEMP/hrea.dna" | sha256sum --check --strict
+          printf '%s  %s\n' \
+            'b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7' \
+            "$RUNNER_TEMP/hrea.happ" | sha256sum --check --strict
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml -- --check
+
+      - name: Run contract and adversarial tests
+        run: cargo test --locked --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
+
+      - name: Validate checked-in corpus with executable
+        run: cargo run --locked --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml

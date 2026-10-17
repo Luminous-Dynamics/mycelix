@@ -1,0 +1,632 @@
+{
+  "schema_version": "1.0.0",
+  "title": "Mycelix / hAppRadar interoperability decision matrix",
+  "observed_on": "2026-10-15",
+  "status": "research_only_not_runtime_qualification",
+  "scope": {
+    "repository": "https://github.com/Luminous-Dynamics/mycelix",
+    "directory": "https://happradar.com/projects",
+    "statement": "Comparative design guidance only. No external project is asserted to be integrated, secure, production-ready, or compatible with the current Mycelix runtime."
+  },
+  "holochain_compatibility_baseline": {
+    "source": "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+    "target_for_stable_qualification": {
+      "holochain": "0.7.0",
+      "hc_cli": "0.7.0",
+      "hdk": "0.7.0",
+      "hdi": "0.8.0",
+      "javascript_client": "0.21.0",
+      "rust_client": "0.9.0",
+      "lair_keystore": "0.7.1"
+    },
+    "excluded_default_target": {
+      "version_line": "0.8.0-dev",
+      "reason": "Development prerelease is not the stable default qualification target."
+    },
+    "migration_constraints": [
+      "0.6 Action/validation APIs differ from the 0.7 ActionData/FlatOp model.",
+      "0.7 removes tx5/WebRTC and uses Iroh over QUIC.",
+      "There is no built-in 0.6 conductor database migration path; DNA hashes change and 0.7 cannot read 0.6 databases.",
+      "User-data continuity, where required, needs a separately qualified application-level export/import/recovery process."
+    ],
+    "upgrade_guide": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
+    "repository_baseline_note": "The Mycelix root README observed during this review still describes a 0.6 baseline; subprojects may have independent migration work. Qualification must be per deployable hApp."
+  },
+  "decision_rules": [
+    "A project listing, README claim, build, unit test, API response, signature, or live demo is not by itself proof of production readiness, security, adoption, or DHT validation.",
+    "Use external vocabularies for interoperable facts; preserve Mycelix identity, authorization, monetary-policy, and settlement invariants.",
+    "Every adapter must declare its exact source revision, toolchain tuple, data direction, trust boundary, license-review status, and claim ceiling.",
+    "Unknown, stale, conflicting, unavailable, or unsupported evidence must remain explicit; do not silently coerce it to valid, false, trusted, or settled."
+  ],
+  "projects": [
+    {
+      "id": "hrea",
+      "name": "hREA",
+      "category": "economic_interoperability",
+      "source_urls": [
+        "https://happradar.com/projects/hrea",
+        "https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md",
+        "https://www.valueflo.ws/specification/all_vf/",
+        "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+        "https://www.valueflo.ws/introduction/status/",
+        "https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/"
+      ],
+      "useful_capability": "ValueFlows/REA vocabulary and Holochain-backed economic coordination.",
+      "mycelix_domains": [
+        "finance",
+        "commons",
+        "attribution",
+        "supplychain"
+      ],
+      "recommended_mode": "versioned_read_only_export_then_adapter",
+      "priority": "P1",
+      "contract": [
+        "Map resources, commitments, intents, claims and economic events without treating them as interchangeable.",
+        "Preserve exact asset identity, integer quantity and units, issuer/community scope, provenance and correction lineage.",
+        "Imported events do not authorize SAP/TEND mutation or settle an obligation by themselves.",
+        "Do not map a MYCEL recognition attestation to ValueFlows Claim unless the record actually has Claim's reciprocal future-economic-event semantics; use a separately profiled attestation/credential or explicit namespaced extension."
+      ],
+      "blocking_evidence": [
+        "Verify the exact hREA DNA/hApp bytes against the pinned release digests in CI; review the Apache-2.0 license and approve any code reuse explicitly.",
+        "Pin the artifact and exact conductor/HDK/HDI/client/adapter tuple.",
+        "Account for hREA happ-0.4.0-beta to happ-0.5.0-beta upgrade changing the DNA hash with no in-place migration; test fresh-network installation and any separately designed migration.",
+        "Round-trip, malformed/unknown-field and loss-boundary controls.",
+        "Two-agent test on the qualified stack."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "h-REA/hREA",
+          "ref": "sprout",
+          "sha": "8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
+          "committed_at": "2026-09-16T17:49:56Z",
+          "url": "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4"
+        },
+        {
+          "repository": "h-REA/hREA",
+          "ref": "happ-0.5.0-beta.1",
+          "sha": "79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85",
+          "committed_at": "2026-09-10T13:10:31Z",
+          "url": "https://github.com/h-REA/hREA/commit/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-15",
+        "latest_listed_release": "happ-0.5.0-beta.1 (published 2026-09-10)",
+        "release_profile": {
+          "valueflows": "1.0",
+          "holochain": "0.7.x",
+          "hdk": "0.7.0",
+          "hdi": "0.8.0",
+          "holochain_client": "^0.21.0",
+          "graphql_adapter": "0.700.x",
+          "dna_asset_sha256": "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
+          "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
+          "upstream_license": "Apache-2.0",
+          "license_file_url": "https://github.com/h-REA/hREA/blob/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85/LICENSE",
+          "license_review_approved_for_reuse": false,
+          "upgrade_boundary": "happ-0.4.0-beta to happ-0.5.0-beta changes DNA hash; no in-place data migration; treat as a new network"
+        },
+        "caveats": [
+          "The release tag and its two asset digests are pinned as research evidence, but neither artifact has been selected as a Mycelix dependency.",
+          "The separately pinned sprout source branch head is a later commit than the release tag; source-tree state must not be substituted for released artifact evidence.",
+          "Mycelix Finance's reviewed dependency tuple remains on the Holochain 0.6 line; no native DNA composition or runtime integration is qualified.",
+          "The release's root LICENSE is Apache-2.0; reuse remains unapproved pending explicit license/dependency review.",
+          "The hREA 0.4.0-beta to 0.5.0-beta upgrade guide says the DNA hash changes and existing 0.4.0-beta data does not carry over in place.",
+          "ValueFlows status documentation describes a 1.0.0 specification release while generated RDF ontology metadata reports version info 0.17; this is recorded as layered version evidence, not asserted as a compatibility failure."
+        ],
+        "use_for_mycelix": "Prefer a read-only, versioned export first. For any native composition experiment, pin the hREA DNA/hApp artifact and full client/adapter/conductor tuple, review license and migrations, and test on an isolated branch with exact round-trip and two-agent controls.",
+        "valueflows_version_layers": {
+          "documentation_specification_release": "1.0.0",
+          "documentation_status_url": "https://www.valueflo.ws/introduction/status/",
+          "rdf_ontology_version_info": "0.17",
+          "rdf_ontology_version_iri": "https://w3id.org/valueflows/ont/0.17/vf",
+          "hrea_claimed_implementation_profile": "ValueFlows 1.0",
+          "interpretation": "These labels refer to different versioning layers; do not infer incompatibility from the labels alone. Qualify the actual ontology terms, adapter schema, and runtime tuple."
+        }
+      }
+    },
+    {
+      "id": "nondominium",
+      "name": "Nondominium",
+      "category": "commons_resource_boundaries",
+      "source_urls": [
+        "https://happradar.com/projects/nondominium",
+        "https://github.com/Sensorica/nondominium/blob/dev/README.md"
+      ],
+      "useful_capability": "Resource-scoped peer networks and private participation receipt patterns.",
+      "mycelix_domains": [
+        "commons",
+        "property",
+        "mutualaid",
+        "attribution"
+      ],
+      "recommended_mode": "architecture_benchmark_before_any_shared_types",
+      "priority": "P1",
+      "contract": [
+        "Group membership or a receipt does not grant authority over another resource/network.",
+        "Compare ownership, participation receipt, resource lifecycle and recovery semantics before defining common types."
+      ],
+      "blocking_evidence": [
+        "Exact branch/artifact/toolchain capture.",
+        "Access-boundary comparison and cross-group negative controls.",
+        "License and source-reuse review."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "Sensorica/nondominium",
+          "ref": "dev",
+          "sha": "bbf87941ef0977c38be268b665839aeb72bc5572",
+          "committed_at": "2026-10-08T20:24:31Z",
+          "url": "https://github.com/Sensorica/nondominium/commit/bbf87941ef0977c38be268b665839aeb72bc5572"
+        }
+      ]
+    },
+    {
+      "id": "moss",
+      "name": "Moss",
+      "category": "composable_collaboration",
+      "source_urls": [
+        "https://happradar.com/projects/moss",
+        "https://github.com/lightningrodlabs/moss/blob/main/README.md"
+      ],
+      "useful_capability": "User-composable collaboration tools and separate private group/tool contexts.",
+      "mycelix_domains": [
+        "pulse",
+        "commons",
+        "governance",
+        "craft"
+      ],
+      "recommended_mode": "ux_and_network_boundary_benchmark",
+      "priority": "P1",
+      "contract": [
+        "Keep modular user experience separate from network isolation.",
+        "A unified deployment must not be the only composition option or default authorization boundary."
+      ],
+      "blocking_evidence": [
+        "Pinned source and license review.",
+        "Prototype tool boundaries and user recovery before claiming interoperability."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "lightningrodlabs/moss",
+          "ref": "main",
+          "sha": "4a87b935f013491714f347b0c609c391886b969b",
+          "committed_at": "2026-07-23T19:35:29Z",
+          "url": "https://github.com/lightningrodlabs/moss/commit/4a87b935f013491714f347b0c609c391886b969b"
+        }
+      ]
+    },
+    {
+      "id": "ad4m",
+      "name": "AD4M",
+      "category": "semantic_interoperability",
+      "source_urls": [
+        "https://happradar.com/projects/ad4m",
+        "https://github.com/coasys/ad4m/blob/dev/README.md"
+      ],
+      "useful_capability": "Agent-centric semantic relationships, signed expressions and pluggable language adapters.",
+      "mycelix_domains": [
+        "identity",
+        "knowledge",
+        "attribution",
+        "civic"
+      ],
+      "recommended_mode": "evaluate_exchange_adapter_not_authority_substrate",
+      "priority": "P2",
+      "contract": [
+        "Preserve signer, provenance, schema/language version and interpretation context.",
+        "A signature or semantic relation proves neither truth nor permission to act."
+      ],
+      "blocking_evidence": [
+        "Pinned protocol/version.",
+        "License compatibility review.",
+        "Equivocation, revocation, schema-drift and authorization-boundary tests."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "coasys/ad4m",
+          "ref": "dev",
+          "sha": "b7944f1b4bf081da67ad717ace3ba690ab99a7e1",
+          "committed_at": "2026-10-14T10:39:31Z",
+          "url": "https://github.com/coasys/ad4m/commit/b7944f1b4bf081da67ad717ace3ba690ab99a7e1"
+        }
+      ]
+    },
+    {
+      "id": "valichord",
+      "name": "ValiChord",
+      "category": "independent_verification",
+      "source_urls": [
+        "https://happradar.com/projects/valichord",
+        "https://github.com/ValiChord/ValiChord",
+        "https://github.com/ValiChord/ValiChord/blob/main/docs/15_How_a_Validation_Round_Works.md"
+      ],
+      "useful_capability": "Commit/reveal rounds for pre-registered, independently collected evaluations.",
+      "mycelix_domains": [
+        "governance",
+        "knowledge",
+        "desci",
+        "attribution"
+      ],
+      "recommended_mode": "pattern_benchmark_for_blind_evaluation_only",
+      "priority": "P2",
+      "contract": [
+        "Use canonical, versioned, domain-separated preimages and identical encode/hash logic.",
+        "Reject phase violations, mismatches and replay; preserve disagreement.",
+        "Commitment integrity is distinct from truth, competence, quorum legitimacy and Sybil resistance."
+      ],
+      "blocking_evidence": [
+        "Threat model for evaluator collusion and issuer trust.",
+        "Multi-agent tests for tamper, replay, dropout, delay and conflicting outcomes."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "ValiChord/ValiChord",
+          "ref": "main",
+          "sha": "fe45114594f377bb9cd1ecdba798259c83c64567",
+          "committed_at": "2026-09-04T15:13:24Z",
+          "url": "https://github.com/ValiChord/ValiChord/commit/fe45114594f377bb9cd1ecdba798259c83c64567"
+        }
+      ]
+    },
+    {
+      "id": "epistemic-resonance",
+      "name": "Epistemic Resonance Protocol",
+      "category": "claims_evidence_critique",
+      "source_urls": [
+        "https://happradar.com/projects/epistemic-resonance-desktop",
+        "https://happradar.com/projects/epistemic-happ",
+        "https://github.com/StateofIntent/epistemic-happ/blob/main/INSTALL.md",
+        "https://github.com/StateofIntent/epistemic-resonance-desktop/releases"
+      ],
+      "useful_capability": "Structured claims, critiques and evidence with visible disagreement.",
+      "mycelix_domains": [
+        "civic",
+        "governance",
+        "media",
+        "knowledge",
+        "justice"
+      ],
+      "recommended_mode": "model_critique_and_evidence_relationships",
+      "priority": "P1",
+      "contract": [
+        "Keep claims, sources, critiques, revisions and dispositions attributable and versioned.",
+        "Do not replace claim evaluation with reputation or collapse disagreement into one consensus value."
+      ],
+      "blocking_evidence": [
+        "Schema and claim-ceiling review.",
+        "Tests for unsupported claims, source changes, retraction and unresolved disagreement."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "StateofIntent/epistemic-happ",
+          "ref": "main",
+          "sha": "c4c1f54dd73e220734bc85585aa172e3b2edfea0",
+          "committed_at": "2026-10-14T09:47:16Z",
+          "url": "https://github.com/StateofIntent/epistemic-happ/commit/c4c1f54dd73e220734bc85585aa172e3b2edfea0"
+        },
+        {
+          "repository": "StateofIntent/epistemic-resonance-desktop",
+          "ref": "main",
+          "sha": "0c866d53685fc07b7eca5db42c8f39609abab466",
+          "committed_at": "2026-10-12T11:59:21Z",
+          "url": "https://github.com/StateofIntent/epistemic-resonance-desktop/commit/0c866d53685fc07b7eca5db42c8f39609abab466"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-14",
+        "release": "v0.2.0 desktop packaging release published 2026-10-12",
+        "declared_runtime": "The hAppRadar page describes a standalone desktop app with a built-in Holochain 0.7 conductor, while its structured Holochain-version field is not recorded.",
+        "caveats": [
+          "Desktop release assets are reported as unsigned by the project page.",
+          "INSTALL documentation says peer discovery currently uses Holochain's development bootstrap server.",
+          "The project states data does not survive an incompatible upgrade; do not assume in-place data migration."
+        ],
+        "use_for_mycelix": "Good evidence of a standalone distribution approach and append-only claim/critique/retraction model; not proof of production deployment, independent security review, or stable peer-discovery infrastructure."
+      }
+    },
+    {
+      "id": "hearth",
+      "name": "Hearth",
+      "category": "person_controlled_care",
+      "source_urls": [
+        "https://happradar.com/projects/hearth",
+        "https://github.com/topeuph-ai/hearth/blob/main/README.md",
+        "https://github.com/topeuph-ai/hearth/releases"
+      ],
+      "useful_capability": "Person-controlled care records and portable care preferences.",
+      "mycelix_domains": [
+        "health",
+        "hearth",
+        "personal",
+        "care"
+      ],
+      "recommended_mode": "ux_and_consent_benchmark_only_until_maturity_review",
+      "priority": "P2",
+      "contract": [
+        "Make consent, delegation, revocation, export and recovery understandable.",
+        "Do not use demo/research installations with real health information."
+      ],
+      "blocking_evidence": [
+        "Current maturity and threat-model review.",
+        "Privacy, retention and interoperability-profile review."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "topeuph-ai/hearth",
+          "ref": "main",
+          "sha": "75e2b3e8485a6f9f5be4478986ef6597f48ed5c9",
+          "committed_at": "2026-09-24T16:07:12Z",
+          "url": "https://github.com/topeuph-ai/hearth/commit/75e2b3e8485a6f9f5be4478986ef6597f48ed5c9"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-14",
+        "latest_listed_release": "v0.3.4 (published 2026-09-23)",
+        "compatibility_reported_by_happ_radar": {
+          "hdk": "0.7.0",
+          "hdi": "0.8.0",
+          "holochain_client": "0.21.0",
+          "holochain_version": "0.7.0"
+        },
+        "caveats": [
+          "The project's own README describes an early demo and says it should not be relied on for real care records.",
+          "The reviewed project page says stored entries are not encrypted at rest.",
+          "Members admitted to a circle receive plaintext, and leaving removes the local copy only; other circle members retain theirs.",
+          "It explicitly is not a clinical record."
+        ],
+        "use_for_mycelix": "Benchmark person-centred consent and portability UX only; do not import its storage/security model or test with real health data."
+      }
+    },
+    {
+      "id": "flowsta-vault",
+      "name": "Flowsta Vault",
+      "category": "local_user_sovereignty",
+      "source_urls": [
+        "https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/README.md",
+        "https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/LICENSE"
+      ],
+      "useful_capability": "Local custody, visible action approval, backup and user export/recovery.",
+      "mycelix_domains": [
+        "identity",
+        "personal",
+        "security"
+      ],
+      "recommended_mode": "user_control_and_recovery_benchmark",
+      "priority": "P2",
+      "contract": [
+        "Sensitive actions must be visible, scoped and explicitly approved.",
+        "Recovery/export must not depend on an operator holding the only copy of data or credentials."
+      ],
+      "blocking_evidence": [
+        "Pinned source and dependency/license metadata review.",
+        "Threat model for local bridge, key derivation, backup and restore."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "WeAreFlowsta/flowsta-vault-app",
+          "ref": "main",
+          "sha": "b3788f09d988400422d834d30626425784ef2935",
+          "committed_at": "2026-10-09T09:53:53Z",
+          "url": "https://github.com/WeAreFlowsta/flowsta-vault-app/commit/b3788f09d988400422d834d30626425784ef2935"
+        }
+      ]
+    },
+    {
+      "id": "requests-and-offers",
+      "name": "Requests and Offers",
+      "category": "thin_vertical_workflow",
+      "source_urls": [
+        "https://happradar.com/projects/requests-and-offers",
+        "https://github.com/happenings-community/requests-and-offers/blob/main/README.md",
+        "https://github.com/happenings-community/requests-and-offers/blob/main/package.json"
+      ],
+      "useful_capability": "Narrow request/offer journey and explicit test-pyramid examples.",
+      "mycelix_domains": [
+        "commons",
+        "finance",
+        "identity",
+        "attribution"
+      ],
+      "recommended_mode": "workflow_scope_benchmark_not_runtime_dependency",
+      "priority": "P1",
+      "contract": [
+        "Prove request → offer → commitment → completion evidence → settlement with cancellation, dispute and recovery.",
+        "Keep claimed, agreed, performed, evidenced and settled states distinct."
+      ],
+      "blocking_evidence": [
+        "Pin exact Holochain/hREA artifacts and client/adapters.",
+        "Real-conductor multi-agent, retry/replay and user-flow tests."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "happenings-community/requests-and-offers",
+          "ref": "main",
+          "sha": "3f936e475db37fd0b6498bf9fc7244478c3d6d0a",
+          "committed_at": "2026-09-16T02:43:36Z",
+          "url": "https://github.com/happenings-community/requests-and-offers/commit/3f936e475db37fd0b6498bf9fc7244478c3d6d0a"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-14",
+        "release": "v0.6.0-alpha.1 (hAppRadar lists 2026-09-15)",
+        "compatibility_reported_by_happ_radar": {
+          "hdk": "0.6.1",
+          "hdi": "0.7.1",
+          "holochain_client": "0.20.5",
+          "holochain_release_note": "0.6.0"
+        },
+        "caveats": [
+          "The project explicitly labels itself alpha/not production-ready.",
+          "Its listed compatibility tuple differs from the Holochain 0.7 baseline in this matrix."
+        ],
+        "use_for_mycelix": "Benchmark the narrow user journey and tests, but do not assume an artifact is directly composable with hREA's Holochain 0.7 branch."
+      }
+    }
+  ],
+  "adversarial_cases": [
+    {
+      "id": "HC-006-007-DB-001",
+      "input_condition": "A Holochain 0.6 artifact or database is presented as a qualified 0.7 target.",
+      "expected_disposition": "reject_qualification",
+      "reason": "Action model, DNA hashes and conductor database compatibility differ; no built-in migration path exists."
+    },
+    {
+      "id": "VF-AUTH-001",
+      "input_condition": "An imported ValueFlows EconomicEvent directly mutates SAP or TEND.",
+      "expected_disposition": "reject_authority_promotion",
+      "reason": "Interoperable facts are not Mycelix authorization, policy or settlement."
+    },
+    {
+      "id": "VF-MYCEL-002",
+      "input_condition": "MYCEL recognition is exported as a transferable economic balance.",
+      "expected_disposition": "reject_semantic_loss",
+      "reason": "Recognition/reputation is not transferable money; additionally, ValueFlows Claim has a specific reciprocal economic-obligation meaning."
+    },
+    {
+      "id": "VF-MYCEL-CLAIM-001",
+      "input_condition": "MYCEL recognition/attestation is placed in a ValueFlows Claim without evidence it represents a future reciprocal economic event.",
+      "expected_disposition": "reject_semantic_loss",
+      "reason": "ValueFlows Claim specifically denotes a claim for a future economic event in reciprocity for an economic event already occurred; use a separately scoped attestation/credential profile or document exact semantic fit."
+    },
+    {
+      "id": "VF-TEND-003",
+      "input_condition": "TEND is translated without exact time units, community scope or zero-sum obligations.",
+      "expected_disposition": "reject_lossy_mapping",
+      "reason": "The adapter must preserve instrument and accounting semantics."
+    },
+    {
+      "id": "RESOURCE-NAMESPACE-001",
+      "input_condition": "Equal resource identifiers from different apps/networks are silently merged.",
+      "expected_disposition": "reject_unbound_identity",
+      "reason": "Cross-network identity requires an explicit binding and provenance."
+    },
+    {
+      "id": "EXT-API-AUTH-001",
+      "input_condition": "External API/GraphQL success is presented as DHT validation or settlement evidence.",
+      "expected_disposition": "reject_claim_ceiling",
+      "reason": "API reachability does not establish validation, authorization or finality."
+    },
+    {
+      "id": "COMMIT-REVEAL-001",
+      "input_condition": "A reveal has a mismatching commitment, reused nonce, duplicate identity or invalid phase.",
+      "expected_disposition": "reject_reveal",
+      "reason": "Reject tamper/replay but do not infer truth from a valid commitment."
+    },
+    {
+      "id": "EPISTEMIC-DISSENT-001",
+      "input_condition": "Conflicting claims or minority verifier results are overwritten or averaged into one truth claim.",
+      "expected_disposition": "preserve_conflict",
+      "reason": "Disagreement is evidence and must remain auditable."
+    },
+    {
+      "id": "EVIDENCE-UNKNOWN-001",
+      "input_condition": "Missing, stale, unavailable or unsupported evidence is silently converted into valid/invalid.",
+      "expected_disposition": "indeterminate_or_policy_bounded_rejection",
+      "reason": "Unknown is distinct from false and must not silently authorize sensitive actions."
+    },
+    {
+      "id": "MATURITY-CLAIM-001",
+      "input_condition": "A build/unit test/listing/demo is presented as multi-agent, audited, production or adoption evidence.",
+      "expected_disposition": "reject_overclaim",
+      "reason": "Maturity dimensions require separate exact-subject evidence."
+    },
+    {
+      "id": "LICENSE-REUSE-001",
+      "input_condition": "Source code is copied without a pinned revision and compatibility/license review.",
+      "expected_disposition": "block_source_reuse",
+      "reason": "Architectural learning and source-code reuse are distinct decisions."
+    },
+    {
+      "id": "TEND-F32-EXPORT-001",
+      "input_condition": "Legacy TEND service-hour field (f32) is exported as exact decimal quantity without an approved quantization/precision profile.",
+      "expected_disposition": "block_unqualified_quantity_export",
+      "reason": "Source inspection found TendExchange.hours and cumulative hours are f32. String formatting alone does not make the binary source value exact in the target economic model."
+    },
+    {
+      "id": "TEND-BEARER-PROMOTION-001",
+      "input_condition": "A TEND position is exported as freely transferable bearer units without preserving community scope, counterparties and service-obligation provenance.",
+      "expected_disposition": "reject_bearer_asset_promotion",
+      "reason": "TEND is modeled as community-scoped mutual credit; the export must not detach a balance from its underlying obligations."
+    }
+  ],
+  "source_register": [
+    {
+      "id": "holochain-compatibility-0.7",
+      "type": "official_compatibility_table",
+      "url": "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+      "observed_on": "2026-10-14",
+      "use": "Stable compatibility tuple; recheck before artifact qualification."
+    },
+    {
+      "id": "holochain-upgrade-0.6-to-0.7",
+      "type": "official_migration_guide",
+      "url": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
+      "observed_on": "2026-10-14",
+      "use": "Breaking API/transport changes and no built-in database migration path."
+    },
+    {
+      "id": "valueflows-normative-spec",
+      "type": "normative_specification",
+      "url": "https://www.valueflo.ws/specification/all_vf/",
+      "observed_on": "2026-10-14",
+      "use": "Economic vocabulary, not external authority for Mycelix state."
+    },
+    {
+      "id": "happ-radar-directory",
+      "type": "ecosystem_directory",
+      "url": "https://happradar.com/projects",
+      "observed_on": "2026-10-14",
+      "use": "Project discovery only; listing status is not independent validation."
+    },
+    {
+      "id": "mycelix-finance-tend-source",
+      "type": "pinned_source_inspection",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/blob/23742a3802eba2e5211837dc1bff56a9deb1cdc9/mycelix-finance/zomes/tend/integrity/src/lib.rs",
+      "observed_on": "2026-10-14",
+      "use": "Source-level observation: TendExchange.hours, TendBalance.total_provided and total_received are f32; TendBalance.balance is i32. This blocks claims of lossless external time-quantity serialization until a precision/quantization profile is specified. This is not a runtime test."
+    },
+    {
+      "id": "hrea-release-0.5.0-beta.1",
+      "type": "pinned_upstream_release_and_artifact_digests",
+      "url": "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+      "observed_on": "2026-10-15",
+      "use": "Release claims VF 1.0 + Holochain 0.7.x and provides checksummed DNA/hApp assets; evidence only, not proof of Mycelix integration."
+    },
+    {
+      "id": "w3c-vc-data-model-2.0",
+      "type": "w3c_recommendation",
+      "url": "https://www.w3.org/TR/2025/REC-vc-data-model-2.0-20250515/",
+      "observed_on": "2026-10-15",
+      "use": "Candidate data model for attributable attestations; issuer and credential subject are mandatory, and verifiability does not itself make claims true or authorize action."
+    }
+  ],
+  "source_revisions_policy": "Moving branch URLs are discovery links only. source_revisions pins the exact source commit or release commit inspected. observed_on is the latest matrix refresh, not a claim that every upstream project was re-queried on that date; each observed_maturity_and_compatibility.checked_on is the per-project evidence date. Compatibility/behavior statements remain source-reported until separately reproduced."
+}

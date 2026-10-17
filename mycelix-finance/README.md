@@ -135,4 +135,4 @@ cd tests && cargo test
 
 ## License
 
-Apache-2.0
+AGPL-3.0-or-later. See [the repository licensing matrix](../LICENSING.md) for the per-directory scope and commercial licensing information.

@@ -1,0 +1,256 @@
+{
+  "schema_version": "mycelix.valueflows-interop.corpus/v1",
+  "status": "experimental-read-only-export",
+  "purpose": "Define a loss-aware, read-only mapping contract for Mycelix SAP, TEND and MYCEL into ValueFlows-shaped economic facts. This is not a production adapter or an authoritative ledger implementation.",
+  "authority_boundary": {
+    "external_facts_are_authoritative": false,
+    "external_import_may_mutate_sap": false,
+    "external_import_may_mutate_tend": false,
+    "external_import_may_mutate_mycel": false,
+    "external_import_may_mark_settlement_final": false,
+    "unknown_or_conflicting_evidence_default": "indeterminate",
+    "export_only": true
+  },
+  "source_profile": {
+    "normative_vocabulary_iri": "https://w3id.org/valueflows/ont/vf",
+    "published_ontology_version_iri": "https://w3id.org/valueflows/ont/0.17/vf",
+    "published_ontology_version": "0.17",
+    "normative_specification_url": "https://www.valueflo.ws/specification/all_vf/",
+    "hrea_repository": "h-REA/hREA",
+    "hrea_source_commit": "8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
+    "hrea_source_branch": "sprout",
+    "hrea_source_describes_profile_as": "ValueFlows 1.0 + Holochain 0.7",
+    "hrea_source_commit_url": "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
+    "packaged_hrea_artifact_pinned": false,
+    "hrea_runtime_qualified_with_mycelix": false,
+    "version_note": "Keep three distinct version labels: the ValueFlows status page describes documentation/specification release 1.0.0; the generated RDF ontology metadata uses version info 0.17 and version IRI https://w3id.org/valueflows/ont/0.17/vf; and hREA release notes claim a ValueFlows 1.0 implementation profile on Holochain 0.7.x. These labels refer to different layers and are not by themselves evidence of incompatibility; the exact schema, adapter, and vocabulary term mapping still require qualification. The checksummed hREA release is research evidence only and is not selected as a Mycelix dependency; no hREA runtime integration with Mycelix is qualified.",
+    "release_evidence": {
+      "release_tag": "happ-0.5.0-beta.1",
+      "release_commit": "79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85",
+      "published_at": "2026-09-10T13:10:58Z",
+      "release_url": "https://github.com/h-REA/hREA/releases/tag/happ-0.5.0-beta.1",
+      "claimed_valueflows_profile": "1.0",
+      "claimed_holochain_requirement": "0.7.x",
+      "claimed_client_requirement": "^0.21.0",
+      "dna_asset_sha256": "18b9bb6847fea31bfed73d9a0f65221911f5a9f1b91bf9fb3f5273b2fda7acec",
+      "happ_asset_sha256": "b9a7c3f0dd81fa934ba69b5054b7cdf58008526ee77ce57351b30cc5900a43a7",
+      "selected_for_mycelix_integration": false,
+      "evidence_scope": "research_evidence_only",
+      "upstream_license": "Apache-2.0",
+      "license_file_url": "https://github.com/h-REA/hREA/blob/79c8d4fb98c4f7f9a8cf3f7dd69690d6d1334d85/LICENSE",
+      "license_review_approved_for_reuse": false,
+      "migration_boundary": "the happ-0.4.0-beta to happ-0.5.0-beta upgrade changes the DNA hash, has no in-place data migration, and must be treated as a new network"
+    },
+    "published_specification_release": "1.0.0",
+    "published_specification_status_url": "https://www.valueflo.ws/introduction/status/"
+  },
+  "mapping_contract": {
+    "direction": "Mycelix -> external ValueFlows-shaped export",
+    "import_authority": "none",
+    "required_envelope_fields": [
+      "source_system",
+      "source_record_id",
+      "source_action_or_event_id",
+      "source_revision_or_sequence",
+      "observed_at",
+      "scope_id",
+      "asset_or_instrument_identity",
+      "quantity_and_unit_profile",
+      "claim_ceiling"
+    ],
+    "quantity_policy": "Authoritative numeric quantities are emitted as canonical base-10 integer strings in the mapping envelope, not binary floating-point JSON numbers. A downstream serializer may emit a ValueFlows Measure only when its exact-decimal behavior is established; the original integer string and unit profile remain available for round-trip checks.",
+    "identity_policy": "Every external identifier is namespaced by source system and scope. Equal bare IDs from different sources are not the same resource unless an explicit, evidence-bound crosswalk exists.",
+    "correction_policy": "Corrections append a new record referencing the corrected event. They do not mutate or erase the historical source event.",
+    "semantics_policy": "Economic facts, reputation attestations, eligibility, authorization, settlement and outcomes remain separate claim types."
+  },
+  "mappings": [
+    {
+      "id": "SAP-RESOURCE-EVENT-v1",
+      "mycelix_instrument": "SAP",
+      "mycelix_identity": "mycelix:SAP",
+      "valueflows_entities": [
+        "ResourceSpecification",
+        "EconomicResource",
+        "EconomicEvent"
+      ],
+      "quantity_encoding": "decimal_string_micro_sap",
+      "unit_profile": "mycelix:microSAP",
+      "preserves_asset_identity": true,
+      "preserves_origin_and_source_event": true,
+      "preserves_community_scope": true,
+      "preserves_correction_lineage": true,
+      "source_event_is_authority_for_ledger_mutation": false,
+      "maps_to_authoritative_balance": false,
+      "notes": "Candidate export representation only. An EconomicEvent describing transfer is not authorization to mutate an SAP balance or proof of external settlement.",
+      "transferability": "transferable_units_with_domain_rules"
+    },
+    {
+      "id": "TEND-COMMITMENT-EVENT-v1",
+      "mycelix_instrument": "TEND",
+      "mycelix_identity": "mycelix:TEND",
+      "valueflows_entities": [
+        "Commitment",
+        "EconomicEvent"
+      ],
+      "quantity_encoding": "blocked_legacy_f32_needs_quantization_profile",
+      "unit_profile": "mycelix:TEND-hour",
+      "preserves_asset_identity": true,
+      "preserves_origin_and_source_event": true,
+      "preserves_community_scope": true,
+      "preserves_correction_lineage": true,
+      "source_event_is_authority_for_ledger_mutation": false,
+      "maps_to_authoritative_balance": false,
+      "notes": "The current TendExchange.hours and cumulative hours fields are f32. Export of an authoritative numeric TEND quantity is blocked until a versioned quantization/precision profile, error bound and round-trip test are defined. Do not imply the source float is an exact decimal. TEND is a community-scoped mutual-credit position arising from a service exchange, not an assumed bearer token that can be detached from its community/counterparty obligations.",
+      "transferability": "community_scoped_mutual_credit_position"
+    },
+    {
+      "id": "MYCEL-RECOGNITION-ATTESTATION-v1",
+      "mycelix_instrument": "MYCEL",
+      "mycelix_identity": "mycelix:MYCEL",
+      "valueflows_entities": [],
+      "quantity_encoding": "none_attestation_only",
+      "unit_profile": "not_applicable",
+      "preserves_asset_identity": true,
+      "preserves_origin_and_source_event": true,
+      "preserves_community_scope": true,
+      "preserves_correction_lineage": true,
+      "source_event_is_authority_for_ledger_mutation": false,
+      "maps_to_authoritative_balance": false,
+      "notes": "No direct ValueFlows economic entity is asserted for MYCEL recognition in this profile: a ValueFlows Claim specifically denotes a claim for a future economic event in reciprocity for an economic event that already occurred. Export only a separately namespaced, scoped attestation (for example, a deliberately profiled W3C Verifiable Credential 2.0 representation or an explicit Mycelix extension); preserve issuer, subject, provenance, proof/verification status, validity/revocation state and privacy boundaries. Such a credential profile is a candidate, not yet selected or implemented, and verifiability does not establish truth or authorization. Do not project MYCEL into transferable quantity, currency or an authoritative global reputation score.",
+      "transferability": "non_transferable_recognition_attestation"
+    }
+  ],
+  "negative_controls": [
+    {
+      "id": "VF-AUTH-001",
+      "input_condition": "Imported EconomicEvent is used directly to increase, decrease, or settle an authoritative Mycelix SAP/TEND balance.",
+      "expected_disposition": "reject_authority_promotion",
+      "required_guards": [
+        "external_facts_are_authoritative=false",
+        "external_import_may_mutate_sap=false",
+        "external_import_may_mutate_tend=false",
+        "external_import_may_mark_settlement_final=false"
+      ]
+    },
+    {
+      "id": "VF-MYCEL-001",
+      "input_condition": "MYCEL recognition is exported as a ValueFlows Claim, currency, transferable balance, or spendable entitlement without a specifically reviewed semantic profile.",
+      "expected_disposition": "reject_semantic_loss",
+      "required_guards": [
+        "MYCEL.valueflows_entities=empty_no_core_mapping",
+        "MYCEL.quantity_encoding=none_attestation_only",
+        "MYCEL.maps_to_authoritative_balance=false",
+        "MYCEL.transferability=non_transferable_recognition_attestation"
+      ]
+    },
+    {
+      "id": "VF-TEND-001",
+      "input_condition": "TEND obligation is translated into SAP without an explicit, separately authorized exchange event and conversion profile.",
+      "expected_disposition": "reject_instrument_substitution",
+      "required_guards": [
+        "TEND.identity_preserved",
+        "TEND.unit_preserved",
+        "no_implicit_TEND_to_SAP_conversion",
+        "TEND.transferability=community_scoped_mutual_credit_position"
+      ]
+    },
+    {
+      "id": "VF-AMOUNT-001",
+      "input_condition": "An authoritative SAP micro-unit amount is parsed through binary floating point or loses its base-10 integer representation.",
+      "expected_disposition": "reject_lossy_quantity",
+      "required_guards": [
+        "canonical_integer_string",
+        "unit_profile_preserved",
+        "round_trip_exact"
+      ]
+    },
+    {
+      "id": "VF-UNIT-001",
+      "input_condition": "A quantity lacks its unit profile or a receiving adapter substitutes another unit.",
+      "expected_disposition": "reject_unit_mismatch",
+      "required_guards": [
+        "unit_profile_required",
+        "unit_identity_preserved"
+      ]
+    },
+    {
+      "id": "VF-SCOPE-001",
+      "input_condition": "Community/issuer scope is omitted and records from separate economic networks become indistinguishable.",
+      "expected_disposition": "reject_unbound_scope",
+      "required_guards": [
+        "scope_id_required",
+        "issuer_or_community_scope_preserved"
+      ]
+    },
+    {
+      "id": "VF-ORIGIN-001",
+      "input_condition": "An exported record loses its source system, source record, source action/event, or revision identity.",
+      "expected_disposition": "reject_missing_provenance",
+      "required_guards": [
+        "source_system_required",
+        "source_record_id_required",
+        "source_action_or_event_id_required",
+        "source_revision_or_sequence_required"
+      ]
+    },
+    {
+      "id": "VF-REPLAY-001",
+      "input_condition": "The same imported observation is replayed and counted as a second economic effect.",
+      "expected_disposition": "reject_duplicate_effect",
+      "required_guards": [
+        "source_event_identity_is_idempotency_key",
+        "import_has_no_ledger_mutation_authority"
+      ]
+    },
+    {
+      "id": "VF-CORRECTION-001",
+      "input_condition": "A correction overwrites the original event or removes its provenance from historical exports.",
+      "expected_disposition": "preserve_append_only_correction_lineage",
+      "required_guards": [
+        "original_event_immutable",
+        "correction_references_original",
+        "history_remains_auditable"
+      ]
+    },
+    {
+      "id": "VF-UNKNOWN-001",
+      "input_condition": "Stale, missing, conflicting or unsupported evidence is represented as settled, valid, or definitively false without a policy basis.",
+      "expected_disposition": "indeterminate_or_policy_bounded_rejection",
+      "required_guards": [
+        "unknown_is_not_false",
+        "unknown_is_not_settled",
+        "conflicts_are_preserved"
+      ]
+    },
+    {
+      "id": "VF-VERSION-001",
+      "input_condition": "hREA source's stated VF 1.0 profile is silently treated as identical to the published ontology page version 0.17, or a source branch is treated as a packaged compatible artifact.",
+      "expected_disposition": "reject_unqualified_version_claim",
+      "required_guards": [
+        "ontology_version_and_adapter_profile_separate",
+        "exact_source_commit_pinned",
+        "packaged_artifact_qualification_required"
+      ]
+    },
+    {
+      "id": "VF-TEND-F32-001",
+      "input_condition": "TEND service hours sourced from the legacy f32 fields are exported as an exact decimal quantity without a versioned quantization/precision profile.",
+      "expected_disposition": "block_unqualified_quantity_export",
+      "required_guards": [
+        "legacy_f32_source_explicitly_blocked",
+        "quantization_profile_required",
+        "round_trip_error_bound_required"
+      ]
+    },
+    {
+      "id": "VF-TEND-BEARER-001",
+      "input_condition": "A TEND balance/obligation is exported as freely transferable bearer units without the original community, counterparties and service-obligation scope.",
+      "expected_disposition": "reject_bearer_asset_promotion",
+      "required_guards": [
+        "TEND.transferability=community_scoped_mutual_credit_position",
+        "community_scope_required",
+        "service_obligation_provenance_required"
+      ]
+    }
+  ]
+}

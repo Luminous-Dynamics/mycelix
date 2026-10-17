@@ -1,0 +1,209 @@
+{
+  "schema_id": "urn:mycelix:provenance-envelope",
+  "schema_version": "mycelix.provenance-envelope/v1",
+  "status": "research-only-contract",
+  "purpose": "Synthetic, non-authoritative reference fixture for cross-hApp observation provenance. It is not a runtime adapter, signature verifier, RFC 8785 implementation, or evidence of a real-world observation.",
+  "authority_boundary": {
+    "external_observation_authority": "none",
+    "external_import_may_mutate_sap": false,
+    "external_import_may_mutate_tend": false,
+    "external_import_may_mutate_mycel": false,
+    "external_import_may_finalize_settlement": false,
+    "external_import_may_finalize_governance": false,
+    "signature_proves": [
+      "origin",
+      "integrity"
+    ],
+    "signature_proves_truth": false,
+    "signature_grants_domain_authority": false,
+    "corrections_are_append_only": true,
+    "unknown_fields_disposition": "reject_or_quarantine"
+  },
+  "canonicalization_policy": {
+    "algorithm": "RFC8785-JCS",
+    "digest_algorithm": "SHA-256",
+    "digest_scope": "canonicalized_payload_bytes",
+    "envelope_digest_scope": "canonicalized_envelope_preimage",
+    "payload_digest_verification_implemented": true,
+    "envelope_digest_verification_implemented": true,
+    "note": "The checker rejects duplicate member names and recomputes SHA-256 over RFC 8785/JCS canonical bytes for both payload and envelope preimage. Ed25519 signature verification is implemented for one pinned synthetic test-key binding only. The signed_at string is self-asserted and is not a trusted timestamp; production issuer registry and key revocation infrastructure are not implemented. Signature verification does not establish source-file correspondence, truth, or domain authority. Large precise quantities must be represented as strings, not JSON numbers."
+  },
+  "example_observation": {
+    "source_app": "mycelix.synthetic-fixture",
+    "source_profile_id": "fixture:provenance-envelope/v1",
+    "source_record_id": "synthetic:observation-0001",
+    "subject_id": "synthetic:subject-01",
+    "actor_id": "synthetic:actor-01",
+    "scope_id": "synthetic:scope-01",
+    "event_id": "synthetic:event-0001",
+    "revision": 1,
+    "causal_predecessor": null,
+    "observed_at": "2026-10-15T10:00:00Z",
+    "recorded_at": "2026-10-15T10:00:03Z",
+    "payload": {
+      "sample_id": "observation-0001",
+      "synthetic": true,
+      "value": "1"
+    },
+    "payload_canonicalization": "RFC8785-JCS",
+    "payload_digest_sha256": "a87fb8fe07b4bb08220e03d2b102de4740bbf4038ba0ea40a5ff8dc5c4f24f27",
+    "evidence_class": "synthetic",
+    "correction_of": null,
+    "privacy_class": "synthetic-public",
+    "license_id": "CC0-1.0",
+    "claim_ceiling": "Synthetic fixture only. This record establishes no real-world observation, calibration validity, scientific accuracy, certification, entitlement, governance eligibility, authorization, or settlement."
+  },
+  "example_envelope_digest_sha256": "7c5b12f551791b6ccad8ced7995e4220205ffa289f8d1806af68a7168d16625b",
+  "negative_controls": [
+    {
+      "id": "PE-AUTH-001",
+      "input_condition": "A source hApp marks an observation as settled or uses it to mutate SAP, TEND, MYCEL, governance, or settlement without an independent Mycelix authorization decision.",
+      "expected_disposition": "reject_authority_promotion",
+      "required_guards": [
+        "external_import_authority=none",
+        "signature_does_not_grant_domain_authority",
+        "outcome_requires_separate_domain_authorization"
+      ]
+    },
+    {
+      "id": "PE-SIG-KEY-001",
+      "input_condition": "A source supplies a different, self-derived Ed25519 key and claims that key is an authorized issuer.",
+      "expected_disposition": "reject_untrusted_issuer_key",
+      "required_guards": [
+        "issuer_key_must_match_out_of_band_trust_binding",
+        "public_key_fingerprint_recomputed",
+        "signature_failure_non_authoritative"
+      ]
+    },
+    {
+      "id": "PE-SIG-TAMPER-001",
+      "input_condition": "An otherwise valid provenance signature or one of its signed metadata fields is altered after signing.",
+      "expected_disposition": "reject_invalid_ed25519_signature",
+      "required_guards": [
+        "ed25519_verify_strict",
+        "signature_preimage_domain_separated",
+        "signature_failure_non_authoritative"
+      ]
+    },
+    {
+      "id": "PE-SIG-REVOKE-001",
+      "input_condition": "A cryptographically valid signature is presented after the trusted key registry marks its key revoked, without independent trusted timestamp evidence.",
+      "expected_disposition": "reject_revoked_key_without_trusted_timestamp",
+      "required_guards": [
+        "revocation_state_external_to_signed_envelope",
+        "self_asserted_signed_at_not_trusted",
+        "revoked_key_rejects_by_default"
+      ]
+    },
+    {
+      "id": "PE-SIG-001",
+      "input_condition": "A valid signature is treated as proof that the observation is scientifically true or that the signer has domain authority.",
+      "expected_disposition": "reject_claim_ceiling_escalation",
+      "required_guards": [
+        "signature_proves_origin_and_integrity_only",
+        "evidence_class_unchanged",
+        "claim_ceiling_preserved"
+      ]
+    },
+    {
+      "id": "PE-REPLAY-001",
+      "input_condition": "An identical scoped event identity is received again with an identical canonical payload digest.",
+      "expected_disposition": "accept_idempotently_without_second_effect",
+      "required_guards": [
+        "idempotency_key_includes_source_scope_event_revision",
+        "same_identity_same_digest_is_idempotent",
+        "no_second_domain_effect"
+      ]
+    },
+    {
+      "id": "PE-CONFLICT-001",
+      "input_condition": "A previously observed scoped event identity reappears with a different payload digest.",
+      "expected_disposition": "reject_identity_digest_conflict",
+      "required_guards": [
+        "identity_digest_conflict_is_not_a_retry",
+        "preserve_both_conflicting_receipts",
+        "no_domain_mutation"
+      ]
+    },
+    {
+      "id": "PE-SUBJECT-001",
+      "input_condition": "The same payload digest is emitted for two distinct subjects or sensors.",
+      "expected_disposition": "preserve_distinct_subject_observations",
+      "required_guards": [
+        "subject_identity_part_of_idempotency_key",
+        "payload_equality_does_not_merge_subjects",
+        "source_scope_preserved"
+      ]
+    },
+    {
+      "id": "PE-CORRECTION-001",
+      "input_condition": "A correction overwrites or deletes the original event instead of appending a linked revision.",
+      "expected_disposition": "preserve_append_only_correction",
+      "required_guards": [
+        "original_record_immutable",
+        "correction_references_original",
+        "revision_monotonic"
+      ]
+    },
+    {
+      "id": "PE-UNKNOWN-001",
+      "input_condition": "A v1 record contains an unreviewed schema field that may change the meaning or authority of the record.",
+      "expected_disposition": "reject_or_quarantine_unknown_schema",
+      "required_guards": [
+        "unknown_fields_denied_in_v1",
+        "no_default_authority_upgrade",
+        "quarantine_is_non_authoritative"
+      ]
+    },
+    {
+      "id": "PE-EVIDENCE-001",
+      "input_condition": "A producer labels synthetic data as real or self-asserts that its own observation has independent review.",
+      "expected_disposition": "reject_evidence_class_escalation",
+      "required_guards": [
+        "evidence_class_not_self_promoted",
+        "reviewer_attestation_separate_from_producer",
+        "synthetic_never_admitted_as_real"
+      ]
+    },
+    {
+      "id": "PE-SCOPE-001",
+      "input_condition": "A record is re-used under another community or scope without an explicit evidence-bound crosswalk and authorization.",
+      "expected_disposition": "reject_scope_rebinding",
+      "required_guards": [
+        "scope_part_of_identity",
+        "authorized_crosswalk_required",
+        "out_of_scope_record_non_authoritative"
+      ]
+    },
+    {
+      "id": "PE-REVOCATION-001",
+      "input_condition": "Access revocation is reported as proof that plaintext already copied by another peer has been erased.",
+      "expected_disposition": "reject_false_erasure_claim",
+      "required_guards": [
+        "revocation_limits_future_authorized_access",
+        "no_retroactive_copy_erasure_claim",
+        "retraction_is_attributable_event"
+      ]
+    }
+  ],
+  "signature_policy": {
+    "algorithm": "Ed25519",
+    "profile": "mycelix.provenance-envelope-signature/v1",
+    "key_id_algorithm": "SHA-256 of raw Ed25519 public-key bytes",
+    "trust_mode": "pinned-synthetic-test-key-only",
+    "signature_verification_implemented": true,
+    "production_issuer_registry_implemented": false,
+    "key_revocation_registry_implemented": false,
+    "signed_at_is_trusted_timestamp": false,
+    "claim_ceiling": "Signature verification confirms the synthetic key holder signed a domain-separated message; it does not establish truth, independent corroboration, and does not grant domain authority."
+  },
+  "signature": {
+    "profile": "mycelix.provenance-envelope-signature/v1",
+    "algorithm": "Ed25519",
+    "issuer_id": "urn:mycelix:issuer:synthetic-01",
+    "key_id": "sha256:dfd6251d9330a21b322de85cdf49fa4730ce7d0e8890d677124c4c41e487e197",
+    "public_key_hex": "376dbc1327c9e66b5a5eb33343ff5cbe86dc303b59ba0d2be413f7224e8b05a4",
+    "signed_at": "2026-10-15T16:55:00Z",
+    "signature_hex": "26533f52adc923542dc7cb2ad6f8b9f1663046886ae84f6bf6e23fa3e6ccb810e5c2e8b935a123804b93bd79169e336f7e6f680a333e228801042991771da304"
+  }
+}
