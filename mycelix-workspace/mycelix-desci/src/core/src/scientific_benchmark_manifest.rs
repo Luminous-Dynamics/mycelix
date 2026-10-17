@@ -475,11 +475,12 @@ pub fn verify_local_artifact_binding(
     path: impl AsRef<Path>,
     binding: &BenchmarkArtifactBinding,
 ) -> Result<bool> {
-    let metadata = std::fs::metadata(path.as_ref())?;
-    if metadata.len() != binding.size_bytes {
-        return Ok(false);
-    }
-    verify_local_artifact(path, binding.content_hash)
+    // Open once so the size check and digest refer to the same file handle.
+    verify_open_file(
+        File::open(path)?,
+        binding.content_hash,
+        Some(binding.size_bytes),
+    )
 }
 
 /// Hash a local artifact with the canonical BLAKE3 content digest and compare
@@ -489,7 +490,17 @@ pub fn verify_local_artifact(
     path: impl AsRef<Path>,
     expected_hash: ContentHash,
 ) -> Result<bool> {
-    let file = File::open(path)?;
+    verify_open_file(File::open(path)?, expected_hash, None)
+}
+
+fn verify_open_file(
+    file: File,
+    expected_hash: ContentHash,
+    expected_size: Option<u64>,
+) -> Result<bool> {
+    if expected_size.is_some_and(|size| file.metadata().map(|m| m.len()).ok() != Some(size)) {
+        return Ok(false);
+    }
     let mut reader = BufReader::new(file);
     let mut hasher = blake3::Hasher::new();
     let mut buffer = [0u8; 64 * 1024];
