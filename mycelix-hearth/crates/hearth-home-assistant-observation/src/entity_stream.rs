@@ -123,6 +123,27 @@ impl CachedEntityState {
         Ok(())
     }
 
+    fn validate_profile_metadata(
+        &self,
+        entity_id: &str,
+        rule: &EntityObservationRule,
+    ) -> Result<(), EntityStreamProjectionError> {
+        // A known-good string is not enough: expected metadata is part of the
+        // semantic profile binding. Reject drift before this state can enter
+        // the cache or refresh the observation's local freshness timestamp.
+        if rule.expected_unit.as_deref().is_some_and(|expected| {
+            self.unit_of_measurement.as_deref() != Some(expected)
+        }) {
+            return Err(entity_error(entity_id, "unit_of_measurement does not match the admitted profile"));
+        }
+        if rule.expected_device_class.as_deref().is_some_and(|expected| {
+            self.device_class.as_deref() != Some(expected)
+        }) {
+            return Err(entity_error(entity_id, "device_class does not match the admitted profile"));
+        }
+        Ok(())
+    }
+
     fn frame(&self, entity_id: &str, received_at_micros: i64) -> Result<HomeAssistantStateFrame, EntityStreamProjectionError> {
         let frame = HomeAssistantStateFrame {
             entity_id: entity_id.to_owned(),
@@ -139,6 +160,7 @@ impl CachedEntityState {
 
 pub struct EntityStreamProjector {
     allowlisted_entity_ids: BTreeSet<String>,
+    rules: BTreeMap<String, EntityObservationRule>,
     state: BTreeMap<String, CachedEntityState>,
     initial_snapshot_seen: bool,
 }
@@ -154,8 +176,14 @@ impl EntityStreamProjector {
                 "entity allowlist must be non-empty and unique".into()
             ));
         }
+        let rules = profile.rules.iter()
+            .cloned()
+            .map(|rule| (rule.entity_id.clone(), rule))
+            .collect();
+
         Ok(Self {
             allowlisted_entity_ids,
+            rules,
             state: BTreeMap::new(),
             initial_snapshot_seen: false,
         })
@@ -198,7 +226,10 @@ impl EntityStreamProjector {
                 if !self.allowlisted_entity_ids.contains(entity_id) {
                     continue;
                 }
-                next.insert(entity_id.clone(), CachedEntityState::from_full(entity_id, compressed)?);
+                let state = CachedEntityState::from_full(entity_id, compressed)?;
+                let rule = self.rules.get(entity_id).expect("allowlist and rule map are built together");
+                state.validate_profile_metadata(entity_id, rule)?;
+                next.insert(entity_id.clone(), state);
             }
             let frames = next.iter()
                 .map(|(id, state)| state.frame(id, received_at_micros))
@@ -275,6 +306,8 @@ impl EntityStreamProjector {
                     continue;
                 }
                 let state = CachedEntityState::from_full(id, compressed)?;
+                let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
+                state.validate_profile_metadata(id, rule)?;
                 staged_states.insert(id.clone(), state.clone());
                 changed_states.insert(id.clone(), state);
             }
@@ -290,6 +323,8 @@ impl EntityStreamProjector {
                 })?;
                 let before = state.clone();
                 state.apply_diff(id, diff)?;
+                let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
+                state.validate_profile_metadata(id, rule)?;
                 // A rename/icon/context-only update must not refresh the
                 // observation freshness window for an unchanged semantic value.
                 if state != before {
@@ -502,7 +537,7 @@ mod tests {
         assert_eq!(out.frames.len(), 1);
         assert_eq!(out.frames[0].state, "22.0");
         assert_eq!(out.frames[0].unit_of_measurement.as_deref(), Some("°C"));
-        assert_eq!(out.frames[0].device_class, None);
+        assert_eq!(out.frames[0].device_class.as_deref(), Some("temperature"));
         assert!(out.removed_entity_ids.is_empty());
     }
 
