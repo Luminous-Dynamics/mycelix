@@ -30,3 +30,17 @@ The manifest hash is SHA-256 over the exact JSONL bytes, including the final new
 All records are synthetic. They contain no participant reflections and are not a validated psychological, clinical, or spiritual-development measure. Passing the corpus shows only that a tested implementation met specified fixture obligations. It does not establish human efficacy, ethical adequacy, wisdom, enlightenment, consciousness, or field safety.
 
 This corpus complements rather than replaces Symthaea WCARE-09 adversarial/longitudinal evaluation and WCARE-10 fail-closed qualification receipts. Version 1 is a research seed requiring independent review and adversarial expansion.
+
+
+## Integral-lens supplement v0.1
+
+- Cases: 12
+- Manifest: [cross-scale-wisdom-integral-lens-v0.1.manifest.json](cross-scale-wisdom-integral-lens-v0.1.manifest.json)
+- Supplement: [cross-scale-wisdom-integral-lens-v0.1.jsonl](cross-scale-wisdom-integral-lens-v0.1.jsonl)
+- Rationale and limits: [cross-scale-wisdom-integral-lens-v0.1.md](cross-scale-wisdom-integral-lens-v0.1.md)
+
+This supplement does not modify corpus v1.0.0. It tests optional use of Integral Theory/AQAL, including no developmental-stage ranking, state-versus-trait distinction, no forced quadrant classification, respect for lens opt-out, preserving disagreement between lenses, not psychologizing material barriers, consent despite community norms, acknowledging diversity within traditions, and avoiding overgeneralization from narrow empirical evidence. It is synthetic and has not yet undergone independent cultural or semantic review.
+
+## Standalone Rust verifier
+
+The implementation and adversarial tests are in [tools/cross-scale-wisdom-verifier](../../../tools/cross-scale-wisdom-verifier/README.md). To run both corpus fixtures, follow its two CLI examples. The report status is deliberately STRUCTURALLY_VALID_UNSCORED; a successful structural check is not model-response scoring or human-efficacy evidence.
