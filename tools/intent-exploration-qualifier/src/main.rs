@@ -513,7 +513,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn property_registry_count_must_match_registry() {
         let mut benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
         benchmark["property_registry_count"] = Value::from(999);
@@ -523,6 +522,7 @@ mod tests {
         assert!(errors.iter().any(|error| error.contains("property_registry_count must equal")));
     }
 
+    #[test]
     fn duplicate_trajectory_ids_fail_closed() {
         let benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
         let gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
