@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-pulse/docs/security/privacy-inventory.schema.json",
+  "title": "Pulse Metadata Privacy Inventory v1",
+  "description": "A source-backed inventory of privacy-relevant data classes. It is not telemetry and does not itself establish runtime behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inventory_id",
+    "review_date",
+    "scope",
+    "claim_status",
+    "status_semantics",
+    "mandatory_rule",
+    "records",
+    "external_baselines"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "inventory_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_status": {
+      "const": "inventory_seed_not_runtime_audit"
+    },
+    "status_semantics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "mandatory_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "external_baselines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url",
+          "use"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "use": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "data_class",
+        "surface",
+        "evidence_level",
+        "source_refs",
+        "design_fact",
+        "runtime_presence",
+        "exposure_persistence_retention_deletion",
+        "linkability_risk",
+        "audit_questions",
+        "policy_intent",
+        "claim_blockers"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^PULSE-META-[0-9]{3}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "surface": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_level": {
+          "enum": [
+            "source_verified_in_repo",
+            "design_documented",
+            "candidate_surface",
+            "external_reference_only"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "design_fact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_presence": {
+          "enum": [
+            "not_audited",
+            "verified_present",
+            "verified_absent",
+            "not_applicable"
+          ]
+        },
+        "exposure_persistence_retention_deletion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "linkability_risk": {
+          "enum": [
+            "low",
+            "medium",
+            "medium_to_high",
+            "high",
+            "very_high",
+            "unknown"
+          ]
+        },
+        "audit_questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "policy_intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_blockers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_commit_sha",
+              "path",
+              "blob_sha",
+              "line_start",
+              "line_end",
+              "symbol",
+              "observed_fact",
+              "url"
+            ],
+            "properties": {
+              "source_commit_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "blob_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "line_start": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "line_end": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observed_fact": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_level": {
+                "const": "source_verified_in_repo"
+              }
+            },
+            "required": [
+              "evidence_level"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_observations"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
