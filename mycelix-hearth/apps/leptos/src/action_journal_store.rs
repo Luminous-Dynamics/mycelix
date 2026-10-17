@@ -328,16 +328,78 @@ impl ActionJournalStore for IndexedDbJournal {
         next: AttemptStatus,
         now_unix_ms: u64,
     ) -> Result<JournalEntryV1, JournalError> {
-        let existing = self
-            .list()
-            .await?
-            .into_iter()
-            .find(|entry| entry.operation_id() == operation_id)
-            .ok_or(JournalError::MissingOperation)?;
-        let mut changed = existing;
-        changed.transition(next, now_unix_ms)?;
-        self.write_entry(&changed, false).await?;
-        Ok(changed)
+        if operation_id.is_empty() || operation_id.len() > 80 {
+            return Err(JournalError::InvalidRecord);
+        }
+
+        // Keep the read and write in one IndexedDB transaction so stale status
+        // observations cannot overwrite a newer transition from another tab.
+        let tx = strict_readwrite_transaction(&self.database)?;
+        let done = transaction_finished(&tx);
+        let store = tx.object_store(STORE_NAME).map_err(|_| JournalError::RequestFailed)?;
+        let key = JsValue::from_str(operation_id);
+        let request = store.get(&key).map_err(|_| JournalError::RequestFailed)?;
+        let updated = Rc::new(RefCell::new(None::<JournalEntryV1>));
+        let failure = Rc::new(Cell::new(None::<JournalError>));
+
+        let callback_request = request.clone();
+        let callback_store = store.clone();
+        let callback_key = key.clone();
+        let callback_id = operation_id.to_string();
+        let callback_updated = Rc::clone(&updated);
+        let callback_failure = Rc::clone(&failure);
+        let success = Closure::once_into_js(move |_event: Event| {
+            let value = match callback_request.result() {
+                Ok(value) if !value.is_null() && !value.is_undefined() => value,
+                _ => {
+                    callback_failure.set(Some(JournalError::MissingOperation));
+                    return;
+                }
+            };
+            let Some(json) = value.as_string() else {
+                callback_failure.set(Some(JournalError::CorruptRecord));
+                return;
+            };
+            let mut entry = match decode_record(&json) {
+                Ok(entry) if entry.operation_id() == callback_id => entry,
+                Ok(_) => {
+                    callback_failure.set(Some(JournalError::CorruptRecord));
+                    return;
+                }
+                Err(error) => {
+                    callback_failure.set(Some(error));
+                    return;
+                }
+            };
+            if let Err(error) = entry.transition(next, now_unix_ms) {
+                callback_failure.set(Some(error));
+                return;
+            }
+            let encoded = match serde_json::to_string(&entry) {
+                Ok(encoded) => encoded,
+                Err(_) => {
+                    callback_failure.set(Some(JournalError::SerializationFailed));
+                    return;
+                }
+            };
+            if callback_store
+                .put_with_key(&JsValue::from_str(&encoded), &callback_key)
+                .is_err()
+            {
+                callback_failure.set(Some(JournalError::RequestFailed));
+                return;
+            }
+            callback_updated.replace(Some(entry));
+        });
+        request.set_onsuccess(Some(success.unchecked_ref()));
+
+        if JsFuture::from(done).await.is_err() {
+            return Err(failure.get().unwrap_or(JournalError::CommitFailed));
+        }
+        if let Some(error) = failure.get() {
+            return Err(error);
+        }
+        updated.borrow_mut().take().ok_or(JournalError::CommitFailed)
     }
 
     async fn list(&self) -> Result<Vec<JournalEntryV1>, JournalError> {
