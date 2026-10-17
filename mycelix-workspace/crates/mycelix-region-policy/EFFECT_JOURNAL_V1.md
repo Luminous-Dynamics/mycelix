@@ -15,6 +15,18 @@ The journal lifecycle makes that uncertainty explicit:
 
 `OutcomeUnknown` is never permission to submit the effect again. Reconciliation queries the destination by the original idempotency key / operation ID and exact target digest. This is the core shift from retry logic to evidence-driven recovery.
 
+## Composition boundary — reuse the existing durable-effect line
+
+This regional state machine is a **conformance/reference model**, not a second production outbox or commit classifier. Before production wiring, it must compose with the existing [PR #780 runtime claim commit-classification tranche](https://github.com/Luminous-Dynamics/mycelix/pull/780) and [AGENT-009 composition tracker #803](https://github.com/Luminous-Dynamics/mycelix/issues/803).
+
+Preserve the existing shared persistence verdicts:
+
+- `Committed`
+- `DefinitelyNotCommitted`
+- `IndeterminateCommit`
+
+Do not classify a transaction using returned error text/code. Do not treat `DefinitelyNotCommitted` as retry authorization; fresh regional policy and current authority must independently allow the next attempt. Treat `IndeterminateCommit` as reconciliation-only. Keep local persistence truth separate from external provider effect truth. Production integration should join these existing qualified semantics rather than copy their transaction/witness machinery into this crate.
+
 ## Rust reference model
 
 `src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and fourteen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
