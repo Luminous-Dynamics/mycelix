@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Praxis defensive cyber challenge v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "profile",
+    "domain",
+    "learning_objectives",
+    "environment",
+    "solver_view",
+    "reference_snapshots",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cyber-challenge-v1"
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^cyber-[a-z0-9][a-z0-9-]{2,63}$"
+    },
+    "profile": {
+      "const": "isolated-synthetic-v1"
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80
+    },
+    "learning_objectives": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic",
+        "snapshot_id",
+        "snapshot_version"
+      ],
+      "properties": {
+        "synthetic": {
+          "const": true
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "snapshot_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "solver_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task",
+        "assets",
+        "observations",
+        "allowed_actions",
+        "safety_invariants"
+      ],
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 20
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "asset_id",
+              "asset_type",
+              "description"
+            ],
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "minLength": 2
+              },
+              "asset_type": {
+                "type": "string",
+                "minLength": 2
+              },
+              "description": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "evidence_id",
+              "source",
+              "observed_at",
+              "currentness",
+              "integrity",
+              "statement"
+            ],
+            "properties": {
+              "evidence_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 2
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "currentness": {
+                "enum": [
+                  "current",
+                  "stale",
+                  "disputed",
+                  "unknown"
+                ]
+              },
+              "integrity": {
+                "enum": [
+                  "verified",
+                  "unverified",
+                  "mismatch",
+                  "unknown"
+                ]
+              },
+              "statement": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        },
+        "allowed_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "inspect_evidence",
+              "request_more_evidence",
+              "preserve_evidence",
+              "propose_containment",
+              "propose_quarantine",
+              "request_fresh_authorization",
+              "reconcile_state",
+              "abstain"
+            ]
+          }
+        },
+        "safety_invariants": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
+    },
+    "reference_snapshots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "framework",
+          "object_id",
+          "release",
+          "snapshot_uri",
+          "snapshot_sha256"
+        ],
+        "properties": {
+          "framework": {
+            "type": "string",
+            "minLength": 2
+          },
+          "object_id": {
+            "type": "string",
+            "minLength": 2
+          },
+          "release": {
+            "type": "string",
+            "minLength": 1
+          },
+          "snapshot_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "snapshot_sha256": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$"
+          }
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 20
+    }
+  }
+}
