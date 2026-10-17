@@ -45,6 +45,22 @@ A 2026 article on a guaranteed-income programme for 2,400 artists reports increa
 
 Source: [Woronkowicz & Noonan, “Expanding agency in precarious careers: Evidence from a guaranteed income program for artists,” Poetics](https://www.sciencedirect.com/science/article/abs/pii/S0304422X2600046X).
 
+### Deal-to-cash reliability may be a better first pain point than generic analytics
+
+Humanz's *Paid to Create: The South African Creator Economy 2026* reports that, among its participating creators, income predictability scored 2.1/5; 55% of creators in the paid-creator sample waited more than a month to be paid or had to chase payment; about half of creators paid once were not paid a second time during the year; and repeat bookings were associated with a sharp rise in median campaign earnings. Its survey covered nearly 1,200 South African creators, including 243 verified paid creators; the verified payment data covers Humanz campaign fees, not all creator income. This is platform-associated research, not a census or independent market estimate, but it offers concrete workflow hypotheses around payment tracking and repeat contracts.
+
+Source: [Humanz, Paid to Create: The South African Creator Economy 2026](https://www.humanz.com/south-african-creator-economy-report-2026/).
+
+Trolley's 2026 report surveyed 450 respondents across 19 countries—150 contractors, 150 creators, and 150 music/royalty earners. It reports that 82% wanted a say in when they were paid while 73% lacked that control, and 41% cited payment delays as a reason they had left or would leave a platform. Trolley sells payout infrastructure, so treat this as provider-commissioned survey evidence, not independent proof that fast payout alone creates creator resilience.
+
+Source: [Trolley, How Independent Earners Want to Get Paid (2026)](https://trolley.com/resources/recipient-report-2026/).
+
+These sources suggest a narrower, testable feature: track **deal agreed → work delivered → deliverable accepted → invoice/claim submitted → due date → payment received → reconciled → repeat booking**. Store contract and date evidence; show overdue amounts by currency, time from acceptance to cash, disputes, and repeat-booking history. Start with records and reminders the creator controls. Do not custody funds, advance money, send demands automatically, infer legal entitlement, or promise that tracking shortens a buyer's payment cycle.
+
+A 2023 CHI study interviewing 21 cross-platform creators found that they prioritize platforms differently, synchronize content, and actively manage audience transfer across a creator ecology. This supports designing around workflows and relationships spanning multiple platforms rather than assuming a single platform is the whole career. Its small qualitative sample reveals practices, not a prevalence estimate for all creators.
+
+Source: [Multi-Platform Content Creation: The Configuration of Creator Ecology (CHI 2023)](https://doi.org/10.1145/3544548.3581106).
+
 **Evidence conclusion:** the research supports testing the hypothesis that creators value resilience, direct relationships, and room to experiment. It does not establish that our proposed product can improve earnings or well-being.
 
 ## Paradigm shift: from growth optimization to career resilience
