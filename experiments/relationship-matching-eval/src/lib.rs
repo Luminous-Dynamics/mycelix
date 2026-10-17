@@ -397,18 +397,10 @@ fn recommend_exposure_balanced_validated(
                         .max(1);
                     // Compare cumulative exposure per feasible counterpart using
                     // exact rational cross-multiplication (no floating-point tie
-                    // instability). usize products fit in u128 on supported 64-bit
-                    // targets; use checked arithmetic to remain fail-closed elsewhere.
-                    let left_normalized = (left_exposure as u128)
-                        .checked_mul(right_degree as u128)
-                        .ok_or_else(|| "normalized exposure comparison overflow".to_string());
-                    let right_normalized = (right_exposure as u128)
-                        .checked_mul(left_degree as u128)
-                        .ok_or_else(|| "normalized exposure comparison overflow".to_string());
-                    let normalized_order = match (left_normalized, right_normalized) {
-                        (Ok(left), Ok(right)) => left.cmp(&right),
-                        _ => return Err("normalized exposure comparison overflow".to_string()),
-                    };
+                    // instability). Products of supported 64-bit usize values fit
+                    // within u128.
+                    let normalized_order = ((left_exposure as u128) * (right_degree as u128))
+                        .cmp(&((right_exposure as u128) * (left_degree as u128)));
                     let left_floor = left.viewer_utility.min(left.candidate_utility);
                     let right_floor = right.viewer_utility.min(right.candidate_utility);
                     let left_sum = left.viewer_utility + left.candidate_utility;
