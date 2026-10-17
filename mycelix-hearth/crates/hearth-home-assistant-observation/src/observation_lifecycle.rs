@@ -76,7 +76,7 @@ pub struct PositiveRevisionRef {
     pub revision: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LifecycleRecordKind {
     PositiveCurrent {
         valid_until_micros: i64,
@@ -410,6 +410,24 @@ impl ObservationLifecycle {
         // Reconcile every old positive before promoting anything from the new
         // snapshot. This makes omission, source-unavailable and ordinary session
         // replacement explicit; no previous session's positive remains current.
+        // A reconnect snapshot can require one invalidation plus one new
+        // positive revision for an entity that is still present. Preflight the
+        // entire write set before changing any entity revision.
+        let mut required_increments = BTreeMap::<String, u64>::new();
+        for entity_id in self.active.keys() {
+            *required_increments.entry(entity_id.clone()).or_default() += 1;
+        }
+        for (entity_id, state) in &staged {
+            if matches!(state, StagedEntityState::Positive(_)) {
+                *required_increments.entry(entity_id.clone()).or_default() += 1;
+            }
+        }
+        if required_increments.iter().any(|(entity_id, count)| {
+            self.revision_would_overflow(entity_id, *count)
+        }) {
+            return self.fail_session(LifecycleFailure::RevisionExhausted, InvalidationReason::ProjectionRejected);
+        }
+
         let prior_ids = self.active.keys().cloned().collect::<Vec<_>>();
         let mut records = Vec::new();
         let mut observations = Vec::new();
@@ -567,7 +585,7 @@ impl ObservationLifecycle {
             let increments = match action {
                 StagedDeltaAction::Projected(StagedEntityState::Positive(_)) => 1,
                 StagedDeltaAction::Projected(StagedEntityState::Unknown | StagedEntityState::Unavailable)
-                | StagedDeltaAction::Invalidate(_) => u64::from(self.active.contains_key(entity_id)),
+                | StagedDeltaAction::Invalidate(_) => if self.active.contains_key(entity_id) { 1 } else { 0 },
             };
             if self.revision_would_overflow(entity_id, increments) {
                 return self.fail_session(LifecycleFailure::RevisionExhausted, InvalidationReason::ProjectionRejected);
@@ -647,8 +665,9 @@ impl ObservationLifecycle {
         transition_epoch: u64,
         now_micros: i64,
     ) -> Option<ObservationLifecycleRecord> {
-        let previous = self.active.remove(entity_id)?;
+        let previous = self.active.get(entity_id).copied()?;
         let revision = self.bump_revision(entity_id)?;
+        self.active.remove(entity_id);
         Some(ObservationLifecycleRecord {
             entity_id: entity_id.to_owned(),
             session_epoch: transition_epoch,
@@ -1064,6 +1083,51 @@ mod tests {
             reason: InvalidationReason::ClockRegression, ..
         }));
         assert!(lifecycle.current_revision("sensor.living_room_temperature", 30).is_none());
+    }
+
+    #[test]
+    fn malformed_late_entity_invalidates_entire_staged_delta_atomically() {
+        let p = two_sensor_profile();
+        let mut lifecycle = ObservationLifecycle::new(&p).unwrap();
+        lifecycle.start_session(1, 10);
+        lifecycle.bind_subscription(1, 1, 11);
+        lifecycle.subscription_acknowledged(1, 1, 12);
+        let pending = lifecycle.apply_json(
+            1,
+            1,
+            EntityStreamKind::InitialSnapshot,
+            &bytes(snapshot_two()),
+            20,
+        );
+        assert_eq!(pending.phase, LifecyclePhase::SnapshotPendingApply);
+        let initial = lifecycle.snapshot_applied(1, 1, 21);
+        assert_eq!(initial.observations.len(), 2);
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 21).is_some());
+        assert!(lifecycle.current_revision("sensor.z_temperature", 21).is_some());
+
+        // A valid staged update sorts before an out-of-range later entity.
+        // Neither may be published, and all previous positives are invalidated
+        // because the rejected provider stream must be re-bootstraped.
+        let invalid = json!({
+            "c": {
+                "sensor.living_room_temperature": { "+": { "s": "22.00" } },
+                "sensor.z_temperature": { "+": { "s": "999999999999" } }
+            }
+        });
+        let out = lifecycle.apply_json(1, 1, EntityStreamKind::Changes, &bytes(invalid), 30);
+        assert_eq!(out.phase, LifecyclePhase::NeedsNewSession);
+        assert_eq!(out.failure, Some(LifecycleFailure::ProjectionRejected));
+        assert!(out.observations.is_empty());
+        assert_eq!(out.records.len(), 2);
+        assert!(out.records.iter().all(|record| matches!(
+            record.kind,
+            LifecycleRecordKind::Invalidated {
+                reason: InvalidationReason::ProjectionRejected,
+                ..
+            }
+        )));
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 31).is_none());
+        assert!(lifecycle.current_revision("sensor.z_temperature", 31).is_none());
     }
 
     #[test]
