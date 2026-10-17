@@ -750,6 +750,44 @@ mod tests {
     }
 
     #[test]
+    fn bootstrap_cannot_be_marked_applied_before_snapshot_result() {
+        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+        let (_, subscription_id) = reaches_bootstrap_result(&mut machine);
+        assert!(matches!(
+            machine.bootstrap_applied(1, subscription_id).as_slice(),
+            [ProtocolAction::FailClosed {
+                error: ProtocolError::UnexpectedMessage {
+                    phase: SessionPhase::AwaitBootstrapResult,
+                    ..
+                },
+                ..
+            }]
+        ));
+        assert!(matches!(machine.state(), ProtocolState::Failed(_)));
+    }
+
+    #[test]
+    fn bootstrap_completion_requires_exact_subscription_id() {
+        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+        let (bootstrap_id, subscription_id) = reaches_bootstrap_result(&mut machine);
+        send(&mut machine, InboundMessage::CommandResult {
+            id: bootstrap_id,
+            success: true,
+            payload: ResultPayloadKind::StatesArray,
+        });
+        assert_eq!(
+            machine.bootstrap_applied(1, subscription_id + 9),
+            vec![ProtocolAction::FailClosed {
+                session_epoch: 1,
+                error: ProtocolError::SubscriptionIdMismatch {
+                    expected: subscription_id,
+                    actual: subscription_id + 9,
+                },
+            }]
+        );
+    }
+
+    #[test]
     fn wrong_subscription_id_fails_closed_before_and_after_bootstrap() {
         let mut bootstrapping = HomeAssistantWebSocketProtocol::new(1);
         reaches_bootstrap_result(&mut bootstrapping);
