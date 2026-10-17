@@ -14,4 +14,8 @@ path = "src/lib.rs"
 name = "policy_eval"
 harness = false
 
+[[bench]]
+name = "effect_journal"
+harness = false
+
 [workspace]
