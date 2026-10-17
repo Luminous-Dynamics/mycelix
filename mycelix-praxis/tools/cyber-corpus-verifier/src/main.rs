@@ -168,6 +168,13 @@ fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+fn valid_lower_hex(value: &str, length: usize) -> bool {
+    value.len() == length
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 fn valid_token(value: &str, prefix: Option<&str>) -> bool {
     if value.is_empty()
         || !value
@@ -380,8 +387,8 @@ fn verify(
         || manifest.case_ids.is_empty()
         || !unique_values(&manifest.case_ids)
         || manifest.non_claims.is_empty()
-        || manifest.source_base_commit.trim().is_empty()
-        || manifest.seed_snapshot_commit.trim().is_empty()
+        || !valid_lower_hex(&manifest.source_base_commit, 40)
+        || !valid_lower_hex(&manifest.seed_snapshot_commit, 40)
         || manifest.purpose.trim().is_empty()
     {
         return Err(fail("manifest metadata, version, or state is invalid"));
@@ -399,6 +406,9 @@ fn verify(
     let mut byte_files = BTreeMap::<String, Vec<u8>>::new();
     let mut file_results = BTreeMap::<String, FileResult>::new();
     for (relative, identity) in &manifest.files {
+        if !valid_lower_hex(&identity.sha256, 64) {
+            return Err(fail(format!("manifest SHA-256 is malformed for {relative}")));
+        }
         let safe = safe_relative_path(relative)?;
         let bytes = fs::read(root.join(&safe))
             .map_err(|e| fail(format!("cannot read {}: {e}", safe.display())))?;
@@ -609,6 +619,106 @@ mod tests {
         let evidence = validate_challenge(&challenge).expect("challenge evidence should validate");
         oracle.required_evidence_refs.push("missing-evidence-999".to_string());
         assert!(validate_oracle_evidence_refs(&oracle, &evidence).is_err());
+    }
+
+    fn copy_fixture_tree_for_test() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock must be after UNIX epoch")
+            .as_nanos();
+        let target = env::temp_dir().join(format!(
+            "cyber-corpus-verifier-{}-{}-{}",
+            process::id(),
+            nanos,
+            NEXT_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&target).expect("temporary test root should be created");
+
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let files = EXPECTED_FILES
+            .iter()
+            .copied()
+            .chain(std::iter::once(DEFAULT_MANIFEST));
+        for relative in files {
+            let from = source.join(relative);
+            let to = target.join(relative);
+            fs::create_dir_all(to.parent().expect("fixture path should have a parent"))
+                .expect("fixture directories should be created");
+            fs::copy(from, to).expect("fixture file should copy");
+        }
+        target
+    }
+
+    #[test]
+    fn tampered_fixture_bytes_fail_before_parsing() {
+        let root = copy_fixture_tree_for_test();
+        let path = root.join(EXPECTED_FILES[0]);
+        let mut bytes = fs::read(&path).expect("solver fixture should exist");
+        bytes.push(b' ');
+        fs::write(path, bytes).expect("tampered fixture should be written");
+
+        let result = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40));
+        assert!(result
+            .expect_err("tampered corpus must be rejected")
+            .contains("SHA-256 mismatch"));
+        fs::remove_dir_all(root).expect("temporary test root should be removed");
+    }
+
+    #[test]
+    fn duplicate_scenario_id_is_rejected_even_when_byte_manifest_is_updated() {
+        let root = copy_fixture_tree_for_test();
+        let solver_relative = EXPECTED_FILES[0];
+        let solver_path = root.join(solver_relative);
+        let corpus = fs::read_to_string(&solver_path).expect("solver fixture should exist");
+        let mut lines = corpus.lines().map(str::to_owned).collect::<Vec<_>>();
+        assert_eq!(lines.len(), 8);
+        lines[1] = lines[0].clone();
+        let updated_corpus = format!("{}\\n", lines.join("\\n"));
+        fs::write(&solver_path, &updated_corpus).expect("mutated corpus should be written");
+
+        let manifest_path = root.join(DEFAULT_MANIFEST);
+        let manifest_text = fs::read_to_string(&manifest_path).expect("manifest should exist");
+        let mut manifest: Value =
+            serde_json::from_str(&manifest_text).expect("manifest should be valid JSON");
+        let bytes = fs::read(&solver_path).expect("mutated corpus should be readable");
+        let file = manifest
+            .get_mut("files")
+            .and_then(|v| v.get_mut(solver_relative))
+            .expect("solver identity should exist in the manifest");
+        file["sha256"] = Value::String(digest(&bytes));
+        file["utf8_bytes"] = Value::from(bytes.len());
+        file["record_count"] = Value::from(8);
+        fs::write(
+            &manifest_path,
+            format!("{}\\n", serde_json::to_string_pretty(&manifest).unwrap()),
+        )
+        .expect("updated manifest should be written");
+
+        let result = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40));
+        assert!(result
+            .expect_err("duplicate scenario IDs must be rejected")
+            .contains("duplicate scenario ID"));
+        fs::remove_dir_all(root).expect("temporary test root should be removed");
+    }
+
+    #[test]
+    fn malformed_manifest_commit_pin_is_rejected() {
+        let root = copy_fixture_tree_for_test();
+        let manifest_path = root.join(DEFAULT_MANIFEST);
+        let text = fs::read_to_string(&manifest_path).expect("manifest should exist");
+        let mut manifest: Value =
+            serde_json::from_str(&text).expect("manifest should be valid JSON");
+        manifest["source_base_commit"] = Value::String("not-a-commit".to_string());
+        fs::write(&manifest_path, format!("{}\\n", serde_json::to_string_pretty(&manifest).unwrap()))
+            .expect("mutated manifest should be written");
+        let result = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40));
+        assert!(result.expect_err("malformed commit pin must be rejected")
+            .contains("manifest metadata"));
+        fs::remove_dir_all(root).expect("temporary test root should be removed");
     }
 
     #[test]
