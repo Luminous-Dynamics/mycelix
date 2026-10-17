@@ -188,6 +188,7 @@ fn semantic_state(
     }
 }
 
+#[derive(Clone)]
 pub struct EntityStreamProjector {
     allowlisted_entity_ids: BTreeSet<String>,
     rules: BTreeMap<String, EntityObservationRule>,
