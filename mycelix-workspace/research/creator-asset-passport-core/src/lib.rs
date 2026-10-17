@@ -1098,6 +1098,27 @@ mod tests {
     }
 
     #[test]
+    fn inconsistent_revocation_timestamps_fail_closed_for_the_affected_scope() {
+        let mut registry = AssetRegistry::new();
+        let asset = id("recording-1");
+        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        let grant = UsageGrant::new(
+            GrantId::new("grant-one-revocation").unwrap(), asset.clone(), party("studio"),
+            UseAction::Publish, "campaign-a", party("creator"), "consent:1", 0, None,
+        ).unwrap();
+        let revoked_at_20 = grant.revoked_at(20).unwrap();
+        let revoked_at_30 = grant.revoked_at(30).unwrap();
+        let request = UseRequest::new(
+            asset, party("studio"), UseAction::Publish, "campaign-a", 10,
+        ).unwrap();
+
+        assert_eq!(
+            evaluate_usage(&registry, &[revoked_at_20, revoked_at_30], &request),
+            PermissionDecision::Denied(PermissionDenial::ConflictingGrantId)
+        );
+    }
+
+    #[test]
     fn invalid_expiry_and_early_revocation_are_rejected() {
         let asset = id("recording-1");
         let grant = UsageGrant::new(
