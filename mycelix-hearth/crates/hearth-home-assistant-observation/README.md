@@ -40,4 +40,12 @@ The [protocol-to-projector integration tests](tests/protocol_projection_contract
 
 The [observation benchmark plan](OBSERVATION_BENCHMARKS.md) defines eleven proposed acceptance objectives for transition safety, allowlist containment, transactional projection, semantic freshness, privacy, latency, memory, reconnect currentness, and capability fallback. These are targets, not measured results; performance qualification remains blocked until the native transport and executable benchmark harness exist.
 
+## HA-0.2C lifecycle invalidation
+
+The [observation lifecycle contract](OBSERVATION_LIFECYCLE.md) consumes projected semantic state and makes currentness explicit. It invalidates prior positives on `unknown`, `unavailable`, removal, expiry, disconnect, malformed projection, and reconnect-snapshot omission. Currentness requires the exact active epoch, an unexpired deadline, and a fully applied snapshot; cache retention alone is not enough.
+
+The lifecycle checkpoint preserves only a profile reference, epoch high-water mark, and per-entity revisions/tombstones. It intentionally restores no positive observations. The checkpoint is serializable but not a durable store; cross-process replay protection requires an atomic, crash-safe persistence layer.
+
+Proposed, unmeasured targets are in [OBSERVATION_LIFECYCLE_BENCHMARKS.md](OBSERVATION_LIFECYCLE_BENCHMARKS.md). These do not establish peer authenticity, household authority, physical state, or device qualification.
+
 Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.
