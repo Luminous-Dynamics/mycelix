@@ -10,10 +10,11 @@
 //! for frame limits, authentication, epoch/subscription checks and JSON decoding.
 
 use crate::{
-    EntityObservationRule, HomeAssistantObservationProfile, HomeAssistantStateFrame,
-    MAX_METADATA_BYTES, MAX_RAW_STATE_BYTES,
+    decode_state, EntityObservationRule, HomeAssistantObservationProfile, HomeAssistantStateFrame,
+    HA_STATE_UNAVAILABLE, HA_STATE_UNKNOWN, MAX_METADATA_BYTES, MAX_RAW_STATE_BYTES,
 };
 use crate::websocket_protocol::EntityStreamKind;
+use hearth_automation_types::AutomationValue;
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -55,6 +56,13 @@ pub struct EntityStreamProjection {
     pub frames: Vec<HomeAssistantStateFrame>,
     /// Removal invalidates prior evidence. It is not evidence of a physical state.
     pub removed_entity_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SemanticState {
+    Value(AutomationValue),
+    Unknown,
+    Unavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,6 +171,20 @@ impl CachedEntityState {
     }
 }
 
+fn semantic_state(
+    entity_id: &str,
+    state: &CachedEntityState,
+    rule: &EntityObservationRule,
+) -> Result<SemanticState, EntityStreamProjectionError> {
+    match state.state.as_str() {
+        HA_STATE_UNKNOWN => Ok(SemanticState::Unknown),
+        HA_STATE_UNAVAILABLE => Ok(SemanticState::Unavailable),
+        _ => decode_state(&rule.codec, entity_id, &state.state)
+            .map(SemanticState::Value)
+            .map_err(|error| entity_error(entity_id, error.to_string())),
+    }
+}
+
 pub struct EntityStreamProjector {
     allowlisted_entity_ids: BTreeSet<String>,
     rules: BTreeMap<String, EntityObservationRule>,
@@ -234,6 +256,9 @@ impl EntityStreamProjector {
                 let state = CachedEntityState::from_full(entity_id, compressed)?;
                 let rule = self.rules.get(entity_id).expect("allowlist and rule map are built together");
                 state.validate_profile_metadata(entity_id, rule)?;
+                // Codec/range validation must happen before transactional cache
+                // commit, not later when a caller maps the returned frame.
+                semantic_state(entity_id, &state, rule)?;
                 next.insert(entity_id.clone(), state);
             }
             let frames = next.iter()
@@ -340,14 +365,16 @@ impl EntityStreamProjector {
                 state.apply_diff(id, diff)?;
                 let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
                 state.validate_profile_metadata(id, rule)?;
-                // Cache updates and semantic observation emission are
-                // separate concerns. Optional, unasserted metadata may evolve
-                // in Home Assistant without changing the meaning of the mapped
-                // value; it must not refresh local observation freshness.
-                // Expected unit/device-class changes have already failed closed
-                // in validate_profile_metadata above.
+                let before_semantic = semantic_state(id, &before, rule)?;
+                let after_semantic = semantic_state(id, &state, rule)?;
+                // Cache updates and semantic observation emission are separate
+                // concerns. Commit valid representation metadata changes, but
+                // do not mint a fresh observation when the decoded value (or
+                // epistemic source status) is unchanged. This also prevents
+                // alternate textual encodings such as 21.5 vs 21.50, or -0
+                // vs 0, from extending freshness.
                 if state != before {
-                    if state.state != before.state {
+                    if before_semantic != after_semantic {
                         changed_states.insert(id.clone(), state.clone());
                     }
                     staged_states.insert(id.clone(), state);
