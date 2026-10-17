@@ -5,6 +5,7 @@
 **Date:** 2026-10-17
 **Parent:** [Creator Sovereignty Control Plane RFC](https://github.com/Luminous-Dynamics/mycelix/pull/5166)
 **Companion:** [Creator Resilience and Creative Optionality](CSCP_CREATOR_RESILIENCE_MODEL.md)
+**Operational workflow:** [Deal-to-Cash and Repeat-Booking Model](CSCP_DEAL_TO_CASH_MODEL.md)
 **Scope:** Measurement semantics, adversarial benchmark design, and staged evaluation before platform integrations or creator-facing causal recommendations.
 
 ## Core thesis
