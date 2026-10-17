@@ -66,6 +66,10 @@ pub struct DurableLifecycleRecord {
     pub requested_session_epoch: Option<u64>,
     pub active_session_epoch_before: Option<u64>,
     pub active_session_epoch_after: Option<u64>,
+    /// Exact protocol subscription binding before/after this transition.
+    pub active_subscription_id_before: Option<u64>,
+    pub active_subscription_id_after: Option<u64>,
+    /// Subscription ID supplied for this transition, if applicable.
     pub subscription_id: Option<u64>,
     pub at_micros: i64,
     pub failure: Option<LifecycleFailure>,
@@ -207,6 +211,8 @@ impl<S: ObservationLifecycleStore> DurableObservationLifecycle<S> {
                 requested_session_epoch: None,
                 active_session_epoch_before: replay.active_session_epoch,
                 active_session_epoch_after: None,
+                active_subscription_id_before: replay.active_subscription_id,
+                active_subscription_id_after: None,
                 subscription_id: None,
                 at_micros: now_micros,
                 failure: None,
@@ -424,6 +430,7 @@ impl<S: ObservationLifecycleStore> DurableObservationLifecycle<S> {
         };
         let phase_before = self.inner.phase();
         let active_epoch_before = self.inner.current_session_epoch();
+        let active_subscription_before = self.inner.current_subscription_id();
         let mut candidate = self.inner.clone();
         let update = apply(&mut candidate);
         let record = DurableLifecycleRecord {
@@ -436,6 +443,8 @@ impl<S: ObservationLifecycleStore> DurableObservationLifecycle<S> {
             requested_session_epoch,
             active_session_epoch_before: active_epoch_before,
             active_session_epoch_after: candidate.current_session_epoch(),
+            active_subscription_id_before: active_subscription_before,
+            active_subscription_id_after: candidate.current_subscription_id(),
             subscription_id,
             at_micros,
             failure: update.failure,
@@ -478,6 +487,7 @@ struct ReplaySummary {
     last_sequence: u64,
     last_phase: LifecyclePhase,
     active_session_epoch: Option<u64>,
+    active_subscription_id: Option<u64>,
     highest_session_epoch: Option<u64>,
     entity_revisions: BTreeMap<String, u64>,
 }
@@ -497,6 +507,7 @@ fn replay_records(
     let mut expected_sequence = 1u64;
     let mut expected_phase = LifecyclePhase::Dormant;
     let mut active_session_epoch = None;
+    let mut active_subscription_id = None;
     let mut highest_session_epoch = None;
     let mut entity_revisions = BTreeMap::<String, u64>::new();
     let mut active_positives = BTreeMap::<String, PositiveRevisionRef>::new();
@@ -507,6 +518,7 @@ fn replay_records(
             || record.profile_ref != profile.profile_ref
             || record.phase_before != expected_phase
             || record.active_session_epoch_before != active_session_epoch
+            || record.active_subscription_id_before != active_subscription_id
             || validate_transition(record).is_err()
         {
             return Err(DurableLifecycleError::InvalidJournal);
@@ -533,6 +545,7 @@ fn replay_records(
             }
             DurableLifecycleTransition::RecoveryBarrier => {
                 if record.active_session_epoch_after.is_some()
+                    || record.active_subscription_id_after.is_some()
                     || record.phase_after != LifecyclePhase::Dormant
                     || !record.records.is_empty()
                 {
@@ -541,6 +554,7 @@ fn replay_records(
                 // The durable audit history may end with positive records, but
                 // recovery never imports that positive state as current.
                 active_positives.clear();
+                active_subscription_id = None;
             }
             _ => {
                 if record.active_session_epoch_after != active_session_epoch {
@@ -597,12 +611,14 @@ fn replay_records(
             .ok_or(DurableLifecycleError::InvalidJournal)?;
         expected_phase = record.phase_after;
         active_session_epoch = record.active_session_epoch_after;
+        active_subscription_id = record.active_subscription_id_after;
     }
 
     Ok(ReplaySummary {
         last_sequence: expected_sequence - 1,
         last_phase: expected_phase,
         active_session_epoch,
+        active_subscription_id,
         highest_session_epoch,
         entity_revisions,
     })
@@ -911,7 +927,8 @@ mod tests {
             Err(DurableLifecycleError::StorageAppendAndSyncFailed)
         );
         assert_eq!(ledger.last_sequence(), sequence_before);
-        assert_eq!(ledger.phase(), phase_before);
+        assert_eq!(ledger.inner.phase(), phase_before);
+        assert_eq!(ledger.phase(), LifecyclePhase::NeedsNewSession);
         assert_eq!(
             ledger.current.get("sensor.living_room_temperature"),
             Some(&current_before)
@@ -997,6 +1014,8 @@ mod tests {
             requested_session_epoch: Some(1),
             active_session_epoch_before: Some(1),
             active_session_epoch_after: Some(1),
+            active_subscription_id_before: Some(1),
+            active_subscription_id_after: None,
             subscription_id: None,
             at_micros: 30,
             failure: None,
