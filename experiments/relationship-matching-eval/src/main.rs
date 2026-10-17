@@ -51,6 +51,9 @@ fn run() -> Result<(), String> {
         return Err("seed count must be in 1..=1000".to_string());
     }
 
+    let source_commit_sha = read_optional_commit_sha()?;
+    let rustc_version = env::var("RUSTC_VERSION").ok();
+
     let mut results = Vec::with_capacity(seed_count);
     for offset in 0..seed_count {
         let seed = seed_start.wrapping_add(offset as u64);
@@ -74,6 +77,23 @@ fn run() -> Result<(), String> {
     println!("  \"seed_start\": {seed_start},");
     println!("  \"seed_count\": {seed_count},");
     println!("  \"participant_count\": {participant_count},");
+    println!(
+        "  \"source_commit_sha\": {},",
+        source_commit_sha
+            .as_deref()
+            .map(json_string)
+            .unwrap_or_else(|| "null".to_string())
+    );
+    println!(
+        "  \"rustc_version\": {},",
+        rustc_version
+            .as_deref()
+            .map(json_string)
+            .unwrap_or_else(|| "null".to_string())
+    );
+    println!("  \"target_os\": {},", json_string(std::env::consts::OS));
+    println!("  \"target_arch\": {},", json_string(std::env::consts::ARCH));
+    println!("  \"debug_assertions\": {},", cfg!(debug_assertions));
     println!("  \"top_k\": {top_k},");
     println!("  \"fingerprint_is_cryptographic\": false,");
     println!("  \"interpretation\": \"synthetic discovery eligibility is not pair-specific consent; reciprocal shortlist is not human acceptance or relationship quality\",");
@@ -283,6 +303,42 @@ fn mean(values: &[f64]) -> f64 {
     } else {
         values.iter().sum::<f64>() / values.len() as f64
     }
+}
+
+fn read_optional_commit_sha() -> Result<Option<String>, String> {
+    let Some(value) = env::var("GIT_COMMIT_SHA").ok() else {
+        return Ok(None);
+    };
+    let value = value.trim();
+    let is_expected_length = value.len() == 40 || value.len() == 64;
+    let is_hex = value.bytes().all(|byte| byte.is_ascii_hexdigit());
+
+    if !is_expected_length || !is_hex {
+        return Err("GIT_COMMIT_SHA must be an exact 40- or 64-character hexadecimal commit SHA".to_string());
+    }
+
+    Ok(Some(value.to_ascii_lowercase()))
+}
+
+fn json_string(value: &str) -> String {
+    let mut output = String::with_capacity(value.len() + 2);
+    output.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => output.push_str("\\\""),
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            character if character.is_control() => {
+                use std::fmt::Write as _;
+                let _ = write!(output, "\\u{:04x}", character as u32);
+            }
+            character => output.push(character),
+        }
+    }
+    output.push('"');
+    output
 }
 
 fn parse_or_default<T>(
