@@ -28,8 +28,8 @@ Supported V1 state codecs are:
 
 Unknown entity IDs are ignored as `NotAllowlisted`; malformed allowlisted data fails closed.
 
-## Future HA-0.2 boundary
+## HA-0.2A pure protocol contract
 
-A future read-only local WebSocket client may authenticate to Home Assistant, fetch the initial state set, and subscribe to `state_changed`. It must keep credentials local and must not expose `call_service`, REST state writes, or other actuation APIs through this observation contract.
+The [read-only WebSocket protocol state machine](HA_WEBSOCKET_PROTOCOL.md) now freezes authentication/bootstrap/subscription ordering, result correlation, reconnect epochs, and fail-closed handling before transport code is introduced. It contains no socket, URL, credential, state-write, or service-call API. The native local WebSocket client remains a later HA-0.2B step and must keep credentials local and must not expose `call_service`, REST state writes, or other actuation APIs through this observation contract.
 
 Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.
