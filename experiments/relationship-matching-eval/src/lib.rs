@@ -1279,6 +1279,25 @@ mod tests {
     }
 
     #[test]
+    fn opportunity_normalized_history_accounts_for_candidate_degree() {
+        let people = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(2, Partition::A, 25, 18, 25, ConnectionGoal::Dating, &[(1, 3)]),
+            person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(4, Partition::B, 25, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+        ];
+        let history = BTreeMap::from([(3u32, 1usize), (4u32, 1usize)]);
+        let rows = recommend_exposure_balanced_with_history(&people, 1, &history)
+            .expect("known exposure history");
+
+        // Candidate 3 has only one feasible counterpart; candidate 4 has two.
+        // Equal raw counts therefore represent different opportunity-normalized
+        // exposure. The allocator prefers 4 (1/2) over 3 (1/1).
+        let viewer_one = rows.iter().find(|row| row.viewer_id == 1).unwrap();
+        assert_eq!(viewer_one.candidate_id, 4);
+    }
+
+    #[test]
     fn historical_exposure_changes_next_batch_allocation() {
         let people = vec![
             person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
