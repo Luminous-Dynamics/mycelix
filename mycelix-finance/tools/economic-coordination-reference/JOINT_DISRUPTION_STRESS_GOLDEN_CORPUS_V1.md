@@ -1,6 +1,6 @@
 # Joint Disruption Stress v1 — golden corpus
 
-**Status:** 48 stable fixture IDs registered. “Authored” means a named test exists in the module; it does not mean the test passed CI. Planned fixtures are not implemented unless separately marked.  
+**Status:** 48 stable fixture IDs registered. “Authored” means a named test exists in the module or independent integration oracle; it does not mean the test passed CI. Planned fixtures are not implemented unless separately marked.  
 **Tracking:** [PROC-RESILIENCE-002 #5169](https://github.com/Luminous-Dynamics/mycelix/issues/5169).  
 **Benchmark contract:** [JOINT_DISRUPTION_STRESS_BENCHMARKS_V1.md](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-joint-disruption-stress-v1/mycelix-finance/tools/economic-coordination-reference/JOINT_DISRUPTION_STRESS_BENCHMARKS_V1.md).
 
