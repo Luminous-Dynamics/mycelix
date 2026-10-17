@@ -256,7 +256,7 @@ pub fn run_scenario(input: &ScenarioInput) -> Result<ScenarioReport, ScenarioErr
     for (currency, totals_for_currency) in totals {
         let item = deductions
             .get(&currency)
-            .expect("validated deductions map has this currency");
+            .ok_or_else(|| ScenarioError::MissingCurrencyDeductions(currency.clone()))?;
         let scenario_gross = totals_for_currency
             .baseline_gross
             .checked_sub(totals_for_currency.lost_gross)
@@ -335,7 +335,7 @@ fn conservative_decline_amount(gross: i128, basis_points: u16) -> Result<i128, S
         .checked_mul(i128::from(basis_points))
         .ok_or(ScenarioError::ArithmeticOverflow)?;
     let remainder_floor = remainder_product / BASIS_POINTS;
-    let round_up = i128::from(remainder_product % BASIS_POINTS != 0);
+    let round_up = if remainder_product % BASIS_POINTS != 0 { 1 } else { 0 };
     let loss = whole_loss
         .checked_add(remainder_floor)
         .and_then(|value| value.checked_add(round_up))
@@ -548,7 +548,7 @@ mod tests {
         assert_eq!(run_scenario(&scenario), Err(ScenarioError::ArithmeticOverflow));
 
         let mut scenario = input();
-        scenario.deductions = vec![deductions("USD", i128::MAX, 0, 0)];
+        scenario.deductions = vec![deductions("USD", i128::MAX, i128::MAX, 0)];
         assert_eq!(run_scenario(&scenario), Err(ScenarioError::ArithmeticOverflow));
     }
 
