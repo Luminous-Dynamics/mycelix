@@ -95,4 +95,4 @@ These sources motivate the design. They are not independent validation of this i
 
 Restored records include a monotonic `dispatch_started` marker. A `Rejected` snapshot that crossed dispatch must carry a verified sink outcome digest; a caller-provided local timeout/reason cannot turn a dispatched-but-uncertain effect into a terminal rejection. This closes an ambiguity that a revision number alone cannot resolve. Test anchor: `restore_rejects_postdispatch_rejection_without_sink_evidence`.
 
-The bounded model explorer now enumerates reachable abstract states to depth 8 and checks effect-count/dispatch-count invariants, including both forms of `OutcomeUnknown` (destination may or may not have applied the effect). This remains abstract state exploration, not real storage proof.
+The bounded model explorer checks all 2,520 order-preserving four-worker load/reserve schedules and also enumerates reachable abstract lifecycle states to depth 8 and checks effect-count/dispatch-count invariants, including both forms of `OutcomeUnknown` (destination may or may not have applied the effect). This remains abstract state exploration, not real storage proof.
