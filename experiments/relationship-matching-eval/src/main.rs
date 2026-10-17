@@ -331,8 +331,7 @@ fn json_string(value: &str) -> String {
             '\r' => output.push_str("\\r"),
             '\t' => output.push_str("\\t"),
             character if character.is_control() => {
-                use std::fmt::Write as _;
-                let _ = write!(output, "\\u{:04x}", character as u32);
+                output.push_str(&format!("\\u{:04x}", character as u32));
             }
             character => output.push(character),
         }
