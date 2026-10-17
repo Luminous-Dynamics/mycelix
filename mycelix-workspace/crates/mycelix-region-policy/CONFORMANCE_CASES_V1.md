@@ -74,6 +74,10 @@ The local reference gate adds six source-level tests for one-shot behavior. They
 The production crash/restart, multi-node uniqueness, fencing, and effect+nonce transaction tests remain unimplemented. The local in-memory ledger does not satisfy those requirements.
 
 
+## Durable integration composition requirement
+
+The effect-journal module is a state-machine reference, **not a competing production outbox or persistence classifier**. Production integration must reuse the shared verdict and exact-store witness/classification semantics in [PR #780](https://github.com/Luminous-Dynamics/mycelix/pull/780) and compose through [AGENT-009 #803](https://github.com/Luminous-Dynamics/mycelix/issues/803). In particular, persistence `DefinitelyNotCommitted` does not confer retry authority; `IndeterminateCommit` permits reconciliation only; and provider effect truth remains separate from local commit truth.
+
 ## Effect-journal lifecycle reference cases
 
 Fourteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
