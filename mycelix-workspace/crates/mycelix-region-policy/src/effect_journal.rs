@@ -191,7 +191,6 @@ pub struct EffectAttemptSnapshot {
     /// Monotonic marker: an ambiguous post-dispatch outcome was observed.
     pub outcome_unknown_seen: bool,
     pub operation_id: Option<String>,
-    
     pub outcome_digest: Option<String>,
     pub rejection_code: Option<String>,
 }
@@ -204,7 +203,6 @@ pub struct EffectAttempt {
     dispatch_started: bool,
     outcome_unknown_seen: bool,
     operation_id: Option<String>,
-
     outcome_digest: Option<String>,
     rejection_code: Option<String>,
 }

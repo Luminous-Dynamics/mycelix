@@ -80,7 +80,7 @@ The effect-journal module is a state-machine reference, **not a competing produc
 
 ## Effect-journal lifecycle reference cases
 
-Seventeen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
+Eighteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
@@ -99,12 +99,9 @@ Seventeen source-level state-machine tests are authored in `src/effect_journal.r
 | RPK-JOURNAL-013 | Receipt proof replayed across different policy-binding digests | `rejects_replayed_sink_proof_for_changed_policy_binding` |
 | RPK-JOURNAL-014 | Receipt proof replayed across authority domains | `rejects_sink_proof_replayed_across_authority_domains` |
 | RPK-JOURNAL-015 | Post-dispatch restored Rejected row without authenticated sink evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
-
-
-
-The snapshot model adds round-trip restoration of Reserved/DispatchStarted/OutcomeUnknown and rejection of impossible phase-field combinations. The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
-
 | RPK-JOURNAL-016 | Reconciled terminal revision cannot be downgraded while retaining the uncertainty marker | `restore_rejects_revision_downgrade_after_uncertainty` |
+
+The snapshot model adds round-trip restoration of Reserved/DispatchStarted/OutcomeUnknown and rejects impossible phase/revision combinations. The `outcome_unknown_seen` history marker distinguishes a direct revision-3 terminal result from a reconciled revision-4 result. This is a consistency check, not cryptographic anti-rollback protection: production still needs authenticated records and monotonic durable compare-and-swap/high-water semantics. The production contract also requires persistent uniqueness, crash/restart recovery, destination idempotency, receipt retention, and a real two-worker race harness; the in-memory reference model does not qualify those properties.
 
 ## Bounded model and fault-corpus qualification
 
