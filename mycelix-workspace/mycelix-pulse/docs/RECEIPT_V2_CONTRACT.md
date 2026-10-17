@@ -28,6 +28,29 @@ commitment = SHA-256(preimage)
 
 The WASM-safe types crate defines the exact preimage bytes and intentionally does not add a second hash implementation. The caller must compute SHA-256 with the approved implementation. A receipt verifier must independently recompute the commitment from the exact envelope it validated. A caller-supplied commitment alone proves nothing.
 
+## Frozen canonical-byte vector
+
+The crate test `v2_receipt_matches_frozen_canonical_byte_vector` consumes
+`crates/mail-leptos-types/test-vectors/receipt-v2-delivered.hex`. It freezes
+the exact output of `RecipientReceiptV2::canonical_signing_bytes` for the
+deterministic test fixture below (signature bytes are intentionally excluded
+from the signing transcript):
+
+- protocol version: `2`
+- receipt event ID: 32 bytes of `0x1f`
+- message ID: 32 bytes of `0x20`
+- recipient: 39 bytes of `0x21`
+- envelope version: `2`
+- suite: `x25519+ml-kem-768-hkdf-sha256-aes256gcm-agent-ed25519+ml-dsa-65`
+- envelope commitment: 32 bytes of `0x22`
+- kind: `Delivered` (`0x02`)
+- timestamp: signed 64-bit big-endian `35`
+
+The vector is a wire-format conformance fixture, not a signature-validity vector:
+it does not contain a private key, signature verification result, or live
+Holochain receipt. Any change to these bytes requires an explicit protocol
+versioning decision and review, not a silent fixture update.
+
 ## Retry / conflict contract
 
 A sender/recipient implementation must persist `receipt_event_id` before its first attempt and reuse it for every retransmission of that *same signed receipt*. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
