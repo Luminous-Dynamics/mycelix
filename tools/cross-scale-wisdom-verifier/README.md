@@ -18,6 +18,13 @@ To verify the optional Integral-lens supplement:
       docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.manifest.json \
       docs/research/fixtures/cross-scale-wisdom-case.schema.json
 
+To verify the spiritual-practice boundaries supplement (still structurally validated and unscored):
+
+    cargo run --manifest-path tools/cross-scale-wisdom-verifier/Cargo.toml -- verify \
+      docs/research/fixtures/cross-scale-wisdom-spiritual-practice-boundaries-v0.1.jsonl \
+      docs/research/fixtures/cross-scale-wisdom-spiritual-practice-boundaries-v0.1.manifest.json \
+      docs/research/fixtures/cross-scale-wisdom-case.schema.json
+
 Run the unit tests with:
 
     cargo test --manifest-path tools/cross-scale-wisdom-verifier/Cargo.toml
