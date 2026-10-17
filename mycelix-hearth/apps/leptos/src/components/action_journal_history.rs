@@ -182,25 +182,21 @@ mod tests {
     const TARGET: &str =
         "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
-    fn entry(operation_id: &str, scope: &str, status: AttemptStatus, updated: u64) -> JournalEntryV1 {
-        let mut entry = JournalEntryV1::new(
+    fn entry(operation_id: &str, scope: &str, created: u64) -> JournalEntryV1 {
+        JournalEntryV1::new(
             operation_id,
             ActionKind::CareCompletion,
             scope,
             TARGET,
-            100,
-        ).unwrap();
-        if status != AttemptStatus::Prepared {
-            entry.transition_for_test(status, updated);
-        }
-        entry
+            created,
+        ).unwrap()
     }
 
     #[test]
     fn history_is_hidden_when_scope_is_unknown_and_never_crosses_hearths() {
         let entries = vec![
-            entry("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", SCOPE_A, AttemptStatus::Prepared, 100),
-            entry("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", SCOPE_B, AttemptStatus::Prepared, 100),
+            entry("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", SCOPE_A, 100),
+            entry("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", SCOPE_B, 100),
         ];
         assert!(visible_entries(&entries, None).is_empty());
         let scoped = visible_entries(&entries, Some(SCOPE_A));
@@ -215,7 +211,6 @@ mod tests {
                 entry(
                     &format!("c0ffee{index:02}-0000-4000-8000-000000000001"),
                     SCOPE_A,
-                    AttemptStatus::Prepared,
                     100 + index,
                 )
             })
