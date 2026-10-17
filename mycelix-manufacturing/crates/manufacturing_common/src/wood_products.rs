@@ -24,6 +24,180 @@ pub enum WoodEvidenceState {
     Qualified,
 }
 
+/// The semantic quantity represented by a measurement.
+///
+/// A measurement kind fixes the unit expected by this contract. This prevents
+/// dimension and volume values from being silently compared as if equivalent.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WoodMeasurementKind {
+    LogLength,
+    LogDiameter,
+    LogVolume,
+    BoardLength,
+    BoardWidth,
+    BoardThickness,
+    BoardVolume,
+    DefectExtent,
+    DryMass,
+    MoistureContent,
+    PieceCount,
+    EnergyUse,
+    Other,
+}
+
+/// Base units accepted by the wood-measurement contract.
+///
+/// Values and absolute uncertainty use the same integer unit: µm for dimensions,
+/// mm³ for volume, g for dry mass, basis points of percent for moisture, pieces
+/// for counts, and Wh for energy.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WoodMeasurementUnit {
+    Micrometer,
+    CubicMillimeter,
+    GramDryMass,
+    MoistureBasisPoint,
+    Piece,
+    WattHour,
+    Other,
+}
+
+/// Calibration metadata is evidence about the instrument, not a grade certificate.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WoodCalibrationStatus {
+    Current,
+    Expired,
+    NotApplicable,
+    Unknown,
+}
+
+/// A typed, traceable observation about a wood batch.
+///
+/// value and absolute_uncertainty are integer quantities in the same base
+/// unit selected by unit. This record preserves measurement provenance but
+/// does not prove that the observation is true or independently qualify lumber.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WoodMeasurementEvidence {
+    pub measurement_id: String,
+    pub batch_id: String,
+    pub kind: WoodMeasurementKind,
+    pub value: u64,
+    pub unit: WoodMeasurementUnit,
+    pub absolute_uncertainty: u64,
+    pub method: String,
+    pub evidence_state: WoodEvidenceState,
+    pub instrument_id: Option<String>,
+    pub calibration_status: WoodCalibrationStatus,
+    pub source_refs: Vec<String>,
+    pub uncertainty_note: Option<String>,
+    pub recorded_at: Timestamp,
+}
+
+impl WoodMeasurementEvidence {
+    fn expected_unit(kind: WoodMeasurementKind) -> WoodMeasurementUnit {
+        match kind {
+            WoodMeasurementKind::LogLength
+            | WoodMeasurementKind::LogDiameter
+            | WoodMeasurementKind::BoardLength
+            | WoodMeasurementKind::BoardWidth
+            | WoodMeasurementKind::BoardThickness
+            | WoodMeasurementKind::DefectExtent => WoodMeasurementUnit::Micrometer,
+            WoodMeasurementKind::LogVolume | WoodMeasurementKind::BoardVolume => {
+                WoodMeasurementUnit::CubicMillimeter
+            }
+            WoodMeasurementKind::DryMass => WoodMeasurementUnit::GramDryMass,
+            WoodMeasurementKind::MoistureContent => WoodMeasurementUnit::MoistureBasisPoint,
+            WoodMeasurementKind::PieceCount => WoodMeasurementUnit::Piece,
+            WoodMeasurementKind::EnergyUse => WoodMeasurementUnit::WattHour,
+            WoodMeasurementKind::Other => WoodMeasurementUnit::Other,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+        for (field, value) in [
+            ("measurement_id", self.measurement_id.as_str()),
+            ("batch_id", self.batch_id.as_str()),
+            ("method", self.method.as_str()),
+        ] {
+            if value.trim().is_empty() {
+                errors.push(format!("{field} is required"));
+            }
+        }
+        if self.measurement_id.len() > 200 {
+            errors.push("measurement_id must be <= 200 characters".to_owned());
+        }
+        if self.batch_id.len() > 200 {
+            errors.push("batch_id must be <= 200 characters".to_owned());
+        }
+        if self.unit != Self::expected_unit(self.kind) {
+            errors.push(format!(
+                "unit {:?} does not match measurement kind {:?}; expected {:?}",
+                self.unit,
+                self.kind,
+                Self::expected_unit(self.kind)
+            ));
+        }
+        if self.instrument_id.as_ref().is_some_and(|value| value.trim().is_empty()) {
+            errors.push("instrument_id must be omitted rather than blank".to_owned());
+        }
+        if self.calibration_status == WoodCalibrationStatus::Current
+            && self.instrument_id.is_none()
+        {
+            errors.push("current calibration requires an instrument_id".to_owned());
+        }
+        if self.instrument_id.is_some()
+            && matches!(
+                self.calibration_status,
+                WoodCalibrationStatus::Expired | WoodCalibrationStatus::Unknown
+            )
+            && self.uncertainty_note.as_deref().is_none_or(|note| note.trim().is_empty())
+        {
+            errors.push(
+                "expired or unknown instrument calibration requires an uncertainty note"
+                    .to_owned(),
+            );
+        }
+
+        let mut sources = BTreeSet::new();
+        for source in &self.source_refs {
+            if source.trim().is_empty() {
+                errors.push("source references must not be blank".to_owned());
+            }
+            if !sources.insert(source) {
+                errors.push(format!("duplicate source reference: {source}"));
+            }
+        }
+        match self.evidence_state {
+            WoodEvidenceState::Unknown | WoodEvidenceState::Estimated => {
+                if self.uncertainty_note.as_deref().is_none_or(|note| note.trim().is_empty()) {
+                    errors.push(
+                        "unknown or estimated measurements require an uncertainty note"
+                            .to_owned(),
+                    );
+                }
+            }
+            WoodEvidenceState::Observed
+            | WoodEvidenceState::Inspected
+            | WoodEvidenceState::Qualified => {
+                if self.source_refs.is_empty() {
+                    errors.push(
+                        "observed, inspected, and qualified measurements require a source reference"
+                            .to_owned(),
+                    );
+                }
+            }
+        }
+        if self.uncertainty_note.as_deref().is_some_and(|note| note.trim().is_empty()) {
+            errors.push("uncertainty_note must be omitted rather than blank".to_owned());
+        }
+
+        if errors.is_empty() { Ok(()) } else { Err(errors) }
+    }
+}
+
 /// Broad material classification without a jurisdiction-specific grading rule.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
