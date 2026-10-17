@@ -238,10 +238,11 @@ fn independent_checker_rejects_unjustified_cross_currency_hourly_rates() {
     ledger.insert_work_session(session("work", 0, 3_600)).unwrap();
 
     let mut report = ledger.summarize().unwrap();
+    let recorded_work_seconds = report.recorded_work_seconds;
     for summary in &mut report.currencies {
         summary.net_per_work_hour = Some(RationalRate {
             numerator_minor_units_per_hour: summary.net_contribution_minor_units * 3_600,
-            denominator_work_seconds: report.recorded_work_seconds,
+            denominator_work_seconds: recorded_work_seconds,
         });
         summary.rate_unavailable_reasons.clear();
     }
