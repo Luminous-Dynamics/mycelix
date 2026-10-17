@@ -4,7 +4,6 @@
 //! BLAKE3 digest detects byte changes but is not a signature, authorship proof,
 //! legal title, or proof that referenced consent/evidence is authentic.
 
-use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
@@ -32,6 +31,7 @@ pub enum PortableHistoryError {
     FieldTooLong,
     InvalidUtf8,
     TooManyEvents,
+    EnvelopeTooLarge,
     InvalidEventKind,
     InvalidUseAction,
     InvalidOptionTag,
@@ -83,7 +83,7 @@ impl GrantHistoryEnvelope {
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, PortableHistoryError> {
         if bytes.len() > MAX_ENVELOPE_BYTES {
-            return Err(PortableHistoryError::TooManyEvents);
+            return Err(PortableHistoryError::EnvelopeTooLarge);
         }
         let mut reader = Reader::new(bytes);
         if reader.take(MAGIC.len())? != MAGIC {
@@ -335,11 +335,6 @@ impl<'a> Reader<'a> {
     fn u16(&mut self) -> Result<u16, PortableHistoryError> {
         let bytes = self.take(2)?;
         Ok(u16::from_be_bytes([bytes[0], bytes[1]]))
-    }
-
-    fn u32(&mut self) -> Result<u32, PortableHistoryError> {
-        let bytes = self.take(4)?;
-        Ok(u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
     }
 
     fn u64(&mut self) -> Result<u64, PortableHistoryError> {
