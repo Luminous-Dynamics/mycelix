@@ -240,8 +240,10 @@ Implement a small Rust-first pure evaluation crate or reuse an appropriate exist
 4. Compute exposure Gini, opportunity-normalized exposure, candidate coverage, reciprocal-shortlist proxy, subgroup diagnostics, seed-level intervals and runtime distributions. Keep real participant mutual acceptance for a later consent-based pilot; synthetic profiles cannot supply it.
 5. Exercise negative controls for block, withdrawal, stale preferences, malformed inputs, replay, cold starts, coordinated behavior and privacy violations.
 6. Emit a deterministic JSON/TOML report and digest; make missing metrics or missing test vectors fail closed.
-7. Run a multi-round allocation experiment that compares stateless per-batch exposure balancing with a historical exposure ledger, reporting cumulative raw and opportunity-normalized inequality across at least 10 rounds.
-8. Treat the historical ledger as experimental state only. Before production use, define its scope, retention, deletion, update atomicity, market-change semantics, and recovery behavior; a local counter is not a durable or privacy-qualified ledger.
+7. Run a multi-round allocation experiment that compares stateless per-batch exposure balancing with historical exposure allocation, reporting cumulative raw and opportunity-normalized inequality across at least 10 rounds.
+8. Compare the quality–fairness frontier using experimental 70%, 80%, and 90% minimum mutual-utility floors relative to each viewer's best feasible counterpart. Report utility retention, cumulative exposure inequality, candidate coverage, and per-scenario paired comparisons. These thresholds are benchmark controls, not product defaults.
+9. Normalize cumulative exposure by feasible-counterpart opportunity degree as well as reporting raw exposure. A candidate with three times the feasible opportunities should not automatically receive the same target raw exposure as a candidate with one opportunity.
+10. Treat exposure history as experimental state only. Before production use, define its scope, retention, deletion, update atomicity, market-change semantics, and recovery behavior; a local counter is not a durable or privacy-qualified ledger.
 
 No real profiles, private messages, or safety reports are needed for Stage 1.
 
@@ -266,6 +268,8 @@ Use the same seed sequence for each family, but compute a separate corpus finger
 
 - Publish each family separately; never let an aggregate mean hide a catastrophic sparse, opt-out, or adversarial slice.
 - Report cumulative results across repeated batches as well as one-batch results. A per-batch Gini reduction is insufficient if the same people are systematically overexposed across time. Compare stateless balancing to a historical-exposure policy using identical market/seed sequences.
+- Report the quality–fairness Pareto frontier, including a mutual-utility-floor retention proxy alongside raw and opportunity-normalized Gini. Identify dominated policies instead of declaring a single winner from Gini alone. A candidate may be less frequently exposed because they have fewer feasible counterparts; compare normalized exposure as well as raw counts.
+- The exposure ledger currently normalizes past counts by the current feasible-opportunity graph. This is useful only as a fixed-market experiment. Dynamic markets require a policy for time-varying opportunity denominators, profile/opt-in changes, account deletion, privacy scope, retention, and replay/recovery before this metric can qualify a product.
 - Require zero invalid recommendations and zero eligibility/consent negative-control violations across every tested family, seed, and policy. A fairness benefit cannot compensate for one hard-invariant violation.
 - Report the count of comparable seeds whenever a relative Gini reduction is calculated. When baseline Gini is zero or a denominator is not meaningful, report the metric as non-comparable rather than a false zero-percent improvement.
 - Retain the initial ≥8% raw-Gini and ≥10% opportunity-normalized-Gini relative-reduction targets as overall experimental targets, not universal guarantees for every market topology.
@@ -323,6 +327,9 @@ This RFC does not propose a universal compatibility score, attraction ranking, d
 4. U.S. Joint Economic Committee, Minority (2026-10-13), [report release on deficiencies in dating-platform romance-scam prevention](https://www.jec.senate.gov/public/index.cfm/democrats/press-releases?ID=83F458A5-B37B-427C-B3A8-D64A5A13CE8A). Treat platform-provided data and committee interpretations as the report's findings, not a universal estimate of every service.
 5. U.S. Federal Trade Commission (2025-02), [“Looking for love? Watch out for scammers”](https://consumer.ftc.gov/consumer-alerts/2025/02/looking-love-watch-out-scammers).
 6. W3C (2025-05-15), [Verifiable Credentials Data Model v2.0 — Recommendation](https://www.w3.org/TR/vc-data-model/). See privacy, selective-disclosure, verification and correlation guidance. The model's existence does not select an identity provider or prove credential claims true.
+7. Yingqiang Ge et al. (2021), [“Towards Long-term Fairness in Recommendation,” WSDM 2021](https://arxiv.org/abs/2101.03584). Motivates measuring exposure fairness dynamically rather than only in one-shot batches; its item-popularity setting is not direct evidence about human-connection markets.
+8. Nil-Jana Akpinar et al. (2022), [“Long-term Dynamics of Fairness Intervention in Connection Recommender Systems”](https://arxiv.org/abs/2203.16432). Analyzes feedback-driven bias amplification and reports that interventions which look fair in aggregate can fail to mitigate bias over time in its stylized model.
+9. Yildiz Zoralioglu and Emre Yalcin (2026-01-14), [“Dynamic feedback loops in recommender systems: Analyzing fairness, popularity bias, and user group disparities,” *Journal of Intelligent Information Systems* 64, 2091–2119](https://doi.org/10.1007/s10844-026-01025-y). Reports longitudinal calibration, diversity and exposure disparities across popularity-, diverse-, and niche-focused groups on two benchmark datasets. The results motivate temporal testing; they are not results for Mycelix or human-connection outcomes.
 
 ## 13. Qualification statement
 
