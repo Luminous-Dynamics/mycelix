@@ -22,7 +22,9 @@ env:
 jobs:
   # Detect which clusters changed
   changes:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    # Draft PRs skip product/cluster test jobs by default, but the path detector
+    # must run so the isolated CSCP research crates can be tested before review.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
@@ -36,6 +38,9 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      cscp_core: ${{ steps.filter.outputs.cscp_core }}
+      cscp_deal_state: ${{ steps.filter.outputs.cscp_deal_state }}
+      cscp_asset_passport: ${{ steps.filter.outputs.cscp_asset_passport }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +79,12 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            cscp_core:
+              - 'mycelix-workspace/research/creator-sovereignty-core/**'
+            cscp_deal_state:
+              - 'mycelix-workspace/research/creator-deal-state-core/**'
+            cscp_asset_passport:
+              - 'mycelix-workspace/research/creator-asset-passport-core/**'
             cos_conformance:
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
@@ -111,6 +122,60 @@ jobs:
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
+
+  # Isolated CSCP research crates are deliberately tested outside the root Holochain workspace.
+  # These jobs run on draft PRs when their own source path changes, so code can be
+  # compiled and exercised before a PR is marked ready for review.
+  test-cscp-creator-ledger:
+    name: CSCP creator career ledger
+    needs: changes
+    if: needs.changes.outputs.cscp_core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --all --check
+      - name: Test crate
+        run: cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml
+
+  test-cscp-deal-state:
+    name: CSCP creator deal state
+    needs: changes
+    if: needs.changes.outputs.cscp_deal_state == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --all --check
+      - name: Test crate
+        run: cargo test --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml
+
+  test-cscp-asset-passport:
+    name: CSCP creator asset passport
+    needs: changes
+    if: needs.changes.outputs.cscp_asset_passport == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --all --check
+      - name: Test crate
+        run: cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml
 
   # Per-cluster test jobs
   test-cos-conformance:
