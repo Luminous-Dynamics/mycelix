@@ -4,6 +4,7 @@
 **Version:** 0.1
 **Date:** 2026-10-17
 **Parent:** [Creator Sovereignty Control Plane RFC](https://github.com/Luminous-Dynamics/mycelix/pull/5166)
+**Companion:** [Creator Resilience and Creative Optionality](CSCP_CREATOR_RESILIENCE_MODEL.md)
 **Scope:** Measurement semantics, adversarial benchmark design, and staged evaluation before platform integrations or creator-facing causal recommendations.
 
 ## Core thesis
