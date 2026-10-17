@@ -1808,4 +1808,91 @@ mod tests {
         assert_eq!(first.canonical_payload(), second.canonical_payload());
     }
 
+    #[test]
+    fn rejects_agreement_when_source_profile_digest_does_not_match() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut agreement = verified_agreement(&source, &destination).agreement;
+        agreement.source_profile_digest = "d".repeat(64);
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 850 },
+        )
+        .expect("mock verifier accepts structure for the policy-binding negative control");
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementSourceProfileMismatch));
+    }
+
+    #[test]
+    fn denies_purpose_not_explicitly_authorized_by_agreement() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut agreement = verified_agreement(&source, &destination).agreement;
+        agreement.allowed_purposes = vec!["care-coordination".to_owned()];
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 850 },
+        )
+        .expect("mock verifier accepts structure for the purpose allowlist test");
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementPurposeNotAllowed));
+    }
+
+    #[test]
+    fn denies_recipient_not_explicitly_authorized_by_agreement() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut agreement = verified_agreement(&source, &destination).agreement;
+        agreement.allowed_recipient_ids = vec!["service:care".to_owned()];
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 850 },
+        )
+        .expect("mock verifier accepts structure for the recipient allowlist test");
+        let classification = verified_classification("record:education-credential", 200);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: None,
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementRecipientNotAllowed));
+    }
+
 }
