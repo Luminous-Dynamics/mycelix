@@ -365,7 +365,7 @@ mod tests {
         evaluate_joint_disruption_stress,
     };
     use crate::joint_capacity::{CapabilityMapping, JointOffer, JointRequest, SharedCapacityPool};
-    use crate::joint_optimizer::JointOptimizationProblem;
+    use crate::joint_optimizer::{JointOptimizationProblem, optimize_joint_allocation};
     use crate::{EvidenceOrigin, EvidenceStatus};
 
     fn request(id: &str) -> JointRequest {
@@ -624,17 +624,21 @@ mod tests {
 
     #[test]
     fn aggregate_budget_exhaustion_returns_no_partial_frontier() {
+        let base = problem();
+        let control_nodes = optimize_joint_allocation(&base)
+            .expect("baseline problem is valid")
+            .search_node_count;
         let mut stress = set(vec![
             scenario("a", "scenario-a", &[], &[]),
             scenario("b", "scenario-b", &["supplier-a"], &[]),
         ]);
-        stress.max_total_search_nodes = 1;
-        let error = evaluate_joint_disruption_stress(&problem(), &stress)
-            .expect_err("one node cannot qualify two scenario evaluations");
+        // Permit the first full scenario and only one node for the second.
+        stress.max_total_search_nodes = control_nodes + 1;
+        let error = evaluate_joint_disruption_stress(&base, &stress)
+            .expect_err("budget exhaustion after a complete scenario must discard partial output");
         assert!(matches!(
             error,
             JointDisruptionError::SearchSpaceExceeded { .. }
-                | JointDisruptionError::Optimization(JointOptimizationError::SearchSpaceExceeded { .. })
         ));
     }
 
