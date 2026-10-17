@@ -22,6 +22,7 @@ use std::fmt;
 pub enum EntityStreamProjectionError {
     InvalidProfile(String),
     InvalidPayload(String),
+    DuplicateEntityAddition { entity_id: String },
     UnknownEntityChange { entity_id: String },
     InvalidEntityState { entity_id: String, reason: String },
 }
@@ -31,6 +32,10 @@ impl fmt::Display for EntityStreamProjectionError {
         match self {
             Self::InvalidProfile(message) => write!(f, "invalid observation profile: {message}"),
             Self::InvalidPayload(message) => write!(f, "invalid compact entity-stream payload: {message}"),
+            Self::DuplicateEntityAddition { entity_id } => write!(
+                f,
+                "added entity already exists in the active stream cache: {entity_id}"
+            ),
             Self::UnknownEntityChange { entity_id } => write!(
                 f,
                 "change received for allowlisted entity absent from current snapshot: {entity_id}"
@@ -304,6 +309,16 @@ impl EntityStreamProjector {
             for (id, compressed) in added {
                 if !self.allowlisted_entity_ids.contains(id) {
                     continue;
+                }
+                // Within one session, an "added" entry for an entity already in
+                // the cache is either a duplicate/replayed event or an invalid
+                // transition. Do not replace the cached state or refresh local
+                // observation freshness; legitimate re-addition follows a
+                // separate removal that evicted the prior cache entry.
+                if self.state.contains_key(id) {
+                    return Err(EntityStreamProjectionError::DuplicateEntityAddition {
+                        entity_id: id.clone(),
+                    });
                 }
                 let state = CachedEntityState::from_full(id, compressed)?;
                 let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
@@ -799,6 +814,34 @@ mod tests {
             Err(EntityStreamProjectionError::InvalidPayload(_))
         ));
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
+    }
+
+    #[test]
+    fn duplicate_added_entity_is_rejected_without_cache_or_freshness_change() {
+        let mut projector = projector();
+        let initial = projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        assert_eq!(initial.frames.len(), 1);
+        let prior = projector.state["sensor.living_room_temperature"].clone();
+
+        let replay = serde_json::json!({
+            "a": {
+                "sensor.living_room_temperature": {
+                    "s": "99.9",
+                    "a": {
+                        "unit_of_measurement": "°C",
+                        "device_class": "temperature",
+                        "friendly_name": "replayed payload"
+                    }
+                }
+            }
+        });
+        assert!(matches!(
+            projector.apply(EntityStreamKind::Changes, &replay, 999_999),
+            Err(EntityStreamProjectionError::DuplicateEntityAddition { ref entity_id })
+                if entity_id == "sensor.living_room_temperature"
+        ));
+        assert_eq!(projector.state["sensor.living_room_temperature"], prior);
+        assert_eq!(projector.cached_entity_count(), 1);
     }
 
     #[test]
