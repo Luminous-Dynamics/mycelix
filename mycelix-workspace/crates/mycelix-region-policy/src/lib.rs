@@ -2226,4 +2226,86 @@ mod tests {
         );
     }
 
+    #[test]
+    fn denies_consent_reused_for_another_resource_or_content_version() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let mut altered = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            200,
+        )
+        .grant;
+        altered.resource_id = "record:another-credential".to_owned();
+        altered.content_digest = "f".repeat(64);
+        let consent = VerifiedConsentGrant::verify(
+            altered,
+            200,
+            &AcceptConsent { evidence_until_ms: 300 },
+        )
+        .expect("mock adapter accepts structure for scope-binding tests");
+        let agreement = verified_agreement(&source, &destination);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ConsentResourceMismatch));
+        assert!(decision.reasons.contains(&DenialReason::ConsentContentMismatch));
+    }
+
+    #[test]
+    fn denies_consent_for_another_subject_data_class_or_action() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let mut altered = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            200,
+        )
+        .grant;
+        altered.subject_id = "did:example:another-subject".to_owned();
+        altered.data_class = DataClass::Sensitive;
+        altered.action = BoundaryAction::Backup;
+        let consent = VerifiedConsentGrant::verify(
+            altered,
+            200,
+            &AcceptConsent { evidence_until_ms: 300 },
+        )
+        .expect("mock adapter accepts structure for scope-binding tests");
+        let agreement = verified_agreement(&source, &destination);
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ConsentSubjectMismatch));
+        assert!(decision.reasons.contains(&DenialReason::ConsentDataClassMismatch));
+        assert!(decision.reasons.contains(&DenialReason::ConsentActionMismatch));
+    }
+
 }
