@@ -35,6 +35,7 @@ jobs:
             .corpus_id == "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS" and
             (.cases | length == 25) and
             ([.cases[].id] | unique | length == 25) and
+            ([.cases[].id | ltrimstr("EJM-") | tonumber] | sort) == [range(1; 26)] and
             .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"] and
             (.cases | any(.[]; .id == "EJM-025" and .test_anchor == "restore_rejects_impossible_phase_and_revision_history" and .status == "implemented_reference_test")) and
             (.cases | all(.[]; ((keys | sort) == ["category", "expected", "fault", "id", "status", "test_anchor"]) and
