@@ -1846,9 +1846,11 @@ mod tests {
         );
         assert_eq!(contract.lifecycle(), Lifecycle::Verified);
         assert!(!contract.capacity_consumed());
+        // The existing reservation removes one unit from available capacity;
+        // the failed settlement attempt must neither consume nor release it.
         assert_eq!(
             capacity.remaining("repair-hours", "hour", "week-42"),
-            Some(1)
+            Some(0)
         );
         assert_eq!(
             capacity.consumed("repair-hours", "hour", "week-42"),
