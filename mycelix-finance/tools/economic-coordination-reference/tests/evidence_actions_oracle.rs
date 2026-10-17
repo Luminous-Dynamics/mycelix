@@ -41,10 +41,7 @@ fn canonical_frontier(frontier: &[JointObjective]) -> Vec<JointObjective> {
     result
 }
 
-fn symmetric_difference_size(
-    left: &[JointObjective],
-    right: &[JointObjective],
-) -> usize {
+fn symmetric_difference_size(left: &[JointObjective], right: &[JointObjective]) -> usize {
     let left_set: BTreeSet<JointObjective> = left.iter().cloned().collect();
     let right_set: BTreeSet<JointObjective> = right.iter().cloned().collect();
     left_set.difference(&right_set).count() + right_set.difference(&left_set).count()
@@ -114,10 +111,10 @@ fn problem(action: EvidenceAcquisitionAction) -> EvidenceAcquisitionProblem {
 fn all_sixteen_toy_branch_pairs_match_independent_frontier_sensitivity_oracle() {
     let baseline = vec![objective(100, 0, 0)];
     let states = vec![
-        vec![objective(100, 0, 0)],               // unchanged
-        vec![objective(80, 0, 0)],                // same shortage, different cost
+        vec![objective(100, 0, 0)],                     // unchanged
+        vec![objective(80, 0, 0)],                      // same shortage, different cost
         vec![objective(70, 1, 0), objective(90, 0, 0)], // larger frontier
-        vec![],                                   // no feasible allocation
+        vec![],                                         // no feasible allocation
     ];
 
     for left in 0..states.len() {
