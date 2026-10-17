@@ -25,9 +25,11 @@ fn run() -> Result<(), String> {
     let top_k = parse_or_default(args.get(2), 5usize, "top-k")?;
 
     let market = synthetic_market(seed, participant_count)?;
+    let feasibility_rows = recommend(&market, top_k, RankingPolicy::FeasibilityOnly)?;
     let one_sided_rows = recommend(&market, top_k, RankingPolicy::OneSidedUtility)?;
     let mutual_rows = recommend(&market, top_k, RankingPolicy::MutualUtility)?;
     let balanced_rows = recommend(&market, top_k, RankingPolicy::ExposureBalancedMutual)?;
+    let feasibility_metrics = evaluate(&market, &feasibility_rows);
     let one_sided_metrics = evaluate(&market, &one_sided_rows);
     let mutual_metrics = evaluate(&market, &mutual_rows);
     let balanced_metrics = evaluate(&market, &balanced_rows);
@@ -41,6 +43,9 @@ fn run() -> Result<(), String> {
     println!("  \"corpus_fingerprint_fnv1a64\": \"{fingerprint}\",");
     println!("  \"fingerprint_is_cryptographic\": false,");
     println!("  \"interpretation\": \"mutual shortlist is not human acceptance or relationship quality\",");
+    println!("  \"feasibility_only\": {{");
+    print_metrics(feasibility_metrics);
+    println!("  }},");
     println!("  \"one_sided_utility\": {{");
     print_metrics(one_sided_metrics);
     println!("  }},");
