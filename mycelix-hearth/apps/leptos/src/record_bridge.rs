@@ -328,6 +328,43 @@ mod tests {
         assert_eq!(base64_encode(b"a"), "YQ==");
     }
     #[test]
+    fn real_hearth_record_becomes_a_verified_hash_view() {
+        let raw_hash: Vec<u8> = (0..39).collect();
+        let entry = WireHearth {
+            name: "River Hearth".into(),
+            description: "A test household".into(),
+            hearth_type: HearthType::Chosen,
+            created_by: vec![42; 39],
+            created_at: 1_700_000_000_000_000,
+            max_members: 12,
+        };
+        let record = WireRecord {
+            signed_action: WireSignedAction {
+                hashed: WireHashedAction {
+                    hash: raw_hash.clone(),
+                    content: serde_json::Value::Null,
+                },
+                signature: serde_json::Value::Null,
+            },
+            entry: WireRecordEntry::Present {
+                present: WireEntry {
+                    entry_type: serde_json::Value::Null,
+                    entry: rmp_serde::to_vec_named(&entry).unwrap(),
+                },
+            },
+        };
+
+        let views = records_to_hearths(&[record]);
+        assert_eq!(views.len(), 1);
+        assert_eq!(views[0].hash, base64_encode(&raw_hash));
+        assert_eq!(views[0].name, "River Hearth");
+        assert_eq!(views[0].description, "A test household");
+        assert_eq!(views[0].created_by, base64_encode(&vec![42; 39]));
+        assert_eq!(views[0].created_at, 1_700_000_000);
+        assert_eq!(views[0].max_members, 12);
+    }
+
+    #[test]
     fn holo_hash_decoder_round_trips_canonical_39_byte_values() {
         let source: Vec<u8> = (0..39).collect();
         let encoded = base64_encode(&source);
