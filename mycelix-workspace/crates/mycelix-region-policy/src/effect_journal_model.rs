@@ -5,6 +5,8 @@
 //! provider. Passing model tests can expose state-machine counterexamples but is
 //! not production concurrency or exactly-once evidence.
 
+use std::collections::{HashSet, VecDeque};
+
 use crate::effect_journal::{
     AttemptPhase, EffectAttempt, EffectAttemptSnapshot, EffectIdentity, SinkDisposition,
     SinkOutcomeEvidence, SinkOutcomeVerifier, SinkProofError, VerifiedSinkOutcome,
@@ -13,7 +15,6 @@ use crate::effect_journal::{
 const OPERATION_A: &str = "sink-operation-a";
 const OPERATION_B: &str = "sink-operation-b";
 
-#[derive(Debug, Clone, Copy)]
 #[derive(Debug, Clone, Copy)]
 enum Event {
     LoadA,
@@ -186,6 +187,140 @@ fn identity() -> EffectIdentity {
     .expect("model identity should be valid")
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct AbstractState {
+    phase: AttemptPhase,
+    authority_current: bool,
+    sink_applied: bool,
+    effect_count: u8,
+    dispatch_count: u8,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum AbstractEvent {
+    Reserve,
+    Revoke,
+    StartDispatch,
+    AbortBeforeDispatch,
+    ApplyAndReply,
+    ApplyAndLoseReply,
+    CrashAfterDispatchBeforeApply,
+    Reconcile,
+    RetryAsNewOperation,
+}
+
+const ABSTRACT_EVENTS: [AbstractEvent; 9] = [
+    AbstractEvent::Reserve,
+    AbstractEvent::Revoke,
+    AbstractEvent::StartDispatch,
+    AbstractEvent::AbortBeforeDispatch,
+    AbstractEvent::ApplyAndReply,
+    AbstractEvent::ApplyAndLoseReply,
+    AbstractEvent::CrashAfterDispatchBeforeApply,
+    AbstractEvent::Reconcile,
+    AbstractEvent::RetryAsNewOperation,
+];
+
+fn abstract_step(state: AbstractState, event: AbstractEvent) -> Option<AbstractState> {
+    let mut next = state;
+    match event {
+        AbstractEvent::Reserve if next.phase == AttemptPhase::Prepared && next.authority_current => {
+            next.phase = AttemptPhase::Reserved;
+            Some(next)
+        }
+        AbstractEvent::Revoke if next.authority_current => {
+            next.authority_current = false;
+            Some(next)
+        }
+        AbstractEvent::StartDispatch
+            if next.phase == AttemptPhase::Reserved && next.authority_current =>
+        {
+            next.phase = AttemptPhase::DispatchStarted;
+            next.dispatch_count = next.dispatch_count.saturating_add(1);
+            Some(next)
+        }
+        AbstractEvent::AbortBeforeDispatch
+            if matches!(next.phase, AttemptPhase::Prepared | AttemptPhase::Reserved) =>
+        {
+            next.phase = AttemptPhase::Rejected;
+            Some(next)
+        }
+        AbstractEvent::ApplyAndReply
+            if next.phase == AttemptPhase::DispatchStarted && !next.sink_applied =>
+        {
+            next.sink_applied = true;
+            next.effect_count = next.effect_count.saturating_add(1);
+            next.phase = AttemptPhase::Committed;
+            Some(next)
+        }
+        AbstractEvent::ApplyAndLoseReply
+            if next.phase == AttemptPhase::DispatchStarted && !next.sink_applied =>
+        {
+            next.sink_applied = true;
+            next.effect_count = next.effect_count.saturating_add(1);
+            next.phase = AttemptPhase::OutcomeUnknown;
+            Some(next)
+        }
+        AbstractEvent::CrashAfterDispatchBeforeApply
+            if next.phase == AttemptPhase::DispatchStarted && !next.sink_applied =>
+        {
+            next.phase = AttemptPhase::OutcomeUnknown;
+            Some(next)
+        }
+        AbstractEvent::Reconcile
+            if next.phase == AttemptPhase::OutcomeUnknown && next.sink_applied =>
+        {
+            next.phase = AttemptPhase::Committed;
+            Some(next)
+        }
+        // No event authorizes a new logical effect from OutcomeUnknown.
+        AbstractEvent::RetryAsNewOperation => None,
+        _ => None,
+    }
+}
+
+fn invariant_holds(state: AbstractState) -> bool {
+    state.effect_count <= 1
+        && state.dispatch_count <= 1
+        && (state.effect_count == 0 || state.sink_applied)
+        && (state.phase != AttemptPhase::Committed
+            || (state.sink_applied && state.effect_count == 1 && state.dispatch_count == 1))
+        && (!(state.phase == AttemptPhase::Rejected && state.dispatch_count == 0)
+            || state.effect_count == 0)
+        && (!(state.phase == AttemptPhase::OutcomeUnknown) || state.dispatch_count == 1)
+}
+
+fn explore_abstract_state_space(max_depth: usize) -> (HashSet<AbstractState>, usize) {
+    let initial = AbstractState {
+        phase: AttemptPhase::Prepared,
+        authority_current: true,
+        sink_applied: false,
+        effect_count: 0,
+        dispatch_count: 0,
+    };
+    let mut visited = HashSet::from([initial]);
+    let mut queue = VecDeque::from([(initial, 0usize)]);
+    let mut transitions = 0usize;
+
+    while let Some((state, depth)) = queue.pop_front() {
+        assert!(invariant_holds(state), "invariant failed at state {state:?}");
+        if depth >= max_depth {
+            continue;
+        }
+        for event in ABSTRACT_EVENTS {
+            if let Some(next) = abstract_step(state, event) {
+                transitions += 1;
+                assert!(invariant_holds(next), "event {event:?} violated invariant at {next:?}");
+                if visited.insert(next) {
+                    queue.push_back((next, depth + 1));
+                }
+            }
+        }
+    }
+    (visited, transitions)
+}
+
 fn explore_schedule(schedule: &[Event]) -> (usize, SharedRow) {
     let mut shared = SharedRow {
         snapshot: EffectAttempt::prepare(identity()).snapshot(),
@@ -298,4 +433,30 @@ mod tests {
         assert_eq!(sink.applied_effects, 0);
         assert_eq!(sink.delivery_attempts, 0);
     }
+    #[test]
+    fn bounded_state_exploration_preserves_effect_safety_invariants() {
+        let (states, transitions) = explore_abstract_state_space(8);
+        assert!(states.len() >= 8, "explorer should reach the meaningful lifecycle phases");
+        assert!(transitions >= states.len(), "explorer should exercise distinct transitions");
+        assert!(states.iter().all(|state| invariant_holds(*state)));
+        assert!(states.iter().any(|state| state.phase == AttemptPhase::OutcomeUnknown && state.sink_applied));
+        assert!(states.iter().any(|state| state.phase == AttemptPhase::OutcomeUnknown && !state.sink_applied));
+    }
+
+    #[test]
+    fn outcome_unknown_has_no_dispatch_or_new_operation_transition() {
+        let unknown = AbstractState {
+            phase: AttemptPhase::OutcomeUnknown,
+            authority_current: true,
+            sink_applied: true,
+            effect_count: 1,
+            dispatch_count: 1,
+        };
+        assert!(abstract_step(unknown, AbstractEvent::StartDispatch).is_none());
+        assert!(abstract_step(unknown, AbstractEvent::RetryAsNewOperation).is_none());
+        let reconciled = abstract_step(unknown, AbstractEvent::Reconcile).expect("matching sink result reconciles");
+        assert_eq!(reconciled.phase, AttemptPhase::Committed);
+        assert_eq!(reconciled.effect_count, 1);
+    }
+
 }
