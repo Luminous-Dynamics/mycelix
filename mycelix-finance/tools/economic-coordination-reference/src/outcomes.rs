@@ -401,6 +401,15 @@ impl OutcomeLedger {
             if dispute.case_id != event.case_id
                 || dispute.commitment_id != event.commitment_id
                 || !matches!(&dispute.kind, OutcomeEventKind::DisputeOpened { .. })
+                || self.superseded_by.contains_key(dispute_event_id)
+                || self.events.values().any(|existing| {
+                    !self.superseded_by.contains_key(&existing.event_id)
+                        && matches!(
+                            &existing.kind,
+                            OutcomeEventKind::DisputeResolved { dispute_event_id: resolved_id, .. }
+                                if resolved_id == dispute_event_id
+                        )
+                })
             {
                 return Err(OutcomeLedgerError::InvalidDisputeReference);
             }
@@ -764,6 +773,7 @@ mod tests {
         assert_eq!(report.state, OutcomeState::Finalized);
         assert_eq!(report.on_time_in_full, Some(true));
         assert_eq!(report.forecast_delivery_error_secs, Some(6));
+        assert_eq!(report.forecast_interval_covered, Some(true));
         assert_eq!(report.landed_cost_variance_minor, Some(25));
         assert_eq!(report.net_accepted_quantity, 5);
     }
@@ -835,6 +845,7 @@ mod tests {
         assert_eq!(report.state, OutcomeState::Disputed);
         assert_eq!(report.on_time_in_full, None);
         assert_eq!(report.forecast_delivery_error_secs, None);
+        assert_eq!(report.forecast_interval_covered, None);
     }
 
     #[test]
