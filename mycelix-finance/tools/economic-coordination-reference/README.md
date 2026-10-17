@@ -191,3 +191,6 @@ The additive \`joint_capacity\` module independently checks a proposed allocatio
 This layer is deliberately a validator, not an optimizer. It does not award scarce units according to priority, compute a Pareto frontier, model fixed freight/tax/FX costs, couple cumulative capacity across time buckets, or run disruption recourse. Those are subsequent layers, and no purchase, reservation, dispatch or payment authority is exposed. Evidence statuses and digests remain caller-supplied assertions, not cryptographic proof.
 
 The benchmark contract is [JOINT_CAPACITY_BENCHMARKS_V1.md](JOINT_CAPACITY_BENCHMARKS_V1.md), and stable fixture IDs are tracked in [JOINT_CAPACITY_GOLDEN_CORPUS_V1.md](JOINT_CAPACITY_GOLDEN_CORPUS_V1.md). Thirteen adversarial unit tests are authored; all require exact-head CI qualification before being called passing. The 40-case registry is a target corpus, not a claim that all rows are implemented.
+
+
+The report includes canonical line-level allocation witnesses: request/offer/supplier IDs, mapping ID/digest, capacity-pool snapshot and time bucket, exact quantity and currency, unit cost, line cost, and deadline fields. This makes each accepted line reviewable; it does not cryptographically authenticate the referenced records.
