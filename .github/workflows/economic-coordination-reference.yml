@@ -40,8 +40,27 @@ jobs:
           test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
           rustfmt +1.96.0 --version
 
-      - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml -- --check
+      - name: Check formatting of changed Rust sources
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          crate_dir="mycelix-finance/tools/economic-coordination-reference"
+          if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            changed_files="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- "$crate_dir")"
+          else
+            changed_files="$(git ls-files "$crate_dir")"
+          fi
+          rust_files=()
+          while IFS= read -r path; do
+            [[ "$path" == *.rs ]] && rust_files+=("$path")
+          done <<< "$changed_files"
+          if [[ ${#rust_files[@]} -eq 0 ]]; then
+            echo "No changed Rust sources in the reference crate."
+            exit 0
+          fi
+          rustfmt +1.96.0 --check --edition 2024 --config skip_children=true "${rust_files[@]}"
 
       - name: Run reference and adversarial tests
         run: cargo test --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml

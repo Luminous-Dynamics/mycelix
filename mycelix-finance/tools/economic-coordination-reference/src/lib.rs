@@ -34,6 +34,9 @@ pub mod strategy;
 /// Append-only forecast-to-delivery outcome ledger with deterministic replay.
 pub mod outcomes;
 
+/// Independent feasibility and reconciliation gate for multi-request allocations.
+pub mod joint_capacity;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
@@ -317,12 +320,7 @@ impl CapacityBook {
         Ok(())
     }
 
-    pub fn remaining(
-        &self,
-        resource_id: &str,
-        unit: &str,
-        window_id: &str,
-    ) -> Option<u64> {
+    pub fn remaining(&self, resource_id: &str, unit: &str, window_id: &str) -> Option<u64> {
         let key = CapacityKey {
             resource_id: resource_id.to_owned(),
             unit: unit.to_owned(),
@@ -335,12 +333,7 @@ impl CapacityBook {
         })
     }
 
-    pub fn consumed(
-        &self,
-        resource_id: &str,
-        unit: &str,
-        window_id: &str,
-    ) -> Option<u64> {
+    pub fn consumed(&self, resource_id: &str, unit: &str, window_id: &str) -> Option<u64> {
         let key = CapacityKey {
             resource_id: resource_id.to_owned(),
             unit: unit.to_owned(),
@@ -387,7 +380,8 @@ impl CapacityBook {
             window_id: request.window_id.clone(),
             quantity: request.quantity,
         };
-        self.seen_transactions.insert(request.transaction_id.clone());
+        self.seen_transactions
+            .insert(request.transaction_id.clone());
         self.reservations
             .insert(request.transaction_id.clone(), receipt.clone());
         Ok(receipt)
@@ -609,11 +603,7 @@ impl CoordinationContract {
         Ok(receipt)
     }
 
-    pub fn commit(
-        &mut self,
-        obligation: ObligationTerms,
-        now: u64,
-    ) -> Result<(), ContractError> {
+    pub fn commit(&mut self, obligation: ObligationTerms, now: u64) -> Result<(), ContractError> {
         self.require_state(Lifecycle::Reserved)?;
         self.ensure_transition_time(now)?;
         if now >= self.request.accept_until {
@@ -679,7 +669,10 @@ impl CoordinationContract {
             return Err(ContractError::InvalidTransition);
         }
         self.ensure_transition_time(result.decided_at)?;
-        let delivery = self.delivery.as_ref().ok_or(ContractError::InvalidEvidence)?;
+        let delivery = self
+            .delivery
+            .as_ref()
+            .ok_or(ContractError::InvalidEvidence)?;
         if !non_empty(&result.verifier_id)
             || !non_empty(&result.claim_evidence_id)
             || !non_empty(&result.evidence_id)
@@ -703,7 +696,9 @@ impl CoordinationContract {
         {
             Lifecycle::Indeterminate
         } else {
-            let accepted = result.accepted_quantity.ok_or(ContractError::InvalidEvidence)?;
+            let accepted = result
+                .accepted_quantity
+                .ok_or(ContractError::InvalidEvidence)?;
             if delivery.resource_id == self.request.resource_id
                 && delivery.unit == self.request.unit
                 && delivery.quantity == self.request.quantity
@@ -736,7 +731,10 @@ impl CoordinationContract {
     ) -> Result<Lifecycle, ContractError> {
         self.require_state(Lifecycle::Disputed)?;
         self.ensure_transition_time(reassessment.decided_at)?;
-        let delivery = self.delivery.as_ref().ok_or(ContractError::InvalidEvidence)?;
+        let delivery = self
+            .delivery
+            .as_ref()
+            .ok_or(ContractError::InvalidEvidence)?;
         let previous_verifier = self.verification.as_ref().map(|v| v.verifier_id.as_str());
 
         if !non_empty(&reassessment.resolver_id)
@@ -851,11 +849,7 @@ impl CoordinationContract {
 
     /// Cancellation is permitted only before commitment, when there is no
     /// outstanding obligation or ambiguous external effect to conceal.
-    pub fn cancel(
-        &mut self,
-        book: &mut CapacityBook,
-        now: u64,
-    ) -> Result<(), ContractError> {
+    pub fn cancel(&mut self, book: &mut CapacityBook, now: u64) -> Result<(), ContractError> {
         if !matches!(
             self.lifecycle,
             Lifecycle::Proposed | Lifecycle::Authorized | Lifecycle::Reserved
@@ -1169,14 +1163,7 @@ mod tests {
             .unwrap();
         let mut ledger = Ledger::default();
         ledger
-            .register_account(
-                "household-wallet",
-                INSTRUMENT,
-                ATOMIC_UNIT,
-                100,
-                0,
-                100,
-            )
+            .register_account("household-wallet", INSTRUMENT, ATOMIC_UNIT, 100, 0, 100)
             .unwrap();
         ledger
             .register_account("coop-wallet", INSTRUMENT, ATOMIC_UNIT, 0, 0, 100)
@@ -1187,7 +1174,9 @@ mod tests {
     #[test]
     fn full_need_to_fulfilment_path_posts_balanced_internal_settlement() {
         let (mut contract, mut capacity, mut ledger) = verified_contract("tx-happy", 4);
-        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        contract
+            .consume_verified_capacity(&mut capacity, 7)
+            .unwrap();
         let receipt = contract.settle(&mut ledger, 8).unwrap();
 
         assert_eq!(contract.lifecycle(), Lifecycle::Settled);
@@ -1430,17 +1419,12 @@ mod tests {
     #[test]
     fn balance_limit_failure_is_atomic() {
         let (mut contract, mut capacity, _) = verified_contract("tx-balance-limit", 1);
-        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        contract
+            .consume_verified_capacity(&mut capacity, 7)
+            .unwrap();
         let mut ledger = Ledger::default();
         ledger
-            .register_account(
-                "household-wallet",
-                INSTRUMENT,
-                ATOMIC_UNIT,
-                10,
-                0,
-                10,
-            )
+            .register_account("household-wallet", INSTRUMENT, ATOMIC_UNIT, 10, 0, 10)
             .unwrap();
         ledger
             .register_account("coop-wallet", INSTRUMENT, ATOMIC_UNIT, 0, 0, 100)
@@ -1464,14 +1448,19 @@ mod tests {
             capacity.remaining("repair-hours", "hour", "week-42"),
             Some(0)
         );
-        assert_eq!(capacity.consumed("repair-hours", "hour", "week-42"), Some(1));
+        assert_eq!(
+            capacity.consumed("repair-hours", "hour", "week-42"),
+            Some(1)
+        );
         assert!(ledger.posting("tx-balance-limit").is_none());
     }
 
     #[test]
     fn repeated_settlement_does_not_post_twice() {
         let (mut contract, mut capacity, mut ledger) = verified_contract("tx-replay", 1);
-        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        contract
+            .consume_verified_capacity(&mut capacity, 7)
+            .unwrap();
         contract.settle(&mut ledger, 8).unwrap();
 
         assert_eq!(
@@ -1491,17 +1480,12 @@ mod tests {
     #[test]
     fn missing_instrument_account_does_not_move_any_balance() {
         let (mut contract, mut capacity, _) = verified_contract("tx-instrument-mismatch", 1);
-        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        contract
+            .consume_verified_capacity(&mut capacity, 7)
+            .unwrap();
         let mut ledger = Ledger::default();
         ledger
-            .register_account(
-                "household-wallet",
-                INSTRUMENT,
-                ATOMIC_UNIT,
-                100,
-                0,
-                100,
-            )
+            .register_account("household-wallet", INSTRUMENT, ATOMIC_UNIT, 100, 0, 100)
             .unwrap();
         ledger
             .register_account("coop-wallet", "other:instrument", ATOMIC_UNIT, 0, 0, 100)
@@ -1609,11 +1593,16 @@ mod tests {
 
     #[test]
     fn obligation_identity_cannot_be_settled_under_another_transaction() {
-        let (mut first, mut first_capacity, mut ledger) = verified_contract("tx-obligation-first", 1);
+        let (mut first, mut first_capacity, mut ledger) =
+            verified_contract("tx-obligation-first", 1);
         let (mut second, mut second_capacity, _) = verified_contract("tx-obligation-second", 1);
         second.obligation.as_mut().unwrap().id = first.obligation.as_ref().unwrap().id.clone();
-        first.consume_verified_capacity(&mut first_capacity, 7).unwrap();
-        second.consume_verified_capacity(&mut second_capacity, 7).unwrap();
+        first
+            .consume_verified_capacity(&mut first_capacity, 7)
+            .unwrap();
+        second
+            .consume_verified_capacity(&mut second_capacity, 7)
+            .unwrap();
 
         first.settle(&mut ledger, 8).unwrap();
         let debit_after_first = ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT);
@@ -1637,7 +1626,9 @@ mod tests {
     #[test]
     fn settlement_timestamp_cannot_precede_verified_delivery() {
         let (mut contract, mut capacity, mut ledger) = verified_contract("tx-settlement-time", 1);
-        contract.consume_verified_capacity(&mut capacity, 6).unwrap();
+        contract
+            .consume_verified_capacity(&mut capacity, 6)
+            .unwrap();
         assert_eq!(
             contract.settle(&mut ledger, 4),
             Err(ContractError::NonMonotonicTime)
@@ -1694,10 +1685,21 @@ mod tests {
         assert_eq!(accepted_verification.accepted_quantity, Some(4));
         assert_eq!(accepted_verification.evidence_id, "review-check");
         assert_eq!(contract.verification_history().len(), 2);
-        assert_eq!(contract.verification_history()[0].verifier_id, "first-auditor");
-        assert_eq!(contract.verification_history()[0].accepted_quantity, Some(3));
-        assert_eq!(contract.verification_history()[1].verifier_id, "independent-reviewer");
-        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        assert_eq!(
+            contract.verification_history()[0].verifier_id,
+            "first-auditor"
+        );
+        assert_eq!(
+            contract.verification_history()[0].accepted_quantity,
+            Some(3)
+        );
+        assert_eq!(
+            contract.verification_history()[1].verifier_id,
+            "independent-reviewer"
+        );
+        contract
+            .consume_verified_capacity(&mut capacity, 7)
+            .unwrap();
         let mut ledger = Ledger::default();
         ledger
             .register_account("household-wallet", INSTRUMENT, ATOMIC_UNIT, 100, 0, 100)
@@ -1742,8 +1744,14 @@ mod tests {
         assert_eq!(contract.dispute_reassessments().len(), 1);
         assert_eq!(contract.obligation().unwrap().id, obligation_id);
         assert_eq!(contract.verification_history().len(), 2);
-        assert_eq!(contract.verification().unwrap().verifier_id, "first-auditor");
-        assert_eq!(contract.verification_history()[1].accepted_quantity, Some(3));
+        assert_eq!(
+            contract.verification().unwrap().verifier_id,
+            "first-auditor"
+        );
+        assert_eq!(
+            contract.verification_history()[1].accepted_quantity,
+            Some(3)
+        );
         assert_eq!(
             contract.settle(&mut ledger, 8),
             Err(ContractError::InvalidTransition)
@@ -1829,7 +1837,8 @@ mod tests {
 
     #[test]
     fn settlement_requires_consumed_resource_capacity() {
-        let (mut contract, mut capacity, mut ledger) = verified_contract("tx-capacity-before-settlement", 1);
+        let (mut contract, mut capacity, mut ledger) =
+            verified_contract("tx-capacity-before-settlement", 1);
 
         assert_eq!(
             contract.settle(&mut ledger, 7),
@@ -1837,11 +1846,16 @@ mod tests {
         );
         assert_eq!(contract.lifecycle(), Lifecycle::Verified);
         assert!(!contract.capacity_consumed());
+        // The existing reservation removes one unit from available capacity;
+        // the failed settlement attempt must neither consume nor release it.
         assert_eq!(
             capacity.remaining("repair-hours", "hour", "week-42"),
-            Some(1)
+            Some(0)
         );
-        assert_eq!(capacity.consumed("repair-hours", "hour", "week-42"), Some(0));
+        assert_eq!(
+            capacity.consumed("repair-hours", "hour", "week-42"),
+            Some(0)
+        );
         assert_eq!(
             ledger.balance("household-wallet", INSTRUMENT, ATOMIC_UNIT),
             Some(100)
@@ -1851,7 +1865,9 @@ mod tests {
     #[test]
     fn consumed_capacity_cannot_be_reserved_again_by_another_transaction() {
         let (mut contract, mut capacity, _) = verified_contract("tx-capacity-consumed", 1);
-        contract.consume_verified_capacity(&mut capacity, 7).unwrap();
+        contract
+            .consume_verified_capacity(&mut capacity, 7)
+            .unwrap();
         let mut next = authorized_contract("tx-capacity-next", 1);
 
         assert_eq!(
@@ -1862,7 +1878,10 @@ mod tests {
             capacity.remaining("repair-hours", "hour", "week-42"),
             Some(0)
         );
-        assert_eq!(capacity.consumed("repair-hours", "hour", "week-42"), Some(1));
+        assert_eq!(
+            capacity.consumed("repair-hours", "hour", "week-42"),
+            Some(1)
+        );
     }
 
     #[test]
@@ -1992,10 +2011,10 @@ mod tests {
         assert!(contract.verification().is_none());
     }
 
-
     #[test]
     fn unknown_origin_policy_evidence_blocks_authorization() {
-        let mut contract = CoordinationContract::new(request("tx-origin-unknown-rights", 1)).unwrap();
+        let mut contract =
+            CoordinationContract::new(request("tx-origin-unknown-rights", 1)).unwrap();
         let mut rights = gate("rights-v1");
         rights.origin = EvidenceOrigin::Unknown;
 
@@ -2127,5 +2146,4 @@ mod tests {
         assert_eq!(contract.lifecycle(), Lifecycle::Disputed);
         assert_eq!(contract.dispute_reassessments().len(), 1);
     }
-
 }

@@ -301,8 +301,7 @@ fn evaluate_offer(
     if offer.supplier_credential_checked_at > request.as_of {
         return Err(RejectionReason::SupplierCredentialCheckFromFuture);
     }
-    if request.as_of - offer.supplier_credential_checked_at
-        > request.max_credential_status_age_secs
+    if request.as_of - offer.supplier_credential_checked_at > request.max_credential_status_age_secs
     {
         return Err(RejectionReason::SupplierCredentialStatusStale);
     }
@@ -418,8 +417,7 @@ fn classify_frontier(
         return (eligible, Vec::new());
     }
 
-    let mut arrival_coordinates: Vec<u64> =
-        eligible.iter().map(|offer| offer.arrival_at).collect();
+    let mut arrival_coordinates: Vec<u64> = eligible.iter().map(|offer| offer.arrival_at).collect();
     arrival_coordinates.sort_unstable();
     arrival_coordinates.dedup();
 
@@ -662,10 +660,16 @@ mod tests {
         assert_eq!(report.pareto_frontier.len(), 1);
         assert_eq!(report.pareto_frontier[0].offer_id, "e-eligible");
         assert_eq!(report.rejected.len(), 4);
-        assert_eq!(report.rejected[0].reason, RejectionReason::CapabilityProfileMismatch);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::CapabilityProfileMismatch
+        );
         assert_eq!(report.rejected[1].reason, RejectionReason::QuoteNotVerified);
         assert_eq!(report.rejected[2].reason, RejectionReason::QuoteStale);
-        assert_eq!(report.rejected[3].reason, RejectionReason::SupplierCredentialExpired);
+        assert_eq!(
+            report.rejected[3].reason,
+            RejectionReason::SupplierCredentialExpired
+        );
     }
 
     #[test]
@@ -686,7 +690,10 @@ mod tests {
         candidate.available_quantity = 2;
         let report = evaluate_sourcing(&req, &[candidate]).unwrap();
         assert_eq!(report.rejected.len(), 1);
-        assert_eq!(report.rejected[0].reason, RejectionReason::LandedCostOverflow);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::LandedCostOverflow
+        );
     }
 
     #[test]
@@ -695,19 +702,24 @@ mod tests {
         foreign_currency.currency = "EUR".into();
         let mut other_risk_model = offer("risk-v2", 10, 1, 1);
         other_risk_model.risk_model_digest = "risk-model-v2".into();
-        let report =
-            evaluate_sourcing(&request(), &[foreign_currency, other_risk_model]).unwrap();
+        let report = evaluate_sourcing(&request(), &[foreign_currency, other_risk_model]).unwrap();
         assert!(report.pareto_frontier.is_empty());
         assert_eq!(report.rejected.len(), 2);
         assert_eq!(report.rejected[0].reason, RejectionReason::CurrencyMismatch);
-        assert_eq!(report.rejected[1].reason, RejectionReason::RiskModelMismatch);
+        assert_eq!(
+            report.rejected[1].reason,
+            RejectionReason::RiskModelMismatch
+        );
     }
 
     #[test]
     fn equal_objectives_do_not_create_an_arbitrary_winner() {
         let report = evaluate_sourcing(
             &request(),
-            &[offer("offer-a", 100, 10, 100), offer("offer-b", 100, 10, 100)],
+            &[
+                offer("offer-a", 100, 10, 100),
+                offer("offer-b", 100, 10, 100),
+            ],
         )
         .unwrap();
         assert_eq!(report.pareto_frontier.len(), 2);
@@ -744,7 +756,10 @@ mod tests {
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
         assert!(report.pareto_frontier.is_empty());
         assert!(report.dominated.is_empty());
-        assert_eq!(report.rejected[0].reason, RejectionReason::InsufficientQuantity);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::InsufficientQuantity
+        );
     }
 
     #[test]
@@ -752,7 +767,10 @@ mod tests {
         let mut candidate = offer("no-source-digest", 100, 10, 100);
         candidate.source_payload_digest.clear();
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::MissingSourceProvenance);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::MissingSourceProvenance
+        );
         assert_eq!(
             report.rejected[0].source_uri,
             "https://supplier.example/offers/no-source-digest"
@@ -800,12 +818,21 @@ mod tests {
         let mut overflow_arrival = offer("arrival-overflow", 100, 10, 100);
         overflow_arrival.quote_observed_at = req.as_of;
         overflow_arrival.quote_valid_until = u64::MAX;
+        overflow_arrival.inventory_observed_at = req.as_of;
+        overflow_arrival.inventory_valid_until = u64::MAX;
+        overflow_arrival.supplier_credential_checked_at = req.as_of;
         overflow_arrival.supplier_credential_valid_until = u64::MAX;
         let report = evaluate_sourcing(&req, &[overflow_arrival]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::ArrivalTimeOverflow);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::ArrivalTimeOverflow
+        );
 
         let report = evaluate_sourcing(&request(), &[invalid_risk]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::RiskValueOutOfRange);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::RiskValueOutOfRange
+        );
     }
 
     #[test]
@@ -813,7 +840,10 @@ mod tests {
         let mut candidate = offer("live-in-simulation", 100, 10, 100);
         candidate.quote_evidence_origin = EvidenceOrigin::LiveDomain;
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::QuoteEvidenceOriginMismatch);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::QuoteEvidenceOriginMismatch
+        );
         assert!(report.pareto_frontier.is_empty());
     }
 
@@ -826,14 +856,14 @@ mod tests {
         let mut expired_stock = offer("expired-stock", 10, 1, 10);
         expired_stock.inventory_valid_until = 99;
 
-        let report = evaluate_sourcing(
-            &request(),
-            &[stale_stock, unverified_stock, expired_stock],
-        )
-        .unwrap();
+        let report =
+            evaluate_sourcing(&request(), &[stale_stock, unverified_stock, expired_stock]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::InventoryExpired);
         assert_eq!(report.rejected[1].reason, RejectionReason::InventoryStale);
-        assert_eq!(report.rejected[2].reason, RejectionReason::InventoryNotVerified);
+        assert_eq!(
+            report.rejected[2].reason,
+            RejectionReason::InventoryNotVerified
+        );
         assert!(report.pareto_frontier.is_empty());
     }
 
@@ -842,7 +872,10 @@ mod tests {
         let mut candidate = offer("inventory-live-in-simulation", 10, 1, 10);
         candidate.inventory_evidence_origin = EvidenceOrigin::LiveDomain;
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::InventoryOriginMismatch);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::InventoryOriginMismatch
+        );
         assert!(report.pareto_frontier.is_empty());
     }
 
@@ -865,10 +898,16 @@ mod tests {
     #[test]
     fn report_binds_request_and_objective_model_context() {
         let report = evaluate_sourcing(&request(), &[offer("context", 100, 10, 100)]).unwrap();
-        assert_eq!(report.evaluator_profile, "mycelix:sourcing-pareto-fenwick:v1");
+        assert_eq!(
+            report.evaluator_profile,
+            "mycelix:sourcing-pareto-fenwick:v1"
+        );
         assert_eq!(report.request_id, "need-1");
         assert_eq!(report.evaluated_at, 100);
-        assert_eq!(report.required_evidence_origin, EvidenceOrigin::SyntheticSimulation);
+        assert_eq!(
+            report.required_evidence_origin,
+            EvidenceOrigin::SyntheticSimulation
+        );
         assert_eq!(report.capability_id, "solar-charge-control");
         assert_eq!(report.capability_profile_digest, "profile-sha256-v1");
         assert_eq!(report.unit, "each");
@@ -885,8 +924,14 @@ mod tests {
         future.supplier_credential_checked_at = 101;
 
         let report = evaluate_sourcing(&request(), &[stale, future]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::SupplierCredentialCheckFromFuture);
-        assert_eq!(report.rejected[1].reason, RejectionReason::SupplierCredentialStatusStale);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::SupplierCredentialCheckFromFuture
+        );
+        assert_eq!(
+            report.rejected[1].reason,
+            RejectionReason::SupplierCredentialStatusStale
+        );
         assert!(report.pareto_frontier.is_empty());
     }
 
@@ -894,7 +939,10 @@ mod tests {
     fn late_delivery_is_rejected_even_when_cheap() {
         let candidate = offer("late", 1, 401, 1);
         let report = evaluate_sourcing(&request(), &[candidate]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::CannotMeetDeadline);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::CannotMeetDeadline
+        );
         assert!(report.pareto_frontier.is_empty());
     }
 }
