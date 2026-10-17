@@ -169,7 +169,8 @@ These are pilot targets, not claims about existing Mycelix code.
 - [x] Core producer, worker, cooperative, equipment and fulfillment workflows specified.
 - [x] Canonical Mycelix and cross-project ownership included.
 - [x] Proposed benchmark and privacy gates documented.
-- [ ] Map design to the actual public Leptos app structure and deployed route.
+- [x] Add the concept route to the existing public Commons Leptos app at /farm.
+- [ ] Verify route rendering in a built/browser deployment.
 - [ ] Verify dependencies/permissions against the exact Holochain client.
 - [ ] Add fixture-backed component tests for offline/conflict and unit invariants.
 - [ ] Run accessibility and low-end/mobile review.
