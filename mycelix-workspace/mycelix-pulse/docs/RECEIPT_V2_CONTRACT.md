@@ -96,6 +96,9 @@ or persistence races. Those are separate integration obligations tracked in [#50
 - 100% pass rate for frozen V1/V2 known-answer transcript vectors.
 - 100% detection of critical mutants that omit the event ID, recipient, envelope commitment, envelope version, suite, kind, or timestamp from the V2 signing transcript.
 - Zero acceptance of unknown receipt versions, unsupported envelope versions, or version/suite mismatches.
+- Zero V1 envelopes accepted under the V2 receipt profile.
+- Zero V2 receipt accepted with only one valid signature: both the recipient AgentPubKey Ed25519 signature and the envelope-bound recipient-bundle ML-DSA-65 signature must verify over the exact same canonical transcript.
+- 100% detection of critical signature mutants: missing/replaced Ed25519 signature, missing/replaced ML-DSA signature, wrong recipient key bundle, changed envelope commitment, or verification against a different transcript.
 - Zero advancement to `Delivered` from transport acknowledgement alone.
 - Zero same-ID/different-transcript retries accepted as an ordinary duplicate.
 - Report p50/p95/p99 transcript construction, commitment hashing, signature verification, and durable dedupe-store latency separately on named hardware.
