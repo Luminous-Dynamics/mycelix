@@ -411,8 +411,8 @@ impl RecipientReceiptV2 {
         }
 
         let expected_suite = match self.envelope_version {
-            ENVELOPE_V1 => SUITE_X25519_AES_256_GCM_ED25519,
             ENVELOPE_V2_HYBRID_PQC => SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
+            ENVELOPE_V1 => return Err(ProtocolError::ReceiptContextMismatch),
             version => return Err(ProtocolError::UnsupportedEnvelopeVersion(version)),
         };
         if self.cipher_suite != expected_suite {
@@ -1083,6 +1083,14 @@ mod tests {
         );
 
         let mut value = receipt_v2();
+        value.cipher_suite = SUITE_X25519_AES_256_GCM_ED25519.into();
+        assert_eq!(
+            value.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptContextMismatch)
+        );
+
+        let mut value = receipt_v2();
+        value.envelope_version = ENVELOPE_V1;
         value.cipher_suite = SUITE_X25519_AES_256_GCM_ED25519.into();
         assert_eq!(
             value.canonical_signing_bytes(),
