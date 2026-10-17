@@ -22,6 +22,8 @@ pub mod strict_json;
 pub mod websocket_protocol;
 /// Projects compact provider events into profile-minimized entity frames.
 pub mod entity_stream;
+/// Revokes stale positive observations and preserves per-entity replay revisions.
+pub mod observation_lifecycle;
 
 pub const HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION: u16 = 1;
 pub const HOME_ASSISTANT_NAMESPACE: &str = "home-assistant";
