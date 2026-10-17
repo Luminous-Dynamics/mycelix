@@ -192,8 +192,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Verify independent portable-history reference vector
+      - name: Verify independent grant-history reference vectors
         run: python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_portable_history.py --check
+      - name: Verify independent full passport snapshot vector
+        run: python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_passport_snapshot.py --check
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: 1.96.0
