@@ -129,9 +129,7 @@ impl JournalEntryV1 {
         if self.schema_version != SCHEMA_VERSION {
             return Err(JournalError::UnsupportedSchemaVersion(self.schema_version));
         }
-        if self.operation_id.is_empty()
-            || self.operation_id.len() > 80
-            || !self.operation_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        if !valid_operation_id(&self.operation_id)
             || !valid_sha256_fingerprint(&self.hearth_scope_fingerprint)
             || !valid_sha256_fingerprint(&self.target_fingerprint)
             || self.updated_at_unix_ms < self.created_at_unix_ms
@@ -174,9 +172,7 @@ pub fn new_operation_id() -> Result<String, JournalError> {
         .call0(crypto.as_ref())
         .map_err(|_| JournalError::IndexedDbUnavailable)?;
     let operation_id = value.as_string().ok_or(JournalError::InvalidRecord)?;
-    if operation_id.len() != 36
-        || !operation_id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
-    {
+    if !valid_operation_id(&operation_id) {
         return Err(JournalError::InvalidRecord);
     }
     Ok(operation_id)
@@ -235,6 +231,25 @@ fn fingerprint_from_digest(digest: &[u8]) -> Result<String, JournalError> {
             .map_err(|_| JournalError::SerializationFailed)?;
     }
     Ok(fingerprint)
+}
+
+fn valid_operation_id(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 36
+        || bytes[8] != b'-'
+        || bytes[13] != b'-'
+        || bytes[18] != b'-'
+        || bytes[23] != b'-'
+        || bytes[14] != b'4'
+        || !matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
+    {
+        return false;
+    }
+    bytes.iter().enumerate().all(|(index, byte)| {
+        matches!(index, 8 | 13 | 18 | 23)
+            || byte.is_ascii_digit()
+            || (b'a'..=b'f').contains(byte)
+    })
 }
 
 fn valid_sha256_fingerprint(value: &str) -> bool {
@@ -405,7 +420,7 @@ impl ActionJournalStore for IndexedDbJournal {
         next: AttemptStatus,
         now_unix_ms: u64,
     ) -> Result<JournalEntryV1, JournalError> {
-        if operation_id.is_empty() || operation_id.len() > 80 {
+        if !valid_operation_id(operation_id) {
             return Err(JournalError::InvalidRecord);
         }
 
@@ -841,13 +856,22 @@ mod tests {
         assert!(!valid_sha256_fingerprint("sha256:ABCDEF"));
         assert!(!valid_sha256_fingerprint("sha256:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"));
         let result = JournalEntryV1::new(
-            "op-2",
+            "c0ffee00-0000-4000-8000-000000000001",
             ActionKind::Gratitude,
             FINGERPRINT,
             "raw-agent-key",
             1,
         );
         assert_eq!(result, Err(JournalError::InvalidRecord));
+
+        let non_uuid = JournalEntryV1::new(
+            "op-2",
+            ActionKind::CareCompletion,
+            FINGERPRINT,
+            FINGERPRINT,
+            1,
+        );
+        assert_eq!(non_uuid, Err(JournalError::InvalidRecord));
     }
 
     #[test]
