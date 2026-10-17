@@ -155,7 +155,7 @@ An accurate lens-selection workflow demonstrates successful perspective support,
 ## 8. Implementation order
 
 1. Publish this lens policy and recruit reviewers across multiple worldviews.
-2. Add 8–12 lens-specific adversarial variants to the existing cross-scale synthetic corpus; do not change the frozen v1 corpus in place.
+2. A separate 12-case Integral-lens adversarial supplement (v0.1) has now been added alongside the immutable v1 corpus. It probes stage-ranking misuse, state-versus-trait confusion, forced quadrant classification, lens opt-out, theory conflict, and material-barrier psychologization. Human review is still required before treating it as qualification evidence.
 3. Add optional lens selection to Symthaea only after the data contract is accepted; default to a neutral, user-directed frame.
 4. Build the city service navigator against Open Referral HSDS and qualified geographic projections. Do not require a theory lens to search for practical support.
 5. Use Symtropy only to simulate clearly stated policy/resource hypotheses; use Sol-Atlas for spatial context; keep simulated evidence separate from real-world service outcomes.
