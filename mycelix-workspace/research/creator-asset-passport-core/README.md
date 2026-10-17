@@ -102,6 +102,12 @@ The following are release gates to measure; they have **not** been demonstrated 
 
 Do not market these targets as achieved. Before a release gate can be claimed, pin the commit, Rust toolchain, machine, corpus SHA-256, command, raw output and test-run exit status. Queued or missing CI evidence is not a pass.
 
+## Test inventory and current maturity
+
+The current source has 51 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, identifier/claim canonical ordering, unresolved asset references, and digest mutation fixtures. These are **authored test cases, not passed tests**.
+
+The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope currently has round-trip tests but no independent reference encoder or frozen snapshot-level byte vector. Neither format yet has a cross-language BLAKE3 digest golden vector, fuzz campaign, or independent external implementation report.
+
 ## Dependency reproducibility boundary
 
 The crate pins its direct BLAKE3 dependency, but a Cargo.lock is not yet committed. The draft CI job now resolves a lock per exact commit, runs formatting and tests with that generated lock, prints its SHA-256, and uploads the lockfile artifact even if the test step fails. This makes the specific run's resolved dependency graph inspectable; it does **not** guarantee that separate runs resolve identical transitive versions. Before a non-research release, commit a reviewed lockfile and require --locked without regeneration.
