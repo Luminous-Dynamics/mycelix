@@ -6,6 +6,7 @@
 **Record schema:** [privacy-inventory.schema.json](privacy-inventory.schema.json)  
 **Machine-readable negative controls:** [privacy-negative-controls.json](privacy-negative-controls.json)  
 **Negative-control schema:** [privacy-negative-controls.schema.json](privacy-negative-controls.schema.json)  
+**Metadata-privacy architecture tracker:** [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121)  
 **Tracker:** [#5112](https://github.com/Luminous-Dynamics/mycelix/issues/5112)
 
 ## Why this is a paradigm shift
@@ -36,6 +37,22 @@ The word **budget** in this document means a visible, reviewable decision about 
 | verified_present / verified_absent | Confirmed for an exact build and named inspection method, with evidence attached. | Only for that build/method/threat model and observation limits. |
 
 Never convert an unknown answer into "not collected". Absence-of-evidence is not evidence of absence, particularly for remote services, crash-report vendors or hidden server-side logs.
+
+## Source-backed baseline finding: canonical V2 DHT metadata
+
+A focused review of exact Mycelix main source commit `f81361124d073a1db309db977abcf7bdce8ad4cb` identified a concrete metadata surface that must be included in the audit. This is a source-review finding, not a runtime packet-capture result or a cryptographic break.
+
+- The canonical `EncryptedEmailV2` struct at `holochain/zomes/messages/integrity/src/lib.rs#L162-L188` contains clear fields for `message_id`, sender/recipient `AgentPubKey`, sender/recipient key IDs, key-bundle ActionHash references, `in_reply_to`, `thread_id`, and `created_at_micros`, alongside the encrypted `ciphertext`.
+- `EntryTypes::EncryptedEmailV2` at lines 413–418 has a `required_validations` setting but no `visibility = "private"` override. The Holochain entry documentation says public is the default; the workspace manifest pins `hdk = 0.6.1` and `hdi = 0.7.1`, so the exact pinned-version behavior must remain part of the qualification record.
+- `send_email_v2` at `holochain/zomes/messages/coordinator/src/lib.rs#L219-L275` commits the V2 entry and creates an `AgentToInboxV2` link with the recipient AgentPubKey as base and the message ActionHash as target.
+- The integrity validator at `holochain/zomes/messages/integrity/src/lib.rs#L1145-L1183` checks that the inbox link base equals the envelope recipient and that `action.author` equals the envelope sender.
+- Holochain documents that all actions are public, public entries are stored on the DHT, and links are metadata: [Entries](https://developer.holochain.org/build/entries/) and [Working With Data](https://developer.holochain.org/build/working-with-data/).
+
+This implies that DNA participants may correlate sender/recipient identity, message IDs, thread/reply lineage, timing and key-bundle references from public entry/action/link metadata even though subject/body plaintext is encrypted. The exact observer view and runtime distribution still require tests against a frozen conductor topology. Do not generalize this to "visible to anyone on the internet" without an additional threat model.
+
+**Do not flip V2 entry visibility to private as a quick fix.** The current inbox depends on DHT-visible entries and links; hiding the entry would break remote recipient discovery unless a replacement retrieval/capability protocol is supplied. Hiding the `sender` JSON field alone also does not hide Holochain action authorship while `action.author == envelope.sender` remains enforced.
+
+This finding is tracked in [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121). The inventory's `source_observations` identify exact commit, file blob, lines, symbol and fact; `runtime_presence = not_audited` is intentionally unchanged until runtime evidence exists.
 
 ## Candidate trust-boundary map
 
@@ -159,7 +176,7 @@ Have a reviewer distinct from the author inspect the exact build and its evidenc
 
 ## Negative controls
 
-The machine-readable catalog in privacy-negative-controls.json defines ten synthetic control cases, each with inventory references, observer vantage points, expected results, a sensitivity gate and explicit claim limits. Validate that catalog against privacy-negative-controls.schema.json, then bind each executed run to exact build/config/tool versions, fixture digest and observer method. All catalog entries currently have status not_run; this is a plan, not execution evidence.
+The machine-readable catalog in privacy-negative-controls.json defines eleven synthetic control cases, each with inventory references, observer vantage points, expected results, a sensitivity gate and explicit claim limits. It includes a dedicated canonical V2 DHT metadata test that inspects envelope fields, action authorship, inbox link bases/targets, key-bundle references and thread/timing correlation; it explicitly distinguishes the current public metadata baseline from any future metadata-privacy target. Validate the catalog against privacy-negative-controls.schema.json, then bind each executed run to exact build/config/tool versions, fixture digest and observer method. All catalog entries currently have status not_run; this is a plan, not execution evidence.
 
 Every audit run must include appropriate controls proving that the test is sensitive:
 
