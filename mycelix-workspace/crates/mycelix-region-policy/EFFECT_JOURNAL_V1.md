@@ -17,11 +17,11 @@ The journal lifecycle makes that uncertainty explicit:
 
 ## Rust reference model
 
-`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and twelve unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
+`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and fourteen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
 
 Production requirements:
 
-1. **Durable uniqueness:** enforce a unique constraint on (authority domain, idempotency key), with exact target and policy-binding digests. Reuse with different parameters is a hard conflict, never a new operation.
+1. **Durable uniqueness:** enforce a unique constraint on (authority domain, idempotency key), with exact target and policy-binding digests. The reference identity and destination evidence both include the authority domain to prevent cross-community key collisions/replay. Reuse with different parameters is a hard conflict, never a new operation.
 2. **Write-ahead intent:** commit `Prepared` and the stable downstream operation ID before network dispatch.
 3. **Submit fencing:** atomically compare-and-swap the record revision before dispatch or use sink-native idempotency/fencing; no stale worker may submit after a successor takes over.
 4. **Reconcile unknown:** query the authoritative destination with the same key and target; accept only authenticated evidence tied to that operation and digest.
@@ -51,6 +51,7 @@ An idempotency key by itself is not exactly-once delivery. The destination must 
 | EJ-014 | Journal storage unavailable | Do not dispatch a protected effect |
 | EJ-015 | Key expiry/tombstone cleanup races with a late retry | No key reuse while the old effect can still be replayed |
 | EJ-016 | Sink proof is replayed under a different policy-binding digest | Reject proof and do not resolve the attempt |
+| EJ-017 | Sink proof is replayed across authority domains using the same key/target | Reject proof and do not resolve the attempt |
 
 Current pure source tests cover the core prepared/submitted/unknown/terminal transitions, matching proof checks, policy-binding replay rejection, invalid proof, operation-ID mismatch, and snapshot restore invariants. The crash, multi-worker, durable-store, destination integration, privacy, and idempotent-result semantics remain external qualification gates.
 
