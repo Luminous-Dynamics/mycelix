@@ -161,7 +161,7 @@ impl VerifiedSinkOutcome {
         }
         verifier
             .verify(&evidence)
-            .map_err(|()| JournalError::OutcomeVerificationFailed)?;
+            .map_err(|_error| JournalError::OutcomeVerificationFailed)?;
         Ok(Self {
             authority_domain: evidence.authority_domain,
             idempotency_key: evidence.idempotency_key,
