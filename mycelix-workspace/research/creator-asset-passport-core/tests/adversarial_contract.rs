@@ -296,7 +296,18 @@ fn revocation_is_effective_at_its_timestamp_without_rewriting_past_results() {
         PermissionDecision::Allowed { .. }
     ));
     assert_eq!(
-        evaluate_usage(&registry, &[revoked], &at_revoke),
+        evaluate_usage(&registry, std::slice::from_ref(&revoked), &at_revoke),
+        PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+    );
+
+    // A realistic append-only history can contain both the grant and its
+    // later revocation. Neither arrival order may resurrect the original grant.
+    assert_eq!(
+        evaluate_usage(&registry, &[grant.clone(), revoked.clone()], &at_revoke),
+        PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+    );
+    assert_eq!(
+        evaluate_usage(&registry, &[revoked, grant], &at_revoke),
         PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
     );
 }
