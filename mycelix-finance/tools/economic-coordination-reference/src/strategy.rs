@@ -544,7 +544,8 @@ mod tests {
                     if recovered > 4 {
                         continue;
                     }
-                    let activated_options = (if *q_a > 0 { 1u64 } else { 0 }) + (if *q_b > 0 { 1u64 } else { 0 });
+                    let activated_options = (if *q_a > 0 { 1u64 } else { 0 })
+                        + (if *q_b > 0 { 1u64 } else { 0 });
                     let activation_cost = u64::from(recovered) * 2 + activated_options;
                     if recovered > max_recovered
                         || (recovered == max_recovered && activation_cost < min_recourse_cost)
@@ -592,7 +593,7 @@ mod tests {
                     no_worse && strictly_better
                 })
             })
-            .map(|(_, candidate)| candidate.clone())
+            .map(|(_, candidate)| (*candidate).clone())
             .collect();
         expected.sort_by(|left, right| left.0.cmp(&right.0));
 
