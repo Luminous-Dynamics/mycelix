@@ -800,6 +800,9 @@ mod tests {
         let mut overflow_arrival = offer("arrival-overflow", 100, 10, 100);
         overflow_arrival.quote_observed_at = req.as_of;
         overflow_arrival.quote_valid_until = u64::MAX;
+        overflow_arrival.inventory_observed_at = req.as_of;
+        overflow_arrival.inventory_valid_until = u64::MAX;
+        overflow_arrival.supplier_credential_checked_at = req.as_of;
         overflow_arrival.supplier_credential_valid_until = u64::MAX;
         let report = evaluate_sourcing(&req, &[overflow_arrival]).unwrap();
         assert_eq!(report.rejected[0].reason, RejectionReason::ArrivalTimeOverflow);
