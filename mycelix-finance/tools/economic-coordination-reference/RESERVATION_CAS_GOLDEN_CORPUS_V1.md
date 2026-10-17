@@ -1,10 +1,10 @@
 # Revision-Fenced Capacity Reservation — golden corpus registry v1
 
-**Status:** 40 stable fixture IDs; not all rows are implemented. No fixture is marked Passing without exact-head evidence.  
+**Status:** 43 stable fixture IDs; not all rows are implemented. No fixture is marked Passing without exact-head evidence.  
 **Tracking issue:** [PROC-RESERVE-CAS-001 #5153](https://github.com/Luminous-Dynamics/mycelix/issues/5153).  
 **Implementation:** [reservation_cas.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-reservation-cas-v1/mycelix-finance/tools/economic-coordination-reference/src/reservation_cas.rs).
 
-Eighteen module test functions plus one integration oracle test are authored. The current tests use the same deterministic serial authority as the code under test; they are not yet an independent state-machine oracle. Fixtures marked Authored are only test presence, not a pass.
+Eighteen module test functions plus one integration oracle test are authored. The module tests exercise ReservationBook directly; tests/reservation_cas_oracle.rs separately computes expected reserve acceptance and pool accounting for 108 short sequences without calling ReservationBook helpers. The oracle is authored, not yet qualified as passing. Fixtures marked Authored indicate test presence, not a pass.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -49,12 +49,16 @@ Eighteen module test functions plus one integration oracle test are authored. Th
 | RSC-039 | Failed commit followed by valid expiry command | Failed commit creates no journal event; expiry is recorded | Planned |
 | RSC-040 | Restart/replay from persisted event stream | Reconstructed states and pool totals match oracle | Planned |
 
+| RSC-041 | Requested lease expiry is later than the capacity snapshot validity | Lease rejected without reservation event | Authored |
+| RSC-042 | Two pool mutations presented with decreasing timestamps | Second mutation rejected with no journal growth | Authored |
+| RSC-043 | Exhaustive three-command quantity combinations for capacities 1–4 | 108 sequence outcomes and pool totals agree with separate test-local oracle | Authored |
+
 ## Qualification rules
 
-- Keep the 40 fixture IDs stable and preserve all negative controls.
+- Keep all 43 fixture IDs stable and preserve all negative controls.
 - Mark Authored only if an executable test covers the stated invariant.
 - Mark Passing only with the exact source revision and exact-head CI result.
-- Build an independent test-local state-machine oracle before generated testing.
+- Qualify the 108-sequence test-local oracle on exact head before larger generated testing.
 - After oracle qualification, run at least 10,000 deterministic schedules; pin generator version, seed, schedule manifest and digest.
 - The 100-contender unit test is a deterministic model check against one initial revision, not a real concurrent-store stress benchmark.
 
