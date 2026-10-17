@@ -34,4 +34,10 @@ The [read-only WebSocket protocol state machine](HA_WEBSOCKET_PROTOCOL.md) now f
 
 The pure [compact entity stream projector](src/entity_stream.rs) stages and validates the provider's added/changed/removed groups, keeps only allowlisted primary states plus unit/device-class assertions, rejects malformed updates transactionally, and does not refresh observation freshness for ignored metadata-only deltas. It is not the network transport and does not authenticate the provider.
 
+## End-to-end conformance and benchmarks
+
+The [protocol-to-projector integration tests](tests/protocol_projection_contract.rs) exercise the protocol gate → compact projector → HA-0.1 mapper path, including wrong-subscription-ID and control-character negative controls.
+
+The [observation benchmark plan](OBSERVATION_BENCHMARKS.md) defines ten proposed acceptance objectives for transition safety, allowlist containment, transactional projection, semantic freshness, privacy, latency, memory, reconnect currentness, and capability fallback. These are targets, not measured results; performance qualification remains blocked until the native transport and executable benchmark harness exist.
+
 Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.
