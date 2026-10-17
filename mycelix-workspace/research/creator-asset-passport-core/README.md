@@ -20,7 +20,7 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Rights-pool-scoped split assessment with exact basis points (10,000 = 100%), duplicate-party rejection, explicit partial status, and fail-closed complete-split arithmetic.
 - Explicit, asset-bound grants for metadata analysis, publication, distribution, commercialization, model training, derivative generation, and voice/likeness synthesis.
 - Exact grantee, purpose, action, asset, start time and expiry checks; revocation is evaluated by time so historical uses before revocation can still be audited.
-- Grant-history resolution by immutable grant ID: a revocation dominates an earlier grant independent of event ordering, while conflicting reuse of a grant ID fails closed.
+- Grant-history resolution by immutable grant ID: a revocation dominates an earlier grant independent of event ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
@@ -42,6 +42,8 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Unauthorized action, purpose, party, asset, or time | 0 false allows across golden adversarial corpus | A permission checker fails on false grants, not only false denials |
 | Independent expected-outcome fixtures | 100% agreement on fixed corpus | Deterministic, reviewable behavior |
 | Repeated request evaluation | Same decision for same inputs | Reproducibility |
+| Grant + revocation both present in history | Zero allows at/after revocation in either event order; valid pre-revocation history stays allowed | Prevent stale-event consent resurrection |
+| Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
 | Mutation/property testing | No invariant-breaking mutation survives the harness | Catch more than hand-picked cases |
 
