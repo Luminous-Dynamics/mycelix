@@ -420,15 +420,17 @@ pub fn assess_split(
                 return Err(PassportError::InvalidShareBasisPoints);
             }
             known_basis_points += u32::from(bp);
+            // Reject as soon as the pool exceeds its legal arithmetic bound.
+            // This also prevents adversarially large claim lists from overflowing
+            // the accumulator before the post-loop validation can run.
+            if known_basis_points > TOTAL_BASIS_POINTS {
+                return Err(PassportError::SplitExceedsOneHundredPercent);
+            }
         } else {
             unknown_share_claims += 1;
         }
         has_unconfirmed |= claim.state == ClaimState::Proposed;
         has_dispute |= claim.state == ClaimState::Disputed;
-    }
-
-    if known_basis_points > TOTAL_BASIS_POINTS {
-        return Err(PassportError::SplitExceedsOneHundredPercent);
     }
 
     if has_dispute {
@@ -573,6 +575,20 @@ impl UsageGrant {
         self.revoked_at
     }
 
+    /// Compare immutable grant terms while treating revocation as a later
+    /// history event. A repeated grant ID may not silently change its scope.
+    fn same_terms_as(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.asset_id == other.asset_id
+            && self.grantee_id == other.grantee_id
+            && self.action == other.action
+            && self.purpose == other.purpose
+            && self.issued_by == other.issued_by
+            && self.evidence_ref == other.evidence_ref
+            && self.valid_from == other.valid_from
+            && self.expires_at == other.expires_at
+    }
+
     /// Returns a new revocation record. The original value remains unchanged so
     /// callers can retain a history; no signature or grantor authority is checked.
     pub fn revoked_at(&self, timestamp: u64) -> Result<Self, PassportError> {
@@ -627,6 +643,7 @@ pub enum PermissionDenial {
     AssetNotRegistered,
     NoExplicitGrant,
     NoActiveGrantForExactScope,
+    ConflictingGrantId,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -646,8 +663,37 @@ pub fn evaluate_usage(
         return PermissionDecision::Denied(PermissionDenial::AssetNotRegistered);
     }
 
-    let mut has_exact_scope = false;
+    // Resolve history by immutable grant ID before authorizing. An original
+    // grant and its revocation may both be present in an append-only history;
+    // revocation must dominate regardless of input order. Reuse of an ID for
+    // different immutable terms or incompatible revocation timestamps blocks
+    // authorization instead of letting "first matching grant wins".
+    let mut effective: BTreeMap<GrantId, &UsageGrant> = BTreeMap::new();
     for grant in grants {
+        match effective.get(&grant.id) {
+            None => {
+                effective.insert(grant.id.clone(), grant);
+            }
+            Some(existing) => {
+                if !existing.same_terms_as(grant) {
+                    return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
+                }
+
+                match (existing.revoked_at, grant.revoked_at) {
+                    (Some(previous), Some(next)) if previous != next => {
+                        return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
+                    }
+                    (None, Some(_)) => {
+                        effective.insert(grant.id.clone(), grant);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let mut has_exact_scope = false;
+    for grant in effective.values() {
         if grant.asset_id != request.asset_id
             || grant.grantee_id != request.grantee_id
             || grant.action != request.action
@@ -966,7 +1012,42 @@ mod tests {
         let historical = UseRequest::new(asset.clone(), party("studio"), UseAction::Publish, "campaign-a", 19).unwrap();
         let future = UseRequest::new(asset, party("studio"), UseAction::Publish, "campaign-a", 20).unwrap();
         assert!(matches!(evaluate_usage(&registry, &[revoked.clone()], &historical), PermissionDecision::Allowed { .. }));
-        assert_eq!(evaluate_usage(&registry, &[revoked], &future), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
+        assert_eq!(evaluate_usage(&registry, &[revoked.clone()], &future), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
+
+        // Historical exports can contain both the original grant and a later
+        // revocation event. Reordering that history must not resurrect consent.
+        assert_eq!(
+            evaluate_usage(&registry, &[grant.clone(), revoked.clone()], &future),
+            PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+        );
+        assert_eq!(
+            evaluate_usage(&registry, &[revoked.clone(), grant], &future),
+            PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope)
+        );
+    }
+
+    #[test]
+    fn conflicting_reuse_of_grant_id_fails_closed() {
+        let mut registry = AssetRegistry::new();
+        let asset = id("recording-1");
+        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        let base_id = GrantId::new("grant-reused").unwrap();
+        let exact = UsageGrant::new(
+            base_id.clone(), asset.clone(), party("studio"),
+            UseAction::TrainModel, "model-a", party("creator"), "consent:a", 0, None,
+        ).unwrap();
+        let conflicting = UsageGrant::new(
+            base_id, asset.clone(), party("studio"),
+            UseAction::TrainModel, "model-b", party("creator"), "consent:b", 0, None,
+        ).unwrap();
+        let request = UseRequest::new(
+            asset, party("studio"), UseAction::TrainModel, "model-a", 1,
+        ).unwrap();
+
+        assert_eq!(
+            evaluate_usage(&registry, &[exact, conflicting], &request),
+            PermissionDecision::Denied(PermissionDenial::ConflictingGrantId)
+        );
     }
 
     #[test]
