@@ -27,7 +27,7 @@ This is not a solver, eligibility authority, cryptographic evidence verifier, in
 
 ## 3. Hand-authored adversarial corpus
 
-Target at least 40 stable fixture IDs. The live registry is [JOINT_CAPACITY_GOLDEN_CORPUS_V1.md](JOINT_CAPACITY_GOLDEN_CORPUS_V1.md). The first implementation has 14 authored module tests. The registry does not mean all 40 cases are implemented, nor does authorship mean a test has passed.
+Target at least 40 stable fixture IDs. The live registry is [JOINT_CAPACITY_GOLDEN_CORPUS_V1.md](JOINT_CAPACITY_GOLDEN_CORPUS_V1.md). The first implementation has 17 authored module tests. The registry does not mean all 40 cases are implemented, nor does authorship mean a test has passed. A test-local independent oracle is authored for 48 binary assignment matrices across three shared-pool ceilings; it is not yet qualified by executed tests.
 
 Every fixture should freeze the request, offer, mapping, pool and assignment inputs, expected decision/error, and input-manifest digest. Expected outcomes should be literal or produced by a separately implemented test oracle; invoking the checker twice is not independent verification. Retain negative controls as permanent regression cases.
 
