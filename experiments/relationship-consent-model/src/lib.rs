@@ -3,7 +3,7 @@ use std::collections::{HashSet, VecDeque};
 const BOTH_OPTED_IN: u8 = 0b11;
 const BOTH_ACCEPTED: u8 = 0b11;
 /// Abstract ticks, not wall-clock hours. A product must define an actual policy.
-pub const DECLINE_COOLDOWN_TICKS: u64 = 5;
+pub const RECONTACT_COOLDOWN_TICKS: u64 = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum Actor {
@@ -70,7 +70,7 @@ pub struct Machine {
     /// Audit-like model counter: each connection transition increments once.
     pub reveal_count: u64,
     pub last_revealed_epoch: Option<u64>,
-    /// Pair-level cooldown after decline; ticks are abstract model units.
+    /// Pair-level no-recontact cooldown after a terminal introduction event; ticks are abstract model units.
     pub retry_after: u64,
 }
 
@@ -291,9 +291,6 @@ impl Machine {
 
     fn decline(&mut self, _actor: Actor, epoch: u64) {
         if matches!(&self.phase, Phase::Pending { epoch: active, .. } if *active == epoch) {
-            self.retry_after = self
-                .now
-                .saturating_add(DECLINE_COOLDOWN_TICKS);
             self.close_current(CloseReason::Declined);
         }
     }
@@ -312,6 +309,9 @@ impl Machine {
 
     fn block(&mut self, actor: Actor) {
         self.blocked_mask |= actor.bit();
+        self.retry_after = self
+            .retry_after
+            .max(self.now.saturating_add(RECONTACT_COOLDOWN_TICKS));
         if matches!(&self.phase, Phase::Pending { .. } | Phase::Connected { .. }) {
             self.close_current(CloseReason::Blocked);
         }
@@ -326,6 +326,9 @@ impl Machine {
         };
         if let Some(epoch) = epoch {
             self.phase = Phase::Closed { epoch, reason };
+            self.retry_after = self
+                .retry_after
+                .max(self.now.saturating_add(RECONTACT_COOLDOWN_TICKS));
         }
         self.chat_enabled = false;
     }
@@ -563,7 +566,7 @@ mod tests {
         assert!(matches!(&machine.phase, Phase::Closed { .. }));
 
         machine.apply(Event::AdvanceTime {
-            to: DECLINE_COOLDOWN_TICKS,
+            to: RECONTACT_COOLDOWN_TICKS,
         });
         // Replaying the rejected command after the cooldown must remain a no-op.
         machine.apply(Event::Propose { actor: Actor::B, sequence: 2, ttl: 10 });
@@ -598,6 +601,48 @@ mod tests {
         one_sided.chat_enabled = true;
         one_sided.last_revealed_epoch = Some(1);
         assert!(!one_sided.invariants_hold());
+    }
+
+    #[test]
+    fn withdrawal_and_expiration_enforce_no_recontact_cooldown() {
+        let mut withdrawn = Machine::default();
+        propose_a(&mut withdrawn, 10);
+        withdrawn.apply(Event::Withdraw { actor: Actor::A, sequence: 2, epoch: 1 });
+        assert_eq!(withdrawn.retry_after, RECONTACT_COOLDOWN_TICKS);
+
+        // The blocked re-contact attempt consumes its fresh sequence. Replaying
+        // that same command after the cooldown cannot unexpectedly become valid.
+        withdrawn.apply(Event::Propose { actor: Actor::B, sequence: 1, ttl: 10 });
+        assert!(matches!(&withdrawn.phase, Phase::Closed { .. }));
+        withdrawn.apply(Event::AdvanceTime { to: RECONTACT_COOLDOWN_TICKS });
+        withdrawn.apply(Event::Propose { actor: Actor::B, sequence: 1, ttl: 10 });
+        assert!(matches!(&withdrawn.phase, Phase::Closed { .. }));
+        withdrawn.apply(Event::Propose { actor: Actor::B, sequence: 2, ttl: 10 });
+        assert!(matches!(&withdrawn.phase, Phase::Pending { epoch: 2, .. }));
+
+        let mut expired = Machine::default();
+        propose_a(&mut expired, 2);
+        expired.apply(Event::AdvanceTime { to: 2 });
+        assert!(matches!(
+            &expired.phase,
+            Phase::Closed { reason: CloseReason::Expired, .. }
+        ));
+        assert_eq!(expired.retry_after, 2 + RECONTACT_COOLDOWN_TICKS);
+    }
+
+    #[test]
+    fn unblocking_does_not_bypass_recent_block_cooldown() {
+        let mut machine = Machine::default();
+        machine.apply(Event::Block { actor: Actor::B, sequence: 1 });
+        machine.apply(Event::Unblock { actor: Actor::B, sequence: 2 });
+        assert_eq!(machine.blocked_mask, 0);
+        assert_eq!(machine.retry_after, RECONTACT_COOLDOWN_TICKS);
+
+        machine.apply(Event::Propose { actor: Actor::A, sequence: 1, ttl: 10 });
+        assert!(matches!(&machine.phase, Phase::Idle));
+        machine.apply(Event::AdvanceTime { to: RECONTACT_COOLDOWN_TICKS });
+        machine.apply(Event::Propose { actor: Actor::A, sequence: 2, ttl: 10 });
+        assert!(matches!(&machine.phase, Phase::Pending { epoch: 1, .. }));
     }
 
     #[test]
