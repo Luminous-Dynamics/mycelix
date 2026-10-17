@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 30 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 33 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -15,6 +15,7 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-ALLOW-001 | Source and destination both authorize the exact data class, action, source/destination scopes, purpose, recipient and active consent | Allow | `permits_only_explicitly_authorized_bilateral_route` |
 | RPK-ALLOW-002 | Reordered set-like actions/scopes in otherwise equivalent profile inputs | Same canonical profile payload | `canonical_payload_is_independent_of_set_order` |
 | RPK-AGREE-001 | One verified agreement binds the exact source/destination profile IDs and digests, allowed class/action/purpose/recipient, and active validity window | Allow only when agreement and both profile policies jointly allow the action | `permits_only_explicitly_authorized_bilateral_route` |
+| RPK-AGREE-002 | Source and destination signers approve the same exact agreement digest using distinct role-bound messages | Messages are domain-separated to prevent source/destination signature substitution | `source_and_destination_approval_messages_are_domain_separated` |
 | RPK-AUDIT-001 | Valid decision has agreement ID/version/digest, source/destination profile IDs/versions/digests, action, data class, content digest and timestamp | Audit context is bound; no raw purpose, recipient, or resource ID in the result object | `binds_policy_decision_to_profile_versions_and_non_sensitive_audit_fields` |
 | RPK-MATRIX-001 | All four combinations of source permission × destination permission | Allow iff both sides permit | `bilateral_route_truth_table_only_allows_mutual_permission` |
 
@@ -47,6 +48,8 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-023 | Agreement allowlist order changes but members do not | Canonical bytes remain identical | `agreement_canonical_payload_is_independent_of_allowlist_order` |
 | RPK-DENY-024 | Agreement expiry is reached while both region profiles remain active | `AgreementExpired` | `denies_expired_agreement_even_if_source_and_destination_profiles_remain_active` |
 | RPK-DENY-025 | Agreement signer/trust evidence freshness deadline is reached | `AgreementEvidenceStale` | `denies_when_agreement_trust_evidence_becomes_stale` |
+| RPK-DENY-026 | Source-party approval verification fails | Agreement construction rejected | `rejects_agreement_when_source_approval_verification_fails` |
+| RPK-DENY-027 | Destination-party approval verification fails | Agreement construction rejected | `rejects_agreement_when_destination_approval_verification_fails` |
 
 
 ## Mandatory extension corpus before production
