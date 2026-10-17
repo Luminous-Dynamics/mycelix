@@ -741,6 +741,19 @@ mod tests {
     }
 
     #[test]
+    fn v2_receipt_matches_frozen_canonical_byte_vector() {
+        let actual = receipt_v2().canonical_signing_bytes().unwrap();
+        let actual_hex = actual
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        assert_eq!(
+            actual_hex,
+            include_str!("../test-vectors/receipt-v2-delivered.hex").trim()
+        );
+    }
+
+    #[test]
     fn v2_receipt_binds_event_message_recipient_envelope_and_state() {
         let first = receipt_v2();
         let canonical = first.canonical_signing_bytes().unwrap();
