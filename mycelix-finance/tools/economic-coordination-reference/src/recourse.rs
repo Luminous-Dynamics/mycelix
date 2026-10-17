@@ -1069,6 +1069,74 @@ mod tests {
     }
 
     #[test]
+    fn mixed_flexible_backup_choice_matches_two_option_exhaustive_oracle() {
+        let req = request();
+        let baseline = vec![
+            base("base-a", "supplier-a", "pool-base-a", 3, 10, "region-a"),
+            base("base-b", "supplier-b", "pool-base-b", 7, 10, "region-b"),
+        ];
+        let options = vec![
+            option("flex-c", "supplier-c", "pool-flex-c", 2, "region-c", SupplyMode::Flexible, 2, 1, 2, 2, 3),
+            option("backup-d", "supplier-d", "pool-backup-d", 3, "region-d", SupplyMode::Backup, 4, 2, 3, 5, 5),
+        ];
+        let scenarios = vec![RecourseScenario {
+            scenario_id: "supplier-a-fails".into(),
+            observed_at: 105,
+            failed_domains: vec!["supplier:supplier-a".into()],
+        }];
+
+        // Separate exhaustive oracle over every pair of allowed activation quantities.
+        // It does not call the production search, dominance or selection functions.
+        let mut expected_recovered = 0u32;
+        let mut expected_cost = 0u64;
+        let mut expected_latest = 0u64;
+        for flexible_quantity in 0..=2u32 {
+            for backup_quantity in 0..=3u32 {
+                let recovered = flexible_quantity + backup_quantity;
+                if recovered > 3 {
+                    continue;
+                }
+                let flex_cost = if flexible_quantity == 0 {
+                    0
+                } else {
+                    u64::from(flexible_quantity) * 2 + 1
+                };
+                let backup_cost = if backup_quantity == 0 {
+                    0
+                } else {
+                    u64::from(backup_quantity) * 4 + 2
+                };
+                let cost = flex_cost + backup_cost;
+                let latest = if backup_quantity > 0 {
+                    115
+                } else if flexible_quantity > 0 {
+                    110
+                } else {
+                    0
+                };
+                let is_better = recovered > expected_recovered
+                    || (recovered == expected_recovered
+                        && (cost < expected_cost
+                            || (cost == expected_cost && latest < expected_latest)));
+                if is_better {
+                    expected_recovered = recovered;
+                    expected_cost = cost;
+                    expected_latest = latest;
+                }
+            }
+        }
+
+        let report = evaluate_recourse(&req, &baseline, &options, &scenarios).unwrap();
+        let result = &report.scenario_results[0];
+        assert_eq!(result.recovered_quantity, expected_recovered);
+        assert_eq!(result.recourse_cost_minor, expected_cost);
+        assert_eq!(result.latest_recovery_arrival_at, Some(expected_latest));
+        assert_eq!(result.flexible_quantity, 2);
+        assert_eq!(result.backup_quantity, 1);
+        assert_eq!(expected_cost, 11);
+    }
+
+    #[test]
     fn backup_that_arrives_after_deadline_is_not_counted_as_recovery() {
         let req = request();
         let baseline = vec![base("base-a", "supplier-a", "pool-base", 10, 10, "region-a")];
