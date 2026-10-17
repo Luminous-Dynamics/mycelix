@@ -24,6 +24,7 @@ pub const ML_KEM_768_CIPHERTEXT_BYTES: usize = 1088;
 pub const ML_DSA_65_VERIFYING_KEY_BYTES: usize = 1952;
 pub const ML_DSA_65_SIGNATURE_BYTES: usize = 3309;
 pub const RECEIPT_V2_AGENT_SIGNATURE_BYTES: usize = 64;
+pub const HOLOCHAIN_AGENT_PUBKEY_BYTES: usize = 39;
 const PLAINTEXT_V2_DOMAIN: &[u8] = b"mycelix-pulse/plaintext/v2\0";
 
 /// The single payload protected by one AES-256-GCM invocation. Keeping the
@@ -402,6 +403,31 @@ impl RecipientReceiptV2 {
         Ok(())
     }
 
+    /// Verify that this receipt is bound to the exact V2 envelope transcript.
+    ///
+    /// This checks envelope/profile consistency and independently recomputes the
+    /// envelope commitment. It does NOT verify either receipt signature.
+    pub fn validate_envelope_binding(
+        &self,
+        envelope: &EncryptedEnvelopeV2HybridPqc,
+    ) -> Result<(), ProtocolError> {
+        // Also enforces the deterministic event identity and V2-only profile.
+        self.canonical_signing_bytes()?;
+        let envelope_transcript = envelope.canonical_signing_bytes()?;
+        let expected_commitment =
+            envelope_commitment_from_canonical_signing_bytes(&envelope_transcript)?;
+
+        if self.message_id != envelope.message_id
+            || self.recipient_agent != envelope.recipient_agent
+            || self.envelope_version != envelope.version
+            || self.cipher_suite != envelope.cipher_suite
+            || self.envelope_commitment != expected_commitment
+        {
+            return Err(ProtocolError::ReceiptContextMismatch);
+        }
+        Ok(())
+    }
+
     /// Exact transcript covered by the recipient's V2 receipt signatures.
     /// Both signatures are intentionally excluded. V2 requires the recipient's
     /// Holochain-agent Ed25519 signature AND ML-DSA-65 signature; neither alone
@@ -460,6 +486,13 @@ pub fn canonical_receipt_event_id_preimage(
     recipient_agent: &[u8],
     kind: ReceiptKind,
 ) -> Result<Vec<u8>, ProtocolError> {
+    if recipient_agent.len() != HOLOCHAIN_AGENT_PUBKEY_BYTES {
+        return Err(ProtocolError::InvalidComponentLength {
+            component: "recipient_agent",
+            expected: HOLOCHAIN_AGENT_PUBKEY_BYTES,
+            actual: recipient_agent.len(),
+        });
+    }
     let mut out = Vec::with_capacity(
         RECEIPT_EVENT_ID_DOMAIN.len() + 32 + 4 + recipient_agent.len() + 1,
     );
@@ -844,6 +877,30 @@ mod tests {
         );
     }
 
+    fn receipt_v2_for_envelope(envelope: &EncryptedEnvelopeV2HybridPqc) -> RecipientReceiptV2 {
+        let transcript = envelope.canonical_signing_bytes().unwrap();
+        let envelope_commitment =
+            envelope_commitment_from_canonical_signing_bytes(&transcript).unwrap();
+        RecipientReceiptV2 {
+            protocol_version: RECEIPT_V2_PROTOCOL_VERSION,
+            receipt_event_id: derive_receipt_event_id(
+                &envelope.message_id,
+                &envelope.recipient_agent,
+                ReceiptKind::Delivered,
+            )
+            .unwrap(),
+            message_id: envelope.message_id.clone(),
+            recipient_agent: envelope.recipient_agent.clone(),
+            envelope_version: envelope.version,
+            cipher_suite: envelope.cipher_suite.clone(),
+            envelope_commitment,
+            kind: ReceiptKind::Delivered,
+            occurred_at_micros: 35,
+            agent_signature: vec![36; RECEIPT_V2_AGENT_SIGNATURE_BYTES],
+            ml_dsa_signature: vec![37; ML_DSA_65_SIGNATURE_BYTES],
+        }
+    }
+
     fn receipt_v2() -> RecipientReceiptV2 {
         RecipientReceiptV2 {
             protocol_version: RECEIPT_V2_PROTOCOL_VERSION,
@@ -1099,6 +1156,59 @@ mod tests {
                 component: "receipt_ml_dsa_signature",
                 expected: ML_DSA_65_SIGNATURE_BYTES,
                 actual: ML_DSA_65_SIGNATURE_BYTES - 1,
+            })
+        );
+    }
+
+    #[test]
+    fn v2_receipt_validates_binding_to_exact_envelope_transcript() {
+        let envelope = hybrid_envelope();
+        let receipt = receipt_v2_for_envelope(&envelope);
+        assert_eq!(receipt.validate_envelope_binding(&envelope), Ok(()));
+
+        let mut changed_ciphertext = envelope.clone();
+        changed_ciphertext.ciphertext[0] ^= 1;
+        assert_eq!(
+            receipt.validate_envelope_binding(&changed_ciphertext),
+            Err(ProtocolError::ReceiptContextMismatch)
+        );
+
+        let mut changed_recipient = envelope.clone();
+        changed_recipient.recipient_agent[0] ^= 1;
+        assert_eq!(
+            receipt.validate_envelope_binding(&changed_recipient),
+            Err(ProtocolError::ReceiptContextMismatch)
+        );
+
+        let mut changed_message_id = envelope.clone();
+        changed_message_id.message_id.0[0] ^= 1;
+        assert_eq!(
+            receipt.validate_envelope_binding(&changed_message_id),
+            Err(ProtocolError::ReceiptContextMismatch)
+        );
+
+        let mut changed_suite = envelope;
+        changed_suite.cipher_suite = SUITE_X25519_AES_256_GCM_ED25519.into();
+        assert_eq!(
+            receipt.validate_envelope_binding(&changed_suite),
+            Err(ProtocolError::UnsupportedCipherSuite(
+                SUITE_X25519_AES_256_GCM_ED25519.into()
+            ))
+        );
+    }
+
+    #[test]
+    fn receipt_event_id_rejects_non_39_byte_recipient_identity() {
+        assert_eq!(
+            derive_receipt_event_id(
+                &MessageId([32; 32]),
+                &[33; 38],
+                ReceiptKind::Delivered,
+            ),
+            Err(ProtocolError::InvalidComponentLength {
+                component: "recipient_agent",
+                expected: HOLOCHAIN_AGENT_PUBKEY_BYTES,
+                actual: 38,
             })
         );
     }
