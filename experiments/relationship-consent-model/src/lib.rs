@@ -19,12 +19,7 @@ impl Actor {
         }
     }
 
-    fn other(self) -> Self {
-        match self {
-            Self::A => Self::B,
-            Self::B => Self::A,
-        }
-    }
+
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -372,8 +367,7 @@ pub fn bounded_model_check(max_depth: usize, max_states: usize) -> ExplorationRe
     while let Some((state, depth)) = queue.pop_front() {
         report.maximum_depth_explored = report.maximum_depth_explored.max(depth);
         if !state.invariants_hold() {
-            // Keep the report fail-closed: state_cap_reached is also used as a
-            // non-success sentinel by the CLI, which labels the result invalid.
+            // Fail closed if any reachable state violates an invariant.
             report.invariant_violation = true;
             break;
         }
