@@ -28,6 +28,9 @@ pub mod portfolio;
 /// Bounded scenario-specific flexible/backup procurement recourse; no execution authority.
 pub mod recourse;
 
+/// Bounded ex-ante choice of flexible/backup commitments over a frozen scenario set.
+pub mod strategy;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
