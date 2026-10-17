@@ -62,6 +62,7 @@ fn AppInner() -> impl IntoView {
                     <Route path=path!("/care") view=CarePage />
                     <Route path=path!("/mutual-aid") view=MutualAidPage />
                     <Route path=path!("/food") view=FoodPage />
+                    <Route path=path!("/farm") view=FarmPage />
                     <Route path=path!("/water") view=WaterPage />
                     <Route path=path!("/tools") view=ToolsPage />
                     <Route path=path!("/resources") view=ResourcesPage />
