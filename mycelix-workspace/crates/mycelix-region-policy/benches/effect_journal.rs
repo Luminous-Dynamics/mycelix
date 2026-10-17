@@ -38,13 +38,14 @@ fn main() {
         let start = Instant::now();
         for operation in 0..OPERATIONS_PER_BATCH {
             let key = format!("idem-{batch}-{operation}");
-            let identity = EffectIdentity::new(&key, &target_digest, &policy_digest)
+            let identity = EffectIdentity::new("benchmark-community", &key, &target_digest, &policy_digest)
                 .expect("benchmark identity");
             let mut attempt = EffectAttempt::prepare(identity.clone());
             let sink_operation_id = format!("sink-{batch}-{operation}");
             attempt.mark_submitted(&sink_operation_id).expect("prepare -> submit");
 
             let evidence = SinkOutcomeEvidence {
+                authority_domain: "benchmark-community".to_owned(),
                 idempotency_key: key,
                 target_digest: target_digest.clone(),
                 policy_binding_digest: policy_digest.clone(),
