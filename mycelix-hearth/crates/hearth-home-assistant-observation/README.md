@@ -38,6 +38,14 @@ The pure [compact entity stream projector](src/entity_stream.rs) stages and vali
 
 The [protocol-to-projector integration tests](tests/protocol_projection_contract.rs) exercise the protocol gate → compact projector → HA-0.1 mapper path, including wrong-subscription-ID and control-character negative controls.
 
-The [observation benchmark plan](OBSERVATION_BENCHMARKS.md) defines ten proposed acceptance objectives for transition safety, allowlist containment, transactional projection, semantic freshness, privacy, latency, memory, reconnect currentness, and capability fallback. These are targets, not measured results; performance qualification remains blocked until the native transport and executable benchmark harness exist.
+The [observation benchmark plan](OBSERVATION_BENCHMARKS.md) defines thirteen proposed acceptance objectives for protocol safety, allowlist containment, transactional projection, lifecycle invalidation, replay resistance, semantic freshness, privacy, latency, memory, reconnect currentness, and capability fallback. These are targets, not measured results; performance qualification remains blocked until the native transport and executable benchmark harness exist.
+
+Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.
+
+## Explicit observation lifecycle
+
+The [observation lifecycle module](src/observation_lifecycle.rs) converts a projection into a deterministic, sorted batch of `Upsert` and `Invalidate` operations. See [OBSERVATION_LIFECYCLE.md](OBSERVATION_LIFECYCLE.md) for the durable versioning and consumer replay rules. Source `unknown`/`unavailable`, invalid current samples (including metadata drift or out-of-range values), provider removals, and profile entities omitted from an initial/reconnect snapshot become explicit invalidations rather than leaving a previous positive observation silently current. Each batch carries a comparable `(generation, sequence)` version; generation must increase durably across reconnects/restarts, the initial snapshot uses sequence zero, and each accepted delta advances the sequence. Downstream storage must apply a batch atomically and compare versions per entity, rejecting equal/older updates so delayed upserts cannot resurrect invalidated state. The pure mapper does not itself persist counters, mutate a database, or establish physical truth.
+
+The [observation benchmark plan](OBSERVATION_BENCHMARKS.md) now defines thirteen proposed, explicitly unmeasured acceptance objectives, including zero stale-positive retention after a declared invalidation condition.
 
 Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.
