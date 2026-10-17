@@ -926,6 +926,33 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "const": "egress_attempted"
+              },
+              "destination_class": {
+                "const": "non_allowlisted"
+              }
+            },
+            "required": [
+              "event_type",
+              "destination_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "safety_counter_deltas": {
+                "properties": {
+                  "non_allowlisted_egress_attempts": {
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     }
