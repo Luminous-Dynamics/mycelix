@@ -262,6 +262,25 @@ Also include a history-ordering fixture containing both the original grant and i
 
 Do not claim this gate is met until an independently reviewed build runs the corpus at the exact candidate commit with a pinned Rust toolchain and recorded exit status. The current PR records source-level tests only; compilation and runtime evidence are still outstanding.
 
+## Gate 6 — portable grant history and replay
+
+The implementation slice in [draft PR #5182](https://github.com/Luminous-Dynamics/mycelix/pull/5182) now includes an in-memory append-only issue/revocation event log. Events carry an event identifier, event time, actor identifier, evidence reference, and typed action. The log requires nondecreasing event times, treats identical event-ID replay as idempotent, rejects conflicting event-ID reuse and duplicate grant issuance, and validates revocation against the currently effective grant. It reconstructs effective state by replaying the event stream.
+
+This is still not a portable or signed history. Actor IDs and evidence references are caller-provided; event authenticity, grantor authority, evidence truth, durable persistence, deletion/export semantics and independent cryptographic verification remain outside the current implementation.
+
+| Fixture family | Required result | Threshold |
+|---|---|---:|
+| Exact event replay | Re-appending the exact same event ID/content returns idempotent outcome and does not grow history | 100% |
+| Conflicting event ID | Reusing event ID with different content leaves history unchanged | 100% rejected |
+| Duplicate grant issuance | Second event attempting to issue an existing grant ID leaves state unchanged | 100% rejected |
+| Unknown or already-revoked grant | Revocation is rejected atomically | 100% rejected |
+| Event ordering | Decreasing event time is rejected; equal-time distinct events are deterministic | 100% |
+| Failed transition atomicity | Both history length and effective state remain unchanged after rejection | Zero partial mutation |
+| Replay reconstruction | Freshly replayed effective state exactly equals append-derived state | 100% fixed fixture agreement |
+| Attribution truth | Caller-provided actor/evidence IDs are not described as authenticated | Zero unsupported authenticity claims |
+
+Keep the claim ceiling explicit: replay demonstrates deterministic internal reconstruction, not the truth of an event or legal validity of consent. A content hash can demonstrate byte equality only; it does not authenticate the issuer or prove rights. A future portable envelope should be versioned and canonicalized, carry the exact source schema/version, keep raw external messages or their cryptographic digests, and make unsupported fields visible rather than inventing defaults.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
