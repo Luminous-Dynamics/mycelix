@@ -40,7 +40,7 @@ pub struct HearthCtx {
     /// Monotonic request generation preventing late evidence queries from replacing newer snapshots.
     pub(crate) publication_evidence_generation: RwSignal<u64>,
     /// Available only after IndexedDB opens and restart recovery commits successfully.
-    pub(crate) action_journal: RwSignal<Option<IndexedDbJournal>>,
+    pub(crate) action_journal: RwSignal<Option<IndexedDbJournal>, LocalStorage>,
 }
 
 /// Initialize hearth context.
@@ -68,7 +68,7 @@ pub fn provide_hearth_context() -> HearthCtx {
         my_agent: RwSignal::new("agent_rowan".into()),
         publication_evidence: RwSignal::new(None),
         publication_evidence_generation: RwSignal::new(0),
-        action_journal: RwSignal::new(None),
+        action_journal: RwSignal::new_local(None),
     };
 
     provide_context(ctx.clone());
