@@ -14,7 +14,6 @@
 //! peer identity, TLS validity, freshness, authority, or physical outcome.
 
 use serde::de::{DeserializeSeed, Error as DeError, MapAccess, SeqAccess, Visitor};
-use serde::Deserializer;
 use serde_json::{Map, Number, Value};
 use std::fmt;
 
@@ -220,7 +219,7 @@ mod tests {
                 "a": {
                     "sensor.example": {
                         "s": "21.5",
-                        "a": {"unit_of_measurement": "°C"}
+                        "a": {"unit_of_measurement": "\\u00b0C"}
                     }
                 },
                 "c": {},
