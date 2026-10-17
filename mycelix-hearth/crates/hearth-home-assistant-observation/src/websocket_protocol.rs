@@ -528,10 +528,6 @@ mod tests {
                     session_epoch: epoch,
                     subscription_id,
                 },
-                ProtocolAction::SessionLive {
-                    session_epoch: epoch,
-                    subscription_id,
-                },
             ]
         );
         assert_eq!(machine.state(), ProtocolState::AwaitBootstrapApply { subscription_id });
