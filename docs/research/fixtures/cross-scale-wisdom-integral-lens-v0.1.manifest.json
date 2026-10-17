@@ -4,7 +4,7 @@
   "corpus_version": "0.1.0",
   "corpus_path": "docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.jsonl",
   "hash_algorithm": "sha256",
-  "corpus_sha256": "7ecc4fb2efadfa43ee77aab8dc98273a66ae7a4d4a3e52629a00748aac8499fc",
+  "corpus_sha256": "9fbb32a2b6a3a1e3d4ac9873b2582d18858e0ebd6b84ca5b296e06285b21ba3c",
   "record_format": "JSON Lines; UTF-8",
   "record_count": 12,
   "severity_counts": {
