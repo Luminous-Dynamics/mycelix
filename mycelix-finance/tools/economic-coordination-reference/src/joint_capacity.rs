@@ -269,7 +269,7 @@ fn evidence_is_current(
 pub fn validate_joint_allocation(
     input: &JointAllocationInput,
 ) -> Result<JointAllocationReport, JointAllocationError> {
-    if !non_empty(&input.input_manifest_digest) {
+    if !non_empty(&input.input_manifest_digest) || input.requests.is_empty() {
         return Err(JointAllocationError::InvalidManifest);
     }
 
@@ -995,6 +995,56 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn checked_cost_multiplication_fails_closed_on_overflow() {
+        let mut input = fixture();
+        input.requests[0].max_total_cost_minor = u64::MAX;
+        input.offers[0].unit_cost_minor = u64::MAX;
+        input.assignments = vec![JointAssignment {
+            request_id: "urgent".to_owned(),
+            offer_id: "offer-a".to_owned(),
+            quantity: 2,
+        }];
+        assert_eq!(
+            validate_joint_allocation(&input),
+            Err(JointAllocationError::ArithmeticOverflow)
+        );
+    }
+
+    #[test]
+    fn quantities_for_distinct_capability_profiles_are_not_collapsed() {
+        let mut input = fixture();
+        input.requests[1].capability_id = "alternate-kit".to_owned();
+        input.requests[1].capability_profile_digest = "alternate-kit-profile-v2".to_owned();
+        input.offers[1].offered_capability_id = "alternate-kit".to_owned();
+        input.offers[1].offered_profile_digest = "alternate-kit-profile-v2".to_owned();
+        input.capability_mappings[1].requested_capability_id = "alternate-kit".to_owned();
+        input.capability_mappings[1].requested_profile_digest = "alternate-kit-profile-v2".to_owned();
+        input.capability_mappings[1].offered_capability_id = "alternate-kit".to_owned();
+        input.capability_mappings[1].offered_profile_digest = "alternate-kit-profile-v2".to_owned();
+
+        let report = validate_joint_allocation(&input).expect("both capability profiles are valid");
+        assert_eq!(report.quantities_by_unit.len(), 2);
+        assert_eq!(report.quantities_by_unit[0].capability_id, "alternate-kit");
+        assert_eq!(report.quantities_by_unit[0].required_quantity, 3);
+        assert_eq!(report.quantities_by_unit[1].capability_id, "repair-kit");
+        assert_eq!(report.quantities_by_unit[1].required_quantity, 2);
+    }
+
+    #[test]
+    fn empty_request_manifest_is_rejected() {
+        let mut input = fixture();
+        input.requests.clear();
+        input.offers.clear();
+        input.capacity_pools.clear();
+        input.capability_mappings.clear();
+        input.assignments.clear();
+        assert_eq!(
+            validate_joint_allocation(&input),
+            Err(JointAllocationError::InvalidManifest)
+        );
     }
 
     #[test]
