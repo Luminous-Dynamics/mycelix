@@ -1,6 +1,6 @@
 use creator_sovereignty_core::{
-    InsertOutcome, Ledger, LedgerError, LedgerSummary, MoneyEvent, MoneyKind, RationalRate,
-    WorkSession, verify_summary,
+    InsertOutcome, Ledger, LedgerError, LedgerSummary, MoneyEvent, MoneyKind, RateUnavailableReason,
+    RationalRate, WorkSession, verify_summary,
 };
 
 fn event(id: &str, currency: &str, amount: i64, kind: MoneyKind) -> MoneyEvent {
@@ -208,6 +208,7 @@ fn different_currencies_are_not_collapsed_to_one_total() {
     ledger
         .insert_money_event(event("eur", "EUR", 1_000, MoneyKind::Receipt))
         .unwrap();
+    ledger.insert_work_session(session("work", 0, 3_600)).unwrap();
 
     let report = ledger.summarize().unwrap();
     assert_eq!(report.currencies.len(), 2);
@@ -217,5 +218,10 @@ fn different_currencies_are_not_collapsed_to_one_total() {
         report.currencies[0].currency,
         report.currencies[1].currency
     );
+    assert!(report.currencies.iter().all(|summary| summary.net_per_work_hour.is_none()));
+    assert!(report.currencies.iter().all(|summary| {
+        summary.rate_unavailable_reasons
+            == vec![RateUnavailableReason::MultipleCurrencies]
+    }));
     verify_summary(&ledger, &report).unwrap();
 }
