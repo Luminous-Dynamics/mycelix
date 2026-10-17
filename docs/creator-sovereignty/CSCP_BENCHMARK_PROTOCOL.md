@@ -283,7 +283,7 @@ Keep the claim ceiling explicit: replay demonstrates deterministic internal reco
 
 ## Gate 7 — canonical portable grant-history envelope
 
-The implementation slice in draft PR #5182 now exports the ordered grant/revocation event history through an experimental versioned binary envelope with deterministic canonical bytes and a domain-separated BLAKE3-256 content digest. One frozen issue/revocation byte vector is checked against a standard-library-only Python reference encoder used only for testing, as well as the Rust encoder. The current corpus is only that single byte vector; there is not yet a published cross-language BLAKE3 digest vector. The envelope schema and stable numeric tags are described in the public research crate README. It covers grants and revocations only, not the complete asset registry, contribution/split claims or source payloads.
+The implementation slice in draft PR #5182 now exports the ordered grant/revocation event history through an experimental versioned binary envelope with deterministic canonical bytes and a domain-separated BLAKE3-256 content digest. Two frozen byte vectors are checked against a standard-library-only Python reference encoder used only for testing, as well as the Rust encoder: an issue/revocation history and a UTF-8/absent-expiry case. This remains a tiny corpus; there is not yet a published cross-language BLAKE3 digest vector. The envelope schema and stable numeric tags are described in the public research crate README. It covers grants and revocations only, not the complete asset registry, contribution/split claims or source payloads.
 
 | Fixture family | Required outcome | Threshold |
 |---|---|---:|
@@ -293,7 +293,7 @@ The implementation slice in draft PR #5182 now exports the ordered grant/revocat
 | Unknown format version/action tag | Reject; never reinterpret an unknown tag as a permissive action | 100% rejected |
 | Truncation, invalid UTF-8, oversized fields/counts or trailing bytes | Reject import without partial state creation | 100% rejected |
 | History replay after import | Imported event stream reconstructs the same effective grants as append-derived state and independent reconstruction | 100% |
-| Cross-language interoperability | A second implementation reproduces multiple frozen canonical-byte and digest golden vectors, including negative/boundary fixtures | 100% golden-vector agreement before format freeze; currently only one byte vector exists |
+| Cross-language interoperability | A second implementation reproduces multiple frozen canonical-byte and digest golden vectors, including negative/boundary fixtures | 100% golden-vector agreement before format freeze; currently two byte vectors exist and the digest vector remains outstanding |
 | Authorship/consent claim | No digest is presented as signature, trusted timestamp, consent proof or title evidence | Zero unsupported authenticity claims |
 
 The digest is carried separately from the envelope. BLAKE3 detects byte changes relative to an expected digest, but an attacker can replace both bytes and digest unless a separately authenticated channel/signature anchors the expected value. Keep source-system identifiers, raw message hashes, parser versions, and unresolved fields visible in a future full passport envelope. Do not silently drop unsupported fields during import/export.
