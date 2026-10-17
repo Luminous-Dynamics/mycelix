@@ -15,7 +15,7 @@ from pathlib import Path
 MAGIC = b"MYCELIX-CSCP-ASSET-PASSPORT\0"
 HISTORY_MAGIC = b"MYCELIX-CSCP-GRANT-HISTORY\0"
 VERSION = 1
-FIXTURE = Path(__file__).parent / "fixtures" / "creator-asset-passport-v1.hex"
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
 def _u16(value: int) -> bytes:
@@ -77,30 +77,83 @@ def encode_reference_snapshot() -> bytes:
     )
 
 
+def encode_unicode_disputed_snapshot() -> bytes:
+    """Exercise ISRC/other IDs, UTF-8, absent title/share, and a disputed claim."""
+    asset = b"".join(
+        (
+            _string("recording-δ"),
+            b"\x02",  # AssetKind::SoundRecording
+            b"\x00",  # title absent
+            _u64(3),  # ISRC plus two other identifiers
+            b"\x02",  # ISRC
+            _string("US-ABC-23-00001"),
+            b"\x03",  # other identifier
+            _string("a"),
+            _string("z"),
+            b"\x03",  # other identifier
+            _string("a:"),
+            _string("x"),
+        )
+    )
+    claim = b"".join(
+        (
+            _string("recording-δ"),
+            _string("performer-Δ"),
+            b"\x02",  # RightsPool::MasterRecording
+            b"\x00",  # share unknown
+            b"\x03",  # ClaimState::Disputed
+            _string("evidence://争議"),
+        )
+    )
+    empty_history = HISTORY_MAGIC + _u16(VERSION) + _u64(0)
+    return b"".join(
+        (
+            MAGIC,
+            _u16(VERSION),
+            _u64(1),  # asset count
+            asset,
+            _u64(1),  # claim count
+            claim,
+            _u64(len(empty_history)),
+            empty_history,
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--check",
         action="store_true",
-        help="compare independent reference bytes with the committed fixture",
+        help="compare independent reference bytes with committed fixtures",
     )
     args = parser.parse_args()
-    actual = encode_reference_snapshot().hex() + "\n"
+    vectors = {
+        "creator-asset-passport-v1.hex": encode_reference_snapshot(),
+        "creator-asset-passport-v1-unicode-disputed.hex": (
+            encode_unicode_disputed_snapshot()
+        ),
+    }
 
     if not args.check:
-        sys.stdout.write(actual)
+        for filename, encoded in vectors.items():
+            print(f"{filename}\n{encoded.hex()}")
         return 0
 
-    expected = FIXTURE.read_text(encoding="ascii")
-    if expected != actual:
-        print(f"full passport snapshot v1 mismatch: {FIXTURE}", file=sys.stderr)
-        print(f"expected: {expected.strip()}", file=sys.stderr)
-        print(f"actual:   {actual.strip()}", file=sys.stderr)
-        return 1
+    for filename in sorted(vectors):
+        fixture = FIXTURE_DIR / filename
+        expected = fixture.read_text(encoding="ascii")
+        actual = vectors[filename].hex() + "\n"
+        if expected != actual:
+            print(f"full passport snapshot v1 mismatch: {fixture}", file=sys.stderr)
+            print(f"expected: {expected.strip()}", file=sys.stderr)
+            print(f"actual:   {actual.strip()}", file=sys.stderr)
+            return 1
 
+    total_bytes = sum(len(value) for value in vectors.values())
     print(
-        "full passport snapshot v1 reference vector passed "
-        f"({len(encode_reference_snapshot())} bytes)"
+        "full passport snapshot v1 reference vectors passed "
+        f"({len(vectors)} vectors, {total_bytes} bytes)"
     )
     return 0
 
