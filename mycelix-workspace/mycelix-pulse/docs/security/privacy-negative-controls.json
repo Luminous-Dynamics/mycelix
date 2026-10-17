@@ -251,6 +251,49 @@
       "on_failure": "Fail only the claimed metadata-privacy property, preserve the minimized synthetic graph/trace, and route architecture changes through issue #5121. Do not silently change V2 semantics or flip entry visibility without an alternate qualified discovery/retrieval protocol.",
       "claim_limit": "A source audit or local test does not establish visibility in every deployed network topology, resistance to traffic analysis, anonymity against a global observer, or the correctness of a future privacy redesign.",
       "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-012",
+      "name": "Repeated delivery receipt acknowledgment",
+      "inventory_refs": [
+        "PULSE-META-007",
+        "PULSE-META-018"
+      ],
+      "category": "receipt_idempotency_and_activity_metadata",
+      "precondition": "Use a frozen multi-agent Holochain test with one synthetic V1 envelope, one intended recipient agent, and a captured public-record/link view.",
+      "injected_condition": "Call acknowledge_delivery sequentially many times and concurrently from duplicate handlers for the same email ActionHash; replay the same request after restart. Capture created DeliveryReceipt entries, EmailToDeliveryReceipts links, timestamps and sender-visible receipt projection.",
+      "observer_vantage": [
+        "recipient conductor",
+        "sender conductor",
+        "independent DNA participant",
+        "DHT entry/link reader"
+      ],
+      "expected_secure_result": "Repeated acknowledgments converge to one logical delivery receipt under the declared idempotency model, or to an explicitly documented deterministic set that cannot inflate delivery count or alter the original delivery event. The sender must not confuse repeated receipt artifacts with multiple deliveries.",
+      "harness_sensitivity_gate": "A deliberately non-idempotent baseline using fresh timestamps must create distinguishable receipt entries and trigger the count/correlation detector; the harness must detect duplicates from sequential and concurrent retries.",
+      "on_failure": "Fail receipt idempotency and activity-minimization qualification; create deterministic Rust regression traces and resolve with the durable delivery work in #5062.",
+      "claim_limit": "A successful local concurrency test does not prove distributed global exactly-once receipt creation; the exact topology and consistency assumptions must be stated.",
+      "status": "not_run"
+    },
+    {
+      "id": "PULSE-PRIV-NC-013",
+      "name": "V2 ActionHash console diagnostic minimization",
+      "inventory_refs": [
+        "PULSE-META-004",
+        "PULSE-META-017"
+      ],
+      "category": "local_diagnostic_correlation_identifier",
+      "precondition": "Build the canonical Leptos V2 compose path with a synthetic message and a unique test ActionHash under a frozen build profile.",
+      "injected_condition": "Capture browser console output and any configured diagnostic export for a successful V2 send. Include a known-bad fixture that logs the full raw ActionHash in normal production mode.",
+      "observer_vantage": [
+        "browser console",
+        "browser diagnostic export",
+        "controlled support bundle if enabled"
+      ],
+      "expected_secure_result": "Routine production logs do not expose a directly reusable DHT ActionHash unless an explicitly documented debug profile enables it; the UI still reports the correctly scoped status 'Message sent and committed to DHT' without overstating recipient delivery.",
+      "harness_sensitivity_gate": "The known-bad full-ActionHash fixture must be found by the detector and tied back to the synthetic DHT record.",
+      "on_failure": "Fail the selected local-diagnostics minimization claim; remove or gate unnecessary raw-hash logging and preserve the ActionHash for local user-authorized debugging only when necessary.",
+      "claim_limit": "A browser-local console log is not a remote-service leak unless a supported export or remote collection path carries it. Do not infer remote telemetry behavior from this test alone.",
+      "status": "not_run"
     }
   ]
 }
