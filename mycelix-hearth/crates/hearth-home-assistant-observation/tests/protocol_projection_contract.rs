@@ -7,7 +7,7 @@
 
 use hearth_automation_types::{AutomationValue, EntityRef};
 use hearth_home_assistant_observation::{
-    strict_json::StrictJsonError,
+    strict_json::{parse_bounded_json, StrictJsonError},
     EntityObservationRule, HomeAssistantObservationProfile, MappingOutcome, StateCodec,
     HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
     entity_stream::{EntityStreamProjector, EntityStreamProjection, EntityStreamProjectionError},
@@ -92,6 +92,29 @@ fn project_one(
     result.frames.iter()
         .map(|frame| map_state(profile, frame).expect("profile-projected frame must map"))
         .collect()
+}
+
+#[test]
+fn strict_outer_frame_can_project_its_nested_event_without_reparsing() {
+    let profile = profile();
+    let mut projector = EntityStreamProjector::new(&profile).unwrap();
+    let event_json = serde_json::to_string(&full_snapshot()).unwrap();
+    let wire_frame = format!(r#"{{"id":1,"type":"event","event":{event_json}}}"#);
+    let parsed_frame = parse_bounded_json(wire_frame.as_bytes()).unwrap();
+
+    assert_eq!(
+        parsed_frame.as_value().get("id").and_then(Value::as_u64),
+        Some(1)
+    );
+    let event = parsed_frame.get("event").expect("event field is present");
+    let projected = projector.apply_parsed_json(
+        EntityStreamKind::InitialSnapshot,
+        event,
+        10_000_000,
+    ).unwrap();
+    assert_eq!(projected.frames.len(), 1);
+    assert_eq!(projected.frames[0].state, "21.5");
+    assert_eq!(projector.cached_entity_count(), 1);
 }
 
 #[test]
