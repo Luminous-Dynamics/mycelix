@@ -18,7 +18,7 @@ The journal answers: **what did this browser durably record about the attempt?**
 - Read/write changes return only after the IndexedDB request and the transaction-completion event succeed.
 - Transition reads, checks the legal lifecycle transition, and queues the replacement write in one read/write transaction; it does not do a stale read in one transaction then overwrite in another.
 - `StoragePosture` exposes whether a strict transaction option was observed and whether persistent origin storage was granted (or is unknown).
-- Restart recovery changes every recovered `Submitted` row to `OutcomeUnknown`, persists that transition, and only then returns the current list. It never replays an action.
+- Restart recovery changes every recovered `Prepared` row to `NotSent` (the gate never dispatches from Prepared) and every `Submitted` row to `OutcomeUnknown` (dispatch may have happened). It persists each conversion before returning the current list and never replays an action.
 - A deterministic in-memory fake supports commit-failure and recovery tests.
 
 ## Live dispatch integration (HTH-UX-011)
@@ -26,6 +26,7 @@ The journal answers: **what did this browser durably record about the attempt?**
 The follow-on branch/PR wires the durable gate into all five currently live UI mutation handlers: bond tending, gratitude, voting, presence, and care completion.
 
 - Context startup opens IndexedDB and finishes restart recovery before exposing a journal handle to live handlers.
+- The real-data loader now decodes the returned Hearth entry and replaces the mock `current_hearth` with the action hash from that verified record. A malformed/empty result leaves the mock identity in place, which fails live hash preflight rather than becoming dispatch scope.
 - Each handler first validates the selected Hearth scope and action target, computes domain-separated scope/target fingerprints, writes Prepared, then writes Submitted, and only sends the zome call if both transaction-completion results succeeded.
 - If storage is unavailable or either required write reports an error, the handler shows a Not sent message and returns before the network call.
 - On a decoded successful response, the resident receives saved feedback immediately and the journal then records SourceChainCommitted. If this final local write fails, the UI warns that the saved result was received but local recovery state is not confirmed; users are told not to repeat the action until reconciled.
@@ -77,7 +78,7 @@ Current module tests cover:
 - unknown schema version and unknown fields failing closed;
 - legal transition, timestamp monotonicity and terminal status preservation;
 - injected Prepared persistence failure leaving no journal row;
-- restart recovery converting Submitted to OutcomeUnknown before returning a row.
+- restart recovery converting Prepared to NotSent and Submitted to OutcomeUnknown before returning rows.
 
 These tests are authored, **not executed**. They do not substitute for a real IndexedDB browser test, multiple-tab race test, reload test, or native/WASM compile.
 
