@@ -14,7 +14,7 @@ A standard-library-only Rust prototype for deterministic creator career accounti
 
 ## Run
 
-From the Mycelix Rust workspace:
+From the repository root:
 
 ```sh
 cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml
