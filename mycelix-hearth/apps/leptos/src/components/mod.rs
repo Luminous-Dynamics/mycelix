@@ -4,6 +4,7 @@
 mod nav;
 mod data_trust_notice;
 mod publication_evidence_status;
+mod action_journal_history;
 mod household_brief;
 mod dev_panel;
 mod member_avatar;
@@ -13,6 +14,7 @@ pub mod hearth_flame;
 pub use nav::*;
 pub use data_trust_notice::DataTrustNotice;
 pub use publication_evidence_status::PublicationEvidenceStatus;
+pub use action_journal_history::ActionJournalHistory;
 pub use household_brief::HouseholdBrief;
 pub use dev_panel::*;
 pub use member_avatar::*;
