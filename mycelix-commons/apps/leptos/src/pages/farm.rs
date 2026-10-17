@@ -11,6 +11,7 @@ use leptos::prelude::*;
 pub fn FarmPage() -> impl IntoView {
     let section = RwSignal::new(0usize);
     let water_checked = RwSignal::new(false);
+    let selected_design = RwSignal::new(0usize);
 
     view! {
         <div class="farm-commons">
@@ -35,6 +36,7 @@ pub fn FarmPage() -> impl IntoView {
                     <button class="fc-tab" class:active=move || section.get() == 1 aria-pressed=move || section.get() == 1 on:click=move |_| section.set(1)>"Production & stock"</button>
                     <button class="fc-tab" class:active=move || section.get() == 2 aria-pressed=move || section.get() == 2 on:click=move |_| section.set(2)>"Shared equipment"</button>
                     <button class="fc-tab" class:active=move || section.get() == 3 aria-pressed=move || section.get() == 3 on:click=move |_| section.set(3)>"Co-op & sharing"</button>
+                    <button class="fc-tab" class:active=move || section.get() == 4 aria-pressed=move || section.get() == 4 on:click=move |_| section.set(4)>"Open designs"</button>
                 </nav>
 
                 {move || match section.get() {
@@ -131,7 +133,7 @@ pub fn FarmPage() -> impl IntoView {
                             <div class="fc-notice"><strong>"Evidence boundary"</strong><span>"A booking does not prove an inspection. An inspection receipt says who checked what, when, and against which checklist; it is not an automatic safety certification."</span></div>
                         </section>
                     }.into_any(),
-                    _ => view! {
+                    3 => view! {
                         <section class="fc-panel" aria-label="Cooperative commitments and sharing">
                             <div class="fc-section-heading">
                                 <div><div class="fc-eyebrow">"CO-OP / AGREEMENTS AND HANDOFFS"</div><h2>"Make the agreement visible."</h2><p>"A commitment records intent. Fulfillment records what actually happened."</p></div>
@@ -147,6 +149,67 @@ pub fn FarmPage() -> impl IntoView {
                                 <article class="fc-detail-panel"><div class="fc-eyebrow">"EVIDENCE STATES"</div><h3>"Make unknown visible"</h3><div class="fc-legend"><span class="fc-state state-observed">"Observed"</span><small>"A person/device recorded a fact with source and time."</small></div><div class="fc-legend"><span class="fc-state state-planned">"Planned"</span><small>"An intention or estimate, not physical inventory."</small></div><div class="fc-legend"><span class="fc-state state-unknown">"Unknown"</span><small>"Evidence is missing, stale, conflicting, or unverified."</small></div></article>
                             </div>
                             <p class="fc-footnote">"No token, reputation score, model output, or simulated result should override consent, physical evidence, or a hard safety constraint."</p>
+                        </section>
+                    }.into_any(),
+                    _ => view! {
+                        <section class="fc-panel" aria-label="Open agricultural design library">
+                            <div class="fc-section-heading">
+                                <div>
+                                    <div class="fc-eyebrow">"OPEN HARDWARE / DESIGN-TO-FIELD"</div>
+                                    <h2>"A design isn't ready because it renders."</h2>
+                                    <p>"Track source, license, manufacturing requirements, bill of materials, tests, repairability, and replicated builds before calling a design build-ready."</p>
+                                </div>
+                                <span class="fc-status-chip">"Workflow concept"</span>
+                            </div>
+                            <div class="fc-notice">
+                                <strong>"No design here is build-qualified."</strong>
+                                <span>"These are illustrative candidate briefs, not released CAD packages, certified equipment, supplier quotes, or recommendations to build or operate a machine."</span>
+                            </div>
+                            <div class="fc-design-grid">
+                                <button class="fc-design-card" class:selected=move || selected_design.get() == 0 aria-pressed=move || selected_design.get() == 0 on:click=move |_| selected_design.set(0)>
+                                    <div class="fc-design-top"><span class="fc-equip-icon wheel-icon">"M"</span><span class="fc-state state-planned">"INTAKE ONLY"</span></div>
+                                    <h3>"Manual implement improvement"</h3>
+                                    <p>"A repairable attachment for a repetitive, low-risk field task. Compare against the current hand tool and existing implements."</p>
+                                    <div class="fc-design-meta"><span>"CAD source"</span><strong>"Not reviewed"</strong></div>
+                                    <div class="fc-design-meta"><span>"BOM & sourcing"</span><strong>"Not qualified"</strong></div>
+                                </button>
+                                <button class="fc-design-card" class:selected=move || selected_design.get() == 1 aria-pressed=move || selected_design.get() == 1 on:click=move |_| selected_design.set(1)>
+                                    <div class="fc-design-top"><span class="fc-equip-icon">"S"</span><span class="fc-state state-planned">"INTAKE ONLY"</span></div>
+                                    <h3>"Low-voltage field logger"</h3>
+                                    <p>"A serviceable environmental observation module. Enclosure ingress, sensor calibration, power and environmental limits remain open questions."</p>
+                                    <div class="fc-design-meta"><span>"Electrical checks"</span><strong>"Not run"</strong></div>
+                                    <div class="fc-design-meta"><span>"Weather test"</span><strong>"Not run"</strong></div>
+                                </button>
+                                <button class="fc-design-card" class:selected=move || selected_design.get() == 2 aria-pressed=move || selected_design.get() == 2 on:click=move |_| selected_design.set(2)>
+                                    <div class="fc-design-top"><span class="fc-equip-icon seed-icon">"R"</span><span class="fc-state state-unknown">"RESEARCH ONLY"</span></div>
+                                    <h3>"Non-contact scouting platform"</h3>
+                                    <p>"A possible supervised, low-speed observation platform. No spraying, watering, autonomous tool use or physical actuation is in scope."</p>
+                                    <div class="fc-design-meta"><span>"Operating domain"</span><strong>"Undefined"</strong></div>
+                                    <div class="fc-design-meta"><span>"Safety case"</span><strong>"Missing"</strong></div>
+                                </button>
+                            </div>
+                            <section class="fc-design-detail" aria-label="Selected design qualification checklist">
+                                <div class="fc-eyebrow">"SELECTED DESIGN / RELEASE GATE"</div>
+                                <h3>{move || match selected_design.get() {
+                                    0 => "Manual implement improvement",
+                                    1 => "Low-voltage field logger",
+                                    _ => "Non-contact scouting platform",
+                                }}</h3>
+                                <p>{move || match selected_design.get() {
+                                    0 => "First candidate class: optimize a defined manual service and measure whether the change helps before adding power or autonomy.",
+                                    1 => "Second candidate class: test whether better evidence is worth the cost of the sensor, calibration, upkeep and connectivity.",
+                                    _ => "Third candidate class: proceed only when a specific task, operating envelope, human fallback and qualified reviewer are defined.",
+                                }}</p>
+                                <div class="fc-checklist-grid">
+                                    <div class="fc-check-item"><span>"Source revision + license"</span><strong>"Missing"</strong></div>
+                                    <div class="fc-check-item"><span>"Editable CAD + drawings"</span><strong>"Missing"</strong></div>
+                                    <div class="fc-check-item"><span>"Complete BOM + local quotes"</span><strong>"Missing"</strong></div>
+                                    <div class="fc-check-item"><span>"Build procedure + inspection"</span><strong>"Missing"</strong></div>
+                                    <div class="fc-check-item"><span>"Bench test + independent checker"</span><strong>"Not run"</strong></div>
+                                    <div class="fc-check-item"><span>"Independent reproduction"</span><strong>"Not run"</strong></div>
+                                </div>
+                                <p class="fc-footnote">"A future release record should pin artifact digests, toolchain/configuration, reviewer disposition and the exact conditions where use is not qualified. No missing item is treated as a pass."</p>
+                            </section>
                         </section>
                     }.into_any(),
                 }}
