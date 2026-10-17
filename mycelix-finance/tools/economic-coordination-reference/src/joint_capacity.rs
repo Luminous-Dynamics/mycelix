@@ -179,6 +179,8 @@ pub struct PoolReconciliation {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnitQuantitySummary {
+    pub capability_id: String,
+    pub capability_profile_digest: String,
     pub unit: String,
     pub required_quantity: u64,
     pub served_quantity: u64,
@@ -258,7 +260,6 @@ pub fn validate_joint_allocation(
         .iter()
         .any(|field| !non_empty(field))
             || request.required_quantity == 0
-            || request.max_total_cost_minor == 0
         {
             return Err(JointAllocationError::InvalidRequest);
         }
@@ -319,6 +320,12 @@ pub fn validate_joint_allocation(
         }
         if offers.insert(offer.offer_id.clone(), offer).is_some() {
             return Err(JointAllocationError::DuplicateOfferId);
+        }
+        let pool = pools
+            .get(&offer.capacity_pool_id)
+            .ok_or(JointAllocationError::MissingCapacityPool)?;
+        if pool.unit != offer.unit {
+            return Err(JointAllocationError::UnitMismatch);
         }
         evidence_is_current(
             offer.evidence_status,
@@ -473,14 +480,19 @@ pub fn validate_joint_allocation(
     }
 
     let mut request_reports = Vec::with_capacity(requests.len());
-    let mut unit_totals: BTreeMap<String, (u64, u64)> = BTreeMap::new();
+    let mut unit_totals: BTreeMap<(String, String, String), (u64, u64)> = BTreeMap::new();
     let mut currency_totals: BTreeMap<String, u64> = BTreeMap::new();
 
     for (request_id, request) in &requests {
         let served = request_quantity.get(request_id).copied().unwrap_or(0);
         let cost = request_cost.get(request_id).copied().unwrap_or(0);
         let unfilled = u64::from(request.required_quantity) - served;
-        let unit_total = unit_totals.entry(request.unit.clone()).or_default();
+        let unit_key = (
+            request.capability_id.clone(),
+            request.capability_profile_digest.clone(),
+            request.unit.clone(),
+        );
+        let unit_total = unit_totals.entry(unit_key).or_default();
         unit_total.0 = unit_total
             .0
             .checked_add(u64::from(request.required_quantity))
@@ -533,7 +545,9 @@ pub fn validate_joint_allocation(
 
     let quantities_by_unit = unit_totals
         .into_iter()
-        .map(|(unit, (required_quantity, served_quantity))| UnitQuantitySummary {
+        .map(|((capability_id, capability_profile_digest, unit), (required_quantity, served_quantity))| UnitQuantitySummary {
+            capability_id,
+            capability_profile_digest,
             unit,
             required_quantity,
             served_quantity,
@@ -692,17 +706,17 @@ mod tests {
     #[test]
     fn two_requests_cannot_both_claim_the_last_unit() {
         let mut input = fixture();
-        input.offers = vec![offer("offer-a", "shared", 1, 10)];
+        input.offers = vec![offer("offer-a", "shared", 1, 10), offer("offer-b", "shared", 1, 20)];
         input.capacity_pools = vec![pool("shared", 1)];
         input.requests = vec![request("urgent", 1, 100), request("routine", 1, 100)];
-        input.capability_mappings = vec![mapping("urgent", "offer-a"), mapping("routine", "offer-a")];
+        input.capability_mappings = vec![mapping("urgent", "offer-a"), mapping("routine", "offer-b")];
         input.assignments = vec![
             JointAssignment { request_id: "urgent".to_owned(), offer_id: "offer-a".to_owned(), quantity: 1 },
-            JointAssignment { request_id: "routine".to_owned(), offer_id: "offer-a".to_owned(), quantity: 1 },
+            JointAssignment { request_id: "routine".to_owned(), offer_id: "offer-b".to_owned(), quantity: 1 },
         ];
         assert_eq!(
             validate_joint_allocation(&input),
-            Err(JointAllocationError::OfferCapacityExceeded)
+            Err(JointAllocationError::CapacityPoolExceeded)
         );
     }
 
@@ -755,7 +769,7 @@ mod tests {
     #[test]
     fn per_request_budget_is_checked_not_only_portfolio_cost() {
         let mut input = fixture();
-        input.requests[0].max_total_cost_minor = 100;
+        input.requests[0].max_total_cost_minor = 99;
         assert_eq!(
             validate_joint_allocation(&input),
             Err(JointAllocationError::RequestBudgetExceeded)
