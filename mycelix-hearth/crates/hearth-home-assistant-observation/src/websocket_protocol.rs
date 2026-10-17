@@ -35,6 +35,7 @@ pub enum MessageKind {
     AuthOk,
     AuthInvalid,
     CommandResult,
+    CommandFailure,
     EntityStreamUpdate,
     OtherEvent,
     Unexpected,
@@ -52,6 +53,21 @@ pub enum ResultPayloadKind {
     Other,
 }
 
+/// A bounded projection of Home Assistant's documented error code. The raw
+/// server message is deliberately not retained or emitted in diagnostics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandFailureCode {
+    UnknownCommand,
+    NotSupported,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnsupportedSubscriptionReason {
+    UnknownCommand,
+    NotSupported,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolError {
     InvalidObservationProfile,
@@ -62,6 +78,11 @@ pub enum ProtocolError {
     AuthenticationRejected,
     CommandRejected {
         phase: SessionPhase,
+    },
+    /// The server explicitly reported that native subscribe_entities is not
+    /// implemented/supported. No legacy fallback is attempted by this machine.
+    UnsupportedEntitySubscription {
+        reason: UnsupportedSubscriptionReason,
     },
     CommandIdMismatch {
         expected: u64,
@@ -114,6 +135,13 @@ pub enum InboundMessage {
         success: bool,
         payload: ResultPayloadKind,
     },
+    /// Transport maps exact HA codes `unknown_command` and `not_supported`
+    /// to their typed values; all other server codes map to `Other`. Raw error
+    /// messages must not cross this boundary.
+    CommandFailure {
+        id: u64,
+        code: CommandFailureCode,
+    },
     EntityStreamUpdate {
         subscription_id: u64,
         kind: EntityStreamKind,
@@ -129,6 +157,7 @@ impl InboundMessage {
             Self::AuthOk => MessageKind::AuthOk,
             Self::AuthInvalid => MessageKind::AuthInvalid,
             Self::CommandResult { .. } => MessageKind::CommandResult,
+            Self::CommandFailure { .. } => MessageKind::CommandFailure,
             Self::EntityStreamUpdate { .. } => MessageKind::EntityStreamUpdate,
             Self::OtherEvent => MessageKind::OtherEvent,
             Self::Unexpected => MessageKind::Unexpected,
@@ -357,6 +386,27 @@ impl HomeAssistantWebSocketProtocol {
                     session_epoch: self.session_epoch,
                     subscription_id: expected,
                 }]
+            }
+            (
+                ProtocolState::AwaitSubscriptionResult { command_id: expected },
+                InboundMessage::CommandFailure { id, code },
+            ) => {
+                if id != expected {
+                    return self.fail(ProtocolError::CommandIdMismatch { expected, actual: id });
+                }
+                match code {
+                    CommandFailureCode::UnknownCommand => self.fail(
+                        ProtocolError::UnsupportedEntitySubscription {
+                            reason: UnsupportedSubscriptionReason::UnknownCommand,
+                        },
+                    ),
+                    CommandFailureCode::NotSupported => self.fail(
+                        ProtocolError::UnsupportedEntitySubscription {
+                            reason: UnsupportedSubscriptionReason::NotSupported,
+                        },
+                    ),
+                    CommandFailureCode::Other => self.fail(ProtocolError::CommandRejected { phase }),
+                }
             }
             (
                 ProtocolState::AwaitInitialSnapshot { subscription_id: expected },
@@ -668,6 +718,59 @@ mod tests {
                 ..
             }]
         ));
+    }
+
+    #[test]
+    fn unsupported_native_subscription_is_explicit_and_has_no_fallback() {
+        for (code, reason) in [
+            (CommandFailureCode::UnknownCommand, UnsupportedSubscriptionReason::UnknownCommand),
+            (CommandFailureCode::NotSupported, UnsupportedSubscriptionReason::NotSupported),
+        ] {
+            let mut machine = machine(1);
+            let id = reaches_subscription_result(&mut machine);
+            assert_eq!(
+                send(&mut machine, InboundMessage::CommandFailure { id, code }),
+                vec![ProtocolAction::FailClosed {
+                    session_epoch: 1,
+                    error: ProtocolError::UnsupportedEntitySubscription { reason },
+                }]
+            );
+            assert!(matches!(machine.state(), ProtocolState::Failed(_)));
+        }
+    }
+
+    #[test]
+    fn unsupported_subscription_result_still_requires_exact_command_id() {
+        let mut machine = machine(1);
+        reaches_subscription_result(&mut machine);
+        assert_eq!(
+            send(&mut machine, InboundMessage::CommandFailure {
+                id: 77,
+                code: CommandFailureCode::UnknownCommand,
+            }),
+            vec![ProtocolAction::FailClosed {
+                session_epoch: 1,
+                error: ProtocolError::CommandIdMismatch { expected: 1, actual: 77 },
+            }]
+        );
+    }
+
+    #[test]
+    fn other_subscription_errors_remain_generic_fail_closed_rejections() {
+        let mut machine = machine(1);
+        let id = reaches_subscription_result(&mut machine);
+        assert_eq!(
+            send(&mut machine, InboundMessage::CommandFailure {
+                id,
+                code: CommandFailureCode::Other,
+            }),
+            vec![ProtocolAction::FailClosed {
+                session_epoch: 1,
+                error: ProtocolError::CommandRejected {
+                    phase: SessionPhase::AwaitSubscriptionResult,
+                },
+            }]
+        );
     }
 
     #[test]
