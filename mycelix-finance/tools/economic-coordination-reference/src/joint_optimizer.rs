@@ -759,9 +759,11 @@ mod tests {
                 independent_quantity_frontier(pool_capacity),
                 "pool capacity {pool_capacity}"
             );
+            let per_edge_maximum = pool_capacity.min(2);
+            let expected_candidates = u64::from(per_edge_maximum + 1).pow(4);
             assert_eq!(
                 report.feasible_candidate_count + report.infeasible_candidate_count,
-                81
+                expected_candidates
             );
         }
     }
