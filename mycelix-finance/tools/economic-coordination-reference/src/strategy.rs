@@ -37,8 +37,9 @@ pub struct StrategyMetrics {
     pub commitment_cost_minor: u64,
     /// Largest unfilled quantity in any declared scenario; not a probability.
     pub worst_case_unfilled_quantity: u32,
-    /// Sum of unfilled quantities across the listed scenarios. This is a corpus
-    /// diagnostic, NOT an expected shortage and NOT probability-weighted.
+    /// Sum of unfilled quantities across the listed scenarios. This is an explicit
+    /// Pareto axis and corpus diagnostic, NOT expected shortage or probability-weighted.
+    /// Duplicate scenarios change this value; freeze the scenario manifest.
     pub unfilled_quantity_sum_across_scenarios: u64,
     /// Largest all-in cost reported for any scenario, including sunk commitment
     /// cost and activated recourse costs.
