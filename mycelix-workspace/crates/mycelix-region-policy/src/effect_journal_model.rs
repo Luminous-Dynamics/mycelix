@@ -14,6 +14,7 @@ const OPERATION_A: &str = "sink-operation-a";
 const OPERATION_B: &str = "sink-operation-b";
 
 #[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Event {
     LoadA,
     ReserveA,
@@ -274,10 +275,10 @@ mod tests {
             identity.policy_binding_digest(),
         )
         .expect("second identity is well-formed");
-        assert_eq!(
+        assert!(matches!(
             sink.dispatch(&changed_target, OPERATION_A),
             Err(ModelSinkError::Conflict)
-        );
+        ));
         assert_eq!(sink.applied_effects, 1);
     }
 
