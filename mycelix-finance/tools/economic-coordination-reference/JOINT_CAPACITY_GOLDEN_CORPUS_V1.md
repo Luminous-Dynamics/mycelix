@@ -8,7 +8,7 @@ The first implementation has 13 authored module tests. Test names are included w
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
-| JCV-001 | Valid two-request allocation across distinct pools | Per-request cost and service plus pool/unit/currency summaries reconcile | Authored |
+| JCV-001 | Valid two-request allocation across distinct pools | Per-request cost and service plus pool/unit/currency summaries reconcile; line witnesses identify mapping and pool snapshot | Authored |
 | JCV-002 | Two offers reference one pool; combined quantity exceeds pool ceiling | Joint allocation rejected with pool-capacity error | Authored |
 | JCV-003 | Two requests try to claim one last shared unit through separate offers | Pool capacity is counted once; second claim rejected | Authored |
 | JCV-004 | Request is only partially filled | Unfilled quantity visible; fully-served remains false | Authored |
@@ -19,7 +19,7 @@ The first implementation has 13 authored module tests. Test names are included w
 | JCV-009 | Duplicate request/offer assignment row | Non-canonical duplicate rejected | Authored |
 | JCV-010 | Offer currency differs from request currency | Assignment rejected | Authored |
 | JCV-011 | Aggregated order quantity violates min/increment | Invalid lot rejected; compliant aggregate accepted | Authored |
-| JCV-012 | Requests/offers/mappings/assignments permuted | Canonical report byte-equivalent at the struct level | Authored |
+| JCV-012 | Requests/offers/mappings/assignments permuted | Canonical report struct-equal, including ordered line-level witnesses | Authored |
 | JCV-013 | Offer arrives after request deadline | Assignment rejected | Authored |
 | JCV-014 | Duplicate request ID | Input rejected | Planned |
 | JCV-015 | Duplicate offer ID | Input rejected | Planned |
