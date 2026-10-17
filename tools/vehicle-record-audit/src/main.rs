@@ -80,9 +80,24 @@ fn check_envelope_schema(schema: &Value) -> Vec<String> {
     if !schema
         .get("required")
         .and_then(Value::as_array)
-        .is_some_and(|required| required.iter().any(|entry| entry.as_str() == Some("signature")))
+        .is_some_and(|required| {
+            required.iter().any(|entry| entry.as_str() == Some("signature"))
+                && required.iter().any(|entry| entry.as_str() == Some("envelope_digest"))
+        })
     {
-        errors.push("signature must remain a required envelope field".to_owned());
+        errors.push("signature and envelope_digest must remain required envelope fields".to_owned());
+    }
+    let signature_required: BTreeSet<&str> = schema
+        .get("properties")
+        .and_then(|properties| properties.get("signature"))
+        .and_then(|signature| signature.get("required"))
+        .and_then(Value::as_array)
+        .map(|values| values.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    for field in ["signer_ref", "algorithm", "signature_b64", "signed_digest", "canonicalization_version", "signature_context"] {
+        if !signature_required.contains(field) {
+            errors.push(format!("signature.{field} must remain required"));
+        }
     }
     if !schema
         .get("properties")
@@ -163,6 +178,35 @@ fn check_fixture_corpus(fixtures: &Value) -> AuditResult<usize> {
     if errors.is_empty() { Ok(items.len()) } else { Err(errors) }
 }
 
+fn signature_binding_errors(record: &Value) -> Vec<String> {
+    let mut errors = Vec::new();
+    let envelope_digest = record.get("envelope_digest").and_then(Value::as_str);
+    let signed_digest = record.get("signature").and_then(|value| value.get("signed_digest")).and_then(Value::as_str);
+    let payload_canonicalization = record
+        .get("payload_digest")
+        .and_then(|value| value.get("canonicalization_version"))
+        .and_then(Value::as_str);
+    let signature_canonicalization = record
+        .get("signature")
+        .and_then(|value| value.get("canonicalization_version"))
+        .and_then(Value::as_str);
+    let signature_context = record
+        .get("signature")
+        .and_then(|value| value.get("signature_context"))
+        .and_then(Value::as_str);
+
+    if envelope_digest.is_none() || signed_digest != envelope_digest {
+        errors.push("signature.signed_digest must equal top-level envelope_digest".to_owned());
+    }
+    if payload_canonicalization.is_none() || signature_canonicalization != payload_canonicalization {
+        errors.push("signature and payload digest canonicalization profiles must match".to_owned());
+    }
+    if signature_context != Some("mycelix-vehicle-record-envelope/0.1") {
+        errors.push("signature context domain separator mismatch".to_owned());
+    }
+    errors
+}
+
 fn valid_repair_record() -> Value {
     json!({
         "schema_version": EXPECTED_SCHEMA_VERSION,
@@ -177,6 +221,7 @@ fn valid_repair_record() -> Value {
             "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "canonicalization_version": "json-c14n-v1"
         },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "evidence_refs": [{
             "artifact_kind": "repair_order",
             "artifact_ref": "repair-order-2026-001",
@@ -189,6 +234,9 @@ fn valid_repair_record() -> Value {
             "signer_ref": "actor_workshop_01",
             "algorithm": "ed25519",
             "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+            "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "canonicalization_version": "json-c14n-v1",
+            "signature_context": "mycelix-vehicle-record-envelope/0.1",
             "credential_ref": "credential_workshop_01"
         },
         "privacy_review": {
@@ -271,6 +319,7 @@ fn main() -> ExitCode {
     if errors.is_empty() {
         let record = valid_repair_record();
         errors.extend(instance_errors(&schema, &record));
+        errors.extend(signature_binding_errors(&record));
     }
     if errors.is_empty() {
         let fixture_count = fixture_count.unwrap_or_default();
@@ -326,8 +375,30 @@ mod tests {
     }
 
     #[test]
-    fn minimum_repair_record_is_accepted() {
-        assert!(passes(&schema(), &valid_repair_record()));
+    fn minimum_repair_record_has_valid_schema_and_digest_binding() {
+        let schema = schema();
+        let record = valid_repair_record();
+        assert!(passes(&schema, &record));
+        assert!(signature_binding_errors(&record).is_empty());
+    }
+
+    #[test]
+    fn signature_digest_must_bind_the_envelope_digest() {
+        let mut record = valid_repair_record();
+        record["signature"]["signed_digest"] =
+            Value::String("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_owned());
+        assert!(passes(&schema(), &record));
+        assert!(!signature_binding_errors(&record).is_empty());
+    }
+
+    #[test]
+    fn signature_domain_and_canonicalization_must_match() {
+        let mut record = valid_repair_record();
+        record["signature"]["signature_context"] = Value::String("other-contract/1".to_owned());
+        assert!(!signature_binding_errors(&record).is_empty());
+        record = valid_repair_record();
+        record["signature"]["canonicalization_version"] = Value::String("other-c14n".to_owned());
+        assert!(!signature_binding_errors(&record).is_empty());
     }
 
     #[test]
