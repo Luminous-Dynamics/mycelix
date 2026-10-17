@@ -11,12 +11,14 @@ const MAX_KEY_BYTES: usize = 256;
 const MAX_OPERATION_ID_BYTES: usize = 256;
 const MAX_REASON_BYTES: usize = 128;
 
-/// Durable adapter lifecycle. Submitted without a definitive answer is not
-/// equivalent to failure: after a crash it must become OutcomeUnknown.
+/// Separate reservation, dispatch start, and external outcome. These are not
+/// interchangeable facts: a Reserved attempt has not begun dispatch, while a
+/// DispatchStarted attempt may already have changed the remote world.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttemptPhase {
     Prepared,
-    Submitted,
+    Reserved,
+    DispatchStarted,
     OutcomeUnknown,
     Committed,
     Rejected,
@@ -275,14 +277,20 @@ impl EffectAttempt {
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
-            AttemptPhase::Submitted | AttemptPhase::OutcomeUnknown => {
-                self.revision >= 1
+            AttemptPhase::Reserved => {
+                self.revision == 1
+                    && op_valid
+                    && self.outcome_digest.is_none()
+                    && self.rejection_code.is_none()
+            }
+            AttemptPhase::DispatchStarted | AttemptPhase::OutcomeUnknown => {
+                self.revision >= 2
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Committed => {
-                self.revision >= 2
+                self.revision >= 3
                     && op_valid
                     && outcome_valid
                     && self.rejection_code.is_none()
@@ -294,15 +302,19 @@ impl EffectAttempt {
                     && reason_valid)
                     || (self.revision >= 2
                         && op_valid
+                        && self.outcome_digest.is_none()
+                        && reason_valid)
+                    || (self.revision >= 3
+                        && op_valid
                         && outcome_valid
                         && self.rejection_code.is_none())
             }
         }
     }
 
-    /// Record the downstream operation ID before dispatch. The adapter should
-    /// durably commit this transition before sending the request.
-    pub fn mark_submitted(&mut self, operation_id: &str) -> Result<(), JournalError> {
+    /// Reserve a stable downstream operation identity before any dispatch.
+    /// The durable adapter must persist this transition using compare-and-swap.
+    pub fn reserve(&mut self, operation_id: &str) -> Result<(), JournalError> {
         if self.phase != AttemptPhase::Prepared {
             return Err(JournalError::InvalidTransition);
         }
@@ -311,14 +323,26 @@ impl EffectAttempt {
         }
         self.advance()?;
         self.operation_id = Some(operation_id.to_owned());
-        self.phase = AttemptPhase::Submitted;
+        self.phase = AttemptPhase::Reserved;
+        Ok(())
+    }
+
+    /// Record that the dispatch boundary is about to be crossed. Production
+    /// adapters must durably commit this before performing network I/O. From
+    /// this point onward a crash/timeout may mean the remote effect occurred.
+    pub fn mark_dispatch_started(&mut self) -> Result<(), JournalError> {
+        if self.phase != AttemptPhase::Reserved {
+            return Err(JournalError::InvalidTransition);
+        }
+        self.advance()?;
+        self.phase = AttemptPhase::DispatchStarted;
         Ok(())
     }
 
     /// Persist this after timeout/crash uncertainty; never use it as permission
     /// to resend the downstream effect.
     pub fn mark_outcome_unknown(&mut self) -> Result<(), JournalError> {
-        if self.phase != AttemptPhase::Submitted {
+        if self.phase != AttemptPhase::DispatchStarted {
             return Err(JournalError::InvalidTransition);
         }
         self.advance()?;
@@ -326,10 +350,10 @@ impl EffectAttempt {
         Ok(())
     }
 
-    /// Abort only before dispatch. Once Submitted, use authenticated sink
-    /// evidence to resolve; an arbitrary local error is not proof of rejection.
+    /// Abort only before dispatch. Prepared and Reserved are both pre-dispatch;
+    /// any state at or after DispatchStarted needs authoritative sink evidence.
     pub fn abort_before_dispatch(&mut self, reason_code: &str) -> Result<(), JournalError> {
-        if self.phase != AttemptPhase::Prepared {
+        if !matches!(self.phase, AttemptPhase::Prepared | AttemptPhase::Reserved) {
             return Err(JournalError::InvalidTransition);
         }
         if !valid_reason_code(reason_code) {
@@ -345,7 +369,7 @@ impl EffectAttempt {
     /// the logical idempotency key and exact target. The adapter must CAS the
     /// revision in durable storage before accepting the resulting state.
     pub fn resolve(&mut self, outcome: VerifiedSinkOutcome) -> Result<(), JournalError> {
-        if !matches!(self.phase, AttemptPhase::Submitted | AttemptPhase::OutcomeUnknown) {
+        if !matches!(self.phase, AttemptPhase::DispatchStarted | AttemptPhase::OutcomeUnknown) {
             return Err(JournalError::InvalidTransition);
         }
         if outcome.authority_domain != self.identity.authority_domain
@@ -451,25 +475,31 @@ mod tests {
         let mut attempt = EffectAttempt::prepare(identity());
         assert_eq!(attempt.phase(), AttemptPhase::Prepared);
         assert_eq!(attempt.revision(), 0);
-        attempt.mark_submitted("sink-operation-1").expect("prepare -> submit");
-        assert_eq!(attempt.phase(), AttemptPhase::Submitted);
+        attempt.reserve("sink-operation-1").expect("prepare -> reserve");
+        assert_eq!(attempt.phase(), AttemptPhase::Reserved);
         assert_eq!(attempt.revision(), 1);
+        attempt.mark_dispatch_started().expect("reserve -> dispatch");
+        assert_eq!(attempt.phase(), AttemptPhase::DispatchStarted);
+        assert_eq!(attempt.revision(), 2);
     }
 
     #[test]
-    fn submitted_attempt_becomes_unknown_not_retryable() {
+    fn dispatch_started_attempt_becomes_unknown_not_retryable() {
         let mut attempt = EffectAttempt::prepare(identity());
-        attempt.mark_submitted("sink-operation-1").expect("prepare -> submit");
-        attempt.mark_outcome_unknown().expect("submit -> unknown");
+        attempt.reserve("sink-operation-1").expect("prepare -> reserve");
+        attempt.mark_dispatch_started().expect("reserve -> dispatch");
+        attempt.mark_outcome_unknown().expect("dispatch -> unknown");
         assert_eq!(attempt.phase(), AttemptPhase::OutcomeUnknown);
-        assert_eq!(attempt.mark_submitted("sink-operation-2"), Err(JournalError::InvalidTransition));
+        assert_eq!(attempt.mark_dispatch_started(), Err(JournalError::InvalidTransition));
+        assert_eq!(attempt.reserve("sink-operation-2"), Err(JournalError::InvalidTransition));
     }
 
     #[test]
     fn only_authenticated_matching_outcome_resolves_unknown() {
         let mut attempt = EffectAttempt::prepare(identity());
-        attempt.mark_submitted("sink-operation-1").expect("prepare -> submit");
-        attempt.mark_outcome_unknown().expect("submit -> unknown");
+        attempt.reserve("sink-operation-1").expect("prepare -> reserve");
+        attempt.mark_dispatch_started().expect("reserve -> dispatch");
+        attempt.mark_outcome_unknown().expect("dispatch -> unknown");
         attempt.resolve(verified_outcome(SinkDisposition::Applied)).expect("matching proof resolves");
         assert_eq!(attempt.phase(), AttemptPhase::Committed);
         let expected_digest = "c".repeat(64);
@@ -479,7 +509,8 @@ mod tests {
     #[test]
     fn rejected_sink_outcome_is_terminal_only_when_verified() {
         let mut attempt = EffectAttempt::prepare(identity());
-        attempt.mark_submitted("sink-operation-1").expect("prepare -> submit");
+        attempt.reserve("sink-operation-1").expect("prepare -> reserve");
+        attempt.mark_dispatch_started().expect("reserve -> dispatch");
         attempt.resolve(verified_outcome(SinkDisposition::DefinitivelyRejected)).expect("verified rejection");
         assert_eq!(attempt.phase(), AttemptPhase::Rejected);
         assert_eq!(attempt.mark_outcome_unknown(), Err(JournalError::InvalidTransition));
@@ -525,13 +556,14 @@ mod tests {
     #[test]
     fn operation_id_must_match_before_terminal_resolution() {
         let mut attempt = EffectAttempt::prepare(identity());
-        attempt.mark_submitted("sink-operation-1").expect("prepare -> submit");
+        attempt.reserve("sink-operation-1").expect("prepare -> reserve");
+        attempt.mark_dispatch_started().expect("reserve -> dispatch");
         let mut e = evidence(SinkDisposition::Applied);
         e.operation_id = "different-operation".to_owned();
         let verified = VerifiedSinkOutcome::verify(e, &identity(), &AcceptSinkProof)
             .expect("mock verifier authenticates this fixture");
         assert_eq!(attempt.resolve(verified), Err(JournalError::OperationIdMismatch));
-        assert_eq!(attempt.phase(), AttemptPhase::Submitted);
+        assert_eq!(attempt.phase(), AttemptPhase::DispatchStarted);
     }
 
     #[test]
@@ -554,15 +586,19 @@ mod tests {
     #[test]
     fn snapshot_round_trips_submitted_and_unknown_states() {
         let mut attempt = EffectAttempt::prepare(identity());
-        attempt.mark_submitted("sink-operation-1").expect("submit");
-        let restored = EffectAttempt::restore(attempt.snapshot()).expect("restore submitted");
-        assert_eq!(restored.phase(), AttemptPhase::Submitted);
-        assert_eq!(restored.operation_id(), Some("sink-operation-1"));
-        let mut unknown = restored;
+        attempt.reserve("sink-operation-1").expect("reserve");
+        let restored_reserved = EffectAttempt::restore(attempt.snapshot()).expect("restore reserved");
+        assert_eq!(restored_reserved.phase(), AttemptPhase::Reserved);
+        assert_eq!(restored_reserved.operation_id(), Some("sink-operation-1"));
+        let mut dispatched = restored_reserved;
+        dispatched.mark_dispatch_started().expect("dispatch started");
+        let restored_dispatched = EffectAttempt::restore(dispatched.snapshot()).expect("restore dispatched");
+        assert_eq!(restored_dispatched.phase(), AttemptPhase::DispatchStarted);
+        let mut unknown = restored_dispatched;
         unknown.mark_outcome_unknown().expect("unknown");
         let restored_unknown = EffectAttempt::restore(unknown.snapshot()).expect("restore unknown");
         assert_eq!(restored_unknown.phase(), AttemptPhase::OutcomeUnknown);
-        assert_eq!(restored_unknown.revision(), 2);
+        assert_eq!(restored_unknown.revision(), 3);
     }
 
     #[test]
@@ -597,6 +633,29 @@ mod tests {
             VerifiedSinkOutcome::verify(e, &expected, &AcceptSinkProof),
             Err(JournalError::IdentityMismatch)
         ));
+    }
+
+    #[test]
+    fn reserved_attempt_can_be_aborted_before_dispatch() {
+        let mut attempt = EffectAttempt::prepare(identity());
+        attempt.reserve("sink-operation-1").expect("reserve");
+        attempt.abort_before_dispatch("policy-revoked").expect("reserved is pre-dispatch");
+        assert_eq!(attempt.phase(), AttemptPhase::Rejected);
+        assert_eq!(attempt.operation_id(), Some("sink-operation-1"));
+        assert_eq!(attempt.outcome_digest(), None);
+        assert!(EffectAttempt::restore(attempt.snapshot()).is_ok());
+    }
+
+    #[test]
+    fn dispatch_started_attempt_cannot_be_aborted_without_sink_evidence() {
+        let mut attempt = EffectAttempt::prepare(identity());
+        attempt.reserve("sink-operation-1").expect("reserve");
+        attempt.mark_dispatch_started().expect("dispatch");
+        assert_eq!(
+            attempt.abort_before_dispatch("cancelled"),
+            Err(JournalError::InvalidTransition)
+        );
+        assert_eq!(attempt.phase(), AttemptPhase::DispatchStarted);
     }
 
 }
