@@ -150,6 +150,7 @@ enum StagedDeltaAction {
     Invalidate(InvalidationReason),
 }
 
+#[derive(Clone)]
 pub struct ObservationLifecycle {
     profile: HomeAssistantObservationProfile,
     allowlisted_entity_ids: BTreeSet<String>,
