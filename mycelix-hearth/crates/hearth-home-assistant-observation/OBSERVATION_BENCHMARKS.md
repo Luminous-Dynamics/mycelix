@@ -23,6 +23,7 @@ The native `subscribe_entities` stream is preferred because Home Assistant sends
 | HAOBS-009 | Reconnect currentness | Zero frames accepted from stale session epochs; zero transition to `Live` until the exact subscription's initial snapshot is applied | Not measured |
 | HAOBS-010 | Capability/version fallback | If `subscribe_entities` is unsupported, 100% of attempts return explicit unsupported status and do not silently switch to a legacy protocol | Blocked on transport/runtime measurement |
 | HAOBS-011 | Duplicate-add replay resistance | Zero duplicate `a` additions for an already-cached allowlisted entity mutate cache or emit a fresh observation; a re-add is permitted only after an explicit removal evicts the prior cache entry | Not measured |
+| HAOBS-012 | Removed-entity invalidation | Every allowlisted `r` removal evicts the cached positive state, emits no positive observation frame, and exposes the entity ID for downstream evidence invalidation; no consumer may continue treating the removed positive observation as current | Not measured; consumer integration pending |
 
 The protocol test harness now enumerates exactly 1,000,000 length-six histories over ten event classes. Focused tests separately cover stale epochs and malformed initial-snapshot ordering. This is bounded executable coverage, not formal proof, and remains unmeasured until the exact-head workflow executes successfully.
 
