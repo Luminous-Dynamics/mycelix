@@ -498,18 +498,30 @@ fn verify_open_file(
     expected_hash: ContentHash,
     expected_size: Option<u64>,
 ) -> Result<bool> {
-    if expected_size.is_some_and(|size| file.metadata().map(|m| m.len()).ok() != Some(size)) {
-        return Ok(false);
+    if let Some(size) = expected_size {
+        if file.metadata()?.len() != size {
+            return Ok(false);
+        }
     }
     let mut reader = BufReader::new(file);
     let mut hasher = blake3::Hasher::new();
     let mut buffer = [0u8; 64 * 1024];
+    let mut total_bytes = 0u64;
     loop {
         let bytes_read = reader.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
         }
+        total_bytes = total_bytes
+            .checked_add(bytes_read as u64)
+            .ok_or_else(|| Error::VerificationFailed("artifact byte count overflow".into()))?;
+        if expected_size.is_some_and(|size| total_bytes > size) {
+            return Ok(false);
+        }
         hasher.update(&buffer[..bytes_read]);
+    }
+    if expected_size.is_some_and(|size| total_bytes != size) {
+        return Ok(false);
     }
     let actual = ContentHash(*hasher.finalize().as_bytes());
     Ok(actual == expected_hash)
