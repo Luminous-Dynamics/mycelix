@@ -48,7 +48,7 @@ The binary format is deliberately specified rather than relying on a platform's 
 
 Every string is UTF-8 with a u32 big-endian byte length and a 256-byte maximum. Integers are big-endian. Unsupported versions/tags, malformed UTF-8, oversized fields/counts, truncated bytes, invalid replay order, and trailing bytes are rejected. The canonical content digest uses BLAKE3-256 over the domain prefix MYCELIX-CSCP-GRANT-HISTORY-DIGEST-V1 plus a NUL byte, followed by the complete canonical envelope bytes. The digest is not embedded in the envelope and should travel as a separate integrity field.
 
-The on-disk binary format is experimental and not a ratified cross-language standard. Freeze it only after an independent implementation reproduces golden byte vectors. A valid digest proves byte agreement, not the identity of an author or legal consent.
+The on-disk binary format is experimental and not a ratified cross-language standard. One frozen issue/revocation byte vector is checked by the Rust encoder and a standard-library-only Python reference encoder in the test suite; the Python script is test tooling only, not application code. This is not yet a broad corpus or a cross-language BLAKE3 digest vector. Freeze the format only after multiple edge-case vectors, independent digest agreement, fuzzing, and review. A valid digest proves byte agreement, not the identity of an author or legal consent.
 
 ## Benchmark contract — targets, not results
 
@@ -71,7 +71,7 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Portable envelope round-trip | Decode then encode yields byte-identical versioned canonical bytes; effective grant state is preserved | 100% fixture agreement |
 | Unsupported version, malformed tag, truncation or trailing bytes | Import rejects rather than silently ignoring unknown/corrupt data | 100% rejected |
 | Content digest | Same canonical bytes yield same 256-bit BLAKE3 digest; changed content yields a different digest in regression fixtures | 100% fixture agreement; no authenticity claim |
-| Cross-language canonical bytes | A second implementation yields byte-identical envelope bytes and digest for frozen fixtures | 100% of golden vectors |
+| Cross-language canonical bytes/digest | A second implementation yields byte-identical envelope bytes and digest for frozen fixtures; current source includes one golden byte vector, while the independent digest vector is still outstanding | 100% of the frozen corpus before format freeze |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
 | Mutation/property testing | No invariant-breaking mutation survives the harness | Catch more than hand-picked cases |
