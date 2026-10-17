@@ -2,24 +2,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-//! Pure, read-only state machine for the Home Assistant WebSocket session.
+//! Pure, read-only state machine for Home Assistant entity subscriptions.
 //!
-//! The transport must subscribe to state_changed before requesting the initial
-//! snapshot. Events arriving after subscription acknowledgement but before the
-//! snapshot result are buffered by the transport. Actions then require the
-//! snapshot to be applied first and those events to be replayed in receive order.
+//! Prefer the provider-native subscribe_entities command: the server sends an
+//! initial compact entity snapshot followed by incremental changes over one
+//! subscription. The validated HA-0.1 profile supplies the exact entity
+//! allowlist. No separate get_states request or state_changed subscription is
+//! needed, so the client does not manufacture a gap between two subscriptions.
 //!
-//! This module deliberately knows neither the WebSocket transport nor the
-//! credential. Its output algebra has no service-call, state-write, arbitrary-
-//! command, URL, or token constructor.
+//! This module contains no socket, URL, TLS, credential, state-write,
+//! service-call, or arbitrary-command API. The future transport must decode
+//! the compressed initial/add/change/remove payloads under strict size bounds.
+//! It must apply the initial snapshot before processing later stream events.
+
+use super::HomeAssistantObservationProfile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionPhase {
     AwaitAuthRequired,
     AwaitAuthResult,
     AwaitSubscriptionResult,
-    AwaitBootstrapResult,
-    AwaitBootstrapApply,
+    AwaitInitialSnapshot,
+    AwaitInitialSnapshotApply,
     Live,
     Failed,
     Closed,
@@ -31,20 +35,26 @@ pub enum MessageKind {
     AuthOk,
     AuthInvalid,
     CommandResult,
-    StateChanged,
+    EntityStreamUpdate,
     OtherEvent,
     Unexpected,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityStreamKind {
+    InitialSnapshot,
+    Changes,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResultPayloadKind {
-    StatesArray,
     Null,
     Other,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolError {
+    InvalidObservationProfile,
     UnexpectedMessage {
         phase: SessionPhase,
         message: MessageKind,
@@ -66,6 +76,11 @@ pub enum ProtocolError {
         expected: ResultPayloadKind,
         actual: ResultPayloadKind,
     },
+    UnexpectedEntityStreamKind {
+        phase: SessionPhase,
+        expected: EntityStreamKind,
+        actual: EntityStreamKind,
+    },
     CommandIdExhausted,
 }
 
@@ -76,11 +91,10 @@ pub enum ProtocolState {
     AwaitSubscriptionResult {
         command_id: u64,
     },
-    AwaitBootstrapResult {
-        command_id: u64,
+    AwaitInitialSnapshot {
         subscription_id: u64,
     },
-    AwaitBootstrapApply {
+    AwaitInitialSnapshotApply {
         subscription_id: u64,
     },
     Live {
@@ -90,9 +104,6 @@ pub enum ProtocolState {
     Closed,
 }
 
-/// Decoded protocol facts only. Frame parsing and bounded JSON decoding belong
-/// to the future transport layer; payload bodies remain with that layer and
-/// are forwarded only when the corresponding action is emitted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InboundMessage {
     AuthRequired,
@@ -103,9 +114,9 @@ pub enum InboundMessage {
         success: bool,
         payload: ResultPayloadKind,
     },
-    /// HA event frame's outer `id` is the ID of the active subscription.
-    StateChanged {
+    EntityStreamUpdate {
         subscription_id: u64,
+        kind: EntityStreamKind,
     },
     OtherEvent,
     Unexpected,
@@ -118,47 +129,31 @@ impl InboundMessage {
             Self::AuthOk => MessageKind::AuthOk,
             Self::AuthInvalid => MessageKind::AuthInvalid,
             Self::CommandResult { .. } => MessageKind::CommandResult,
-            Self::StateChanged { .. } => MessageKind::StateChanged,
+            Self::EntityStreamUpdate { .. } => MessageKind::EntityStreamUpdate,
             Self::OtherEvent => MessageKind::OtherEvent,
             Self::Unexpected => MessageKind::Unexpected,
         }
     }
 }
 
-/// Closed set of protocol effects for a native transport to perform.
-///
-/// There is intentionally no general `SendCommand`, `CallService`, state
-/// mutation, or arbitrary message variant. `RequestAuthentication` asks the
-/// transport to obtain a local secret and send the protocol auth frame; the
-/// secret itself never enters this state machine or its errors/debug output.
-///
-/// `BufferStateChanged` tells the transport to retain that event's raw payload
-/// under the exact epoch/subscription pair. On bootstrap completion it must
-/// apply `BootstrapReady`'s snapshot first, then drain buffered events in their
-/// original receive order on `DrainBufferedStateChanges`, and only then mark
-/// the observation stream live.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A closed set of transport effects. There is no service-call, state-write,
+/// arbitrary command, or arbitrary event constructor. Entity IDs are copied
+/// only from the already-validated HA-0.1 semantic profile.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProtocolAction {
     RequestAuthentication {
         session_epoch: u64,
     },
-    SendSubscribeStateChanged {
+    SendSubscribeEntities {
         session_epoch: u64,
         command_id: u64,
+        entity_ids: Vec<String>,
     },
-    SendGetStates {
-        session_epoch: u64,
-        command_id: u64,
-    },
-    BufferStateChanged {
+    AwaitInitialEntitySnapshot {
         session_epoch: u64,
         subscription_id: u64,
     },
-    BootstrapReady {
-        session_epoch: u64,
-        command_id: u64,
-    },
-    DrainBufferedStateChanges {
+    InitialEntitySnapshotReady {
         session_epoch: u64,
         subscription_id: u64,
     },
@@ -166,7 +161,7 @@ pub enum ProtocolAction {
         session_epoch: u64,
         subscription_id: u64,
     },
-    DeliverStateChanged {
+    DeliverEntityChanges {
         session_epoch: u64,
         subscription_id: u64,
     },
@@ -186,22 +181,43 @@ pub enum ProtocolAction {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HomeAssistantWebSocketProtocol {
     session_epoch: u64,
+    allowed_entity_ids: Vec<String>,
     next_command_id: Option<u64>,
     state: ProtocolState,
 }
 
 impl HomeAssistantWebSocketProtocol {
-    /// Start one fresh protocol session. The owner of the transport must
-    /// allocate an epoch that differs from every prior connection epoch.
-    pub fn new(session_epoch: u64) -> Self {
-        Self {
+    /// Start a fresh session using a validated semantic observation profile.
+    /// An invalid or empty profile cannot generate a subscription action.
+    pub fn new(
+        session_epoch: u64,
+        profile: &HomeAssistantObservationProfile,
+    ) -> Result<Self, ProtocolError> {
+        profile
+            .validate()
+            .map_err(|_| ProtocolError::InvalidObservationProfile)?;
+
+        let mut allowed_entity_ids: Vec<String> = profile
+            .rules
+            .iter()
+            .map(|rule| rule.entity_id.clone())
+            .collect();
+        allowed_entity_ids.sort();
+        allowed_entity_ids.dedup();
+
+        if allowed_entity_ids.is_empty() || allowed_entity_ids.len() != profile.rules.len() {
+            return Err(ProtocolError::InvalidObservationProfile);
+        }
+
+        Ok(Self {
             session_epoch,
+            allowed_entity_ids,
             next_command_id: Some(1),
             state: ProtocolState::AwaitAuthRequired,
-        }
+        })
     }
 
     pub fn session_epoch(&self) -> u64 {
@@ -217,27 +233,26 @@ impl HomeAssistantWebSocketProtocol {
             ProtocolState::AwaitAuthRequired => SessionPhase::AwaitAuthRequired,
             ProtocolState::AwaitAuthResult => SessionPhase::AwaitAuthResult,
             ProtocolState::AwaitSubscriptionResult { .. } => SessionPhase::AwaitSubscriptionResult,
-            ProtocolState::AwaitBootstrapResult { .. } => SessionPhase::AwaitBootstrapResult,
-            ProtocolState::AwaitBootstrapApply { .. } => SessionPhase::AwaitBootstrapApply,
+            ProtocolState::AwaitInitialSnapshot { .. } => SessionPhase::AwaitInitialSnapshot,
+            ProtocolState::AwaitInitialSnapshotApply { .. } => SessionPhase::AwaitInitialSnapshotApply,
             ProtocolState::Live { .. } => SessionPhase::Live,
             ProtocolState::Failed(_) => SessionPhase::Failed,
             ProtocolState::Closed => SessionPhase::Closed,
         }
     }
 
-    /// Mark a disconnected session terminal. A reconnect must create a new
-    /// machine with a new epoch and repeat authentication/subscription/bootstrap.
+    /// A disconnected session is terminal. Reconnect creates a fresh machine,
+    /// fresh epoch, new subscription, and a new initial snapshot.
     pub fn close(&mut self) {
         if !matches!(self.state, ProtocolState::Failed(_)) {
             self.state = ProtocolState::Closed;
         }
     }
 
-    /// Mark the snapshot and buffered events fully applied after the transport
-    /// has executed the ordered bootstrap actions. Calling this is the only way
-    /// to enter Live, so the state machine does not declare live before the
-    /// snapshot is applied and the pre-snapshot event queue is drained.
-    pub fn bootstrap_applied(
+    /// Acknowledge that the initial entity snapshot has been decoded through
+    /// the allowlisted mapper and applied. A serialized receive loop must call
+    /// this before processing the next entity stream update.
+    pub fn initial_snapshot_applied(
         &mut self,
         received_epoch: u64,
         subscription_id: u64,
@@ -253,8 +268,9 @@ impl HomeAssistantWebSocketProtocol {
                 session_epoch: self.session_epoch,
             }];
         }
+
         match self.state {
-            ProtocolState::AwaitBootstrapApply { subscription_id: expected } => {
+            ProtocolState::AwaitInitialSnapshotApply { subscription_id: expected } => {
                 if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
                         expected,
@@ -274,11 +290,8 @@ impl HomeAssistantWebSocketProtocol {
         }
     }
 
-    /// Process a typed inbound protocol message.
-    ///
-    /// A frame from an older connection epoch is ignored without mutating the
-    /// active session. Every unsafe ordering, failed command or mismatched
-    /// correlation ID transitions the session to a terminal failed state.
+    /// Process one decoded protocol fact. The transport is responsible for
+    /// bounded JSON decoding and must preserve frame order within each epoch.
     pub fn handle(
         &mut self,
         received_epoch: u64,
@@ -290,7 +303,6 @@ impl HomeAssistantWebSocketProtocol {
                 active_epoch: self.session_epoch,
             }];
         }
-
         if matches!(self.state, ProtocolState::Failed(_) | ProtocolState::Closed) {
             return vec![ProtocolAction::IgnoreTerminalMessage {
                 session_epoch: self.session_epoch,
@@ -309,9 +321,10 @@ impl HomeAssistantWebSocketProtocol {
                 match self.allocate_command_id() {
                     Ok(command_id) => {
                         self.state = ProtocolState::AwaitSubscriptionResult { command_id };
-                        vec![ProtocolAction::SendSubscribeStateChanged {
+                        vec![ProtocolAction::SendSubscribeEntities {
                             session_epoch: self.session_epoch,
                             command_id,
+                            entity_ids: self.allowed_entity_ids.clone(),
                         }]
                     }
                     Err(error) => self.fail(error),
@@ -325,10 +338,7 @@ impl HomeAssistantWebSocketProtocol {
                 InboundMessage::CommandResult { id, success, payload },
             ) => {
                 if id != expected {
-                    return self.fail(ProtocolError::CommandIdMismatch {
-                        expected,
-                        actual: id,
-                    });
+                    return self.fail(ProtocolError::CommandIdMismatch { expected, actual: id });
                 }
                 if !success {
                     return self.fail(ProtocolError::CommandRejected { phase });
@@ -340,86 +350,75 @@ impl HomeAssistantWebSocketProtocol {
                         actual: payload,
                     });
                 }
-                let bootstrap_id = match self.allocate_command_id() {
-                    Ok(id) => id,
-                    Err(error) => return self.fail(error),
-                };
-                self.state = ProtocolState::AwaitBootstrapResult {
-                    command_id: bootstrap_id,
+                self.state = ProtocolState::AwaitInitialSnapshot {
                     subscription_id: expected,
                 };
-                vec![ProtocolAction::SendGetStates {
+                vec![ProtocolAction::AwaitInitialEntitySnapshot {
                     session_epoch: self.session_epoch,
-                    command_id: bootstrap_id,
+                    subscription_id: expected,
                 }]
             }
             (
-                ProtocolState::AwaitBootstrapResult {
-                    command_id: expected,
-                    subscription_id,
-                },
-                InboundMessage::CommandResult { id, success, payload },
+                ProtocolState::AwaitInitialSnapshot { subscription_id: expected },
+                InboundMessage::EntityStreamUpdate { subscription_id, kind },
             ) => {
-                if id != expected {
-                    return self.fail(ProtocolError::CommandIdMismatch {
-                        expected,
-                        actual: id,
-                    });
-                }
-                if !success {
-                    return self.fail(ProtocolError::CommandRejected { phase });
-                }
-                if payload != ResultPayloadKind::StatesArray {
-                    return self.fail(ProtocolError::WrongResultPayload {
-                        phase,
-                        expected: ResultPayloadKind::StatesArray,
-                        actual: payload,
-                    });
-                }
-                self.state = ProtocolState::AwaitBootstrapApply { subscription_id };
-                vec![
-                    ProtocolAction::BootstrapReady {
-                        session_epoch: self.session_epoch,
-                        command_id: expected,
-                    },
-                    ProtocolAction::DrainBufferedStateChanges {
-                        session_epoch: self.session_epoch,
-                        subscription_id,
-                    },
-                ]
-            }
-            (
-                ProtocolState::AwaitBootstrapResult { subscription_id, .. }
-                | ProtocolState::AwaitBootstrapApply { subscription_id },
-                InboundMessage::StateChanged { subscription_id: received },
-            ) => {
-                if received != subscription_id {
+                if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
-                        expected: subscription_id,
-                        actual: received,
+                        expected,
+                        actual: subscription_id,
                     });
                 }
-                vec![ProtocolAction::BufferStateChanged {
+                if kind != EntityStreamKind::InitialSnapshot {
+                    return self.fail(ProtocolError::UnexpectedEntityStreamKind {
+                        phase,
+                        expected: EntityStreamKind::InitialSnapshot,
+                        actual: kind,
+                    });
+                }
+                self.state = ProtocolState::AwaitInitialSnapshotApply { subscription_id: expected };
+                vec![ProtocolAction::InitialEntitySnapshotReady {
                     session_epoch: self.session_epoch,
-                    subscription_id,
+                    subscription_id: expected,
                 }]
+            }
+            (
+                ProtocolState::AwaitInitialSnapshotApply { subscription_id: expected },
+                InboundMessage::EntityStreamUpdate { subscription_id, .. },
+            ) => {
+                if subscription_id != expected {
+                    return self.fail(ProtocolError::SubscriptionIdMismatch {
+                        expected,
+                        actual: subscription_id,
+                    });
+                }
+                self.fail(ProtocolError::UnexpectedMessage {
+                    phase,
+                    message: MessageKind::EntityStreamUpdate,
+                })
             }
             (
                 ProtocolState::Live { subscription_id: expected },
-                InboundMessage::StateChanged { subscription_id: received },
+                InboundMessage::EntityStreamUpdate { subscription_id, kind },
             ) => {
-                if received != expected {
+                if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
                         expected,
-                        actual: received,
+                        actual: subscription_id,
                     });
                 }
-                vec![ProtocolAction::DeliverStateChanged {
+                if kind != EntityStreamKind::Changes {
+                    return self.fail(ProtocolError::UnexpectedEntityStreamKind {
+                        phase,
+                        expected: EntityStreamKind::Changes,
+                        actual: kind,
+                    });
+                }
+                vec![ProtocolAction::DeliverEntityChanges {
                     session_epoch: self.session_epoch,
                     subscription_id: expected,
                 }]
             }
-            (ProtocolState::Live { .. } | ProtocolState::AwaitBootstrapResult { .. } | ProtocolState::AwaitBootstrapApply { .. }, InboundMessage::OtherEvent) => {
+            (ProtocolState::Live { .. }, InboundMessage::OtherEvent) => {
                 vec![ProtocolAction::IgnoreUnrelatedEvent {
                     session_epoch: self.session_epoch,
                 }]
@@ -432,9 +431,7 @@ impl HomeAssistantWebSocketProtocol {
     }
 
     fn allocate_command_id(&mut self) -> Result<u64, ProtocolError> {
-        let id = self
-            .next_command_id
-            .ok_or(ProtocolError::CommandIdExhausted)?;
+        let id = self.next_command_id.ok_or(ProtocolError::CommandIdExhausted)?;
         self.next_command_id = id.checked_add(1);
         Ok(id)
     }
@@ -451,6 +448,40 @@ impl HomeAssistantWebSocketProtocol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        EntityObservationRule, EntityRef, StateCodec,
+        HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
+    };
+
+    fn profile() -> HomeAssistantObservationProfile {
+        HomeAssistantObservationProfile {
+            schema_version: HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
+            instance_id: "home-main".into(),
+            profile_ref: "profile:ha-observation-test-v1".into(),
+            rules: vec![EntityObservationRule {
+                entity_id: "sensor.living_room_temperature".into(),
+                subject: EntityRef {
+                    kind: "room".into(),
+                    id: "living-room".into(),
+                },
+                attribute: "temperature_celsius".into(),
+                codec: StateCodec::FixedRange {
+                    scale: 1,
+                    min_mantissa: -500,
+                    max_mantissa: 800,
+                },
+                expected_unit: Some("°C".into()),
+                expected_device_class: Some("temperature".into()),
+                max_age_ms: 30_000,
+                confidence_bp: 9_500,
+            }],
+        }
+    }
+
+    fn machine(epoch: u64) -> HomeAssistantWebSocketProtocol {
+        HomeAssistantWebSocketProtocol::new(epoch, &profile())
+            .expect("test profile must be valid")
+    }
 
     fn send(
         machine: &mut HomeAssistantWebSocketProtocol,
@@ -474,67 +505,51 @@ mod tests {
         let epoch = machine.session_epoch();
         assert_eq!(
             send(machine, InboundMessage::AuthOk),
-            vec![ProtocolAction::SendSubscribeStateChanged {
+            vec![ProtocolAction::SendSubscribeEntities {
                 session_epoch: epoch,
                 command_id: 1,
+                entity_ids: vec!["sensor.living_room_temperature".into()],
             }]
         );
-        assert_eq!(
-            machine.state(),
-            ProtocolState::AwaitSubscriptionResult { command_id: 1 }
-        );
+        assert_eq!(machine.state(), ProtocolState::AwaitSubscriptionResult { command_id: 1 });
         1
     }
 
-    fn reaches_bootstrap_result(machine: &mut HomeAssistantWebSocketProtocol) -> (u64, u64) {
+    fn reaches_initial_snapshot(machine: &mut HomeAssistantWebSocketProtocol) -> u64 {
         let subscription_id = reaches_subscription_result(machine);
-        let epoch = machine.session_epoch();
         assert_eq!(
             send(machine, InboundMessage::CommandResult {
                 id: subscription_id,
                 success: true,
                 payload: ResultPayloadKind::Null,
             }),
-            vec![ProtocolAction::SendGetStates {
-                session_epoch: epoch,
-                command_id: 2,
+            vec![ProtocolAction::AwaitInitialEntitySnapshot {
+                session_epoch: machine.session_epoch(),
+                subscription_id,
             }]
         );
+        assert_eq!(machine.state(), ProtocolState::AwaitInitialSnapshot { subscription_id });
         assert_eq!(
-            machine.state(),
-            ProtocolState::AwaitBootstrapResult {
-                command_id: 2,
+            send(machine, InboundMessage::EntityStreamUpdate {
                 subscription_id,
-            }
+                kind: EntityStreamKind::InitialSnapshot,
+            }),
+            vec![ProtocolAction::InitialEntitySnapshotReady {
+                session_epoch: machine.session_epoch(),
+                subscription_id,
+            }]
         );
-        (2, subscription_id)
+        assert_eq!(machine.state(), ProtocolState::AwaitInitialSnapshotApply { subscription_id });
+        subscription_id
     }
 
     fn reaches_live(machine: &mut HomeAssistantWebSocketProtocol) -> u64 {
-        let (bootstrap_id, subscription_id) = reaches_bootstrap_result(machine);
+        let subscription_id = reaches_initial_snapshot(machine);
         let epoch = machine.session_epoch();
         assert_eq!(
-            send(machine, InboundMessage::CommandResult {
-                id: bootstrap_id,
-                success: true,
-                payload: ResultPayloadKind::StatesArray,
-            }),
-            vec![
-                ProtocolAction::BootstrapReady {
-                    session_epoch: epoch,
-                    command_id: bootstrap_id,
-                },
-                ProtocolAction::DrainBufferedStateChanges {
-                    session_epoch: epoch,
-                    subscription_id,
-                },
-            ]
-        );
-        assert_eq!(machine.state(), ProtocolState::AwaitBootstrapApply { subscription_id });
-        assert_eq!(
-            machine.bootstrap_applied(machine.session_epoch(), subscription_id),
+            machine.initial_snapshot_applied(epoch, subscription_id),
             vec![ProtocolAction::SessionLive {
-                session_epoch: machine.session_epoch(),
+                session_epoch: epoch,
                 subscription_id,
             }]
         );
@@ -543,22 +558,63 @@ mod tests {
     }
 
     #[test]
-    fn requires_auth_subscription_then_bootstrap_in_exact_order() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(7);
-        assert_eq!(machine.phase(), SessionPhase::AwaitAuthRequired);
-        let subscription_id = reaches_live(&mut machine);
+    fn requires_auth_subscription_snapshot_apply_then_live_changes() {
+        let mut machine = machine(7);
+        reaches_live(&mut machine);
         assert_eq!(
-            send(&mut machine, InboundMessage::StateChanged { subscription_id }),
-            vec![ProtocolAction::DeliverStateChanged {
+            send(&mut machine, InboundMessage::EntityStreamUpdate {
+                subscription_id: 1,
+                kind: EntityStreamKind::Changes,
+            }),
+            vec![ProtocolAction::DeliverEntityChanges {
                 session_epoch: 7,
-                subscription_id,
+                subscription_id: 1,
             }]
         );
     }
 
     #[test]
-    fn auth_invalid_fails_closed() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+    fn subscription_uses_only_sorted_profile_allowlist() {
+        let mut p = profile();
+        let mut second = p.rules[0].clone();
+        second.entity_id = "binary_sensor.front_door".into();
+        second.attribute = "open".into();
+        second.codec = StateCodec::Bool {
+            true_state: "on".into(),
+            false_state: "off".into(),
+        };
+        second.expected_unit = None;
+        second.expected_device_class = None;
+        p.rules.push(second);
+
+        let mut machine = HomeAssistantWebSocketProtocol::new(1, &p).unwrap();
+        reaches_auth_result(&mut machine);
+        assert_eq!(
+            send(&mut machine, InboundMessage::AuthOk),
+            vec![ProtocolAction::SendSubscribeEntities {
+                session_epoch: 1,
+                command_id: 1,
+                entity_ids: vec![
+                    "binary_sensor.front_door".into(),
+                    "sensor.living_room_temperature".into(),
+                ],
+            }]
+        );
+    }
+
+    #[test]
+    fn invalid_profile_cannot_create_transport_session() {
+        let mut p = profile();
+        p.rules.clear();
+        assert_eq!(
+            HomeAssistantWebSocketProtocol::new(1, &p),
+            Err(ProtocolError::InvalidObservationProfile)
+        );
+    }
+
+    #[test]
+    fn authentication_rejection_is_terminal() {
+        let mut machine = machine(1);
         reaches_auth_result(&mut machine);
         assert_eq!(
             send(&mut machine, InboundMessage::AuthInvalid),
@@ -567,12 +623,11 @@ mod tests {
                 error: ProtocolError::AuthenticationRejected,
             }]
         );
-        assert!(matches!(machine.state(), ProtocolState::Failed(_)));
     }
 
     #[test]
-    fn auth_ok_before_auth_required_is_rejected() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+    fn auth_ok_before_auth_required_fails_closed() {
+        let mut machine = machine(1);
         assert!(matches!(
             send(&mut machine, InboundMessage::AuthOk).as_slice(),
             [ProtocolAction::FailClosed {
@@ -580,29 +635,25 @@ mod tests {
                 ..
             }]
         ));
-        assert!(matches!(machine.state(), ProtocolState::Failed(_)));
     }
 
     #[test]
-    fn subscription_result_id_mismatch_fails_closed() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+    fn subscription_ack_requires_matching_id_success_and_null_payload() {
+        let mut machine = machine(1);
         reaches_subscription_result(&mut machine);
-        assert_eq!(
+        assert!(matches!(
             send(&mut machine, InboundMessage::CommandResult {
                 id: 99,
                 success: true,
                 payload: ResultPayloadKind::Null,
-            }),
-            vec![ProtocolAction::FailClosed {
-                session_epoch: 1,
+            }).as_slice(),
+            [ProtocolAction::FailClosed {
                 error: ProtocolError::CommandIdMismatch { expected: 1, actual: 99 },
+                ..
             }]
-        );
-    }
+        ));
 
-    #[test]
-    fn subscription_ack_requires_success_and_null_payload() {
-        let mut failed = HomeAssistantWebSocketProtocol::new(1);
+        let mut failed = machine(2);
         let id = reaches_subscription_result(&mut failed);
         assert!(matches!(
             send(&mut failed, InboundMessage::CommandResult {
@@ -617,20 +668,48 @@ mod tests {
                 ..
             }]
         ));
+    }
 
-        let mut wrong_payload = HomeAssistantWebSocketProtocol::new(3);
-        let id = reaches_subscription_result(&mut wrong_payload);
+    #[test]
+    fn initial_snapshot_requires_exact_subscription_id() {
+        let mut machine = machine(1);
+        reaches_subscription_result(&mut machine);
+        send(&mut machine, InboundMessage::CommandResult {
+            id: 1,
+            success: true,
+            payload: ResultPayloadKind::Null,
+        });
         assert!(matches!(
-            send(&mut wrong_payload, InboundMessage::CommandResult {
-                id,
-                success: true,
-                payload: ResultPayloadKind::StatesArray,
+            send(&mut machine, InboundMessage::EntityStreamUpdate {
+                subscription_id: 77,
+                kind: EntityStreamKind::InitialSnapshot,
             }).as_slice(),
             [ProtocolAction::FailClosed {
-                error: ProtocolError::WrongResultPayload {
-                    expected: ResultPayloadKind::Null,
-                    actual: ResultPayloadKind::StatesArray,
-                    ..
+                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 77 },
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn changes_before_initial_snapshot_fail_closed() {
+        let mut machine = machine(1);
+        let id = reaches_subscription_result(&mut machine);
+        send(&mut machine, InboundMessage::CommandResult {
+            id,
+            success: true,
+            payload: ResultPayloadKind::Null,
+        });
+        assert!(matches!(
+            send(&mut machine, InboundMessage::EntityStreamUpdate {
+                subscription_id: id,
+                kind: EntityStreamKind::Changes,
+            }).as_slice(),
+            [ProtocolAction::FailClosed {
+                error: ProtocolError::UnexpectedEntityStreamKind {
+                    phase: SessionPhase::AwaitInitialSnapshot,
+                    expected: EntityStreamKind::InitialSnapshot,
+                    actual: EntityStreamKind::Changes,
                 },
                 ..
             }]
@@ -638,184 +717,94 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_result_id_mismatch_fails_closed() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        reaches_bootstrap_result(&mut machine);
-        assert_eq!(
-            send(&mut machine, InboundMessage::CommandResult {
-                id: 99,
-                success: true,
-                payload: ResultPayloadKind::StatesArray,
-            }),
-            vec![ProtocolAction::FailClosed {
-                session_epoch: 1,
-                error: ProtocolError::CommandIdMismatch { expected: 2, actual: 99 },
-            }]
-        );
-    }
-
-    #[test]
-    fn non_array_bootstrap_payload_fails_closed() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        let (id, _) = reaches_bootstrap_result(&mut machine);
+    fn initial_snapshot_must_be_applied_before_live() {
+        let mut machine = machine(1);
+        let id = reaches_initial_snapshot(&mut machine);
         assert!(matches!(
-            send(&mut machine, InboundMessage::CommandResult {
-                id,
-                success: true,
-                payload: ResultPayloadKind::Null,
-            }).as_slice(),
+            machine.initial_snapshot_applied(1, id + 1).as_slice(),
             [ProtocolAction::FailClosed {
-                error: ProtocolError::WrongResultPayload {
-                    expected: ResultPayloadKind::StatesArray,
-                    actual: ResultPayloadKind::Null,
-                    ..
-                },
+                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 2 },
                 ..
             }]
         ));
     }
 
     #[test]
-    fn failed_bootstrap_command_fails_closed() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        let (id, _) = reaches_bootstrap_result(&mut machine);
+    fn initial_snapshot_cannot_be_acknowledged_before_it_arrives() {
+        let mut machine = machine(1);
+        reaches_subscription_result(&mut machine);
         assert!(matches!(
-            send(&mut machine, InboundMessage::CommandResult {
-                id,
-                success: false,
-                payload: ResultPayloadKind::Other,
-            }).as_slice(),
-            [ProtocolAction::FailClosed {
-                error: ProtocolError::CommandRejected {
-                    phase: SessionPhase::AwaitBootstrapResult,
-                },
-                ..
-            }]
-        ));
-    }
-
-    #[test]
-    fn state_changed_before_subscription_ack_is_rejected() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        let subscription_id = reaches_subscription_result(&mut machine);
-        assert!(matches!(
-            send(&mut machine, InboundMessage::StateChanged { subscription_id }).as_slice(),
+            machine.initial_snapshot_applied(1, 1).as_slice(),
             [ProtocolAction::FailClosed {
                 error: ProtocolError::UnexpectedMessage {
                     phase: SessionPhase::AwaitSubscriptionResult,
-                    message: MessageKind::StateChanged,
-                },
-                ..
-            }]
-        ));
-    }
-
-    #[test]
-    fn bootstrap_events_are_buffered_then_drained_after_snapshot() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        let (bootstrap_id, subscription_id) = reaches_bootstrap_result(&mut machine);
-        assert_eq!(
-            send(&mut machine, InboundMessage::StateChanged { subscription_id }),
-            vec![ProtocolAction::BufferStateChanged {
-                session_epoch: 1,
-                subscription_id,
-            }]
-        );
-
-        assert_eq!(
-            send(&mut machine, InboundMessage::CommandResult {
-                id: bootstrap_id,
-                success: true,
-                payload: ResultPayloadKind::StatesArray,
-            }),
-            vec![
-                ProtocolAction::BootstrapReady {
-                    session_epoch: 1,
-                    command_id: bootstrap_id,
-                },
-                ProtocolAction::DrainBufferedStateChanges {
-                    session_epoch: 1,
-                    subscription_id,
-                },
-            ]
-        );
-        assert_eq!(machine.state(), ProtocolState::AwaitBootstrapApply { subscription_id });
-        assert_eq!(
-            machine.bootstrap_applied(1, subscription_id),
-            vec![ProtocolAction::SessionLive {
-                session_epoch: 1,
-                subscription_id,
-            }]
-        );
-    }
-
-    #[test]
-    fn bootstrap_cannot_be_marked_applied_before_snapshot_result() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        let (_, subscription_id) = reaches_bootstrap_result(&mut machine);
-        assert!(matches!(
-            machine.bootstrap_applied(1, subscription_id).as_slice(),
-            [ProtocolAction::FailClosed {
-                error: ProtocolError::UnexpectedMessage {
-                    phase: SessionPhase::AwaitBootstrapResult,
                     ..
                 },
                 ..
             }]
         ));
-        assert!(matches!(machine.state(), ProtocolState::Failed(_)));
     }
 
     #[test]
-    fn bootstrap_completion_requires_exact_subscription_id() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
-        let (bootstrap_id, subscription_id) = reaches_bootstrap_result(&mut machine);
-        send(&mut machine, InboundMessage::CommandResult {
-            id: bootstrap_id,
-            success: true,
-            payload: ResultPayloadKind::StatesArray,
-        });
-        assert_eq!(
-            machine.bootstrap_applied(1, subscription_id + 9),
-            vec![ProtocolAction::FailClosed {
-                session_epoch: 1,
-                error: ProtocolError::SubscriptionIdMismatch {
-                    expected: subscription_id,
-                    actual: subscription_id + 9,
+    fn second_snapshot_or_event_before_acknowledgement_fails_closed() {
+        let mut machine = machine(1);
+        let id = reaches_initial_snapshot(&mut machine);
+        assert!(matches!(
+            send(&mut machine, InboundMessage::EntityStreamUpdate {
+                subscription_id: id,
+                kind: EntityStreamKind::Changes,
+            }).as_slice(),
+            [ProtocolAction::FailClosed {
+                error: ProtocolError::UnexpectedMessage {
+                    phase: SessionPhase::AwaitInitialSnapshotApply,
+                    ..
                 },
-            }]
-        );
-    }
-
-    #[test]
-    fn wrong_subscription_id_fails_closed_before_and_after_bootstrap() {
-        let mut bootstrapping = HomeAssistantWebSocketProtocol::new(1);
-        reaches_bootstrap_result(&mut bootstrapping);
-        assert!(matches!(
-            send(&mut bootstrapping, InboundMessage::StateChanged { subscription_id: 77 }).as_slice(),
-            [ProtocolAction::FailClosed {
-                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 77 },
-                ..
-            }]
-        ));
-
-        let mut live = HomeAssistantWebSocketProtocol::new(2);
-        reaches_live(&mut live);
-        assert!(matches!(
-            send(&mut live, InboundMessage::StateChanged { subscription_id: 77 }).as_slice(),
-            [ProtocolAction::FailClosed {
-                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 77 },
                 ..
             }]
         ));
     }
 
     #[test]
-    fn reconnect_epoch_rejects_old_session_frames_without_changing_new_state() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(42);
-        let result = machine.handle(41, InboundMessage::AuthRequired);
+    fn only_change_frames_are_delivered_after_live() {
+        let mut machine = machine(1);
+        reaches_live(&mut machine);
+        assert!(matches!(
+            send(&mut machine, InboundMessage::EntityStreamUpdate {
+                subscription_id: 1,
+                kind: EntityStreamKind::InitialSnapshot,
+            }).as_slice(),
+            [ProtocolAction::FailClosed {
+                error: ProtocolError::UnexpectedEntityStreamKind {
+                    phase: SessionPhase::Live,
+                    expected: EntityStreamKind::Changes,
+                    actual: EntityStreamKind::InitialSnapshot,
+                },
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn wrong_subscription_id_fails_closed_after_live() {
+        let mut machine = machine(1);
+        reaches_live(&mut machine);
+        assert!(matches!(
+            send(&mut machine, InboundMessage::EntityStreamUpdate {
+                subscription_id: 77,
+                kind: EntityStreamKind::Changes,
+            }).as_slice(),
+            [ProtocolAction::FailClosed {
+                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 77 },
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn stale_session_frames_cannot_advance_new_epoch() {
+        let mut machine = machine(42);
         assert_eq!(
-            result,
+            machine.handle(41, InboundMessage::AuthRequired),
             vec![ProtocolAction::IgnoreStaleEpoch {
                 received_epoch: 41,
                 active_epoch: 42,
@@ -825,51 +814,53 @@ mod tests {
     }
 
     #[test]
-    fn reconnect_requires_a_new_full_bootstrap_and_old_session_is_terminal() {
-        let mut prior = HomeAssistantWebSocketProtocol::new(10);
-        let old_subscription = reaches_live(&mut prior);
+    fn reconnect_requires_new_snapshot_and_prior_session_is_terminal() {
+        let mut prior = machine(10);
+        let old_id = reaches_live(&mut prior);
         prior.close();
-        assert_eq!(prior.state(), ProtocolState::Closed);
 
-        let mut current = HomeAssistantWebSocketProtocol::new(11);
-        assert_eq!(current.state(), ProtocolState::AwaitAuthRequired);
+        let mut current = machine(11);
         assert_eq!(
             send(&mut current, InboundMessage::AuthRequired),
             vec![ProtocolAction::RequestAuthentication { session_epoch: 11 }]
         );
         assert_eq!(
-            prior.handle(10, InboundMessage::StateChanged { subscription_id: old_subscription }),
+            prior.handle(10, InboundMessage::EntityStreamUpdate {
+                subscription_id: old_id,
+                kind: EntityStreamKind::Changes,
+            }),
             vec![ProtocolAction::IgnoreTerminalMessage { session_epoch: 10 }]
         );
         assert_eq!(current.state(), ProtocolState::AwaitAuthResult);
     }
 
     #[test]
-    fn late_old_command_result_cannot_advance_a_new_session() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(52);
-        let result = machine.handle(51, InboundMessage::CommandResult {
-            id: 1,
-            success: true,
-            payload: ResultPayloadKind::StatesArray,
-        });
-        assert!(matches!(result.as_slice(), [ProtocolAction::IgnoreStaleEpoch { .. }]));
+    fn late_old_command_results_are_ignored() {
+        let mut machine = machine(52);
+        assert!(matches!(
+            machine.handle(51, InboundMessage::CommandResult {
+                id: 1,
+                success: true,
+                payload: ResultPayloadKind::Null,
+            }).as_slice(),
+            [ProtocolAction::IgnoreStaleEpoch { .. }]
+        ));
         assert_eq!(machine.state(), ProtocolState::AwaitAuthRequired);
     }
 
     #[test]
-    fn unrelated_events_are_ignored_without_becoming_observations() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(9);
+    fn unrelated_live_events_are_ignored() {
+        let mut machine = machine(9);
         reaches_live(&mut machine);
         assert_eq!(
             send(&mut machine, InboundMessage::OtherEvent),
             vec![ProtocolAction::IgnoreUnrelatedEvent { session_epoch: 9 }]
         );
-        assert_eq!(machine.state(), ProtocolState::Live { subscription_id: 1 });
     }
 
     #[test]
-    fn terminal_failed_session_never_emits_new_protocol_actions() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+    fn failed_session_never_emits_new_protocol_commands() {
+        let mut machine = machine(1);
         send(&mut machine, InboundMessage::AuthOk);
         assert!(matches!(machine.state(), ProtocolState::Failed(_)));
         assert_eq!(
@@ -879,8 +870,8 @@ mod tests {
     }
 
     #[test]
-    fn command_id_exhaustion_is_a_fail_closed_error() {
-        let mut machine = HomeAssistantWebSocketProtocol::new(1);
+    fn command_id_exhaustion_fails_closed() {
+        let mut machine = machine(1);
         reaches_auth_result(&mut machine);
         machine.next_command_id = None;
         assert_eq!(
@@ -893,10 +884,8 @@ mod tests {
     }
 
     #[test]
-    fn authentication_request_action_contains_no_credential_value() {
-        let message = InboundMessage::AuthRequired;
+    fn authentication_action_carries_no_credential_value() {
         let action = ProtocolAction::RequestAuthentication { session_epoch: 1 };
-        assert_eq!(format!("{message:?}"), "AuthRequired");
         assert_eq!(
             format!("{action:?}"),
             "RequestAuthentication { session_epoch: 1 }"
