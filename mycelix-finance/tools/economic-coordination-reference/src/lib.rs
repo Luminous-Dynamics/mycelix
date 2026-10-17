@@ -40,6 +40,9 @@ pub mod joint_capacity;
 /// Bounded exact multi-request allocation with one shortage axis per request.
 pub mod joint_optimizer;
 
+/// Decision-sensitive evidence acquisition over procurement Pareto frontiers; no outreach authority.
+pub mod evidence_actions;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
