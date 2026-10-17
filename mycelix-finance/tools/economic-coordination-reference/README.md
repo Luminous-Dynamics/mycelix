@@ -168,7 +168,7 @@ The module is a research/reference model; it does not search for suppliers, exec
 
 ## Ex-ante procurement strategy (experimental)
 
-The additive `strategy` module exhaustively evaluates subsets of up to eight already-described flexible/backup options against the same frozen scenario set, invoking the current recourse evaluator for each subset. It returns a Pareto frontier over commitment cost, worst-case shortage, shortage summed across the declared scenarios, worst-case scenario cost and reserved maximum quantity. The scenario sum is descriptive only, not an expected value; scenarios are not assigned invented probabilities.
+The additive `strategy` module exhaustively evaluates subsets of up to eight already-described flexible/backup options against the same frozen scenario set, invoking the current recourse evaluator for each subset. It returns a Pareto frontier over commitment cost, worst-case shortage, shortage summed across the declared scenarios, worst-case scenario cost and reserved maximum quantity. The scenario sum is a declared Pareto axis and descriptive corpus metric, not an expected value; scenarios are unweighted, and duplicate scenarios can change that axis.
 
 The first slice treats reservations as all-or-nothing at each option's maximum activation quantity. It does not size partial reservations, model mutually exclusive options, allocate across multiple simultaneous requests, establish supplier truth, execute contracts or choose an authorized award. It fails closed on exhausted search bounds. The full acceptance contract and baselines are documented in [STRATEGY_BENCHMARKS_V1.md](STRATEGY_BENCHMARKS_V1.md).
 
