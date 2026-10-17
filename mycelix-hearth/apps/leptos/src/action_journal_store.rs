@@ -303,11 +303,9 @@ impl IndexedDbJournal {
             // Drain the completion promise so failures are observed from the
             // transaction too; no successful return occurs on request success alone.
             let _ = JsFuture::from(done).await;
-            return Err(if insert_only {
-                JournalError::DuplicateOperation
-            } else {
-                JournalError::RequestFailed
-            });
+            // A generic request error does not establish a duplicate key;
+            // quota, corruption, or an aborted transaction can fail here too.
+            return Err(JournalError::RequestFailed);
         }
         JsFuture::from(done)
             .await
