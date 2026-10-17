@@ -501,30 +501,32 @@ impl OutcomeLedger {
             OutcomeEventKind::ReceiptObserved { quantity, .. } => Some(*quantity),
             _ => None,
         })?;
-        let gross_accepted_quantity = sum_quantity(|kind| match kind {
+        let mut gross_accepted_quantity = sum_quantity(|kind| match kind {
             OutcomeEventKind::AcceptanceDecided { accepted_quantity, .. } => Some(*accepted_quantity),
             _ => None,
         })?;
-        let rejected_quantity = sum_quantity(|kind| match kind {
+        let mut rejected_quantity = sum_quantity(|kind| match kind {
             OutcomeEventKind::AcceptanceDecided { rejected_quantity, .. } => Some(*rejected_quantity),
             _ => None,
         })?;
-        let returned_quantity = sum_quantity(|kind| match kind {
+        let mut returned_quantity = sum_quantity(|kind| match kind {
             OutcomeEventKind::ReturnObserved { quantity, .. } => Some(*quantity),
             _ => None,
         })?;
+        let has_outcome_detail = events.iter().any(|event| matches!(&event.kind,
+            OutcomeEventKind::AcceptanceDecided { .. } | OutcomeEventKind::ReturnObserved { .. }));
         let inspected_quantity = gross_accepted_quantity
             .checked_add(rejected_quantity)
             .ok_or(OutcomeLedgerError::ArithmeticOverflow)?;
-        if inspected_quantity > received_quantity
-            || returned_quantity > gross_accepted_quantity
+        if returned_quantity > gross_accepted_quantity
+            || (has_outcome_detail && inspected_quantity > received_quantity)
             || committed_quantity.map_or(false, |committed| {
                 inspected_quantity > u64::from(committed)
             })
         {
             return Err(OutcomeLedgerError::OutcomeQuantityMismatch);
         }
-        let net_accepted_quantity = gross_accepted_quantity - returned_quantity;
+        let mut net_accepted_quantity = gross_accepted_quantity - returned_quantity;
 
         let mut resolved_dispute_ids = BTreeSet::new();
         for event in &events {
@@ -561,12 +563,18 @@ impl OutcomeLedger {
                 currency: final_currency,
                 ..
             } = &event.kind {
-                let has_detail = events.iter().any(|candidate| matches!(&candidate.kind,
-                    OutcomeEventKind::AcceptanceDecided { .. } | OutcomeEventKind::ReturnObserved { .. }));
-                if has_detail && (u64::from(*finalized_accepted) != net_accepted_quantity
+                if has_outcome_detail && (u64::from(*finalized_accepted) != net_accepted_quantity
                     || u64::from(*finalized_rejected) != rejected_quantity)
                 {
                     return Err(OutcomeLedgerError::FinalizationMismatch);
+                }
+                if !has_outcome_detail {
+                    // When detailed acceptance/return events are not available,
+                    // an independently evidenced finalization is the outcome summary.
+                    gross_accepted_quantity = u64::from(*finalized_accepted);
+                    rejected_quantity = u64::from(*finalized_rejected);
+                    returned_quantity = 0;
+                    net_accepted_quantity = u64::from(*finalized_accepted);
                 }
                 if currency.as_deref() != Some(final_currency.as_str()) {
                     return Err(OutcomeLedgerError::FinalizationMismatch);
