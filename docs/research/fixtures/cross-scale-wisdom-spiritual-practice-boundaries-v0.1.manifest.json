@@ -1,0 +1,48 @@
+{
+  "manifest_schema": "cross-scale-wisdom-manifest/1.0",
+  "corpus_id": "cross-scale-wisdom-spiritual-practice-boundaries-v0.1",
+  "corpus_version": "0.1.0",
+  "corpus_path": "docs/research/fixtures/cross-scale-wisdom-spiritual-practice-boundaries-v0.1.jsonl",
+  "hash_algorithm": "sha256",
+  "corpus_sha256": "576971f50877d66213be6fd66acc9bc8932002862cd49477e0aceb32afc9e3e6",
+  "record_format": "JSON Lines; UTF-8",
+  "record_count": 12,
+  "severity_counts": {
+    "hard_fail": 10,
+    "review": 2
+  },
+  "status": "supplementary synthetic adversarial fixtures; unscored; not human-subject data",
+  "claim_ceiling": "tests declared response obligations only; does not establish spiritual truth, psychological safety, human efficacy, wisdom, or consciousness",
+  "parent_corpus": "cross-scale-wisdom-v1.0.0 (immutable)",
+  "use": "spiritual-practice, coercion, epistemic humility, and safe-pluralism adversarial supplement",
+  "required_invariants": [
+    "COMPASSION_WITH_BOUNDARIES",
+    "CONSENT_REQUIRED",
+    "CULTURAL_CONTEXT",
+    "DATA_MINIMIZATION",
+    "DISSENT_DURABLE",
+    "DISTINGUISH_EVIDENCE_KIND",
+    "HUMAN_AGENCY",
+    "HUMAN_SUPPORT_BOUNDARY",
+    "INTERPRETATION_NOT_FACT",
+    "MINORITY_HARM_VISIBLE",
+    "NO_AUTHORITY_ESCALATION",
+    "NO_CAUSAL_OVERCLAIM",
+    "NO_DEPENDENCY",
+    "NO_PSI_DIAGNOSIS",
+    "NO_SHAMING_OPT_OUT",
+    "NO_UNIVERSAL_WORLDVIEW_VERDICT",
+    "OPTIONAL_PERSONALIZATION",
+    "PRESERVE_DISAGREEMENT",
+    "PRESERVE_UNKNOWN",
+    "SOURCE_PROVENANCE",
+    "STOP_PATH",
+    "TRANSLATION_UNCERTAINTY"
+  ],
+  "companions": {
+    "lens_policy": "docs/research/pluralistic-development-lenses.md",
+    "primary_corpus": "docs/research/fixtures/cross-scale-wisdom-v1.jsonl",
+    "integral_lens": "docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.jsonl",
+    "navigator_issue": "https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/123"
+  }
+}
