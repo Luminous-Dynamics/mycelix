@@ -195,7 +195,12 @@ pub fn recommend(
     validate_market(participants)?;
 
     if policy == RankingPolicy::ExposureBalancedMutual {
-        return recommend_exposure_balanced_validated(participants, top_k, &BTreeMap::new());
+        return recommend_exposure_balanced_validated(
+            participants,
+            top_k,
+            &BTreeMap::new(),
+            0,
+        );
     }
 
     let by_id: BTreeMap<u32, &Participant> =
@@ -275,13 +280,41 @@ pub fn recommend_exposure_balanced_with_history(
         return Err(format!("exposure history contains unknown participant id: {unknown_id}"));
     }
 
-    recommend_exposure_balanced_validated(participants, top_k, prior_exposure)
+    recommend_exposure_balanced_validated(participants, top_k, prior_exposure, 0)
+}
+
+/// Historical exposure balancing restricted to candidates whose mutual utility
+/// floor is at least a requested percentage of the viewer's best feasible floor.
+/// This creates an explicit quality/fairness trade-off instead of letting exposure
+/// balancing pick arbitrarily weak-but-feasible candidates.
+pub fn recommend_quality_bounded_exposure_with_history(
+    participants: &[Participant],
+    top_k: usize,
+    prior_exposure: &BTreeMap<u32, usize>,
+    quality_floor_percent: u8,
+) -> Result<Vec<Recommendation>, String> {
+    validate_market(participants)?;
+    if !(1..=100).contains(&quality_floor_percent) {
+        return Err("quality_floor_percent must be in 1..=100".to_string());
+    }
+    let known_ids: BTreeSet<u32> = participants.iter().map(|person| person.id).collect();
+    if let Some(unknown_id) = prior_exposure.keys().find(|id| !known_ids.contains(id)) {
+        return Err(format!("exposure history contains unknown participant id: {unknown_id}"));
+    }
+
+    recommend_exposure_balanced_validated(
+        participants,
+        top_k,
+        prior_exposure,
+        quality_floor_percent,
+    )
 }
 
 fn recommend_exposure_balanced_validated(
     participants: &[Participant],
     top_k: usize,
     prior_exposure: &BTreeMap<u32, usize>,
+    quality_floor_percent: u8,
 ) -> Result<Vec<Recommendation>, String> {
     let mut viewers: Vec<&Participant> = participants
         .iter()
@@ -306,6 +339,18 @@ fn recommend_exposure_balanced_validated(
                 });
             }
         }
+        if quality_floor_percent > 0 && !candidates.is_empty() {
+            let best_mutual_floor = candidates
+                .iter()
+                .map(|candidate| candidate.viewer_utility.min(candidate.candidate_utility))
+                .max()
+                .unwrap_or(0);
+            candidates.retain(|candidate| {
+                u128::from(candidate.viewer_utility.min(candidate.candidate_utility)) * 100
+                    >= u128::from(best_mutual_floor) * u128::from(quality_floor_percent)
+            });
+        }
+
         preferences.insert(viewer.id, candidates);
     }
 
@@ -1173,6 +1218,48 @@ mod tests {
 
         assert!(temporal_metrics.exposure_gini < stateless_metrics.exposure_gini);
         assert_eq!(stateless_metrics.total_exposure, temporal_metrics.total_exposure);
+    }
+
+    #[test]
+    fn quality_bounded_exposure_rejects_invalid_thresholds() {
+        let people = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(2, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+        ];
+        let history = BTreeMap::new();
+        assert!(recommend_quality_bounded_exposure_with_history(&people, 1, &history, 0).is_err());
+        assert!(recommend_quality_bounded_exposure_with_history(&people, 1, &history, 101).is_err());
+        assert!(recommend_quality_bounded_exposure_with_history(&people, 1, &history, 80).is_ok());
+    }
+
+    #[test]
+    fn quality_floor_excludes_weak_pairs_before_exposure_balancing() {
+        let viewer = person(
+            1, Partition::A, 30, 18, 60, ConnectionGoal::Dating,
+            &[(1, 5), (2, 4), (3, 1)],
+        );
+        let weak = person(2, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(3, 5)]);
+        let strong = person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 4)]);
+        let other_viewer = person(4, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5)]);
+        let popular_candidate = person(5, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 4)]);
+
+        let mut history = BTreeMap::new();
+        history.insert(3, 100usize);
+        let market = vec![viewer, weak, strong, other_viewer, popular_candidate];
+
+        let rows = recommend_quality_bounded_exposure_with_history(&market, 1, &history, 80)
+            .expect("valid market and threshold");
+        let row = rows.iter().find(|row| row.viewer_id == 1).expect("viewer has feasible candidate");
+
+        let best_floor = market
+            .iter()
+            .filter(|candidate| eligible_pair(&market[0], candidate))
+            .map(|candidate| directed_utility(&market[0], candidate).min(directed_utility(candidate, &market[0])))
+            .max()
+            .unwrap();
+
+        assert!(u128::from(row.viewer_utility.min(row.candidate_utility)) * 100
+            >= u128::from(best_floor) * 80);
     }
 
     #[test]
