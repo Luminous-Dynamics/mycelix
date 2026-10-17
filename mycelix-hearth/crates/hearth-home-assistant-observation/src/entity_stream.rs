@@ -337,7 +337,7 @@ fn parse_optional_object<'a>(
 }
 
 fn reject_unknown_keys(object: &Map<String, Value>, allowed: &[&str]) -> Result<(), String> {
-    if let Some(key) = object.keys().find(|key| !allowed.contains(&key.as_str())) {
+    if object.keys().any(|key| !allowed.contains(&key.as_str())) {
         return Err("unsupported field present".into());
     }
     Ok(())
