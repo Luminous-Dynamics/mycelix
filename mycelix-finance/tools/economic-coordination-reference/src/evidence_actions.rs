@@ -6,8 +6,8 @@
 //! accepted or inferred. Action costs, completion deadlines and evidence expiry
 //! remain separate dimensions, and recommendations never execute an acquisition.
 
-use std::collections::{BTreeMap, BTreeSet};
 use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::joint_optimizer::{JointObjective, RequestShortage};
 
@@ -145,7 +145,10 @@ fn canonicalize_frontier(
             return Err(EvidenceActionError::MixedProcurementCurrency);
         }
         let mut shortages = objective.unfilled_by_request.clone();
-        if shortages.iter().any(|item| !non_empty(&item.request_id) || !non_empty(&item.unit)) {
+        if shortages
+            .iter()
+            .any(|item| !non_empty(&item.request_id) || !non_empty(&item.unit))
+        {
             return Err(EvidenceActionError::InvalidBaselineFrontier);
         }
         shortages.sort_by(|left, right| {
@@ -155,8 +158,10 @@ fn canonicalize_frontier(
             .iter()
             .map(|item| (item.request_id.clone(), item.unit.clone()))
             .collect();
-        let distinct_request_ids: BTreeSet<&str> =
-            shortages.iter().map(|item| item.request_id.as_str()).collect();
+        let distinct_request_ids: BTreeSet<&str> = shortages
+            .iter()
+            .map(|item| item.request_id.as_str())
+            .collect();
         if distinct_request_ids.len() != shortages.len() {
             return Err(EvidenceActionError::DuplicateRequestAxis);
         }
@@ -237,25 +242,22 @@ fn impact(
     (changed_frontier_count, max_delta)
 }
 
-fn compare_priority(
-    left: &EvidenceActionAssessment,
-    right: &EvidenceActionAssessment,
-) -> Ordering {
+fn compare_priority(left: &EvidenceActionAssessment, right: &EvidenceActionAssessment) -> Ordering {
     // Only the largest structural decision delta, acquisition cost, and completion
     // time determine ordering. Branch counts remain diagnostics, never implicit
     // probabilities or a reward for enumerating more possible outcomes.
     right
         .max_frontier_symmetric_difference
         .cmp(&left.max_frontier_symmetric_difference)
-        .then_with(|| left.acquisition_cost_minor.cmp(&right.acquisition_cost_minor))
+        .then_with(|| {
+            left.acquisition_cost_minor
+                .cmp(&right.acquisition_cost_minor)
+        })
         .then_with(|| left.latest_completion_at.cmp(&right.latest_completion_at))
         .then_with(|| left.action_id.cmp(&right.action_id))
 }
 
-fn dominates(
-    left: &EvidenceActionAssessment,
-    right: &EvidenceActionAssessment,
-) -> bool {
+fn dominates(left: &EvidenceActionAssessment, right: &EvidenceActionAssessment) -> bool {
     let no_worse = left.max_frontier_symmetric_difference
         >= right.max_frontier_symmetric_difference
         && left.acquisition_cost_minor <= right.acquisition_cost_minor
@@ -279,9 +281,7 @@ fn dominates(
 pub fn rank_evidence_actions(
     problem: &EvidenceAcquisitionProblem,
 ) -> Result<EvidenceAcquisitionReport, EvidenceActionError> {
-    if !non_empty(&problem.input_manifest_digest)
-        || !non_empty(&problem.acquisition_currency)
-    {
+    if !non_empty(&problem.input_manifest_digest) || !non_empty(&problem.acquisition_currency) {
         return Err(EvidenceActionError::InvalidManifest);
     }
     if problem.decision_deadline < problem.evaluated_at {
@@ -295,11 +295,8 @@ pub fn rank_evidence_actions(
         .first()
         .map(|objective| objective.currency.clone())
         .ok_or(EvidenceActionError::InvalidBaselineFrontier)?;
-    let (baseline, axes) = canonicalize_frontier(
-        &problem.baseline_frontier,
-        &procurement_currency,
-        None,
-    )?;
+    let (baseline, axes) =
+        canonicalize_frontier(&problem.baseline_frontier, &procurement_currency, None)?;
     if baseline.is_empty() || axes.is_empty() {
         return Err(EvidenceActionError::InvalidBaselineFrontier);
     }
@@ -312,7 +309,10 @@ pub fn rank_evidence_actions(
             || !non_empty(&action.claim_version_key)
             || !non_empty(&action.source_authority_class)
             || action.covered_subject_ids.is_empty()
-            || action.covered_subject_ids.iter().any(|subject| !non_empty(subject))
+            || action
+                .covered_subject_ids
+                .iter()
+                .any(|subject| !non_empty(subject))
             || !non_empty(&action.acquisition_currency)
             || !seen_action_ids.insert(action.action_id.as_str())
         {
@@ -329,12 +329,8 @@ pub fn rank_evidence_actions(
             return Err(EvidenceActionError::InvalidActionTimeline);
         }
 
-        let (outcome_assessments, outcome_frontiers) = canonical_outcome_assessments(
-            action,
-            &procurement_currency,
-            &axes,
-            &baseline,
-        )?;
+        let (outcome_assessments, outcome_frontiers) =
+            canonical_outcome_assessments(action, &procurement_currency, &axes, &baseline)?;
         let (changed_count, max_delta) = impact(&baseline, &outcome_frontiers);
         let distinct_count = outcome_frontiers.len();
 
@@ -471,7 +467,11 @@ mod tests {
         }
     }
 
-    fn branch(id: &str, kind: EvidenceOutcomeKind, frontier: Vec<JointObjective>) -> EvidenceOutcomeBranch {
+    fn branch(
+        id: &str,
+        kind: EvidenceOutcomeKind,
+        frontier: Vec<JointObjective>,
+    ) -> EvidenceOutcomeBranch {
         EvidenceOutcomeBranch {
             outcome_id: id.to_owned(),
             kind,
@@ -529,7 +529,14 @@ mod tests {
     #[test]
     fn ranks_actions_that_distinguish_materially_different_frontiers() {
         let input = problem(vec![
-            action("inspect-inventory", "inventory:site-a:v1", 5, 20, 40, valuable_outcomes()),
+            action(
+                "inspect-inventory",
+                "inventory:site-a:v1",
+                5,
+                20,
+                40,
+                valuable_outcomes(),
+            ),
             action(
                 "recheck-unchanged-field",
                 "credential:site-a:v2",
@@ -537,8 +544,16 @@ mod tests {
                 15,
                 40,
                 vec![
-                    branch("yes", EvidenceOutcomeKind::Confirmed, vec![objective(100, 0, 0)]),
-                    branch("no", EvidenceOutcomeKind::Refuted, vec![objective(100, 0, 0)]),
+                    branch(
+                        "yes",
+                        EvidenceOutcomeKind::Confirmed,
+                        vec![objective(100, 0, 0)],
+                    ),
+                    branch(
+                        "no",
+                        EvidenceOutcomeKind::Refuted,
+                        vec![objective(100, 0, 0)],
+                    ),
                 ],
             ),
         ]);
@@ -589,8 +604,22 @@ mod tests {
     #[test]
     fn only_one_alternative_for_the_same_claim_version_is_recommended() {
         let input = problem(vec![
-            action("slow-cheap", "stock:site-a:v3", 1, 24, 40, valuable_outcomes()),
-            action("fast-dear", "stock:site-a:v3", 2, 18, 40, valuable_outcomes()),
+            action(
+                "slow-cheap",
+                "stock:site-a:v3",
+                1,
+                24,
+                40,
+                valuable_outcomes(),
+            ),
+            action(
+                "fast-dear",
+                "stock:site-a:v3",
+                2,
+                18,
+                40,
+                valuable_outcomes(),
+            ),
         ]);
         let report = rank_evidence_actions(&input).unwrap();
         assert_eq!(report.recommended_action_ids.len(), 1);
@@ -624,14 +653,18 @@ mod tests {
             .unwrap();
         assert_eq!(assessment.source_authority_class, "supplier-confirmation");
         assert_eq!(assessment.outcome_assessments.len(), 2);
-        assert!(assessment
-            .outcome_assessments
-            .iter()
-            .all(|outcome| outcome.changes_baseline_frontier));
-        assert!(assessment
-            .outcome_assessments
-            .iter()
-            .any(|outcome| outcome.resulting_frontier[0].total_cost_minor == 70));
+        assert!(
+            assessment
+                .outcome_assessments
+                .iter()
+                .all(|outcome| outcome.changes_baseline_frontier)
+        );
+        assert!(
+            assessment
+                .outcome_assessments
+                .iter()
+                .any(|outcome| outcome.resulting_frontier[0].total_cost_minor == 70)
+        );
     }
 
     #[test]
@@ -680,7 +713,11 @@ mod tests {
             5,
             20,
             40,
-            vec![branch("changed-axis", EvidenceOutcomeKind::Confirmed, vec![invalid])],
+            vec![branch(
+                "changed-axis",
+                EvidenceOutcomeKind::Confirmed,
+                vec![invalid],
+            )],
         )]);
         assert_eq!(
             rank_evidence_actions(&input),
@@ -699,9 +736,21 @@ mod tests {
             20,
             40,
             vec![
-                branch("changed-a", EvidenceOutcomeKind::Confirmed, changed_a.clone()),
-                branch("changed-b", EvidenceOutcomeKind::Refuted, vec![objective(70, 1, 0)]),
-                branch("changed-c", EvidenceOutcomeKind::Inconclusive, vec![objective(60, 0, 1)]),
+                branch(
+                    "changed-a",
+                    EvidenceOutcomeKind::Confirmed,
+                    changed_a.clone(),
+                ),
+                branch(
+                    "changed-b",
+                    EvidenceOutcomeKind::Refuted,
+                    vec![objective(70, 1, 0)],
+                ),
+                branch(
+                    "changed-c",
+                    EvidenceOutcomeKind::Inconclusive,
+                    vec![objective(60, 0, 1)],
+                ),
             ],
         );
         many_outcomes.claim_version_key = "claim:many".to_owned();
@@ -712,7 +761,11 @@ mod tests {
             20,
             40,
             vec![
-                branch("different", EvidenceOutcomeKind::Confirmed, changed_a.clone()),
+                branch(
+                    "different",
+                    EvidenceOutcomeKind::Confirmed,
+                    changed_a.clone(),
+                ),
                 branch("stable", EvidenceOutcomeKind::Inconclusive, stable),
             ],
         );
@@ -738,10 +791,7 @@ mod tests {
         )]);
         let report = rank_evidence_actions(&input).unwrap();
         assert!(report.recommended_action_ids.is_empty());
-        assert_eq!(
-            report.assessments[0].distinct_outcome_frontier_count,
-            1
-        );
+        assert_eq!(report.assessments[0].distinct_outcome_frontier_count, 1);
         assert_eq!(
             report.assessments[0].disposition,
             EvidenceActionDisposition::NoDecisionValue
@@ -758,7 +808,11 @@ mod tests {
             40,
             valuable_outcomes(),
         );
-        first.covered_subject_ids = vec!["offer-b".to_owned(), "offer-a".to_owned(), "offer-a".to_owned()];
+        first.covered_subject_ids = vec![
+            "offer-b".to_owned(),
+            "offer-a".to_owned(),
+            "offer-a".to_owned(),
+        ];
         let mut second = first.clone();
         second.covered_subject_ids.reverse();
         let a = rank_evidence_actions(&problem(vec![first])).unwrap();
