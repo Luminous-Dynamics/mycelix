@@ -31,8 +31,11 @@ Sources:
 - [ISWC: what it does and does not do](https://www.iswc.org/iswc)
 - [IFPI ISRC FAQs](https://isrc.ifpi.org/faqs)
 - [IFPI: using ISRC](https://isrc.ifpi.org/why-use-isrc)
+- [DDEX: Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/)
+- [DDEX: current standards specifications and versions](https://kb.ddex.net/reference-material/standards-specifications/)
+- [DDEX: RDR-N implementation guidance and licence notice](https://kb.ddex.net/implementing-each-standard/recording-data-and-rights-standards-%28rdr%29/recording-data-and-rights-notification-%28rdr-n%29/)
 
-This creates an important product invariant: a title or creator name is not a stable canonical identity, and an identifier is not proof of rights. The passport must model related but distinct objects: musical work/composition, recording/master, version/edit, release/product, visual/audio-visual asset, and license/use grant.
+This creates an important product invariant: a title or creator name is not a stable canonical identity, and an identifier is not proof of rights. The existing DDEX standards are a better interoperability target than inventing a competing music-industry exchange protocol: RDR-N covers recording/video metadata, contributors, and rights claims; RDR-R covers revenue reporting; RDR-RCC supports rights-claim conflict communication. The current DDEX directory lists RDR-N 1.5, RDR-R 1.1, and RDR-RCC 1.0. DDEX states that an implementation licence is required before going live with an implementation. CSCP should therefore maintain its small internal validation model and implement versioned, licensed adapters at the boundaries, with strict conformance tests and preserved raw-source digests. Do not claim DDEX compliance merely because an internal record has similarly named fields. The passport must model related but distinct objects: musical work/composition, recording/master, version/edit, release/product, visual/audio-visual asset, and license/use grant.
 
 Do not invent an ISRC, ISWC, ISAN, IPI, distributor ID, or collecting-society registration number. IDs remain optional until assigned by the relevant authorized scheme; external IDs need their issuing authority, source, and observed timestamp.
 
