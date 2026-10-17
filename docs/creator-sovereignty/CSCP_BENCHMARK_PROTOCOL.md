@@ -302,7 +302,7 @@ The current implementation is an experiment, not a ratified interoperability sta
 
 ## Gate 8 — whole-passport export integrity
 
-The implementation slice in draft PR #5182 now includes a separate CreativeAssetPassportEnvelope that combines the ordered asset registry (including typed external identifiers), split claims, and the grant/revocation history envelope into one versioned canonical export. The inner grant-history format remains separate and unchanged. The outer envelope has one frozen byte vector checked by Rust and a test-only standard-library Python reference encoder; it is currently a minimal smoke vector, not a broad conformance corpus.
+The implementation slice in draft PR #5182 now includes a separate CreativeAssetPassportEnvelope that combines the ordered asset registry (including typed external identifiers), split claims, and the grant/revocation history envelope into one versioned canonical export. The inner grant-history format remains separate and unchanged. The outer envelope has two frozen byte vectors checked by Rust and a test-only standard-library Python reference encoder: a work/ISWC/complete-split fixture and a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. This remains a small conformance corpus.
 
 | Fixture family | Required outcome | Threshold |
 |---|---|---:|
@@ -312,7 +312,7 @@ The implementation slice in draft PR #5182 now includes a separate CreativeAsset
 | Cross-record reference integrity | Every split claim and all grants, including revoked grants, point to an asset in the exported registry | Zero unresolved references accepted |
 | Digest sensitivity | Changing an asset field, a split claim/evidence reference, or a grant-event evidence reference changes the outer snapshot digest | 100% fixed fixtures |
 | Unknown tags/version, non-canonical order, truncation or trailing bytes | Reject import without silently normalizing untrusted source bytes | 100% rejected |
-| Snapshot reference vector | Independent encoder reproduces frozen outer bytes for identifiers, splits, and embedded empty history | 100% of frozen vectors; currently one |
+| Snapshot reference vectors | Independent encoder reproduces frozen outer bytes for identifiers, splits, and embedded empty history across normal and Unicode/disputed fixtures | 100% of frozen vectors; currently two |
 | Diverse outer golden corpus | Include multiple asset kinds, multiple identifiers, disputed/proposed claims, nonempty grant history, Unicode, missing optional fields, unknown identifiers, and size boundaries | No format freeze until all cases pass |
 | Cross-language BLAKE3 digest | Independent implementation yields the same domain-separated digest for frozen full-snapshot bytes | 100% before format freeze |
 
