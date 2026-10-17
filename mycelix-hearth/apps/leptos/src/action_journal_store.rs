@@ -701,6 +701,7 @@ fn current_unix_ms() -> Result<u64, JournalError> {
 pub struct PreparedJournalAttempt {
     journal: IndexedDbJournal,
     operation_id: String,
+    submitted_at_unix_ms: u64,
 }
 
 impl PreparedJournalAttempt {
@@ -715,7 +716,11 @@ impl PreparedJournalAttempt {
             return false;
         };
         self.journal
-            .transition(&self.operation_id, AttemptStatus::SourceChainCommitted, now)
+            .transition(
+                &self.operation_id,
+                AttemptStatus::SourceChainCommitted,
+                now.max(self.submitted_at_unix_ms),
+            )
             .await
             .is_ok()
     }
@@ -727,7 +732,11 @@ impl PreparedJournalAttempt {
             return false;
         };
         self.journal
-            .transition(&self.operation_id, AttemptStatus::OutcomeUnknown, now)
+            .transition(
+                &self.operation_id,
+                AttemptStatus::OutcomeUnknown,
+                now.max(self.submitted_at_unix_ms),
+            )
             .await
             .is_ok()
     }
@@ -769,7 +778,11 @@ pub async fn prepare_live_attempt(
         .transition(&operation_id, AttemptStatus::Submitted, submitted_at)
         .await?;
 
-    Ok(PreparedJournalAttempt { journal, operation_id })
+    Ok(PreparedJournalAttempt {
+        journal,
+        operation_id,
+        submitted_at_unix_ms: submitted_at,
+    })
 }
 
 #[cfg(test)]
