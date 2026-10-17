@@ -41,7 +41,7 @@ receipt_event_id = SHA-256(preimage)
 ```
 
 Receipt-kind codes are `Observed=0x01`, `Delivered=0x02`, and `Read=0x03`.
-The exact preimage is frozen in
+The V2 canonical encoder enforces that `receipt_event_id` equals this derived identity; caller-supplied arbitrary IDs are rejected before signing or verification. The exact preimage is frozen in
 `test-vectors/receipt-v2-event-id-preimage-delivered.hex`. The corresponding
 SHA-256 known answer is recorded in
 `test-vectors/receipt-v2-event-id-delivered.sha256`. Do not include the
@@ -59,7 +59,7 @@ deterministic test fixture below (signature bytes are intentionally excluded
 from the signing transcript):
 
 - protocol version: `2`
-- receipt event ID: 32 bytes of `0x1f`
+- receipt event ID: SHA-256 of the deterministic event-ID preimage, `4a177a8f2100fa6fc2ef4f5ca51cefbd7863f166bb303730673d0a72a039da1f`
 - message ID: 32 bytes of `0x20`
 - recipient: 39 bytes of `0x21`
 - envelope version: `2`
@@ -77,7 +77,7 @@ versioning decision and review, not a silent fixture update.
 
 ## Retry / conflict contract
 
-A sender/recipient implementation must either persist `receipt_event_id` before its first attempt and reuse it for every retransmission of that *same signed receipt*, or derive it deterministically from an immutable semantic identity. The shared preimage helper `canonical_receipt_event_id_preimage` defines a deterministic option: SHA-256 over a domain-separated encoding of message ID, recipient agent bytes, and receipt kind. It deliberately excludes timestamp, transport route, attempt number, and envelope commitment, so conflicting content for the same logical message/recipient/kind reuses the same identity and is detected as a conflict. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
+V2 requires `receipt_event_id` to be deterministically derived from the immutable semantic identity, not a caller-chosen or random value. The canonical encoder rejects a receipt whose ID does not match the derived value. A sender/recipient implementation may persist the derived ID before its first attempt and reuse it for every retransmission of that *same signed receipt*. The shared preimage helper `canonical_receipt_event_id_preimage` defines the exact encoding: SHA-256 over a domain-separated encoding of message ID, recipient agent bytes, and receipt kind. It deliberately excludes timestamp, transport route, attempt number, and envelope commitment, so conflicting content for the same logical message/recipient/kind reuses the same identity and is detected as a conflict. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
 
 The type-level transcript makes those differences observable. The profile also requires both Ed25519-agent and ML-DSA-65 receipt signatures; shape validation is a separate helper so a signer can calculate the transcript before either signature exists. It does **not** implement an atomic durable deduplication store, serialize concurrent coordinator calls, prevent duplicate DHT entries, or prove end-to-end exactly-once delivery.
 
