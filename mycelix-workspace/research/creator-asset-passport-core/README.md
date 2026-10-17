@@ -78,6 +78,10 @@ The following are release gates to measure; they have **not** been demonstrated 
 
 Do not market these targets as achieved. Before a release gate can be claimed, pin the commit, Rust toolchain, machine, corpus SHA-256, command, raw output and test-run exit status. Queued or missing CI evidence is not a pass.
 
+## Dependency reproducibility boundary
+
+The crate pins its direct BLAKE3 dependency, but a Cargo.lock is not yet committed. The draft CI job now resolves a lock per exact commit, runs formatting and tests with that generated lock, prints its SHA-256, and uploads the lockfile artifact even if the test step fails. This makes the specific run's resolved dependency graph inspectable; it does **not** guarantee that separate runs resolve identical transitive versions. Before a non-research release, commit a reviewed lockfile and require --locked without regeneration.
+
 ## Run when a Rust toolchain is available
 
 From the repository root, run:
