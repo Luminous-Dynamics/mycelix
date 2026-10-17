@@ -4,7 +4,7 @@
 **Tracking issue:** [PROC-JOINT-EXACT-001 #5151](https://github.com/Luminous-Dynamics/mycelix/issues/5151).  
 **Implementation:** [joint_optimizer.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-joint-exact-v1/mycelix-finance/tools/economic-coordination-reference/src/joint_optimizer.rs).
 
-Six module tests are authored, including the binary-mask oracle, explicit search-bound error, mixed-currency rejection, input-order invariance, aggregate order-lot handling, and omission of non-mapped edges. They are not yet qualified as passing.
+Seven module tests are authored, including the binary-mask oracle, explicit search-bound error, mixed-currency rejection, input-order invariance, aggregate order-lot handling, and omission of non-mapped edges. They are not yet qualified as passing.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -48,6 +48,8 @@ Six module tests are authored, including the binary-mask oracle, explicit search
 | JEX-038 | Distinct capability profiles in same quantity unit | Only explicitly mapped edges can allocate | Planned |
 | JEX-039 | Same cost, different request-level shortage vector | Both incomparable vectors retained | Authored |
 | JEX-040 | Input order changes while manifest remains frozen | Output is deterministic and canonical | Authored |
+
+| JEX-041 | Four request/offer edges with quantities 0–2 and pool ceilings 1–4 | 81 quantity vectors agree with the independent frontier oracle; candidates bounded by per-edge pool ceiling | Authored |
 
 ## Qualification sequence
 
