@@ -62,6 +62,18 @@ pub enum CommandFailureCode {
     Other,
 }
 
+impl CommandFailureCode {
+    /// Reduce a documented Home Assistant WebSocket error code to a bounded,
+    /// non-sensitive enum. Do not retain or log the raw server message.
+    pub fn from_home_assistant_error_code(code: &str) -> Self {
+        match code {
+            "unknown_command" => Self::UnknownCommand,
+            "not_supported" => Self::NotSupported,
+            _ => Self::Other,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnsupportedSubscriptionReason {
     UnknownCommand,
@@ -718,6 +730,26 @@ mod tests {
                 ..
             }]
         ));
+    }
+
+    #[test]
+    fn documented_server_error_codes_map_to_bounded_failure_classes() {
+        assert_eq!(
+            CommandFailureCode::from_home_assistant_error_code("unknown_command"),
+            CommandFailureCode::UnknownCommand
+        );
+        assert_eq!(
+            CommandFailureCode::from_home_assistant_error_code("not_supported"),
+            CommandFailureCode::NotSupported
+        );
+        assert_eq!(
+            CommandFailureCode::from_home_assistant_error_code("unauthorized"),
+            CommandFailureCode::Other
+        );
+        assert_eq!(
+            CommandFailureCode::from_home_assistant_error_code("UNKNOWN_COMMAND"),
+            CommandFailureCode::Other
+        );
     }
 
     #[test]
