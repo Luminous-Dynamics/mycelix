@@ -14,6 +14,7 @@
     "occurred_at",
     "recorded_at",
     "payload_digest",
+    "envelope_digest",
     "visibility_policy",
     "claim_status",
     "payload",
@@ -166,7 +167,10 @@
       "required": [
         "signer_ref",
         "algorithm",
-        "signature_b64"
+        "signature_b64",
+        "signed_digest",
+        "canonicalization_version",
+        "signature_context"
       ],
       "properties": {
         "signer_ref": {
@@ -188,6 +192,21 @@
           "type": "string",
           "minLength": 8,
           "maxLength": 512
+        },
+        "signed_digest": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "Must equal top-level envelope_digest; recompute envelope_digest and verify the cryptographic signature in the independent verifier."
+        },
+        "canonicalization_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Must match the canonicalization profile used to compute envelope_digest."
+        },
+        "signature_context": {
+          "const": "mycelix-vehicle-record-envelope/0.1",
+          "description": "Domain separator preventing cross-contract signature reuse."
         }
       },
       "description": "Signature envelope shape only; cryptographic verification and credential authorization are separate checks."
@@ -282,6 +301,11 @@
         }
       },
       "description": "Scoped independent-verification assertions; signature and verifier credential must be checked outside this JSON Schema."
+    },
+    "envelope_digest": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$",
+      "description": "SHA-256 of the domain-separated canonical event envelope excluding signature and envelope_digest; the verifier must recompute it, not trust this field alone."
     }
   },
   "allOf": [
@@ -392,7 +416,7 @@
           "then": {
             "propertyNames": {
               "not": {
-                "pattern": "^(owner_name|owner_email|phone|raw_vin|vin|latitude|longitude|trip_points|precise_location|bank_account|finance_agreement)$"
+                "pattern": "^(owner|owner_name|owner_email|email|personal_email|phone|phone_number|driver_name|raw_vin|vin|latitude|longitude|trip_points|travel_history|precise_location|location|gps_coordinates|home_address|bank_account|account_number|account_holder|finance_agreement|registration_plate|license_plate|vehicle_registration)$"
               }
             },
             "additionalProperties": {
