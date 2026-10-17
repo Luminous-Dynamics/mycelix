@@ -9,8 +9,8 @@ mod mutual_aid;
 mod resources;
 mod water;
 mod transport;
-mod food;
 mod farm;
+mod food;
 mod tools;
 mod calendar;
 
@@ -22,7 +22,7 @@ pub use mutual_aid::MutualAidPage;
 pub use resources::ResourcesPage;
 pub use water::WaterPage;
 pub use transport::TransportPage;
-pub use food::FoodPage;
 pub use farm::FarmPage;
+pub use food::FoodPage;
 pub use tools::ToolsPage;
 pub use calendar::CalendarPage;
