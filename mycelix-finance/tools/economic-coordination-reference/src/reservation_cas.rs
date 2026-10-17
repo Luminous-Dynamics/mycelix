@@ -945,7 +945,8 @@ mod tests {
         let version = book.pool_version(&receipt.pool_id).unwrap();
         book.transition(transition_command("release-1", "reservation-1", ReservationAction::Release, 15, version.0, version.1)).unwrap();
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        let next = reserve_command("reserve-2", "idem-2", "reservation-2", 1, version.0, version.1, 50);
+        let mut next = reserve_command("reserve-2", "idem-2", "reservation-2", 1, version.0, version.1, 50);
+        next.issued_at = 16;
         let second = book.reserve(next).unwrap();
         assert_eq!(second.receipt.reservation_id, "reservation-2");
         assert_eq!(book.pool_capacity(&receipt.pool_id).unwrap().remaining_quantity, 0);
@@ -1008,8 +1009,10 @@ mod tests {
         let mut book = ReservationBook::new();
         register(&mut book, 3);
         book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap();
+        let mut second = reserve_command("cmd-2", "idem-2", "reservation-2", 1, 2, 2, 50);
+        second.issued_at = 9;
         assert_eq!(
-            book.reserve(reserve_command("cmd-2", "idem-2", "reservation-2", 1, 2, 2, 50)),
+            book.reserve(second),
             Err(ReservationError::NonMonotonicTime)
         );
         assert_eq!(book.pool_capacity("supplier-site-week-44").unwrap().reserved_quantity, 1);
