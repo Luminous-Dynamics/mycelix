@@ -21,6 +21,13 @@ The adapter that calls evaluate_transfer must supply a trusted runtime timestamp
 
 Do not implement either verifier as a boolean supplied by an untrusted caller. Unit-test mocks in this crate prove policy behaviour only, not cryptographic security or jurisdiction compliance. The policy kernel is one defense-in-depth layer, not proof that the storage/replication network enforces placement rules.
 
+
+## Effect boundary and replay
+
+The crate now includes a short-lived, single-use effect-lease reference gate. It re-evaluates policy at the last boundary, binds the exact action/resource/content/recipient/purpose/request, pins the agreement and profile digests, enforces a maximum 5-second TTL, and consumes a lease nonce before calling the effect. If that callback errors, the lease remains consumed to avoid blind replay after an uncertain outcome.
+
+The ledger is **process-local and volatile**. It is not cryptographic, durable, distributed, crash-safe, or an exactly-once side-effect guarantee. Production integration must refresh trusted revocation/evidence through adapters, independently derive the sink target, and atomically persist lease consumption with the side effect or use a qualified fencing protocol. See EFFECT_LEASE_V1.md and src/lease.rs.
+
 ## Run
 
 ```sh
