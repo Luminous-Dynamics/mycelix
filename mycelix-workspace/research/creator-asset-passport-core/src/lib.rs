@@ -111,7 +111,23 @@ impl ExternalIdentifier {
                     .filter(|c| *c != '-' && *c != '.')
                     .collect::<String>()
                     .to_ascii_uppercase();
-                if compact.len() != 11
+                let formatted_ok = if value.contains('-') || value.contains('.') {
+                    let bytes = value.as_bytes();
+                    bytes.len() == 15
+                        && bytes[0] == b'T'
+                        && bytes[1] == b'-'
+                        && bytes[2..5].iter().all(|b| b.is_ascii_digit())
+                        && bytes[5] == b'.'
+                        && bytes[6..9].iter().all(|b| b.is_ascii_digit())
+                        && bytes[9] == b'.'
+                        && bytes[10..13].iter().all(|b| b.is_ascii_digit())
+                        && bytes[13] == b'-'
+                        && bytes[14].is_ascii_digit()
+                } else {
+                    true
+                };
+                if !formatted_ok
+                    || compact.len() != 11
                     || !compact.starts_with('T')
                     || !compact.as_bytes()[1..].iter().all(|b| b.is_ascii_digit())
                 {
@@ -130,7 +146,19 @@ impl ExternalIdentifier {
                     .collect::<String>()
                     .to_ascii_uppercase();
                 let bytes = compact.as_bytes();
-                let valid = bytes.len() == 12
+                let separator_layout_ok = if value.contains('-') {
+                    let groups: Vec<&str> = value.split('-').collect();
+                    groups.len() == 4
+                        && groups[0].len() == 2
+                        && groups[1].len() == 3
+                        && groups[2].len() == 2
+                        && groups[3].len() == 5
+                        && groups.iter().all(|group| group.chars().all(|c| c.is_ascii_alphanumeric()))
+                } else {
+                    value.len() == 12
+                };
+                let valid = separator_layout_ok
+                    && bytes.len() == 12
                     && bytes[0..2].iter().all(|b| b.is_ascii_alphabetic())
                     && bytes[2..5].iter().all(|b| b.is_ascii_alphanumeric())
                     && bytes[5..7].iter().all(|b| b.is_ascii_digit())
@@ -513,6 +541,38 @@ impl UsageGrant {
         &self.asset_id
     }
 
+    pub fn grantee_id(&self) -> &PartyId {
+        &self.grantee_id
+    }
+
+    pub fn action(&self) -> UseAction {
+        self.action
+    }
+
+    pub fn purpose(&self) -> &str {
+        &self.purpose
+    }
+
+    pub fn issued_by(&self) -> &PartyId {
+        &self.issued_by
+    }
+
+    pub fn evidence_ref(&self) -> &str {
+        &self.evidence_ref
+    }
+
+    pub fn valid_from(&self) -> u64 {
+        self.valid_from
+    }
+
+    pub fn expires_at(&self) -> Option<u64> {
+        self.expires_at
+    }
+
+    pub fn revocation_timestamp(&self) -> Option<u64> {
+        self.revoked_at
+    }
+
     /// Returns a new revocation record. The original value remains unchanged so
     /// callers can retain a history; no signature or grantor authority is checked.
     pub fn revoked_at(&self, timestamp: u64) -> Result<Self, PassportError> {
@@ -602,7 +662,7 @@ pub fn evaluate_usage(
         }
 
         let revoked = grant.revoked_at.filter(|time| request.at >= *time);
-        let expired = grant.expires_at.filter(|time| request.at >= time);
+        let expired = grant.expires_at.filter(|time| request.at >= *time);
         if revoked.is_some() || expired.is_some() {
             continue;
         }
