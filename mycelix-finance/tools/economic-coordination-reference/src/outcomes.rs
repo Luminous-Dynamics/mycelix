@@ -153,6 +153,8 @@ pub struct OutcomeCaseReport {
     pub trusted_event_count: u64,
     pub excluded_or_unverified_event_count: u64,
     pub active_event_count: u64,
+    /// Historical events replaced by later corrections; still present in the ledger.
+    pub superseded_event_count: u64,
     pub open_dispute_event_ids: Vec<String>,
     pub pre_commitment_forecast: Option<ForecastSummary>,
     pub committed_quantity: Option<u32>,
@@ -447,6 +449,11 @@ impl OutcomeLedger {
         let active_all: Vec<&OutcomeEvent> = self.active_events(case_id).into_iter()
             .filter(|event| event.commitment_id == commitment_id)
             .collect();
+        let superseded_event_count = self.events.values().filter(|event| {
+            event.case_id == case_id
+                && event.commitment_id == commitment_id
+                && self.superseded_by.contains_key(&event.event_id)
+        }).count() as u64;
         let untrusted_count = active_all.iter().filter(|event| !trusted(event)).count() as u64;
         let events: Vec<&OutcomeEvent> = active_all.into_iter().filter(|event| trusted(event)).collect();
         let mut commitments: Vec<&OutcomeEvent> = events.iter().copied()
@@ -673,6 +680,7 @@ impl OutcomeLedger {
             excluded_or_unverified_event_count: untrusted_count,
             active_event_count: (events.len() as u64).checked_add(untrusted_count)
                 .ok_or(OutcomeLedgerError::ArithmeticOverflow)?,
+            superseded_event_count,
             open_dispute_event_ids,
             pre_commitment_forecast,
             committed_quantity,
@@ -972,6 +980,10 @@ mod tests {
         correction.supersedes_event_id = Some("receipt-1".to_owned());
         ledger.append(correction).unwrap();
         assert!(ledger.get_event("receipt-1").is_some());
+        assert_eq!(
+            ledger.report_case("case-1", "commitment-1").unwrap().superseded_event_count,
+            1
+        );
         assert_eq!(ledger.active_events("case-1").iter().filter(|e| {
             matches!(&e.kind, OutcomeEventKind::ReceiptObserved { .. })
         }).count(), 1);
