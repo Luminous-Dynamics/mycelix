@@ -42,7 +42,9 @@ receipt_event_id = SHA-256(preimage)
 
 Receipt-kind codes are `Observed=0x01`, `Delivered=0x02`, and `Read=0x03`.
 The exact preimage is frozen in
-`test-vectors/receipt-v2-event-id-preimage-delivered.hex`. Do not include the
+`test-vectors/receipt-v2-event-id-preimage-delivered.hex`. The corresponding
+SHA-256 known answer is recorded in
+`test-vectors/receipt-v2-event-id-delivered.sha256`. Do not include the
 timestamp, route, attempt number, or envelope commitment in this identity
 derivation: otherwise an ordinary retry or conflicting transcript could be
 mistaken for a new logical receipt. The commitment itself remains signed and
