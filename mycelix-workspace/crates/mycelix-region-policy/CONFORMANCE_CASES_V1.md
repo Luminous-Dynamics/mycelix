@@ -110,7 +110,7 @@ Six abstract model tests are authored in `src/effect_journal_model.rs`; they do 
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
-| EJM-001 / EJM-002 | Enumerate all six order-preserving two-worker load/reserve schedules; exactly one reservation wins | `every_two_worker_load_reserve_interleaving_has_one_winner` |
+| EJM-001 / EJM-002 | Enumerate all 2,520 order-preserving four-worker load/reserve schedules; exactly one reservation wins | `every_two_worker_load_reserve_interleaving_has_one_winner` |
 | EJM-003 | Authority is revoked between Reserved and DispatchStarted | `revocation_before_dispatch_aborts_reserved_attempt_without_sink_call` |
 | EJM-005 / EJM-006 | Destination applied the operation but the response was lost; replay same exact identity and resolve saved result | `lost_reply_after_sink_commit_recovers_without_duplicate_effect` |
 | EJM-007 | Same key reused with a different target digest | `sink_idempotency_key_reuse_for_changed_target_is_a_conflict` |
