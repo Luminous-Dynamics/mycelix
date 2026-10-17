@@ -2480,3 +2480,90 @@ section h2 {
     .brief-card:last-child { grid-column: auto; }
     .brief-card { min-height: auto; }
 }
+
+
+/* === Local action journal history ===
+   Recovery visibility only: no retry controls and no peer-sync claim. */
+.action-journal-history {
+    width: min(900px, calc(100% - 2rem));
+    margin: 0.5rem auto 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-soft);
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+.action-journal-history > details > summary {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    padding: 0.65rem 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+}
+.action-journal-history > details > summary::-webkit-details-marker { display: none; }
+.action-journal-history > details > summary::after {
+    content: "⌄";
+    margin-left: auto;
+    color: var(--text-muted);
+}
+.action-journal-history > details[open] > summary::after { content: "⌃"; }
+.action-journal-history > details > summary:hover { background: var(--primary-glow); }
+.action-journal-history > details > summary:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: -3px;
+    border-radius: var(--radius-soft);
+}
+.action-journal-history__scope-note,
+.action-journal-history__empty {
+    padding: 0 0.9rem 0.7rem;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+.action-journal-entry {
+    margin: 0 0.65rem 0.65rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-soft);
+    background: var(--bg-base);
+    overflow-wrap: anywhere;
+}
+.action-journal-entry--unknown { border-left-color: var(--bond-decaying); }
+.action-journal-entry--rejected { border-left-color: var(--bond-neglected); }
+.action-journal-entry--not-sent { border-left-color: var(--text-muted); }
+.action-journal-entry__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.25rem;
+}
+.action-journal-entry__heading strong { color: var(--text-primary); }
+.action-journal-entry__status {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.action-journal-entry p { color: var(--text-secondary); }
+.action-journal-entry small {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+@media (max-width: 480px) {
+    .action-journal-history {
+        width: calc(100% - 1rem);
+        margin-top: 0.4rem;
+    }
+    .action-journal-entry {
+        margin: 0 0.4rem 0.4rem;
+        padding: 0.65rem;
+    }
+    .action-journal-entry__heading { flex-direction: column; align-items: flex-start; }
+}
