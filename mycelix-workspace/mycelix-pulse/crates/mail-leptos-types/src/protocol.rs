@@ -357,7 +357,8 @@ impl RecipientReceipt {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecipientReceiptV2 {
     pub protocol_version: u16,
-    /// Stable 256-bit idempotency identity, persisted or deterministically derived before first dispatch.
+    /// Stable 256-bit idempotency identity, persisted or deterministically derived
+    /// before first dispatch.
     pub receipt_event_id: [u8; 32],
     pub message_id: MessageId,
     pub recipient_agent: Vec<u8>,
