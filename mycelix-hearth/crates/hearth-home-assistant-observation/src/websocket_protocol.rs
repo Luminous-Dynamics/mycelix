@@ -180,18 +180,10 @@ pub enum ProtocolError {
 pub enum ProtocolState {
     AwaitAuthRequired,
     AwaitAuthResult,
-    AwaitSubscriptionResult {
-        command_id: u64,
-    },
-    AwaitInitialSnapshot {
-        subscription_id: u64,
-    },
-    AwaitInitialSnapshotApply {
-        subscription_id: u64,
-    },
-    Live {
-        subscription_id: u64,
-    },
+    AwaitSubscriptionResult { command_id: u64 },
+    AwaitInitialSnapshot { subscription_id: u64 },
+    AwaitInitialSnapshotApply { subscription_id: u64 },
+    Live { subscription_id: u64 },
     Failed(ProtocolError),
     Closed,
 }
@@ -334,7 +326,9 @@ impl HomeAssistantWebSocketProtocol {
             ProtocolState::AwaitAuthResult => SessionPhase::AwaitAuthResult,
             ProtocolState::AwaitSubscriptionResult { .. } => SessionPhase::AwaitSubscriptionResult,
             ProtocolState::AwaitInitialSnapshot { .. } => SessionPhase::AwaitInitialSnapshot,
-            ProtocolState::AwaitInitialSnapshotApply { .. } => SessionPhase::AwaitInitialSnapshotApply,
+            ProtocolState::AwaitInitialSnapshotApply { .. } => {
+                SessionPhase::AwaitInitialSnapshotApply
+            }
             ProtocolState::Live { .. } => SessionPhase::Live,
             ProtocolState::Failed(_) => SessionPhase::Failed,
             ProtocolState::Closed => SessionPhase::Closed,
@@ -370,14 +364,18 @@ impl HomeAssistantWebSocketProtocol {
         }
 
         match self.state {
-            ProtocolState::AwaitInitialSnapshotApply { subscription_id: expected } => {
+            ProtocolState::AwaitInitialSnapshotApply {
+                subscription_id: expected,
+            } => {
                 if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
                         expected,
                         actual: subscription_id,
                     });
                 }
-                self.state = ProtocolState::Live { subscription_id: expected };
+                self.state = ProtocolState::Live {
+                    subscription_id: expected,
+                };
                 vec![ProtocolAction::SessionLive {
                     session_epoch: self.session_epoch,
                     subscription_id: expected,
@@ -392,11 +390,7 @@ impl HomeAssistantWebSocketProtocol {
 
     /// Process one decoded protocol fact. The transport is responsible for
     /// bounded JSON decoding and must preserve frame order within each epoch.
-    pub fn handle(
-        &mut self,
-        received_epoch: u64,
-        message: InboundMessage,
-    ) -> Vec<ProtocolAction> {
+    pub fn handle(&mut self, received_epoch: u64, message: InboundMessage) -> Vec<ProtocolAction> {
         if received_epoch != self.session_epoch {
             return vec![ProtocolAction::IgnoreStaleEpoch {
                 received_epoch,
@@ -434,11 +428,20 @@ impl HomeAssistantWebSocketProtocol {
                 self.fail(ProtocolError::AuthenticationRejected)
             }
             (
-                ProtocolState::AwaitSubscriptionResult { command_id: expected },
-                InboundMessage::CommandResult { id, success, payload },
+                ProtocolState::AwaitSubscriptionResult {
+                    command_id: expected,
+                },
+                InboundMessage::CommandResult {
+                    id,
+                    success,
+                    payload,
+                },
             ) => {
                 if id != expected {
-                    return self.fail(ProtocolError::CommandIdMismatch { expected, actual: id });
+                    return self.fail(ProtocolError::CommandIdMismatch {
+                        expected,
+                        actual: id,
+                    });
                 }
                 if !success {
                     return self.fail(ProtocolError::CommandRejected { phase });
@@ -459,29 +462,41 @@ impl HomeAssistantWebSocketProtocol {
                 }]
             }
             (
-                ProtocolState::AwaitSubscriptionResult { command_id: expected },
+                ProtocolState::AwaitSubscriptionResult {
+                    command_id: expected,
+                },
                 InboundMessage::CommandFailure { id, code },
             ) => {
                 if id != expected {
-                    return self.fail(ProtocolError::CommandIdMismatch { expected, actual: id });
+                    return self.fail(ProtocolError::CommandIdMismatch {
+                        expected,
+                        actual: id,
+                    });
                 }
                 match code {
-                    CommandFailureCode::UnknownCommand => self.fail(
-                        ProtocolError::UnsupportedEntitySubscription {
+                    CommandFailureCode::UnknownCommand => {
+                        self.fail(ProtocolError::UnsupportedEntitySubscription {
                             reason: UnsupportedSubscriptionReason::UnknownCommand,
-                        },
-                    ),
-                    CommandFailureCode::NotSupported => self.fail(
-                        ProtocolError::UnsupportedEntitySubscription {
+                        })
+                    }
+                    CommandFailureCode::NotSupported => {
+                        self.fail(ProtocolError::UnsupportedEntitySubscription {
                             reason: UnsupportedSubscriptionReason::NotSupported,
-                        },
-                    ),
-                    CommandFailureCode::Other => self.fail(ProtocolError::CommandRejected { phase }),
+                        })
+                    }
+                    CommandFailureCode::Other => {
+                        self.fail(ProtocolError::CommandRejected { phase })
+                    }
                 }
             }
             (
-                ProtocolState::AwaitInitialSnapshot { subscription_id: expected },
-                InboundMessage::EntityStreamUpdate { subscription_id, kind },
+                ProtocolState::AwaitInitialSnapshot {
+                    subscription_id: expected,
+                },
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id,
+                    kind,
+                },
             ) => {
                 if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
@@ -496,15 +511,21 @@ impl HomeAssistantWebSocketProtocol {
                         actual: kind,
                     });
                 }
-                self.state = ProtocolState::AwaitInitialSnapshotApply { subscription_id: expected };
+                self.state = ProtocolState::AwaitInitialSnapshotApply {
+                    subscription_id: expected,
+                };
                 vec![ProtocolAction::InitialEntitySnapshotReady {
                     session_epoch: self.session_epoch,
                     subscription_id: expected,
                 }]
             }
             (
-                ProtocolState::AwaitInitialSnapshotApply { subscription_id: expected },
-                InboundMessage::EntityStreamUpdate { subscription_id, .. },
+                ProtocolState::AwaitInitialSnapshotApply {
+                    subscription_id: expected,
+                },
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id, ..
+                },
             ) => {
                 if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
@@ -518,8 +539,13 @@ impl HomeAssistantWebSocketProtocol {
                 })
             }
             (
-                ProtocolState::Live { subscription_id: expected },
-                InboundMessage::EntityStreamUpdate { subscription_id, kind },
+                ProtocolState::Live {
+                    subscription_id: expected,
+                },
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id,
+                    kind,
+                },
             ) => {
                 if subscription_id != expected {
                     return self.fail(ProtocolError::SubscriptionIdMismatch {
@@ -552,7 +578,9 @@ impl HomeAssistantWebSocketProtocol {
     }
 
     fn allocate_command_id(&mut self) -> Result<u64, ProtocolError> {
-        let id = self.next_command_id.ok_or(ProtocolError::CommandIdExhausted)?;
+        let id = self
+            .next_command_id
+            .ok_or(ProtocolError::CommandIdExhausted)?;
         self.next_command_id = id.checked_add(1);
         Ok(id)
     }
@@ -570,8 +598,7 @@ impl HomeAssistantWebSocketProtocol {
 mod tests {
     use super::*;
     use crate::{
-        EntityObservationRule, EntityRef, StateCodec,
-        HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
+        EntityObservationRule, EntityRef, HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION, StateCodec,
     };
 
     fn profile() -> HomeAssistantObservationProfile {
@@ -600,8 +627,7 @@ mod tests {
     }
 
     fn machine(epoch: u64) -> HomeAssistantWebSocketProtocol {
-        HomeAssistantWebSocketProtocol::new(epoch, &profile())
-            .expect("test profile must be valid")
+        HomeAssistantWebSocketProtocol::new(epoch, &profile()).expect("test profile must be valid")
     }
 
     fn send(
@@ -616,7 +642,9 @@ mod tests {
         let epoch = machine.session_epoch();
         assert_eq!(
             send(machine, InboundMessage::AuthRequired),
-            vec![ProtocolAction::RequestAuthentication { session_epoch: epoch }]
+            vec![ProtocolAction::RequestAuthentication {
+                session_epoch: epoch
+            }]
         );
         assert_eq!(machine.state(), ProtocolState::AwaitAuthResult);
     }
@@ -632,35 +660,50 @@ mod tests {
                 entity_ids: vec!["sensor.living_room_temperature".into()],
             }]
         );
-        assert_eq!(machine.state(), ProtocolState::AwaitSubscriptionResult { command_id: 1 });
+        assert_eq!(
+            machine.state(),
+            ProtocolState::AwaitSubscriptionResult { command_id: 1 }
+        );
         1
     }
 
     fn reaches_initial_snapshot(machine: &mut HomeAssistantWebSocketProtocol) -> u64 {
         let subscription_id = reaches_subscription_result(machine);
         assert_eq!(
-            send(machine, InboundMessage::CommandResult {
-                id: subscription_id,
-                success: true,
-                payload: ResultPayloadKind::Null,
-            }),
+            send(
+                machine,
+                InboundMessage::CommandResult {
+                    id: subscription_id,
+                    success: true,
+                    payload: ResultPayloadKind::Null,
+                }
+            ),
             vec![ProtocolAction::AwaitInitialEntitySnapshot {
                 session_epoch: machine.session_epoch(),
                 subscription_id,
             }]
         );
-        assert_eq!(machine.state(), ProtocolState::AwaitInitialSnapshot { subscription_id });
         assert_eq!(
-            send(machine, InboundMessage::EntityStreamUpdate {
-                subscription_id,
-                kind: EntityStreamKind::InitialSnapshot,
-            }),
+            machine.state(),
+            ProtocolState::AwaitInitialSnapshot { subscription_id }
+        );
+        assert_eq!(
+            send(
+                machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id,
+                    kind: EntityStreamKind::InitialSnapshot,
+                }
+            ),
             vec![ProtocolAction::InitialEntitySnapshotReady {
                 session_epoch: machine.session_epoch(),
                 subscription_id,
             }]
         );
-        assert_eq!(machine.state(), ProtocolState::AwaitInitialSnapshotApply { subscription_id });
+        assert_eq!(
+            machine.state(),
+            ProtocolState::AwaitInitialSnapshotApply { subscription_id }
+        );
         subscription_id
     }
 
@@ -683,10 +726,13 @@ mod tests {
         let mut machine = machine(7);
         reaches_live(&mut machine);
         assert_eq!(
-            send(&mut machine, InboundMessage::EntityStreamUpdate {
-                subscription_id: 1,
-                kind: EntityStreamKind::Changes,
-            }),
+            send(
+                &mut machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: 1,
+                    kind: EntityStreamKind::Changes,
+                }
+            ),
             vec![ProtocolAction::DeliverEntityChanges {
                 session_epoch: 7,
                 subscription_id: 1,
@@ -760,16 +806,23 @@ mod tests {
 
     #[test]
     fn subscription_ack_requires_matching_id_success_and_null_payload() {
-        let mut machine = machine(1);
-        reaches_subscription_result(&mut machine);
+        let mut protocol = machine(1);
+        reaches_subscription_result(&mut protocol);
         assert!(matches!(
-            send(&mut machine, InboundMessage::CommandResult {
-                id: 99,
-                success: true,
-                payload: ResultPayloadKind::Null,
-            }).as_slice(),
+            send(
+                &mut protocol,
+                InboundMessage::CommandResult {
+                    id: 99,
+                    success: true,
+                    payload: ResultPayloadKind::Null,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
-                error: ProtocolError::CommandIdMismatch { expected: 1, actual: 99 },
+                error: ProtocolError::CommandIdMismatch {
+                    expected: 1,
+                    actual: 99
+                },
                 ..
             }]
         ));
@@ -777,11 +830,15 @@ mod tests {
         let mut failed = machine(2);
         let id = reaches_subscription_result(&mut failed);
         assert!(matches!(
-            send(&mut failed, InboundMessage::CommandResult {
-                id,
-                success: false,
-                payload: ResultPayloadKind::Null,
-            }).as_slice(),
+            send(
+                &mut failed,
+                InboundMessage::CommandResult {
+                    id,
+                    success: false,
+                    payload: ResultPayloadKind::Null,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
                 error: ProtocolError::CommandRejected {
                     phase: SessionPhase::AwaitSubscriptionResult,
@@ -825,15 +882,16 @@ mod tests {
     fn strict_result_frame_decoder_rejects_missing_protocol_fields() {
         let missing_error_code = crate::strict_json::parse_bounded_json(
             br#"{"type":"result","id":3,"success":false,"error":{"message":"private"}}"#,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(
             decode_command_result_frame(&missing_error_code),
             Err(ProtocolDecodeError::MissingErrorCode)
         );
 
-        let missing_payload = crate::strict_json::parse_bounded_json(
-            br#"{"type":"result","id":4,"success":true}"#,
-        ).unwrap();
+        let missing_payload =
+            crate::strict_json::parse_bounded_json(br#"{"type":"result","id":4,"success":true}"#)
+                .unwrap();
         assert_eq!(
             decode_command_result_frame(&missing_payload),
             Err(ProtocolDecodeError::MissingResultPayload)
@@ -863,8 +921,14 @@ mod tests {
     #[test]
     fn unsupported_native_subscription_is_explicit_and_has_no_fallback() {
         for (code, reason) in [
-            (CommandFailureCode::UnknownCommand, UnsupportedSubscriptionReason::UnknownCommand),
-            (CommandFailureCode::NotSupported, UnsupportedSubscriptionReason::NotSupported),
+            (
+                CommandFailureCode::UnknownCommand,
+                UnsupportedSubscriptionReason::UnknownCommand,
+            ),
+            (
+                CommandFailureCode::NotSupported,
+                UnsupportedSubscriptionReason::NotSupported,
+            ),
         ] {
             let mut machine = machine(1);
             let id = reaches_subscription_result(&mut machine);
@@ -884,13 +948,19 @@ mod tests {
         let mut machine = machine(1);
         reaches_subscription_result(&mut machine);
         assert_eq!(
-            send(&mut machine, InboundMessage::CommandFailure {
-                id: 77,
-                code: CommandFailureCode::UnknownCommand,
-            }),
+            send(
+                &mut machine,
+                InboundMessage::CommandFailure {
+                    id: 77,
+                    code: CommandFailureCode::UnknownCommand,
+                }
+            ),
             vec![ProtocolAction::FailClosed {
                 session_epoch: 1,
-                error: ProtocolError::CommandIdMismatch { expected: 1, actual: 77 },
+                error: ProtocolError::CommandIdMismatch {
+                    expected: 1,
+                    actual: 77
+                },
             }]
         );
     }
@@ -900,10 +970,13 @@ mod tests {
         let mut machine = machine(1);
         let id = reaches_subscription_result(&mut machine);
         assert_eq!(
-            send(&mut machine, InboundMessage::CommandFailure {
-                id,
-                code: CommandFailureCode::Other,
-            }),
+            send(
+                &mut machine,
+                InboundMessage::CommandFailure {
+                    id,
+                    code: CommandFailureCode::Other,
+                }
+            ),
             vec![ProtocolAction::FailClosed {
                 session_epoch: 1,
                 error: ProtocolError::CommandRejected {
@@ -917,18 +990,28 @@ mod tests {
     fn initial_snapshot_requires_exact_subscription_id() {
         let mut machine = machine(1);
         reaches_subscription_result(&mut machine);
-        send(&mut machine, InboundMessage::CommandResult {
-            id: 1,
-            success: true,
-            payload: ResultPayloadKind::Null,
-        });
+        send(
+            &mut machine,
+            InboundMessage::CommandResult {
+                id: 1,
+                success: true,
+                payload: ResultPayloadKind::Null,
+            },
+        );
         assert!(matches!(
-            send(&mut machine, InboundMessage::EntityStreamUpdate {
-                subscription_id: 77,
-                kind: EntityStreamKind::InitialSnapshot,
-            }).as_slice(),
+            send(
+                &mut machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: 77,
+                    kind: EntityStreamKind::InitialSnapshot,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
-                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 77 },
+                error: ProtocolError::SubscriptionIdMismatch {
+                    expected: 1,
+                    actual: 77
+                },
                 ..
             }]
         ));
@@ -938,16 +1021,23 @@ mod tests {
     fn changes_before_initial_snapshot_fail_closed() {
         let mut machine = machine(1);
         let id = reaches_subscription_result(&mut machine);
-        send(&mut machine, InboundMessage::CommandResult {
-            id,
-            success: true,
-            payload: ResultPayloadKind::Null,
-        });
+        send(
+            &mut machine,
+            InboundMessage::CommandResult {
+                id,
+                success: true,
+                payload: ResultPayloadKind::Null,
+            },
+        );
         assert!(matches!(
-            send(&mut machine, InboundMessage::EntityStreamUpdate {
-                subscription_id: id,
-                kind: EntityStreamKind::Changes,
-            }).as_slice(),
+            send(
+                &mut machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: id,
+                    kind: EntityStreamKind::Changes,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
                 error: ProtocolError::UnexpectedEntityStreamKind {
                     phase: SessionPhase::AwaitInitialSnapshot,
@@ -966,7 +1056,10 @@ mod tests {
         assert!(matches!(
             machine.initial_snapshot_applied(1, id + 1).as_slice(),
             [ProtocolAction::FailClosed {
-                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 2 },
+                error: ProtocolError::SubscriptionIdMismatch {
+                    expected: 1,
+                    actual: 2
+                },
                 ..
             }]
         ));
@@ -993,10 +1086,14 @@ mod tests {
         let mut machine = machine(1);
         let id = reaches_initial_snapshot(&mut machine);
         assert!(matches!(
-            send(&mut machine, InboundMessage::EntityStreamUpdate {
-                subscription_id: id,
-                kind: EntityStreamKind::Changes,
-            }).as_slice(),
+            send(
+                &mut machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: id,
+                    kind: EntityStreamKind::Changes,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
                 error: ProtocolError::UnexpectedMessage {
                     phase: SessionPhase::AwaitInitialSnapshotApply,
@@ -1012,10 +1109,14 @@ mod tests {
         let mut machine = machine(1);
         reaches_live(&mut machine);
         assert!(matches!(
-            send(&mut machine, InboundMessage::EntityStreamUpdate {
-                subscription_id: 1,
-                kind: EntityStreamKind::InitialSnapshot,
-            }).as_slice(),
+            send(
+                &mut machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: 1,
+                    kind: EntityStreamKind::InitialSnapshot,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
                 error: ProtocolError::UnexpectedEntityStreamKind {
                     phase: SessionPhase::Live,
@@ -1032,12 +1133,19 @@ mod tests {
         let mut machine = machine(1);
         reaches_live(&mut machine);
         assert!(matches!(
-            send(&mut machine, InboundMessage::EntityStreamUpdate {
-                subscription_id: 77,
-                kind: EntityStreamKind::Changes,
-            }).as_slice(),
+            send(
+                &mut machine,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: 77,
+                    kind: EntityStreamKind::Changes,
+                }
+            )
+            .as_slice(),
             [ProtocolAction::FailClosed {
-                error: ProtocolError::SubscriptionIdMismatch { expected: 1, actual: 77 },
+                error: ProtocolError::SubscriptionIdMismatch {
+                    expected: 1,
+                    actual: 77
+                },
                 ..
             }]
         ));
@@ -1068,10 +1176,13 @@ mod tests {
             vec![ProtocolAction::RequestAuthentication { session_epoch: 11 }]
         );
         assert_eq!(
-            prior.handle(10, InboundMessage::EntityStreamUpdate {
-                subscription_id: old_id,
-                kind: EntityStreamKind::Changes,
-            }),
+            prior.handle(
+                10,
+                InboundMessage::EntityStreamUpdate {
+                    subscription_id: old_id,
+                    kind: EntityStreamKind::Changes,
+                }
+            ),
             vec![ProtocolAction::IgnoreTerminalMessage { session_epoch: 10 }]
         );
         assert_eq!(current.state(), ProtocolState::AwaitAuthResult);
@@ -1081,11 +1192,16 @@ mod tests {
     fn late_old_command_results_are_ignored() {
         let mut machine = machine(52);
         assert!(matches!(
-            machine.handle(51, InboundMessage::CommandResult {
-                id: 1,
-                success: true,
-                payload: ResultPayloadKind::Null,
-            }).as_slice(),
+            machine
+                .handle(
+                    51,
+                    InboundMessage::CommandResult {
+                        id: 1,
+                        success: true,
+                        payload: ResultPayloadKind::Null,
+                    }
+                )
+                .as_slice(),
             [ProtocolAction::IgnoreStaleEpoch { .. }]
         ));
         assert_eq!(machine.state(), ProtocolState::AwaitAuthRequired);
@@ -1153,32 +1269,47 @@ mod tests {
                     // 2: auth_invalid
                     2 => protocol.handle(epoch, InboundMessage::AuthInvalid),
                     // 3: matching successful subscribe_entities result
-                    3 => protocol.handle(epoch, InboundMessage::CommandResult {
-                        id: 1,
-                        success: true,
-                        payload: ResultPayloadKind::Null,
-                    }),
+                    3 => protocol.handle(
+                        epoch,
+                        InboundMessage::CommandResult {
+                            id: 1,
+                            success: true,
+                            payload: ResultPayloadKind::Null,
+                        },
+                    ),
                     // 4: a successful result with the wrong command ID
-                    4 => protocol.handle(epoch, InboundMessage::CommandResult {
-                        id: 99,
-                        success: true,
-                        payload: ResultPayloadKind::Null,
-                    }),
+                    4 => protocol.handle(
+                        epoch,
+                        InboundMessage::CommandResult {
+                            id: 99,
+                            success: true,
+                            payload: ResultPayloadKind::Null,
+                        },
+                    ),
                     // 5: the expected initial snapshot
-                    5 => protocol.handle(epoch, InboundMessage::EntityStreamUpdate {
-                        subscription_id: 1,
-                        kind: EntityStreamKind::InitialSnapshot,
-                    }),
+                    5 => protocol.handle(
+                        epoch,
+                        InboundMessage::EntityStreamUpdate {
+                            subscription_id: 1,
+                            kind: EntityStreamKind::InitialSnapshot,
+                        },
+                    ),
                     // 6: an incremental update for the active subscription
-                    6 => protocol.handle(epoch, InboundMessage::EntityStreamUpdate {
-                        subscription_id: 1,
-                        kind: EntityStreamKind::Changes,
-                    }),
+                    6 => protocol.handle(
+                        epoch,
+                        InboundMessage::EntityStreamUpdate {
+                            subscription_id: 1,
+                            kind: EntityStreamKind::Changes,
+                        },
+                    ),
                     // 7: an update with a foreign subscription ID
-                    7 => protocol.handle(epoch, InboundMessage::EntityStreamUpdate {
-                        subscription_id: 99,
-                        kind: EntityStreamKind::Changes,
-                    }),
+                    7 => protocol.handle(
+                        epoch,
+                        InboundMessage::EntityStreamUpdate {
+                            subscription_id: 99,
+                            kind: EntityStreamKind::Changes,
+                        },
+                    ),
                     // 8: an unrelated event
                     8 => protocol.handle(epoch, InboundMessage::OtherEvent),
                     // 9: explicit acknowledgement that the initial snapshot was applied
@@ -1202,14 +1333,20 @@ mod tests {
                             assert_eq!(before, ProtocolState::AwaitAuthResult);
                             assert_eq!(*session_epoch, epoch);
                             assert_eq!(*command_id, 1);
-                            assert_eq!(entity_ids, &vec!["sensor.living_room_temperature".to_string()]);
+                            assert_eq!(
+                                entity_ids,
+                                &vec!["sensor.living_room_temperature".to_string()]
+                            );
                         }
                         ProtocolAction::AwaitInitialEntitySnapshot {
                             session_epoch,
                             subscription_id,
                         } => {
                             assert_eq!(symbol, 3, "snapshot awaited for {events:?}");
-                            assert_eq!(before, ProtocolState::AwaitSubscriptionResult { command_id: 1 });
+                            assert_eq!(
+                                before,
+                                ProtocolState::AwaitSubscriptionResult { command_id: 1 }
+                            );
                             assert_eq!(*session_epoch, epoch);
                             assert_eq!(*subscription_id, 1);
                         }
@@ -1218,7 +1355,10 @@ mod tests {
                             subscription_id,
                         } => {
                             assert_eq!(symbol, 5, "snapshot accepted for {events:?}");
-                            assert_eq!(before, ProtocolState::AwaitInitialSnapshot { subscription_id: 1 });
+                            assert_eq!(
+                                before,
+                                ProtocolState::AwaitInitialSnapshot { subscription_id: 1 }
+                            );
                             assert_eq!(*session_epoch, epoch);
                             assert_eq!(*subscription_id, 1);
                         }
@@ -1235,8 +1375,14 @@ mod tests {
                             session_epoch,
                             subscription_id,
                         } => {
-                            assert_eq!(symbol, 9, "session went live without explicit snapshot acknowledgement: {events:?}");
-                            assert_eq!(before, ProtocolState::AwaitInitialSnapshotApply { subscription_id: 1 });
+                            assert_eq!(
+                                symbol, 9,
+                                "session went live without explicit snapshot acknowledgement: {events:?}"
+                            );
+                            assert_eq!(
+                                before,
+                                ProtocolState::AwaitInitialSnapshotApply { subscription_id: 1 }
+                            );
                             assert_eq!(*session_epoch, epoch);
                             assert_eq!(*subscription_id, 1);
                             live_was_authorized = true;
@@ -1250,7 +1396,10 @@ mod tests {
                             assert!(matches!(protocol.state(), ProtocolState::Failed(_)));
                         }
                         ProtocolAction::IgnoreTerminalMessage { .. } => {
-                            assert!(matches!(before, ProtocolState::Failed(_) | ProtocolState::Closed));
+                            assert!(matches!(
+                                before,
+                                ProtocolState::Failed(_) | ProtocolState::Closed
+                            ));
                         }
                         ProtocolAction::IgnoreStaleEpoch { .. } => {
                             panic!("no stale epoch event was generated in {events:?}");
@@ -1264,13 +1413,18 @@ mod tests {
                         "protocol entered Live without explicit initial-snapshot acknowledgement: {events:?}"
                     );
                 }
-                if matches!(protocol.state(), ProtocolState::Failed(_) | ProtocolState::Closed) {
+                if matches!(
+                    protocol.state(),
+                    ProtocolState::Failed(_) | ProtocolState::Closed
+                ) {
                     // Terminal states may never be revived by an in-session message.
                     let terminal_before = protocol.state();
                     let terminal_actions = protocol.handle(epoch, InboundMessage::AuthRequired);
                     assert_eq!(
                         terminal_actions,
-                        vec![ProtocolAction::IgnoreTerminalMessage { session_epoch: epoch }]
+                        vec![ProtocolAction::IgnoreTerminalMessage {
+                            session_epoch: epoch
+                        }]
                     );
                     assert_eq!(protocol.state(), terminal_before);
                 }
