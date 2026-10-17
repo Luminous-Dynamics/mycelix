@@ -16,6 +16,7 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-ALLOW-002 | Reordered set-like actions/scopes in otherwise equivalent profile inputs | Same canonical profile payload | `canonical_payload_is_independent_of_set_order` |
 | RPK-AGREE-001 | One verified agreement binds the exact source/destination profile IDs and digests, allowed class/action/purpose/recipient, and active validity window | Allow only when agreement and both profile policies jointly allow the action | `permits_only_explicitly_authorized_bilateral_route` |
 | RPK-AGREE-002 | Source and destination signers approve the same exact agreement digest using distinct role-bound messages | Messages are domain-separated to prevent source/destination signature substitution | `source_and_destination_approval_messages_are_domain_separated` |
+| RPK-AGREE-003 | Agreement allowlist order changes but members do not | Canonical bytes remain identical | `agreement_canonical_payload_is_independent_of_allowlist_order` |
 | RPK-AUDIT-001 | Valid decision has agreement ID/version/digest, source/destination profile IDs/versions/digests, action, data class, content digest and timestamp | Audit context is bound; no raw purpose, recipient, or resource ID in the result object | `binds_policy_decision_to_profile_versions_and_non_sensitive_audit_fields` |
 | RPK-MATRIX-001 | All four combinations of source permission × destination permission | Allow iff both sides permit | `bilateral_route_truth_table_only_allows_mutual_permission` |
 
@@ -37,7 +38,7 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-012 | Object content digest changed after classification evidence was verified | `ClassificationContentMismatch` | `denies_changed_content_after_classification` |
 | RPK-DENY-013 | Classification evidence freshness expires | `ClassificationEvidenceStale` | `denies_when_classification_evidence_is_stale` |
 | RPK-DENY-014 | Profile trust-root evidence is stale at construction time | Verified profile construction fails | `denies_profile_when_trust_root_evidence_deadline_is_stale` |
-| RPK-DENY-015 | Profile document is still within its own validity window but signer-trust evidence expires | `SourceProfileEvidenceStale` | `expires_profile_trust_evidence_even_when_profile_document_is_still_active` |
+| RPK-DENY-015 | Profile document is still within its own validity window but signer-trust evidence expires | `SourceProfileEvidenceStale` | `denies_when_profile_trust_evidence_expires_before_profile_document` |
 | RPK-DENY-016 | Caller supplies an evaluation timestamp before the source/destination/classification evidence was verified | Backdated decision rejected | `rejects_backdated_evaluation_after_profile_was_verified` |
 | RPK-DENY-017 | Caller supplies an evaluation timestamp before consent was verified | `ConsentVerifiedAfterDecisionTime` | `rejects_backdated_evaluation_after_consent_was_verified` |
 | RPK-DENY-018 | Agreement binds a different source profile ID/version | `AgreementSourceProfileMismatch` | `rejects_agreement_bound_to_another_profile_version` |
@@ -45,7 +46,7 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-020 | Action is permitted by both profiles but absent from the bilateral agreement | `AgreementActionNotAllowed` | `denies_action_not_in_agreement_even_if_both_profiles_allow_route` |
 | RPK-DENY-021 | Purpose is absent from the exact agreement allowlist | `AgreementPurposeNotAllowed` | `denies_purpose_not_explicitly_authorized_by_agreement` |
 | RPK-DENY-022 | Recipient is absent from the exact agreement allowlist | `AgreementRecipientNotAllowed` | `denies_recipient_not_explicitly_authorized_by_agreement` |
-| RPK-DENY-023 | Agreement allowlist order changes but members do not | Canonical bytes remain identical | `agreement_canonical_payload_is_independent_of_allowlist_order` |
+
 | RPK-DENY-024 | Agreement expiry is reached while both region profiles remain active | `AgreementExpired` | `denies_expired_agreement_even_if_source_and_destination_profiles_remain_active` |
 | RPK-DENY-025 | Agreement signer/trust evidence freshness deadline is reached | `AgreementEvidenceStale` | `denies_when_agreement_trust_evidence_becomes_stale` |
 | RPK-DENY-026 | Source-party approval verification fails | Agreement construction rejected | `rejects_agreement_when_source_approval_verification_fails` |
