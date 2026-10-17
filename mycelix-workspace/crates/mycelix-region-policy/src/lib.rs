@@ -1544,6 +1544,7 @@ mod tests {
         assert!(decision.reasons.contains(&DenialReason::SourceProfileVerifiedAfterDecisionTime));
         assert!(decision.reasons.contains(&DenialReason::DestinationProfileVerifiedAfterDecisionTime));
         assert!(decision.reasons.contains(&DenialReason::ClassificationVerifiedAfterDecisionTime));
+        assert!(decision.reasons.contains(&DenialReason::AgreementVerifiedAfterDecisionTime));
     }
 
     #[test]
@@ -1893,6 +1894,79 @@ mod tests {
         let decision = evaluate_transfer(&source, &destination, &request);
         assert!(!decision.allowed);
         assert!(decision.reasons.contains(&DenialReason::AgreementRecipientNotAllowed));
+    }
+
+    #[test]
+    fn denies_expired_agreement_even_if_source_and_destination_profiles_remain_active() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let mut agreement = verified_agreement(&source, &destination).agreement;
+        agreement.valid_until_unix_ms = 220;
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement,
+            200,
+            &AcceptAgreements { evidence_until_ms: 900 },
+        )
+        .expect("agreement is active at verification time");
+        let classification = verified_classification("record:education-credential", 200);
+        let consent = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            200,
+        );
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementExpired));
+    }
+
+    #[test]
+    fn denies_when_agreement_trust_evidence_becomes_stale() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let agreement_raw = verified_agreement(&source, &destination).agreement;
+        let agreement = VerifiedFederationAgreement::verify(
+            agreement_raw,
+            200,
+            &AcceptAgreements { evidence_until_ms: 220 },
+        )
+        .expect("agreement trust evidence is initially fresh");
+        let classification = verified_classification("record:education-credential", 200);
+        let consent = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            200,
+        );
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            agreement: &agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::AgreementEvidenceStale));
     }
 
 }
