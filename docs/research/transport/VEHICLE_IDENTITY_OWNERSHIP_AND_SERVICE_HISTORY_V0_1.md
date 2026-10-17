@@ -111,9 +111,9 @@ The first integration should be reference-based, versioned and offline-capable, 
 - **Manufacturer / repairer / lab → Mycelix:** signed assertions tied to verified organizational credentials and exact scope; verification and dispute state remain visible.
 - **Recall issuer → dossier:** source reference and affected configuration scope; completion is a separate event.
 
-The common v0.1 interchange envelope should support:
-`schema_version`, `artifact_kind`, `artifact_id`, `subject_ref`, `producer_ref`, `producer_revision`, `inputs_digest`, `outputs_digest`, `created_at`, `evidence_class`, `uncertainty`, `scope`, `limitations`, and `source_refs`.
-Do not put owner PII into that common engineering envelope.
+The canonical common engineering artifact contract is the [Mobility Engineering Evidence Envelope v0.1](https://github.com/Luminous-Dynamics/symtropy/blob/research/family-vehicle-simulation-v0_1/schemas/transport/engineering_evidence_envelope_v0_1.schema.json), with synthetic acceptance/negative fixtures at [engineering evidence envelope fixtures](https://github.com/Luminous-Dynamics/symtropy/blob/research/family-vehicle-simulation-v0_1/fixtures/personal_vehicle/engineering_evidence_envelope_fixtures_v0_1.json). It binds versioned artifact/subject/configuration identity, producer revision/tool, input/output digests, evidence class, scope/conditions, uncertainty, source/rights references, privacy class, limitations and claim ceiling.
+
+Keep this engineering-artifact envelope **separate** from Mycelix's owner consent, signature and lifecycle-event envelope. Mycelix events may reference a design/simulation/measurement/review artifact by ID and digest; they must not mutate its evidence class. A signature authenticates a signer only after cryptographic and credential-scope verification—it does not make the signed statement true, convert a simulation into a physical test, or establish legal title. The shared schema and Rust semantic fixtures are in a draft PR branch and await exact-head validation; do not describe them as deployed or qualified. Do not put owner PII into the public engineering envelope.
 
 
 ## Current schema and independent-validator status (2026-10-17)
