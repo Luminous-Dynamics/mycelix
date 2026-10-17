@@ -38,7 +38,9 @@ impl StrictJsonValue {
 
     /// Obtain a nested read-only view that retains the strict-decoding marker.
     pub fn get(&self, key: &str) -> Option<StrictJsonValueRef<'_>> {
-        self.value.get(key).map(|value| StrictJsonValueRef { value })
+        self.value
+            .get(key)
+            .map(|value| StrictJsonValueRef { value })
     }
 }
 
@@ -55,7 +57,9 @@ impl<'a> StrictJsonValueRef<'a> {
     }
 
     pub fn get(self, key: &str) -> Option<StrictJsonValueRef<'a>> {
-        self.value.get(key).map(|value| StrictJsonValueRef { value })
+        self.value
+            .get(key)
+            .map(|value| StrictJsonValueRef { value })
     }
 }
 
@@ -64,7 +68,10 @@ impl fmt::Display for StrictJsonError {
         match self {
             Self::FrameTooLarge => write!(f, "Home Assistant JSON frame exceeds the byte ceiling"),
             Self::MalformedOrDuplicateKey => {
-                write!(f, "Home Assistant JSON frame is malformed or contains duplicate object keys")
+                write!(
+                    f,
+                    "Home Assistant JSON frame is malformed or contains duplicate object keys"
+                )
             }
         }
     }
@@ -227,9 +234,15 @@ mod tests {
             }
         }"#;
         let parsed = parse_bounded_json(input).unwrap();
-        assert_eq!(parsed.as_value().pointer("/id").and_then(Value::as_u64), Some(7));
         assert_eq!(
-            parsed.as_value().pointer("/event/a/sensor.example/s").and_then(Value::as_str),
+            parsed.as_value().pointer("/id").and_then(Value::as_u64),
+            Some(7)
+        );
+        assert_eq!(
+            parsed
+                .as_value()
+                .pointer("/event/a/sensor.example/s")
+                .and_then(Value::as_str),
             Some("21.5")
         );
     }
@@ -269,7 +282,10 @@ mod tests {
     #[test]
     fn rejects_oversized_frame_before_json_parsing() {
         let input = vec![b' '; MAX_HA_WS_JSON_FRAME_BYTES + 1];
-        assert_eq!(parse_bounded_json(&input), Err(StrictJsonError::FrameTooLarge));
+        assert_eq!(
+            parse_bounded_json(&input),
+            Err(StrictJsonError::FrameTooLarge)
+        );
     }
 
     #[test]
