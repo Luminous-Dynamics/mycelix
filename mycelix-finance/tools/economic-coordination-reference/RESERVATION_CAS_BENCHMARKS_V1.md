@@ -18,7 +18,7 @@ The implementation in src/reservation_cas.rs is intentionally a serial reference
 - Exact reserve retries with the same idempotency key and payload return the original immutable receipt without consuming capacity twice; conflicting key reuse fails closed.
 - Every successful pool mutation increments both revision and fencing token; events record the before/after revision, fence token and stable command/event identity.
 - Support explicit Active → Committed → Consumed transitions, Active → Released, and Active → Expired. Committed or consumed capacity cannot be silently released.
-- Expiry is explicit and append-only. A lease whose expiry time has passed does not self-release through a failed command; an authorized Expire transition must be recorded using the current revision/fence.
+- The lease expiry must not outlive the evidence snapshot, and mutation timestamps are monotonic per pool. Expiry is explicit and append-only. A lease whose expiry time has passed does not self-release through a failed command; an authorized Expire transition must be recorded using the current revision/fence.
 - Failed compare-and-swap attempts append no event or partial reservation.
 - The capacity report keeps active/committed quantity (reserved), consumed quantity, and remaining capacity separate.
 
@@ -50,7 +50,7 @@ The implementation in src/reservation_cas.rs is intentionally a serial reference
 | Stable hand-authored fixtures | 40 minimum |
 | Generated operation schedules after oracle qualification | 10,000 minimum |
 
-The 100-attempt test in this module deterministically models contenders that all present the same initial revision. It is not a benchmark of actual concurrent threads or network calls. A proper store-level stress benchmark must race concurrent workers against the transaction adapter and observe committed receipts, not trust client-side success responses.
+The lease/evidence coupling prevents a reservation from promising more time than its source snapshot warrants. The 100-attempt test in this module deterministically models contenders that all present the same initial revision. It is not a benchmark of actual concurrent threads or network calls. A proper store-level stress benchmark must race concurrent workers against the transaction adapter and observe committed receipts, not trust client-side success responses.
 
 ## Independent oracle and schedule campaign
 
