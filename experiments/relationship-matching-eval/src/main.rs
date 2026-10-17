@@ -27,8 +27,10 @@ fn run() -> Result<(), String> {
     let market = synthetic_market(seed, participant_count)?;
     let one_sided_rows = recommend(&market, top_k, RankingPolicy::OneSidedUtility)?;
     let mutual_rows = recommend(&market, top_k, RankingPolicy::MutualUtility)?;
+    let balanced_rows = recommend(&market, top_k, RankingPolicy::ExposureBalancedMutual)?;
     let one_sided_metrics = evaluate(&market, &one_sided_rows);
     let mutual_metrics = evaluate(&market, &mutual_rows);
+    let balanced_metrics = evaluate(&market, &balanced_rows);
     let fingerprint = corpus_fingerprint_fnv1a64(&market);
 
     println!("{{");
@@ -44,6 +46,9 @@ fn run() -> Result<(), String> {
     println!("  }},");
     println!("  \"mutual_utility\": {{");
     print_metrics(mutual_metrics);
+    println!("  }},");
+    println!("  \"exposure_balanced_mutual\": {{");
+    print_metrics(balanced_metrics);
     println!("  }}");
     println!("}}");
 
