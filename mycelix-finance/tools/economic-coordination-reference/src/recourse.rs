@@ -730,6 +730,14 @@ pub fn evaluate_recourse(
         return Err(RecourseError::InvalidBaselinePlan);
     }
 
+    let baseline_quantity = baseline.iter().try_fold(0u64, |total, allocation| {
+        total.checked_add(u64::from(allocation.quantity))
+            .ok_or(RecourseError::ArithmeticOverflow)
+    })?;
+    if baseline_quantity != u64::from(request.required_quantity) {
+        return Err(RecourseError::InvalidBaselinePlan);
+    }
+
     let mut scenario_ids = BTreeSet::new();
     for scenario in scenarios {
         if !non_empty(&scenario.scenario_id)
@@ -1104,6 +1112,60 @@ mod tests {
         let report = evaluate_recourse(&req, &baseline, &[backup], &scenarios).unwrap();
         assert_eq!(report.scenario_results[0].recovered_quantity, 0);
         assert_eq!(report.scenario_results[0].excluded_options[0].reason, SupplyRejection::QuoteExpired);
+    }
+
+    #[test]
+    fn recourse_quantity_and_cost_match_small_exhaustive_oracle() {
+        let req = request();
+        let baseline = vec![
+            base("base-a", "supplier-a", "pool-base-a", 6, 10, "region-a"),
+            base("base-b", "supplier-b", "pool-base-b", 4, 10, "region-b"),
+        ];
+        let contingency = option(
+            "backup-c", "supplier-c", "pool-backup-c", 6, "region-c",
+            SupplyMode::Backup, 2, 1, 2, 2, 3,
+        );
+        let scenarios = vec![RecourseScenario {
+            scenario_id: "supplier-a-fails".into(),
+            observed_at: 105,
+            failed_domains: vec!["supplier:supplier-a".into()],
+        }];
+
+        // Independent tiny oracle: enumerate every allowable recourse quantity
+        // for the one backup offer, maximize recovery, then minimize incremental cost.
+        let lost = 6u32;
+        let mut expected_quantity = 0u32;
+        let mut expected_cost = 0u64;
+        for quantity in 0..=lost {
+            let cost = if quantity == 0 { 0 } else { u64::from(quantity) * 2 + 1 };
+            if cost <= req.max_total_cost_minor - 12
+                && (quantity > expected_quantity
+                    || (quantity == expected_quantity && cost < expected_cost))
+            {
+                expected_quantity = quantity;
+                expected_cost = cost;
+            }
+        }
+
+        let report = evaluate_recourse(&req, &baseline, &[contingency], &scenarios).unwrap();
+        let result = &report.scenario_results[0];
+        assert_eq!(result.recovered_quantity, expected_quantity);
+        assert_eq!(result.recourse_cost_minor, expected_cost);
+        assert_eq!(result.unfilled_quantity, lost - expected_quantity);
+        assert_eq!(expected_quantity, 6);
+        assert_eq!(expected_cost, 13);
+    }
+
+    #[test]
+    fn baseline_must_conserve_requested_quantity() {
+        let req = request();
+        let incomplete = vec![base("base-a", "supplier-a", "pool-base", 9, 10, "region-a")];
+        let result = evaluate_recourse(&req, &incomplete, &[], &[RecourseScenario {
+            scenario_id: "no-disruption".into(),
+            observed_at: 105,
+            failed_domains: vec![],
+        }]);
+        assert_eq!(result, Err(RecourseError::InvalidBaselinePlan));
     }
 
     #[test]
