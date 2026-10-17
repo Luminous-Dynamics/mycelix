@@ -746,7 +746,7 @@ impl PreparedJournalAttempt {
 /// writes reported transaction completion; callers must not contact the
 /// conductor before this function succeeds. Operation IDs remain local.
 pub async fn prepare_live_attempt(
-    journal_signal: RwSignal<Option<IndexedDbJournal>>,
+    journal_signal: RwSignal<Option<IndexedDbJournal>, LocalStorage>,
     action: ActionKind,
     hearth_scope_bytes: &[u8],
     target_identity_bytes: &[u8],
