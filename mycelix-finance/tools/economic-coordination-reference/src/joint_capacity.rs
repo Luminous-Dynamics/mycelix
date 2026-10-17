@@ -194,6 +194,28 @@ pub struct CurrencyCostSummary {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AllocationWitness {
+    pub request_id: String,
+    pub request_priority_rank: u16,
+    pub request_capability_id: String,
+    pub request_profile_digest: String,
+    pub offer_id: String,
+    pub supplier_id: String,
+    pub capability_mapping_id: String,
+    pub capability_mapping_digest: String,
+    pub capacity_pool_id: String,
+    pub capacity_snapshot_digest: String,
+    pub time_bucket: String,
+    pub quantity: u32,
+    pub unit: String,
+    pub currency: String,
+    pub unit_cost_minor: u64,
+    pub line_cost_minor: u64,
+    pub arrives_at: u64,
+    pub deliver_by: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JointAllocationReport {
     pub evaluator_profile: &'static str,
     pub input_manifest_digest: String,
@@ -202,6 +224,9 @@ pub struct JointAllocationReport {
     pub offer_count: usize,
     pub capacity_pool_count: usize,
     pub assignment_count: usize,
+    /// Canonical line-level witness for every accepted assignment, including the exact
+    /// mapping and capacity snapshot identifiers used to validate it.
+    pub assignments: Vec<AllocationWitness>,
     pub requests: Vec<RequestReconciliation>,
     pub offers: Vec<OfferReconciliation>,
     pub capacity_pools: Vec<PoolReconciliation>,
@@ -562,6 +587,50 @@ pub fn validate_joint_allocation(
         })
         .collect();
 
+    let mut assignment_witnesses = Vec::with_capacity(input.assignments.len());
+    for assignment in &input.assignments {
+        let request = requests
+            .get(&assignment.request_id)
+            .ok_or(JointAllocationError::UnknownRequest)?;
+        let offer = offers
+            .get(&assignment.offer_id)
+            .ok_or(JointAllocationError::UnknownOffer)?;
+        let pool = pools
+            .get(&offer.capacity_pool_id)
+            .ok_or(JointAllocationError::MissingCapacityPool)?;
+        let pair = (assignment.request_id.clone(), assignment.offer_id.clone());
+        let mapping = mappings
+            .get(&pair)
+            .ok_or(JointAllocationError::MissingCapabilityMapping)?;
+        let line_cost_minor = offer
+            .unit_cost_minor
+            .checked_mul(u64::from(assignment.quantity))
+            .ok_or(JointAllocationError::ArithmeticOverflow)?;
+        assignment_witnesses.push(AllocationWitness {
+            request_id: assignment.request_id.clone(),
+            request_priority_rank: request.priority_rank,
+            request_capability_id: request.capability_id.clone(),
+            request_profile_digest: request.capability_profile_digest.clone(),
+            offer_id: offer.offer_id.clone(),
+            supplier_id: offer.supplier_id.clone(),
+            capability_mapping_id: mapping.mapping_id.clone(),
+            capability_mapping_digest: mapping.mapping_digest.clone(),
+            capacity_pool_id: pool.capacity_pool_id.clone(),
+            capacity_snapshot_digest: pool.snapshot_digest.clone(),
+            time_bucket: pool.time_bucket.clone(),
+            quantity: assignment.quantity,
+            unit: request.unit.clone(),
+            currency: request.currency.clone(),
+            unit_cost_minor: offer.unit_cost_minor,
+            line_cost_minor,
+            arrives_at: offer.arrives_at,
+            deliver_by: request.deliver_by,
+        });
+    }
+    assignment_witnesses.sort_by(|left, right| {
+        (&left.request_id, &left.offer_id).cmp(&(&right.request_id, &right.offer_id))
+    });
+
     Ok(JointAllocationReport {
         evaluator_profile: EVALUATOR_PROFILE,
         input_manifest_digest: input.input_manifest_digest.clone(),
@@ -570,6 +639,7 @@ pub fn validate_joint_allocation(
         offer_count: offers.len(),
         capacity_pool_count: pools.len(),
         assignment_count: input.assignments.len(),
+        assignments: assignment_witnesses,
         requests: request_reports,
         offers: offer_reports,
         capacity_pools: pool_reports,
@@ -684,6 +754,11 @@ mod tests {
         assert_eq!(report.quantities_by_unit[0].served_quantity, 5);
         assert_eq!(report.costs_by_currency[0].allocated_cost_minor, 280);
         assert_eq!(report.capacity_pools[0].remaining_quantity, 0);
+        assert_eq!(report.assignments.len(), 2);
+        assert_eq!(report.assignments[0].request_id, "routine");
+        assert_eq!(report.assignments[0].capability_mapping_id, "map-routine-offer-b");
+        assert_eq!(report.assignments[0].capacity_snapshot_digest, "sha256-pool-b");
+        assert_eq!(report.assignments[0].line_cost_minor, 180);
     }
 
     #[test]
