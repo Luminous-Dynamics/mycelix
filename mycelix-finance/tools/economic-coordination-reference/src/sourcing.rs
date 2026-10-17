@@ -823,10 +823,16 @@ mod tests {
         overflow_arrival.supplier_credential_checked_at = req.as_of;
         overflow_arrival.supplier_credential_valid_until = u64::MAX;
         let report = evaluate_sourcing(&req, &[overflow_arrival]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::ArrivalTimeOverflow);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::ArrivalTimeOverflow
+        );
 
         let report = evaluate_sourcing(&request(), &[invalid_risk]).unwrap();
-        assert_eq!(report.rejected[0].reason, RejectionReason::RiskValueOutOfRange);
+        assert_eq!(
+            report.rejected[0].reason,
+            RejectionReason::RiskValueOutOfRange
+        );
     }
 
     #[test]
