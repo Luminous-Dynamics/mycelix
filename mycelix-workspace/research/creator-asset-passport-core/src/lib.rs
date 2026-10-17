@@ -236,7 +236,7 @@ impl CreativeAsset {
 
 /// In-memory identity registry. Identifier collisions are surfaced, never
 /// auto-merged; an external identifier does not establish ownership.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AssetRegistry {
     assets: BTreeMap<AssetId, CreativeAsset>,
     identifier_owners: BTreeMap<String, AssetId>,
@@ -307,6 +307,11 @@ impl AssetRegistry {
 
     pub fn get(&self, asset_id: &AssetId) -> Option<&CreativeAsset> {
         self.assets.get(asset_id)
+    }
+
+    /// Deterministic asset iteration in ascending AssetId order.
+    pub fn assets(&self) -> impl Iterator<Item = &CreativeAsset> {
+        self.assets.values()
     }
 
     pub fn len(&self) -> usize {
