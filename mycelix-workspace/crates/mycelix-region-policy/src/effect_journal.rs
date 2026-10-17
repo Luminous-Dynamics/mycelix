@@ -87,6 +87,8 @@ impl EffectIdentity {
 pub struct SinkOutcomeEvidence {
     pub idempotency_key: String,
     pub target_digest: String,
+    /// Digest binding the authorization decision to exact profile/agreement versions.
+    pub policy_binding_digest: String,
     pub operation_id: String,
     pub disposition: SinkDisposition,
     /// Digest of the sink receipt/outcome, not the raw receipt or personal data.
@@ -114,6 +116,7 @@ pub trait SinkOutcomeVerifier {
 pub struct VerifiedSinkOutcome {
     idempotency_key: String,
     target_digest: String,
+    policy_binding_digest: String,
     operation_id: String,
     disposition: SinkDisposition,
     outcome_digest: String,
@@ -139,6 +142,7 @@ impl VerifiedSinkOutcome {
         }
         if evidence.idempotency_key != expected.idempotency_key
             || evidence.target_digest != expected.target_digest
+            || evidence.policy_binding_digest != expected.policy_binding_digest
         {
             return Err(JournalError::IdentityMismatch);
         }
@@ -148,6 +152,7 @@ impl VerifiedSinkOutcome {
         Ok(Self {
             idempotency_key: evidence.idempotency_key,
             target_digest: evidence.target_digest,
+            policy_binding_digest: evidence.policy_binding_digest,
             operation_id: evidence.operation_id,
             disposition: evidence.disposition,
             outcome_digest: evidence.outcome_digest,
@@ -331,6 +336,7 @@ impl EffectAttempt {
         }
         if outcome.idempotency_key != self.identity.idempotency_key
             || outcome.target_digest != self.identity.target_digest
+            || outcome.policy_binding_digest != self.identity.policy_binding_digest
         {
             return Err(JournalError::IdentityMismatch);
         }
@@ -411,6 +417,7 @@ mod tests {
         SinkOutcomeEvidence {
             idempotency_key: "idem-key-1".to_owned(),
             target_digest: "a".repeat(64),
+            policy_binding_digest: "b".repeat(64),
             operation_id: "sink-operation-1".to_owned(),
             disposition,
             outcome_digest: "c".repeat(64),
@@ -449,7 +456,8 @@ mod tests {
         attempt.mark_outcome_unknown().expect("submit -> unknown");
         attempt.resolve(verified_outcome(SinkDisposition::Applied)).expect("matching proof resolves");
         assert_eq!(attempt.phase(), AttemptPhase::Committed);
-        assert_eq!(attempt.outcome_digest(), Some("c".repeat(64).as_str()));
+        let expected_digest = "c".repeat(64);
+        assert_eq!(attempt.outcome_digest(), Some(expected_digest.as_str()));
     }
 
     #[test]
@@ -551,6 +559,17 @@ mod tests {
             EffectAttempt::restore(snapshot),
             Err(JournalError::InvalidTransition)
         );
+    }
+
+    #[test]
+    fn rejects_replayed_sink_proof_for_changed_policy_binding() {
+        let expected = identity();
+        let mut e = evidence(SinkDisposition::Applied);
+        e.policy_binding_digest = "d".repeat(64);
+        assert!(matches!(
+            VerifiedSinkOutcome::verify(e, &expected, &AcceptSinkProof),
+            Err(JournalError::IdentityMismatch)
+        ));
     }
 
 }
