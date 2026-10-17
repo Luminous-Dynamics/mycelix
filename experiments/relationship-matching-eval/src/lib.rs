@@ -38,6 +38,7 @@ pub struct Participant {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RankingPolicy {
+    FeasibilityOnly,
     OneSidedUtility,
     MutualUtility,
     ExposureBalancedMutual,
@@ -158,8 +159,20 @@ pub fn eligible_pair(a: &Participant, b: &Participant) -> bool {
         && directed_utility(b, a) >= b.minimum_utility
 }
 
+/// Stable pseudo-random-looking priority for a feasibility-only baseline. This is
+/// not cryptographic randomness; it simply avoids making declared interests a
+/// ranking input in the neutral baseline.
+fn pair_priority(viewer_id: u32, candidate_id: u32) -> u64 {
+    let mut value = (u64::from(viewer_id) << 32) | u64::from(candidate_id);
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    value ^ (value >> 31)
+}
+
 /// Return top-k private recommendations for each viewer. No shared match or chat
-/// is created here; these rows are evaluation observations only.
+/// is created here; these rows are evaluation observations only. Discovery opt-in
+/// authorizes appearance in this synthetic discovery pool only; it is not pairwise
+/// consent, acceptance, or authority to reveal an undisclosed interest.
 pub fn recommend(
     participants: &[Participant],
     top_k: usize,
@@ -202,6 +215,9 @@ pub fn recommend(
             let right_person = by_id.get(&right.candidate_id).expect("validated candidate exists");
 
             match policy {
+                RankingPolicy::FeasibilityOnly => pair_priority(viewer.id, left.candidate_id)
+                    .cmp(&pair_priority(viewer.id, right.candidate_id))
+                    .then_with(|| left.candidate_id.cmp(&right.candidate_id)),
                 RankingPolicy::OneSidedUtility => right
                     .viewer_utility
                     .cmp(&left.viewer_utility)
@@ -609,7 +625,12 @@ mod tests {
             recommend(&first, 5, RankingPolicy::MutualUtility).expect("valid market");
         let second_result =
             recommend(&second, 5, RankingPolicy::MutualUtility).expect("valid market");
+        let first_neutral =
+            recommend(&first, 5, RankingPolicy::FeasibilityOnly).expect("valid market");
+        let second_neutral =
+            recommend(&second, 5, RankingPolicy::FeasibilityOnly).expect("valid market");
         assert_eq!(first_result, second_result);
+        assert_eq!(first_neutral, second_neutral);
         assert_eq!(
             corpus_fingerprint_fnv1a64(&first),
             corpus_fingerprint_fnv1a64(&second)
@@ -667,6 +688,7 @@ mod tests {
         let people = vec![a, b, blocked, wrong_goal];
 
         for policy in [
+            RankingPolicy::FeasibilityOnly,
             RankingPolicy::OneSidedUtility,
             RankingPolicy::MutualUtility,
             RankingPolicy::ExposureBalancedMutual,
