@@ -22,7 +22,7 @@ The native benchmark records 100,000 individual invocation durations and reports
     cd mycelix-workspace/crates/mycelix-region-policy
     cargo bench --bench policy_eval --locked
 
-Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power/performance mode, compiler profile, total operations, the per-call p50/p95/p99, timer-baseline p50/p95/p99, throughput, and full stdout. The timer baseline is reported separately and is not subtracted from operation timings; per-call samples include clock-read overhead. A queued or compiled-only benchmark is not a measurement. Do not compare results across machines without their environment manifests.
+Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power/performance mode, compiler profile, total operations, the per-call p50/p95/p99, timer-baseline p50/p95/p99, instrumented throughput (including timing/sample-capture overhead), and full stdout. The timer baseline is reported separately and is not subtracted from operation timings; per-call samples include clock-read overhead. A queued or compiled-only benchmark is not a measurement. Do not compare results across machines without their environment manifests.
 
 ## Next benchmark expansion
 
@@ -35,7 +35,7 @@ Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power
 
 ## Effect-journal benchmark
 
-Run `cargo bench --bench effect_journal --locked` to measure the reference state machine's prepare/reserve/dispatch/fixture-verify/resolve path. The harness records 100,000 individual operation durations and reports p50/p95/p99, plus a separately reported 10,000-sample timer baseline and aggregate throughput. The baseline is not subtracted, and single-operation samples include clock-read overhead. Its verifier is deliberately a local fixture; the benchmark excludes signature verification, durable storage, compare-and-swap, network transport, and process restarts. These numbers are not a production throughput claim. Record exact commit and hardware/toolchain metadata with every run.
+Run `cargo bench --bench effect_journal --locked` to measure the reference state machine's prepare/reserve/dispatch/fixture-verify/resolve path. The harness records 100,000 individual operation durations and reports p50/p95/p99, plus a separately reported 10,000-sample timer baseline and aggregate instrumented throughput (which includes timer and sample-capture overhead). The baseline is not subtracted, and single-operation samples include clock-read overhead. Its verifier is deliberately a local fixture; the benchmark excludes signature verification, durable storage, compare-and-swap, network transport, and process restarts. These numbers are not a production throughput claim. Record exact commit and hardware/toolchain metadata with every run.
 
 
 ## Bounded correctness coverage (not a latency benchmark)

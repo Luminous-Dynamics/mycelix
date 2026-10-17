@@ -197,6 +197,6 @@ fn main() {
         percentile(&timer_baseline_us, 0.95),
         percentile(&timer_baseline_us, 0.99),
     );
-    println!("throughput_ops_per_sec={:.0}", OPERATIONS as f64 / campaign_seconds);
-    println!("notes=policy-only; verifier, storage, network, and signature costs excluded; baseline is reported but not subtracted");
+    println!("instrumented_ops_per_sec={:.0}", OPERATIONS as f64 / campaign_seconds);
+    println!("notes=policy-only; verifier, storage, network, and signature costs excluded; baseline is reported but not subtracted; instrumented throughput includes timer and sample-capture overhead");
 }
