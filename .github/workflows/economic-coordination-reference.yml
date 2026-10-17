@@ -43,28 +43,19 @@ jobs:
       - name: Check formatting of changed Rust sources
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
-          BASE_REF: ${{ github.event.pull_request.base.ref || github.ref_name }}
         run: |
           set -euo pipefail
           crate_dir="mycelix-finance/tools/economic-coordination-reference"
           if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
             git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            mapfile -t rust_files < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- "$crate_dir" | grep -E '\\.rs
-      - name: Run reference and adversarial tests
-        run: cargo test --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml
-
-      - name: Compile sourcing benchmark harness
-        run: cargo check --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml --example sourcing_benchmark
- || true)
+            changed_files="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- "$crate_dir")"
           else
-            mapfile -t rust_files < <(git ls-files "$crate_dir" | grep -E '\\.rs
-      - name: Run reference and adversarial tests
-        run: cargo test --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml
-
-      - name: Compile sourcing benchmark harness
-        run: cargo check --locked --manifest-path mycelix-finance/tools/economic-coordination-reference/Cargo.toml --example sourcing_benchmark
- || true)
+            changed_files="$(git ls-files "$crate_dir")"
           fi
+          rust_files=()
+          while IFS= read -r path; do
+            [[ "$path" == *.rs ]] && rust_files+=("$path")
+          done <<< "$changed_files"
           if [[ ${#rust_files[@]} -eq 0 ]]; then
             echo "No changed Rust sources in the reference crate."
             exit 0
