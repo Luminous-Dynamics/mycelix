@@ -261,7 +261,11 @@ impl EntityStreamProjector {
             }
         }
 
-        let mut next = self.state.clone();
+        // Stage only the touched entities rather than cloning the full cache.
+        // Every payload/group is validated and every outgoing frame is built
+        // before the staged write-set is committed, preserving all-or-nothing
+        // semantics without O(total-cache-size) copying for a one-entity delta.
+        let mut staged_states: BTreeMap<String, CachedEntityState> = BTreeMap::new();
         let mut changed_states: BTreeMap<String, CachedEntityState> = BTreeMap::new();
         let mut removed_ids = Vec::new();
 
@@ -271,7 +275,7 @@ impl EntityStreamProjector {
                     continue;
                 }
                 let state = CachedEntityState::from_full(id, compressed)?;
-                next.insert(id.clone(), state.clone());
+                staged_states.insert(id.clone(), state.clone());
                 changed_states.insert(id.clone(), state);
             }
         }
@@ -281,15 +285,16 @@ impl EntityStreamProjector {
                 if !self.allowlisted_entity_ids.contains(id) {
                     continue;
                 }
-                let state = next.get_mut(id).ok_or_else(|| {
+                let mut state = self.state.get(id).cloned().ok_or_else(|| {
                     EntityStreamProjectionError::UnknownEntityChange { entity_id: id.clone() }
                 })?;
                 let before = state.clone();
                 state.apply_diff(id, diff)?;
                 // A rename/icon/context-only update must not refresh the
                 // observation freshness window for an unchanged semantic value.
-                if *state != before {
+                if state != before {
                     changed_states.insert(id.clone(), state.clone());
+                    staged_states.insert(id.clone(), state);
                 }
             }
         }
@@ -297,18 +302,25 @@ impl EntityStreamProjector {
         if let Some(removed) = removed {
             for raw_id in removed.iter() {
                 let id = raw_id.as_str().expect("validated above");
-                if self.allowlisted_entity_ids.contains(id) && next.remove(id).is_some() {
+                if self.allowlisted_entity_ids.contains(id) && self.state.contains_key(id) {
                     removed_ids.push(id.to_owned());
                 }
             }
         }
 
+        // Generate/validate every frame before mutating the cache. If projection
+        // fails, neither prior state nor freshness can be partially advanced.
         let frames = changed_states.iter()
             .map(|(id, state)| state.frame(id, received_at_micros))
             .collect::<Result<Vec<_>, _>>()?;
         removed_ids.sort();
 
-        self.state = next;
+        for (id, state) in staged_states {
+            self.state.insert(id, state);
+        }
+        for id in &removed_ids {
+            self.state.remove(id);
+        }
         Ok(EntityStreamProjection {
             initial_snapshot: false,
             frames,
@@ -570,6 +582,48 @@ mod tests {
             Err(EntityStreamProjectionError::UnknownEntityChange { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
+    }
+
+    #[test]
+    fn multi_entity_failure_does_not_commit_earlier_valid_delta() {
+        let mut base = profile();
+        let mut first = base.rules[0].clone();
+        first.entity_id = "sensor.a_temperature".into();
+        first.subject.id = "room-a".into();
+        let mut last = base.rules[0].clone();
+        last.entity_id = "sensor.z_temperature".into();
+        last.subject.id = "room-z".into();
+        base.rules = vec![first, last];
+        let mut projector = EntityStreamProjector::new(&base).unwrap();
+        let snapshot = json!({
+            "a": {
+                "sensor.a_temperature": {
+                    "s": "20.0",
+                    "a": {"unit_of_measurement": "°C", "device_class": "temperature"}
+                },
+                "sensor.z_temperature": {
+                    "s": "21.0",
+                    "a": {"unit_of_measurement": "°C", "device_class": "temperature"}
+                }
+            }
+        });
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot, 10).unwrap();
+
+        // The valid 'a' change sorts before the malformed 'z' change. If the
+        // projector mutates eagerly, the first entity would incorrectly stay at 22.0.
+        let bad_update = json!({
+            "c": {
+                "sensor.a_temperature": {"+": {"s": "22.0"}},
+                "sensor.z_temperature": {"+": {"a": ["not-an-object"]}}
+            }
+        });
+        assert!(matches!(
+            projector.apply(EntityStreamKind::Changes, &bad_update, 20),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
+        assert_eq!(projector.state["sensor.z_temperature"].state, "21.0");
+        assert_eq!(projector.cached_entity_count(), 2);
     }
 
     #[test]
