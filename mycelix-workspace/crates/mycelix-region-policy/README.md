@@ -4,17 +4,20 @@ This is a standalone, dependency-free Rust policy kernel for regional/community 
 
 ## What it does
 
-- Defines versioned region/community profiles and explicit ingress/egress rules.
-- Exposes a canonical, deterministic profile payload for a cryptographic adapter to hash and authenticate.
-- Requires a trusted profile-verifier adapter before profile policy can be evaluated.
-- Requires a trusted consent-verifier adapter before an individual grant can authorize a disclosure.
-- Requires both source and destination profiles to authorize a cross-boundary action.
-- Rejects unknown scopes, expired profiles, unapproved routes, missing purposes/recipients, stale consent evidence, and mismatched consent grants.
+- Defines versioned region/community profiles, explicit bilateral federation agreements, and ingress/egress rules.
+- Exposes deterministic canonical payloads for profile and agreement verification adapters.
+- Binds every cross-boundary request to exact source and destination profile IDs/digests and a time-bounded agreement.
+- Requires source and destination placement rules and the agreement to approve the exact data class, action, purpose, and recipient.
+- Requires verifier-backed classification claims bound to the exact resource ID and content digest; a caller-supplied sensitivity label is insufficient.
+- Requires trusted profile, agreement, classification, and consent verifier adapters with explicit evidence-freshness deadlines.
+- Rejects unknown schemas, expired or stale evidence, unapproved routes, backdated decisions, missing purposes/recipients, and mismatched consent.
 - Uses explicit timestamps; the kernel does not read the wall clock or perform network I/O.
 
 ## Important trust boundary
 
-This crate does **not** implement a cryptographic signature algorithm, profile trust-root distribution, legal interpretation, or physical data-residency attestation. Its ProfileVerifier adapter must recompute the digest over RegionalProfile::canonical_payload(), verify the signature over signature_message(), validate the signer against the locally configured trust roots, and handle key revocation/rotation. The ConsentVerifier adapter must authenticate the exact grant, check its issuer and current revocation state, and return an evidence-validity deadline no later than its revocation evidence remains trustworthy.
+This crate does **not** implement cryptographic signature algorithms, trust-root distribution, legal interpretation, or physical data-residency attestation. The ProfileVerifier and AgreementVerifier adapters must recompute the digest over the corresponding canonical payload, verify the domain-separated signature message, validate signer trust/rotation/revocation, and return a bounded evidence-freshness deadline. ClassificationVerifier must authenticate the exact resource ID, byte digest, and data class. ConsentVerifier must authenticate the exact grant, recipient/purpose binding and current revocation state, then return a bounded freshness deadline.
+
+The adapter that calls evaluate_transfer must supply a trusted runtime timestamp—not a timestamp supplied by the requester—and re-evaluate immediately before the protected side effect. The kernel rejects evaluation timestamps earlier than evidence verification, but it cannot establish that the caller's clock is trustworthy. Never put time-dependent freshness decisions into a Holochain integrity callback that must be deterministic across peers and time.
 
 Do not implement either verifier as a boolean supplied by an untrusted caller. Unit-test mocks in this crate prove policy behaviour only, not cryptographic security or jurisdiction compliance. The policy kernel is one defense-in-depth layer, not proof that the storage/replication network enforces placement rules.
 
@@ -30,7 +33,7 @@ No CI result is implied by these instructions. Current verification status must 
 
 ## First acceptance targets
 
-- Every asymmetric or missing source/destination authorization fails closed.
-- 100% of seeded policy-tamper, replay, stale-profile and mismatched-consent cases reject.
+- Every asymmetric source/destination rule or missing/mismatched agreement authorization fails closed.
+- 100% of seeded policy tampering, agreement replay, stale-profile/classification and mismatched-consent cases reject when the trusted adapters and kernel are tested together.
 - Zero restricted-record egress across the integrated storage, DHT/gossip, transport, backup, telemetry and adapter paths.
 - Measure local pure evaluation on a documented reference host; p95 < 5 ms is an initial target, not a measured result.
