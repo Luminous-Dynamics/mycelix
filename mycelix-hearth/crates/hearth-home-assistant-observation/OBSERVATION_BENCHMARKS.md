@@ -23,6 +23,8 @@ The native `subscribe_entities` stream is preferred because Home Assistant sends
 | HAOBS-009 | Reconnect currentness | Zero frames accepted from stale session epochs; zero transition to `Live` until the exact subscription's initial snapshot is applied | Not measured |
 | HAOBS-010 | Capability/version fallback | If `subscribe_entities` is unsupported, 100% of attempts return explicit unsupported status and do not silently switch to a legacy protocol | Blocked on transport/runtime measurement |
 
+The protocol test harness now enumerates exactly 1,000,000 length-six histories over ten event classes. Focused tests separately cover stale epochs and malformed initial-snapshot ordering. This is bounded executable coverage, not formal proof, and remains unmeasured until the exact-head workflow executes successfully.
+
 All thresholds are engineering hypotheses. Revise them only with recorded baseline evidence, not to paper over a failing test. The safety thresholds are invariants and may not be relaxed for performance.
 
 ## Reproducible method
