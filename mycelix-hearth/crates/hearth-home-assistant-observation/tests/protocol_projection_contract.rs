@@ -7,11 +7,11 @@
 
 use hearth_automation_types::{AutomationValue, EntityRef};
 use hearth_home_assistant_observation::{
-    strict_json::{parse_bounded_json, StrictJsonError},
-    EntityObservationRule, HomeAssistantObservationProfile, MappingOutcome, StateCodec,
-    HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
-    entity_stream::{EntityStreamProjector, EntityStreamProjection, EntityStreamProjectionError},
+    EntityObservationRule, HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
+    HomeAssistantObservationProfile, MappingOutcome, StateCodec,
+    entity_stream::{EntityStreamProjection, EntityStreamProjectionError, EntityStreamProjector},
     map_state,
+    strict_json::{StrictJsonError, parse_bounded_json},
     websocket_protocol::{
         EntityStreamKind, HomeAssistantWebSocketProtocol, InboundMessage, ProtocolAction,
         ProtocolError, ProtocolState, ResultPayloadKind,
@@ -89,7 +89,9 @@ fn project_one(
     profile: &HomeAssistantObservationProfile,
     result: &EntityStreamProjection,
 ) -> Vec<MappingOutcome> {
-    result.frames.iter()
+    result
+        .frames
+        .iter()
         .map(|frame| map_state(profile, frame).expect("profile-projected frame must map"))
         .collect()
 }
@@ -107,11 +109,9 @@ fn strict_outer_frame_can_project_its_nested_event_without_reparsing() {
         Some(1)
     );
     let event = parsed_frame.get("event").expect("event field is present");
-    let projected = projector.apply_parsed_json(
-        EntityStreamKind::InitialSnapshot,
-        event,
-        10_000_000,
-    ).unwrap();
+    let projected = projector
+        .apply_parsed_json(EntityStreamKind::InitialSnapshot, event, 10_000_000)
+        .unwrap();
     assert_eq!(projected.frames.len(), 1);
     assert_eq!(projected.frames[0].state, "21.5");
     assert_eq!(projector.cached_entity_count(), 1);
@@ -163,21 +163,27 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
         }]
     );
     assert_eq!(
-        send(&mut protocol, InboundMessage::CommandResult {
-            id: 1,
-            success: true,
-            payload: ResultPayloadKind::Null,
-        }),
+        send(
+            &mut protocol,
+            InboundMessage::CommandResult {
+                id: 1,
+                success: true,
+                payload: ResultPayloadKind::Null,
+            }
+        ),
         vec![ProtocolAction::AwaitInitialEntitySnapshot {
             session_epoch: 7,
             subscription_id: 1,
         }]
     );
     assert_eq!(
-        send(&mut protocol, InboundMessage::EntityStreamUpdate {
-            subscription_id: 1,
-            kind: EntityStreamKind::InitialSnapshot,
-        }),
+        send(
+            &mut protocol,
+            InboundMessage::EntityStreamUpdate {
+                subscription_id: 1,
+                kind: EntityStreamKind::InitialSnapshot,
+            }
+        ),
         vec![ProtocolAction::InitialEntitySnapshotReady {
             session_epoch: 7,
             subscription_id: 1,
@@ -191,7 +197,8 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
         EntityStreamKind::InitialSnapshot,
         &full_snapshot(),
         10_000_000,
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(snapshot.frames.len(), 1);
     assert_eq!(snapshot.frames[0].state, "21.5");
     assert_eq!(snapshot.frames[0].received_at_micros, 10_000_000);
@@ -209,7 +216,10 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
                         id: "living-room".into(),
                     },
                     attribute: "temperature_celsius".into(),
-                    value: AutomationValue::Fixed { mantissa: 215, scale: 1 },
+                    value: AutomationValue::Fixed {
+                        mantissa: 215,
+                        scale: 1
+                    },
                     source: hearth_automation_types::EvidenceSource {
                         namespace: "home-assistant".into(),
                         id: "home-main:sensor.living_room_temperature".into(),
@@ -231,10 +241,13 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
     assert_eq!(protocol.state(), ProtocolState::Live { subscription_id: 1 });
 
     assert_eq!(
-        send(&mut protocol, InboundMessage::EntityStreamUpdate {
-            subscription_id: 1,
-            kind: EntityStreamKind::Changes,
-        }),
+        send(
+            &mut protocol,
+            InboundMessage::EntityStreamUpdate {
+                subscription_id: 1,
+                kind: EntityStreamKind::Changes,
+            }
+        ),
         vec![ProtocolAction::DeliverEntityChanges {
             session_epoch: 7,
             subscription_id: 1,
@@ -251,27 +264,37 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
             }
         }),
         20_000_000,
-    ).unwrap();
-    assert_eq!(project_one(&profile, &changed)[0], MappingOutcome::Observation(
-        hearth_home_assistant_observation::HomeAssistantObservation {
-            profile_ref: "profile:protocol-projection-e2e-v1".into(),
-            entity_id: "sensor.living_room_temperature".into(),
-            source_last_updated_micros: None,
-            received_at_micros: 20_000_000,
-            observation: hearth_automation_types::Observation {
-                subject: EntityRef { kind: "room".into(), id: "living-room".into() },
-                attribute: "temperature_celsius".into(),
-                value: AutomationValue::Fixed { mantissa: 220, scale: 1 },
-                source: hearth_automation_types::EvidenceSource {
-                    namespace: "home-assistant".into(),
-                    id: "home-main:sensor.living_room_temperature".into(),
+    )
+    .unwrap();
+    assert_eq!(
+        project_one(&profile, &changed)[0],
+        MappingOutcome::Observation(
+            hearth_home_assistant_observation::HomeAssistantObservation {
+                profile_ref: "profile:protocol-projection-e2e-v1".into(),
+                entity_id: "sensor.living_room_temperature".into(),
+                source_last_updated_micros: None,
+                received_at_micros: 20_000_000,
+                observation: hearth_automation_types::Observation {
+                    subject: EntityRef {
+                        kind: "room".into(),
+                        id: "living-room".into()
+                    },
+                    attribute: "temperature_celsius".into(),
+                    value: AutomationValue::Fixed {
+                        mantissa: 220,
+                        scale: 1
+                    },
+                    source: hearth_automation_types::EvidenceSource {
+                        namespace: "home-assistant".into(),
+                        id: "home-main:sensor.living_room_temperature".into(),
+                    },
+                    observed_at_micros: 20_000_000,
+                    valid_until_micros: Some(50_000_000),
+                    confidence_bp: 9_500,
                 },
-                observed_at_micros: 20_000_000,
-                valid_until_micros: Some(50_000_000),
-                confidence_bp: 9_500,
-            },
-        }
-    ));
+            }
+        )
+    );
 
     // Attribute-only changes must never refresh semantic freshness.
     let metadata_only = apply_compact_value(
@@ -288,7 +311,8 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
             }
         }),
         30_000_000,
-    ).unwrap();
+    )
+    .unwrap();
     assert!(metadata_only.frames.is_empty());
     assert_eq!(metadata_only.frames.len(), 0);
 }
@@ -301,32 +325,51 @@ fn removal_invalidates_projected_state_without_emitting_a_positive_observation()
 
     send(&mut protocol, InboundMessage::AuthRequired);
     send(&mut protocol, InboundMessage::AuthOk);
-    send(&mut protocol, InboundMessage::CommandResult {
-        id: 1,
-        success: true,
-        payload: ResultPayloadKind::Null,
-    });
+    send(
+        &mut protocol,
+        InboundMessage::CommandResult {
+            id: 1,
+            success: true,
+            payload: ResultPayloadKind::Null,
+        },
+    );
     assert_eq!(
-        send(&mut protocol, InboundMessage::EntityStreamUpdate {
-            subscription_id: 1,
-            kind: EntityStreamKind::InitialSnapshot,
-        }),
+        send(
+            &mut protocol,
+            InboundMessage::EntityStreamUpdate {
+                subscription_id: 1,
+                kind: EntityStreamKind::InitialSnapshot,
+            }
+        ),
         vec![ProtocolAction::InitialEntitySnapshotReady {
             session_epoch: 12,
             subscription_id: 1,
         }]
     );
-    let initial = apply_compact_value(&mut projector, EntityStreamKind::InitialSnapshot, &full_snapshot(), 10_000_000).unwrap();
+    let initial = apply_compact_value(
+        &mut projector,
+        EntityStreamKind::InitialSnapshot,
+        &full_snapshot(),
+        10_000_000,
+    )
+    .unwrap();
     assert_eq!(initial.frames.len(), 1);
-    assert_eq!(protocol.initial_snapshot_applied(12, 1), vec![
-        ProtocolAction::SessionLive { session_epoch: 12, subscription_id: 1 }
-    ]);
+    assert_eq!(
+        protocol.initial_snapshot_applied(12, 1),
+        vec![ProtocolAction::SessionLive {
+            session_epoch: 12,
+            subscription_id: 1
+        }]
+    );
 
     assert_eq!(
-        send(&mut protocol, InboundMessage::EntityStreamUpdate {
-            subscription_id: 1,
-            kind: EntityStreamKind::Changes,
-        }),
+        send(
+            &mut protocol,
+            InboundMessage::EntityStreamUpdate {
+                subscription_id: 1,
+                kind: EntityStreamKind::Changes,
+            }
+        ),
         vec![ProtocolAction::DeliverEntityChanges {
             session_epoch: 12,
             subscription_id: 1,
@@ -337,10 +380,21 @@ fn removal_invalidates_projected_state_without_emitting_a_positive_observation()
         EntityStreamKind::Changes,
         &json!({"r": ["sensor.living_room_temperature"]}),
         20_000_000,
-    ).unwrap();
-    assert!(removed.frames.is_empty(), "removal is not a positive state observation");
-    assert_eq!(removed.removed_entity_ids, vec!["sensor.living_room_temperature"]);
-    assert_eq!(projector.cached_entity_count(), 0, "removed entity must no longer have cached positive state");
+    )
+    .unwrap();
+    assert!(
+        removed.frames.is_empty(),
+        "removal is not a positive state observation"
+    );
+    assert_eq!(
+        removed.removed_entity_ids,
+        vec!["sensor.living_room_temperature"]
+    );
+    assert_eq!(
+        projector.cached_entity_count(),
+        0,
+        "removed entity must no longer have cached positive state"
+    );
 }
 
 #[test]
@@ -349,16 +403,22 @@ fn mismatched_subscription_id_fails_closed_before_projector_invocation() {
     let mut protocol = HomeAssistantWebSocketProtocol::new(9, &profile).unwrap();
     send(&mut protocol, InboundMessage::AuthRequired);
     send(&mut protocol, InboundMessage::AuthOk);
-    send(&mut protocol, InboundMessage::CommandResult {
-        id: 1,
-        success: true,
-        payload: ResultPayloadKind::Null,
-    });
+    send(
+        &mut protocol,
+        InboundMessage::CommandResult {
+            id: 1,
+            success: true,
+            payload: ResultPayloadKind::Null,
+        },
+    );
 
-    let result = send(&mut protocol, InboundMessage::EntityStreamUpdate {
-        subscription_id: 99,
-        kind: EntityStreamKind::InitialSnapshot,
-    });
+    let result = send(
+        &mut protocol,
+        InboundMessage::EntityStreamUpdate {
+            subscription_id: 99,
+            kind: EntityStreamKind::InitialSnapshot,
+        },
+    );
     assert_eq!(
         result,
         vec![ProtocolAction::FailClosed {
