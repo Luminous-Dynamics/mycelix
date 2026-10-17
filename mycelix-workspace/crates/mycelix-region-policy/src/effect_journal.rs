@@ -14,7 +14,7 @@ const MAX_REASON_BYTES: usize = 128;
 /// Separate reservation, dispatch start, and external outcome. These are not
 /// interchangeable facts: a Reserved attempt has not begun dispatch, while a
 /// DispatchStarted attempt may already have changed the remote world.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AttemptPhase {
     Prepared,
     Reserved,
@@ -187,6 +187,7 @@ pub struct EffectAttemptSnapshot {
     pub identity: EffectIdentity,
     pub phase: AttemptPhase,
     pub revision: u64,
+    pub dispatch_started: bool,
     pub operation_id: Option<String>,
     pub outcome_digest: Option<String>,
     pub rejection_code: Option<String>,
@@ -197,6 +198,7 @@ pub struct EffectAttempt {
     identity: EffectIdentity,
     phase: AttemptPhase,
     revision: u64,
+    dispatch_started: bool,
     operation_id: Option<String>,
     outcome_digest: Option<String>,
     rejection_code: Option<String>,
@@ -208,6 +210,7 @@ impl EffectAttempt {
             identity,
             phase: AttemptPhase::Prepared,
             revision: 0,
+            dispatch_started: false,
             operation_id: None,
             outcome_digest: None,
             rejection_code: None,
@@ -241,6 +244,7 @@ impl EffectAttempt {
             identity: self.identity.clone(),
             phase: self.phase,
             revision: self.revision,
+            dispatch_started: self.dispatch_started,
             operation_id: self.operation_id.clone(),
             outcome_digest: self.outcome_digest.clone(),
             rejection_code: self.rejection_code.clone(),
@@ -255,6 +259,7 @@ impl EffectAttempt {
             identity: snapshot.identity,
             phase: snapshot.phase,
             revision: snapshot.revision,
+            dispatch_started: snapshot.dispatch_started,
             operation_id: snapshot.operation_id,
             outcome_digest: snapshot.outcome_digest,
             rejection_code: snapshot.rejection_code,
@@ -273,38 +278,47 @@ impl EffectAttempt {
         match self.phase {
             AttemptPhase::Prepared => {
                 self.revision == 0
+                    && !self.dispatch_started
                     && self.operation_id.is_none()
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Reserved => {
                 self.revision == 1
+                    && !self.dispatch_started
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
-            AttemptPhase::DispatchStarted | AttemptPhase::OutcomeUnknown => {
-                self.revision >= 2
+            AttemptPhase::DispatchStarted => {
+                self.revision == 2
+                    && self.dispatch_started
+                    && op_valid
+                    && self.outcome_digest.is_none()
+                    && self.rejection_code.is_none()
+            }
+            AttemptPhase::OutcomeUnknown => {
+                self.revision >= 3
+                    && self.dispatch_started
                     && op_valid
                     && self.outcome_digest.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Committed => {
                 self.revision >= 3
+                    && self.dispatch_started
                     && op_valid
                     && outcome_valid
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Rejected => {
-                (self.revision == 1
-                    && self.operation_id.is_none()
+                (!self.dispatch_started
                     && self.outcome_digest.is_none()
-                    && reason_valid)
-                    || (self.revision >= 2
-                        && op_valid
-                        && self.outcome_digest.is_none()
-                        && reason_valid)
-                    || (self.revision >= 3
+                    && reason_valid
+                    && ((self.revision == 1 && self.operation_id.is_none())
+                        || (self.revision == 2 && op_valid)))
+                    || (self.dispatch_started
+                        && self.revision >= 3
                         && op_valid
                         && outcome_valid
                         && self.rejection_code.is_none())
@@ -335,6 +349,7 @@ impl EffectAttempt {
             return Err(JournalError::InvalidTransition);
         }
         self.advance()?;
+        self.dispatch_started = true;
         self.phase = AttemptPhase::DispatchStarted;
         Ok(())
     }
@@ -656,6 +671,21 @@ mod tests {
             Err(JournalError::InvalidTransition)
         );
         assert_eq!(attempt.phase(), AttemptPhase::DispatchStarted);
+    }
+
+    #[test]
+    fn restore_rejects_postdispatch_rejection_without_sink_evidence() {
+        let mut attempt = EffectAttempt::prepare(identity());
+        attempt.reserve("sink-operation-1").expect("reserve");
+        attempt.mark_dispatch_started().expect("dispatch");
+        let mut snapshot = attempt.snapshot();
+        snapshot.phase = AttemptPhase::Rejected;
+        snapshot.rejection_code = Some("local-timeout".to_owned());
+        snapshot.outcome_digest = None;
+        assert_eq!(
+            EffectAttempt::restore(snapshot),
+            Err(JournalError::InvalidTransition)
+        );
     }
 
 }
