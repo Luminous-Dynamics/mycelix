@@ -8,6 +8,7 @@ mod app;
 mod action_feedback;
 mod publication_evidence;
 pub mod action_journal_protocol;
+pub mod action_journal_store;
 pub mod action_lifecycle;
 mod circadian;
 mod components;
