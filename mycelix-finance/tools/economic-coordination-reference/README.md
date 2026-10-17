@@ -203,3 +203,10 @@ The joint_optimizer module enumerates integer assignments across mapped request/
 The caller supplies an explicit search-node limit (1–500,000). Search exhaustion returns an error and no partial frontier. A completed result describes exact optimization only within the frozen discrete model; it does not authorize reservation, contracting, purchase, dispatch or payment.
 
 The bounded exhaustive implementation and its limits are documented in [JOINT_OPTIMIZER_BENCHMARKS_V1.md](JOINT_OPTIMIZER_BENCHMARKS_V1.md). [JOINT_OPTIMIZER_GOLDEN_CORPUS_V1.md](JOINT_OPTIMIZER_GOLDEN_CORPUS_V1.md) registers 40 fixture IDs; twelve optimizer tests are authored, including independent binary-mask and 81-vector quantity oracles, stale-evidence/deadline/budget boundaries, and canonical tie handling, and remain subject to exact-head qualification.
+
+
+## Decision-sensitive evidence acquisition (experimental)
+
+The evidence_actions module ranks possible evidence requests by structural changes to the frozen procurement Pareto frontier, with acquisition cost, latest completion and validity horizon kept explicit. It does not infer probabilities or report EVSI. It distinguishes a truly decision-changing observation from a cheap query whose outcomes all preserve the same feasible frontier, and retains the branch-level output frontier and source-authority class for review.
+
+The reference only recommends possible evidence actions; it does not contact suppliers, buy data, perform audits, query credentials, or alter procurement commitments. Ten tests are authored, including outcome-level rationale and invalid action timeline cases. Qualification remains pending at exact head. See [EVIDENCE_ACTION_BENCHMARKS_V1.md](EVIDENCE_ACTION_BENCHMARKS_V1.md) and [EVIDENCE_ACTION_GOLDEN_CORPUS_V1.md](EVIDENCE_ACTION_GOLDEN_CORPUS_V1.md).
