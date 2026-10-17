@@ -12,7 +12,7 @@ A state value is not a permanent fact. Every positive observation is scoped by a
 | HLC-002 | Explicit entity removal | Zero removed entities remain current; removal never emits a positive physical-state claim | Not measured |
 | HLC-003 | Freshness expiry | 100% of positives become non-current at `now >= valid_until_micros`; repeated expiry emits no duplicate invalidation | Not measured |
 | HLC-004 | Disconnect and session replacement | Zero old-epoch positives are current as soon as lifecycle leaves `Live` | Not measured |
-| HLC-005 | Reconnect snapshot omission | Zero previously positive entities omitted by the new snapshot are resurrected; one invalidation references the exact prior positive revision | Not measured |
+| HLC-005 | Reconnect snapshot omission | Every prior positive is invalidated immediately when the old session is replaced; zero omitted entities resurrect; snapshot omission emits no duplicate tombstone | Not measured |
 | HLC-006 | Malformed/current sample rejection | Zero partial positive emissions; all current positives are invalidated before the session enters `NeedsNewSession` | Not measured |
 | HLC-007 | Replay resistance | Zero old/lower session epochs restore currentness; per-entity revision never decreases across checkpoint restore | Not measured |
 | HLC-008 | Bootstrap gate | Zero positive observations become current before matching subscription acknowledgement and explicit snapshot-applied acknowledgement | Not measured |
