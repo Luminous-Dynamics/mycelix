@@ -48,7 +48,7 @@ The pure [entity stream projector](src/entity_stream.rs) understands the documen
 - `c`: partial changes, including added fields and removed attribute names;
 - `r`: entity removals.
 
-It maintains a bounded semantic cache only for exact HA-0.1 profile entity IDs. It retains primary state, unit of measurement, and device class; it does not persist friendly names, arbitrary attributes, context identifiers, or network data. Changes are applied to a staged copy and committed only if every allowlisted item is valid. A change for an allowlisted entity absent from the current snapshot fails closed. Removed entities invalidate prior evidence instead of emitting a positive state observation.
+It maintains a bounded semantic cache only for exact HA-0.1 profile entity IDs. It retains primary state, unit of measurement, and device class; it does not persist friendly names, arbitrary attributes, context identifiers, or network data. Changes are applied to a staged copy and committed only if every allowlisted item is valid. A change for an allowlisted entity absent from the current snapshot fails closed. Removed entities invalidate prior evidence instead of emitting a positive state observation. A delta that changes only ignored metadata (for example a friendly name or context) updates no semantic fields and emits no new observation frame, so it cannot refresh the freshness window of an unchanged measurement.
 
 The transport must validate subscription ID and session epoch using the protocol machine before calling the projector. It must also enforce a frame-size bound before JSON parsing and apply the resulting initial snapshot synchronously before processing later change frames.
 
@@ -60,7 +60,7 @@ This state machine does not authenticate the remote peer by itself, establish ho
 
 ## Test plan
 
-The pure unit tests cover authentication/order, exact sorted profile allowlisting, invalid profile rejection, result correlation and shape, initial snapshot ordering, explicit snapshot-apply acknowledgement, subscription/session identity mismatch, stale epoch handling, reconnect behavior, terminal states, ID exhaustion, and credential-free protocol actions.
+The 20 protocol tests cover authentication/order, exact sorted profile allowlisting, invalid profile rejection, result correlation and shape, initial snapshot ordering, explicit snapshot-apply acknowledgement, subscription/session identity mismatch, stale epoch handling, reconnect behavior, terminal states, ID exhaustion, and credential-free protocol actions. The 11 projector tests cover compact snapshot/diff/remove handling, strict allowlist projection, transactional rejection, malformed metadata, and ensuring non-semantic attribute-only updates do not refresh observation freshness.
 
 Run from the repository root:
 
