@@ -31,7 +31,7 @@ For each action, canonicalize and deduplicate the branch frontiers for structura
 - separate acquisition cost and completion time;
 - disposition (recommended, dominated, duplicate claim alternative, no decision value, after deadline, or stale by completion).
 
-Pareto-filter eligible actions across structural impact, cost and completion time, then apply a stable lexicographic tie-break. A larger frontier difference is a deliberately simple structural signal, not a calibrated utility delta: losing a feasible option and adding an attractive option both contribute to the set difference. Consumers must inspect branch-level consequences before acting.
+Pareto-filter eligible actions using maximum structural frontier difference, acquisition cost and completion time, then apply a stable lexicographic tie-break. Distinct-outcome and changed-frontier counts remain audit diagnostics only; the selector does not reward a larger outcome catalogue or treat branch count as a probability. A larger frontier difference is a deliberately simple structural signal, not a calibrated utility delta: losing a feasible option and adding an attractive option both contribute to the set difference. Consumers must inspect branch-level consequences before acting.
 
 A separate test-local oracle is now authored at tests/evidence_actions_oracle.rs. It independently canonicalizes the literal toy objective sets and compares distinct frontier count, changed-frontier count, maximum symmetric difference and the one-action recommendation disposition across all 16 ordered pairs from four frontier states. It does not call the production selector’s helper functions. This is test authorship, not a passed qualification result.
 
