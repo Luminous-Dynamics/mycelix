@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-creator-sovereignty-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Experimental deterministic, local-first creator career ledger core"
+
+[lib]
+name = "creator_sovereignty_core"
+path = "src/lib.rs"
+
+[dependencies]
