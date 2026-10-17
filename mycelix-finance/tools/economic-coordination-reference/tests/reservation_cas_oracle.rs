@@ -135,12 +135,8 @@ fn small_generated_reservation_sequences_match_independent_capacity_oracle() {
                     book.register_pool(pool_spec(capacity)).unwrap();
 
                     for (index, quantity) in quantities.into_iter().enumerate() {
-                        let expected = command(
-                            index,
-                            quantity,
-                            oracle.revision,
-                            oracle.fencing_token,
-                        );
+                        let expected =
+                            command(index, quantity, oracle.revision, oracle.fencing_token);
                         let expected_acceptance = oracle.reserve(&expected, 1_000);
                         let actual_acceptance = book.reserve(expected).is_ok();
                         assert_eq!(
