@@ -95,4 +95,18 @@ These sources motivate the design. They are not independent validation of this i
 
 Restored records include a monotonic `dispatch_started` marker. A `Rejected` snapshot that crossed dispatch must carry a verified sink outcome digest; a caller-provided local timeout/reason cannot turn a dispatched-but-uncertain effect into a terminal rejection. This closes an ambiguity that a revision number alone cannot resolve. Test anchor: `restore_rejects_postdispatch_rejection_without_sink_evidence`.
 
-The bounded model explorer checks all 2,520 order-preserving four-worker load/reserve schedules and also enumerates reachable abstract lifecycle states to depth 8 and checks effect-count/dispatch-count invariants, including both forms of `OutcomeUnknown` (destination may or may not have applied the effect). This remains abstract state exploration, not real storage proof.
+The companion `src/effect_journal_model.rs` contains six source-level model tests. The bounded model explorer checks all 2,520 order-preserving four-worker load/reserve schedules and also enumerates reachable abstract lifecycle states to depth 8 and checks effect-count/dispatch-count invariants, including both forms of `OutcomeUnknown` (destination may or may not have applied the effect). This remains abstract state exploration, not real storage proof.
+
+
+## Next qualification rung: real concurrency and crash behavior
+
+The current four-worker enumerator explores all 2,520 order-preserving **logical load/reserve event schedules**. It does not create actual threads or validate a database transaction.
+
+When concrete synchronization or durable-store adapter code is introduced, advance the ladder:
+
+1. Use [Loom](https://github.com/tokio-rs/loom) to permute actual Rust concurrent executions around the adapter's synchronization/CAS boundary, with state reduction to keep the search tractable.
+2. Use the existing integration-runtime transaction classifier and exact-store witness machinery; inject failures at reservation, dispatch-start commit, sink call, and receipt commit boundaries.
+3. For a SQLite-backed adapter, build a controlled crash/fault campaign modeled on [SQLite's documented atomic-commit crash tests](https://www.sqlite.org/atomiccommit.html#testing_atomic_commit_behavior), which simulate write-loss/corruption at varied points and verify recovery. A process-kill test alone is not an adequate replacement for the database's durability/fault boundaries.
+4. Test destination idempotency with independent sink observations; keep local commit classification separate from provider outcome.
+
+No Loom thread model, SQLite crash harness, actual durable adapter, or provider simulation is implemented in this tranche.
