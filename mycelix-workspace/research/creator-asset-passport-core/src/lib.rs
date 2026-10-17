@@ -315,6 +315,16 @@ impl AssetRegistry {
         self.assets.values()
     }
 
+
+    /// Put each asset's identifier list into stable scheme/value order.
+    /// This changes representation order only; it does not merge identifiers
+    /// or change their recorded values.
+    pub fn canonicalize_identifier_order(&mut self) {
+        for asset in self.assets.values_mut() {
+            asset.identifiers.sort_by_key(ExternalIdentifier::canonical_key);
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.assets.len()
     }
