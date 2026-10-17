@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 28 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -14,7 +14,8 @@ The test clock is an explicit deterministic input. Production adapters must obta
 |---|---|---|---|
 | RPK-ALLOW-001 | Source and destination both authorize the exact data class, action, source/destination scopes, purpose, recipient and active consent | Allow | `permits_only_explicitly_authorized_bilateral_route` |
 | RPK-ALLOW-002 | Reordered set-like actions/scopes in otherwise equivalent profile inputs | Same canonical profile payload | `canonical_payload_is_independent_of_set_order` |
-| RPK-AUDIT-001 | Valid decision has source/destination profile IDs, versions and digests, action, data class, content digest and timestamp | Audit context is bound; no raw purpose, recipient, or resource ID in the result object | `binds_policy_decision_to_profile_versions_and_non_sensitive_audit_fields` |
+| RPK-AGREE-001 | One verified agreement binds the exact source/destination profile IDs and digests, allowed class/action/purpose/recipient, and active validity window | Allow only when agreement and both profile policies jointly allow the action | `permits_only_explicitly_authorized_bilateral_route` |
+| RPK-AUDIT-001 | Valid decision has agreement ID/version/digest, source/destination profile IDs/versions/digests, action, data class, content digest and timestamp | Audit context is bound; no raw purpose, recipient, or resource ID in the result object | `binds_policy_decision_to_profile_versions_and_non_sensitive_audit_fields` |
 | RPK-MATRIX-001 | All four combinations of source permission × destination permission | Allow iff both sides permit | `bilateral_route_truth_table_only_allows_mutual_permission` |
 
 ## Negative controls
@@ -38,6 +39,13 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-015 | Profile document is still within its own validity window but signer-trust evidence expires | `SourceProfileEvidenceStale` | `expires_profile_trust_evidence_even_when_profile_document_is_still_active` |
 | RPK-DENY-016 | Caller supplies an evaluation timestamp before the source/destination/classification evidence was verified | Backdated decision rejected | `rejects_backdated_evaluation_after_profile_was_verified` |
 | RPK-DENY-017 | Caller supplies an evaluation timestamp before consent was verified | `ConsentVerifiedAfterDecisionTime` | `rejects_backdated_evaluation_after_consent_was_verified` |
+| RPK-DENY-018 | Agreement binds a different source profile ID/version | `AgreementSourceProfileMismatch` | `rejects_agreement_bound_to_another_profile_version` |
+| RPK-DENY-019 | Agreement source profile digest differs even though the ID matches | `AgreementSourceProfileMismatch` | `rejects_agreement_when_source_profile_digest_does_not_match` |
+| RPK-DENY-020 | Action is permitted by both profiles but absent from the bilateral agreement | `AgreementActionNotAllowed` | `denies_action_not_in_agreement_even_if_both_profiles_allow_route` |
+| RPK-DENY-021 | Purpose is absent from the exact agreement allowlist | `AgreementPurposeNotAllowed` | `denies_purpose_not_explicitly_authorized_by_agreement` |
+| RPK-DENY-022 | Recipient is absent from the exact agreement allowlist | `AgreementRecipientNotAllowed` | `denies_recipient_not_explicitly_authorized_by_agreement` |
+| RPK-DENY-023 | Agreement allowlist order changes but members do not | Canonical bytes remain identical | `agreement_canonical_payload_is_independent_of_allowlist_order` |
+
 
 ## Mandatory extension corpus before production
 
