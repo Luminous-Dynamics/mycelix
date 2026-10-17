@@ -404,6 +404,25 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "maintenance_performed"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/maintenance_event_payload_v0_1"
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -435,6 +454,320 @@
           }
         }
       ]
+    },
+    "maintenance_event_payload_v0_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Event-kind-specific schema for a maintenance/repair claim. A valid record is an assertion with evidence references, not proof of workmanship or roadworthiness.",
+      "required": [
+        "work_type",
+        "repair_task_graph_ref",
+        "repair_task_graph_digest",
+        "procedure_revision",
+        "work_status",
+        "task_results",
+        "post_repair_verification"
+      ],
+      "properties": {
+        "work_type": {
+          "enum": [
+            "scheduled_service",
+            "diagnostic",
+            "repair",
+            "inspection",
+            "recall_remedy",
+            "other"
+          ]
+        },
+        "repair_task_graph_ref": {
+          "type": "string",
+          "pattern": "^art_[A-Za-z0-9_-]{16,96}$",
+          "description": "Immutable reference to the planned service procedure/task graph."
+        },
+        "repair_task_graph_digest": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "procedure_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "work_status": {
+          "enum": [
+            "performed",
+            "partial",
+            "blocked"
+          ]
+        },
+        "odometer_reading": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit",
+            "source_ref"
+          ],
+          "properties": {
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "enum": [
+                "km",
+                "mi"
+              ]
+            },
+            "source_ref": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            }
+          }
+        },
+        "task_results": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "task_id",
+              "status",
+              "component_ref",
+              "component_revision",
+              "evidence_refs"
+            ],
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "pattern": "^task_[A-Za-z0-9_-]{8,64}$"
+              },
+              "status": {
+                "enum": [
+                  "performed",
+                  "partial",
+                  "blocked",
+                  "skipped",
+                  "not_applicable"
+                ]
+              },
+              "component_ref": {
+                "type": "string",
+                "pattern": "^part_[A-Za-z0-9_-]{8,64}$"
+              },
+              "component_revision": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "duration": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value",
+                      "unit",
+                      "basis",
+                      "observation_ref",
+                      "observed_at",
+                      "source_refs"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unit": {
+                        "enum": [
+                          "s",
+                          "min",
+                          "h"
+                        ]
+                      },
+                      "basis": {
+                        "const": "observed"
+                      },
+                      "observation_ref": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 512
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "technician_ref": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 128
+                      },
+                      "tool_context": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "source_refs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 8,
+                          "maxLength": 512
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value",
+                      "unit",
+                      "basis",
+                      "estimate_note"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "unit": {
+                        "enum": [
+                          "s",
+                          "min",
+                          "h"
+                        ]
+                      },
+                      "basis": {
+                        "const": "estimated"
+                      },
+                      "estimate_note": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    }
+                  }
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 512
+                }
+              }
+            }
+          }
+        },
+        "post_repair_verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "result"
+          ],
+          "properties": {
+            "result": {
+              "enum": [
+                "passed",
+                "failed",
+                "inconclusive",
+                "not_performed",
+                "not_applicable"
+              ]
+            },
+            "observation_ref": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            },
+            "evidence_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 512
+              }
+            },
+            "blocker_reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "inconclusive"
+                    ]
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "required": [
+                  "observation_ref",
+                  "evidence_refs"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "not_performed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "required": [
+                  "blocker_reason"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "not_applicable"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "required": [
+                  "rationale"
+                ]
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
