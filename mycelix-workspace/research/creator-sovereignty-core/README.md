@@ -10,7 +10,7 @@ A standard-library-only Rust prototype for deterministic creator career accounti
 - Idempotent identical replays; fail-closed rejection when the same record ID is reused for different data.
 - Exact rational net-contribution-per-work-hour representation; missing work duration remains unknown rather than becoming zero.
 - Independent summary checker implemented with a separate aggregation path.
-- Hostile/golden unit tests; no network, secrets, telemetry, database, or third-party dependencies.
+- Hostile/golden unit and integration tests, including adversarial tamper detection and the case where higher gross revenue yields lower net contribution per hour; no network, secrets, telemetry, database, or third-party dependencies.
 
 ## Run
 
