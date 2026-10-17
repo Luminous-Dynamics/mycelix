@@ -38,6 +38,12 @@ jobs:
             .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"]
           ' EFFECT_JOURNAL_FAULT_CORPUS_V1.json >/dev/null
           jq -e '.required | index("cases") != null' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
+          jq -r '.cases[].test_anchor // empty' EFFECT_JOURNAL_FAULT_CORPUS_V1.json | while IFS= read -r anchor; do
+            if ! grep -REq "fn[[:space:]]+${anchor}[[:space:]]*\\(" src; then
+              echo "Missing Rust test anchor: ${anchor}" >&2
+              exit 1
+            fi
+          done
       - name: Formatting
         run: cargo fmt --all --check
       - name: Unit and adversarial policy tests
