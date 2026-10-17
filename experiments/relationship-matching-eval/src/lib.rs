@@ -1176,7 +1176,7 @@ mod tests {
     }
 
     #[test]
-    fn exposure_history_rejects_unknown_ids_and_counter_overflow() {
+    fn historical_exposure_changes_next_batch_allocation() {
         let people = vec![
             person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
             person(2, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
