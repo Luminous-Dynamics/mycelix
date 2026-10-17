@@ -40,6 +40,10 @@ Home Assistant's compact stream has separate added, changed and removed entity f
 - Command-ID exhaustion fails closed.
 - Credentials are never represented in this module, action enum, error types or debug values.
 
+## Strict JSON input boundary
+
+The future transport must pass each frame through `strict_json::parse_bounded_json` before interpreting message IDs or forwarding compact event bodies. The helper enforces an 8 MiB frame ceiling before parsing and rejects duplicate object keys at every nesting level. Ordinary `serde_json::Value` parsing can collapse repeated keys and erase evidence of conflicting fields, so parsing through this helper is required for the stated duplicate-key assurance. Its error type intentionally does not retain or echo raw payloads. The helper does not authenticate the peer, implement WebSocket framing/TLS, or replace transport deadlines and nesting limits.
+
 ## Compact stream projection
 
 The pure [entity stream projector](src/entity_stream.rs) understands the documented compact event groups:
