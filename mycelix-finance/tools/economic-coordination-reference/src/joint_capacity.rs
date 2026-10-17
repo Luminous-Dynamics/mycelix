@@ -303,7 +303,10 @@ pub fn validate_joint_allocation(
         {
             return Err(JointAllocationError::InvalidRequest);
         }
-        if requests.insert(request.request_id.clone(), request).is_some() {
+        if requests
+            .insert(request.request_id.clone(), request)
+            .is_some()
+        {
             return Err(JointAllocationError::DuplicateRequestId);
         }
     }
@@ -471,7 +474,9 @@ pub fn validate_joint_allocation(
             return Err(JointAllocationError::MappingEvidenceStale);
         }
 
-        let request_served = request_quantity.entry(assignment.request_id.clone()).or_default();
+        let request_served = request_quantity
+            .entry(assignment.request_id.clone())
+            .or_default();
         *request_served = request_served
             .checked_add(u64::from(assignment.quantity))
             .ok_or(JointAllocationError::ArithmeticOverflow)?;
@@ -483,7 +488,9 @@ pub fn validate_joint_allocation(
             .unit_cost_minor
             .checked_mul(u64::from(assignment.quantity))
             .ok_or(JointAllocationError::ArithmeticOverflow)?;
-        let cost = request_cost.entry(assignment.request_id.clone()).or_default();
+        let cost = request_cost
+            .entry(assignment.request_id.clone())
+            .or_default();
         *cost = cost
             .checked_add(line_cost)
             .ok_or(JointAllocationError::ArithmeticOverflow)?;
@@ -491,7 +498,9 @@ pub fn validate_joint_allocation(
             return Err(JointAllocationError::RequestBudgetExceeded);
         }
 
-        let used_by_offer = offer_quantity.entry(assignment.offer_id.clone()).or_default();
+        let used_by_offer = offer_quantity
+            .entry(assignment.offer_id.clone())
+            .or_default();
         *used_by_offer = used_by_offer
             .checked_add(u64::from(assignment.quantity))
             .ok_or(JointAllocationError::ArithmeticOverflow)?;
@@ -499,7 +508,9 @@ pub fn validate_joint_allocation(
             return Err(JointAllocationError::OfferCapacityExceeded);
         }
 
-        let used_by_pool = pool_quantity.entry(offer.capacity_pool_id.clone()).or_default();
+        let used_by_pool = pool_quantity
+            .entry(offer.capacity_pool_id.clone())
+            .or_default();
         *used_by_pool = used_by_pool
             .checked_add(u64::from(assignment.quantity))
             .ok_or(JointAllocationError::ArithmeticOverflow)?;
@@ -588,14 +599,19 @@ pub fn validate_joint_allocation(
 
     let quantities_by_unit = unit_totals
         .into_iter()
-        .map(|((capability_id, capability_profile_digest, unit), (required_quantity, served_quantity))| UnitQuantitySummary {
-            capability_id,
-            capability_profile_digest,
-            unit,
-            required_quantity,
-            served_quantity,
-            unfilled_quantity: required_quantity - served_quantity,
-        })
+        .map(
+            |(
+                (capability_id, capability_profile_digest, unit),
+                (required_quantity, served_quantity),
+            )| UnitQuantitySummary {
+                capability_id,
+                capability_profile_digest,
+                unit,
+                required_quantity,
+                served_quantity,
+                unfilled_quantity: required_quantity - served_quantity,
+            },
+        )
         .collect();
     let costs_by_currency = currency_totals
         .into_iter()
@@ -676,8 +692,8 @@ pub fn validate_joint_allocation(
 #[cfg(test)]
 mod tests {
     use super::{
-        CapabilityMapping, JointAllocationError, JointAllocationInput, JointAssignment,
-        JointOffer, JointRequest, SharedCapacityPool, validate_joint_allocation,
+        CapabilityMapping, JointAllocationError, JointAllocationInput, JointAssignment, JointOffer,
+        JointRequest, SharedCapacityPool, validate_joint_allocation,
     };
     use crate::{EvidenceOrigin, EvidenceStatus};
 
@@ -755,15 +771,23 @@ mod tests {
             evaluated_at: 20,
             input_manifest_digest: "sha256-joint-fixture-v1".to_owned(),
             requests: vec![request("urgent", 2, 200), request("routine", 3, 300)],
-            offers: vec![offer("offer-a", "pool-a", 2, 50), offer("offer-b", "pool-b", 3, 60)],
-            capacity_pools: vec![pool("pool-a", 2), pool("pool-b", 3)],
-            capability_mappings: vec![
-                mapping("urgent", "offer-a"),
-                mapping("routine", "offer-b"),
+            offers: vec![
+                offer("offer-a", "pool-a", 2, 50),
+                offer("offer-b", "pool-b", 3, 60),
             ],
+            capacity_pools: vec![pool("pool-a", 2), pool("pool-b", 3)],
+            capability_mappings: vec![mapping("urgent", "offer-a"), mapping("routine", "offer-b")],
             assignments: vec![
-                JointAssignment { request_id: "urgent".to_owned(), offer_id: "offer-a".to_owned(), quantity: 2 },
-                JointAssignment { request_id: "routine".to_owned(), offer_id: "offer-b".to_owned(), quantity: 3 },
+                JointAssignment {
+                    request_id: "urgent".to_owned(),
+                    offer_id: "offer-a".to_owned(),
+                    quantity: 2,
+                },
+                JointAssignment {
+                    request_id: "routine".to_owned(),
+                    offer_id: "offer-b".to_owned(),
+                    quantity: 3,
+                },
             ],
         }
     }
@@ -784,21 +808,39 @@ mod tests {
         assert_eq!(report.capacity_pools[0].remaining_quantity, 0);
         assert_eq!(report.assignments.len(), 2);
         assert_eq!(report.assignments[0].request_id, "routine");
-        assert_eq!(report.assignments[0].capability_mapping_id, "map-routine-offer-b");
-        assert_eq!(report.assignments[0].capacity_snapshot_digest, "sha256-pool-b");
+        assert_eq!(
+            report.assignments[0].capability_mapping_id,
+            "map-routine-offer-b"
+        );
+        assert_eq!(
+            report.assignments[0].capacity_snapshot_digest,
+            "sha256-pool-b"
+        );
         assert_eq!(report.assignments[0].line_cost_minor, 180);
     }
 
     #[test]
     fn two_offers_do_not_each_get_to_spend_the_full_shared_pool() {
         let mut input = fixture();
-        input.offers = vec![offer("offer-a", "shared", 3, 10), offer("offer-b", "shared", 3, 20)];
+        input.offers = vec![
+            offer("offer-a", "shared", 3, 10),
+            offer("offer-b", "shared", 3, 20),
+        ];
         input.capacity_pools = vec![pool("shared", 4)];
         input.requests = vec![request("urgent", 3, 100), request("routine", 3, 100)];
-        input.capability_mappings = vec![mapping("urgent", "offer-a"), mapping("routine", "offer-b")];
+        input.capability_mappings =
+            vec![mapping("urgent", "offer-a"), mapping("routine", "offer-b")];
         input.assignments = vec![
-            JointAssignment { request_id: "urgent".to_owned(), offer_id: "offer-a".to_owned(), quantity: 3 },
-            JointAssignment { request_id: "routine".to_owned(), offer_id: "offer-b".to_owned(), quantity: 2 },
+            JointAssignment {
+                request_id: "urgent".to_owned(),
+                offer_id: "offer-a".to_owned(),
+                quantity: 3,
+            },
+            JointAssignment {
+                request_id: "routine".to_owned(),
+                offer_id: "offer-b".to_owned(),
+                quantity: 2,
+            },
         ];
         assert_eq!(
             validate_joint_allocation(&input),
@@ -809,13 +851,25 @@ mod tests {
     #[test]
     fn two_requests_cannot_both_claim_the_last_unit() {
         let mut input = fixture();
-        input.offers = vec![offer("offer-a", "shared", 1, 10), offer("offer-b", "shared", 1, 20)];
+        input.offers = vec![
+            offer("offer-a", "shared", 1, 10),
+            offer("offer-b", "shared", 1, 20),
+        ];
         input.capacity_pools = vec![pool("shared", 1)];
         input.requests = vec![request("urgent", 1, 100), request("routine", 1, 100)];
-        input.capability_mappings = vec![mapping("urgent", "offer-a"), mapping("routine", "offer-b")];
+        input.capability_mappings =
+            vec![mapping("urgent", "offer-a"), mapping("routine", "offer-b")];
         input.assignments = vec![
-            JointAssignment { request_id: "urgent".to_owned(), offer_id: "offer-a".to_owned(), quantity: 1 },
-            JointAssignment { request_id: "routine".to_owned(), offer_id: "offer-b".to_owned(), quantity: 1 },
+            JointAssignment {
+                request_id: "urgent".to_owned(),
+                offer_id: "offer-a".to_owned(),
+                quantity: 1,
+            },
+            JointAssignment {
+                request_id: "routine".to_owned(),
+                offer_id: "offer-b".to_owned(),
+                quantity: 1,
+            },
         ];
         assert_eq!(
             validate_joint_allocation(&input),
@@ -832,7 +886,11 @@ mod tests {
             quantity: 1,
         }];
         let report = validate_joint_allocation(&input).expect("partial allocation is a valid plan");
-        let urgent = report.requests.iter().find(|r| r.request_id == "urgent").unwrap();
+        let urgent = report
+            .requests
+            .iter()
+            .find(|r| r.request_id == "urgent")
+            .unwrap();
         assert_eq!(urgent.served_quantity, 1);
         assert_eq!(urgent.unfilled_quantity, 1);
         assert!(!urgent.fully_served);
@@ -907,10 +965,13 @@ mod tests {
         input.offers[0].order_increment = 2;
         input.capacity_pools = vec![pool("pool-a", 4)];
         input.requests = vec![request("urgent", 1, 100), request("routine", 1, 100)];
-        input.capability_mappings = vec![mapping("urgent", "offer-a"), mapping("routine", "offer-a")];
-        input.assignments = vec![
-            JointAssignment { request_id: "urgent".to_owned(), offer_id: "offer-a".to_owned(), quantity: 1 },
-        ];
+        input.capability_mappings =
+            vec![mapping("urgent", "offer-a"), mapping("routine", "offer-a")];
+        input.assignments = vec![JointAssignment {
+            request_id: "urgent".to_owned(),
+            offer_id: "offer-a".to_owned(),
+            quantity: 1,
+        }];
         assert_eq!(
             validate_joint_allocation(&input),
             Err(JointAllocationError::InvalidOrderLot)
@@ -946,7 +1007,10 @@ mod tests {
     fn tiny_shared_pool_fixture(pool_quantity: u32) -> JointAllocationInput {
         let mut input = fixture();
         input.requests = vec![request("urgent", 1, 100), request("routine", 1, 100)];
-        input.offers = vec![offer("offer-a", "shared", 1, 10), offer("offer-b", "shared", 1, 20)];
+        input.offers = vec![
+            offer("offer-a", "shared", 1, 10),
+            offer("offer-b", "shared", 1, 20),
+        ];
         input.capacity_pools = vec![pool("shared", pool_quantity)];
         input.capability_mappings = vec![
             mapping("urgent", "offer-a"),
@@ -1049,7 +1113,8 @@ mod tests {
         input.offers[1].offered_capability_id = "alternate-kit".to_owned();
         input.offers[1].offered_profile_digest = "alternate-kit-profile-v2".to_owned();
         input.capability_mappings[1].requested_capability_id = "alternate-kit".to_owned();
-        input.capability_mappings[1].requested_profile_digest = "alternate-kit-profile-v2".to_owned();
+        input.capability_mappings[1].requested_profile_digest =
+            "alternate-kit-profile-v2".to_owned();
         input.capability_mappings[1].offered_capability_id = "alternate-kit".to_owned();
         input.capability_mappings[1].offered_profile_digest = "alternate-kit-profile-v2".to_owned();
 
@@ -1088,8 +1153,15 @@ mod tests {
     #[test]
     fn allocation_witness_keeps_offer_source_and_evidence_references() {
         let report = validate_joint_allocation(&fixture()).expect("valid fixture");
-        let row = report.assignments.iter().find(|row| row.offer_id == "offer-a").unwrap();
-        assert_eq!(row.offer_source_uri, "https://example.invalid/offers/offer-a");
+        let row = report
+            .assignments
+            .iter()
+            .find(|row| row.offer_id == "offer-a")
+            .unwrap();
+        assert_eq!(
+            row.offer_source_uri,
+            "https://example.invalid/offers/offer-a"
+        );
         assert_eq!(row.offer_source_payload_digest, "sha256-offer-offer-a");
         assert_eq!(row.qualification_receipt_id, "qualification-offer-a");
         assert_eq!(row.offer_evidence_status, EvidenceStatus::Verified);
