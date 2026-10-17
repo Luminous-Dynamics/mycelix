@@ -3,6 +3,8 @@ use std::{collections::BTreeSet, env, fs, process::ExitCode};
 
 const EXPECTED_CASES: usize = 100;
 const EXPECTED_FAMILIES: usize = 20;
+const EXPECTED_TRAJECTORIES: usize = 22;
+const EXPECTED_TURNS: usize = 88;
 
 #[derive(Debug, PartialEq, Eq)]
 struct ValidationReport {
@@ -10,6 +12,8 @@ struct ValidationReport {
     families: usize,
     properties: usize,
     gates: usize,
+    trajectories: usize,
+    turns: usize,
 }
 
 fn non_empty_string<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
@@ -20,9 +24,9 @@ fn add_error(errors: &mut Vec<String>, context: &str, message: impl AsRef<str>) 
     errors.push(format!("{context}: {}", message.as_ref()));
 }
 
-/// Validate the shape and cross-references of both draft manifests.
+/// Validate the shape and cross-references of the draft manifests.
 /// This is deliberately not a semantic judge: it cannot qualify UX outcomes.
-fn validate(benchmark: &Value, gates: &Value) -> Result<ValidationReport, Vec<String>> {
+fn validate(benchmark: &Value, gates: &Value, trajectory_manifest: &Value) -> Result<ValidationReport, Vec<String>> {
     let mut errors = Vec::new();
 
     if non_empty_string(benchmark, "schema_version") != Some("intent-exploration-benchmark-v0.1") {
@@ -222,12 +226,144 @@ fn validate(benchmark: &Value, gates: &Value) -> Result<ValidationReport, Vec<St
         }
     }
 
+    if non_empty_string(trajectory_manifest, "schema_version")
+        != Some("intent-exploration-trajectory-benchmark-v0.1")
+    {
+        add_error(&mut errors, "trajectories", "unexpected or missing schema_version");
+    }
+    if non_empty_string(trajectory_manifest, "status")
+        .is_none_or(|status| !status.contains("draft") || !status.contains("not yet qualified"))
+    {
+        add_error(&mut errors, "trajectories", "status must clearly mark trajectories as draft and not yet qualified");
+    }
+    if non_empty_string(trajectory_manifest, "property_registry_source").is_none() {
+        add_error(&mut errors, "trajectories", "property_registry_source is required");
+    }
+    let trajectory_list = match trajectory_manifest.get("trajectories").and_then(Value::as_array) {
+        Some(trajectories) => trajectories,
+        None => {
+            add_error(&mut errors, "trajectories", "trajectories must be an array");
+            return Err(errors);
+        }
+    };
+    if trajectory_list.len() != EXPECTED_TRAJECTORIES {
+        add_error(
+            &mut errors,
+            "trajectories",
+            format!("expected {EXPECTED_TRAJECTORIES} trajectories, found {}", trajectory_list.len()),
+        );
+    }
+    if trajectory_manifest.get("case_count").and_then(Value::as_u64)
+        != Some(trajectory_list.len() as u64)
+    {
+        add_error(&mut errors, "trajectories", "case_count must equal trajectories.length");
+    }
+
+    let valid_products = ["symthaea", "mycelix", "symtropy", "sol-atlas-leptos"];
+    let mut trajectory_ids = BTreeSet::new();
+    let mut actual_turn_total = 0usize;
+    for (index, trajectory) in trajectory_list.iter().enumerate() {
+        let context = format!("trajectories[{index}]");
+        for field in ["trajectory_id", "family", "product", "risk_class", "expected_final_state", "oracle_type", "status"] {
+            if non_empty_string(trajectory, field).is_none() {
+                add_error(&mut errors, &context, format!("{field} must be a non-empty string"));
+            }
+        }
+        let Some(id) = non_empty_string(trajectory, "trajectory_id") else { continue };
+        if !trajectory_ids.insert(id.to_string()) {
+            add_error(&mut errors, &context, format!("duplicate trajectory_id {id}"));
+        }
+        let parts: Vec<&str> = id.split('-').collect();
+        if parts.len() != 2 || parts[0] != "IET" || parts[1].len() != 3
+            || !parts[1].chars().all(|c| c.is_ascii_digit())
+        {
+            add_error(&mut errors, &context, format!("invalid trajectory_id format {id}; expected IET-NNN"));
+        }
+        if !valid_products.contains(&non_empty_string(trajectory, "product").unwrap_or_default()) {
+            add_error(&mut errors, &context, format!("{id} has an unknown product"));
+        }
+        if non_empty_string(trajectory, "status")
+            .is_none_or(|status| !status.contains("not-yet-qualified"))
+        {
+            add_error(&mut errors, &context, format!("{id} must remain marked not-yet-qualified"));
+        }
+
+        for property_field in ["required_properties", "prohibited_outcomes"] {
+            let Some(property_codes) = trajectory.get(property_field).and_then(Value::as_array) else {
+                add_error(&mut errors, &context, format!("{property_field} must be a non-empty array"));
+                continue;
+            };
+            if property_codes.is_empty() {
+                add_error(&mut errors, &context, format!("{property_field} must be a non-empty array"));
+            }
+            for code in property_codes {
+                if let Some(code) = code.as_str() {
+                    if !properties.contains_key(code) {
+                        add_error(&mut errors, &context, format!("{property_field} references unknown property {code}"));
+                    }
+                } else {
+                    add_error(&mut errors, &context, format!("{property_field} entries must be strings"));
+                }
+            }
+        }
+
+        let turns = match trajectory.get("turns").and_then(Value::as_array) {
+            Some(turns) if turns.len() >= 3 => turns,
+            Some(_) => {
+                add_error(&mut errors, &context, format!("{id} must contain at least three turns"));
+                continue;
+            }
+            None => {
+                add_error(&mut errors, &context, format!("{id} turns must be an array"));
+                continue;
+            }
+        };
+        actual_turn_total += turns.len();
+        for (turn_index, turn) in turns.iter().enumerate() {
+            let turn_context = format!("{id}.turn[{}]", turn_index + 1);
+            let actual_index = turn.get("turn_index").and_then(Value::as_u64);
+            if actual_index != Some((turn_index + 1) as u64) {
+                add_error(&mut errors, &turn_context, "turn_index values must be contiguous and start at one");
+            }
+            for field in ["user_input", "expected_transition"] {
+                if non_empty_string(turn, field).is_none() {
+                    add_error(&mut errors, &turn_context, format!("{field} must be a non-empty string"));
+                }
+            }
+            let Some(invariants) = turn.get("state_invariants_to_check_after_turn").and_then(Value::as_array) else {
+                add_error(&mut errors, &turn_context, "state_invariants_to_check_after_turn must be a non-empty array");
+                continue;
+            };
+            if invariants.is_empty() {
+                add_error(&mut errors, &turn_context, "state_invariants_to_check_after_turn must be a non-empty array");
+            }
+            for code in invariants {
+                if let Some(code) = code.as_str() {
+                    if !properties.contains_key(code) {
+                        add_error(&mut errors, &turn_context, format!("unknown turn invariant {code}"));
+                    }
+                } else {
+                    add_error(&mut errors, &turn_context, "turn invariants must be strings");
+                }
+            }
+        }
+    }
+    if actual_turn_total != EXPECTED_TURNS {
+        add_error(
+            &mut errors,
+            "trajectories",
+            format!("expected {EXPECTED_TURNS} total turns, found {actual_turn_total}"),
+        );
+    }
+
     if errors.is_empty() {
         Ok(ValidationReport {
             cases: cases.len(),
             families: family_list.len(),
             properties: properties.len(),
             gates: gate_list.len(),
+            trajectories: trajectory_list.len(),
+            turns: actual_turn_total,
         })
     } else {
         Err(errors)
@@ -236,9 +372,9 @@ fn validate(benchmark: &Value, gates: &Value) -> Result<ValidationReport, Vec<St
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
+    if args.len() != 4 {
         eprintln!(
-            "Usage: {} <intent-exploration-benchmark.json> <qualification-gates.json>",
+            "Usage: {} <intent-exploration-benchmark.json> <qualification-gates.json> <intent-exploration-trajectories.json>",
             args.first().map(String::as_str).unwrap_or("intent-exploration-qualifier")
         );
         eprintln!("Run from the repository root. This checks manifest integrity only, not UX outcomes.");
@@ -259,6 +395,13 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let trajectory_text = match fs::read_to_string(&args[3]) {
+        Ok(content) => content,
+        Err(error) => {
+            eprintln!("Failed to read trajectories {}: {error}", args[3]);
+            return ExitCode::FAILURE;
+        }
+    };
     let benchmark: Value = match serde_json::from_str(&benchmark_text) {
         Ok(value) => value,
         Err(error) => {
@@ -273,12 +416,19 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let trajectories: Value = match serde_json::from_str(&trajectory_text) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("Trajectory JSON parse failed: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
 
-    match validate(&benchmark, &gates) {
+    match validate(&benchmark, &gates, &trajectories) {
         Ok(report) => {
             println!(
-                "PASS: manifest integrity only — {} cases, {} families, {} registered properties, {} gates.",
-                report.cases, report.families, report.properties, report.gates
+                "PASS: manifest integrity only — {} cases, {} families, {} registered properties, {} gates, {} trajectories, {} turns.",
+                report.cases, report.families, report.properties, report.gates, report.trajectories, report.turns
             );
             println!("NOT QUALIFIED: semantic behavior, safety, accessibility and user outcomes require separate tests.");
             ExitCode::SUCCESS
@@ -299,14 +449,18 @@ mod tests {
 
     const BENCHMARK: &str = include_str!("../../../docs/research/experience/intent-exploration-benchmark-v0.1.json");
     const GATES: &str = include_str!("../../../docs/research/experience/intent-exploration-qualification-gates-v0.1.json");
+    const TRAJECTORIES: &str = include_str!("../../../docs/research/experience/intent-exploration-trajectory-benchmark-v0.1.json");
 
     #[test]
     fn checked_in_manifests_have_consistent_structure() {
         let benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
         let gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
-        let report = validate(&benchmark, &gates).expect("manifests should pass structural validation");
+        let trajectories: Value = serde_json::from_str(TRAJECTORIES).expect("trajectory JSON should parse");
+        let report = validate(&benchmark, &gates, &trajectories).expect("manifests should pass structural validation");
         assert_eq!(report.cases, EXPECTED_CASES);
         assert_eq!(report.families, EXPECTED_FAMILIES);
+        assert_eq!(report.trajectories, EXPECTED_TRAJECTORIES);
+        assert_eq!(report.turns, EXPECTED_TURNS);
         assert!(report.properties >= 40);
         assert!(report.gates >= 10);
     }
@@ -317,7 +471,8 @@ mod tests {
         let first_id = benchmark["cases"][0]["case_id"].as_str().unwrap().to_string();
         benchmark["cases"][1]["case_id"] = Value::String(first_id);
         let gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
-        let errors = validate(&benchmark, &gates).expect_err("duplicate IDs must fail");
+        let trajectories: Value = serde_json::from_str(TRAJECTORIES).expect("trajectory JSON should parse");
+        let errors = validate(&benchmark, &gates, &trajectories).expect_err("duplicate IDs must fail");
         assert!(errors.iter().any(|error| error.contains("duplicate case_id")));
     }
 
@@ -326,7 +481,8 @@ mod tests {
         let mut benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
         benchmark["cases"][0]["required_properties"][0] = Value::String("invented_property".to_string());
         let gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
-        let errors = validate(&benchmark, &gates).expect_err("unknown properties must fail");
+        let trajectories: Value = serde_json::from_str(TRAJECTORIES).expect("trajectory JSON should parse");
+        let errors = validate(&benchmark, &gates, &trajectories).expect_err("unknown properties must fail");
         assert!(errors.iter().any(|error| error.contains("unknown property")));
     }
 
@@ -335,7 +491,29 @@ mod tests {
         let benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
         let mut gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
         gates["gates"].as_array_mut().unwrap().retain(|gate| gate["id"] != "IEQ-003");
-        let errors = validate(&benchmark, &gates).expect_err("removing authorization gate must fail");
+        let trajectories: Value = serde_json::from_str(TRAJECTORIES).expect("trajectory JSON should parse");
+        let errors = validate(&benchmark, &gates, &trajectories).expect_err("removing authorization gate must fail");
         assert!(errors.iter().any(|error| error.contains("required gate IEQ-003 is missing")));
+    }
+
+    #[test]
+    fn trajectory_invariants_are_required_after_each_turn() {
+        let benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
+        let gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
+        let mut trajectories: Value = serde_json::from_str(TRAJECTORIES).expect("trajectory JSON should parse");
+        trajectories["trajectories"][0]["turns"][1]["state_invariants_to_check_after_turn"] = Value::Array(vec![]);
+        let errors = validate(&benchmark, &gates, &trajectories).expect_err("missing per-turn invariant must fail");
+        assert!(errors.iter().any(|error| error.contains("state_invariants_to_check_after_turn must be a non-empty array")));
+    }
+
+    #[test]
+    fn duplicate_trajectory_ids_fail_closed() {
+        let benchmark: Value = serde_json::from_str(BENCHMARK).expect("benchmark JSON should parse");
+        let gates: Value = serde_json::from_str(GATES).expect("gates JSON should parse");
+        let mut trajectories: Value = serde_json::from_str(TRAJECTORIES).expect("trajectory JSON should parse");
+        let first_id = trajectories["trajectories"][0]["trajectory_id"].as_str().unwrap().to_string();
+        trajectories["trajectories"][1]["trajectory_id"] = Value::String(first_id);
+        let errors = validate(&benchmark, &gates, &trajectories).expect_err("duplicate trajectory IDs must fail");
+        assert!(errors.iter().any(|error| error.contains("duplicate trajectory_id")));
     }
 }
