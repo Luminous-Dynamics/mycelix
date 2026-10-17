@@ -346,6 +346,7 @@ impl RecipientReceipt {
 }
 
 /// V2 receipt contract. This is additive: V1 signing bytes remain unchanged.
+/// A V2 receipt can bind only a V2 hybrid-PQC envelope; V1 receipt semantics remain separate.
 ///
 /// `receipt_event_id` is generated once for one logical receipt event and
 /// MUST be reused across retries. Reusing that identity with altered signed
