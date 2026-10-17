@@ -22,12 +22,12 @@ This is not a solver, eligibility authority, cryptographic evidence verifier, in
 - Capacity is shared by one pool ID and its declared time bucket. Cross-bucket cumulative capacity coupling and recourse across disruption scenarios are not implemented in this slice.
 - Partial allocation is valid output, but never silently reported as full service.
 - Any hard constraint violation or checked-arithmetic overflow rejects the complete allocation. There is no repair, silent clipping or “best effort” passing report.
-- Canonical outputs are sorted by stable IDs; candidate input order must not alter the report.
+- Canonical outputs are sorted by stable IDs; candidate input order must not alter the report. New allocations to requests whose deadline is already before the evaluation cutoff are rejected; this reference is for prospective allocation, not retrospective settlement.
 - The checker does not calculate an optimality gap because it does not optimize.
 
 ## 3. Hand-authored adversarial corpus
 
-Target at least 40 stable fixture IDs. The live registry is [JOINT_CAPACITY_GOLDEN_CORPUS_V1.md](JOINT_CAPACITY_GOLDEN_CORPUS_V1.md). The first implementation has 17 authored module tests. The registry does not mean all 40 cases are implemented, nor does authorship mean a test has passed. A test-local independent oracle is authored for 48 binary assignment matrices across three shared-pool ceilings; it is not yet qualified by executed tests.
+The registry currently contains 46 stable fixture IDs (the minimum target is 40). The live registry is [JOINT_CAPACITY_GOLDEN_CORPUS_V1.md](JOINT_CAPACITY_GOLDEN_CORPUS_V1.md). The current implementation has 19 authored module tests. The registry does not mean all 46 cases are implemented, nor does authorship mean a test has passed. A test-local independent oracle is authored for 48 binary assignment matrices across three shared-pool ceilings; it is not yet qualified by executed tests.
 
 Every fixture should freeze the request, offer, mapping, pool and assignment inputs, expected decision/error, and input-manifest digest. Expected outcomes should be literal or produced by a separately implemented test oracle; invoking the checker twice is not independent verification. Retain negative controls as permanent regression cases.
 
