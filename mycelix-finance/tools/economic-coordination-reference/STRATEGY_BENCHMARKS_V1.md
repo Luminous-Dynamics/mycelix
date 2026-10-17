@@ -14,7 +14,7 @@ The initial model is deliberately bounded:
 - Total search-node budget covers each subset plus the recourse search granted to that subset.
 - Any recourse search-bound exhaustion aborts the whole call; no partial frontier is labelled complete.
 - Inconsistent/shared capacity pools and over-budget commitments make that candidate subset infeasible.
-- Scenarios are unweighted. Their shortage sum is a corpus diagnostic, **not expected shortage** and not a probability-weighted result.
+- Scenarios are unweighted. Their shortage sum is a declared Pareto axis and corpus diagnostic, **not expected shortage** and not probability-weighted. Duplicate scenarios can change this axis, so the scenario manifest must be frozen.
 
 The new module currently calls the reference recourse implementation to score candidate subsets. The test suite includes one test-local tiny two-option oracle that independently enumerates commitment subsets and integer activation quantities, but it is only one hand-authored case—not a generalized independent recourse oracle. A wider independent brute-force corpus and exact-head CI qualification remain mandatory before claiming solver correctness.
 
