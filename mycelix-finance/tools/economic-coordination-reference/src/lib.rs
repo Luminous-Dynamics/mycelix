@@ -34,6 +34,9 @@ pub mod strategy;
 /// Append-only forecast-to-delivery outcome ledger with deterministic replay.
 pub mod outcomes;
 
+/// Independent feasibility and reconciliation gate for multi-request allocations.
+pub mod joint_capacity;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
