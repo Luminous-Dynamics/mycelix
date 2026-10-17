@@ -64,5 +64,5 @@ Measure exact frontier agreement, missed or extra allocations, per-request short
 ## Research references
 
 - Dai, Zou & Zhang (2026), *A two-stage robust optimization approach for resilient supplier selection and order allocation under disruption risks*: https://doi.org/10.1016/j.ijpe.2026.110060
-- Li, Doan & Branke (2026), *Resilient supplier selection and order allocation under disruption risk over a Wasserstein ambiguity*: https://doi.org/10.1016/j.ijpe.2026.110160
+- Hybrid procurement under disruption (2024), *Computers & Operations Research*: https://doi.org/10.1016/j.cor.2024.106593
 - Open Contracting Data Standard: cross-stage public-contract data standard; not an execution or e-procurement engine: https://www.open-contracting.org/data-standard/
