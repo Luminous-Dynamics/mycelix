@@ -269,10 +269,11 @@ From the Mycelix repository root:
 cargo test --manifest-path tools/intent-exploration-qualifier/Cargo.toml
 cargo run --manifest-path tools/intent-exploration-qualifier/Cargo.toml -- \\
   docs/research/experience/intent-exploration-benchmark-v0.1.json \\
-  docs/research/experience/intent-exploration-qualification-gates-v0.1.json
+  docs/research/experience/intent-exploration-qualification-gates-v0.1.json \\
+  docs/research/experience/intent-exploration-trajectory-benchmark-v0.1.json
 ```
 
-Its responsibility is deliberately narrow: parse both JSON files; validate 100-case / 20-family shape; enforce unique IDs, family/product/risk consistency, registered property references, unique qualification gate IDs, and required gate coverage. Unit tests include duplicate-ID, unknown-property, and missing-authorization-gate negative controls.
+Its responsibility is deliberately narrow: parse all three JSON files; validate 100 single-turn cases across 20 families, 55 registered properties, 14 qualification gates, and 22 multi-turn trajectories (88 turns); enforce unique IDs, family/product/risk consistency, registered property references, contiguous turn order, per-turn invariants, and required gate coverage. Unit tests include duplicate case/trajectory IDs, unknown-property references, missing authorization-gate coverage, and missing per-turn invariants.
 
 A successful run means **manifest integrity only**. It does not run an AI model, judge a natural-language response, qualify behavioral safety, or establish usability. It must print that limitation. Local execution has not yet been observed in this authoring session; treat the committed test suite as pending until it is actually run.
 
