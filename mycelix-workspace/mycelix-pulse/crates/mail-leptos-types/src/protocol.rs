@@ -5,6 +5,7 @@
 //! not depend on map ordering or serializer implementation details.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 pub const ENVELOPE_V1: u16 = 1;
 pub const ENVELOPE_V2_HYBRID_PQC: u16 = 2;
@@ -434,10 +435,7 @@ pub fn canonical_receipt_event_id_preimage(
     Ok(out)
 }
 
-/// Input to the envelope-commitment hash. Callers compute
-/// `SHA-256(canonical_envelope_commitment_preimage(transcript))`.
-/// Keeping hashing outside this WASM-safe contract crate avoids adding a
-/// second cryptographic implementation; it does not relax the required hash.
+/// Construct the domain-separated preimage for the envelope-commitment SHA-256.
 pub fn canonical_envelope_commitment_preimage(
     canonical_signing_bytes: &[u8],
 ) -> Result<Vec<u8>, ProtocolError> {
@@ -479,6 +477,29 @@ pub fn classify_receipt_v2_replay(
     } else {
         Ok(ReceiptReplayClassification::ConflictingReuse)
     }
+}
+
+/// Hash canonical envelope signing bytes into the V2 receipt commitment.
+///
+/// The argument must be the exact, validated envelope transcript; callers
+/// must not hash an arbitrary body or caller-supplied display representation.
+pub fn envelope_commitment_from_canonical_signing_bytes(
+    canonical_signing_bytes: &[u8],
+) -> Result<[u8; 32], ProtocolError> {
+    let preimage = canonical_envelope_commitment_preimage(canonical_signing_bytes)?;
+    Ok(Sha256::digest(preimage).into())
+}
+
+/// Derive the deterministic logical receipt identity for a message, recipient,
+/// and receipt kind. Timestamp, route, attempt number, and envelope commitment
+/// are intentionally excluded so retries/conflicts converge on the same key.
+pub fn derive_receipt_event_id(
+    message_id: &MessageId,
+    recipient_agent: &[u8],
+    kind: ReceiptKind,
+) -> Result<[u8; 32], ProtocolError> {
+    let preimage = canonical_receipt_event_id_preimage(message_id, recipient_agent, kind)?;
+    Ok(Sha256::digest(preimage).into())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -797,6 +818,37 @@ mod tests {
             occurred_at_micros: 35,
             recipient_signature: vec![36; 64],
         }
+    }
+
+    #[test]
+    fn receipt_event_id_derivation_matches_frozen_sha256_vector() {
+        let actual = derive_receipt_event_id(
+            &MessageId([32; 32]),
+            &[33; 39],
+            ReceiptKind::Delivered,
+        )
+        .unwrap();
+        let actual_hex = actual
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        assert_eq!(
+            actual_hex,
+            include_str!("../test-vectors/receipt-v2-event-id-delivered.sha256").trim()
+        );
+    }
+
+    #[test]
+    fn envelope_commitment_hash_matches_frozen_sha256_vector() {
+        let actual = envelope_commitment_from_canonical_signing_bytes(b"abc").unwrap();
+        let actual_hex = actual
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        assert_eq!(
+            actual_hex,
+            include_str!("../test-vectors/envelope-commitment-abc.sha256").trim()
+        );
     }
 
     #[test]
