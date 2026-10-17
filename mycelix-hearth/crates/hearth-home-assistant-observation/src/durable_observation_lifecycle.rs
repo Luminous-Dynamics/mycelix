@@ -982,10 +982,10 @@ mod tests {
         assert_eq!(recovered.phase(), LifecyclePhase::Dormant);
         assert!(recovered.current_revision("sensor.living_room_temperature", 51).is_none());
         assert_eq!(recovered.last_sequence(), 6, "recovery barrier follows five lifecycle transactions");
-        assert_eq!(
-            recovered.store().records.last().unwrap().transition,
-            DurableLifecycleTransition::RecoveryBarrier
-        );
+        let barrier = recovered.store().records.last().unwrap();
+        assert_eq!(barrier.transition, DurableLifecycleTransition::RecoveryBarrier);
+        assert_eq!(barrier.active_subscription_id_before, Some(7));
+        assert_eq!(barrier.active_subscription_id_after, None);
         let mut recovered = recovered;
         assert_eq!(
             recovered.start_session(1, 60).unwrap().update.failure,
