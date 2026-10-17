@@ -68,7 +68,7 @@ String fields use UTF-8 plus a u32 big-endian byte length, capped at 256 bytes. 
 
 The outer BLAKE3-256 digest is computed over domain prefix MYCELIX-CSCP-ASSET-PASSPORT-DIGEST-V1 plus a NUL byte, followed by the entire canonical outer envelope. The inner grant-history envelope has its own digest domain. Neither digest proves the issuer's identity, consent authenticity, legal title, or truth of the evidence. The full snapshot still omits original external source payloads and provenance hashes; those must be included in a future evidence-carrying exchange manifest, not inferred from metadata.
 
-The full snapshot format currently has round-trip regression tests but not yet a separate-language golden-vector implementation. It remains experimental and must not be advertised as interoperable or standards-compliant until an independent implementation reproduces frozen outer-envelope and digest vectors.
+The full snapshot format now has one frozen cross-language byte vector checked by the Rust encoder and a test-only standard-library Python reference encoder. This is a smoke fixture, not a broad separate-language golden-vector implementation or cross-language BLAKE3 digest vector. The format remains experimental and must not be advertised as interoperable or standards-compliant until an independent implementation reproduces a diverse outer-envelope and digest corpus.
 
 ## Benchmark contract — targets, not results
 
@@ -104,9 +104,9 @@ Do not market these targets as achieved. Before a release gate can be claimed, p
 
 ## Test inventory and current maturity
 
-The current source has 51 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, identifier/claim canonical ordering, unresolved asset references, and digest mutation fixtures. These are **authored test cases, not passed tests**.
+The current source has 52 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, a frozen full-snapshot byte vector, identifier/claim canonical ordering, unresolved asset references, and digest mutation fixtures. These are **authored test cases, not passed tests**.
 
-The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope currently has round-trip tests but no independent reference encoder or frozen snapshot-level byte vector. Neither format yet has a cross-language BLAKE3 digest golden vector, fuzz campaign, or independent external implementation report.
+The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has one frozen Rust/Python byte vector for a work, ISWC, confirmed composition claim, and empty grant history. Neither format yet has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
 
 ## Dependency reproducibility boundary
 
