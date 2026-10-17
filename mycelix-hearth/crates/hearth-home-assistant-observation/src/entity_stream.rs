@@ -586,6 +586,11 @@ mod tests {
     #[test]
     fn unasserted_unit_and_device_class_changes_update_cache_without_refreshing_observation() {
         let mut p = profile();
+        p.rules[0].attribute = "status_label".into();
+        p.rules[0].codec = StateCodec::Text {
+            max_bytes: 64,
+            allowed_values: BTreeSet::new(),
+        };
         p.rules[0].expected_unit = None;
         p.rules[0].expected_device_class = None;
         let mut projector = EntityStreamProjector::new(&p).unwrap();
