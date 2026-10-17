@@ -172,7 +172,6 @@ fn changing_any_record_family_changes_the_snapshot_digest() {
     let passport = seeded_passport();
     let original = passport.digest_hex().unwrap();
 
-    let mut registry = passport.registry().clone();
     let changed_registry = {
         let mut replacement = AssetRegistry::new();
         let asset = AssetId::new("work-a").unwrap();
@@ -197,14 +196,80 @@ fn changing_any_record_family_changes_the_snapshot_digest() {
             .unwrap();
         replacement
     };
-    registry = changed_registry;
     let changed = CreativeAssetPassportEnvelope::from_parts(
-        &registry,
+        &changed_registry,
         passport.claims(),
         &passport.grant_history().unwrap(),
     )
     .unwrap();
     assert_ne!(changed.digest_hex().unwrap(), original);
+}
+
+#[test]
+fn grant_history_targets_must_exist_in_the_exported_asset_registry() {
+    let registry = AssetRegistry::new();
+    let grant = UsageGrant::new(
+        GrantId::new("grant-unbound").unwrap(),
+        AssetId::new("absent-recording").unwrap(),
+        party("distributor"),
+        UseAction::Distribute,
+        "release-a",
+        party("creator"),
+        "consent://release-a",
+        10,
+        None,
+    )
+    .unwrap();
+    let issue = GrantEvent::issue(
+        EventId::new("event-unbound").unwrap(),
+        5,
+        party("creator"),
+        "evidence://issue",
+        grant,
+    )
+    .unwrap();
+    let history = GrantHistory::replay(&[issue]).unwrap();
+
+    assert_eq!(
+        CreativeAssetPassportEnvelope::from_parts(&registry, &[], &history),
+        Err(PassportEnvelopeError::InvalidGrantAsset)
+    );
+}
+
+#[test]
+fn external_identifier_insertion_order_does_not_change_snapshot_bytes() {
+    fn registry(reverse: bool) -> AssetRegistry {
+        let mut assets = AssetRegistry::new();
+        let recording = AssetId::new("recording-order").unwrap();
+        assets
+            .register_asset(
+                recording.clone(),
+                AssetKind::SoundRecording,
+                Some("Order test".into()),
+            )
+            .unwrap();
+        let a = ExternalIdentifier::Other {
+            scheme: "a".into(),
+            value: "z".into(),
+        };
+        let b = ExternalIdentifier::Other {
+            scheme: "a:".into(),
+            value: "x".into(),
+        };
+        if reverse {
+            assets.attach_identifier(&recording, b).unwrap();
+            assets.attach_identifier(&recording, a).unwrap();
+        } else {
+            assets.attach_identifier(&recording, a).unwrap();
+            assets.attach_identifier(&recording, b).unwrap();
+        }
+        assets
+    }
+
+    let history = GrantHistory::new();
+    let first = CreativeAssetPassportEnvelope::from_parts(&registry(false), &[], &history).unwrap();
+    let second = CreativeAssetPassportEnvelope::from_parts(&registry(true), &[], &history).unwrap();
+    assert_eq!(first.canonical_bytes().unwrap(), second.canonical_bytes().unwrap());
 }
 
 #[test]
