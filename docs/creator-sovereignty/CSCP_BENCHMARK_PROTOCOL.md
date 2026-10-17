@@ -300,6 +300,24 @@ The digest is carried separately from the envelope. BLAKE3 detects byte changes 
 
 The current implementation is an experiment, not a ratified interoperability standard. Do not freeze the wire format or claim cross-language interoperability until a separately implemented encoder/decoder passes published golden vectors, property tests, mutation tests, and size-limit cases.
 
+## Gate 8 — whole-passport export integrity
+
+The implementation slice in draft PR #5182 now includes a separate CreativeAssetPassportEnvelope that combines the ordered asset registry (including typed external identifiers), split claims, and the grant/revocation history envelope into one versioned canonical export. The inner grant-history format remains separate and unchanged. The outer envelope has one frozen byte vector checked by Rust and a test-only standard-library Python reference encoder; it is currently a minimal smoke vector, not a broad conformance corpus.
+
+| Fixture family | Required outcome | Threshold |
+|---|---|---:|
+| Full snapshot round-trip | Asset kinds/titles/IDs, identifiers, split claims, grant history, and revocation state survive import/export exactly | 100% fixture agreement |
+| Identifier insertion order | Different valid insertion order results in identical canonical bytes | 100% |
+| Claim insertion order | Reordering claim input does not change canonical bytes | 100% |
+| Cross-record reference integrity | Every split claim and all grants, including revoked grants, point to an asset in the exported registry | Zero unresolved references accepted |
+| Digest sensitivity | Changing an asset field, a split claim/evidence reference, or a grant-event evidence reference changes the outer snapshot digest | 100% fixed fixtures |
+| Unknown tags/version, non-canonical order, truncation or trailing bytes | Reject import without silently normalizing untrusted source bytes | 100% rejected |
+| Snapshot reference vector | Independent encoder reproduces frozen outer bytes for identifiers, splits, and embedded empty history | 100% of frozen vectors; currently one |
+| Diverse outer golden corpus | Include multiple asset kinds, multiple identifiers, disputed/proposed claims, nonempty grant history, Unicode, missing optional fields, unknown identifiers, and size boundaries | No format freeze until all cases pass |
+| Cross-language BLAKE3 digest | Independent implementation yields the same domain-separated digest for frozen full-snapshot bytes | 100% before format freeze |
+
+Do not describe the digest as proof of rights/consent or the snapshot as a full evidence archive. The snapshot currently omits original external source payloads and provenance hashes for those imports; it carries the record/evidence references, not proof that their contents are genuine. The format is experimental, not standards-compliant or ratified for interoperability. Preserve claims and disputes rather than turning split arithmetic into an automated ownership judgment.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
