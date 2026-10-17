@@ -23,6 +23,7 @@ pub const ML_KEM_768_ENCAPSULATION_KEY_BYTES: usize = 1184;
 pub const ML_KEM_768_CIPHERTEXT_BYTES: usize = 1088;
 pub const ML_DSA_65_VERIFYING_KEY_BYTES: usize = 1952;
 pub const ML_DSA_65_SIGNATURE_BYTES: usize = 3309;
+pub const RECEIPT_V2_AGENT_SIGNATURE_BYTES: usize = 64;
 const PLAINTEXT_V2_DOMAIN: &[u8] = b"mycelix-pulse/plaintext/v2\0";
 
 /// The single payload protected by one AES-256-GCM invocation. Keeping the
@@ -325,7 +326,10 @@ pub struct RecipientReceipt {
     pub recipient_agent: Vec<u8>,
     pub kind: ReceiptKind,
     pub occurred_at_micros: i64,
-    pub recipient_signature: Vec<u8>,
+    /// Agent signature over the canonical V2 transcript (64-byte Ed25519).
+    pub agent_signature: Vec<u8>,
+    /// Application-level post-quantum signature over the same transcript.
+    pub ml_dsa_signature: Vec<u8>,
 }
 
 impl RecipientReceipt {
@@ -374,8 +378,33 @@ pub struct RecipientReceiptV2 {
 }
 
 impl RecipientReceiptV2 {
-    /// Exact transcript covered by the recipient's V2 receipt signature.
-    /// The signature field itself is intentionally excluded.
+    /// Reject structurally incomplete receipt signatures before cryptographic verification.
+    ///
+    /// This is only a length check. The caller/integrity validator MUST verify
+    /// both signatures against the recipient agent key and the ML-DSA-65
+    /// verifying key from the exact envelope-bound recipient bundle.
+    pub fn validate_signature_shape(&self) -> Result<(), ProtocolError> {
+        if self.agent_signature.len() != RECEIPT_V2_AGENT_SIGNATURE_BYTES {
+            return Err(ProtocolError::InvalidComponentLength {
+                component: "receipt_agent_signature",
+                expected: RECEIPT_V2_AGENT_SIGNATURE_BYTES,
+                actual: self.agent_signature.len(),
+            });
+        }
+        if self.ml_dsa_signature.len() != ML_DSA_65_SIGNATURE_BYTES {
+            return Err(ProtocolError::InvalidComponentLength {
+                component: "receipt_ml_dsa_signature",
+                expected: ML_DSA_65_SIGNATURE_BYTES,
+                actual: self.ml_dsa_signature.len(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Exact transcript covered by the recipient's V2 receipt signatures.
+    /// Both signatures are intentionally excluded. V2 requires the recipient's
+/// Holochain-agent Ed25519 signature AND ML-DSA-65 signature; neither alone
+/// satisfies this profile.
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>, ProtocolError> {
         if self.protocol_version != RECEIPT_V2_PROTOCOL_VERSION {
             return Err(ProtocolError::UnsupportedReceiptVersion(self.protocol_version));
@@ -816,7 +845,8 @@ mod tests {
             envelope_commitment: [34; 32],
             kind: ReceiptKind::Delivered,
             occurred_at_micros: 35,
-            recipient_signature: vec![36; 64],
+            agent_signature: vec![36; RECEIPT_V2_AGENT_SIGNATURE_BYTES],
+            ml_dsa_signature: vec![37; ML_DSA_65_SIGNATURE_BYTES],
         }
     }
 
@@ -967,7 +997,11 @@ mod tests {
         assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
 
         let mut changed = first.clone();
-        changed.recipient_signature = vec![99; 64];
+        changed.agent_signature = vec![99; RECEIPT_V2_AGENT_SIGNATURE_BYTES];
+        assert_eq!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.ml_dsa_signature = vec![98; ML_DSA_65_SIGNATURE_BYTES];
         assert_eq!(canonical, changed.canonical_signing_bytes().unwrap());
     }
 
@@ -1008,6 +1042,34 @@ mod tests {
         assert_eq!(
             classify_receipt_v2_replay(&existing, &different_identity),
             Err(ProtocolError::ReceiptEventIdentityMismatch)
+        );
+    }
+
+    #[test]
+    fn v2_receipt_requires_both_ed25519_and_ml_dsa_signature_shapes() {
+        let valid = receipt_v2();
+        assert_eq!(valid.validate_signature_shape(), Ok(()));
+
+        let mut invalid_agent = valid.clone();
+        invalid_agent.agent_signature.pop();
+        assert_eq!(
+            invalid_agent.validate_signature_shape(),
+            Err(ProtocolError::InvalidComponentLength {
+                component: "receipt_agent_signature",
+                expected: RECEIPT_V2_AGENT_SIGNATURE_BYTES,
+                actual: RECEIPT_V2_AGENT_SIGNATURE_BYTES - 1,
+            })
+        );
+
+        let mut invalid_ml_dsa = valid;
+        invalid_ml_dsa.ml_dsa_signature.pop();
+        assert_eq!(
+            invalid_ml_dsa.validate_signature_shape(),
+            Err(ProtocolError::InvalidComponentLength {
+                component: "receipt_ml_dsa_signature",
+                expected: ML_DSA_65_SIGNATURE_BYTES,
+                actual: ML_DSA_65_SIGNATURE_BYTES - 1,
+            })
         );
     }
 
