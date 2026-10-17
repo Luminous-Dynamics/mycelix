@@ -39,8 +39,8 @@ jobs:
       - name: Determine whether D6S qualification applies to this PR
         id: scope
         env:
-          EVENT_NAME: \${{ github.event_name }}
-          BASE_SHA: \${{ github.event.pull_request.base.sha || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" != "pull_request" ]; then
