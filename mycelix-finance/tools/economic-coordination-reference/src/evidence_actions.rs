@@ -692,7 +692,6 @@ mod tests {
     fn outcome_catalogue_size_is_diagnostic_not_a_priority_bonus() {
         let stable = vec![objective(100, 0, 0)];
         let changed_a = vec![objective(80, 0, 0)];
-        let changed_b = vec![objective(70, 1, 0)];
         let mut many_outcomes = action(
             "a-many",
             "claim:a",
@@ -700,9 +699,9 @@ mod tests {
             20,
             40,
             vec![
-                branch("same-a", EvidenceOutcomeKind::Confirmed, changed_a.clone()),
-                branch("same-b", EvidenceOutcomeKind::Refuted, changed_a.clone()),
-                branch("same-c", EvidenceOutcomeKind::Inconclusive, changed_a.clone()),
+                branch("changed-a", EvidenceOutcomeKind::Confirmed, changed_a.clone()),
+                branch("changed-b", EvidenceOutcomeKind::Refuted, vec![objective(70, 1, 0)]),
+                branch("changed-c", EvidenceOutcomeKind::Inconclusive, vec![objective(60, 0, 1)]),
             ],
         );
         many_outcomes.claim_version_key = "claim:many".to_owned();
