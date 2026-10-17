@@ -1219,4 +1219,114 @@ mod tests {
         assert_eq!(decision.evaluated_at_unix_ms, 220);
     }
 
+    #[test]
+    fn bilateral_route_truth_table_only_allows_mutual_permission() {
+        for source_allows in [false, true] {
+            for destination_allows in [false, true] {
+                let source_destinations: &[&str] = if source_allows {
+                    &["community-b"]
+                } else {
+                    &[]
+                };
+                let destination_sources: &[&str] = if destination_allows {
+                    &["community-a"]
+                } else {
+                    &[]
+                };
+                let source = verified("community-a", source_destinations, &[]);
+                let destination = verified("community-b", &[], destination_sources);
+                let classification = verified_classification("record:education-credential", 200);
+                let consent = verified_consent(
+                    "service:education",
+                    "credential-check",
+                    150,
+                    500,
+                    300,
+                    200,
+                );
+                let request = TransferRequest {
+                    action: BoundaryAction::Disclose,
+                    resource_id: "record:education-credential",
+                    content_digest: TEST_CONTENT_DIGEST,
+                    classification: &classification,
+                    purpose: Some("credential-check"),
+                    recipient_id: Some("service:education"),
+                    consent: Some(&consent),
+                    evaluated_at_unix_ms: 220,
+                };
+                let decision = evaluate_transfer(&source, &destination, &request);
+                assert_eq!(
+                    decision.allowed,
+                    source_allows && destination_allows,
+                    "source_allows={source_allows}, destination_allows={destination_allows}, reasons={:?}",
+                    decision.reasons
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_backdated_evaluation_after_consent_was_verified() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let consent = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            220,
+        );
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 219,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(!decision.allowed);
+        assert!(decision.reasons.contains(&DenialReason::ConsentVerifiedAfterDecisionTime));
+    }
+
+    #[test]
+    fn binds_policy_decision_to_profile_versions_and_non_sensitive_audit_fields() {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let consent = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            200,
+        );
+        let request = TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification: &classification,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(&consent),
+            evaluated_at_unix_ms: 220,
+        };
+        let decision = evaluate_transfer(&source, &destination, &request);
+        assert!(decision.allowed);
+        assert_eq!(decision.source_profile_id, "profile-community-a");
+        assert_eq!(decision.source_profile_version, "1.0.0");
+        assert_eq!(decision.source_profile_digest, "a".repeat(64));
+        assert_eq!(decision.destination_profile_id, "profile-community-b");
+        assert_eq!(decision.destination_profile_digest, "a".repeat(64));
+        assert_eq!(decision.action, BoundaryAction::Disclose);
+        assert_eq!(decision.data_class, DataClass::Personal);
+        assert_eq!(decision.content_digest, TEST_CONTENT_DIGEST);
+        assert_eq!(decision.evaluated_at_unix_ms, 220);
+    }
+
 }
