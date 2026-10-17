@@ -239,6 +239,16 @@ fn print_policy_summary(rows: &[SeedRow], policy_index: usize, indent: &str) {
 }
 
 fn print_stats_values(values: &[f64], indent: &str) {
+    if values.is_empty() {
+        println!("{}\"n\": 0,", indent);
+        println!("{}\"mean\": null,", indent);
+        println!("{}\"sample_sd\": null,", indent);
+        println!("{}\"min\": null,", indent);
+        println!("{}\"max\": null,", indent);
+        println!("{}\"ci95_normal_approx\": null", indent);
+        return;
+    }
+
     let (average, sample_sd, minimum, maximum, ci_low, ci_high) = stats(values);
     println!("{}\"n\": {},", indent, values.len());
     println!("{}\"mean\": {:.8},", indent, average);
