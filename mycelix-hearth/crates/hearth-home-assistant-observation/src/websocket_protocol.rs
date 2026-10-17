@@ -19,6 +19,7 @@ pub enum SessionPhase {
     AwaitAuthResult,
     AwaitSubscriptionResult,
     AwaitBootstrapResult,
+    AwaitBootstrapApply,
     Live,
     Failed,
     Closed,
@@ -77,6 +78,9 @@ pub enum ProtocolState {
     },
     AwaitBootstrapResult {
         command_id: u64,
+        subscription_id: u64,
+    },
+    AwaitBootstrapApply {
         subscription_id: u64,
     },
     Live {
@@ -214,6 +218,7 @@ impl HomeAssistantWebSocketProtocol {
             ProtocolState::AwaitAuthResult => SessionPhase::AwaitAuthResult,
             ProtocolState::AwaitSubscriptionResult { .. } => SessionPhase::AwaitSubscriptionResult,
             ProtocolState::AwaitBootstrapResult { .. } => SessionPhase::AwaitBootstrapResult,
+            ProtocolState::AwaitBootstrapApply { .. } => SessionPhase::AwaitBootstrapApply,
             ProtocolState::Live { .. } => SessionPhase::Live,
             ProtocolState::Failed(_) => SessionPhase::Failed,
             ProtocolState::Closed => SessionPhase::Closed,
@@ -225,6 +230,47 @@ impl HomeAssistantWebSocketProtocol {
     pub fn close(&mut self) {
         if !matches!(self.state, ProtocolState::Failed(_)) {
             self.state = ProtocolState::Closed;
+        }
+    }
+
+    /// Mark the snapshot and buffered events fully applied after the transport
+    /// has executed the ordered bootstrap actions. Calling this is the only way
+    /// to enter Live, so the state machine does not declare live before the
+    /// snapshot is applied and the pre-snapshot event queue is drained.
+    pub fn bootstrap_applied(
+        &mut self,
+        received_epoch: u64,
+        subscription_id: u64,
+    ) -> Vec<ProtocolAction> {
+        if received_epoch != self.session_epoch {
+            return vec![ProtocolAction::IgnoreStaleEpoch {
+                received_epoch,
+                active_epoch: self.session_epoch,
+            }];
+        }
+        if matches!(self.state, ProtocolState::Failed(_) | ProtocolState::Closed) {
+            return vec![ProtocolAction::IgnoreTerminalMessage {
+                session_epoch: self.session_epoch,
+            }];
+        }
+        match self.state {
+            ProtocolState::AwaitBootstrapApply { subscription_id: expected } => {
+                if subscription_id != expected {
+                    return self.fail(ProtocolError::SubscriptionIdMismatch {
+                        expected,
+                        actual: subscription_id,
+                    });
+                }
+                self.state = ProtocolState::Live { subscription_id: expected };
+                vec![ProtocolAction::SessionLive {
+                    session_epoch: self.session_epoch,
+                    subscription_id: expected,
+                }]
+            }
+            _ => self.fail(ProtocolError::UnexpectedMessage {
+                phase: self.phase(),
+                message: MessageKind::Unexpected,
+            }),
         }
     }
 
@@ -330,7 +376,7 @@ impl HomeAssistantWebSocketProtocol {
                         actual: payload,
                     });
                 }
-                self.state = ProtocolState::Live { subscription_id };
+                self.state = ProtocolState::AwaitBootstrapApply { subscription_id };
                 vec![
                     ProtocolAction::BootstrapReady {
                         session_epoch: self.session_epoch,
@@ -340,14 +386,11 @@ impl HomeAssistantWebSocketProtocol {
                         session_epoch: self.session_epoch,
                         subscription_id,
                     },
-                    ProtocolAction::SessionLive {
-                        session_epoch: self.session_epoch,
-                        subscription_id,
-                    },
                 ]
             }
             (
-                ProtocolState::AwaitBootstrapResult { subscription_id, .. },
+                ProtocolState::AwaitBootstrapResult { subscription_id, .. }
+                | ProtocolState::AwaitBootstrapApply { subscription_id },
                 InboundMessage::StateChanged { subscription_id: received },
             ) => {
                 if received != subscription_id {
@@ -376,7 +419,7 @@ impl HomeAssistantWebSocketProtocol {
                     subscription_id: expected,
                 }]
             }
-            (ProtocolState::Live { .. } | ProtocolState::AwaitBootstrapResult { .. }, InboundMessage::OtherEvent) => {
+            (ProtocolState::Live { .. } | ProtocolState::AwaitBootstrapResult { .. } | ProtocolState::AwaitBootstrapApply { .. }, InboundMessage::OtherEvent) => {
                 vec![ProtocolAction::IgnoreUnrelatedEvent {
                     session_epoch: self.session_epoch,
                 }]
@@ -490,6 +533,14 @@ mod tests {
                     subscription_id,
                 },
             ]
+        );
+        assert_eq!(machine.state(), ProtocolState::AwaitBootstrapApply { subscription_id });
+        assert_eq!(
+            machine.bootstrap_applied(machine.session_epoch(), subscription_id),
+            vec![ProtocolAction::SessionLive {
+                session_epoch: machine.session_epoch(),
+                subscription_id,
+            }]
         );
         assert_eq!(machine.state(), ProtocolState::Live { subscription_id });
         subscription_id
@@ -690,11 +741,15 @@ mod tests {
                     session_epoch: 1,
                     subscription_id,
                 },
-                ProtocolAction::SessionLive {
-                    session_epoch: 1,
-                    subscription_id,
-                },
             ]
+        );
+        assert_eq!(machine.state(), ProtocolState::AwaitBootstrapApply { subscription_id });
+        assert_eq!(
+            machine.bootstrap_applied(1, subscription_id),
+            vec![ProtocolAction::SessionLive {
+                session_epoch: 1,
+                subscription_id,
+            }]
         );
     }
 
