@@ -33,11 +33,11 @@ jobs:
         run: |
           jq -e '
             .corpus_id == "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS" and
-            (.cases | length == 28) and
-            ([.cases[].id] | unique | length == 28) and
-            ([.cases[].id | ltrimstr("EJM-") | tonumber] | sort) == [range(1; 29)] and
+            (.cases | length == 29) and
+            ([.cases[].id] | unique | length == 29) and
+            ([.cases[].id | ltrimstr("EJM-") | tonumber] | sort) == [range(1; 30)] and
             .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"] and
-            (.cases | any(.[]; .id == "EJM-028" and .test_anchor == "restore_rejects_sink_disposition_before_terminal_resolution" and .status == "implemented_reference_test")) and
+            (.cases | any(.[]; .id == "EJM-029" and .test_anchor == "single_field_snapshot_corruptions_are_rejected" and .status == "implemented_reference_test")) and
             (.cases | all(.[]; ((keys | sort) == ["category", "expected", "fault", "id", "status", "test_anchor"]) and
               (.id | type == "string" and test("^EJM-[0-9]{3}$")) and
               (.category | type == "string" and length > 0) and
@@ -47,7 +47,7 @@ jobs:
               (if (.status == "implemented_reference_model" or .status == "implemented_reference_test") then (.test_anchor | type == "string" and test("^[A-Za-z_][A-Za-z0-9_]*$")) else .test_anchor == null end)))
           ' EFFECT_JOURNAL_FAULT_CORPUS_V1.json >/dev/null
           jq -e '.required | index("cases") != null' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
-          jq -e '.properties.cases.minItems == 28 and .properties.cases.items.additionalProperties == false' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
+          jq -e '.properties.cases.minItems == 29 and .properties.cases.items.additionalProperties == false' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
           jq -r '.cases[] | select(.status == "implemented_reference_model" or .status == "implemented_reference_test") | .test_anchor' EFFECT_JOURNAL_FAULT_CORPUS_V1.json | while IFS= read -r anchor; do
             if ! grep -RPzq "#\\[test\\]\\s*fn\\s+${anchor}\\s*\\(" src; then
               echo "Missing #[test] Rust test anchor: ${anchor}" >&2

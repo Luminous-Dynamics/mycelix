@@ -247,6 +247,14 @@
       "expected": "Reject terminal disposition evidence before a verified terminal resolution",
       "status": "implemented_reference_test",
       "test_anchor": "restore_rejects_sink_disposition_before_terminal_resolution"
+    },
+    {
+      "id": "EJM-029",
+      "category": "snapshot-integrity",
+      "fault": "One lifecycle field in a valid snapshot is mutated independently across prepared, reserved, dispatch-started, outcome-unknown, committed, and rejected histories",
+      "expected": "All 80 single-field lifecycle inconsistencies across ten legal history shapes are rejected; identity authenticity remains a separate adapter responsibility",
+      "status": "implemented_reference_test",
+      "test_anchor": "single_field_snapshot_corruptions_are_rejected"
     }
   ]
 }

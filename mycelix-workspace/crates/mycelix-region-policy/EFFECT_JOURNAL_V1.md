@@ -88,7 +88,7 @@ These sources motivate the design. They are not independent validation of this i
 
 ## Machine-readable fault corpus
 
-[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 28-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 29-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
 
 
 ## Snapshot dispatch-history invariant
@@ -128,3 +128,8 @@ Terminal snapshots retain the sink disposition produced by the verifier. `Commit
 
 
 Nonterminal phases (`Reserved`, `DispatchStarted`, and `OutcomeUnknown`) must have no sink disposition. Terminal `Committed` snapshots must bind `Applied`; post-dispatch `Rejected` snapshots must bind `DefinitivelyRejected`. The restore validator rejects stray disposition claims before resolution as well as terminal phase/disposition conflicts. This check is not a substitute for durable record authentication.
+
+
+## Single-field mutation campaign
+
+`single_field_snapshot_corruptions_are_rejected` starts from ten valid histories (Prepared, Reserved, DispatchStarted, OutcomeUnknown, direct/reconciled Committed, pre-dispatch Rejected from Prepared/Reserved, and direct/reconciled sink Rejected). It independently mutates phase, revision, dispatch marker, uncertainty marker, operation ID presence, outcome digest presence, outcome disposition, and rejection-code presence. All 80 state-field mutations must fail restore. Identity replacement is intentionally not counted: unauthenticated value consistency cannot prove identity authenticity, which requires the durable adapter's record authenticator and monotonic high-water/CAS controls.

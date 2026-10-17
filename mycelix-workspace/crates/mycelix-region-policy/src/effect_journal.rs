@@ -834,6 +834,150 @@ mod tests {
     }
 
     #[test]
+    fn single_field_snapshot_corruptions_are_rejected() {
+        // Keep one snapshot for every legal history, then mutate one lifecycle
+        // field at a time. Identity authenticity is intentionally excluded:
+        // only the durable record authenticator/high-water adapter can prove
+        // that the identity itself was not replaced.
+        let mut valid_states: Vec<(&str, EffectAttemptSnapshot)> = Vec::new();
+
+        let prepared = EffectAttempt::prepare(identity());
+        valid_states.push(("Prepared", prepared.snapshot()));
+
+        let mut reserved = EffectAttempt::prepare(identity());
+        reserved.reserve("sink-operation-1").expect("reserve");
+        valid_states.push(("Reserved", reserved.snapshot()));
+
+        let mut dispatched = EffectAttempt::prepare(identity());
+        dispatched.reserve("sink-operation-1").expect("reserve");
+        dispatched.mark_dispatch_started().expect("dispatch");
+        valid_states.push(("DispatchStarted", dispatched.snapshot()));
+
+        let mut unknown = EffectAttempt::prepare(identity());
+        unknown.reserve("sink-operation-1").expect("reserve");
+        unknown.mark_dispatch_started().expect("dispatch");
+        unknown.mark_outcome_unknown().expect("unknown");
+        valid_states.push(("OutcomeUnknown", unknown.snapshot()));
+
+        let mut committed_direct = EffectAttempt::prepare(identity());
+        committed_direct.reserve("sink-operation-1").expect("reserve");
+        committed_direct.mark_dispatch_started().expect("dispatch");
+        committed_direct
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("direct commit");
+        valid_states.push(("CommittedDirect", committed_direct.snapshot()));
+
+        let mut committed_reconciled = EffectAttempt::prepare(identity());
+        committed_reconciled.reserve("sink-operation-1").expect("reserve");
+        committed_reconciled.mark_dispatch_started().expect("dispatch");
+        committed_reconciled.mark_outcome_unknown().expect("unknown");
+        committed_reconciled
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("reconciled commit");
+        valid_states.push(("CommittedReconciled", committed_reconciled.snapshot()));
+
+        let mut rejected_prepared = EffectAttempt::prepare(identity());
+        rejected_prepared
+            .abort_before_dispatch("policy-denied")
+            .expect("pre-dispatch reject");
+        valid_states.push(("RejectedPrepared", rejected_prepared.snapshot()));
+
+        let mut rejected_reserved = EffectAttempt::prepare(identity());
+        rejected_reserved.reserve("sink-operation-1").expect("reserve");
+        rejected_reserved
+            .abort_before_dispatch("policy-revoked")
+            .expect("pre-dispatch reject");
+        valid_states.push(("RejectedReserved", rejected_reserved.snapshot()));
+
+        let mut rejected_direct = EffectAttempt::prepare(identity());
+        rejected_direct.reserve("sink-operation-1").expect("reserve");
+        rejected_direct.mark_dispatch_started().expect("dispatch");
+        rejected_direct
+            .resolve(verified_outcome(SinkDisposition::DefinitivelyRejected))
+            .expect("direct sink rejection");
+        valid_states.push(("RejectedDirect", rejected_direct.snapshot()));
+
+        let mut rejected_reconciled = EffectAttempt::prepare(identity());
+        rejected_reconciled.reserve("sink-operation-1").expect("reserve");
+        rejected_reconciled.mark_dispatch_started().expect("dispatch");
+        rejected_reconciled.mark_outcome_unknown().expect("unknown");
+        rejected_reconciled
+            .resolve(verified_outcome(SinkDisposition::DefinitivelyRejected))
+            .expect("reconciled sink rejection");
+        valid_states.push(("RejectedReconciled", rejected_reconciled.snapshot()));
+
+        let mut checked = 0usize;
+        for (state_name, baseline) in valid_states {
+            let mut mutations: Vec<(&str, EffectAttemptSnapshot)> = Vec::new();
+
+            let mut changed = baseline.clone();
+            changed.phase = if baseline.phase == AttemptPhase::Committed {
+                AttemptPhase::Rejected
+            } else {
+                AttemptPhase::Committed
+            };
+            mutations.push(("phase", changed));
+
+            let mut changed = baseline.clone();
+            changed.revision += 1;
+            mutations.push(("revision", changed));
+
+            let mut changed = baseline.clone();
+            changed.dispatch_started = !changed.dispatch_started;
+            mutations.push(("dispatch_started", changed));
+
+            let mut changed = baseline.clone();
+            changed.outcome_unknown_seen = !changed.outcome_unknown_seen;
+            mutations.push(("outcome_unknown_seen", changed));
+
+            let mut changed = baseline.clone();
+            changed.operation_id = if changed.operation_id.is_some() {
+                None
+            } else {
+                Some("mutated-operation".to_owned())
+            };
+            mutations.push(("operation_id", changed));
+
+            let mut changed = baseline.clone();
+            changed.outcome_digest = if changed.outcome_digest.is_some() {
+                None
+            } else {
+                Some("d".repeat(64))
+            };
+            mutations.push(("outcome_digest", changed));
+
+            let mut changed = baseline.clone();
+            changed.outcome_disposition = match changed.outcome_disposition {
+                None => Some(SinkDisposition::Applied),
+                Some(SinkDisposition::Applied) => Some(SinkDisposition::DefinitivelyRejected),
+                Some(SinkDisposition::DefinitivelyRejected) => Some(SinkDisposition::Applied),
+            };
+            mutations.push(("outcome_disposition", changed));
+
+            let mut changed = baseline.clone();
+            changed.rejection_code = if changed.rejection_code.is_some() {
+                None
+            } else {
+                Some("injected-corruption".to_owned())
+            };
+            mutations.push(("rejection_code", changed));
+
+            for (field, snapshot) in mutations {
+                assert!(
+                    EffectAttempt::restore(snapshot).is_err(),
+                    "single-field corruption of {state_name}.{field} must fail closed"
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(
+            checked, 80,
+            "ten valid lifecycle histories times eight single-field mutations"
+        );
+    }
+
+    #[test]
     fn restore_rejects_terminal_phase_disposition_mismatch() {
         let mut committed = EffectAttempt::prepare(identity());
         committed.reserve("sink-operation-1").expect("reserve");
