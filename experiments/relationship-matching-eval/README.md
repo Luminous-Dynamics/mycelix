@@ -21,7 +21,7 @@ Arguments are seed-start, even participant count (4..=2000), top-k recommendatio
 - The exposure-balanced policy allocates one candidate at a time to each opted-in viewer and uses incoming exposure counts as its primary selection objective; it is a simple benchmark baseline, not a globally optimal matching algorithm.
 - Inactive users, mismatched connection goals, incompatible age ranges, mutual blocks, insufficient shared interests, and insufficient declared utility are filtered before ranking.
 - Output ordering is deterministic for fixed input and policy.
-- Exposure coverage and Gini are measured over the set of participants who have at least one feasible counterpart.
+- Coverage and raw exposure Gini are measured over participants who have at least one feasible counterpart; opportunity-normalized exposure Gini divides a candidate's incoming exposure by their number of feasible counterparts before measuring inequality. The two metrics answer different questions and are reported together.
 - The report includes a canonical synthetic-corpus FNV-1a 64-bit fingerprint per seed so same-input regressions are visible. The fingerprint is non-cryptographic and cannot serve as a security or provenance receipt. To bind a report to source and toolchain metadata, run with `GIT_COMMIT_SHA` set to the exact commit SHA and `RUSTC_VERSION` set to the toolchain version; absent values are emitted as `null`.
 
 ## What it does not prove
