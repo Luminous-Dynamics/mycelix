@@ -6,7 +6,8 @@ use relationship_matching_eval::{
     accumulate_exposure_history, corpus_fingerprint_fnv1a64, directed_utility,
     eligible_pair, evaluate_cumulative_exposure, recommend,
     recommend_exposure_balanced_with_history, recommend_quality_bounded_exposure_with_history,
-    synthetic_market_for_scenario, CumulativeExposureMetrics, MarketScenario, Participant,
+    evaluate_cumulative_exposure_with_quality_floor, synthetic_market_for_scenario,
+    CumulativeExposureMetrics, MarketScenario, Participant, QualifiedOpportunityMetrics,
     Recommendation, RankingPolicy,
 };
 
@@ -27,6 +28,7 @@ struct SeedResult {
     seed: u64,
     fingerprint: String,
     exposure_metrics: [CumulativeExposureMetrics; 7],
+    qualified_metrics: [QualifiedOpportunityMetrics; 7],
     quality_retention: [Option<f64>; 7],
 }
 
@@ -120,6 +122,16 @@ fn run() -> Result<(), String> {
             );
         }
         println!("      }},");
+        println!("      \"policy_qualified_opportunity_summary\": {{");
+        for strategy_index in 0..STRATEGY_NAMES.len() {
+            println!("        {}: {{", json_string(STRATEGY_NAMES[strategy_index]));
+            print_qualified_summary(rows, strategy_index, "          ");
+            println!(
+                "        }}{}",
+                if strategy_index + 1 == STRATEGY_NAMES.len() { "" } else { "," }
+            );
+        }
+        println!("      }},");
         println!("      \"raw_gini_reduction_vs_batch_balanced\": {{");
         for (offset, strategy_index) in [4usize, 5, 6].iter().enumerate() {
             print_reduction(
@@ -157,6 +169,16 @@ fn run() -> Result<(), String> {
                     row.quality_retention[strategy_index],
                     "              ",
                 );
+                println!(
+                    "            }}{}",
+                    if strategy_index + 1 == STRATEGY_NAMES.len() { "" } else { "," }
+                );
+            }
+            println!("          }},");
+            println!("          \"policy_qualified_opportunities\": {{");
+            for strategy_index in 0..STRATEGY_NAMES.len() {
+                println!("            {}: {{", json_string(STRATEGY_NAMES[strategy_index]));
+                print_qualified_metrics(row.qualified_metrics[strategy_index], "              ");
                 println!(
                     "            }}{}",
                     if strategy_index + 1 == STRATEGY_NAMES.len() { "" } else { "," }
@@ -222,6 +244,17 @@ fn evaluate_market(
     let exposure_metrics: [CumulativeExposureMetrics; 7] = exposure_metrics_vec
         .try_into()
         .map_err(|_| "internal metric count mismatch".to_string())?;
+    let qualified_metrics_vec: Vec<QualifiedOpportunityMetrics> = histories
+        .iter()
+        .enumerate()
+        .map(|(index, history)| {
+            let threshold = if index < 4 { 0 } else { QUALITY_FLOORS[index - 4] };
+            evaluate_cumulative_exposure_with_quality_floor(market, history, threshold)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let qualified_metrics: [QualifiedOpportunityMetrics; 7] = qualified_metrics_vec
+        .try_into()
+        .map_err(|_| "internal qualified metric count mismatch".to_string())?;
     let quality_retention: [Option<f64>; 7] = std::array::from_fn(|index| {
         let values = &quality_samples[index];
         if values.is_empty() {
@@ -235,6 +268,7 @@ fn evaluate_market(
         seed,
         fingerprint: corpus_fingerprint_fnv1a64(market),
         exposure_metrics,
+        qualified_metrics,
         quality_retention,
     })
 }
@@ -299,6 +333,68 @@ fn print_metric_summary(rows: &[SeedResult], strategy_index: usize, indent: &str
         .filter_map(|row| row.quality_retention[strategy_index])
         .collect();
     print_stats("relative_mutual_floor_retention", &retention, indent, false);
+}
+
+fn print_qualified_summary(rows: &[SeedResult], strategy_index: usize, indent: &str) {
+    let qualified: Vec<QualifiedOpportunityMetrics> =
+        rows.iter().map(|row| row.qualified_metrics[strategy_index]).collect();
+    print_stats(
+        "qualified_candidate_coverage",
+        &qualified
+            .iter()
+            .filter(|metric| metric.qualified_candidate_users > 0)
+            .map(|metric| metric.qualified_candidate_coverage)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    print_stats(
+        "qualified_exposure_gini",
+        &qualified
+            .iter()
+            .filter(|metric| metric.qualified_candidate_users > 0)
+            .map(|metric| metric.qualified_exposure_gini)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    print_stats(
+        "qualified_opportunity_normalized_exposure_gini",
+        &qualified
+            .iter()
+            .filter(|metric| metric.qualified_candidate_users > 0)
+            .map(|metric| metric.qualified_opportunity_normalized_exposure_gini)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    print_stats(
+        "qualified_directed_opportunity_count",
+        &qualified
+            .iter()
+            .map(|metric| metric.qualified_directed_opportunity_count as f64)
+            .collect::<Vec<_>>(),
+        indent,
+        false,
+    );
+}
+
+fn print_qualified_metrics(metrics: QualifiedOpportunityMetrics, indent: &str) {
+    println!("{}\"qualified_directed_opportunity_count\": {},", indent, metrics.qualified_directed_opportunity_count);
+    println!("{}\"qualified_candidate_users\": {},", indent, metrics.qualified_candidate_users);
+    println!("{}\"exposed_qualified_candidate_users\": {},", indent, metrics.exposed_qualified_candidate_users);
+    if metrics.qualified_candidate_users == 0 {
+        println!("{}\"qualified_candidate_coverage\": null,", indent);
+        println!("{}\"qualified_exposure_gini\": null,", indent);
+        println!("{}\"qualified_opportunity_normalized_exposure_gini\": null", indent);
+    } else {
+        println!("{}\"qualified_candidate_coverage\": {:.8},", indent, metrics.qualified_candidate_coverage);
+        println!("{}\"qualified_exposure_gini\": {:.8},", indent, metrics.qualified_exposure_gini);
+        println!(
+            "{}\"qualified_opportunity_normalized_exposure_gini\": {:.8}",
+            indent, metrics.qualified_opportunity_normalized_exposure_gini
+        );
+    }
 }
 
 fn print_reduction(
