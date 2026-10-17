@@ -92,6 +92,12 @@ pub struct RationalRate {
     pub denominator_work_seconds: u128,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RateUnavailableReason {
+    NoRecordedWork,
+    MultipleCurrencies,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CurrencySummary {
     pub currency: String,
@@ -100,8 +106,10 @@ pub struct CurrencySummary {
     pub fees_minor_units: i128,
     pub operating_costs_minor_units: i128,
     pub net_contribution_minor_units: i128,
-    /// None means no valid work duration was recorded; it does not mean zero productivity.
+    /// None when the rate is not justified by the recorded denominator.
     pub net_per_work_hour: Option<RationalRate>,
+    /// Explicit reasons help consumers avoid treating an unavailable rate as zero.
+    pub rate_unavailable_reasons: Vec<RateUnavailableReason>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -216,6 +224,15 @@ impl Ledger {
         }
 
         let recorded_work_seconds = self.recorded_work_seconds()?;
+        let currency_count = grouped.len();
+        let mut rate_unavailable_reasons = Vec::new();
+        if currency_count > 1 {
+            rate_unavailable_reasons.push(RateUnavailableReason::MultipleCurrencies);
+        }
+        if recorded_work_seconds == 0 {
+            rate_unavailable_reasons.push(RateUnavailableReason::NoRecordedWork);
+        }
+
         let mut currencies = Vec::with_capacity(grouped.len());
         for (currency, totals) in grouped {
             let net = totals[0]
@@ -223,15 +240,15 @@ impl Ledger {
                 .and_then(|value| value.checked_sub(totals[2]))
                 .and_then(|value| value.checked_sub(totals[3]))
                 .ok_or(LedgerError::ArithmeticOverflow)?;
-            let net_per_work_hour = if recorded_work_seconds == 0 {
-                None
-            } else {
+            let net_per_work_hour = if rate_unavailable_reasons.is_empty() {
                 Some(RationalRate {
                     numerator_minor_units_per_hour: net
                         .checked_mul(SECONDS_PER_HOUR)
                         .ok_or(LedgerError::ArithmeticOverflow)?,
                     denominator_work_seconds: recorded_work_seconds,
                 })
+            } else {
+                None
             };
             currencies.push(CurrencySummary {
                 currency,
@@ -241,6 +258,7 @@ impl Ledger {
                 operating_costs_minor_units: totals[3],
                 net_contribution_minor_units: net,
                 net_per_work_hour,
+                rate_unavailable_reasons: rate_unavailable_reasons.clone(),
             });
         }
 
@@ -330,15 +348,22 @@ pub fn verify_summary(ledger: &Ledger, claimed: &LedgerSummary) -> Result<(), Ve
             .and_then(|v| v.checked_sub(total.fees))
             .and_then(|v| v.checked_sub(total.costs))
             .ok_or(VerificationError::ArithmeticOverflow)?;
-        let expected_rate = if work_seconds == 0 {
-            None
-        } else {
+        let mut expected_unavailable_reasons = Vec::new();
+        if by_currency.len() > 1 {
+            expected_unavailable_reasons.push(RateUnavailableReason::MultipleCurrencies);
+        }
+        if work_seconds == 0 {
+            expected_unavailable_reasons.push(RateUnavailableReason::NoRecordedWork);
+        }
+        let expected_rate = if expected_unavailable_reasons.is_empty() {
             Some(RationalRate {
                 numerator_minor_units_per_hour: net
                     .checked_mul(SECONDS_PER_HOUR)
                     .ok_or(VerificationError::ArithmeticOverflow)?,
                 denominator_work_seconds: work_seconds,
             })
+        } else {
+            None
         };
 
         if reported.receipts_minor_units != total.receipts
@@ -347,6 +372,7 @@ pub fn verify_summary(ledger: &Ledger, claimed: &LedgerSummary) -> Result<(), Ve
             || reported.operating_costs_minor_units != total.costs
             || reported.net_contribution_minor_units != net
             || reported.net_per_work_hour != expected_rate
+            || reported.rate_unavailable_reasons != expected_unavailable_reasons
         {
             return Err(VerificationError::TotalsMismatch {
                 currency: currency.clone(),
@@ -465,6 +491,10 @@ mod tests {
         );
         assert_eq!(report.currencies[0].net_contribution_minor_units, 8_000);
         assert_eq!(report.currencies[1].net_contribution_minor_units, 10_000);
+        assert!(report.currencies.iter().all(|summary| summary.net_per_work_hour.is_none()));
+        assert!(report.currencies.iter().all(|summary| {
+            summary.rate_unavailable_reasons == vec![RateUnavailableReason::MultipleCurrencies]
+        }));
         verify_summary(&ledger, &report).unwrap();
     }
 
@@ -475,6 +505,10 @@ mod tests {
         let report = ledger.summarize().unwrap();
         assert_eq!(report.recorded_work_seconds, 0);
         assert_eq!(report.currencies[0].net_per_work_hour, None);
+        assert_eq!(
+            report.currencies[0].rate_unavailable_reasons,
+            vec![RateUnavailableReason::NoRecordedWork]
+        );
         verify_summary(&ledger, &report).unwrap();
     }
 
