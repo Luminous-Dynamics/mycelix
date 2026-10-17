@@ -77,21 +77,34 @@ fn percentile(sorted: &[f64], quantile: f64) -> f64 {
     sorted[index]
 }
 
+fn timer_baseline(samples: usize) -> Vec<f64> {
+    let mut durations = Vec::with_capacity(samples);
+    for _ in 0..samples {
+        let start = Instant::now();
+        black_box(0usize);
+        durations.push(start.elapsed().as_secs_f64() * 1_000_000.0);
+    }
+    durations.sort_by(f64::total_cmp);
+    durations
+}
+
 fn main() {
-    const BATCHES: usize = 1_000;
-    const OPERATIONS_PER_BATCH: usize = 100;
+    const OPERATIONS: usize = 100_000;
+    const TIMER_BASELINE_SAMPLES: usize = 10_000;
     const NOW_MS: u64 = 2_000;
 
     let source = VerifiedProfile::verify(
         profile("community-a", &[], &["community-z"]),
         NOW_MS,
         &BenchmarkVerifier,
-    ).expect("benchmark source fixture");
+    )
+    .expect("benchmark source fixture");
     let destination = VerifiedProfile::verify(
         profile("community-z", &["community-a"], &[]),
         NOW_MS,
         &BenchmarkVerifier,
-    ).expect("benchmark destination fixture");
+    )
+    .expect("benchmark destination fixture");
     let content_digest = "b".repeat(64);
     let classification = VerifiedClassification::verify(
         ClassificationClaim {
@@ -148,34 +161,42 @@ fn main() {
         evaluated_at_unix_ms: NOW_MS,
     };
 
-    let mut micros_per_operation = Vec::with_capacity(BATCHES);
+    let mut operation_latencies_us = Vec::with_capacity(OPERATIONS);
     let mut allowed_total = 0usize;
-    for _ in 0..BATCHES {
-        let start = Instant::now();
-        for _ in 0..OPERATIONS_PER_BATCH {
-            let decision = evaluate_transfer(
-                black_box(&source),
-                black_box(&destination),
-                black_box(&request),
-            );
-            if decision.allowed {
-                allowed_total += 1;
-            }
-            black_box(decision);
+    let campaign_start = Instant::now();
+    for _ in 0..OPERATIONS {
+        let operation_start = Instant::now();
+        let decision = evaluate_transfer(
+            black_box(&source),
+            black_box(&destination),
+            black_box(&request),
+        );
+        if decision.allowed {
+            allowed_total += 1;
         }
-        let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
-        micros_per_operation.push(elapsed_ms * 1_000.0 / OPERATIONS_PER_BATCH as f64);
+        black_box(decision);
+        operation_latencies_us.push(operation_start.elapsed().as_secs_f64() * 1_000_000.0);
     }
+    let campaign_seconds = campaign_start.elapsed().as_secs_f64();
 
-    micros_per_operation.sort_by(f64::total_cmp);
+    operation_latencies_us.sort_by(f64::total_cmp);
+    let timer_baseline_us = timer_baseline(TIMER_BASELINE_SAMPLES);
     println!("benchmark=regional_policy_evaluate_transfer");
-    println!("operations={}", BATCHES * OPERATIONS_PER_BATCH);
+    println!("operations={OPERATIONS}");
     println!("allowed={allowed_total}");
+    println!("sample_model=single-operation wall-clock; measurement overhead included");
     println!(
         "latency_us_per_op p50={:.3} p95={:.3} p99={:.3}",
-        percentile(&micros_per_operation, 0.50),
-        percentile(&micros_per_operation, 0.95),
-        percentile(&micros_per_operation, 0.99),
+        percentile(&operation_latencies_us, 0.50),
+        percentile(&operation_latencies_us, 0.95),
+        percentile(&operation_latencies_us, 0.99),
     );
-    println!("notes=policy-only; verifier, storage, network, and signature costs excluded");
+    println!(
+        "timer_baseline_us p50={:.3} p95={:.3} p99={:.3} samples={TIMER_BASELINE_SAMPLES}",
+        percentile(&timer_baseline_us, 0.50),
+        percentile(&timer_baseline_us, 0.95),
+        percentile(&timer_baseline_us, 0.99),
+    );
+    println!("throughput_ops_per_sec={:.0}", OPERATIONS as f64 / campaign_seconds);
+    println!("notes=policy-only; verifier, storage, network, and signature costs excluded; baseline is reported but not subtracted");
 }

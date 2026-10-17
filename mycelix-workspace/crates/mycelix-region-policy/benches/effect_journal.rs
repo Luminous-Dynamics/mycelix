@@ -25,60 +25,77 @@ fn percentile(sorted: &[f64], quantile: f64) -> f64 {
     sorted[index]
 }
 
+fn timer_baseline(samples: usize) -> Vec<f64> {
+    let mut durations = Vec::with_capacity(samples);
+    for _ in 0..samples {
+        let start = Instant::now();
+        black_box(0usize);
+        durations.push(start.elapsed().as_secs_f64() * 1_000_000.0);
+    }
+    durations.sort_by(f64::total_cmp);
+    durations
+}
+
 fn main() {
-    const BATCHES: usize = 1_000;
-    const OPERATIONS_PER_BATCH: usize = 100;
+    const OPERATIONS: usize = 100_000;
+    const TIMER_BASELINE_SAMPLES: usize = 10_000;
     let verifier = FixtureSinkVerifier;
     let target_digest = "a".repeat(64);
     let policy_digest = "b".repeat(64);
     let outcome_digest = "c".repeat(64);
-    let mut micros_per_operation = Vec::with_capacity(BATCHES);
+    let mut operation_latencies_us = Vec::with_capacity(OPERATIONS);
+    let campaign_start = Instant::now();
 
-    for batch in 0..BATCHES {
-        let start = Instant::now();
-        for operation in 0..OPERATIONS_PER_BATCH {
-            let key = format!("idem-{batch}-{operation}");
-            let identity = EffectIdentity::new(
-                "benchmark-community",
-                &key,
-                &target_digest,
-                &policy_digest,
-            )
-                .expect("benchmark identity");
-            let mut attempt = EffectAttempt::prepare(identity.clone());
-            let sink_operation_id = format!("sink-{batch}-{operation}");
-            attempt.reserve(&sink_operation_id).expect("prepare -> reserve");
-            attempt.mark_dispatch_started().expect("reserve -> dispatch");
+    for operation in 0..OPERATIONS {
+        let operation_start = Instant::now();
+        let key = format!("idem-{operation}");
+        let identity = EffectIdentity::new(
+            "benchmark-community",
+            &key,
+            &target_digest,
+            &policy_digest,
+        )
+        .expect("benchmark identity");
+        let mut attempt = EffectAttempt::prepare(identity.clone());
+        let sink_operation_id = format!("sink-{operation}");
+        attempt.reserve(&sink_operation_id).expect("prepare -> reserve");
+        attempt.mark_dispatch_started().expect("reserve -> dispatch");
 
-            let evidence = SinkOutcomeEvidence {
-                authority_domain: "benchmark-community".to_owned(),
-                idempotency_key: key,
-                target_digest: target_digest.clone(),
-                policy_binding_digest: policy_digest.clone(),
-                operation_id: sink_operation_id,
-                disposition: SinkDisposition::Applied,
-                outcome_digest: outcome_digest.clone(),
-                proof: vec![0xA5; 64],
-            };
-            let verified = VerifiedSinkOutcome::verify(evidence, &identity, &verifier)
-                .expect("benchmark fixture proof");
-            attempt.resolve(verified).expect("dispatched -> committed");
-            black_box(attempt);
-        }
-        let elapsed_us = start.elapsed().as_secs_f64() * 1_000_000.0;
-        micros_per_operation.push(elapsed_us / OPERATIONS_PER_BATCH as f64);
+        let evidence = SinkOutcomeEvidence {
+            authority_domain: "benchmark-community".to_owned(),
+            idempotency_key: key,
+            target_digest: target_digest.clone(),
+            policy_binding_digest: policy_digest.clone(),
+            operation_id: sink_operation_id,
+            disposition: SinkDisposition::Applied,
+            outcome_digest: outcome_digest.clone(),
+            proof: vec![0xA5; 64],
+        };
+        let verified = VerifiedSinkOutcome::verify(evidence, &identity, &verifier)
+            .expect("benchmark fixture proof");
+        attempt.resolve(verified).expect("dispatched -> committed");
+        black_box(attempt);
+        operation_latencies_us.push(operation_start.elapsed().as_secs_f64() * 1_000_000.0);
     }
+    let campaign_seconds = campaign_start.elapsed().as_secs_f64();
 
-    micros_per_operation.sort_by(f64::total_cmp);
+    operation_latencies_us.sort_by(f64::total_cmp);
+    let timer_baseline_us = timer_baseline(TIMER_BASELINE_SAMPLES);
     println!("benchmark=effect_journal_state_machine");
-    println!("operations={}", BATCHES * OPERATIONS_PER_BATCH);
+    println!("operations={OPERATIONS}");
+    println!("sample_model=single-operation wall-clock; measurement overhead included");
     println!(
         "latency_us_per_op p50={:.3} p95={:.3} p99={:.3}",
-        percentile(&micros_per_operation, 0.50),
-        percentile(&micros_per_operation, 0.95),
-        percentile(&micros_per_operation, 0.99),
+        percentile(&operation_latencies_us, 0.50),
+        percentile(&operation_latencies_us, 0.95),
+        percentile(&operation_latencies_us, 0.99),
     );
     println!(
-        "notes=in-memory lifecycle transitions only; no database, network, cryptography, or durable CAS"
+        "timer_baseline_us p50={:.3} p95={:.3} p99={:.3} samples={TIMER_BASELINE_SAMPLES}",
+        percentile(&timer_baseline_us, 0.50),
+        percentile(&timer_baseline_us, 0.95),
+        percentile(&timer_baseline_us, 0.99),
     );
+    println!("throughput_ops_per_sec={:.0}", OPERATIONS as f64 / campaign_seconds);
+    println!("notes=in-memory prepare/reserve/dispatch/fixture-verify/resolve only; no database, network, cryptography, or durable CAS; baseline is reported but not subtracted");
 }

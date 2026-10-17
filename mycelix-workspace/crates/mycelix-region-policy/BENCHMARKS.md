@@ -2,7 +2,7 @@
 
 ## Scope of the first benchmark
 
-The native benchmark reports per-operation p50/p95/p99 for the pure, already-verified policy decision path, including exact profile binding, one verified bilateral agreement with two distinct party approvals, and one verified classification claim. It intentionally excludes cryptographic verification of profiles/agreements/classification/consent, revocation-provider lookups, storage, Holochain DHT/gossip, network latency, logging, and adapter work. Those measurements must be reported separately rather than mixed into a single opaque latency number.
+The native benchmark records 100,000 individual invocation durations and reports p50/p95/p99 for the pure, already-verified policy decision path, including exact profile binding, one verified bilateral agreement with two distinct party approvals, and one verified classification claim. This is a per-call latency distribution, not a percentile over batch-average times. It intentionally excludes cryptographic verification of profiles/agreements/classification/consent, revocation-provider lookups, storage, Holochain DHT/gossip, network latency, logging, and adapter work. Those measurements must be reported separately rather than mixed into a single opaque latency number.
 
 ## Initial targets (proposed, not measured)
 
@@ -22,7 +22,7 @@ The native benchmark reports per-operation p50/p95/p99 for the pure, already-ver
     cd mycelix-workspace/crates/mycelix-region-policy
     cargo bench --bench policy_eval --locked
 
-Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power/performance mode, compiler profile, total operations, and full stdout. A queued or compiled-only benchmark is not a measurement. Do not compare results across machines without their environment manifests.
+Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power/performance mode, compiler profile, total operations, the per-call p50/p95/p99, timer-baseline p50/p95/p99, throughput, and full stdout. The timer baseline is reported separately and is not subtracted from operation timings; per-call samples include clock-read overhead. A queued or compiled-only benchmark is not a measurement. Do not compare results across machines without their environment manifests.
 
 ## Next benchmark expansion
 
@@ -35,7 +35,7 @@ Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power
 
 ## Effect-journal benchmark
 
-Run `cargo bench --bench effect_journal --locked` to measure the reference state machine's prepare/submit/verify-fixture/resolve path. The harness reports p50/p95/p99 across 1,000 batches of 100 operations. Its verifier is deliberately a local fixture, and the benchmark excludes signature verification, durable storage, compare-and-swap, network transport, and process restarts. These numbers are not a production throughput claim. Record exact commit and hardware/toolchain metadata with every run.
+Run `cargo bench --bench effect_journal --locked` to measure the reference state machine's prepare/reserve/dispatch/fixture-verify/resolve path. The harness records 100,000 individual operation durations and reports p50/p95/p99, plus a separately reported 10,000-sample timer baseline and aggregate throughput. The baseline is not subtracted, and single-operation samples include clock-read overhead. Its verifier is deliberately a local fixture; the benchmark excludes signature verification, durable storage, compare-and-swap, network transport, and process restarts. These numbers are not a production throughput claim. Record exact commit and hardware/toolchain metadata with every run.
 
 
 ## Bounded correctness coverage (not a latency benchmark)
