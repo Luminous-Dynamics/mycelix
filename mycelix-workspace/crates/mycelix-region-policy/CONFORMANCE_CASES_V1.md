@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 37 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 43 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -56,6 +56,22 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-030 | Classification trust adapter rejects the claim signature | Verified classification construction rejected | `rejects_classification_when_trusted_adapter_rejects_signature` |
 | RPK-DENY-031 | Consent trust adapter rejects the grant signature | Verified consent construction rejected | `rejects_consent_when_trusted_adapter_rejects_signature` |
 
+
+
+## Effect-lease reference cases
+
+The local reference gate adds six source-level tests for one-shot behavior. They are still awaiting an exact-head Rust test run:
+
+| Case ID | Scenario | Required outcome | Test anchor |
+|---|---|---|---|
+| RPK-LEASE-001 | Current allowed request and exact independently observed target | One effect callback executes | **effect_lease_rechecks_policy_and_runs_matching_effect_once** |
+| RPK-LEASE-002 | Sink target changes resource identity | Reject before callback | **effect_lease_rejects_target_mismatch_without_running_effect** |
+| RPK-LEASE-003 | Time equals lease expiry | Reject at the expiry boundary | **effect_lease_expires_at_exact_boundary** |
+| RPK-LEASE-004 | Evaluation timestamp differs from trusted boundary time | Reject stale timestamp | **effect_lease_rejects_noncurrent_evaluation_timestamp** |
+| RPK-LEASE-005 | Callback fails and caller retries same nonce | Nonce remains consumed; replay rejected | **effect_lease_burns_nonce_before_effect_and_does_not_retry_failure** |
+| RPK-LEASE-006 | Non-random-format lease ID or TTL over 5 seconds | Reject issuance | **effect_lease_rejects_invalid_nonce_and_ttl** |
+
+The production crash/restart, multi-node uniqueness, fencing, and effect+nonce transaction tests remain unimplemented. The local in-memory ledger does not satisfy those requirements.
 
 ## Mandatory extension corpus before production
 
