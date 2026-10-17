@@ -1,0 +1,10 @@
+[package]
+name = "relationship-consent-model"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Bounded state-machine model for pair-specific relationship-discovery consent"
+
+[workspace]
+resolver = "2"
