@@ -219,7 +219,7 @@ mod tests {
                 "a": {
                     "sensor.example": {
                         "s": "21.5",
-                        "a": {"unit_of_measurement": "\\u00b0C"}
+                        "a": {"unit_of_measurement": "\u00b0C"}
                     }
                 },
                 "c": {},
