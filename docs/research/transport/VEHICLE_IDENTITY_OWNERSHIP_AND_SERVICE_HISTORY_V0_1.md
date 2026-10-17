@@ -115,6 +115,17 @@ The common v0.1 interchange envelope should support:
 `schema_version`, `artifact_kind`, `artifact_id`, `subject_ref`, `producer_ref`, `producer_revision`, `inputs_digest`, `outputs_digest`, `created_at`, `evidence_class`, `uncertainty`, `scope`, `limitations`, and `source_refs`.
 Do not put owner PII into that common engineering envelope.
 
+
+## Current schema and independent-validator status (2026-10-17)
+
+The draft now includes a Draft 2020-12 envelope schema, 19 synthetic decision fixtures, a standalone Rust validator under `tools/vehicle-record-audit/`, and a focused workflow under `.github/workflows/vehicle-record-schema-audit.yml`.
+
+The envelope schema has been tightened to require a signature envelope, a namespaced opaque `veh_` reference, non-empty evidence references plus scoped verification attestations before the `independently_verified` status can validate, and at least one dispute reference for a disputed record. A recursive shared/public payload rule rejects canonical sensitive field names such as `owner_name`, `raw_vin`, `precise_location`, `trip_points` and financial identifiers. This guard only catches those field-name forms; it is **not** a comprehensive PII detector, signature verifier, title verifier, or workmanship validator. Value-level leakage, alternative key spellings, evidence authenticity, signature verification, verifier credential scope and consent authorization still require independent checks and review.
+
+The Rust tool uses the `jsonschema` crate's Draft 2020-12 meta-schema/instance validation, validates the frozen fixture census and emits SHA-256 digests for the schema and fixtures. Its mutation tests cover unsigned records, shared-payload sensitive keys, direct-identifier flags, missing independent-verification evidence, dispute references, invalid date-time, extra top-level fields and malformed opaque vehicle references. Code and workflow have been committed on the draft branch, but **the Rust tool has not been compiled or run in this environment**. Hosted exact-head CI is required before reporting PASS.
+
+A schema-valid envelope establishes only format conformance under this schema. It cannot establish legal ownership, the truth of signed claims, authentic parts, correct repairs, roadworthiness, or private treatment of arbitrary external attachments/metadata.
+
 ## Initial implementation sequence
 
 **M0 — Exact-head audit.** Re-check the transport zomes, manifests, SDK, client and tests at the implementation commit. Confirm current workspace membership and whether WASM compilation/HApp packaging or real multi-agent tests exist. Do not infer current state from an older coverage audit.
