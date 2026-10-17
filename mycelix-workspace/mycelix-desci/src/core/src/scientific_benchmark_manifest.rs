@@ -641,8 +641,14 @@ mod tests {
         };
         assert!(verify_local_artifact(&artifact_path, expected).unwrap());
         assert!(verify_local_artifact_binding(&artifact_path, &binding).unwrap());
-        std::fs::write(&artifact_path, b"mutated scientific output").unwrap();
+        // Same byte length, different digest: this exercises hash verification
+        // independently of the size check.
+        std::fs::write(&artifact_path, b"immutable scientific outpuX").unwrap();
         assert!(!verify_local_artifact(&artifact_path, expected).unwrap());
+        assert!(!verify_local_artifact_binding(&artifact_path, &binding).unwrap());
+
+        // A separate length mismatch must also fail.
+        std::fs::write(&artifact_path, b"short").unwrap();
         assert!(!verify_local_artifact_binding(&artifact_path, &binding).unwrap());
     }
 
