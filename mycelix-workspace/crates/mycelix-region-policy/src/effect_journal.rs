@@ -192,6 +192,8 @@ pub struct EffectAttemptSnapshot {
     pub outcome_unknown_seen: bool,
     pub operation_id: Option<String>,
     pub outcome_digest: Option<String>,
+    /// The authenticated destination disposition, absent before terminal resolution.
+    pub outcome_disposition: Option<SinkDisposition>,
     pub rejection_code: Option<String>,
 }
 
@@ -204,6 +206,7 @@ pub struct EffectAttempt {
     outcome_unknown_seen: bool,
     operation_id: Option<String>,
     outcome_digest: Option<String>,
+    outcome_disposition: Option<SinkDisposition>,
     rejection_code: Option<String>,
 }
 
@@ -217,6 +220,7 @@ impl EffectAttempt {
             outcome_unknown_seen: false,
             operation_id: None,
             outcome_digest: None,
+            outcome_disposition: None,
             rejection_code: None,
         }
     }
@@ -252,6 +256,7 @@ impl EffectAttempt {
             outcome_unknown_seen: self.outcome_unknown_seen,
             operation_id: self.operation_id.clone(),
             outcome_digest: self.outcome_digest.clone(),
+            outcome_disposition: self.outcome_disposition,
             rejection_code: self.rejection_code.clone(),
         }
     }
@@ -268,6 +273,7 @@ impl EffectAttempt {
             outcome_unknown_seen: snapshot.outcome_unknown_seen,
             operation_id: snapshot.operation_id,
             outcome_digest: snapshot.outcome_digest,
+            outcome_disposition: snapshot.outcome_disposition,
             rejection_code: snapshot.rejection_code,
         };
         if !attempt.state_is_consistent() {
@@ -288,6 +294,7 @@ impl EffectAttempt {
                     && !self.outcome_unknown_seen
                     && self.operation_id.is_none()
                     && self.outcome_digest.is_none()
+                    && self.outcome_disposition.is_none()
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Reserved => {
@@ -320,18 +327,21 @@ impl EffectAttempt {
                     && self.dispatch_started
                     && op_valid
                     && outcome_valid
+                    && self.outcome_disposition == Some(SinkDisposition::Applied)
                     && self.rejection_code.is_none()
             }
             AttemptPhase::Rejected => {
                 (!self.dispatch_started
                     && !self.outcome_unknown_seen
                     && self.outcome_digest.is_none()
+                    && self.outcome_disposition.is_none()
                     && reason_valid
                     && ((self.revision == 1 && self.operation_id.is_none())
                         || (self.revision == 2 && op_valid)))
                     || (self.dispatch_started
                         && op_valid
                         && outcome_valid
+                        && self.outcome_disposition == Some(SinkDisposition::DefinitivelyRejected)
                         && self.rejection_code.is_none()
                         && ((!self.outcome_unknown_seen && self.revision == 3)
                             || (self.outcome_unknown_seen && self.revision == 4)))
@@ -417,6 +427,7 @@ impl EffectAttempt {
         }
         self.advance()?;
         self.outcome_digest = Some(outcome.outcome_digest);
+        self.outcome_disposition = Some(outcome.disposition);
         self.phase = match outcome.disposition {
             SinkDisposition::Applied => AttemptPhase::Committed,
             SinkDisposition::DefinitivelyRejected => AttemptPhase::Rejected,
@@ -785,6 +796,42 @@ mod tests {
             EffectAttempt::restore(snapshot),
             Err(JournalError::InvalidTransition),
             "revision downgrade must conflict with the persisted uncertainty marker"
+        );
+    }
+
+    #[test]
+    fn restore_rejects_terminal_phase_disposition_mismatch() {
+        let mut committed = EffectAttempt::prepare(identity());
+        committed.reserve("sink-operation-1").expect("reserve");
+        committed.mark_dispatch_started().expect("dispatch");
+        committed
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("verified applied result");
+        let mut forged_rejection = committed.snapshot();
+        assert_eq!(forged_rejection.outcome_disposition, Some(SinkDisposition::Applied));
+        forged_rejection.phase = AttemptPhase::Rejected;
+        assert_eq!(
+            EffectAttempt::restore(forged_rejection),
+            Err(JournalError::InvalidTransition),
+            "Applied evidence cannot be restored as a rejection"
+        );
+
+        let mut rejected = EffectAttempt::prepare(identity());
+        rejected.reserve("sink-operation-1").expect("reserve");
+        rejected.mark_dispatch_started().expect("dispatch");
+        rejected
+            .resolve(verified_outcome(SinkDisposition::DefinitivelyRejected))
+            .expect("verified rejected result");
+        let mut forged_commit = rejected.snapshot();
+        assert_eq!(
+            forged_commit.outcome_disposition,
+            Some(SinkDisposition::DefinitivelyRejected)
+        );
+        forged_commit.phase = AttemptPhase::Committed;
+        assert_eq!(
+            EffectAttempt::restore(forged_commit),
+            Err(JournalError::InvalidTransition),
+            "DefinitivelyRejected evidence cannot be restored as a commit"
         );
     }
 

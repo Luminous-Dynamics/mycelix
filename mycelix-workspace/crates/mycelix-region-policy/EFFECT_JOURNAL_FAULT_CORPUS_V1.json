@@ -231,6 +231,14 @@
       "expected": "Reject the inconsistent terminal history while accepting the original revision-4 reconciled snapshot",
       "status": "implemented_reference_test",
       "test_anchor": "restore_rejects_revision_downgrade_after_uncertainty"
+    },
+    {
+      "id": "EJM-027",
+      "category": "snapshot-integrity",
+      "fault": "Terminal phase is changed from Committed to Rejected or vice versa without changing the authenticated outcome disposition",
+      "expected": "Reject the snapshot when terminal phase and verified sink disposition disagree",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_terminal_phase_disposition_mismatch"
     }
   ]
 }

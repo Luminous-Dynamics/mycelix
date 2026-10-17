@@ -88,7 +88,7 @@ These sources motivate the design. They are not independent validation of this i
 
 ## Machine-readable fault corpus
 
-[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 26-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 27-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
 
 
 ## Snapshot dispatch-history invariant
@@ -120,3 +120,8 @@ A persisted `outcome_unknown_seen` bit records whether the attempt crossed throu
 ## Executable-anchor integrity
 
 The corpus workflow treats `test_anchor` as an executable-test assertion, not a source-name lookup. Cases labelled `implemented_reference_test` or `implemented_reference_model` must carry a valid Rust identifier and match an actual `#[test] fn ...` under `src/`. Integration-gate cases have no test anchor. A helper function, missing function, or malformed identifier is not accepted as evidence that a test exists. This is still source-level existence only: only a completed exact-head test run establishes execution or pass status.
+
+
+## Terminal disposition binding
+
+Terminal snapshots retain the sink disposition produced by the verifier. `Committed` requires `Applied`; post-dispatch `Rejected` requires `DefinitivelyRejected`; pre-dispatch rejection has no sink disposition. This redundant typed field allows restore to reject a phase-only mutation that would otherwise transform a committed result into an apparently valid rejection (or vice versa). It is a consistency check, not record authentication: production storage must still authenticate terminal records and bind the fields into its durable witness/commit-classification procedure.

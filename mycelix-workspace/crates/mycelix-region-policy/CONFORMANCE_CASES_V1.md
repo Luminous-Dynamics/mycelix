@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the effect-journal module adds 18 tests and the bounded model module adds 6, for 67 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the effect-journal module adds 18 tests and the bounded model module adds 6, for 68 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -80,7 +80,7 @@ The effect-journal module is a state-machine reference, **not a competing produc
 
 ## Effect-journal lifecycle reference cases
 
-Eighteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
+Nineteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
@@ -100,6 +100,7 @@ Eighteen source-level state-machine tests are authored in `src/effect_journal.rs
 | RPK-JOURNAL-014 | Receipt proof replayed across authority domains | `rejects_sink_proof_replayed_across_authority_domains` |
 | RPK-JOURNAL-015 | Post-dispatch restored Rejected row without authenticated sink evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
 | RPK-JOURNAL-016 | Reconciled terminal revision cannot be downgraded while retaining the uncertainty marker | `restore_rejects_revision_downgrade_after_uncertainty` |
+| RPK-JOURNAL-017 | Terminal phase must match destination-verified disposition | `restore_rejects_terminal_phase_disposition_mismatch` |
 
 The snapshot model adds round-trip restoration of Reserved/DispatchStarted/OutcomeUnknown and rejects impossible phase/revision combinations. The `outcome_unknown_seen` history marker distinguishes a direct revision-3 terminal result from a reconciled revision-4 result. This is a consistency check, not cryptographic anti-rollback protection: production still needs authenticated records and monotonic durable compare-and-swap/high-water semantics. The production contract also requires persistent uniqueness, crash/restart recovery, destination idempotency, receipt retention, and a real two-worker race harness; the in-memory reference model does not qualify those properties.
 
@@ -117,8 +118,9 @@ Six abstract model tests are authored in `src/effect_journal_model.rs`; they do 
 | EJM-024 | Restore a post-dispatch Rejected row without authenticated outcome evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
 | EJM-025 | Impossible revision for OutcomeUnknown/terminal snapshot; preserve legal revision 3/4 terminal histories | `restore_rejects_impossible_phase_and_revision_history` |
 | EJM-026 | A reconciled terminal revision cannot be downgraded while the uncertainty-history marker remains set | `restore_rejects_revision_downgrade_after_uncertainty` |
+| EJM-027 | A terminal phase change that conflicts with the stored verified disposition is rejected | `restore_rejects_terminal_phase_disposition_mismatch` |
 
-The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 26 cases and explicitly labels model tests separately from unimplemented integration gates. CI requires every `implemented_reference_test` / `implemented_reference_model` case to name a Rust identifier and verifies that the anchor is an actual `#[test]` function. Integration-gate cases must leave the anchor null. This prevents a helper function with the right name from being mistaken for an executable test. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
+The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 27 cases and explicitly labels model tests separately from unimplemented integration gates. CI requires every `implemented_reference_test` / `implemented_reference_model` case to name a Rust identifier and verifies that the anchor is an actual `#[test]` function. Integration-gate cases must leave the anchor null. This prevents a helper function with the right name from being mistaken for an executable test. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
 
 ## Mandatory extension corpus before production
 
