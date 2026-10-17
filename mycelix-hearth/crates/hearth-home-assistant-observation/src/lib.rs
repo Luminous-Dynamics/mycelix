@@ -9,9 +9,7 @@
 //! observations only; it does not contribute household authority.
 
 use hearth_automation_types::EntityRef;
-use hearth_automation_types::{
-    AutomationValue, EvidenceSource, Observation, BASIS_POINTS_MAX,
-};
+use hearth_automation_types::{AutomationValue, BASIS_POINTS_MAX, EvidenceSource, Observation};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -64,7 +62,10 @@ impl fmt::Display for ObservationError {
                 "Home Assistant metadata mismatch for {entity_id}: {field} expected {expected:?}, got {actual:?}"
             ),
             Self::DecodeFailed { entity_id, reason } => {
-                write!(f, "Home Assistant state decode failed for {entity_id}: {reason}")
+                write!(
+                    f,
+                    "Home Assistant state decode failed for {entity_id}: {reason}"
+                )
             }
             Self::FreshnessOverflow => write!(f, "observation freshness timestamp overflow"),
         }
@@ -236,9 +237,7 @@ impl StateCodec {
                     "{path}: min must be <= max"
                 )));
             }
-            Self::BasisPointsRange { min, max }
-                if min > max || *max > BASIS_POINTS_MAX =>
-            {
+            Self::BasisPointsRange { min, max } if min > max || *max > BASIS_POINTS_MAX => {
                 return Err(ObservationError::InvalidProfile(format!(
                     "{path}: invalid basis-point range"
                 )));
@@ -357,7 +356,11 @@ pub fn map_state(
     profile.validate()?;
     frame.validate()?;
 
-    let Some(rule) = profile.rules.iter().find(|rule| rule.entity_id == frame.entity_id) else {
+    let Some(rule) = profile
+        .rules
+        .iter()
+        .find(|rule| rule.entity_id == frame.entity_id)
+    else {
         return Ok(MappingOutcome::NotAllowlisted {
             entity_id: frame.entity_id.clone(),
         });
