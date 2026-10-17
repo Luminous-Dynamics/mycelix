@@ -345,6 +345,21 @@ fn validate_oracle(oracle: &Oracle) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_oracle_evidence_refs(
+    oracle: &Oracle,
+    evidence: &BTreeSet<String>,
+) -> Result<(), String> {
+    for evidence_ref in &oracle.required_evidence_refs {
+        if !evidence.contains(evidence_ref) {
+            return Err(fail(format!(
+                "oracle {} references absent evidence ID {}",
+                oracle.scenario_id, evidence_ref
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn verify(root: &Path, manifest_relative: &str) -> Result<Report, String> {
     let manifest_path = safe_relative_path(manifest_relative)?;
     let manifest_bytes = fs::read(root.join(&manifest_path))
@@ -465,14 +480,7 @@ fn verify(root: &Path, manifest_relative: &str) -> Result<Report, String> {
         let Some(evidence) = case_evidence.get(&oracle.scenario_id) else {
             return Err(fail(format!("oracle {} has no solver-visible scenario", oracle.scenario_id)));
         };
-        for evidence_ref in &oracle.required_evidence_refs {
-            if !evidence.contains(evidence_ref) {
-                return Err(fail(format!(
-                    "oracle {} references absent evidence ID {}",
-                    oracle.scenario_id, evidence_ref
-                )));
-            }
-        }
+        validate_oracle_evidence_refs(oracle, evidence)?;
     }
     let case_id_set: BTreeSet<String> = case_evidence.keys().cloned().collect();
     if oracle_ids != case_id_set {
@@ -538,6 +546,52 @@ mod tests {
         assert!(safe_relative_path("../Cargo.toml").is_err());
         assert!(safe_relative_path("/etc/passwd").is_err());
         assert!(safe_relative_path("docs/fixtures/seed.jsonl").is_ok());
+    }
+
+    #[test]
+    fn parser_rejects_blank_jsonl_records_and_missing_final_lf() {
+        assert!(parse_jsonl::<Value>(b"{\"ok\":true}\n\n", "test").is_err());
+        assert!(parse_jsonl::<Value>(b"{\"ok\":true}", "test").is_err());
+    }
+
+    #[test]
+    fn strict_challenge_deserialization_rejects_unknown_fields() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let corpus = fs::read_to_string(root.join("docs/fixtures/cyber-public-seed-v1.jsonl"))
+            .expect("public challenge fixture should be readable");
+        let mut value: Value = serde_json::from_str(corpus.lines().next().expect("first record"))
+            .expect("challenge fixture should be JSON");
+        value.as_object_mut().expect("challenge is an object")
+            .insert("unrecognized_field".to_string(), Value::Bool(true));
+        assert!(serde_json::from_value::<Challenge>(value).is_err());
+    }
+
+    #[test]
+    fn strict_oracle_deserialization_rejects_unknown_fields() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let corpus = fs::read_to_string(root.join("docs/fixtures/cyber-public-seed-v1.oracle.jsonl"))
+            .expect("public oracle fixture should be readable");
+        let mut value: Value = serde_json::from_str(corpus.lines().next().expect("first record"))
+            .expect("oracle fixture should be JSON");
+        value.as_object_mut().expect("oracle is an object")
+            .insert("unrecognized_field".to_string(), Value::Bool(true));
+        assert!(serde_json::from_value::<Oracle>(value).is_err());
+    }
+
+    #[test]
+    fn oracle_cannot_reference_absent_evidence() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let scenarios = fs::read_to_string(root.join("docs/fixtures/cyber-public-seed-v1.jsonl"))
+            .expect("public challenge fixture should be readable");
+        let oracle_text = fs::read_to_string(root.join("docs/fixtures/cyber-public-seed-v1.oracle.jsonl"))
+            .expect("public oracle fixture should be readable");
+        let challenge: Challenge = serde_json::from_str(scenarios.lines().next().expect("first record"))
+            .expect("challenge fixture should deserialize");
+        let mut oracle: Oracle = serde_json::from_str(oracle_text.lines().next().expect("first record"))
+            .expect("oracle fixture should deserialize");
+        let evidence = validate_challenge(&challenge).expect("challenge evidence should validate");
+        oracle.required_evidence_refs.push("missing-evidence-999".to_string());
+        assert!(validate_oracle_evidence_refs(&oracle, &evidence).is_err());
     }
 
     #[test]
