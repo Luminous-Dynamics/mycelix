@@ -52,6 +52,12 @@ The first implementation should map fields to existing canonical types, not crea
 - Repetition number, sample denominator, uncertainty/confidence interval and known exclusions.
 - Missing context must remain missing; do not infer device properties from file names or prose.
 
+### Test-pattern/context robustness
+
+Compose with [Symthaea VIS-METRO-001 #7894](https://github.com/Luminous-Dynamics/symthaea/issues/7894) and its [pattern robustness and uncertainty protocol](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/DISPLAY_PATTERN_ROBUSTNESS_AND_UNCERTAINTY.md). For optical/temporal measurements, retain exact stimulus bytes or generator parameters and digest, pattern-family/standard identifier and edition, patch geometry/size/APL, color distribution, spatial background, display mode, preceding stimulus and washout, dwell/cadence, ROI and instrument field of view. Record per-pattern results, repetitions, cross-pattern range, predeclared worst stratum, exclusions and uncertainty; never publish only the best pattern or a mean that hides context-dependent behavior.
+
+A pattern-sensitivity envelope is not a confidence interval. When energy intervals are used to compute a conservative percent-saving interval, preserve the interval method, bounds and any dependency/covariance assumption. If the conservative lower bound does not meet the preregistered energy target, the energy gate is inconclusive even when the point estimate reaches the target.
+
 ### Task-conditioned energy and task-outcome evidence
 
 Compose with [Symthaea VIS-ENERGY-001 #7878](https://github.com/Luminous-Dynamics/symthaea/issues/7878) and its [protocol/reference package](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/VISUAL_UTILITY_PER_JOULE_PROTOCOL.md). Treat the following as evidence context, not a new canonical receipt or scoring authority:
