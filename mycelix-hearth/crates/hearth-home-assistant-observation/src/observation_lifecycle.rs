@@ -14,7 +14,7 @@
 //! caller must persist checkpoints atomically if it wants crash/replay
 //! protection across process restarts.
 
-use crate::entity_stream::{EntityStreamProjectionError, EntityStreamProjector};
+use crate::entity_stream::EntityStreamProjector;
 use crate::websocket_protocol::EntityStreamKind;
 use crate::{
     map_state, HomeAssistantObservation, HomeAssistantObservationProfile,
@@ -135,6 +135,12 @@ enum StagedEntityState {
     Unavailable,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum StagedDeltaAction {
+    Projected(StagedEntityState),
+    Invalidate(InvalidationReason),
+}
+
 pub struct ObservationLifecycle {
     profile: HomeAssistantObservationProfile,
     allowlisted_entity_ids: BTreeSet<String>,
@@ -193,10 +199,11 @@ impl ObservationLifecycle {
             .iter()
             .map(|rule| rule.entity_id.clone())
             .collect::<BTreeSet<_>>();
-        if allowlist.is_empty()
+        if checkpoint.highest_session_epoch == Some(0)
+            || allowlist.is_empty()
             || allowlist.len() != profile.rules.len()
             || checkpoint.entity_revisions.iter().any(|(entity_id, revision)| {
-                !allowlist.contains(entity_id) || *revision == 0
+                !allowlist.contains(entity_id) || *revision == 0 || *revision > u64::MAX - 2
             })
         {
             return Err(LifecycleFailure::InvalidCheckpoint);
@@ -257,6 +264,7 @@ impl ObservationLifecycle {
         let Some(projector) = EntityStreamProjector::new(&self.profile).ok() else {
             return self.fail_session(LifecycleFailure::InvalidProfile, InvalidationReason::ProjectionRejected);
         };
+        self.last_at_micros = Some(now_micros);
         self.current_epoch = Some(session_epoch);
         self.highest_session_epoch = Some(session_epoch);
         self.subscription_id = None;
@@ -281,6 +289,7 @@ impl ObservationLifecycle {
         if self.time_regressed(now_micros) {
             return self.fail_session(LifecycleFailure::TimeRegression, InvalidationReason::ClockRegression);
         }
+        self.last_at_micros = Some(now_micros);
         if self.phase != LifecyclePhase::AwaitingSubscription || subscription_id == 0 {
             return self.fail_session(LifecycleFailure::InvalidTransition, InvalidationReason::ProtocolBoundaryRejected);
         }
@@ -302,6 +311,7 @@ impl ObservationLifecycle {
         if self.time_regressed(now_micros) {
             return self.fail_session(LifecycleFailure::TimeRegression, InvalidationReason::ClockRegression);
         }
+        self.last_at_micros = Some(now_micros);
         if self.phase != LifecyclePhase::AwaitingSubscriptionAck
             || self.subscription_id != Some(subscription_id)
         {
@@ -330,6 +340,7 @@ impl ObservationLifecycle {
         if self.time_regressed(now_micros) {
             return self.fail_session(LifecycleFailure::TimeRegression, InvalidationReason::ClockRegression);
         }
+        self.last_at_micros = Some(now_micros);
         if self.subscription_id != Some(subscription_id) {
             return self.fail_session(LifecycleFailure::StaleSubscriptionId, InvalidationReason::ProtocolBoundaryRejected);
         }
@@ -386,6 +397,7 @@ impl ObservationLifecycle {
         if self.time_regressed(now_micros) {
             return self.fail_session(LifecycleFailure::TimeRegression, InvalidationReason::ClockRegression);
         }
+        self.last_at_micros = Some(now_micros);
         if self.phase != LifecyclePhase::SnapshotPendingApply
             || self.subscription_id != Some(subscription_id)
         {
@@ -470,6 +482,7 @@ impl ObservationLifecycle {
         if self.time_regressed(now_micros) {
             return self.fail_session(LifecycleFailure::TimeRegression, InvalidationReason::ClockRegression);
         }
+        self.last_at_micros = Some(now_micros);
         let ids = self.active.keys().cloned().collect::<Vec<_>>();
         let mut records = Vec::new();
         for entity_id in ids {
@@ -535,27 +548,26 @@ impl ObservationLifecycle {
         now_micros: i64,
     ) -> LifecycleUpdate {
         let epoch = self.current_epoch.unwrap_or(0);
-        let mut actions = BTreeMap::<String, StagedEntityState>::new();
+        let mut actions = BTreeMap::<String, StagedDeltaAction>::new();
         for (entity_id, state) in staged {
-            actions.insert(entity_id, state);
+            actions.insert(entity_id, StagedDeltaAction::Projected(state));
         }
         for entity_id in removed_entity_ids {
             if !self.allowlisted_entity_ids.contains(&entity_id) {
                 continue;
             }
-            if actions.insert(entity_id, StagedEntityState::Unknown).is_some() {
+            if actions.insert(entity_id, StagedDeltaAction::Invalidate(InvalidationReason::EntityRemoved)).is_some() {
                 return self.fail_session(LifecycleFailure::MappingRejected, InvalidationReason::MappingRejected);
             }
         }
 
         // Preflight the revision writes so a pathological restored high-water
         // mark cannot partially commit a multi-entity lifecycle update.
-        for (entity_id, state) in &actions {
-            let increments = match state {
-                StagedEntityState::Positive(_) => 1,
-                StagedEntityState::Unknown | StagedEntityState::Unavailable => {
-                    u64::from(self.active.contains_key(entity_id))
-                }
+        for (entity_id, action) in &actions {
+            let increments = match action {
+                StagedDeltaAction::Projected(StagedEntityState::Positive(_)) => 1,
+                StagedDeltaAction::Projected(StagedEntityState::Unknown | StagedEntityState::Unavailable)
+                | StagedDeltaAction::Invalidate(_) => u64::from(self.active.contains_key(entity_id)),
             };
             if self.revision_would_overflow(entity_id, increments) {
                 return self.fail_session(LifecycleFailure::RevisionExhausted, InvalidationReason::ProjectionRejected);
@@ -564,22 +576,27 @@ impl ObservationLifecycle {
 
         let mut records = Vec::new();
         let mut observations = Vec::new();
-        for (entity_id, state) in actions {
-            match state {
-                StagedEntityState::Positive(observation) => {
+        for (entity_id, action) in actions {
+            match action {
+                StagedDeltaAction::Projected(StagedEntityState::Positive(observation)) => {
                     let Some((record, observation)) = self.activate(entity_id, observation, epoch, now_micros) else {
                         return self.fail_session(LifecycleFailure::RevisionExhausted, InvalidationReason::ProjectionRejected);
                     };
                     records.push(record);
                     observations.push(observation);
                 }
-                StagedEntityState::Unknown => {
-                    if let Some(record) = self.invalidate(&entity_id, InvalidationReason::EntityRemoved, epoch, now_micros) {
+                StagedDeltaAction::Projected(StagedEntityState::Unknown) => {
+                    if let Some(record) = self.invalidate(&entity_id, InvalidationReason::SourceUnknown, epoch, now_micros) {
                         records.push(record);
                     }
                 }
-                StagedEntityState::Unavailable => {
+                StagedDeltaAction::Projected(StagedEntityState::Unavailable) => {
                     if let Some(record) = self.invalidate(&entity_id, InvalidationReason::SourceUnavailable, epoch, now_micros) {
+                        records.push(record);
+                    }
+                }
+                StagedDeltaAction::Invalidate(reason) => {
+                    if let Some(record) = self.invalidate(&entity_id, reason, epoch, now_micros) {
                         records.push(record);
                     }
                 }
@@ -752,18 +769,9 @@ mod tests {
     fn start_live() -> ObservationLifecycle {
         let p = profile();
         let mut lifecycle = ObservationLifecycle::new(&p).expect("profile validates");
-        assert_eq!(lifecycle.start_session(1, 1).phase, LifecyclePhase::AwaitingSubscription);
-        assert_eq!(lifecycle.bind_subscription(1, 1, 2).phase, LifecyclePhase::AwaitingSubscriptionAck);
-        assert_eq!(lifecycle.subscription_acknowledged(1, 1, 3).phase, LifecyclePhase::AwaitingSnapshot);
-        let pending = lifecycle.apply_json(1, 1, EntityStreamKind::InitialSnapshot, &bytes(snapshot("21.50")), 100)
-            .failure;
-        // The local clock is monotonic; fixture frame time is deliberately after
-        // handshake time, so real tests use a consistent increasing sequence below.
-        assert_eq!(pending, Some(LifecycleFailure::TimeRegression));
-        lifecycle = ObservationLifecycle::new(&p).expect("profile validates");
-        lifecycle.start_session(1, 10);
-        lifecycle.bind_subscription(1, 1, 11);
-        lifecycle.subscription_acknowledged(1, 1, 12);
+        assert_eq!(lifecycle.start_session(1, 10).phase, LifecyclePhase::AwaitingSubscription);
+        assert_eq!(lifecycle.bind_subscription(1, 1, 11).phase, LifecyclePhase::AwaitingSubscriptionAck);
+        assert_eq!(lifecycle.subscription_acknowledged(1, 1, 12).phase, LifecyclePhase::AwaitingSnapshot);
         let pending = lifecycle.apply_json(1, 1, EntityStreamKind::InitialSnapshot, &bytes(snapshot("21.50")), 20);
         assert_eq!(pending.phase, LifecyclePhase::SnapshotPendingApply);
         assert!(pending.observations.is_empty());
@@ -917,7 +925,7 @@ mod tests {
     }
 
     #[test]
-    fn malformed_multi_entity_delta_cannot_publish_a_partial_positive() {
+    fn non_allowlisted_delta_is_ignored_while_valid_allowlisted_state_projects() {
         let mut lifecycle = start_live();
         let out = lifecycle.apply_json(1, 1, EntityStreamKind::Changes, &bytes(json!({
             "c": {
@@ -925,11 +933,9 @@ mod tests {
                 "sensor.not_allowlisted": { "+": { "s": "99.0" } }
             }
         })), 30);
-        // Non-allowlisted state is ignored by design. The valid allowlisted
-        // entity may change, but no other field or payload is promoted.
         assert_eq!(out.phase, LifecyclePhase::Live);
         assert_eq!(out.observations.len(), 1);
-        assert_eq!(out.observations[0].observation.value, crate::AutomationValue::Fixed { mantissa: 2200, scale: 2 });
+        assert_eq!(out.observations[0].observation.value, hearth_automation_types::AutomationValue::Fixed { mantissa: 2200, scale: 2 });
     }
 
     #[test]
