@@ -223,7 +223,12 @@ impl<S: ObservationLifecycleStore> DurableObservationLifecycle<S> {
     }
 
     pub fn phase(&self) -> LifecyclePhase {
-        self.inner.phase()
+        if self.faulted {
+            // Do not expose a misleading Live phase after uncertain persistence.
+            LifecyclePhase::NeedsNewSession
+        } else {
+            self.inner.phase()
+        }
     }
 
     pub fn last_sequence(&self) -> u64 {
@@ -533,6 +538,9 @@ fn replay_records(
                 {
                     return Err(DurableLifecycleError::InvalidJournal);
                 }
+                // The durable audit history may end with positive records, but
+                // recovery never imports that positive state as current.
+                active_positives.clear();
             }
             _ => {
                 if record.active_session_epoch_after != active_session_epoch {
