@@ -577,7 +577,10 @@ mod tests {
         );
         attempt.abort_before_dispatch("cancelled").expect("prepared can be aborted");
         assert_eq!(attempt.phase(), AttemptPhase::Rejected);
-        assert_eq!(attempt.resolve(verified_outcome(SinkDisposition::Applied)), Err(JournalError::InvalidTransition));
+        assert_eq!(
+            attempt.resolve(verified_outcome(SinkDisposition::Applied)),
+            Err(JournalError::InvalidTransition)
+        );
     }
 
     #[test]
