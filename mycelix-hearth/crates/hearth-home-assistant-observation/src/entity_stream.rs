@@ -234,7 +234,7 @@ impl EntityStreamProjector {
             for id in added.keys() {
                 if !seen_ids.insert(id.as_str()) {
                     return Err(EntityStreamProjectionError::InvalidPayload(
-                        format!("entity occurs in multiple update groups: {id}")
+                        "entity occurs in multiple update groups".into()
                     ));
                 }
             }
@@ -284,8 +284,13 @@ impl EntityStreamProjector {
                 let state = next.get_mut(id).ok_or_else(|| {
                     EntityStreamProjectionError::UnknownEntityChange { entity_id: id.clone() }
                 })?;
+                let before = state.clone();
                 state.apply_diff(id, diff)?;
-                changed_states.insert(id.clone(), state.clone());
+                // A rename/icon/context-only update must not refresh the
+                // observation freshness window for an unchanged semantic value.
+                if *state != before {
+                    changed_states.insert(id.clone(), state.clone());
+                }
             }
         }
 
@@ -333,7 +338,7 @@ fn parse_optional_object<'a>(
 
 fn reject_unknown_keys(object: &Map<String, Value>, allowed: &[&str]) -> Result<(), String> {
     if let Some(key) = object.keys().find(|key| !allowed.contains(&key.as_str())) {
-        return Err(format!("unsupported field: {key}"));
+        return Err("unsupported field present".into());
     }
     Ok(())
 }
@@ -484,6 +489,27 @@ mod tests {
         assert_eq!(out.frames[0].unit_of_measurement.as_deref(), Some("°C"));
         assert_eq!(out.frames[0].device_class, None);
         assert!(out.removed_entity_ids.is_empty());
+    }
+
+    #[test]
+    fn nonsemantic_attribute_changes_do_not_refresh_observation_frames() {
+        let mut projector = projector();
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+
+        let event = serde_json::json!({
+            "c": {
+                "sensor.living_room_temperature": {
+                    "+": {
+                        "a": {"friendly_name": "Renamed without a new measurement"},
+                        "lu": 1700000002
+                    }
+                }
+            }
+        });
+        let out = projector.apply(EntityStreamKind::Changes, &event, 20).unwrap();
+        assert!(out.frames.is_empty());
+        assert!(out.removed_entity_ids.is_empty());
+        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
     }
 
     #[test]
