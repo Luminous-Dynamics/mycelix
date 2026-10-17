@@ -13,7 +13,7 @@ V2 signs a separate, domain-separated transcript containing:
 - 32-byte envelope commitment;
 - receipt kind and occurrence timestamp.
 
-The signature bytes are not included in their own signing transcript.
+The V2 receipt signature profile is fixed by this protocol version: **both** a 64-byte Ed25519 signature under the recipient's Holochain AgentPubKey and a 3309-byte ML-DSA-65 signature under the recipient key bundle bound by the envelope are required. Both sign the same canonical receipt transcript; neither signature field is included in that transcript. Length checks alone do not authenticate either signature, and the source-chain action signature does not replace these application-level checks. A verifier must confirm both signatures, verify the exact envelope commitment, and bind the ML-DSA key to the recipient's validated V2 key bundle. A future signature profile requires an explicit protocol-version/profile change; it must not silently fall back to Ed25519-only.
 
 ## Commitment algorithm
 
@@ -79,7 +79,7 @@ versioning decision and review, not a silent fixture update.
 
 A sender/recipient implementation must either persist `receipt_event_id` before its first attempt and reuse it for every retransmission of that *same signed receipt*, or derive it deterministically from an immutable semantic identity. The shared preimage helper `canonical_receipt_event_id_preimage` defines a deterministic option: SHA-256 over a domain-separated encoding of message ID, recipient agent bytes, and receipt kind. It deliberately excludes timestamp, transport route, attempt number, and envelope commitment, so conflicting content for the same logical message/recipient/kind reuses the same identity and is detected as a conflict. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
 
-The type-level transcript makes those differences observable. It does **not** implement an atomic durable deduplication store, serialize concurrent coordinator calls, prevent duplicate DHT entries, or prove end-to-end exactly-once delivery.
+The type-level transcript makes those differences observable. The profile also requires both Ed25519-agent and ML-DSA-65 receipt signatures; shape validation is a separate helper so a signer can calculate the transcript before either signature exists. It does **not** implement an atomic durable deduplication store, serialize concurrent coordinator calls, prevent duplicate DHT entries, or prove end-to-end exactly-once delivery.
 
 The pure `classify_receipt_v2_replay` helper compares an incoming receipt with
 the prior receipt found by the same event ID. It returns `ExactReplay` for
@@ -101,4 +101,4 @@ or persistence races. Those are separate integration obligations tracked in [#50
 - Report p50/p95/p99 transcript construction, commitment hashing, signature verification, and durable dedupe-store latency separately on named hardware.
 - Tie all evidence to exact source SHA, build/toolchain, test vector corpus digest, and pinned cryptographic profile. Queued, skipped, stale-head, or missing CI evidence is not a pass.
 
-These are targets, not results. The patch does not claim the Holochain coordinator or supported UI currently uses this V2 receipt contract; migration/wiring and runtime tests are still required before any implementation claim.
+These are targets, not results. The contract crate checks signature lengths but does not itself verify cryptographic signature validity. The patch does not claim the Holochain coordinator or supported UI currently uses this V2 receipt contract; migration/wiring and runtime tests are still required before any implementation claim.
