@@ -53,10 +53,10 @@ Many recommenders learn from clicks or engagement, although one person's interes
 
 Candidate algorithm families to compare:
 
-- **B0 — reciprocal filter + deterministic/random tie-break:** a simple auditable baseline.
-- **B1 — one-sided engagement ranking:** a research baseline only; never the safety or consent authority.
-- **B2 — two-sided matching:** matching-theory-inspired allocation that models both sides' preferences and recommendation congestion.
-- **B3 — exposure-aware multi-objective allocation:** B2 plus market-level coverage/exposure objectives, user-controlled exploration, and transparent tie-breaking. Pairwise mutual utility alone is not expected to remove recommendation concentration; allocation-level constraints are a separate intervention.
+- **B0 — feasibility-only deterministic pair ordering:** enforce hard eligibility, then use a stable pseudo-random-looking priority independent of declared interest utility. It is a neutral ranking control, not cryptographic randomness.
+- **B1 — one-sided declared-utility ranking:** rank by the viewer's synthetic declared-interest utility after eligibility filters. This is a transparent offline baseline, not a learned engagement recommender.
+- **B2 — pairwise mutual-utility ranking:** rank each candidate by the minimum and sum of both sides' declared utilities. This is not a globally coordinated or stable-marriage algorithm.
+- **B3 — exposure-aware multi-objective allocation:** use pairwise mutual utility plus market-level coverage/exposure objectives, user-controlled exploration, and transparent tie-breaking. Pairwise mutual utility alone is not expected to remove recommendation concentration; allocation-level constraints are a separate intervention.
 
 Do not collapse everything into one magic compatibility number. Keep a vector of interpretable dimensions; prefer lexicographic constraints or Pareto comparisons where practical; disclose the ranking policy and uncertainty. Any exploration must remain within consent and hard-constraint boundaries.
 
@@ -170,8 +170,8 @@ Compare B0–B3 from Section 4.1 on a frozen corpus; repeat across a preregister
 
 | ID | Metric | Proposed gate for B3 against B1; compare B0/B2 as well |
 |---|---|---|
-| B1 | Eligible-user coverage | Initial gate: at least 98% of active users who have at least one feasible counterpart receive at least one eligible recommendation in a defined 14-day simulation window under the exposure-aware policy. Report infeasible users separately; compare each baseline on identical inputs. |
-| B2 | Exposure concentration | Initial gate: at least 10% relative reduction in recommendation-exposure Gini versus B1's one-sided utility baseline; 25% is a stretch goal. Preserve hard constraints and report raw counts plus opportunity/degree-normalized exposure diagnostics. |
+| B1 | Eligible-user coverage | Initial gate: at least 99.5% of opted-in users who have at least one feasible counterpart receive at least one eligible recommendation in the exposure-aware policy over a defined 14-day simulation window. Report infeasible users separately and compare every baseline on identical inputs. |
+| B2 | Exposure concentration | Initial gate: at least 8% relative reduction in recommendation-exposure Gini versus B1's one-sided declared-utility baseline; 20% is a stretch goal. Preserve hard constraints and report raw counts plus opportunity/degree-normalized exposure diagnostics. |
 | B3 | Reciprocal-shortlist proxy | Count unordered pairs where each person independently receives the other in their own top-k list. This is a synthetic recommendation-consistency proxy—not real mutual interest, acceptance, a date, or relationship quality. Report counts per 100 eligible users and seed-level uncertainty; no positive lift is assumed. |
 | B4 | Proxy non-inferiority | Do not accept exposure-aware B3 if reciprocal-shortlist-pair count is more than 5% lower than the strongest simpler baseline, unless a preregistered multi-objective rationale and human-outcome study justifies that trade-off. Never relabel this proxy as acceptance. |
 | B5 | Subgroup examination | Report coverage, raw and opportunity-normalized exposure, reciprocal-shortlist proxy and simulated decline/block cases across appropriately consented/privacy-protected slices. Investigate unexplained relative gaps over 10%; do not force equal outcomes regardless of preference feasibility or publish small-cell data. |
@@ -179,7 +179,7 @@ Compare B0–B3 from Section 4.1 on a frozen corpus; repeat across a preregister
 
 The thresholds are proposed engineering gates, not established scientific norms. Freeze them before the qualification run and revise only with an explicit benchmark-version change. Raw exposure Gini is affected by the feasible market graph: report candidate exposure conditional on opportunity, coverage at multiple top-k budgets, distribution tails (including zero exposure among feasible users), and the seed-level spread. A synthetic pass does not establish human compatibility or real-world fairness.
 
-**Exploratory sizing note — not Rust qualification or human-outcome evidence.** A separate quick Python reference simulation of the same synthetic-market/round-allocation idea (30 seeds, 200 synthetic participants per seed, top-k=5) yielded mean raw exposure Gini of roughly 0.354 for one-sided ranking, 0.356 for mutual-utility ranking, and 0.316 for exposure-balanced allocation; candidate coverage was approximately 97.6% for one-sided ranking and near 100% for exposure-balanced allocation. This is only a preliminary sizing observation from a reference implementation—not execution of the current Rust source, not proof the checked-in test passes, not a generalizable effect, and not real-world outcome evidence. It suggests that allocation-level exposure management deserves its own baseline, with 10% as a provisional initial Gini target and 25% as a stretch goal.
+**Exploratory sizing note — not Rust qualification or human-outcome evidence.** After adding a separate discovery-opt-in field, a quick Python reference simulation of the same synthetic-market/round-allocation idea (30 seeds, 200 synthetic participants per seed, top-k=5) yielded mean raw exposure Gini of roughly 0.342 for one-sided ranking, 0.342 for mutual-utility ranking, and 0.312 for exposure-balanced allocation; candidate coverage was approximately 98.1% for one-sided ranking and 100% for exposure-balanced allocation. This is only a preliminary sizing observation from a reference implementation—not execution of the current Rust source, not proof the checked-in test passes, not a generalizable effect, and not real-world outcome evidence. It suggests an approximately 8.6% raw Gini reduction in this synthetic setup, so the proposed initial gate is 8% and 20% is a stretch goal. The values must be recalculated from the exact Rust head across the preregistered corpus before any qualification claim.
 
 ### 7.3 Lane C — scam and abuse resistance
 
@@ -233,9 +233,9 @@ Review the product constitution, data-flow inventory, threat model, pilot jurisd
 
 Implement a small Rust-first pure evaluation crate or reuse an appropriate existing crate after repository inspection. It should:
 
-1. Generate seeded synthetic markets and publish a canonical corpus manifest.
-2. Run B0–B3 on identical inputs.
-3. Measure eligibility failures separately from ranking quality.
+1. Generate seeded synthetic markets with explicit discovery opt-in separated from account activity, and publish a canonical corpus manifest.
+2. Run feasibility-only B0, one-sided utility B1, pairwise mutual-utility B2, and exposure-aware allocation B3 on identical inputs.
+3. Measure eligibility failures separately from ranking quality; discovery opt-in is not pair-specific consent or permission to reveal reciprocal interest.
 4. Compute exposure Gini, opportunity-normalized exposure, candidate coverage, reciprocal-shortlist proxy, subgroup diagnostics, seed-level intervals and runtime distributions. Keep real participant mutual acceptance for a later consent-based pilot; synthetic profiles cannot supply it.
 5. Exercise negative controls for block, withdrawal, stale preferences, malformed inputs, replay, cold starts, coordinated behavior and privacy violations.
 6. Emit a deterministic JSON/TOML report and digest; make missing metrics or missing test vectors fail closed.
@@ -277,7 +277,7 @@ Decentralization does not eliminate legal duties, moderation responsibilities, o
 5. **Independent review:** matching methodology, human-subject research, safety operations and privacy assessment.
 6. **Pilot decision:** no launch date is set until evidence, staffing, governance and user research support it.
 
-The initial vertical slice is intentionally modest: prove that the system never recommends across a hard constraint, compare two-sided matching against a transparent baseline on synthetic data, and produce a reproducible fairness/quality receipt. It can make useful progress without waiting for unrelated CI jobs or claiming that a prototype is production-ready.
+The initial vertical slice is intentionally modest: prove that the system never recommends across a hard constraint, separate explicit discovery opt-in from pair-specific consent, compare feasibility-only/one-sided/pairwise-mutual/exposure-aware ranking on synthetic data, and produce a reproducible exposure/coverage receipt. The term “mutual” in this offline harness refers only to a two-sided utility formula or reciprocal shortlist, not actual consent or human attraction. It can make useful progress without waiting for unrelated CI jobs or claiming that a prototype is production-ready.
 
 ## 11. Non-goals
 
