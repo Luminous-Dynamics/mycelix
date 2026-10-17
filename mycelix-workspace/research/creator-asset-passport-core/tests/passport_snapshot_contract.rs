@@ -168,7 +168,7 @@ fn an_unknown_asset_reference_fails_before_export() {
 }
 
 #[test]
-fn changing_any_record_family_changes_the_snapshot_digest() {
+fn changing_asset_metadata_changes_the_snapshot_digest() {
     let passport = seeded_passport();
     let original = passport.digest_hex().unwrap();
 
@@ -202,6 +202,67 @@ fn changing_any_record_family_changes_the_snapshot_digest() {
         &passport.grant_history().unwrap(),
     )
     .unwrap();
+    assert_ne!(changed.digest_hex().unwrap(), original);
+}
+
+#[test]
+fn changing_split_claim_evidence_changes_the_snapshot_digest() {
+    let passport = seeded_passport();
+    let original = passport.digest_hex().unwrap();
+    let history = passport.grant_history().unwrap();
+    let mut claims = passport.claims().to_vec();
+    claims[0].evidence_ref.push_str("-amended");
+
+    let changed = CreativeAssetPassportEnvelope::from_parts(
+        passport.registry(),
+        &claims,
+        &history,
+    )
+    .unwrap();
+    assert_ne!(changed.digest_hex().unwrap(), original);
+}
+
+#[test]
+fn changing_grant_event_evidence_changes_the_snapshot_digest() {
+    let passport = seeded_passport();
+    let original = passport.digest_hex().unwrap();
+
+    let grant = UsageGrant::new(
+        GrantId::new("grant-a").unwrap(),
+        AssetId::new("recording-a").unwrap(),
+        party("distributor"),
+        UseAction::Distribute,
+        "release-a",
+        party("creator"),
+        "consent://release-a",
+        10,
+        Some(100),
+    )
+    .unwrap();
+    let issue = GrantEvent::issue(
+        EventId::new("event-issue").unwrap(),
+        5,
+        party("creator"),
+        "evidence://amended-issue",
+        grant,
+    )
+    .unwrap();
+    let revoke = GrantEvent::revoke(
+        EventId::new("event-revoke").unwrap(),
+        50,
+        party("creator"),
+        "evidence://revoke",
+        GrantId::new("grant-a").unwrap(),
+    )
+    .unwrap();
+    let changed_history = GrantHistory::replay(&[issue, revoke]).unwrap();
+    let changed = CreativeAssetPassportEnvelope::from_parts(
+        passport.registry(),
+        passport.claims(),
+        &changed_history,
+    )
+    .unwrap();
+
     assert_ne!(changed.digest_hex().unwrap(), original);
 }
 
