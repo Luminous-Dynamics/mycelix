@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the effect-journal module adds 16 tests and the bounded model module adds 4, for 63 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the effect-journal module adds 17 tests and the bounded model module adds 6, for 66 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -80,7 +80,7 @@ The effect-journal module is a state-machine reference, **not a competing produc
 
 ## Effect-journal lifecycle reference cases
 
-Sixteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
+Seventeen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
@@ -98,12 +98,15 @@ Sixteen source-level state-machine tests are authored in `src/effect_journal.rs`
 | RPK-JOURNAL-012 | Impossible restored state | `restore_rejects_impossible_phase_field_combinations` |
 | RPK-JOURNAL-013 | Receipt proof replayed across different policy-binding digests | `rejects_replayed_sink_proof_for_changed_policy_binding` |
 | RPK-JOURNAL-014 | Receipt proof replayed across authority domains | `rejects_sink_proof_replayed_across_authority_domains` |
+| RPK-JOURNAL-015 | Post-dispatch restored Rejected row without authenticated sink evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
+
+
 
 The snapshot model adds round-trip restoration of Reserved/DispatchStarted/OutcomeUnknown and rejection of impossible phase-field combinations. The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
 
 ## Bounded model and fault-corpus qualification
 
-Four abstract model tests are authored in `src/effect_journal_model.rs`; they do not test a real durable store or provider.
+Six abstract model tests are authored in `src/effect_journal_model.rs`; they do not test a real durable store or provider.
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
@@ -112,7 +115,7 @@ Four abstract model tests are authored in `src/effect_journal_model.rs`; they do
 | EJM-005 / EJM-006 | Destination applied the operation but the response was lost; replay same exact identity and resolve saved result | `lost_reply_after_sink_commit_recovers_without_duplicate_effect` |
 | EJM-007 | Same key reused with a different target digest | `sink_idempotency_key_reuse_for_changed_target_is_a_conflict` |
 
-The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 22 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
+The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 24 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
 
 ## Mandatory extension corpus before production
 
