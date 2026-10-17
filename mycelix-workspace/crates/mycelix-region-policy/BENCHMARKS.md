@@ -2,7 +2,7 @@
 
 ## Scope of the first benchmark
 
-The native benchmark reports per-operation p50/p95/p99 for the pure, already-verified bilateral policy decision path. It intentionally excludes profile signature verification, consent-provider/revocation lookups, storage, Holochain DHT/gossip, network latency, logging, and adapter work. Those measurements must be reported separately rather than mixed into a single opaque latency number.
+The native benchmark reports per-operation p50/p95/p99 for the pure, already-verified policy decision path, including exact profile binding, one verified bilateral agreement, and one verified classification claim. It intentionally excludes cryptographic verification of profiles/agreements/classification/consent, revocation-provider lookups, storage, Holochain DHT/gossip, network latency, logging, and adapter work. Those measurements must be reported separately rather than mixed into a single opaque latency number.
 
 ## Initial targets (proposed, not measured)
 
