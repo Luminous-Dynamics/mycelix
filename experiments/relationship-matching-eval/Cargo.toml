@@ -1,0 +1,10 @@
+[package]
+name = "relationship-matching-eval"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Deterministic synthetic evaluation of one-sided and mutual-utility candidate ranking"
+
+[workspace]
+resolver = "2"
