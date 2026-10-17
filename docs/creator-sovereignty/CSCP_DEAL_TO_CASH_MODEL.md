@@ -103,6 +103,25 @@ Represent the next engagement as a new deal linked to the prior campaign only wh
 
 Record reasons for no repeat only when explicitly supplied; use Unknown rather than inventing a narrative from silence.
 
+## State-machine prototype: evidence, transitions, and replay
+
+A first draft implementation exists in [PR #5179](https://github.com/Luminous-Dynamics/mycelix/pull/5179). It is a standalone Rust research crate, separate from the broader creator ledger and scenario engine.
+
+The proposed workflow enforces:
+- a first terms version followed by strictly increasing versions;
+- both distinct parties explicitly approving the same current version before work starts;
+- clearing both approvals when terms are revised;
+- creator-only start/submission transitions and sponsor-only accept/reject transitions;
+- matching acceptance to the exact pending deliverable ID;
+- sequential delivery count and final-deliverable semantics;
+- unique event IDs, idempotent identical replay, rejection of conflicting reuse, and monotonic event time;
+- atomic transition failures that do not append a rejected event;
+- replaying the event history to reconstruct state rather than trusting a persisted status field.
+
+The prototype currently contains 14 source-level unit tests. The Rust toolchain is unavailable in the current editing environment, so those tests remain uncompiled and unexecuted; no passing result is claimed.
+
+This state machine **does not prove that the referenced contract or delivery evidence is authentic**. Party IDs and evidence references are caller-supplied; cryptographic identity, source integrity, approval signatures, durable serialization, invoices, and cash settlement remain separate work. Accepted is not equivalent to paid.
+
 ## Candidate architecture across the four projects
 
 - **Mycelix:** later, permissioned claims for collaboration, approval history, agreement versions, and portable provenance where a distributed claim adds clear value. Private contract terms, bank details, invoices, payment evidence, and audience data should remain private by default. Public DHT presence is not the default.
