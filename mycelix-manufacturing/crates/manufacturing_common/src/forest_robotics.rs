@@ -39,6 +39,15 @@ pub enum ForestSensorModality {
     Other,
 }
 
+/// Distinguish simulated artifacts from observations captured by physical sensors.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ForestObservationEvidenceClass {
+    SyntheticSimulation,
+    HardwareInTheLoop,
+    FieldCaptured,
+}
+
 /// Review lifecycle for inventory use, deliberately separate from wood grading.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -64,6 +73,7 @@ pub struct ForestRobotObservation {
     pub robot_id: String,
     pub platform_class: String,
     pub kind: ForestObservationKind,
+    pub evidence_class: ForestObservationEvidenceClass,
     pub sensor_modality: ForestSensorModality,
     pub sensor_id: Option<String>,
     pub calibration_status: WoodCalibrationStatus,
@@ -217,6 +227,14 @@ impl ForestRobotObservation {
             errors.push("uncertainty_note must be omitted rather than blank".to_owned());
         }
 
+        if self.evidence_class != ForestObservationEvidenceClass::FieldCaptured
+            && self.review_status == ForestObservationReview::ReviewedForInventory
+        {
+            errors.push(
+                "only field-captured observations may be ReviewedForInventory".to_owned(),
+            );
+        }
+
         match self.review_status {
             ForestObservationReview::ReviewedForInventory => {
                 if self.reviewer_ref.as_deref().is_none_or(|value| !nonblank(value)) {
@@ -273,6 +291,7 @@ mod tests {
             robot_id: "scout-001".to_owned(),
             platform_class: "forest_scout_v0".to_owned(),
             kind: ForestObservationKind::TreeCandidate,
+            evidence_class: ForestObservationEvidenceClass::FieldCaptured,
             sensor_modality: ForestSensorModality::Lidar,
             sensor_id: Some("lidar-001".to_owned()),
             calibration_status: WoodCalibrationStatus::Current,
@@ -367,7 +386,8 @@ mod tests {
     #[test]
     fn duplicate_related_measurements_are_rejected() {
         let mut record = observation();
-        record.related_measurement_ids.push(record.related_measurement_ids[0].clone());
+        let existing = record.related_measurement_ids[0].clone();
+        record.related_measurement_ids.push(existing);
         assert!(
             record
                 .validate()
@@ -390,6 +410,21 @@ mod tests {
         );
         record.reviewer_ref = Some("reviewer-001".to_owned());
         assert!(record.validate().is_ok());
+    }
+
+    #[test]
+    fn synthetic_simulation_cannot_be_marked_reviewed_for_inventory() {
+        let mut record = observation();
+        record.evidence_class = ForestObservationEvidenceClass::SyntheticSimulation;
+        record.review_status = ForestObservationReview::ReviewedForInventory;
+        record.reviewer_ref = Some("reviewer-001".to_owned());
+        assert!(
+            record
+                .validate()
+                .expect_err("synthetic evidence cannot stand in for field capture")
+                .iter()
+                .any(|error| error.contains("only field-captured"))
+        );
     }
 
     #[test]
