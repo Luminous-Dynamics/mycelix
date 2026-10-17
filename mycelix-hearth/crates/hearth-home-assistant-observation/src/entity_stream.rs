@@ -659,6 +659,60 @@ mod tests {
     }
 
     #[test]
+    fn codec_out_of_range_initial_snapshot_never_seeds_cache() {
+        let mut projector = projector();
+        let mut invalid = snapshot();
+        invalid["a"]["sensor.living_room_temperature"]["s"] = json!("99.9");
+
+        assert!(matches!(
+            projector.apply(EntityStreamKind::InitialSnapshot, &invalid, 10),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.cached_entity_count(), 0);
+        assert!(!projector.initial_snapshot_seen());
+    }
+
+    #[test]
+    fn codec_out_of_range_late_entity_rolls_back_earlier_valid_delta() {
+        let mut base = profile();
+        let mut first = base.rules[0].clone();
+        first.entity_id = "sensor.a_temperature".into();
+        first.subject.id = "room-a".into();
+        let mut last = base.rules[0].clone();
+        last.entity_id = "sensor.z_temperature".into();
+        last.subject.id = "room-z".into();
+        base.rules = vec![first, last];
+
+        let mut projector = EntityStreamProjector::new(&base).unwrap();
+        let initial = json!({
+            "a": {
+                "sensor.a_temperature": {
+                    "s": "20.0",
+                    "a": {"unit_of_measurement": "°C", "device_class": "temperature"}
+                },
+                "sensor.z_temperature": {
+                    "s": "21.0",
+                    "a": {"unit_of_measurement": "°C", "device_class": "temperature"}
+                }
+            }
+        });
+        projector.apply(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
+
+        let invalid_late_delta = json!({
+            "c": {
+                "sensor.a_temperature": {"+": {"s": "22.0"}},
+                "sensor.z_temperature": {"+": {"s": "99.9"}}
+            }
+        });
+        assert!(matches!(
+            projector.apply(EntityStreamKind::Changes, &invalid_late_delta, 20),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
+        assert_eq!(projector.state["sensor.z_temperature"].state, "21.0");
+    }
+
+    #[test]
     fn unallowlisted_entities_never_enter_the_projection() {
         let mut projector = projector();
         projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
@@ -946,6 +1000,30 @@ mod tests {
         assert!(replay.frames.is_empty(), "replaying the same semantic state must not mint a newer observation");
         assert!(replay.removed_entity_ids.is_empty());
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "22.0");
+    }
+
+    #[test]
+    fn codec_equivalent_numeric_text_does_not_refresh_freshness() {
+        let mut p = profile();
+        p.rules[0].codec = StateCodec::FixedRange {
+            scale: 2,
+            min_mantissa: -5_000,
+            max_mantissa: 8_000,
+        };
+        let mut projector = EntityStreamProjector::new(&p).unwrap();
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+
+        // Both lexical values decode to the same exact fixed-point mantissa.
+        let equivalent = json!({
+            "c": {
+                "sensor.living_room_temperature": {
+                    "+": {"s": "21.50"}
+                }
+            }
+        });
+        let out = projector.apply(EntityStreamKind::Changes, &equivalent, 999_999).unwrap();
+        assert!(out.frames.is_empty(), "equivalent typed values must not mint newer observations");
+        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.50");
     }
 
     #[test]
