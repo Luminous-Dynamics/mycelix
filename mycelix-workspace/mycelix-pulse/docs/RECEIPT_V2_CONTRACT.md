@@ -13,6 +13,8 @@ V2 signs a separate, domain-separated transcript containing:
 - 32-byte envelope commitment;
 - receipt kind and occurrence timestamp.
 
+The shared `validate_envelope_binding` helper recomputes the commitment from the candidate envelope's own canonical transcript and checks the message ID, recipient, envelope version, and suite against the receipt. It is a context/binding check, not a signature verifier.
+
 The V2 receipt signature profile is fixed by this protocol version: **both** a 64-byte Ed25519 signature under the recipient's Holochain AgentPubKey and a 3309-byte ML-DSA-65 signature under the recipient key bundle bound by the envelope are required. Both sign the same canonical receipt transcript; neither signature field is included in that transcript. Length checks alone do not authenticate either signature, and the source-chain action signature does not replace these application-level checks. A verifier must confirm both signatures, verify the exact envelope commitment, and bind the ML-DSA key to the recipient's validated V2 key bundle. A future signature profile requires an explicit protocol-version/profile change; it must not silently fall back to Ed25519-only. The V2 receipt profile accepts only the V2 hybrid-PQC envelope suite; presenting a legacy V1 envelope under a V2 receipt is a context mismatch and must fail closed.
 
 ## Commitment algorithm
@@ -41,7 +43,7 @@ receipt_event_id = SHA-256(preimage)
 ```
 
 Receipt-kind codes are `Observed=0x01`, `Delivered=0x02`, and `Read=0x03`.
-The V2 canonical encoder enforces that `receipt_event_id` equals this derived identity; caller-supplied arbitrary IDs are rejected before signing or verification. The exact preimage is frozen in
+The V2 canonical encoder enforces that `receipt_event_id` equals this derived identity; caller-supplied arbitrary IDs are rejected before signing or verification. The shared helper also rejects recipient identities whose raw Holochain AgentPubKey encoding is not exactly 39 bytes. The exact preimage is frozen in
 `test-vectors/receipt-v2-event-id-preimage-delivered.hex`. The corresponding
 SHA-256 known answer is recorded in
 `test-vectors/receipt-v2-event-id-delivered.sha256`. Do not include the
@@ -97,6 +99,7 @@ or persistence races. Those are separate integration obligations tracked in [#50
 - 100% detection of critical mutants that omit the event ID, recipient, envelope commitment, envelope version, suite, kind, or timestamp from the V2 signing transcript.
 - Zero acceptance of unknown receipt versions, unsupported envelope versions, or version/suite mismatches.
 - Zero V1 envelopes accepted under the V2 receipt profile.
+- Zero receipts with arbitrary/non-derived event IDs, non-39-byte recipient identities, or a commitment/recipient/message ID that does not match the exact supplied envelope.
 - Zero V2 receipt accepted with only one valid signature: both the recipient AgentPubKey Ed25519 signature and the envelope-bound recipient-bundle ML-DSA-65 signature must verify over the exact same canonical transcript.
 - 100% detection of critical signature mutants: missing/replaced Ed25519 signature, missing/replaced ML-DSA signature, wrong recipient key bundle, changed envelope commitment, or verification against a different transcript.
 - Zero advancement to `Delivered` from transport acknowledgement alone.
