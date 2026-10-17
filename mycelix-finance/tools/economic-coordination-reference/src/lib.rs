@@ -37,6 +37,9 @@ pub mod outcomes;
 /// Independent feasibility and reconciliation gate for multi-request allocations.
 pub mod joint_capacity;
 
+/// Revision-fenced, idempotent capacity reservations in a serial reference authority.
+pub mod reservation_cas;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;

@@ -194,3 +194,12 @@ The benchmark contract is [JOINT_CAPACITY_BENCHMARKS_V1.md](JOINT_CAPACITY_BENCH
 
 
 The report includes canonical line-level allocation witnesses: request/offer/supplier IDs, offer source URI/digest and qualification receipt, offer evidence status/origin/freshness, mapping ID/digest, capacity-pool snapshot and time bucket, exact quantity and currency, unit cost, line cost, and deadline fields. It refuses allocations for already-expired requests. This makes each accepted line reviewable; it does not cryptographically authenticate the referenced records.
+
+
+## Revision-fenced capacity reservations (experimental)
+
+The additive reservation_cas module separates a sourcing/optimization proposal from an authoritative reservation. A reserve command must match a specific capacity-pool revision, fencing token and evidence-snapshot digest; successful mutations increment revision/fence and append a decision event. Exact retries are idempotent, conflicting idempotency-key reuse fails closed, and an expired lease only releases capacity through an explicit expiry event. Committed or consumed capacity cannot be released as if unused.
+
+This is a serial in-memory reference state machine, not a concurrent service or distributed protocol. It does not implement persistence, store-level compare-and-swap, atomic multi-pool reservations, consensus, physical evidence authentication or any live purchasing path. The 100-contender test simulates stale writers presenting the same original revision; it is not a stress test of real concurrent threads or network requests.
+
+The benchmark and claim boundary is recorded in [RESERVATION_CAS_BENCHMARKS_V1.md](RESERVATION_CAS_BENCHMARKS_V1.md), with 40 fixture IDs in [RESERVATION_CAS_GOLDEN_CORPUS_V1.md](RESERVATION_CAS_GOLDEN_CORPUS_V1.md). Eighteen module tests plus one integration test-local oracle test are authored, not yet claimed passing. The integration oracle compares 108 small reserve sequences against independently computed capacity and revision state. A future SQL-backed authority must commit capacity mutation and receipt/event atomically and retry the whole transaction on serialization failures.
