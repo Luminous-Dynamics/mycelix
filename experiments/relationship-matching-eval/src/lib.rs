@@ -38,6 +38,7 @@ pub struct Participant {
 pub enum RankingPolicy {
     OneSidedUtility,
     MutualUtility,
+    ExposureBalancedMutual,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -162,6 +163,10 @@ pub fn recommend(
 ) -> Result<Vec<Recommendation>, String> {
     validate_market(participants)?;
 
+    if policy == RankingPolicy::ExposureBalancedMutual {
+        return recommend_exposure_balanced_validated(participants, top_k);
+    }
+
     let by_id: BTreeMap<u32, &Participant> =
         participants.iter().map(|person| (person.id, person)).collect();
     let mut viewers: Vec<&Participant> = participants
@@ -208,6 +213,7 @@ pub fn recommend(
                         .then_with(|| right_sum.cmp(&left_sum))
                         .then_with(|| left_person.id.cmp(&right_person.id))
                 }
+                RankingPolicy::ExposureBalancedMutual => unreachable!("handled before per-viewer ranking"),
             }
         });
 
@@ -216,6 +222,104 @@ pub fn recommend(
     }
 
     Ok(output)
+}
+
+fn recommend_exposure_balanced_validated(
+    participants: &[Participant],
+    top_k: usize,
+) -> Result<Vec<Recommendation>, String> {
+    let mut viewers: Vec<&Participant> = participants
+        .iter()
+        .filter(|person| person.active)
+        .collect();
+    viewers.sort_by_key(|person| person.id);
+
+    if viewers.is_empty() || top_k == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut preferences: BTreeMap<u32, Vec<Recommendation>> = BTreeMap::new();
+    for viewer in &viewers {
+        let mut candidates = Vec::new();
+        for candidate in participants.iter().filter(|candidate| candidate.id != viewer.id) {
+            if eligible_pair(viewer, candidate) {
+                candidates.push(Recommendation {
+                    viewer_id: viewer.id,
+                    candidate_id: candidate.id,
+                    viewer_utility: directed_utility(viewer, candidate),
+                    candidate_utility: directed_utility(candidate, viewer),
+                });
+            }
+        }
+        preferences.insert(viewer.id, candidates);
+    }
+
+    let mut exposure_count: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut selected: BTreeMap<u32, BTreeSet<u32>> = viewers
+        .iter()
+        .map(|viewer| (viewer.id, BTreeSet::new()))
+        .collect();
+    let mut output: BTreeMap<u32, Vec<Recommendation>> = viewers
+        .iter()
+        .map(|viewer| (viewer.id, Vec::new()))
+        .collect();
+
+    // Allocate one recommendation per viewer per round. Rotate the first viewer
+    // deterministically each round so the lowest IDs do not always go first.
+    // Exposure load is the primary selection key; mutual utility breaks ties.
+    for slot in 0..top_k {
+        let offset = slot.wrapping_mul(37) % viewers.len();
+        for step in 0..viewers.len() {
+            let viewer = viewers[(offset + step) % viewers.len()];
+            let already_selected = selected
+                .get(&viewer.id)
+                .expect("validated viewer has selection state");
+
+            let candidates = preferences
+                .get(&viewer.id)
+                .expect("validated viewer has candidate list");
+            let choice = candidates
+                .iter()
+                .filter(|candidate| !already_selected.contains(&candidate.candidate_id))
+                .min_by(|left, right| {
+                    let left_exposure = exposure_count.get(&left.candidate_id).copied().unwrap_or(0);
+                    let right_exposure = exposure_count.get(&right.candidate_id).copied().unwrap_or(0);
+                    let left_floor = left.viewer_utility.min(left.candidate_utility);
+                    let right_floor = right.viewer_utility.min(right.candidate_utility);
+                    let left_sum = left.viewer_utility + left.candidate_utility;
+                    let right_sum = right.viewer_utility + right.candidate_utility;
+
+                    left_exposure
+                        .cmp(&right_exposure)
+                        .then_with(|| right_floor.cmp(&left_floor))
+                        .then_with(|| right_sum.cmp(&left_sum))
+                        .then_with(|| right.viewer_utility.cmp(&left.viewer_utility))
+                        .then_with(|| left.candidate_id.cmp(&right.candidate_id))
+                })
+                .cloned();
+
+            if let Some(choice) = choice {
+                selected
+                    .get_mut(&viewer.id)
+                    .expect("validated viewer has selection state")
+                    .insert(choice.candidate_id);
+                *exposure_count.entry(choice.candidate_id).or_default() += 1;
+                output
+                    .get_mut(&viewer.id)
+                    .expect("validated viewer has output list")
+                    .push(choice);
+            }
+        }
+    }
+
+    let mut flattened = Vec::new();
+    for viewer in viewers {
+        if let Some(rows) = output.remove(&viewer.id) {
+            flattened.extend(rows);
+        }
+    }
+
+    Ok(flattened)
 }
 
 fn eligible_candidate_pool(participants: &[Participant]) -> (BTreeSet<u32>, usize) {
@@ -544,7 +648,11 @@ mod tests {
         let wrong_goal = person(4, Partition::B, 30, 18, 60, ConnectionGoal::Friendship, &[(1, 5)]);
         let people = vec![a, b, blocked, wrong_goal];
 
-        for policy in [RankingPolicy::OneSidedUtility, RankingPolicy::MutualUtility] {
+        for policy in [
+            RankingPolicy::OneSidedUtility,
+            RankingPolicy::MutualUtility,
+            RankingPolicy::ExposureBalancedMutual,
+        ] {
             let rows = recommend(&people, 10, policy).expect("market is structurally valid");
             assert!(rows.iter().all(|row| {
                 let viewer = people.iter().find(|person| person.id == row.viewer_id).unwrap();
@@ -581,6 +689,29 @@ mod tests {
         assert_eq!(one_sided[0].candidate_id, 2);
         assert_eq!(mutual[0].viewer_id, 1);
         assert_eq!(mutual[0].candidate_id, 3);
+    }
+
+    #[test]
+    fn exposure_balancer_improves_coverage_and_reduces_gini_on_reference_fixture() {
+        let people = synthetic_market(20_261_017, 200).expect("valid synthetic corpus");
+        let one_sided =
+            recommend(&people, 5, RankingPolicy::OneSidedUtility).expect("valid market");
+        let balanced =
+            recommend(&people, 5, RankingPolicy::ExposureBalancedMutual).expect("valid market");
+        let one_metrics = evaluate(&people, &one_sided);
+        let balanced_metrics = evaluate(&people, &balanced);
+
+        assert_eq!(balanced_metrics.invalid_recommendation_count, 0);
+        assert!(balanced_metrics.candidate_coverage >= one_metrics.candidate_coverage);
+        assert!(balanced_metrics.exposure_gini < one_metrics.exposure_gini);
+
+        let mut per_viewer = BTreeMap::<u32, usize>::new();
+        let mut directed = BTreeSet::<(u32, u32)>::new();
+        for row in &balanced {
+            *per_viewer.entry(row.viewer_id).or_default() += 1;
+            assert!(directed.insert((row.viewer_id, row.candidate_id)));
+        }
+        assert!(per_viewer.values().all(|count| *count <= 5));
     }
 
     #[test]
