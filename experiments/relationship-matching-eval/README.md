@@ -2,7 +2,7 @@
 
 **Status:** exploratory research tool, not product or production matching code.
 
-This isolated, dependency-free Rust crate implements the first offline slice proposed in the public Mycelix RFC at PR #5127. It generates seeded synthetic adult-only participants, applies hard eligibility constraints before ranking, compares a one-sided utility ranker with a mutual-utility ranker, and emits a deterministic JSON report.
+This isolated, dependency-free Rust crate implements the first offline slice proposed in the public Mycelix RFC at PR #5127. It generates seeded synthetic adult-only participants, applies hard eligibility constraints before ranking, compares one-sided utility, pairwise mutual utility, and an exposure-balanced mutual-utility allocator, and emits a deterministic JSON report.
 
 ## Run
 
@@ -15,7 +15,8 @@ Arguments are seed, even participant count (minimum 4), and top-k recommendation
 
 ## What the harness does prove
 
-- Both rankers use the same eligibility predicate.
+- All three policies use the same eligibility predicate before ranking or allocation.
+- The exposure-balanced policy allocates one candidate at a time to each active viewer and uses incoming exposure counts as its primary tie-breaking objective; it is a simple benchmark baseline, not a globally optimal matching algorithm.
 - Inactive users, mismatched connection goals, incompatible age ranges, mutual blocks, insufficient shared interests, and insufficient declared utility are filtered before ranking.
 - Output ordering is deterministic for fixed input and policy.
 - Exposure coverage and Gini are measured over the set of participants who have at least one feasible counterpart.
@@ -23,7 +24,7 @@ Arguments are seed, even participant count (minimum 4), and top-k recommendation
 
 ## What it does not prove
 
-- It does not run a stable-marriage or maximum-cardinality matching algorithm.
+- It does not run a stable-marriage, maximum-cardinality, or globally optimal exposure-fair matching algorithm.
 - A mutual shortlist is not a human acceptance, date, successful relationship, or compatibility verdict.
 - Synthetic interest weights are not psychological traits and are not suitable for production profiles.
 - The FNV-1a fingerprint is not cryptographic evidence or a provenance/security receipt.
