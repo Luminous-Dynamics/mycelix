@@ -585,7 +585,7 @@ mod tests {
     #[test]
     fn compact_diff_merges_state_and_removes_selected_metadata_only() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
         let event = serde_json::json!({
             "c": {
                 "sensor.living_room_temperature": {
@@ -598,7 +598,7 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply(EntityStreamKind::Changes, &event, 20).unwrap();
+        let out = projector.apply_value(EntityStreamKind::Changes, &event, 20).unwrap();
         assert!(!out.initial_snapshot);
         assert_eq!(out.frames.len(), 1);
         assert_eq!(out.frames[0].state, "22.0");
@@ -610,7 +610,7 @@ mod tests {
     #[test]
     fn nonsemantic_attribute_changes_do_not_refresh_observation_frames() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
 
         let event = serde_json::json!({
             "c": {
@@ -622,7 +622,7 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply(EntityStreamKind::Changes, &event, 20).unwrap();
+        let out = projector.apply_value(EntityStreamKind::Changes, &event, 20).unwrap();
         assert!(out.frames.is_empty());
         assert!(out.removed_entity_ids.is_empty());
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
@@ -639,7 +639,7 @@ mod tests {
         p.rules[0].expected_unit = None;
         p.rules[0].expected_device_class = None;
         let mut projector = EntityStreamProjector::new(&p).unwrap();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
 
         let metadata_only = json!({
             "c": {
@@ -654,7 +654,7 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply(EntityStreamKind::Changes, &metadata_only, 999_999).unwrap();
+        let out = projector.apply_value(EntityStreamKind::Changes, &metadata_only, 999_999).unwrap();
 
         assert!(out.frames.is_empty(), "unasserted metadata is not a new semantic observation");
         assert!(out.removed_entity_ids.is_empty());
@@ -665,7 +665,7 @@ mod tests {
 
         // A subsequent semantic state change emits a frame using the latest
         // cached metadata, but its value remains the allowlisted primary state.
-        let changed = projector.apply(
+        let changed = projector.apply_value(
             EntityStreamKind::Changes,
             &json!({"c": {"sensor.living_room_temperature": {"+": {"s": "22.0"}}}}),
             1_000_000,
@@ -683,7 +683,7 @@ mod tests {
         invalid["a"]["sensor.living_room_temperature"]["s"] = json!("99.9");
 
         assert!(matches!(
-            projector.apply(EntityStreamKind::InitialSnapshot, &invalid, 10),
+            projector.apply_value(EntityStreamKind::InitialSnapshot, &invalid, 10),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
@@ -714,7 +714,7 @@ mod tests {
                 }
             }
         });
-        projector.apply(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
 
         let invalid_late_delta = json!({
             "c": {
@@ -723,7 +723,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &invalid_late_delta, 20),
+            projector.apply_value(EntityStreamKind::Changes, &invalid_late_delta, 20),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
@@ -733,13 +733,13 @@ mod tests {
     #[test]
     fn unallowlisted_entities_never_enter_the_projection() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
         let event = serde_json::json!({
             "a": {"sensor.not_allowlisted": {"s": "private", "a": {}}},
             "c": {},
             "r": []
         });
-        let out = projector.apply(EntityStreamKind::Changes, &event, 20).unwrap();
+        let out = projector.apply_value(EntityStreamKind::Changes, &event, 20).unwrap();
         assert!(out.frames.is_empty());
         assert!(out.removed_entity_ids.is_empty());
         assert_eq!(projector.cached_entity_count(), 1);
@@ -757,7 +757,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::InitialSnapshot, &event, 10),
+            projector.apply_value(EntityStreamKind::InitialSnapshot, &event, 10),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
@@ -768,7 +768,7 @@ mod tests {
     fn incremental_change_before_snapshot_fails_closed() {
         let mut projector = projector();
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &serde_json::json!({"c": {}}), 1),
+            projector.apply_value(EntityStreamKind::Changes, &serde_json::json!({"c": {}}), 1),
             Err(EntityStreamProjectionError::InvalidPayload(_))
         ));
     }
@@ -776,12 +776,12 @@ mod tests {
     #[test]
     fn allowlisted_change_without_cached_snapshot_fails_closed() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &serde_json::json!({"a": {}}), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &serde_json::json!({"a": {}}), 10).unwrap();
         let event = serde_json::json!({
             "c": {"sensor.living_room_temperature": {"+": {"s": "22.0"}}}
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &event, 20),
+            projector.apply_value(EntityStreamKind::Changes, &event, 20),
             Err(EntityStreamProjectionError::UnknownEntityChange { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
@@ -795,7 +795,7 @@ mod tests {
             json!("humidity");
 
         assert!(matches!(
-            projector.apply(EntityStreamKind::InitialSnapshot, &event, 10),
+            projector.apply_value(EntityStreamKind::InitialSnapshot, &event, 10),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
@@ -805,7 +805,7 @@ mod tests {
     #[test]
     fn profile_metadata_drift_rejects_delta_without_refreshing_cache() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
 
         let event = json!({
             "c": {
@@ -815,7 +815,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &event, 20),
+            projector.apply_value(EntityStreamKind::Changes, &event, 20),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
@@ -849,7 +849,7 @@ mod tests {
                 }
             }
         });
-        projector.apply(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
 
         // Sorted map order visits a before z. The late metadata mismatch must
         // reject the whole delta, not commit a's valid state/freshness update.
@@ -860,7 +860,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &update, 20),
+            projector.apply_value(EntityStreamKind::Changes, &update, 20),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
@@ -894,7 +894,7 @@ mod tests {
                 }
             }
         });
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot, 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot, 10).unwrap();
 
         // The valid 'a' change sorts before the malformed 'z' change. If the
         // projector mutates eagerly, the first entity would incorrectly stay at 22.0.
@@ -905,7 +905,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &bad_update, 20),
+            projector.apply_value(EntityStreamKind::Changes, &bad_update, 20),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
@@ -916,7 +916,7 @@ mod tests {
     #[test]
     fn malformed_changes_are_transactional() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
         let event = serde_json::json!({
             "c": {
                 "sensor.living_room_temperature": {
@@ -924,8 +924,8 @@ mod tests {
                 }
             }
         });
-        assert!(projector.apply(EntityStreamKind::Changes, &event, 20).is_err());
-        let out = projector.apply(EntityStreamKind::Changes, &serde_json::json!({"c": {}, "r": []}), 30).unwrap();
+        assert!(projector.apply_value(EntityStreamKind::Changes, &event, 20).is_err());
+        let out = projector.apply_value(EntityStreamKind::Changes, &serde_json::json!({"c": {}, "r": []}), 30).unwrap();
         assert!(out.frames.is_empty());
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
     }
@@ -933,8 +933,8 @@ mod tests {
     #[test]
     fn removal_invalidates_prior_state_without_claiming_physical_outcome() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
-        let out = projector.apply(
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        let out = projector.apply_value(
             EntityStreamKind::Changes,
             &serde_json::json!({"r": ["sensor.living_room_temperature", "sensor.not_allowlisted"]}),
             20,
@@ -947,9 +947,9 @@ mod tests {
     #[test]
     fn duplicate_initial_snapshot_is_rejected() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
         assert!(matches!(
-            projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 20),
+            projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 20),
             Err(EntityStreamProjectionError::InvalidPayload(_))
         ));
     }
@@ -957,13 +957,13 @@ mod tests {
     #[test]
     fn duplicate_entity_across_update_groups_is_rejected_without_mutation() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
         let event = serde_json::json!({
             "a": {"sensor.living_room_temperature": {"s": "new", "a": {}}},
             "c": {"sensor.living_room_temperature": {"+": {"s": "different"}}}
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &event, 20),
+            projector.apply_value(EntityStreamKind::Changes, &event, 20),
             Err(EntityStreamProjectionError::InvalidPayload(_))
         ));
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
@@ -972,7 +972,7 @@ mod tests {
     #[test]
     fn duplicate_added_entity_is_rejected_without_cache_or_freshness_change() {
         let mut projector = projector();
-        let initial = projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        let initial = projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
         assert_eq!(initial.frames.len(), 1);
         let prior = projector.state["sensor.living_room_temperature"].clone();
 
@@ -989,7 +989,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::Changes, &replay, 999_999),
+            projector.apply_value(EntityStreamKind::Changes, &replay, 999_999),
             Err(EntityStreamProjectionError::DuplicateEntityAddition { ref entity_id })
                 if entity_id == "sensor.living_room_temperature"
         ));
@@ -1000,7 +1000,7 @@ mod tests {
     #[test]
     fn replayed_identical_state_delta_does_not_refresh_freshness() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
 
         let delta = serde_json::json!({
             "c": {
@@ -1009,12 +1009,12 @@ mod tests {
                 }
             }
         });
-        let first = projector.apply(EntityStreamKind::Changes, &delta, 20).unwrap();
+        let first = projector.apply_value(EntityStreamKind::Changes, &delta, 20).unwrap();
         assert_eq!(first.frames.len(), 1);
         assert_eq!(first.frames[0].state, "22.0");
         assert_eq!(first.frames[0].received_at_micros, 20);
 
-        let replay = projector.apply(EntityStreamKind::Changes, &delta, 99_999).unwrap();
+        let replay = projector.apply_value(EntityStreamKind::Changes, &delta, 99_999).unwrap();
         assert!(replay.frames.is_empty(), "replaying the same semantic state must not mint a newer observation");
         assert!(replay.removed_entity_ids.is_empty());
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "22.0");
@@ -1029,7 +1029,7 @@ mod tests {
             max_mantissa: 8_000,
         };
         let mut projector = EntityStreamProjector::new(&p).unwrap();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
 
         // Both lexical values decode to the same exact fixed-point mantissa.
         let equivalent = json!({
@@ -1039,7 +1039,7 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply(EntityStreamKind::Changes, &equivalent, 999_999).unwrap();
+        let out = projector.apply_value(EntityStreamKind::Changes, &equivalent, 999_999).unwrap();
         assert!(out.frames.is_empty(), "equivalent typed values must not mint newer observations");
         assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.50");
     }
@@ -1047,9 +1047,9 @@ mod tests {
     #[test]
     fn explicit_removal_allows_a_later_valid_readdition() {
         let mut projector = projector();
-        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
 
-        let removed = projector.apply(
+        let removed = projector.apply_value(
             EntityStreamKind::Changes,
             &serde_json::json!({"r": ["sensor.living_room_temperature"]}),
             20,
@@ -1057,7 +1057,7 @@ mod tests {
         assert_eq!(removed.removed_entity_ids, vec!["sensor.living_room_temperature"]);
         assert_eq!(projector.cached_entity_count(), 0);
 
-        let added = projector.apply(
+        let added = projector.apply_value(
             EntityStreamKind::Changes,
             &serde_json::json!({
                 "a": {
@@ -1090,7 +1090,7 @@ mod tests {
             }
         });
         assert!(matches!(
-            projector.apply(EntityStreamKind::InitialSnapshot, &event, 10),
+            projector.apply_value(EntityStreamKind::InitialSnapshot, &event, 10),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
