@@ -55,7 +55,17 @@ versioning decision and review, not a silent fixture update.
 
 A sender/recipient implementation must persist `receipt_event_id` before its first attempt and reuse it for every retransmission of that *same signed receipt*. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
 
-The type-level transcript makes those differences observable. It does **not** implement an atomic durable deduplication store, serialize concurrent coordinator calls, prevent duplicate DHT entries, or prove end-to-end exactly-once delivery. Those are separate integration obligations tracked in [#5062](https://github.com/Luminous-Dynamics/mycelix/issues/5062) and [#5091](https://github.com/Luminous-Dynamics/mycelix/issues/5091).
+The type-level transcript makes those differences observable. It does **not** implement an atomic durable deduplication store, serialize concurrent coordinator calls, prevent duplicate DHT entries, or prove end-to-end exactly-once delivery.
+
+The pure `classify_receipt_v2_replay` helper compares an incoming receipt with
+the prior receipt found by the same event ID. It returns `ExactReplay` for
+identical signed transcript bytes and `ConflictingReuse` for changed signed
+content; an event-ID mismatch is an error. The caller must verify both
+signatures before acting on the classification. The durable store must make
+lookup/reservation atomic, and must retry a Holochain `chain head moved`
+outcome by re-reading the current source-chain state before deciding whether
+the operation is a replay. This helper by itself does not eliminate concurrent
+or persistence races. Those are separate integration obligations tracked in [#5062](https://github.com/Luminous-Dynamics/mycelix/issues/5062) and [#5091](https://github.com/Luminous-Dynamics/mycelix/issues/5091).
 
 ## Required qualification
 
