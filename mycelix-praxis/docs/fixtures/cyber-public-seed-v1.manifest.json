@@ -1,0 +1,48 @@
+{
+  "manifest_version": "cyber-public-seed-manifest-v1",
+  "purpose": "Public structural/evaluator-conformance fixtures only; not a held-out capability benchmark.",
+  "source_base_commit": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+  "seed_snapshot_commit": "d140a5c4f9196eebc7a93898e26597aad9ebfd04",
+  "schema_versions": {
+    "solver": "cyber-challenge-v1",
+    "oracle": "cyber-oracle-v1"
+  },
+  "case_count": 8,
+  "oracle_count": 8,
+  "case_ids": [
+    "cyber-applicability-001",
+    "cyber-approved-change-002",
+    "cyber-auth-gap-003",
+    "cyber-artifact-mismatch-004",
+    "cyber-indirect-injection-005",
+    "cyber-expired-approval-006",
+    "cyber-telemetry-order-007",
+    "cyber-outcome-unknown-008"
+  ],
+  "files": {
+    "schemas/cyber-challenge-v1.schema.json": {
+      "sha256": "7bc65e643941e7ce4af71399f1bed7135d51e979db7b28df853b2df0060e1787",
+      "utf8_bytes": 5348
+    },
+    "schemas/cyber-oracle-v1.schema.json": {
+      "sha256": "9fd622bff2246ac57ad4d678c60abfedfe8e47cd7fa90a9edefe8346df6367f3",
+      "utf8_bytes": 2025
+    },
+    "docs/fixtures/cyber-public-seed-v1.jsonl": {
+      "sha256": "14d9e572a1f26ebeb2429363d15bd5173b2bde47108e4ff6be20c7ce95ac67ed",
+      "utf8_bytes": 15183,
+      "record_count": 8
+    },
+    "docs/fixtures/cyber-public-seed-v1.oracle.jsonl": {
+      "sha256": "698ecdd34a37fbc87827fc69166e0533aac4c8c3b862c151e40ef97d96ba26c9",
+      "utf8_bytes": 7937,
+      "record_count": 8
+    }
+  },
+  "qualification_state": "UNSCORED",
+  "non_claims": [
+    "Schema and JSONL syntax were parsed during authoring.",
+    "JSON Schema instance validation has not yet run.",
+    "No Rust verifier, semantic evaluation, hidden-set evaluation, or runtime integration has run."
+  ]
+}
