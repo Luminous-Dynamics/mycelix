@@ -408,7 +408,7 @@ mod tests {
     struct AcceptSinkProof;
     impl SinkOutcomeVerifier for AcceptSinkProof {
         fn verify(&self, evidence: &SinkOutcomeEvidence) -> Result<(), SinkProofError> {
-            if evidence.proof == b"fixture-proof" {
+            if evidence.proof.as_slice() == &b"fixture-proof"[..] {
                 Ok(())
             } else {
                 Err(SinkProofError::InvalidSignature)
