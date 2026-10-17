@@ -14,7 +14,7 @@ These are intentionally independent. An identifier is not an ownership certifica
 
 ## Implemented surface
 
-- Standard-library-only Rust crate isolated with its own Cargo workspace.
+- Rust crate isolated with its own Cargo workspace; BLAKE3 is pinned for content-digest integrity.
 - Typed asset kinds and separate ISWC / ISRC variants. The current checks validate syntax and asset-kind compatibility only; they do not validate check digits, registration status, or authentic assignment.
 - Duplicate external identifiers are surfaced, not auto-merged. Replaying the same identifier assignment to the same asset is idempotent.
 - Rights-pool-scoped split assessment with exact basis points (10,000 = 100%), duplicate-party rejection, explicit partial status, and fail-closed complete-split arithmetic.
@@ -23,13 +23,14 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Order-independent usage evaluation by immutable grant ID: a revocation dominates an original grant regardless of history ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
 - An append-only in-memory issue/revocation event log with event-ID idempotency, monotonic event-time checks, deterministic replay, and atomic rejection of invalid transitions.
 - A separately implemented event-stream reconstruction path for differential comparison against append-derived effective grant state; it does not call the append method.
+- A versioned binary portable envelope for grant/revocation events, deterministic canonical encoding, strict decoding, exact BLAKE3 content digest, and round-trip/replay checks. The envelope exports grant history only, not the complete asset registry or split claims.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
 
 This crate does **not** authenticate identity, verify digital signatures, prove that an evidence reference is truthful, establish legal ownership, resolve conflicting claims, validate contracts, calculate royalties, make payments, or determine whether a grantor has legal authority. A status named Confirmed is a workflow assertion provided by the caller, not an adjudication by the software. A syntactically valid ISWC/ISRC is not proof the identifier was issued to this asset.
 
-The registry and event history are in-memory only. Events are not signed or durably persisted, and the crate has no portable serialization/manifest, external catalogue sync, rights-claim reconciliation, territory-specific rules, or import/export adapters. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
+The registry and event history are in-memory only. Events are not signed or durably persisted. The portable envelope currently covers grant/revocation history only; it omits the asset registry, split claims, external source payloads, and provenance hashes for imported source messages. The crate also lacks external catalogue sync, rights-claim reconciliation, territory-specific rules, and standards adapters. Its BLAKE3 digest detects changed canonical bytes but does not authenticate authorship or prove legal rights. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
 
 ## Benchmark contract — targets, not results
 
@@ -49,6 +50,9 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Failed append | Invalid event leaves event count and effective-grant state unchanged | Zero partial mutations |
 | Event identity collision | Same event ID with different content is rejected | 100% conflict detection |
 | Event time order | Decreasing timestamps are rejected; same-time distinct events are deterministic | 100% fixture agreement |
+| Portable envelope round-trip | Decode then encode yields byte-identical versioned canonical bytes; effective grant state is preserved | 100% fixture agreement |
+| Unsupported version, malformed tag, truncation or trailing bytes | Import rejects rather than silently ignoring unknown/corrupt data | 100% rejected |
+| Content digest | Same canonical bytes yield same 256-bit BLAKE3 digest; changed content yields a different digest in regression fixtures | 100% fixture agreement; no authenticity claim |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
 | Mutation/property testing | No invariant-breaking mutation survives the harness | Catch more than hand-picked cases |
@@ -66,7 +70,7 @@ No runtime performance or compilation result is claimed in this source-only revi
 ## Next high-value steps
 
 1. Run and repair the test suite on a pinned stable Rust toolchain.
-2. Extend differential verification with generated event streams, mutation testing, and an externally supplied expected snapshot.
-3. Define a versioned portable envelope with deterministic canonical bytes and a cryptographic content digest; do not claim a digest is a signature or proof of legal rights.
+2. Extend differential verification with generated event streams, mutation testing, and externally supplied expected snapshots.
+3. Extend the envelope to include typed asset registry entries and split claims without weakening the current versioned schema or silently backfilling missing fields.
 4. Create fixture adapters for external identifiers and DDEX metadata/revenue exchange; preserve raw source digests and parser/version metadata and never silently map missing values.
 5. Add fuzzing before relying on the policy check in a publishing or AI workflow gate.
