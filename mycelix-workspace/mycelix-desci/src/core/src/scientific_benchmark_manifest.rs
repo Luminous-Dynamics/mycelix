@@ -517,7 +517,7 @@ mod tests {
             schema_version: SCIENTIFIC_BENCHMARK_MANIFEST_VERSION,
             benchmark_id: "cosmology.background.eds.z1.v1".to_string(),
             status: BenchmarkStatus::LocallyVerified,
-            created_at,
+            created_at: created_at.clone(),
             completed_at: Some(created_at + chrono::Duration::seconds(10)),
             producer: BenchmarkPrincipal {
                 actor_id: "did:key:solver-author".to_string(),
@@ -586,7 +586,7 @@ mod tests {
     fn independent_reproduction_requires_different_actor_and_organization() {
         let mut manifest = fixture();
         manifest.status = BenchmarkStatus::IndependentlyReproduced;
-        let completed_at = manifest.completed_at.unwrap();
+        let completed_at = manifest.completed_at.as_ref().unwrap().clone();
         manifest.verifier = Some(BenchmarkVerifier {
             principal: BenchmarkPrincipal {
                 actor_id: "did:key:solver-author".to_string(),
