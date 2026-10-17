@@ -14,7 +14,9 @@
 //! available in the local filesystem and the signed event/authority path for
 //! attributable publication and review.
 
-use crate::scientific_events::ContentHash;
+use crate::scientific_events::{
+    ArtifactAvailability, ArtifactId, ContentHash, EvidenceArtifact,
+};
 use crate::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -265,6 +267,42 @@ pub struct ScientificBenchmarkManifest {
 }
 
 impl ScientificBenchmarkManifest {
+    /// Serialize a semantically valid manifest as compact JSON bytes.
+    ///
+    /// The exact returned bytes are what a caller should store and hash.
+    /// This representation is versioned by the manifest protocol/schema; it
+    /// is not a replacement for the signed event's canonical binary codec.
+    pub fn encode_json(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        Ok(serde_json::to_vec(self)?)
+    }
+
+    /// Turn the manifest into a canonical-kernel evidence artifact and return
+    /// its exact serialized bytes. The caller stores those bytes at the
+    /// supplied locator, then attaches the returned artifact to a signed
+    /// ScientificEventPayload. No network I/O is performed here.
+    pub fn to_evidence_artifact(
+        &self,
+        locator: impl Into<String>,
+        license: Option<String>,
+        availability: ArtifactAvailability,
+    ) -> Result<(EvidenceArtifact, Vec<u8>)> {
+        let bytes = self.encode_json()?;
+        let artifact = EvidenceArtifact {
+            id: ArtifactId::new(),
+            content_hash: ContentHash::digest(&bytes),
+            media_type: format!(
+                "application/vnd.mycelix.scientific-benchmark-manifest+json;version={}",
+                SCIENTIFIC_BENCHMARK_MANIFEST_VERSION
+            ),
+            locator: locator.into(),
+            license,
+            availability,
+        };
+        artifact.validate()?;
+        Ok((artifact, bytes))
+    }
+
     /// Validate protocol, provenance, numeric values, artifact uniqueness, and
     /// lifecycle invariants. Deserialized manifests must be validated again;
     /// successful deserialization is not semantic verification.
@@ -715,6 +753,24 @@ mod tests {
         // A separate length mismatch must also fail.
         std::fs::write(&artifact_path, b"short").unwrap();
         assert!(!verify_local_artifact_binding(&artifact_path, &binding).unwrap());
+    }
+
+    #[test]
+    fn manifest_exports_to_canonical_evidence_artifact_bytes() {
+        let manifest = fixture();
+        let (artifact, bytes) = manifest
+            .to_evidence_artifact(
+                "artifact://scientific-benchmarks/cosmology/eds-z1",
+                Some("CC-BY-4.0".to_string()),
+                ArtifactAvailability::Public,
+            )
+            .unwrap();
+        assert_eq!(artifact.content_hash, ContentHash::digest(&bytes));
+        assert!(artifact.validate().is_ok());
+        assert!(String::from_utf8(bytes)
+            .unwrap()
+            .contains("cosmology.background.eds.z1.v1"));
+        assert!(artifact.media_type.contains("version=1"));
     }
 
     #[test]
