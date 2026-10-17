@@ -677,7 +677,7 @@ mod tests {
         let mut lines = corpus.lines().map(str::to_owned).collect::<Vec<_>>();
         assert_eq!(lines.len(), 8);
         lines[1] = lines[0].clone();
-        let updated_corpus = format!("{}\\n", lines.join("\\n"));
+        let updated_corpus = format!("{}\n", lines.join("\n"));
         fs::write(&solver_path, &updated_corpus).expect("mutated corpus should be written");
 
         let manifest_path = root.join(DEFAULT_MANIFEST);
@@ -694,7 +694,7 @@ mod tests {
         file["record_count"] = Value::from(8);
         fs::write(
             &manifest_path,
-            format!("{}\\n", serde_json::to_string_pretty(&manifest).unwrap()),
+            format!("{}\n", serde_json::to_string_pretty(&manifest).unwrap()),
         )
         .expect("updated manifest should be written");
 
@@ -713,7 +713,10 @@ mod tests {
         let mut manifest: Value =
             serde_json::from_str(&text).expect("manifest should be valid JSON");
         manifest["source_base_commit"] = Value::String("not-a-commit".to_string());
-        fs::write(&manifest_path, format!("{}\\n", serde_json::to_string_pretty(&manifest).unwrap()))
+        fs::write(
+            &manifest_path,
+            format!("{}\n", serde_json::to_string_pretty(&manifest).unwrap()),
+        )
             .expect("mutated manifest should be written");
         let result = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40));
         assert!(result.expect_err("malformed commit pin must be rejected")
