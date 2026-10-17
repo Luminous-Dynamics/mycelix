@@ -143,3 +143,22 @@ The additive `portfolio` module is a bounded, effects-disabled reference for sel
 The in-module tests include a split-award case where neither supplier can individually satisfy the full demand, a no-split negative control, repeated-capacity-pool accounting, shared-failure-domain concentration, direct-supplier outage, stale-capacity and unverified-dependency cases, duplicate offer identities, and a small brute-force objective-frontier oracle. They are **authored tests, not an observed pass** until the exact-head workflow succeeds.
 
 This remains a research prototype. The module does not authenticate suppliers, prove source claims, determine semantic product substitution, fetch live offers, authorize awards, issue RFQs/purchase orders, execute inventory mutations, or process payments. The independent portfolio oracle, broader frozen adversarial corpus, measured performance and any live/shadow integration remain follow-up work. See [robust portfolio sourcing contract](ROBUST_PORTFOLIO_SOURCING_V1.md) for the design and benchmark contract.
+
+
+## Adaptive procurement recourse (experimental)
+
+The additive `recourse` module evaluates a fixed baseline allocation and pre-committed flexible/backup options against an explicit scenario set. For each scenario it calculates which baseline quantities fail, filters contingency options by evidence freshness, failure-domain exposure and activation-plus-transit deadline, then solves a bounded allocation problem that maximizes on-time recovery first, minimizes incremental recourse cost second, and minimizes latest arrival third. The tie-break is versioned and deterministic.
+
+- Normal/base allocations must conserve requested quantity and satisfy explicit lot, capacity, evidence, currency, unit, capability and deadline constraints.
+- Flexible/backup options have separate option-retainer fees, activation fees, unit costs, activation leads and transit times. Retainer fees are included in the baseline commitment cost even when the option is unused; activation fees are charged only when used.
+- Shared capacity snapshots must agree, and the baseline allocation plus reserved contingency quantities cannot exceed the declared capacity pool. This is deliberately conservative when multiple options describe the same pool.
+- Scenario failures can target declared dependency tags or reserved `supplier:<id>` / `capacity-pool:<id>` names. A backup that shares a failed region/site/sub-tier cannot be counted as a recovery path.
+- Evidence age is rechecked at scenario observation time. A quote/credential/capacity snapshot that expires before recourse cannot be promoted because the initial plan had passed.
+- Reports carry the exact request, policy, scenario-set and input-manifest identifiers, per-scenario lost/recovered/unfilled quantities, exclusions, selected recourse allocations and search counts.
+- A global search-node budget is divided across scenarios. Search-budget exhaustion returns an error, not a partial result described as complete.
+
+The current authored tests cover flexible-plus-backup recovery, late backup rejection, evidence expiry, shared-capacity reservations, common failure domains, order-invariant reporting, baseline-demand conservation and a small independent enumeration oracle. They are **authored only** until exact-head qualification reports a successful run.
+
+Research trail: two-stage robust supplier selection using normal/flexible/backup procurement modes (Dai, Zou & Zhang, 2026, https://doi.org/10.1016/j.ijpe.2026.110060); distributionally robust supplier allocation when disruption probabilities are poorly known (Li, Doan & Branke, 2026, https://doi.org/10.1016/j.ijpe.2026.110160); resilience with disruption dependencies, backup sourcing and reactive recovery (Hosseini et al., 2019, https://doi.org/10.1016/j.ijpe.2019.03.018). These motivate testable hypotheses, not universal performance guarantees.
+
+The module is a research/reference model; it does not search for suppliers, execute contracts, issue orders, mutate stock, make payments, or prove source authenticity. It evaluates a supplied scenario set without assuming synthetic scenarios have calibrated probabilities.
