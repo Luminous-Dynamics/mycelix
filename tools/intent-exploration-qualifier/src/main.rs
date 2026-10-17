@@ -3,8 +3,8 @@ use std::{collections::BTreeSet, env, fs, process::ExitCode};
 
 const EXPECTED_CASES: usize = 100;
 const EXPECTED_FAMILIES: usize = 20;
-const EXPECTED_TRAJECTORIES: usize = 22;
-const EXPECTED_TURNS: usize = 88;
+const EXPECTED_TRAJECTORIES: usize = 30;
+const EXPECTED_TURNS: usize = 120;
 
 #[derive(Debug, PartialEq, Eq)]
 struct ValidationReport {
