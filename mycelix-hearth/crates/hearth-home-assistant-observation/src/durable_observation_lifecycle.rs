@@ -905,6 +905,16 @@ mod tests {
     }
 
     #[test]
+    fn recovery_never_treats_journal_read_failure_as_an_empty_history() {
+        let mut store = MemoryStore::default();
+        store.fail_reads = true;
+        assert_eq!(
+            DurableObservationLifecycle::recover(&profile(), store, 10).err(),
+            Some(DurableLifecycleError::StorageReadFailed)
+        );
+    }
+
+    #[test]
     fn currentness_is_published_only_after_append_and_sync() {
         let ledger = make_live();
         let current = ledger.current_revision("sensor.living_room_temperature", 21).unwrap();
