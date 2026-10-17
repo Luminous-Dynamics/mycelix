@@ -1,0 +1,11 @@
+[package]
+name = "cross-scale-wisdom-verifier"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Fail-closed structural verifier for frozen cross-scale wisdom evaluation corpora"
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
