@@ -110,7 +110,7 @@ The grant-history envelope has two frozen Rust/Python reference byte vectors. Th
 
 ## Dependency reproducibility boundary
 
-The crate pins its direct BLAKE3 dependency, but a Cargo.lock is not yet committed. The draft CI job now resolves a lock per exact commit, runs formatting and tests with that generated lock, prints its SHA-256, and uploads the lockfile artifact even if the test step fails. This makes the specific run's resolved dependency graph inspectable; it does **not** guarantee that separate runs resolve identical transitive versions. Before a non-research release, commit a reviewed lockfile and require --locked without regeneration.
+The crate pins its direct BLAKE3 dependency, but a Cargo.lock is not yet committed. Each draft CI job explicitly checks out and asserts the PR's exact head SHA (or the selected push/manual-dispatch SHA), resolves a lock for that commit, runs formatting and tests with that generated lock, records the Rust/Cargo/Python versions and source SHA, prints the lock SHA-256, hashes the frozen fixture corpus, and uploads the receipt, lockfile, and raw format/test/reference-vector logs even on failure. This makes that specific run's evidence inspectable; it does **not** guarantee that separate runs resolve identical transitive versions. Before a non-research release, commit a reviewed lockfile and require --locked without regeneration.
 
 ## Run when a Rust toolchain is available
 
