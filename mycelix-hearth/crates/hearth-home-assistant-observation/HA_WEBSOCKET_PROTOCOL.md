@@ -40,6 +40,18 @@ Home Assistant's compact stream has separate added, changed and removed entity f
 - Command-ID exhaustion fails closed.
 - Credentials are never represented in this module, action enum, error types or debug values.
 
+## Compact stream projection
+
+The pure [entity stream projector](src/entity_stream.rs) understands the documented compact event groups:
+
+- `a`: full compressed states for added entities;
+- `c`: partial changes, including added fields and removed attribute names;
+- `r`: entity removals.
+
+It maintains a bounded semantic cache only for exact HA-0.1 profile entity IDs. It retains primary state, unit of measurement, and device class; it does not persist friendly names, arbitrary attributes, context identifiers, or network data. Changes are applied to a staged copy and committed only if every allowlisted item is valid. A change for an allowlisted entity absent from the current snapshot fails closed. Removed entities invalidate prior evidence instead of emitting a positive state observation.
+
+The transport must validate subscription ID and session epoch using the protocol machine before calling the projector. It must also enforce a frame-size bound before JSON parsing and apply the resulting initial snapshot synchronously before processing later change frames.
+
 ## Contract boundary
 
 The protocol action set is closed. There is no `call_service`, `set_states`, arbitrary-command, registry mutation, or physical-effect constructor. The future transport must still implement bounded JSON/message decoding, explicit TLS/certificate policy, local secret-provider integration, deadlines, bounded reconnect backoff, safe error logging, and serialized handling of each session's received frames.
