@@ -180,6 +180,14 @@ Targets below are proposed internal gates. They are not external standards or ac
 - **Sol-Atlas:** later link approved catalog/performances to event, venue, and tour plans. Geospatial planning does not grant rights to publicly identify fans or participants.
 - **Melothaea / Mycelix-Music:** future music-specific tooling may use the passport as a metadata/rights contract, but music generation, instrument/style capability, release management, and legal rights are distinct concerns.
 
+## Current implementation slice (2026-10-17)
+
+The first executable-model slice is in [draft PR #5182](https://github.com/Luminous-Dynamics/mycelix/pull/5182), under the isolated research crate at mycelix-workspace/research/creator-asset-passport-core/.
+
+It currently models typed asset identity (with conservative ISWC/ISRC syntax checks), per-rights-pool split assessment in basis points, and explicit per-asset usage grants bound to grantee, action, purpose and time window. It rejects duplicate identifiers across assets, partial-share normalization, rights-pool mixing, and implicit permission inheritance. Model-training and voice/likeness use are distinct actions.
+
+**Evidence boundary:** the source contains 20 unit-test functions and 14 adversarial integration-test functions, but these tests have not been executed in the current working environment because cargo/rustc/rustfmt are unavailable. This is source implementation, not passing-test evidence, a benchmark result, a legal rights registry, or production readiness. The crate does not authenticate identity or signatures, verify the truth of evidence references, prove grantor authority, or persist signed event history. Keep the draft isolated until compilation, adversarial execution, independent review, and provenance/replay work are complete.
+
 ## Proposed delivery sequence
 
 1. Publish this contract and agree on the distinction between works, recordings, releases, rights pools, and usage grants.
