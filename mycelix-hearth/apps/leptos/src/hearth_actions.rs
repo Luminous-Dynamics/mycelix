@@ -212,8 +212,27 @@ pub fn express_gratitude(to_agent: String, message: String) {
 
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
+    let action_journal = hearth.action_journal;
     let hc = hc.clone();
     spawn_local(async move {
+        let journal_attempt = match prepare_live_attempt(
+            action_journal,
+            ActionKind::Gratitude,
+            &hearth_hash,
+            &to_agent_bytes,
+        )
+        .await
+        {
+            Ok(attempt) => attempt,
+            Err(_) => {
+                toasts.push(
+                    "Gratitude not sent: the durable local action journal is unavailable or could not commit.",
+                    ToastKind::Custom("gratitude".into()),
+                );
+                return;
+            }
+        };
+
         #[derive(serde::Serialize)]
         struct ExpressGratitudeInput {
             hearth_hash: Vec<u8>,
@@ -239,6 +258,12 @@ pub fn express_gratitude(to_agent: String, message: String) {
                     feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Gratitude expression"),
                     ToastKind::Custom("gratitude".into()),
                 );
+                if !journal_attempt.mark_source_chain_committed().await {
+                    toasts.push(
+                        "Gratitude was saved, but its local recovery record could not be committed. Do not repeat it until reconciled.",
+                        ToastKind::Custom("gratitude".into()),
+                    );
+                }
                 crate::publication_evidence::check_and_store(
                     &hc,
                     publication_evidence,
@@ -253,6 +278,12 @@ pub fn express_gratitude(to_agent: String, message: String) {
                     feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the gratitude expression"),
                     ToastKind::Custom("gratitude".into()),
                 );
+                if !journal_attempt.mark_outcome_unknown().await {
+                    toasts.push(
+                        "The gratitude outcome remains unresolved and its local recovery record could not be committed. Do not retry it.",
+                        ToastKind::Custom("gratitude".into()),
+                    );
+                }
             }
         }
     });
@@ -295,10 +326,41 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
         return;
     };
 
+    let Some(hearth_scope_bytes) = hearth
+        .current_hearth
+        .get_untracked()
+        .and_then(|h| record_bridge::decode_holo_hash_b64(&h.hash))
+    else {
+        toasts.push(
+            "Vote not sent: the selected household identity is not verified.",
+            ToastKind::Custom("decision".into()),
+        );
+        return;
+    };
+
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
+    let action_journal = hearth.action_journal;
     let hc = hc.clone();
     spawn_local(async move {
+        let journal_attempt = match prepare_live_attempt(
+            action_journal,
+            ActionKind::Vote,
+            &hearth_scope_bytes,
+            &decision_hash_bytes,
+        )
+        .await
+        {
+            Ok(attempt) => attempt,
+            Err(_) => {
+                toasts.push(
+                    "Vote not sent: the durable local action journal is unavailable or could not commit.",
+                    ToastKind::Custom("decision".into()),
+                );
+                return;
+            }
+        };
+
         #[derive(serde::Serialize)]
         struct CastVoteInput {
             decision_hash: Vec<u8>,
@@ -316,6 +378,12 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
                     feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Vote submission"),
                     ToastKind::Custom("decision".into()),
                 );
+                if !journal_attempt.mark_source_chain_committed().await {
+                    toasts.push(
+                        "The vote was saved, but its local recovery record could not be committed. Do not repeat it until reconciled.",
+                        ToastKind::Custom("decision".into()),
+                    );
+                }
                 crate::publication_evidence::check_and_store(
                     &hc,
                     publication_evidence,
@@ -330,6 +398,12 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
                     feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the vote submission"),
                     ToastKind::Custom("decision".into()),
                 );
+                if !journal_attempt.mark_outcome_unknown().await {
+                    toasts.push(
+                        "The vote outcome remains unresolved and its local recovery record could not be committed. Do not retry it.",
+                        ToastKind::Custom("decision".into()),
+                    );
+                }
             }
         }
     });
