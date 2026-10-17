@@ -14,6 +14,9 @@ pub const SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65: &str =
 const ENVELOPE_DOMAIN: &[u8] = b"mycelix-pulse/envelope/v1\0";
 const ENVELOPE_V2_DOMAIN: &[u8] = b"mycelix-pulse/envelope/v2-hybrid-pqc\0";
 const RECEIPT_DOMAIN: &[u8] = b"mycelix-pulse/receipt/v1\0";
+const RECEIPT_V2_DOMAIN: &[u8] = b"mycelix-pulse/receipt/v2\0";
+const ENVELOPE_COMMITMENT_DOMAIN: &[u8] = b"mycelix-pulse/envelope-commitment/v1\0";
+pub const RECEIPT_V2_PROTOCOL_VERSION: u16 = 2;
 pub const ML_KEM_768_ENCAPSULATION_KEY_BYTES: usize = 1184;
 pub const ML_KEM_768_CIPHERTEXT_BYTES: usize = 1088;
 pub const ML_DSA_65_VERIFYING_KEY_BYTES: usize = 1952;
@@ -339,6 +342,84 @@ impl RecipientReceipt {
     }
 }
 
+
+/// V2 receipt contract. This is additive: V1 signing bytes remain unchanged.
+///
+/// `receipt_event_id` is generated once for one logical receipt event and
+/// MUST be reused across retries. Reusing that identity with altered signed
+/// content is an idempotency conflict, not a new receipt. Durable conflict
+/// detection remains the responsibility of the receipt store/coordinator.
+///
+/// `envelope_commitment` is SHA-256 over
+/// [`canonical_envelope_commitment_preimage`] applied to the exact envelope's
+/// canonical signing bytes. A verifier MUST recompute it from the envelope
+/// it actually received; it must not trust a caller-supplied commitment.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecipientReceiptV2 {
+    pub protocol_version: u16,
+    /// Stable 256-bit idempotency identity, persisted before first dispatch.
+    pub receipt_event_id: [u8; 32],
+    pub message_id: MessageId,
+    pub recipient_agent: Vec<u8>,
+    /// The exact envelope version/profile the recipient observed.
+    pub envelope_version: u16,
+    pub cipher_suite: String,
+    /// Domain-separated commitment to the exact canonical envelope transcript.
+    pub envelope_commitment: [u8; 32],
+    pub kind: ReceiptKind,
+    pub occurred_at_micros: i64,
+    pub recipient_signature: Vec<u8>,
+}
+
+impl RecipientReceiptV2 {
+    /// Exact transcript covered by the recipient's V2 receipt signature.
+    /// The signature field itself is intentionally excluded.
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>, ProtocolError> {
+        if self.protocol_version != RECEIPT_V2_PROTOCOL_VERSION {
+            return Err(ProtocolError::UnsupportedReceiptVersion(self.protocol_version));
+        }
+
+        let expected_suite = match self.envelope_version {
+            ENVELOPE_V1 => SUITE_X25519_AES_256_GCM_ED25519,
+            ENVELOPE_V2_HYBRID_PQC => SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
+            version => return Err(ProtocolError::UnsupportedEnvelopeVersion(version)),
+        };
+        if self.cipher_suite != expected_suite {
+            return Err(ProtocolError::ReceiptContextMismatch);
+        }
+
+        let mut out = Vec::with_capacity(192 + self.recipient_agent.len() + self.cipher_suite.len());
+        out.extend_from_slice(RECEIPT_V2_DOMAIN);
+        put_u16(&mut out, self.protocol_version);
+        out.extend_from_slice(&self.receipt_event_id);
+        out.extend_from_slice(&self.message_id.0);
+        put_bytes(&mut out, &self.recipient_agent)?;
+        put_u16(&mut out, self.envelope_version);
+        put_bytes(&mut out, self.cipher_suite.as_bytes())?;
+        out.extend_from_slice(&self.envelope_commitment);
+        out.push(match self.kind {
+            ReceiptKind::Observed => 1,
+            ReceiptKind::Delivered => 2,
+            ReceiptKind::Read => 3,
+        });
+        out.extend_from_slice(&self.occurred_at_micros.to_be_bytes());
+        Ok(out)
+    }
+}
+
+/// Input to the envelope-commitment hash. Callers compute
+/// `SHA-256(canonical_envelope_commitment_preimage(transcript))`.
+/// Keeping hashing outside this WASM-safe contract crate avoids adding a
+/// second cryptographic implementation; it does not relax the required hash.
+pub fn canonical_envelope_commitment_preimage(
+    canonical_signing_bytes: &[u8],
+) -> Result<Vec<u8>, ProtocolError> {
+    let mut out = Vec::with_capacity(ENVELOPE_COMMITMENT_DOMAIN.len() + canonical_signing_bytes.len() + 4);
+    out.extend_from_slice(ENVELOPE_COMMITMENT_DOMAIN);
+    put_bytes(&mut out, canonical_signing_bytes)?;
+    Ok(out)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DerivedDeliveryState {
@@ -371,6 +452,8 @@ pub fn derive_delivery_state(
 pub enum ProtocolError {
     UnsupportedEnvelopeVersion(u16),
     UnsupportedCipherSuite(String),
+    UnsupportedReceiptVersion(u16),
+    ReceiptContextMismatch,
     FieldTooLarge,
     HybridProfileUnavailable,
     InvalidComponentLength {
@@ -638,4 +721,101 @@ mod tests {
             Ok(NewMessageProfile::V1ClassicalDiagnostic)
         );
     }
+
+    fn receipt_v2() -> RecipientReceiptV2 {
+        RecipientReceiptV2 {
+            protocol_version: RECEIPT_V2_PROTOCOL_VERSION,
+            receipt_event_id: [31; 32],
+            message_id: MessageId([32; 32]),
+            recipient_agent: vec![33; 39],
+            envelope_version: ENVELOPE_V2_HYBRID_PQC,
+            cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            envelope_commitment: [34; 32],
+            kind: ReceiptKind::Delivered,
+            occurred_at_micros: 35,
+            recipient_signature: vec![36; 64],
+        }
+    }
+
+    #[test]
+    fn v2_receipt_binds_event_message_recipient_envelope_and_state() {
+        let first = receipt_v2();
+        let canonical = first.canonical_signing_bytes().unwrap();
+
+        let mut changed = first.clone();
+        changed.receipt_event_id[0] ^= 1;
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.message_id = MessageId([41; 32]);
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.recipient_agent[0] ^= 1;
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.envelope_commitment[0] ^= 1;
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.kind = ReceiptKind::Read;
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.occurred_at_micros += 1;
+        assert_ne!(canonical, changed.canonical_signing_bytes().unwrap());
+
+        let mut changed = first.clone();
+        changed.recipient_signature = vec![99; 64];
+        assert_eq!(canonical, changed.canonical_signing_bytes().unwrap());
+    }
+
+    #[test]
+    fn v2_receipt_rejects_unknown_version_and_profile_downgrade() {
+        let mut value = receipt_v2();
+        value.protocol_version = 3;
+        assert_eq!(
+            value.canonical_signing_bytes(),
+            Err(ProtocolError::UnsupportedReceiptVersion(3))
+        );
+
+        let mut value = receipt_v2();
+        value.cipher_suite = SUITE_X25519_AES_256_GCM_ED25519.into();
+        assert_eq!(
+            value.canonical_signing_bytes(),
+            Err(ProtocolError::ReceiptContextMismatch)
+        );
+
+        let mut value = receipt_v2();
+        value.envelope_version = 99;
+        assert_eq!(
+            value.canonical_signing_bytes(),
+            Err(ProtocolError::UnsupportedEnvelopeVersion(99))
+        );
+    }
+
+    #[test]
+    fn envelope_commitment_preimage_is_domain_separated_and_length_prefixed() {
+        let first = canonical_envelope_commitment_preimage(b"abc").unwrap();
+        let second = canonical_envelope_commitment_preimage(b"abd").unwrap();
+        assert_ne!(first, second);
+        assert!(first.starts_with(ENVELOPE_COMMITMENT_DOMAIN));
+        assert!(first.ends_with(&[0, 0, 0, 3, b'a', b'b', b'c']));
+    }
+
+    #[test]
+    fn v1_receipt_transcript_remains_separate_from_v2() {
+        let legacy = RecipientReceipt {
+            message_id: MessageId([1; 32]),
+            recipient_agent: vec![2; 39],
+            kind: ReceiptKind::Delivered,
+            occurred_at_micros: 3,
+            recipient_signature: vec![4; 64],
+        };
+        let current = receipt_v2();
+        assert!(legacy.canonical_signing_bytes().unwrap().starts_with(RECEIPT_DOMAIN));
+        assert!(current.canonical_signing_bytes().unwrap().starts_with(RECEIPT_V2_DOMAIN));
+    }
+
 }
