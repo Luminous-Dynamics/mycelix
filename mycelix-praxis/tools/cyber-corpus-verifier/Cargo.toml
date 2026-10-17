@@ -13,3 +13,4 @@ description = "Fail-closed structural verifier for the public Praxis cyber chall
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
+jsonschema = { version = "=0.59.0", default-features = false }
