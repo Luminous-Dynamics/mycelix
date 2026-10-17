@@ -98,7 +98,6 @@ Sixteen source-level state-machine tests are authored in `src/effect_journal.rs`
 | RPK-JOURNAL-012 | Impossible restored state | `restore_rejects_impossible_phase_field_combinations` |
 | RPK-JOURNAL-013 | Receipt proof replayed across different policy-binding digests | `rejects_replayed_sink_proof_for_changed_policy_binding` |
 | RPK-JOURNAL-014 | Receipt proof replayed across authority domains | `rejects_sink_proof_replayed_across_authority_domains` |
-| RPK-JOURNAL-010 | Rejecting verifier | `sink_verifier_rejection_does_not_create_verified_outcome` |
 
 The snapshot model adds round-trip restoration of Reserved/DispatchStarted/OutcomeUnknown and rejection of impossible phase-field combinations. The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
 
