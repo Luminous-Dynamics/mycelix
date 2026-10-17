@@ -326,10 +326,7 @@ pub struct RecipientReceipt {
     pub recipient_agent: Vec<u8>,
     pub kind: ReceiptKind,
     pub occurred_at_micros: i64,
-    /// Agent signature over the canonical V2 transcript (64-byte Ed25519).
-    pub agent_signature: Vec<u8>,
-    /// Application-level post-quantum signature over the same transcript.
-    pub ml_dsa_signature: Vec<u8>,
+    pub recipient_signature: Vec<u8>,
 }
 
 impl RecipientReceipt {
@@ -374,7 +371,10 @@ pub struct RecipientReceiptV2 {
     pub envelope_commitment: [u8; 32],
     pub kind: ReceiptKind,
     pub occurred_at_micros: i64,
-    pub recipient_signature: Vec<u8>,
+    /// Agent signature over the canonical V2 transcript (64-byte Ed25519).
+    pub agent_signature: Vec<u8>,
+    /// Application-level post-quantum signature over the same transcript.
+    pub ml_dsa_signature: Vec<u8>,
 }
 
 impl RecipientReceiptV2 {
@@ -403,8 +403,8 @@ impl RecipientReceiptV2 {
 
     /// Exact transcript covered by the recipient's V2 receipt signatures.
     /// Both signatures are intentionally excluded. V2 requires the recipient's
-/// Holochain-agent Ed25519 signature AND ML-DSA-65 signature; neither alone
-/// satisfies this profile.
+    /// Holochain-agent Ed25519 signature AND ML-DSA-65 signature; neither alone
+    /// satisfies this profile.
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>, ProtocolError> {
         if self.protocol_version != RECEIPT_V2_PROTOCOL_VERSION {
             return Err(ProtocolError::UnsupportedReceiptVersion(self.protocol_version));
