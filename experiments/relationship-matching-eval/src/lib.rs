@@ -182,7 +182,7 @@ pub fn recommend(
     validate_market(participants)?;
 
     if policy == RankingPolicy::ExposureBalancedMutual {
-        return recommend_exposure_balanced_validated(participants, top_k);
+        return recommend_exposure_balanced_validated(participants, top_k, &BTreeMap::new());
     }
 
     let by_id: BTreeMap<u32, &Participant> =
@@ -245,9 +245,30 @@ pub fn recommend(
     Ok(output)
 }
 
+/// Exposure-balanced recommendations that carry exposure history across batches.
+///
+/// History values are incoming recommendation counts from prior batches. Unknown
+/// participant IDs are rejected rather than silently ignored. Persisting and
+/// scoping this history safely is a product/system responsibility; this pure
+/// function only defines deterministic ranking behavior given the supplied map.
+pub fn recommend_exposure_balanced_with_history(
+    participants: &[Participant],
+    top_k: usize,
+    prior_exposure: &BTreeMap<u32, usize>,
+) -> Result<Vec<Recommendation>, String> {
+    validate_market(participants)?;
+    let known_ids: BTreeSet<u32> = participants.iter().map(|person| person.id).collect();
+    if let Some(unknown_id) = prior_exposure.keys().find(|id| !known_ids.contains(id)) {
+        return Err(format!("exposure history contains unknown participant id: {unknown_id}"));
+    }
+
+    recommend_exposure_balanced_validated(participants, top_k, prior_exposure)
+}
+
 fn recommend_exposure_balanced_validated(
     participants: &[Participant],
     top_k: usize,
+    prior_exposure: &BTreeMap<u32, usize>,
 ) -> Result<Vec<Recommendation>, String> {
     let mut viewers: Vec<&Participant> = participants
         .iter()
@@ -275,7 +296,7 @@ fn recommend_exposure_balanced_validated(
         preferences.insert(viewer.id, candidates);
     }
 
-    let mut exposure_count: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut exposure_count: BTreeMap<u32, usize> = prior_exposure.clone();
     let mut selected: BTreeMap<u32, BTreeSet<u32>> = viewers
         .iter()
         .map(|viewer| (viewer.id, BTreeSet::new()))
@@ -324,7 +345,10 @@ fn recommend_exposure_balanced_validated(
                     .get_mut(&viewer.id)
                     .expect("validated viewer has selection state")
                     .insert(choice.candidate_id);
-                *exposure_count.entry(choice.candidate_id).or_default() += 1;
+                let count = exposure_count.entry(choice.candidate_id).or_default();
+                *count = count
+                    .checked_add(1)
+                    .ok_or_else(|| "exposure history counter overflow".to_string())?;
                 output
                     .get_mut(&viewer.id)
                     .expect("validated viewer has output list")
@@ -1025,6 +1049,38 @@ mod tests {
             assert!(directed.insert((row.viewer_id, row.candidate_id)));
         }
         assert!(per_viewer.values().all(|count| *count <= 5));
+    }
+
+    #[test]
+    fn historical_exposure_changes_next_batch_allocation() {
+        let people = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(2, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(4, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+        ];
+
+        let stateless =
+            recommend(&people, 1, RankingPolicy::ExposureBalancedMutual).expect("valid market");
+        let history = BTreeMap::from([(3u32, 100usize)]);
+        let historical = recommend_exposure_balanced_with_history(&people, 1, &history)
+            .expect("known exposure history");
+
+        assert_eq!(stateless[0].candidate_id, 3);
+        assert_eq!(historical[0].candidate_id, 4);
+    }
+
+    #[test]
+    fn exposure_history_rejects_unknown_ids_and_counter_overflow() {
+        let people = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            person(2, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+        ];
+        let unknown = BTreeMap::from([(999u32, 1usize)]);
+        assert!(recommend_exposure_balanced_with_history(&people, 1, &unknown).is_err());
+
+        let overflowing = BTreeMap::from([(2u32, usize::MAX)]);
+        assert!(recommend_exposure_balanced_with_history(&people, 1, &overflowing).is_err());
     }
 
     #[test]
