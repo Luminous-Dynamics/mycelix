@@ -202,6 +202,15 @@ fn print_policy_summary(results: &[SeedResult], policy_index: usize, indent: &st
         true,
     );
     print_stats_object(
+        "opportunity_normalized_exposure_gini",
+        &metrics
+            .iter()
+            .map(|item| item.opportunity_normalized_exposure_gini)
+            .collect::<Vec<_>>(),
+        indent,
+        true,
+    );
+    print_stats_object(
         "recommendation_count",
         &metrics.iter().map(|item| item.recommendation_count as f64).collect::<Vec<_>>(),
         indent,
@@ -253,6 +262,10 @@ fn print_metrics(metrics: EvaluationMetrics, indent: &str) {
     println!(
         "{indent}\"exposure_gini\": {:.8},",
         metrics.exposure_gini
+    );
+    println!(
+        "{indent}\"opportunity_normalized_exposure_gini\": {:.8},",
+        metrics.opportunity_normalized_exposure_gini
     );
     println!(
         "{indent}\"recommendation_count\": {},",
