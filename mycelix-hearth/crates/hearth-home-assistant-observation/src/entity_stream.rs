@@ -13,7 +13,7 @@ use crate::{
     decode_state, EntityObservationRule, HomeAssistantObservationProfile, HomeAssistantStateFrame,
     HA_STATE_UNAVAILABLE, HA_STATE_UNKNOWN, MAX_METADATA_BYTES, MAX_RAW_STATE_BYTES,
 };
-use crate::strict_json::{parse_bounded_json, StrictJsonError};
+use crate::strict_json::{parse_bounded_json, StrictJsonError, StrictJsonValueRef};
 use crate::websocket_protocol::EntityStreamKind;
 use hearth_automation_types::AutomationValue;
 use serde_json::{Map, Value};
@@ -239,7 +239,19 @@ impl EntityStreamProjector {
     ) -> Result<EntityStreamProjection, EntityStreamProjectionError> {
         let event = parse_bounded_json(json_bytes)
             .map_err(EntityStreamProjectionError::InvalidJson)?;
-        self.apply_value(kind, &event, received_at_micros)
+        self.apply_value(kind, event.as_value(), received_at_micros)
+    }
+
+    /// Apply an event nested inside a strictly parsed full WebSocket frame.
+    /// This avoids reserializing/reparsing the event while preserving proof
+    /// that duplicate keys were rejected in the complete outer frame.
+    pub fn apply_parsed_json(
+        &mut self,
+        kind: EntityStreamKind,
+        event: StrictJsonValueRef<'_>,
+        received_at_micros: i64,
+    ) -> Result<EntityStreamProjection, EntityStreamProjectionError> {
+        self.apply_value(kind, event.as_value(), received_at_micros)
     }
 
     /// Value-level core. Private so external transport callers cannot bypass
