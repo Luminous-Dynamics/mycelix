@@ -17,7 +17,7 @@ The journal lifecycle makes that uncertainty explicit:
 
 ## Rust reference model
 
-`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and nine unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
+`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and twelve unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
 
 Production requirements:
 
