@@ -26,8 +26,9 @@ Recovery validates:
 
 - exact sequence starting at 1 with no gaps/duplicates;
 - supported schema and exact profile reference;
-- continuous prior-phase and epoch metadata;
-- legal transition order;
+- continuous prior-phase, session-epoch, and active subscription-ID metadata;
+- legal transition order, including exact subscription binding through acknowledgement, snapshot, deltas, disconnect, and cold-start barrier;
+- accepted non-start transitions bound to the current session epoch;
 - per-entity revisions advancing exactly one step;
 - each invalidation naming the precise positive revision it revokes;
 - each positive revision either starting an entity's current chain or superseding the exact current revision;
