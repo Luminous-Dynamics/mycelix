@@ -130,8 +130,14 @@ fn common_currency(problem: &JointOptimizationProblem) -> Result<String, JointOp
     };
     let currency = first.currency.clone();
     if !non_empty(&currency)
-        || problem.requests.iter().any(|request| request.currency != currency)
-        || problem.offers.iter().any(|offer| offer.currency != currency)
+        || problem
+            .requests
+            .iter()
+            .any(|request| request.currency != currency)
+        || problem
+            .offers
+            .iter()
+            .any(|offer| offer.currency != currency)
     {
         return Err(JointOptimizationError::UnsupportedMixedCurrency);
     }
@@ -148,7 +154,9 @@ fn pair_is_mapped(
     })
 }
 
-fn canonical_edges(problem: &JointOptimizationProblem) -> Result<Vec<Edge>, JointOptimizationError> {
+fn canonical_edges(
+    problem: &JointOptimizationProblem,
+) -> Result<Vec<Edge>, JointOptimizationError> {
     let request_positions: std::collections::BTreeMap<&str, usize> = problem
         .requests
         .iter()
@@ -283,9 +291,7 @@ fn dominates(left: &JointObjective, right: &JointObjective) -> bool {
     strictly_better
 }
 
-fn assignment_signature(
-    assignments: &[JointAssignment],
-) -> Vec<(String, String, u32)> {
+fn assignment_signature(assignments: &[JointAssignment]) -> Vec<(String, String, u32)> {
     let mut signature: Vec<_> = assignments
         .iter()
         .map(|assignment| {
@@ -466,8 +472,7 @@ pub fn optimize_joint_allocation(
 
     // Validate the complete manifest independently of any nonzero allocation.
     let empty_plan = build_checker_input(problem, &[]);
-    validate_joint_allocation(&empty_plan)
-        .map_err(JointOptimizationError::InvalidProblem)?;
+    validate_joint_allocation(&empty_plan).map_err(JointOptimizationError::InvalidProblem)?;
     let edges = canonical_edges(problem)?;
 
     let request_positions: Vec<usize> = (0..problem.requests.len()).collect();
@@ -495,9 +500,9 @@ pub fn optimize_joint_allocation(
         return Err(JointOptimizationError::NoFeasibleCandidate);
     }
     context.state.frontier.sort_by(|left, right| {
-        left.objective
-            .cmp(&right.objective)
-            .then_with(|| assignment_signature(&left.assignments).cmp(&assignment_signature(&right.assignments)))
+        left.objective.cmp(&right.objective).then_with(|| {
+            assignment_signature(&left.assignments).cmp(&assignment_signature(&right.assignments))
+        })
     });
 
     Ok(JointOptimizationReport {
@@ -518,7 +523,7 @@ pub fn optimize_joint_allocation(
 #[cfg(test)]
 mod tests {
     use super::{
-        JointOptimizationError, JointOptimizationProblem, JointObjective, JointOptimizationReport,
+        JointObjective, JointOptimizationError, JointOptimizationProblem, JointOptimizationReport,
         optimize_joint_allocation,
     };
     use crate::joint_capacity::{CapabilityMapping, JointOffer, JointRequest, SharedCapacityPool};
@@ -599,7 +604,11 @@ mod tests {
         let offers = vec![offer("offer-a", 5), offer("offer-b", 8)];
         let mappings = requests
             .iter()
-            .flat_map(|request| offers.iter().map(move |offer| mapping(&request.request_id, &offer.offer_id)))
+            .flat_map(|request| {
+                offers
+                    .iter()
+                    .map(move |offer| mapping(&request.request_id, &offer.offer_id))
+            })
             .collect();
         JointOptimizationProblem {
             evaluated_at: 20,
@@ -618,7 +627,13 @@ mod tests {
             objective
                 .unfilled_by_request
                 .iter()
-                .map(|item| (item.request_id.clone(), item.unit.clone(), item.unfilled_quantity))
+                .map(|item| {
+                    (
+                        item.request_id.clone(),
+                        item.unit.clone(),
+                        item.unfilled_quantity,
+                    )
+                })
                 .collect(),
         )
     }
@@ -670,21 +685,38 @@ mod tests {
             feasible.insert((
                 cost,
                 vec![
-                    ("routine".to_owned(), "kit".to_owned(), u64::from(1 - request_quantity[1])),
-                    ("urgent".to_owned(), "kit".to_owned(), u64::from(1 - request_quantity[0])),
+                    (
+                        "routine".to_owned(),
+                        "kit".to_owned(),
+                        u64::from(1 - request_quantity[1]),
+                    ),
+                    (
+                        "urgent".to_owned(),
+                        "kit".to_owned(),
+                        u64::from(1 - request_quantity[0]),
+                    ),
                 ],
             ));
         }
         let all: Vec<_> = feasible.iter().cloned().collect();
         feasible
             .iter()
-            .filter(|candidate| !all.iter().any(|other| other != *candidate && dominates_key(other, candidate)))
+            .filter(|candidate| {
+                !all.iter()
+                    .any(|other| other != *candidate && dominates_key(other, candidate))
+            })
             .cloned()
             .collect()
     }
 
-    fn actual_frontier(report: &JointOptimizationReport) -> BTreeSet<(u64, Vec<(String, String, u64)>)> {
-        report.frontier.iter().map(|candidate| objective_key(&candidate.objective)).collect()
+    fn actual_frontier(
+        report: &JointOptimizationReport,
+    ) -> BTreeSet<(u64, Vec<(String, String, u64)>)> {
+        report
+            .frontier
+            .iter()
+            .map(|candidate| objective_key(&candidate.objective))
+            .collect()
     }
 
     fn quantity_problem(pool_capacity: u32) -> JointOptimizationProblem {
@@ -718,7 +750,8 @@ mod tests {
             let offer_a = quantity[0] + quantity[2];
             let offer_b = quantity[1] + quantity[3];
             let total_pool = urgent + routine;
-            if urgent > 2 || routine > 2 || offer_a > 2 || offer_b > 2 || total_pool > pool_capacity {
+            if urgent > 2 || routine > 2 || offer_a > 2 || offer_b > 2 || total_pool > pool_capacity
+            {
                 continue;
             }
             let cost = quantity
@@ -732,7 +765,11 @@ mod tests {
             feasible.insert((
                 cost,
                 vec![
-                    ("routine".to_owned(), "kit".to_owned(), u64::from(2 - routine)),
+                    (
+                        "routine".to_owned(),
+                        "kit".to_owned(),
+                        u64::from(2 - routine),
+                    ),
                     ("urgent".to_owned(), "kit".to_owned(), u64::from(2 - urgent)),
                 ],
             ));
@@ -741,9 +778,8 @@ mod tests {
         feasible
             .iter()
             .filter(|candidate| {
-                !all.iter().any(|other| {
-                    other != *candidate && dominates_key(other, candidate)
-                })
+                !all.iter()
+                    .any(|other| other != *candidate && dominates_key(other, candidate))
             })
             .cloned()
             .collect()
@@ -768,7 +804,10 @@ mod tests {
         for pool_capacity in 1..=2 {
             let report = optimize_joint_allocation(&problem(pool_capacity)).unwrap();
             assert!(report.complete);
-            assert_eq!(actual_frontier(&report), independent_frontier(pool_capacity));
+            assert_eq!(
+                actual_frontier(&report),
+                independent_frontier(pool_capacity)
+            );
         }
     }
 
@@ -858,7 +897,10 @@ mod tests {
             .deliver_by = 99;
         let report = optimize_joint_allocation(&input).unwrap();
         assert!(report.frontier.iter().all(|candidate| {
-            candidate.assignments.iter().all(|assignment| assignment.request_id != "urgent")
+            candidate
+                .assignments
+                .iter()
+                .all(|assignment| assignment.request_id != "urgent")
         }));
     }
 
@@ -888,11 +930,13 @@ mod tests {
         let report = optimize_joint_allocation(&input).unwrap();
         assert_eq!(report.frontier.len(), 1);
         assert!(report.frontier[0].assignments.is_empty());
-        assert!(report.frontier[0]
-            .objective
-            .unfilled_by_request
-            .iter()
-            .all(|shortage| shortage.unfilled_quantity == 1));
+        assert!(
+            report.frontier[0]
+                .objective
+                .unfilled_by_request
+                .iter()
+                .all(|shortage| shortage.unfilled_quantity == 1)
+        );
     }
 
     #[test]
@@ -904,9 +948,11 @@ mod tests {
             .frontier
             .iter()
             .filter(|candidate| {
-                candidate.objective.unfilled_by_request.iter().all(|shortage| {
-                    shortage.unfilled_quantity == 0
-                })
+                candidate
+                    .objective
+                    .unfilled_by_request
+                    .iter()
+                    .all(|shortage| shortage.unfilled_quantity == 0)
             })
             .collect();
         assert_eq!(full_service.len(), 1);
@@ -918,10 +964,17 @@ mod tests {
     #[test]
     fn missing_mapping_never_generates_an_assignment_edge() {
         let mut input = problem(2);
-        input.capability_mappings.retain(|mapping| !(mapping.request_id == "urgent" && mapping.offer_id == "offer-a"));
+        input
+            .capability_mappings
+            .retain(|mapping| !(mapping.request_id == "urgent" && mapping.offer_id == "offer-a"));
         let report = optimize_joint_allocation(&input).unwrap();
-        assert!(report.frontier.iter().all(|candidate| candidate.assignments.iter().all(|assignment| {
-            assignment.request_id != "urgent" || assignment.offer_id != "offer-a"
-        })));
+        assert!(
+            report
+                .frontier
+                .iter()
+                .all(|candidate| candidate.assignments.iter().all(|assignment| {
+                    assignment.request_id != "urgent" || assignment.offer_id != "offer-a"
+                }))
+        );
     }
 }
