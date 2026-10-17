@@ -164,3 +164,12 @@ The current authored tests cover flexible-plus-backup recovery, late backup reje
 Research trail: two-stage robust supplier selection using normal/flexible/backup procurement modes (Dai, Zou & Zhang, 2026, https://doi.org/10.1016/j.ijpe.2026.110060); distributionally robust supplier allocation when disruption probabilities are poorly known (Li, Doan & Branke, 2026, https://doi.org/10.1016/j.ijpe.2026.110160); resilience with disruption dependencies, backup sourcing and reactive recovery (Hosseini et al., 2019, https://doi.org/10.1016/j.ijpe.2019.03.018). These motivate testable hypotheses, not universal performance guarantees.
 
 The module is a research/reference model; it does not search for suppliers, execute contracts, issue orders, mutate stock, make payments, or prove source authenticity. It evaluates a supplied scenario set without assuming synthetic scenarios have calibrated probabilities.
+
+
+## Ex-ante procurement strategy (experimental)
+
+The additive `strategy` module exhaustively evaluates subsets of up to eight already-described flexible/backup options against the same frozen scenario set, invoking the current recourse evaluator for each subset. It returns a Pareto frontier over commitment cost, worst-case shortage, shortage summed across the declared scenarios, worst-case scenario cost and reserved maximum quantity. The scenario sum is a declared Pareto axis and descriptive corpus metric, not an expected value; scenarios are unweighted, and duplicate scenarios can change that axis.
+
+The first slice treats reservations as all-or-nothing at each option's maximum activation quantity. It does not size partial reservations, model mutually exclusive options, allocate across multiple simultaneous requests, establish supplier truth, execute contracts or choose an authorized award. It fails closed on exhausted search bounds. The full acceptance contract and baselines are documented in [STRATEGY_BENCHMARKS_V1.md](STRATEGY_BENCHMARKS_V1.md).
+
+The subset enumerator currently uses the same recourse reference module to score candidate sets. The test suite contains one test-local tiny two-option subset/activation-quantity oracle, but it is not yet a generalized independent recourse oracle or broad qualification corpus. Exact-head CI is also required before correctness claims. No compile/test pass or runtime measurement is claimed yet.
