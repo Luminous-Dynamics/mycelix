@@ -515,8 +515,109 @@ async fn query_storage_persisted() -> Option<bool> {
 }
 
 #[cfg(test)]
+#[derive(Default)]
+struct MemoryJournal {
+    records: RefCell<std::collections::BTreeMap<String, JournalEntryV1>>,
+    fail_next_write: Cell<bool>,
+}
+
+#[cfg(test)]
+impl MemoryJournal {
+    fn fail_next_write(&self) {
+        self.fail_next_write.set(true);
+    }
+
+    fn consume_failure(&self) -> Result<(), JournalError> {
+        if self.fail_next_write.replace(false) {
+            Err(JournalError::CommitFailed)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn insert_prepared_sync(&self, entry: JournalEntryV1) -> Result<(), JournalError> {
+        entry.validate()?;
+        if entry.status() != AttemptStatus::Prepared {
+            return Err(JournalError::InvalidRecord);
+        }
+        self.consume_failure()?;
+        let mut records = self.records.borrow_mut();
+        if records.contains_key(entry.operation_id()) {
+            return Err(JournalError::DuplicateOperation);
+        }
+        records.insert(entry.operation_id().to_string(), entry);
+        Ok(())
+    }
+
+    fn transition_sync(
+        &self,
+        operation_id: &str,
+        next: AttemptStatus,
+        now_unix_ms: u64,
+    ) -> Result<JournalEntryV1, JournalError> {
+        self.consume_failure()?;
+        let mut records = self.records.borrow_mut();
+        let mut entry = records
+            .get(operation_id)
+            .cloned()
+            .ok_or(JournalError::MissingOperation)?;
+        entry.transition(next, now_unix_ms)?;
+        records.insert(operation_id.to_string(), entry.clone());
+        Ok(entry)
+    }
+
+    fn list_sync(&self) -> Vec<JournalEntryV1> {
+        let mut entries = self.records.borrow().values().cloned().collect::<Vec<_>>();
+        entries.sort_by(|a, b| a.operation_id().cmp(b.operation_id()));
+        entries
+    }
+
+    fn recover_sync(&self, now_unix_ms: u64) -> Result<Vec<JournalEntryV1>, JournalError> {
+        for entry in self.list_sync() {
+            if entry.status() == AttemptStatus::Submitted {
+                self.transition_sync(
+                    entry.operation_id(),
+                    AttemptStatus::OutcomeUnknown,
+                    now_unix_ms.max(entry.updated_at_unix_ms()),
+                )?;
+            }
+        }
+        Ok(self.list_sync())
+    }
+}
+
+#[cfg(test)]
+impl ActionJournalStore for MemoryJournal {
+    async fn insert_prepared(&self, entry: JournalEntryV1) -> Result<(), JournalError> {
+        self.insert_prepared_sync(entry)
+    }
+
+    async fn transition(
+        &self,
+        operation_id: &str,
+        next: AttemptStatus,
+        now_unix_ms: u64,
+    ) -> Result<JournalEntryV1, JournalError> {
+        self.transition_sync(operation_id, next, now_unix_ms)
+    }
+
+    async fn list(&self) -> Result<Vec<JournalEntryV1>, JournalError> {
+        Ok(self.list_sync())
+    }
+
+    async fn recover_after_restart(
+        &self,
+        now_unix_ms: u64,
+    ) -> Result<Vec<JournalEntryV1>, JournalError> {
+        self.recover_sync(now_unix_ms)
+    }
+}
+
+#[cfg(test)]
 mod tests {
-    use super::{decode_record, valid_sha256_fingerprint, JournalEntryV1, JournalError};
+    use super::{
+        decode_record, valid_sha256_fingerprint, JournalEntryV1, JournalError, MemoryJournal,
+    };
     use crate::action_lifecycle::{ActionKind, AttemptStatus};
 
     const FINGERPRINT: &str =
@@ -531,6 +632,39 @@ mod tests {
             100,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn injected_prepared_commit_failure_leaves_no_dispatchable_record() {
+        let journal = MemoryJournal::default();
+        journal.fail_next_write();
+        assert_eq!(
+            journal.insert_prepared_sync(prepared()),
+            Err(JournalError::CommitFailed)
+        );
+        assert!(journal.list_sync().is_empty());
+    }
+
+    #[test]
+    fn restart_recovery_persists_unknown_before_exposing_rows() {
+        let journal = MemoryJournal::default();
+        journal.insert_prepared_sync(prepared()).unwrap();
+        journal
+            .transition_sync(
+                "c0ffee00-0000-4000-8000-000000000001",
+                AttemptStatus::Submitted,
+                110,
+            )
+            .unwrap();
+
+        let recovered = journal.recover_sync(120).unwrap();
+        assert_eq!(recovered.len(), 1);
+        assert_eq!(recovered[0].status(), AttemptStatus::OutcomeUnknown);
+        assert_eq!(
+            journal.list_sync()[0].status(),
+            AttemptStatus::OutcomeUnknown
+        );
+        assert!(!recovered[0].status().dispatch_eligible());
     }
 
     #[test]
