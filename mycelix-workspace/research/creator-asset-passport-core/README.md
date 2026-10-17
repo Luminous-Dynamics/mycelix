@@ -22,6 +22,7 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Exact grantee, purpose, action, asset, start time and expiry checks; revocation is evaluated by time so historical uses before revocation can still be audited.
 - Order-independent usage evaluation by immutable grant ID: a revocation dominates an original grant regardless of history ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
 - An append-only in-memory issue/revocation event log with event-ID idempotency, monotonic event-time checks, deterministic replay, and atomic rejection of invalid transitions.
+- A separately implemented event-stream reconstruction path for differential comparison against append-derived effective grant state; it does not call the append method.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
@@ -65,8 +66,7 @@ No runtime performance or compilation result is claimed in this source-only revi
 ## Next high-value steps
 
 1. Run and repair the test suite on a pinned stable Rust toolchain.
-2. Add an independently implemented history verifier and compare its result to the append/replay engine.
-3. Add property-based or exhaustive boundary tests for split sums, grant IDs and time windows.
-4. Define a versioned portable envelope with deterministic canonical bytes and a cryptographic content digest; do not claim a digest is a signature or proof of legal rights.
-5. Create fixture adapters for external identifiers and DDEX metadata/revenue exchange; preserve raw source digests and parser/version metadata and never silently map missing values.
-6. Add differential tests and fuzzing before relying on the policy check in a publishing or AI workflow gate.
+2. Extend differential verification with generated event streams, mutation testing, and an externally supplied expected snapshot.
+3. Define a versioned portable envelope with deterministic canonical bytes and a cryptographic content digest; do not claim a digest is a signature or proof of legal rights.
+4. Create fixture adapters for external identifiers and DDEX metadata/revenue exchange; preserve raw source digests and parser/version metadata and never silently map missing values.
+5. Add fuzzing before relying on the policy check in a publishing or AI workflow gate.
