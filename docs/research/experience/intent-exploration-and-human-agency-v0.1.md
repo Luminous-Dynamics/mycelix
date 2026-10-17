@@ -259,6 +259,23 @@ For each product, pick at least three real core tasks plus the shared synthetic 
 4. Pilot the interaction protocol in one low-stakes Symthaea workflow and one Mycelix participant flow; adapt semantics for Sol Atlas and Symtropy in their existing issues.
 5. Capture deterministic before/after interaction evidence. A queued CI job is not a pass; local reproducible tests and independent checks may advance the work while hosted runners are queued.
 
+### Structural qualifier (first executable seam)
+
+A standalone Rust qualifier has been added at `tools/intent-exploration-qualifier/`.
+
+From the Mycelix repository root:
+
+```bash
+cargo test --manifest-path tools/intent-exploration-qualifier/Cargo.toml
+cargo run --manifest-path tools/intent-exploration-qualifier/Cargo.toml -- \\
+  docs/research/experience/intent-exploration-benchmark-v0.1.json \\
+  docs/research/experience/intent-exploration-qualification-gates-v0.1.json
+```
+
+Its responsibility is deliberately narrow: parse both JSON files; validate 100-case / 20-family shape; enforce unique IDs, family/product/risk consistency, registered property references, unique qualification gate IDs, and required gate coverage. Unit tests include duplicate-ID, unknown-property, and missing-authorization-gate negative controls.
+
+A successful run means **manifest integrity only**. It does not run an AI model, judge a natural-language response, qualify behavioral safety, or establish usability. It must print that limitation. Local execution has not yet been observed in this authoring session; treat the committed test suite as pending until it is actually run.
+
 No persistent psychological profile or external-effect automation is required to deliver the first tranche.
 
 ## Definition of done for v0.1
