@@ -4,7 +4,7 @@
 **Tracking issue:** [PROC-MULTIREQ-001 #5144](https://github.com/Luminous-Dynamics/mycelix/issues/5144).  
 **Implementation:** [joint_capacity.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-joint-capacity-validation-v1/mycelix-finance/tools/economic-coordination-reference/src/joint_capacity.rs).
 
-The first implementation has 13 authored module tests. Test names are included where they cover a row; the registry's remaining cases are planned. No row is declared passing until exact-head CI has executed it. “LiveDomain” in a synthetic fixture tests branch behavior only and does not authenticate real evidence.
+The first implementation has 14 authored module tests. Test names are included where they cover a row; the registry's remaining cases are planned. No row is declared passing until exact-head CI has executed it. “LiveDomain” in a synthetic fixture tests branch behavior only and does not authenticate real evidence.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -57,3 +57,5 @@ The first implementation has 13 authored module tests. Test names are included w
 - The checker’s output is not its own independent oracle. Test-local expectations and the small-instance exhaustive oracle must be independently implemented.
 - Once small-instance oracle qualification is complete, run at least 10,000 deterministic generated cases with pinned generator, seed, manifest, corpus digest and revision. Counterexamples become named fixtures.
 - Keep the verified-synthetic negative control, stale-evidence controls and deliberate shared-pool over-allocation cases permanently.
+
+| JCV-041 | Exhaustive 2-request x 2-offer binary assignment matrix at three shared-pool ceilings | 48 cases agree with test-local independent demand/offer/pool feasibility oracle | Authored |
