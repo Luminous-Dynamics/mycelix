@@ -9,6 +9,8 @@ cargo test --manifest-path mycelix-praxis/tools/cyber-corpus-verifier/Cargo.toml
 cargo run --manifest-path mycelix-praxis/tools/cyber-corpus-verifier/Cargo.toml -- mycelix-praxis
 ```
 
+A local run without a source-commit argument is marked `STRUCTURAL_PASS_UNPINNED_SOURCE_NOT_QUALIFICATION`. CI checks out the exact pull-request head commit and passes that SHA as the third CLI argument, producing a source-bound structural receipt. A caller-supplied SHA is provenance metadata, not proof that a dirty local working tree matches that commit.
+
 The CLI hashes exact bytes before parsing challenge/oracle records, rejects unsafe manifest paths, checks the pinned file set and byte lengths, validates strict Rust data structures (unknown fields are rejected), checks duplicate identities and evidence references, and emits a deterministic machine-readable report.
 
 A successful disposition is explicitly `STRUCTURAL_PASS_NOT_CAPABILITY_PASS`. The verifier does not validate the full JSON Schema metaschema, score model answers, qualify a cyber range, establish learner efficacy, or prove real-world security. The public seed answer key is not suitable as a held-out evaluation set.
