@@ -24,7 +24,7 @@ The same claim/version is an alternative-acquisition group: the selector recomme
 
 ## Decision-sensitivity metric
 
-For each action, canonicalize and deduplicate the branch frontiers. Report:
+For each action, canonicalize and deduplicate the branch frontiers for structural counts while preserving each named branch in the report. Reject an action whose latest completion precedes the evaluation time. Report:
 - number of distinct resulting frontiers (not raw duplicated outcome labels);
 - number of distinct frontiers that differ from the baseline;
 - maximum symmetric-difference size between the baseline and an outcome frontier;
