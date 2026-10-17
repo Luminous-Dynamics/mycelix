@@ -243,6 +243,34 @@ Implement a small Rust-first pure evaluation crate or reuse an appropriate exist
 
 No real profiles, private messages, or safety reports are needed for Stage 1.
 
+#### Required synthetic robustness families
+
+A single generator configuration is insufficient to qualify exposure allocation. The initial harness suite therefore runs the same policies over these deterministic, seeded stress families:
+
+| Family | Failure mode under test |
+|---|---|
+| Baseline | Preserve comparability with the original synthetic generator |
+| Sparse market | Low feasible degree, rare interests, isolated candidates, unstable relative metrics |
+| Dense market | High feasible degree, larger candidate pools, top-k congestion |
+| Opt-out heavy | Low discovery participation and high inactivity; verify denominators do not hide excluded people |
+| Skewed goals | Uneven distribution of stated connection goals across the two abstract partitions |
+| Concentrated preferences | Deliberate popularity-concentration negative control; stable tie-breaking must not be mistaken for quality |
+| Adversarial blocking | Coordinated blocks against a small target set; every block must remain authoritative |
+| Cold start | Participants with minimal and uncommon declared interests |
+
+Use the same seed sequence for each family, but compute a separate corpus fingerprint for every family/seed pair. A family name documents the transformation, not a claim that the scenario represents the prevalence or psychology of real people.
+
+#### Interpretation and non-regression rules
+
+- Publish each family separately; never let an aggregate mean hide a catastrophic sparse, opt-out, or adversarial slice.
+- Require zero invalid recommendations and zero eligibility/consent negative-control violations across every tested family, seed, and policy. A fairness benefit cannot compensate for one hard-invariant violation.
+- Report the count of comparable seeds whenever a relative Gini reduction is calculated. When baseline Gini is zero or a denominator is not meaningful, report the metric as non-comparable rather than a false zero-percent improvement.
+- Retain the initial ≥8% raw-Gini and ≥10% opportunity-normalized-Gini relative-reduction targets as overall experimental targets, not universal guarantees for every market topology.
+- No family may suffer more than a 5% relative reduction in reciprocal-shortlist pairs against the strongest simpler baseline without a preregistered explanation. Also report feasible-pair density, coverage, exposure tails, and excluded/no-opportunity counts together.
+- The initial 30-seed run is exploration. For a release decision, preregister a larger seed suite and scenario-specific sample/uncertainty requirements before inspecting the outcomes.
+
+These are proposed evaluation rules. The new Rust scenario generators and sweep runner remain unqualified until the exact head has been compiled, executed, and checked against the documented corpus and toolchain.
+
 ### Stage 2 — adversarial security and privacy review
 
 Map every field and observer, review age assurance and identity choices, define human moderation and appeals, and test account recovery and replacement-account abuse. Have an independent reviewer challenge the assumptions. Do not invent cryptography: evaluate established standards and get specialist review for privacy-enhancing cryptographic constructions.
