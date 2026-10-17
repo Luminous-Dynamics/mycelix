@@ -141,7 +141,7 @@ impl Machine {
             }
         }
 
-        self != &before
+        *self != before
     }
 
     pub fn invariants_hold(&self) -> bool {
