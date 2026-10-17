@@ -29,6 +29,18 @@ const REQUIRED_FIXTURE_IDS: [&str; 19] = [
     "VD19_PUBLIC_RAW_VIN",
 ];
 
+const REQUIRED_RECORD_INSTANCE_IDS: [&str; 9] = [
+    "VRE01_VALID_MAINTENANCE_EVENT",
+    "VRE02_MISSING_SIGNATURE",
+    "VRE03_SIGNED_DIGEST_MISMATCH",
+    "VRE04_MISSING_PROCEDURE_GRAPH_REF",
+    "VRE05_OBSERVED_DURATION_WITHOUT_SOURCE",
+    "VRE06_POSTCHECK_WITHOUT_EVIDENCE",
+    "VRE07_SHARED_RAW_VIN",
+    "VRE08_VERIFIED_WITHOUT_ATTESTATION",
+    "VRE09_DISPUTED_WITHOUT_DISPUTE_REF",
+];
+
 type AuditResult<T> = Result<T, Vec<String>>;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -36,6 +48,8 @@ struct AuditSummary {
     fixture_count: usize,
     schema_sha256: String,
     fixture_sha256: String,
+    record_instance_count: usize,
+    record_instances_sha256: String,
 }
 
 fn default_schema_path() -> PathBuf {
@@ -207,6 +221,108 @@ fn signature_binding_errors(record: &Value) -> Vec<String> {
     errors
 }
 
+
+fn validate_record_instance_fixtures(
+    schema: &Value,
+    document: &Value,
+    raw_bytes: &[u8],
+) -> AuditResult<(usize, String)> {
+    let mut errors = Vec::new();
+    if string_at(document, "corpus_version") != Some("vehicle-record-envelope-instances/0.1") {
+        errors.push("record instances: unexpected corpus version".to_owned());
+    }
+    if string_at(document, "status") != Some("synthetic-record-instances-not-production-signatures") {
+        errors.push("record instances: synthetic signature status must remain explicit".to_owned());
+    }
+    let Some(fixtures) = document.get("fixtures").and_then(Value::as_array) else {
+        return Err(vec!["record instances.fixtures must be an array".to_owned()]);
+    };
+    if fixtures.len() != REQUIRED_RECORD_INSTANCE_IDS.len() {
+        errors.push(format!(
+            "record instances: expected {} fixtures, found {}",
+            REQUIRED_RECORD_INSTANCE_IDS.len(), fixtures.len()
+        ));
+    }
+
+    let validator = match jsonschema::draft202012::options()
+        .should_validate_formats(true)
+        .build(schema)
+    {
+        Ok(validator) => Some(validator),
+        Err(error) => {
+            errors.push(format!("record instances: schema compilation failed: {error}"));
+            None
+        }
+    };
+    let mut seen = BTreeSet::new();
+    for (index, fixture) in fixtures.iter().enumerate() {
+        let at = format!("record instances[{index}]");
+        let Some(id) = string_at(fixture, "id") else {
+            errors.push(format!("{at}: missing fixture ID"));
+            continue;
+        };
+        if !seen.insert(id.to_owned()) {
+            errors.push(format!("{at}: duplicate fixture ID {id}"));
+        }
+        if !REQUIRED_RECORD_INSTANCE_IDS.contains(&id) {
+            errors.push(format!("{at}: unregistered fixture ID {id}"));
+        }
+        let expectation = string_at(fixture, "expectation").unwrap_or("");
+        let Some(record) = fixture.get("record") else {
+            errors.push(format!("{at}: missing record instance"));
+            continue;
+        };
+        let Some(validator) = validator.as_ref() else { continue; };
+        let schema_errors: Vec<String> = validator.iter_errors(record).map(|error| error.to_string()).collect();
+        let signature_errors = signature_binding_errors(record);
+        match expectation {
+            "accept" => {
+                if !schema_errors.is_empty() {
+                    errors.push(format!("{id}: valid instance failed schema: {}", schema_errors.join("; ")));
+                }
+                if !signature_errors.is_empty() {
+                    errors.push(format!("{id}: valid instance failed digest/context binding: {}", signature_errors.join("; ")));
+                }
+            }
+            "reject_schema" => {
+                if schema_errors.is_empty() {
+                    errors.push(format!("{id}: invalid instance unexpectedly passed schema"));
+                }
+            }
+            "reject_signature_binding" => {
+                if !schema_errors.is_empty() {
+                    errors.push(format!("{id}: digest-binding negative control also failed schema"));
+                } else if signature_errors.is_empty() {
+                    errors.push(format!("{id}: digest-binding negative control unexpectedly passed"));
+                }
+            }
+            _ => errors.push(format!("{id}: unknown expectation {expectation}")),
+        }
+    }
+    for id in REQUIRED_RECORD_INSTANCE_IDS {
+        if !seen.contains(id) {
+            errors.push(format!("record instances: missing fixture {id}"));
+        }
+    }
+    let ceiling = document.get("claim_ceiling").and_then(Value::as_array);
+    if !ceiling.is_some_and(|items| {
+        items.iter().filter_map(Value::as_str).any(|text| text.contains("does not cryptographically verify them"))
+            && items.iter().filter_map(Value::as_str).any(|text| text.contains("No fixture establishes legal title"))
+    }) {
+        errors.push("record instances: explicit synthetic/claim ceiling required".to_owned());
+    }
+    if errors.is_empty() {
+        Ok((fixtures.len(), format!("{:x}", Sha256::digest(raw_bytes))))
+    } else {
+        Err(errors)
+    }
+}
+
+fn default_record_instances_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../mycelix-commons/fixtures/vehicle_record_envelopes_v0_1.json")
+}
+
 fn valid_repair_record() -> Value {
     json!({
         "schema_version": EXPECTED_SCHEMA_VERSION,
@@ -303,6 +419,22 @@ fn main() -> ExitCode {
         }
     }
 
+    let record_instances_path = default_record_instances_path();
+    let record_instances_bytes = match fs::read(&record_instances_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("SCHEMA_AUDIT_FAIL: cannot read {}: {error}", record_instances_path.display());
+            return ExitCode::from(2);
+        }
+    };
+    let record_instances: Value = match serde_json::from_slice(&record_instances_bytes) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("SCHEMA_AUDIT_FAIL: record instance JSON parse error: {error}");
+            return ExitCode::from(2);
+        }
+    };
+
     let schema_bytes = match fs::read(&schema_path) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -345,18 +477,30 @@ fn main() -> ExitCode {
         errors.extend(instance_errors(&schema, &record));
         errors.extend(signature_binding_errors(&record));
     }
+    let record_instance_result = match validate_record_instance_fixtures(&schema, &record_instances, &record_instances_bytes) {
+        Ok(result) => Some(result),
+        Err(instance_errors) => {
+            errors.extend(instance_errors);
+            None
+        }
+    };
     if errors.is_empty() {
         let fixture_count = fixture_count.unwrap_or_default();
+        let (record_instance_count, record_instances_sha256) =
+            record_instance_result.expect("record instance fixtures valid when audit succeeds");
         let summary = AuditSummary {
             fixture_count,
             schema_sha256: format!("{:x}", Sha256::digest(&schema_bytes)),
             fixture_sha256: format!("{:x}", Sha256::digest(&fixture_bytes)),
+            record_instance_count,
+            record_instances_sha256,
         };
         println!(
-            "SCHEMA_AUDIT_PASS schema_draft=2020-12 fixtures={} schema_sha256={} fixtures_sha256={}",
-            summary.fixture_count, summary.schema_sha256, summary.fixture_sha256
+            "SCHEMA_AUDIT_PASS schema_draft=2020-12 decision_fixtures={} schema_sha256={} decision_fixtures_sha256={} record_instances={} record_instances_sha256={}",
+            summary.fixture_count, summary.schema_sha256, summary.fixture_sha256,
+            summary.record_instance_count, summary.record_instances_sha256
         );
-        println!("CLAIM_CEILING schema meta-validity + fixture structure + one synthetic envelope validation only");
+        println!("CLAIM_CEILING schema/corpus conformance and declared digest-binding consistency only; no cryptographic verification, truth, legal title or safety result");
         ExitCode::SUCCESS
     } else {
         eprintln!("SCHEMA_AUDIT_FAIL errors={}", errors.len());
@@ -381,6 +525,11 @@ mod tests {
             .expect("fixtures should be valid JSON")
     }
 
+    fn record_instances() -> Value {
+        serde_json::from_str(include_str!("../../../mycelix-commons/fixtures/vehicle_record_envelopes_v0_1.json"))
+            .expect("record instance corpus should be JSON")
+    }
+
     fn passes(schema: &Value, record: &Value) -> bool {
         instance_errors(schema, record).is_empty()
     }
@@ -396,6 +545,27 @@ mod tests {
     fn frozen_fixture_census_is_complete() {
         let fixtures = fixtures();
         assert_eq!(check_fixture_corpus(&fixtures), Ok(19));
+    }
+
+    #[test]
+    fn frozen_record_instances_validate_all_schema_and_binding_expectations() {
+        let schema=schema();
+        let doc=record_instances();
+        let bytes=serde_json::to_vec(&doc).expect("fixture bytes");
+        let result=validate_record_instance_fixtures(&schema,&doc,&bytes).expect("record instance corpus");
+        assert_eq!(result.0,9);
+        assert_eq!(result.1.len(),64);
+    }
+
+    #[test]
+    fn digest_mismatch_negative_control_cannot_be_relabelled_valid() {
+        let mut doc=record_instances();
+        let fixtures=doc["fixtures"].as_array_mut().expect("fixture array");
+        let entry=fixtures.iter_mut().find(|x|x["id"]=="VRE03_SIGNED_DIGEST_MISMATCH").expect("digest fixture");
+        entry["expectation"]=Value::String("accept".to_owned());
+        let schema=schema();
+        let bytes=serde_json::to_vec(&doc).expect("fixture bytes");
+        assert!(validate_record_instance_fixtures(&schema,&doc,&bytes).is_err());
     }
 
     #[test]
