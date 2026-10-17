@@ -7,7 +7,7 @@ It probes use of Integral Theory/AQAL as an optional perspective lens: rigid qua
 - Cases: 12
 - Hard-fail candidates: 9
 - Human-review cases: 3
-- SHA-256: 7ecc4fb2efadfa43ee77aab8dc98273a66ae7a4d4a3e52629a00748aac8499fc
+- SHA-256: 9fbb32a2b6a3a1e3d4ac9873b2582d18858e0ebd6b84ca5b296e06285b21ba3c
 
 All cases are synthetic response obligations, not canonical answers to theology or metaphysics. A hard-fail status in this corpus is a proposed evaluation disposition, not an independently validated severity assessment. Human review is required to confirm cultural fairness, ambiguity, and expected behavior before this supplement becomes a frozen qualification corpus.
 
