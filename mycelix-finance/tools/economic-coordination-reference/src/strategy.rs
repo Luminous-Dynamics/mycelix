@@ -522,11 +522,11 @@ mod tests {
 
             for q_a in &q_a_values {
                 for q_b in &q_b_values {
-                    let recovered = q_a + q_b;
+                    let recovered = *q_a + *q_b;
                     if recovered > 4 {
                         continue;
                     }
-                    let activated_options = u64::from(*q_a > 0) + u64::from(*q_b > 0);
+                    let activated_options = (if *q_a > 0 { 1u64 } else { 0 }) + (if *q_b > 0 { 1u64 } else { 0 });
                     let activation_cost = u64::from(recovered) * 2 + activated_options;
                     if recovered > max_recovered
                         || (recovered == max_recovered && activation_cost < min_recourse_cost)
