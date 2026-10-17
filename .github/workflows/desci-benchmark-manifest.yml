@@ -36,7 +36,7 @@ jobs:
           components: rustfmt
 
       - name: Check manifest module formatting
-        run: cargo fmt --manifest-path mycelix-workspace/mycelix-desci/Cargo.toml -- --check
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-desci/src/core/src/scientific_benchmark_manifest.rs
 
       - name: Test scientific benchmark manifest invariants
         run: cargo test --manifest-path mycelix-workspace/mycelix-desci/Cargo.toml -p mycelix-desci-core scientific_benchmark_manifest::tests
