@@ -21,6 +21,19 @@ The journal answers: **what did this browser durably record about the attempt?**
 - Restart recovery changes every recovered `Submitted` row to `OutcomeUnknown`, persists that transition, and only then returns the current list. It never replays an action.
 - A deterministic in-memory fake supports commit-failure and recovery tests.
 
+## Live dispatch integration (HTH-UX-011)
+
+The follow-on branch/PR wires the durable gate into all five currently live UI mutation handlers: bond tending, gratitude, voting, presence, and care completion.
+
+- Context startup opens IndexedDB and finishes restart recovery before exposing a journal handle to live handlers.
+- Each handler first validates the selected Hearth scope and action target, computes domain-separated scope/target fingerprints, writes Prepared, then writes Submitted, and only sends the zome call if both transaction-completion results succeeded.
+- If storage is unavailable or either required write reports an error, the handler shows a Not sent message and returns before the network call.
+- On a decoded successful response, the resident receives saved feedback immediately and the journal then records SourceChainCommitted. If this final local write fails, the UI warns that the saved result was received but local recovery state is not confirmed; users are told not to repeat the action until reconciled.
+- On transport/call error, the UI reports OutcomeUnknown and the journal attempts to persist that state. Persistence failure is separately surfaced and never makes the action safe to retry.
+- The local operation ID is not sent to Holochain and is not represented as a backend idempotency key.
+
+This narrows accidental client-side duplicate risk but is still not exactly-once remote execution. If the browser loses all local storage after dispatch, the client journal cannot recover its own history; domain reconciliation and a separately qualified backend idempotency contract remain necessary.
+
 ## Dispatch protocol required before production integration
 
 The adapter exists, but current Hearth live action handlers are **not yet routed through it**. Until that follow-on integration is complete, do not claim that actual UI dispatches are journal-gated or that blind replay has been eliminated end-to-end.
