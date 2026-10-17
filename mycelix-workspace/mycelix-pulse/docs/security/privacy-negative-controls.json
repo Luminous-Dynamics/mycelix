@@ -260,7 +260,7 @@
         "PULSE-META-018"
       ],
       "category": "receipt_idempotency_and_activity_metadata",
-      "precondition": "Use a frozen multi-agent Holochain test with one synthetic V1 envelope, one intended recipient agent, and a captured public-record/link view.",
+      "precondition": "Use a frozen multi-agent Holochain test with one synthetic legacy V1 envelope, one intended recipient agent, and a captured public-record/link view.",
       "injected_condition": "Call acknowledge_delivery sequentially many times and concurrently from duplicate handlers for the same email ActionHash; replay the same request after restart. Capture created DeliveryReceipt entries, EmailToDeliveryReceipts links, timestamps and sender-visible receipt projection.",
       "observer_vantage": [
         "recipient conductor",
@@ -270,7 +270,7 @@
       ],
       "expected_secure_result": "Repeated acknowledgments converge to one logical delivery receipt under the declared idempotency model, or to an explicitly documented deterministic set that cannot inflate delivery count or alter the original delivery event. The sender must not confuse repeated receipt artifacts with multiple deliveries.",
       "harness_sensitivity_gate": "A deliberately non-idempotent baseline using fresh timestamps must create distinguishable receipt entries and trigger the count/correlation detector; the harness must detect duplicates from sequential and concurrent retries.",
-      "on_failure": "Fail receipt idempotency and activity-minimization qualification; create deterministic Rust regression traces and resolve with the durable delivery work in #5062.",
+      "on_failure": "Fail receipt idempotency and activity-minimization qualification; preserve deterministic Rust regression traces and resolve with durable delivery work #5062.",
       "claim_limit": "A successful local concurrency test does not prove distributed global exactly-once receipt creation; the exact topology and consistency assumptions must be stated.",
       "status": "not_run"
     },
@@ -282,7 +282,7 @@
         "PULSE-META-017"
       ],
       "category": "local_diagnostic_correlation_identifier",
-      "precondition": "Build the canonical Leptos V2 compose path with a synthetic message and a unique test ActionHash under a frozen build profile.",
+      "precondition": "Build the canonical Leptos V2 compose path with a synthetic message and unique test ActionHash under a frozen build profile.",
       "injected_condition": "Capture browser console output and any configured diagnostic export for a successful V2 send. Include a known-bad fixture that logs the full raw ActionHash in normal production mode.",
       "observer_vantage": [
         "browser console",
