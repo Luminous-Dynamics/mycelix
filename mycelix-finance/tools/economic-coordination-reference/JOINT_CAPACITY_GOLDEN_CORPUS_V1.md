@@ -4,7 +4,7 @@
 **Tracking issue:** [PROC-MULTIREQ-001 #5144](https://github.com/Luminous-Dynamics/mycelix/issues/5144).  
 **Implementation:** [joint_capacity.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-joint-capacity-validation-v1/mycelix-finance/tools/economic-coordination-reference/src/joint_capacity.rs).
 
-The first implementation has 17 authored module tests. Test names are included where they cover a row; the registry's remaining cases are planned. No row is declared passing until exact-head CI has executed it. “LiveDomain” in a synthetic fixture tests branch behavior only and does not authenticate real evidence.
+The current implementation has 19 authored module tests. Test names are included where they cover a row; the registry's remaining cases are planned. No row is declared passing until exact-head CI has executed it. “LiveDomain” in a synthetic fixture tests branch behavior only and does not authenticate real evidence.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -53,6 +53,9 @@ The first implementation has 17 authored module tests. Test names are included w
 | JCV-042 | Unit-cost times quantity exceeds u64 | Checked arithmetic error, never a wrapped passing report | Authored |
 | JCV-043 | Same literal unit but different capability/profile | Quantity totals stay separated by capability/profile/unit | Authored |
 | JCV-044 | Empty request set with otherwise empty manifest | Invalid manifest rejected | Authored |
+
+| JCV-045 | Request deadline precedes evaluation cutoff | Prospective allocation rejected as expired | Authored |
+| JCV-046 | Accepted allocation witness source audit | Source URI/digest, qualification receipt, evidence status/origin and validity times retained | Authored |
 
 ## Qualification rules
 
