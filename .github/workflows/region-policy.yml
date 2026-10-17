@@ -36,4 +36,4 @@ jobs:
       - name: Warnings-denied Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Compile native benchmark
-        run: cargo bench --bench policy_eval --no-run --locked
+        run: cargo bench --no-run --locked
