@@ -752,6 +752,35 @@ mod tests {
         PartyId::new(value).unwrap()
     }
 
+
+    fn composition_claim(
+        asset_id: &AssetId,
+        participant: &str,
+        basis_points: Option<u16>,
+        state: ClaimState,
+        evidence_ref: &str,
+    ) -> SplitClaim {
+        SplitClaim::new(
+            asset_id.clone(),
+            party(participant),
+            RightsPool::Composition,
+            basis_points,
+            state,
+            evidence_ref,
+        )
+        .unwrap()
+    }
+
+    fn make_request(
+        asset_id: AssetId,
+        grantee: &str,
+        action: UseAction,
+        purpose: &str,
+        at: u64,
+    ) -> UseRequest {
+        UseRequest::new(asset_id, party(grantee), action, purpose, at).unwrap()
+    }
+
     #[test]
     fn iswc_identifier_is_syntactic_and_work_scoped() {
         let mut registry = AssetRegistry::new();
@@ -824,8 +853,8 @@ mod tests {
     fn complete_claim_requires_exact_100_percent() {
         let asset = id("work-1");
         let claims = vec![
-            SplitClaim::new(asset.clone(), party("a"), RightsPool::Composition, Some(6000), ClaimState::Confirmed, "evidence:a").unwrap(),
-            SplitClaim::new(asset.clone(), party("b"), RightsPool::Composition, Some(4000), ClaimState::Confirmed, "evidence:b").unwrap(),
+            composition_claim(&asset, "a", Some(6000), ClaimState::Confirmed, "evidence:a"),
+            composition_claim(&asset, "b", Some(4000), ClaimState::Confirmed, "evidence:b"),
         ];
         assert_eq!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete).unwrap(),
@@ -836,9 +865,7 @@ mod tests {
     #[test]
     fn partial_split_reports_residual_without_normalizing() {
         let asset = id("work-1");
-        let claims = vec![SplitClaim::new(
-            asset.clone(), party("a"), RightsPool::Composition, Some(6000), ClaimState::Confirmed, "evidence:a",
-        ).unwrap()];
+        let claims = vec![composition_claim(&asset, "a", Some(6000), ClaimState::Confirmed, "evidence:a")];
         assert_eq!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::Partial).unwrap(),
             SplitAssessment::Partial {
@@ -852,9 +879,7 @@ mod tests {
     #[test]
     fn complete_split_cannot_be_inferred_from_a_partial_declaration() {
         let asset = id("work-1");
-        let claims = vec![SplitClaim::new(
-            asset.clone(), party("a"), RightsPool::Composition, Some(10_000), ClaimState::Confirmed, "evidence:a",
-        ).unwrap()];
+        let claims = vec![composition_claim(&asset, "a", Some(10_000), ClaimState::Confirmed, "evidence:a")];
         assert!(matches!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::Partial).unwrap(),
             SplitAssessment::Partial { .. }
@@ -865,8 +890,8 @@ mod tests {
     fn overallocated_split_fails_closed() {
         let asset = id("work-1");
         let claims = vec![
-            SplitClaim::new(asset.clone(), party("a"), RightsPool::Composition, Some(6000), ClaimState::Confirmed, "evidence:a").unwrap(),
-            SplitClaim::new(asset.clone(), party("b"), RightsPool::Composition, Some(5000), ClaimState::Confirmed, "evidence:b").unwrap(),
+            composition_claim(&asset, "a", Some(6000), ClaimState::Confirmed, "evidence:a"),
+            composition_claim(&asset, "b", Some(5000), ClaimState::Confirmed, "evidence:b"),
         ];
         assert_eq!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::Partial),
@@ -878,8 +903,8 @@ mod tests {
     fn complete_split_with_unknown_share_fails_closed() {
         let asset = id("work-1");
         let claims = vec![
-            SplitClaim::new(asset.clone(), party("a"), RightsPool::Composition, Some(6000), ClaimState::Confirmed, "evidence:a").unwrap(),
-            SplitClaim::new(asset.clone(), party("b"), RightsPool::Composition, None, ClaimState::Confirmed, "evidence:b").unwrap(),
+            composition_claim(&asset, "a", Some(6000), ClaimState::Confirmed, "evidence:a"),
+            composition_claim(&asset, "b", None, ClaimState::Confirmed, "evidence:b"),
         ];
         assert_eq!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete),
@@ -891,8 +916,8 @@ mod tests {
     fn duplicate_party_claim_is_not_silently_added_twice() {
         let asset = id("work-1");
         let claims = vec![
-            SplitClaim::new(asset.clone(), party("a"), RightsPool::Composition, Some(5000), ClaimState::Confirmed, "evidence:a1").unwrap(),
-            SplitClaim::new(asset.clone(), party("a"), RightsPool::Composition, Some(5000), ClaimState::Confirmed, "evidence:a2").unwrap(),
+            composition_claim(&asset, "a", Some(5000), ClaimState::Confirmed, "evidence:a1"),
+            composition_claim(&asset, "a", Some(5000), ClaimState::Confirmed, "evidence:a2"),
         ];
         assert_eq!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete),
@@ -903,16 +928,12 @@ mod tests {
     #[test]
     fn disputed_and_proposed_claims_cannot_be_reported_as_confirmed() {
         let asset = id("work-1");
-        let proposed = vec![SplitClaim::new(
-            asset.clone(), party("a"), RightsPool::Composition, Some(10_000), ClaimState::Proposed, "evidence:a",
-        ).unwrap()];
+        let proposed = vec![composition_claim(&asset, "a", Some(10_000), ClaimState::Proposed, "evidence:a")];
         assert!(matches!(
             assess_split(&asset, RightsPool::Composition, &proposed, SplitCompleteness::ClaimedComplete).unwrap(),
             SplitAssessment::Unconfirmed { .. }
         ));
-        let disputed = vec![SplitClaim::new(
-            asset.clone(), party("a"), RightsPool::Composition, Some(10_000), ClaimState::Disputed, "evidence:a",
-        ).unwrap()];
+        let disputed = vec![composition_claim(&asset, "a", Some(10_000), ClaimState::Disputed, "evidence:a")];
         assert!(matches!(
             assess_split(&asset, RightsPool::Composition, &disputed, SplitCompleteness::ClaimedComplete).unwrap(),
             SplitAssessment::Disputed { .. }
@@ -922,9 +943,13 @@ mod tests {
     #[test]
     fn claim_for_wrong_asset_or_pool_is_rejected() {
         let asset = id("work-1");
-        let claims = vec![SplitClaim::new(
-            id("recording-1"), party("a"), RightsPool::Composition, Some(10_000), ClaimState::Confirmed, "evidence:a",
-        ).unwrap()];
+        let claims = vec![composition_claim(
+            &id("recording-1"),
+            "a",
+            Some(10_000),
+            ClaimState::Confirmed,
+            "evidence:a",
+        )];
         assert_eq!(
             assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::ClaimedComplete),
             Err(PassportError::ClaimAssetOrPoolMismatch)
