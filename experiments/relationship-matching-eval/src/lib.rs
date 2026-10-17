@@ -354,6 +354,7 @@ fn recommend_exposure_balanced_validated(
         preferences.insert(viewer.id, candidates);
     }
 
+    let (_, _, opportunity_degree) = eligible_candidate_pool(participants);
     let mut exposure_count: BTreeMap<u32, usize> = prior_exposure.clone();
     let mut selected: BTreeMap<u32, BTreeSet<u32>> = viewers
         .iter()
@@ -384,13 +385,36 @@ fn recommend_exposure_balanced_validated(
                 .min_by(|left, right| {
                     let left_exposure = exposure_count.get(&left.candidate_id).copied().unwrap_or(0);
                     let right_exposure = exposure_count.get(&right.candidate_id).copied().unwrap_or(0);
+                    let left_degree = opportunity_degree
+                        .get(&left.candidate_id)
+                        .copied()
+                        .unwrap_or(1)
+                        .max(1);
+                    let right_degree = opportunity_degree
+                        .get(&right.candidate_id)
+                        .copied()
+                        .unwrap_or(1)
+                        .max(1);
+                    // Compare cumulative exposure per feasible counterpart using
+                    // exact rational cross-multiplication (no floating-point tie
+                    // instability). usize products fit in u128 on supported 64-bit
+                    // targets; use checked arithmetic to remain fail-closed elsewhere.
+                    let left_normalized = (left_exposure as u128)
+                        .checked_mul(right_degree as u128)
+                        .ok_or_else(|| "normalized exposure comparison overflow".to_string());
+                    let right_normalized = (right_exposure as u128)
+                        .checked_mul(left_degree as u128)
+                        .ok_or_else(|| "normalized exposure comparison overflow".to_string());
+                    let normalized_order = match (left_normalized, right_normalized) {
+                        (Ok(left), Ok(right)) => left.cmp(&right),
+                        _ => return Err("normalized exposure comparison overflow".to_string()),
+                    };
                     let left_floor = left.viewer_utility.min(left.candidate_utility);
                     let right_floor = right.viewer_utility.min(right.candidate_utility);
                     let left_sum = left.viewer_utility + left.candidate_utility;
                     let right_sum = right.viewer_utility + right.candidate_utility;
 
-                    left_exposure
-                        .cmp(&right_exposure)
+                    normalized_order
                         .then_with(|| right_floor.cmp(&left_floor))
                         .then_with(|| right_sum.cmp(&left_sum))
                         .then_with(|| right.viewer_utility.cmp(&left.viewer_utility))
