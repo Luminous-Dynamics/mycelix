@@ -344,8 +344,11 @@ fn reject_unknown_keys(object: &Map<String, Value>, allowed: &[&str]) -> Result<
 }
 
 fn validate_state(entity_id: &str, state: &str) -> Result<(), EntityStreamProjectionError> {
-    if state.is_empty() || state.len() > MAX_RAW_STATE_BYTES || state.contains('\0') {
-        return Err(entity_error(entity_id, "state is empty, oversized, or contains NUL"));
+    if state.is_empty() || state.len() > MAX_RAW_STATE_BYTES {
+        return Err(entity_error(entity_id, "state is empty or oversized"));
+    }
+    if state.chars().any(char::is_control) {
+        return Err(entity_error(entity_id, "state contains control characters"));
     }
     Ok(())
 }
@@ -525,6 +528,25 @@ mod tests {
         assert!(out.frames.is_empty());
         assert!(out.removed_entity_ids.is_empty());
         assert_eq!(projector.cached_entity_count(), 1);
+    }
+
+    #[test]
+    fn control_characters_in_projected_state_fail_without_cache_mutation() {
+        let mut projector = projector();
+        let event = json!({
+            "a": {
+                "sensor.living_room_temperature": {
+                    "s": "21.5\\nforged-line",
+                    "a": {}
+                }
+            }
+        });
+        assert!(matches!(
+            projector.apply(EntityStreamKind::InitialSnapshot, &event, 10),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.cached_entity_count(), 0);
+        assert!(!projector.initial_snapshot_seen());
     }
 
     #[test]
