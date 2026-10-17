@@ -81,6 +81,10 @@ Missing denominators or unknown inspection coverage block whole-population claim
 - Limitations, known failures, discrepancy from the model and the next evidence required.
 - Status is derived under the canonical evidence semantics; a producer-supplied PASS field cannot promote its own artifact.
 
+### Decision-aware experiment evidence
+
+For visual-domain design-of-experiments, compose with [Symthaea VIS-EXP-001 #7871](https://github.com/Luminous-Dynamics/symthaea/issues/7871) and shared [SE-OPT-BENCH-001 #7803](https://github.com/Luminous-Dynamics/symthaea/issues/7803). If a selector result is published, record the initial evidence snapshot, candidate design/configuration IDs, objective and hard-constraint version, uncertainty representation (probability model versus intervals/sets), available experiment actions, declared cost/time budget, selected or abstained action, and the exact hidden-oracle/evaluator version. Count failed, censored, missing and aborted experiments and their costs. Selection-policy outputs are derived recommendations, not physical evidence; a proposed measurement becomes physical evidence only after the actual instrument/run artifacts satisfy the applicable measurement contract.
+
 ### Rights and privacy
 
 - License and redistribution state for raw and derived artifacts.
