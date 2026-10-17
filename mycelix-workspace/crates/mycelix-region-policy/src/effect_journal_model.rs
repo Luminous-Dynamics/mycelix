@@ -283,12 +283,14 @@ fn abstract_step(state: AbstractState, event: AbstractEvent) -> Option<AbstractS
 fn invariant_holds(state: AbstractState) -> bool {
     state.effect_count <= 1
         && state.dispatch_count <= 1
-        && (state.effect_count == 0 || state.sink_applied)
+        && (state.sink_applied == (state.effect_count == 1))
         && (state.phase != AttemptPhase::Committed
             || (state.sink_applied && state.effect_count == 1 && state.dispatch_count == 1))
         && (!(state.phase == AttemptPhase::Rejected && state.dispatch_count == 0)
             || state.effect_count == 0)
         && (!(state.phase == AttemptPhase::OutcomeUnknown) || state.dispatch_count == 1)
+        && (!matches!(state.phase, AttemptPhase::Prepared | AttemptPhase::Reserved)
+            || (state.dispatch_count == 0 && !state.sink_applied))
 }
 
 fn explore_abstract_state_space(max_depth: usize) -> (HashSet<AbstractState>, usize) {
@@ -441,6 +443,25 @@ mod tests {
         assert!(states.iter().all(|state| invariant_holds(*state)));
         assert!(states.iter().any(|state| state.phase == AttemptPhase::OutcomeUnknown && state.sink_applied));
         assert!(states.iter().any(|state| state.phase == AttemptPhase::OutcomeUnknown && !state.sink_applied));
+
+        // Negative controls: demonstrate that the oracle is sensitive to the
+        // exact duplicate-effect and false-sink-applied failures it is meant to detect.
+        let duplicate_effect = AbstractState {
+            phase: AttemptPhase::OutcomeUnknown,
+            authority_current: true,
+            sink_applied: true,
+            effect_count: 2,
+            dispatch_count: 1,
+        };
+        assert!(!invariant_holds(duplicate_effect));
+        let false_commit = AbstractState {
+            phase: AttemptPhase::Committed,
+            authority_current: true,
+            sink_applied: false,
+            effect_count: 0,
+            dispatch_count: 1,
+        };
+        assert!(!invariant_holds(false_commit));
     }
 
     #[test]
