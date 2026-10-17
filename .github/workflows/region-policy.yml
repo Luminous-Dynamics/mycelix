@@ -1,0 +1,64 @@
+name: Regional policy kernel
+
+on:
+  push:
+    branches:
+      - "feat/region-policy-core-v1"
+    paths:
+      - "mycelix-workspace/crates/mycelix-region-policy/**"
+      - "mycelix-workspace/Cargo.toml"
+      - ".github/workflows/region-policy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regional-policy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mycelix-workspace/crates/mycelix-region-policy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Validate machine-readable effect fault corpus
+        run: |
+          jq -e '
+            .corpus_id == "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS" and
+            (.cases | length == 29) and
+            ([.cases[].id] | unique | length == 29) and
+            ([.cases[].id | ltrimstr("EJM-") | tonumber] | sort) == [range(1; 30)] and
+            .phase_model == ["Prepared", "Reserved", "DispatchStarted", "OutcomeUnknown", "Committed", "Rejected"] and
+            (.cases | any(.[]; .id == "EJM-029" and .test_anchor == "single_field_snapshot_corruptions_are_rejected" and .status == "implemented_reference_test")) and
+            (.cases | all(.[]; ((keys | sort) == ["category", "expected", "fault", "id", "status", "test_anchor"]) and
+              (.id | type == "string" and test("^EJM-[0-9]{3}$")) and
+              (.category | type == "string" and length > 0) and
+              (.fault | type == "string" and length > 0) and
+              (.expected | type == "string" and length > 0) and
+              (.status == "implemented_reference_model" or .status == "implemented_reference_test" or .status == "integration_gate" or .status == "integration_gate_reuse_existing") and
+              (if (.status == "implemented_reference_model" or .status == "implemented_reference_test") then (.test_anchor | type == "string" and test("^[A-Za-z_][A-Za-z0-9_]*$")) else .test_anchor == null end)))
+          ' EFFECT_JOURNAL_FAULT_CORPUS_V1.json >/dev/null
+          jq -e '.required | index("cases") != null' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
+          jq -e '.properties.cases.minItems == 29 and .properties.cases.items.additionalProperties == false' EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json >/dev/null
+          jq -r '.cases[] | select(.status == "implemented_reference_model" or .status == "implemented_reference_test") | .test_anchor' EFFECT_JOURNAL_FAULT_CORPUS_V1.json | while IFS= read -r anchor; do
+            if ! grep -RPzq "#\\[test\\]\\s*fn\\s+${anchor}\\s*\\(" src; then
+              echo "Missing #[test] Rust test anchor: ${anchor}" >&2
+              exit 1
+            fi
+          done
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Unit and adversarial policy tests
+        run: cargo test --locked
+      - name: Warnings-denied Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Compile native benchmark
+        run: cargo bench --no-run --locked

@@ -1,0 +1,260 @@
+{
+  "corpus_id": "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS",
+  "version": "1.0.0",
+  "status": "draft",
+  "scope": "Regional policy effect lifecycle reference model plus required durable-adapter qualification gates.",
+  "phase_model": [
+    "Prepared",
+    "Reserved",
+    "DispatchStarted",
+    "OutcomeUnknown",
+    "Committed",
+    "Rejected"
+  ],
+  "model_assumptions": [
+    "The reference model is deterministic in-memory value logic.",
+    "The model sink deduplicates only when authority domain, idempotency key, target digest, policy-binding digest, and operation ID match exactly.",
+    "A real deployment must replace model sink behavior with documented destination idempotency and authenticated result lookup.",
+    "The reference model does not simulate real database durability, operating-system crashes, real network delivery, or a cryptographic verifier."
+  ],
+  "nonclaims": [
+    "This corpus is not proof of durable storage behavior.",
+    "The reference sink fixture is not cryptography.",
+    "The model does not establish exactly-once delivery for a destination without idempotency support.",
+    "Queued, cancelled, stale-head, or absent CI status is not a test pass."
+  ],
+  "cases": [
+    {
+      "id": "EJM-001",
+      "category": "concurrency",
+      "fault": "Four workers concurrently load Prepared and reserve in all 2,520 order-preserving schedules.",
+      "expected": "Exactly one compare-and-swap reservation wins in every enumerated four-worker load/reserve interleaving.",
+      "status": "implemented_reference_model",
+      "test_anchor": "every_four_worker_load_reserve_interleaving_has_one_winner"
+    },
+    {
+      "id": "EJM-002",
+      "category": "concurrency",
+      "fault": "A worker attempts reservation using a stale revision after one of four workers has reserved.",
+      "expected": "Stale reservation is rejected; shared row remains at one revision-1 Reserved state.",
+      "status": "implemented_reference_model",
+      "test_anchor": "every_four_worker_load_reserve_interleaving_has_one_winner"
+    },
+    {
+      "id": "EJM-003",
+      "category": "revocation",
+      "fault": "Authority is revoked after reservation but before dispatch starts.",
+      "expected": "Abort in Reserved; zero model sink calls.",
+      "status": "implemented_reference_model",
+      "test_anchor": "revocation_before_dispatch_aborts_reserved_attempt_without_sink_call"
+    },
+    {
+      "id": "EJM-004",
+      "category": "crash",
+      "fault": "Process crashes after DispatchStarted was persisted but before sending.",
+      "expected": "Recovery does not assume remote success or failure; reconcile or dispatch same operation identity only under current authority and destination idempotency contract.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-005",
+      "category": "lost_reply",
+      "fault": "Destination applies the effect, then the reply is lost before local terminal state is persisted.",
+      "expected": "Restore DispatchStarted, repeat lookup/delivery with same identity, obtain the stored result, and observe one model effect.",
+      "status": "implemented_reference_model",
+      "test_anchor": "lost_reply_after_sink_commit_recovers_without_duplicate_effect"
+    },
+    {
+      "id": "EJM-006",
+      "category": "idempotency",
+      "fault": "Same authority domain, key, target, policy digest, and operation ID are delivered twice.",
+      "expected": "Destination returns the prior receipt; model effect count remains one.",
+      "status": "implemented_reference_model",
+      "test_anchor": "lost_reply_after_sink_commit_recovers_without_duplicate_effect"
+    },
+    {
+      "id": "EJM-007",
+      "category": "conflict",
+      "fault": "Idempotency key is reused with a different target digest.",
+      "expected": "Hard conflict before a second effect.",
+      "status": "implemented_reference_model",
+      "test_anchor": "sink_idempotency_key_reuse_for_changed_target_is_a_conflict"
+    },
+    {
+      "id": "EJM-008",
+      "category": "replay",
+      "fault": "Receipt proof is reused across authority domains.",
+      "expected": "Reject before resolution.",
+      "status": "implemented_reference_test",
+      "test_anchor": "rejects_sink_proof_replayed_across_authority_domains"
+    },
+    {
+      "id": "EJM-009",
+      "category": "replay",
+      "fault": "Receipt proof is reused under a different policy-binding digest.",
+      "expected": "Reject before resolution.",
+      "status": "implemented_reference_test",
+      "test_anchor": "rejects_replayed_sink_proof_for_changed_policy_binding"
+    },
+    {
+      "id": "EJM-010",
+      "category": "evidence",
+      "fault": "Sink proof is absent or oversized.",
+      "expected": "Reject proof and remain unresolved.",
+      "status": "implemented_reference_test",
+      "test_anchor": "untrusted_or_missing_sink_proof_fails_closed"
+    },
+    {
+      "id": "EJM-011",
+      "category": "evidence",
+      "fault": "Sink verifier rejects a forged or untrusted proof.",
+      "expected": "No VerifiedSinkOutcome is created.",
+      "status": "implemented_reference_test",
+      "test_anchor": "sink_verifier_rejection_does_not_create_verified_outcome"
+    },
+    {
+      "id": "EJM-012",
+      "category": "evidence",
+      "fault": "Authenticated receipt operation ID differs from persisted operation ID.",
+      "expected": "Reject resolution; retain non-terminal state.",
+      "status": "implemented_reference_test",
+      "test_anchor": "operation_id_must_match_before_terminal_resolution"
+    },
+    {
+      "id": "EJM-013",
+      "category": "concurrency",
+      "fault": "Two workers race to update the same persisted revision.",
+      "expected": "Exactly one compare-and-swap succeeds; losing worker reloads canonical state.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-014",
+      "category": "persistence",
+      "fault": "A local COMMIT call returns an error.",
+      "expected": "Use the existing exact-store commit-classification procedure; never infer truth from error text or code.",
+      "status": "integration_gate_reuse_existing",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-015",
+      "category": "persistence",
+      "fault": "Commit classification is IndeterminateCommit.",
+      "expected": "Reconciliation only; no ordinary dispatch or retry authority.",
+      "status": "integration_gate_reuse_existing",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-016",
+      "category": "authorization",
+      "fault": "Commit classification is DefinitelyNotCommitted but current regional policy has since revoked permission.",
+      "expected": "No retry without fresh independent authorization; persistence classification alone does not authorize execution.",
+      "status": "integration_gate_reuse_existing",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-017",
+      "category": "storage",
+      "fault": "Durable journal write fails before DispatchStarted is committed.",
+      "expected": "Protected effect is not dispatched.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-018",
+      "category": "fencing",
+      "fault": "Worker's fencing generation becomes stale before it crosses dispatch boundary.",
+      "expected": "Sink rejects stale generation or durable CAS denies dispatch; zero stale-worker effect.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-019",
+      "category": "crash",
+      "fault": "Destination commits but local receipt persistence fails.",
+      "expected": "Record becomes/recovers as OutcomeUnknown; reconcile same operation and persist the authenticated outcome without a new logical effect.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-020",
+      "category": "terminal_replay",
+      "fault": "Same idempotency key arrives after the terminal result is durably committed.",
+      "expected": "Return the existing stored terminal result; do not dispatch again.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-021",
+      "category": "isolation",
+      "fault": "Same key is used by a different authority domain.",
+      "expected": "Treat as a different namespaced key; never accept a receipt from the other domain.",
+      "status": "implemented_reference_test",
+      "test_anchor": "rejects_sink_proof_replayed_across_authority_domains"
+    },
+    {
+      "id": "EJM-022",
+      "category": "policy_binding",
+      "fault": "Profile/agreement policy changes between reservation and dispatch.",
+      "expected": "Reevaluate current policy at dispatch boundary; stale policy binding must not authorize the effect.",
+      "status": "integration_gate",
+      "test_anchor": null
+    },
+    {
+      "id": "EJM-023",
+      "category": "bounded_state_exploration",
+      "fault": "Explore every reachable lifecycle state and legal transition to depth 8 under reservation, revocation, dispatch, sink result, crash/timeout, reconciliation, and retry events.",
+      "expected": "Every reachable state preserves effect_count <= 1, dispatch_count <= 1, committed implies one applied sink effect, pre-dispatch rejection implies zero effects, and OutcomeUnknown is reachable both with and without a sink effect.",
+      "status": "implemented_reference_model",
+      "test_anchor": "bounded_state_exploration_preserves_effect_safety_invariants"
+    },
+    {
+      "id": "EJM-024",
+      "category": "snapshot_integrity",
+      "fault": "Restore a DispatchStarted snapshot as Rejected with a caller-supplied local timeout reason and no destination outcome digest.",
+      "expected": "Reject the inconsistent snapshot; post-dispatch rejection requires authenticated sink-outcome evidence.",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_postdispatch_rejection_without_sink_evidence"
+    },
+    {
+      "id": "EJM-025",
+      "category": "snapshot-integrity",
+      "fault": "A restored OutcomeUnknown or terminal snapshot carries a revision that cannot result from its legal transition history",
+      "expected": "Reject impossible phase/revision pairs while accepting direct terminal revision 3 and reconciled terminal revision 4",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_impossible_phase_and_revision_history"
+    },
+    {
+      "id": "EJM-026",
+      "category": "snapshot-integrity",
+      "fault": "A reconciled terminal snapshot retains outcome_unknown_seen but its revision is downgraded from 4 to 3",
+      "expected": "Reject the inconsistent terminal history while accepting the original revision-4 reconciled snapshot",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_revision_downgrade_after_uncertainty"
+    },
+    {
+      "id": "EJM-027",
+      "category": "snapshot-integrity",
+      "fault": "Terminal phase is changed from Committed to Rejected or vice versa without changing the authenticated outcome disposition",
+      "expected": "Reject the snapshot when terminal phase and verified sink disposition disagree",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_terminal_phase_disposition_mismatch"
+    },
+    {
+      "id": "EJM-028",
+      "category": "snapshot-integrity",
+      "fault": "A nonterminal Reserved, DispatchStarted, or OutcomeUnknown snapshot carries a terminal sink disposition",
+      "expected": "Reject terminal disposition evidence before a verified terminal resolution",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_sink_disposition_before_terminal_resolution"
+    },
+    {
+      "id": "EJM-029",
+      "category": "snapshot-integrity",
+      "fault": "One lifecycle field in a valid snapshot is mutated independently across prepared, reserved, dispatch-started, outcome-unknown, committed, and rejected histories",
+      "expected": "All 80 single-field lifecycle inconsistencies across ten legal history shapes are rejected; identity authenticity remains a separate adapter responsibility",
+      "status": "implemented_reference_test",
+      "test_anchor": "single_field_snapshot_corruptions_are_rejected"
+    }
+  ]
+}

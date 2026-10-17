@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/crates/mycelix-region-policy/EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json",
+  "title": "Mycelix Effect Journal Fault Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_id",
+    "version",
+    "status",
+    "scope",
+    "phase_model",
+    "model_assumptions",
+    "nonclaims",
+    "cases"
+  ],
+  "properties": {
+    "corpus_id": {
+      "const": "MYCELIX-EFFECT-JOURNAL-FAULT-CORPUS"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "status": {
+      "const": "draft"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase_model": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "Prepared",
+          "Reserved",
+          "DispatchStarted",
+          "OutcomeUnknown",
+          "Committed",
+          "Rejected"
+        ]
+      }
+    },
+    "model_assumptions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 29,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "fault",
+          "expected",
+          "status",
+          "test_anchor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^EJM-[0-9]{3}$"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fault": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "implemented_reference_model",
+              "implemented_reference_test",
+              "integration_gate",
+              "integration_gate_reuse_existing"
+            ]
+          },
+          "test_anchor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
