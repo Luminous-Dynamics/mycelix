@@ -203,15 +203,22 @@ fn print_strategy_summary(rows: &[SeedResult], strategy_index: usize, indent: &s
     for (name, values) in [
         (
             "candidate_coverage",
-            rows.iter().map(|row| row.metrics[strategy_index].candidate_coverage).collect::<Vec<_>>(),
+            rows.iter()
+                .filter(|row| row.metrics[strategy_index].eligible_candidate_users > 0)
+                .map(|row| row.metrics[strategy_index].candidate_coverage)
+                .collect::<Vec<_>>(),
         ),
         (
             "exposure_gini",
-            rows.iter().map(|row| row.metrics[strategy_index].exposure_gini).collect::<Vec<_>>(),
+            rows.iter()
+                .filter(|row| row.metrics[strategy_index].eligible_candidate_users > 0)
+                .map(|row| row.metrics[strategy_index].exposure_gini)
+                .collect::<Vec<_>>(),
         ),
         (
             "opportunity_normalized_exposure_gini",
             rows.iter()
+                .filter(|row| row.metrics[strategy_index].eligible_candidate_users > 0)
                 .map(|row| row.metrics[strategy_index].opportunity_normalized_exposure_gini)
                 .collect::<Vec<_>>(),
         ),
@@ -267,13 +274,19 @@ fn print_seed_metrics(metrics: CumulativeExposureMetrics, indent: &str) {
     println!("{}\"feasible_pair_count\": {},", indent, metrics.feasible_pair_count);
     println!("{}\"eligible_candidate_users\": {},", indent, metrics.eligible_candidate_users);
     println!("{}\"exposed_candidate_users\": {},", indent, metrics.exposed_candidate_users);
-    println!("{}\"candidate_coverage\": {:.8},", indent, metrics.candidate_coverage);
-    println!("{}\"total_exposure\": {},", indent, metrics.total_exposure);
-    println!("{}\"exposure_gini\": {:.8},", indent, metrics.exposure_gini);
-    println!(
-        "{}\"opportunity_normalized_exposure_gini\": {:.8}",
-        indent, metrics.opportunity_normalized_exposure_gini
-    );
+    if metrics.eligible_candidate_users == 0 {
+        println!("{}\"candidate_coverage\": null,", indent);
+        println!("{}\"exposure_gini\": null,", indent);
+        println!("{}\"opportunity_normalized_exposure_gini\": null,", indent);
+    } else {
+        println!("{}\"candidate_coverage\": {:.8},", indent, metrics.candidate_coverage);
+        println!("{}\"exposure_gini\": {:.8},", indent, metrics.exposure_gini);
+        println!(
+            "{}\"opportunity_normalized_exposure_gini\": {:.8},",
+            indent, metrics.opportunity_normalized_exposure_gini
+        );
+    }
+    println!("{}\"total_exposure\": {}", indent, metrics.total_exposure);
 }
 
 fn relative_reduction(rows: &[SeedResult], baseline: usize, compared: usize, opportunity: bool) -> Vec<f64> {
