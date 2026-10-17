@@ -293,12 +293,12 @@ pub fn evaluate(
         exposed_candidate_users as f64 / eligible_people.len() as f64
     };
 
-    let mutual_shortlist_pair_count = directed_pairs
-        .iter()
-        .filter(|(viewer_id, candidate_id)| {
-            viewer_id < candidate_id && directed_pairs.contains(&(*candidate_id, *viewer_id))
-        })
-        .count();
+    let mut mutual_shortlist_pair_count = 0usize;
+    for &(viewer_id, candidate_id) in &directed_pairs {
+        if viewer_id < candidate_id && directed_pairs.contains(&(candidate_id, viewer_id)) {
+            mutual_shortlist_pair_count += 1;
+        }
+    }
 
     EvaluationMetrics {
         feasible_pair_count,
@@ -453,7 +453,7 @@ impl Rng {
 
     fn range(&mut self, minimum: usize, maximum: usize) -> usize {
         debug_assert!(minimum <= maximum);
-        minimum + (self.next_u64() as usize % (maximum - minimum + 1))
+        minimum + (self.next_u64() % (maximum - minimum + 1) as u64) as usize
     }
 }
 
