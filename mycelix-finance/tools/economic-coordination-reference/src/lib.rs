@@ -40,6 +40,9 @@ pub mod joint_capacity;
 /// Bounded exact multi-request allocation with one shortage axis per request.
 pub mod joint_optimizer;
 
+/// Multi-request stress evaluation across explicit shared failure scenarios.
+pub mod joint_disruption;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
