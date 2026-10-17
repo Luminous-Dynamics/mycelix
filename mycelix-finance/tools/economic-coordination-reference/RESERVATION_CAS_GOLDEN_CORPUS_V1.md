@@ -61,8 +61,3 @@ Eighteen module test functions plus one integration oracle test are authored. Th
 - Qualify the 108-sequence test-local oracle on exact head before larger generated testing.
 - After oracle qualification, run at least 10,000 deterministic schedules; pin generator version, seed, schedule manifest and digest.
 - The 100-contender unit test is a deterministic model check against one initial revision, not a real concurrent-store stress benchmark.
-
-| RSC-041 | Requested lease expiry is later than the capacity snapshot validity | Lease rejected without reservation event | Authored |
-| RSC-042 | Two pool mutations presented with decreasing timestamps | Second mutation rejected with no journal growth | Authored |
-
-| RSC-043 | Exhaustive three-command quantity combinations for capacities 1–4 | 108 sequence outcomes and pool totals agree with separate test-local oracle | Authored |
