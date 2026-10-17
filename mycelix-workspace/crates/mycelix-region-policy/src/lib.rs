@@ -7,6 +7,8 @@
 
 /// Last-boundary short-lived lease gate; see EFFECT_LEASE_V1.md for limitations.
 pub mod lease;
+/// Evidence-driven side-effect recovery state machine; not a durable store.
+pub mod effect_journal;
 
 use std::collections::BTreeSet;
 
