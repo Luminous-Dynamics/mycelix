@@ -658,6 +658,46 @@ mod tests {
         CreativeAssetPassportEnvelope::from_parts(&registry, &claims, &history).unwrap()
     }
 
+    fn simple_reference_snapshot() -> CreativeAssetPassportEnvelope {
+        let mut registry = AssetRegistry::new();
+        let work = AssetId::new("work-a").unwrap();
+        registry
+            .register_asset(work.clone(), AssetKind::MusicalWork, Some("Song A".into()))
+            .unwrap();
+        registry
+            .attach_identifier(
+                &work,
+                ExternalIdentifier::Iswc("T-034.524.680-1".into()),
+            )
+            .unwrap();
+        let claims = vec![
+            SplitClaim::new(
+                work,
+                party("writer-a"),
+                RightsPool::Composition,
+                Some(10_000),
+                ClaimState::Confirmed,
+                "split://writer-a",
+            )
+            .unwrap(),
+        ];
+        CreativeAssetPassportEnvelope::from_parts(&registry, &claims, &GrantHistory::new()).unwrap()
+    }
+
+    #[test]
+    fn canonical_bytes_match_frozen_full_snapshot_reference_vector() {
+        let envelope = simple_reference_snapshot();
+        let actual = envelope
+            .canonical_bytes()
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let expected =
+            include_str!("../tests/fixtures/creator-asset-passport-v1.hex").trim();
+        assert_eq!(actual, expected);
+    }
+
     #[test]
     fn full_passport_round_trip_preserves_assets_splits_and_grants() {
         let envelope = snapshot();
