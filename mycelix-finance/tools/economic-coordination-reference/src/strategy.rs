@@ -236,7 +236,14 @@ pub fn evaluate_strategy(
                     evaluation,
                 });
             }
-            Err(error) if is_option_set_infeasible(error) => {
+            Err(RecourseError::BaseCommitmentOverBudget) => {
+                // No option subset can fix a baseline whose commitment alone
+                // already exceeds the request budget.
+                infeasible_strategy_count = infeasible_strategy_count
+                    .checked_add(1)
+                    .ok_or(StrategyError::Recourse(RecourseError::ArithmeticOverflow))?;
+            }
+            Err(error) if mask != 0 && is_option_set_infeasible(error) => {
                 infeasible_strategy_count = infeasible_strategy_count
                     .checked_add(1)
                     .ok_or(StrategyError::Recourse(RecourseError::ArithmeticOverflow))?;
