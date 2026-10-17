@@ -10,6 +10,7 @@ mod resources;
 mod water;
 mod transport;
 mod food;
+mod farm;
 mod tools;
 mod calendar;
 
@@ -22,5 +23,6 @@ pub use resources::ResourcesPage;
 pub use water::WaterPage;
 pub use transport::TransportPage;
 pub use food::FoodPage;
+pub use farm::FarmPage;
 pub use tools::ToolsPage;
 pub use calendar::CalendarPage;
