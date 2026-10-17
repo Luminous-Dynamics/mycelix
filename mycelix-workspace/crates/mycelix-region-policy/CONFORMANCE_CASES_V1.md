@@ -114,6 +114,8 @@ Six abstract model tests are authored in `src/effect_journal_model.rs`; they do 
 | EJM-003 | Authority is revoked between Reserved and DispatchStarted | `revocation_before_dispatch_aborts_reserved_attempt_without_sink_call` |
 | EJM-005 / EJM-006 | Destination applied the operation but the response was lost; replay same exact identity and resolve saved result | `lost_reply_after_sink_commit_recovers_without_duplicate_effect` |
 | EJM-007 | Same key reused with a different target digest | `sink_idempotency_key_reuse_for_changed_target_is_a_conflict` |
+| EJM-023 | Explore reachable abstract states to depth 8 and check effect/dispatch invariants | `bounded_state_exploration_preserves_effect_safety_invariants` |
+| EJM-024 | Restore a post-dispatch Rejected row without authenticated outcome evidence | `restore_rejects_postdispatch_rejection_without_sink_evidence` |
 
 The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 24 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
 
