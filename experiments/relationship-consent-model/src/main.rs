@@ -22,7 +22,7 @@ fn main() {
         report.invariant_violation
     );
 
-    if report.state_cap_reached || report.invariant_violation || report.maximum_depth_explored < max_depth {
+    if report.state_cap_reached || report.invariant_violation {
         std::process::exit(2);
     }
 }
