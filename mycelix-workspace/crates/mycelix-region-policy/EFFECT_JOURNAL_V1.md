@@ -115,3 +115,8 @@ No Loom thread model, SQLite crash harness, actual durable adapter, or provider 
 ## Revision-history marker
 
 A persisted `outcome_unknown_seen` bit records whether the attempt crossed through `OutcomeUnknown`. It is false for Prepared/Reserved/DispatchStarted and remains true after reconciliation. This disambiguates a direct revision-3 terminal result from a reconciled revision-4 terminal result; downgrading revision 4 to 3 while retaining the marker is rejected. This is a consistency invariant, not cryptographic tamper resistance: the durable adapter must still authenticate records and enforce monotonic compare-and-swap/high-water semantics.
+
+
+## Executable-anchor integrity
+
+The corpus workflow treats `test_anchor` as an executable-test assertion, not a source-name lookup. Cases labelled `implemented_reference_test` or `implemented_reference_model` must carry a valid Rust identifier and match an actual `#[test] fn ...` under `src/`. Integration-gate cases have no test anchor. A helper function, missing function, or malformed identifier is not accepted as evidence that a test exists. This is still source-level existence only: only a completed exact-head test run establishes execution or pass status.

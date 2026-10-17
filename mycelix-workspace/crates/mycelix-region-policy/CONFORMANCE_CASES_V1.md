@@ -118,7 +118,7 @@ Six abstract model tests are authored in `src/effect_journal_model.rs`; they do 
 | EJM-025 | Impossible revision for OutcomeUnknown/terminal snapshot; preserve legal revision 3/4 terminal histories | `restore_rejects_impossible_phase_and_revision_history` |
 | EJM-026 | A reconciled terminal revision cannot be downgraded while the uncertainty-history marker remains set | `restore_rejects_revision_downgrade_after_uncertainty` |
 
-The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 26 cases and explicitly labels model tests separately from unimplemented integration gates. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
+The machine-readable [EFFECT_JOURNAL_FAULT_CORPUS_V1.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) has 26 cases and explicitly labels model tests separately from unimplemented integration gates. CI requires every `implemented_reference_test` / `implemented_reference_model` case to name a Rust identifier and verifies that the anchor is an actual `#[test]` function. Integration-gate cases must leave the anchor null. This prevents a helper function with the right name from being mistaken for an executable test. Its schema is in [EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json). Corpus authoring/shape checks are not end-to-end execution evidence.
 
 ## Mandatory extension corpus before production
 
