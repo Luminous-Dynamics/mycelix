@@ -536,7 +536,7 @@ mod tests {
         let event = json!({
             "a": {
                 "sensor.living_room_temperature": {
-                    "s": "21.5\\nforged-line",
+                    "s": "21.5\nforged-line",
                     "a": {}
                 }
             }
