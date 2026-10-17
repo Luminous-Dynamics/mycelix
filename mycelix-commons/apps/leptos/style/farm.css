@@ -77,3 +77,27 @@
 @media(max-width:820px){.fc-product-grid,.fc-equipment-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fc-summary-grid{grid-template-columns:1fr}.fc-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.25rem .7rem}.fc-summary strong{grid-column:2;grid-row:1/span 2}.fc-summary small{grid-column:1}.fc-sharing-layout{grid-template-columns:1fr}}
 @media(max-width:560px){.farm-commons{padding-top:.25rem}.fc-heading-row{display:block}.fc-demo-pill{margin-top:1rem;width:max-content}.fc-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.fc-tab{padding:.65rem .5rem;font-size:.75rem}.fc-section-heading{display:block}.fc-status-chip{margin-top:.75rem}.fc-product-grid,.fc-equipment-grid{grid-template-columns:1fr}.fc-task{grid-template-columns:32px minmax(0,1fr);gap:.65rem;padding:.8rem}.fc-task-symbol{width:32px;height:32px}.fc-task-bottom{align-items:flex-start}.fc-commitment-card{grid-template-columns:1fr}.fc-commitment-side{align-items:flex-start;border-left:0;border-top:1px solid var(--border);padding: .75rem 0 0}.fc-legend{grid-template-columns:1fr;gap:.25rem}}
 @media(prefers-reduced-motion:reduce){.farm-commons *{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+
+/* Open hardware is a qualification workflow, never a claim that sample concepts are ready to build. */
+.fc-design-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin-top:1rem}
+.fc-design-card{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:.6rem;min-width:0;padding:1rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border);border-radius:12px;cursor:pointer;font:inherit}
+.fc-design-card:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--border))}
+.fc-design-card.selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg-card))}
+.fc-design-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.fc-design-card .fc-equip-icon{margin:0}
+.fc-design-card h3{font-size:1rem;margin:.25rem 0 0}
+.fc-design-card>p{color:var(--text-secondary);font-size:.81rem;line-height:1.6;margin:0;flex:1}
+.fc-design-meta{display:flex;justify-content:space-between;gap:.65rem;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:.6rem;font-size:.72rem}
+.fc-design-meta span{color:var(--text-secondary)}
+.fc-design-meta strong{font-size:.69rem;color:var(--text-primary)}
+.fc-design-card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.fc-design-detail{margin-top:1rem;padding:1.1rem;border:1px solid var(--border);border-radius:12px;background:var(--bg-card)}
+.fc-design-detail h3{font-size:1.1rem;margin:.1rem 0 .4rem}
+.fc-design-detail>p:not(.fc-footnote){color:var(--text-secondary);font-size:.84rem;line-height:1.6;margin:0}
+.fc-checklist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;margin-top:1rem}
+.fc-check-item{display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start;padding:.75rem;border:1px solid var(--border);border-radius:8px;font-size:.75rem}
+.fc-check-item span{color:var(--text-secondary);line-height:1.5}
+.fc-check-item strong{color:var(--warning);font-size:.68rem;white-space:nowrap}
+@media(max-width:820px){.fc-design-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.fc-design-grid,.fc-checklist-grid{grid-template-columns:1fr}}
