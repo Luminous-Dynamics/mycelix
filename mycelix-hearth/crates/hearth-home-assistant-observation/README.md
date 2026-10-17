@@ -46,6 +46,8 @@ The [observation lifecycle contract](OBSERVATION_LIFECYCLE.md) consumes projecte
 
 The lifecycle checkpoint preserves only a profile reference, epoch high-water mark, and per-entity revisions/tombstones. It intentionally restores no positive observations. The checkpoint is serializable but not a durable store; cross-process replay protection requires an atomic, crash-safe persistence layer.
 
+The [durable lifecycle facade](DURABLE_OBSERVATION_LIFECYCLE.md) wraps lifecycle transitions in append-and-sync-before-publish semantics and cold-start replay validation. Only an interface and in-memory fault-injection store are included; no production backend is qualified. The journal identifies positives with value-free revision and ledger-sequence references rather than publishing low-entropy state hashes.
+
 Proposed, unmeasured targets are in [OBSERVATION_LIFECYCLE_BENCHMARKS.md](OBSERVATION_LIFECYCLE_BENCHMARKS.md). These do not establish peer authenticity, household authority, physical state, or device qualification.
 
 Physical control, if later admitted, belongs behind the independent Hearth adapter-admission, exclusive-executor, crash-journal, household-authority, and outcome-verification theorems.
