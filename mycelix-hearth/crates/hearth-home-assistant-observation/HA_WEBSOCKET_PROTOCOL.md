@@ -38,6 +38,7 @@ Home Assistant's compact stream has separate added, changed and removed entity f
 - Frames from stale connection epochs are ignored without advancing the active session.
 - Reconnection requires a new machine, fresh authentication, a new entity subscription, and a new initial snapshot.
 - Command-ID exhaustion fails closed.
+- The transport must map Home Assistant error codes `unknown_command` and `not_supported` into the typed `CommandFailure` input. The protocol returns `UnsupportedEntitySubscription` for those exact cases and does not silently switch to a legacy protocol. Other codes become a generic fail-closed rejection; raw server message text is not retained.
 - Credentials are never represented in this module, action enum, error types or debug values.
 
 ## Strict JSON input boundary
