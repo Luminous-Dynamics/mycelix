@@ -50,8 +50,8 @@ A simple order/reservation view for products actually offered by producers, with
 2. **My farm** — fields/paddocks/mobs, crop plans, observations, production batches, inventory and assets; private by default.
 3. **Work & equipment** — jobs, service requests, shared tools, reservations, operator roles and maintenance history.
 4. **Food & fulfillment** — producer offers, typed quantities, lot/batch records, cooperative demand, reservations, pickup/delivery, partial fulfillment, spoilage and recall.
-5. **Co-op** — members, scoped commitments, shared resources, mutual-aid requests, governance as needed and dispute resolution.
-6. **Evidence & sharing** — source, unit, timestamp, freshness, estimated-vs-observed state, export, permission scope, recipient, purpose and future-access revocation.
+5. **Open designs** — candidate design briefs, source/license status, CAD/drawing/BOM readiness, inspection and test evidence, manufacturing steps, repairability and independent build replication. Candidate cards are intake-only until evidence exists.
+6. **Co-op & sharing** — members, scoped commitments, shared resources, mutual-aid requests, governance as needed, dispute resolution, evidence labels and controlled sharing.
 
 Navigation is task-led with progressive detail rather than six dense dashboards. Default to Today. Include map/context when location materially changes the action, not as the universal root screen.
 
@@ -130,6 +130,13 @@ These are pilot targets, not claims about existing Mycelix code.
 - 100% exact agreement with independent expected outcomes for frozen synthetic cases: planned != available, offer != stock, order != fulfillment, capacity, unit mismatch, partial delivery and recall/correction lineage.
 - Zero unauthorized reads/writes in the frozen permission adversarial suite; unknown or revoked scope fails closed.
 - Complete export/import preserves IDs, units, timestamps, source, correction history, lot/order/fulfillment relationships and permissions metadata.
+
+### Open-design qualification
+- 100% of required release artifacts identify exact revision and license; no unknown source/license is treated as open or reusable.
+- Complete BOM coverage for every required item before a package may claim complete-cost coverage; unknown quantity/cost remains explicitly blocked.
+- No design is labeled build-ready without editable source, dimensioned drawings, build/inspection instructions, relevant tests, maintenance/repair documentation and stated operating limits.
+- At least one selected design is independently reproduced by a second fabricator before claiming reproducibility; record rework, missing instructions, actual build time and deviations.
+- Zero false accepts of hard constraints in the frozen qualification corpus; simulation or catalogue presence is never treated as physical qualification.
 
 ### Cooperative outcomes
 - Choose one cooperative metric before the pilot: coordination time per fulfilled order, avoidable spoilage, fulfillment rate, equipment idle time/cost per use, producer share of value, or unpaid administrative effort.
