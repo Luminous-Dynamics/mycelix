@@ -618,7 +618,7 @@ mod tests {
         })).unwrap();
         assert_eq!(workflow.state(), DealState::Accepted);
         assert!(workflow.history().iter().all(|entry| !matches!(
-            entry.action,
+            &entry.action,
             DealAction::AcceptDeliverable { .. }
         ) || entry.actor_party_id == "sponsor-1"));
         // This module intentionally has no field representing cash received.
@@ -650,7 +650,7 @@ mod tests {
             deliverable_id: "d2".into()
         })).unwrap();
         assert_eq!(workflow.state(), DealState::Accepted);
-        assert_eq!(workflow.accepted_deliverable_ids(), &["d1".to_string(), "d2".to_string()]);
+        assert_eq!(workflow.accepted_deliverable_ids(), &["d1".to_string(), "d2".to_string()][..]);
     }
 
     #[test]
