@@ -163,15 +163,10 @@ impl JournalEntryV1 {
 /// back to timestamps, Math.random, or counters.
 pub fn new_operation_id() -> Result<String, JournalError> {
     let window = web_sys::window().ok_or(JournalError::IndexedDbUnavailable)?;
-    let crypto = window.crypto();
-    let random_uuid = Reflect::get(crypto.as_ref(), &JsValue::from_str("randomUUID"))
-        .map_err(|_| JournalError::IndexedDbUnavailable)?
-        .dyn_into::<Function>()
+    let crypto = window
+        .crypto()
         .map_err(|_| JournalError::IndexedDbUnavailable)?;
-    let value = random_uuid
-        .call0(crypto.as_ref())
-        .map_err(|_| JournalError::IndexedDbUnavailable)?;
-    let operation_id = value.as_string().ok_or(JournalError::InvalidRecord)?;
+    let operation_id = crypto.random_uuid();
     if !valid_operation_id(&operation_id) {
         return Err(JournalError::InvalidRecord);
     }
@@ -207,8 +202,10 @@ pub async fn sha256_fingerprint(
     material.extend_from_slice(canonical_bytes);
 
     let window = web_sys::window().ok_or(JournalError::IndexedDbUnavailable)?;
-    let digest = window
+    let crypto = window
         .crypto()
+        .map_err(|_| JournalError::IndexedDbUnavailable)?;
+    let digest = crypto
         .subtle()
         .digest_with_str_and_u8_array("SHA-256", &material)
         .map_err(|_| JournalError::IndexedDbUnavailable)?;
