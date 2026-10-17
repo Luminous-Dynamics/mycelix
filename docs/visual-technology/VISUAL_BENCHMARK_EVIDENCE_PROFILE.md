@@ -58,6 +58,21 @@ The current reference work includes a mathematical PQ decoder/encoder, while a f
 
 An ST 2084 / PQ-decoded luminance value is a value computed from an encoded signal under a declared transfer function, not a physical measurement of a display. Store the signal input, PQ standard/edition, transfer implementation/version and computed cd/m² output as derived-analysis context. A physical display EOTF test must separately reference calibrated photometer/colorimeter readings, device mode, pattern/window size, sustained/peak duration, ambient conditions and instrument uncertainty. Do not let a correct PQ equation promote a hardware claim to measured or independently reproduced status.
 
+### Manufacturing / microdisplay-yield evidence
+
+For micro-LED AR microdisplay research, compose with [Symthaea MICRODISP-YIELD-001 #7868](https://github.com/Luminous-Dynamics/symthaea/issues/7868) and the [20-case synthetic workload manifest](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/microdisplay-yield-corpus-v0.1.json). Catalogue these domain fields as evidence context; do not create a parallel manufacturing/yield authority:
+
+- exact architecture, device/revision, array/process route, lot/run and stage IDs where available and disclosure permits;
+- manufactured denominator, inspected denominator, inspection coverage, sampling plan, defect taxonomy and uninspected regions;
+- stage-specific counts for emitter/transfer, placement, bond/interconnect, CMOS interface, optical assembly, test, repair and retest, without double-counting a repaired part;
+- clear distinction among observed fraction, estimated probability, expected defect count and final good-unit yield;
+- independence/correlation assumption and method for any composed yield or confidence interval;
+- repair attempts/outcomes, post-repair measurements, calibration changes, scrapped/unknown units and residual defect maps;
+- linked optical utility and reliability evidence (MTF, luminance/color, power/thermal state, viewing envelope, calibration and aging state), rather than a yield-only scalar;
+- model/source/configuration digests and whether each quantity is synthetic, simulated, supplier-reported, bench-measured or independently reproduced.
+
+Missing denominators or unknown inspection coverage block whole-population claims. Correlated/clustered defects must not be run through an independent Bernoulli interval without justification. A simulation may compare candidate yield-aware designs; only traceable production counts and qualified metrology support a physical yield claim. The literature's 99.99999% frontier is contextual research, not achieved capability or an automatic pass threshold.
+
 ### Scope and interpretation
 
 - Exact claim text or stable claim ID, metric definition, applicable device/model/conditions and intended generalization range.
