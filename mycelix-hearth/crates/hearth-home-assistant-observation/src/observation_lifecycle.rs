@@ -756,6 +756,30 @@ mod tests {
         })
     }
 
+    fn two_sensor_profile() -> HomeAssistantObservationProfile {
+        let mut p = profile();
+        let mut second = p.rules[0].clone();
+        second.entity_id = "sensor.z_temperature".into();
+        second.subject.id = "kitchen".into();
+        p.rules.push(second);
+        p
+    }
+
+    fn snapshot_two() -> Value {
+        json!({
+            "a": {
+                "sensor.living_room_temperature": {
+                    "s": "21.50",
+                    "a": { "unit_of_measurement": "°C", "device_class": "temperature" }
+                },
+                "sensor.z_temperature": {
+                    "s": "20.00",
+                    "a": { "unit_of_measurement": "°C", "device_class": "temperature" }
+                }
+            }
+        })
+    }
+
     fn change(state: &str) -> Value {
         json!({
             "c": {
@@ -936,6 +960,110 @@ mod tests {
         assert_eq!(out.phase, LifecyclePhase::Live);
         assert_eq!(out.observations.len(), 1);
         assert_eq!(out.observations[0].observation.value, hearth_automation_types::AutomationValue::Fixed { mantissa: 2200, scale: 2 });
+    }
+
+    #[test]
+    fn identical_semantic_replay_does_not_refresh_lifecycle_revision() {
+        let mut lifecycle = start_live();
+        let id = "sensor.living_room_temperature";
+        let prior = lifecycle.current_revision(id, 22).unwrap();
+        let duplicate = lifecycle.apply_json(
+            1,
+            1,
+            EntityStreamKind::Changes,
+            &bytes(change("21.5")),
+            30,
+        );
+        assert!(duplicate.observations.is_empty());
+        assert!(duplicate.records.is_empty());
+        assert_eq!(lifecycle.current_revision(id, 30), Some(prior));
+    }
+
+    #[test]
+    fn valid_observation_after_unknown_gets_a_new_revision() {
+        let mut lifecycle = start_live();
+        let id = "sensor.living_room_temperature";
+        let old = lifecycle.current_revision(id, 22).unwrap();
+        lifecycle.apply_json(1, 1, EntityStreamKind::Changes, &bytes(change("unknown")), 30);
+        assert!(lifecycle.current_revision(id, 30).is_none());
+        let next = lifecycle.apply_json(1, 1, EntityStreamKind::Changes, &bytes(change("21.5")), 31);
+        assert_eq!(next.observations.len(), 1);
+        let fresh = lifecycle.current_revision(id, 31).unwrap();
+        assert!(fresh.revision > old.revision);
+    }
+
+    #[test]
+    fn malformed_late_entity_invalidates_entire_staged_delta_atomically() {
+        let p = two_sensor_profile();
+        let mut lifecycle = ObservationLifecycle::new(&p).unwrap();
+        lifecycle.start_session(1, 10);
+        lifecycle.bind_subscription(1, 1, 11);
+        lifecycle.subscription_acknowledged(1, 1, 12);
+        let pending = lifecycle.apply_json(
+            1,
+            1,
+            EntityStreamKind::InitialSnapshot,
+            &bytes(snapshot_two()),
+            20,
+        );
+        assert_eq!(pending.phase, LifecyclePhase::SnapshotPendingApply);
+        let initial = lifecycle.snapshot_applied(1, 1, 21);
+        assert_eq!(initial.observations.len(), 2);
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 21).is_some());
+        assert!(lifecycle.current_revision("sensor.z_temperature", 21).is_some());
+
+        // The first entity is a valid staged change; the lexicographically later
+        // entity is out of range. No staged positive may escape, and both prior
+        // positives are explicitly invalidated because the stream is restarted.
+        let invalid = json!({
+            "c": {
+                "sensor.living_room_temperature": { "+": { "s": "22.00" } },
+                "sensor.z_temperature": { "+": { "s": "999999999999" } }
+            }
+        });
+        let out = lifecycle.apply_json(1, 1, EntityStreamKind::Changes, &bytes(invalid), 30);
+        assert_eq!(out.phase, LifecyclePhase::NeedsNewSession);
+        assert_eq!(out.failure, Some(LifecycleFailure::ProjectionRejected));
+        assert!(out.observations.is_empty());
+        assert_eq!(out.records.len(), 2);
+        assert!(out.records.iter().all(|record| matches!(
+            record.kind,
+            LifecycleRecordKind::Invalidated {
+                reason: InvalidationReason::ProjectionRejected,
+                ..
+            }
+        )));
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 31).is_none());
+        assert!(lifecycle.current_revision("sensor.z_temperature", 31).is_none());
+    }
+
+    #[test]
+    fn wrong_subscription_id_revokes_current_session() {
+        let mut lifecycle = start_live();
+        let out = lifecycle.apply_json(
+            1,
+            99,
+            EntityStreamKind::Changes,
+            &bytes(change("22.0")),
+            30,
+        );
+        assert_eq!(out.failure, Some(LifecycleFailure::StaleSubscriptionId));
+        assert_eq!(out.phase, LifecyclePhase::NeedsNewSession);
+        assert_eq!(out.records.len(), 1);
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 31).is_none());
+    }
+
+    #[test]
+    fn clock_regression_fails_closed_and_invalidates_positive() {
+        let mut lifecycle = start_live();
+        let out = lifecycle.expire(5);
+        assert_eq!(out.failure, Some(LifecycleFailure::TimeRegression));
+        assert_eq!(out.phase, LifecyclePhase::NeedsNewSession);
+        assert_eq!(out.records.len(), 1);
+        assert!(matches!(out.records[0].kind, LifecycleRecordKind::Invalidated {
+            reason: InvalidationReason::ClockRegression, ..
+        }));
+        assert!(lifecycle.current_revision("sensor.living_room_temperature", 30).is_none());
     }
 
     #[test]
