@@ -33,6 +33,8 @@ For each action, canonicalize and deduplicate the branch frontiers for structura
 
 Pareto-filter eligible actions across structural impact, cost and completion time, then apply a stable lexicographic tie-break. A larger frontier difference is a deliberately simple structural signal, not a calibrated utility delta: losing a feasible option and adding an attractive option both contribute to the set difference. Consumers must inspect branch-level consequences before acting.
 
+A separate test-local oracle is now authored at tests/evidence_actions_oracle.rs. It independently canonicalizes the literal toy objective sets and compares distinct frontier count, changed-frontier count, maximum symmetric difference and the one-action recommendation disposition across all 16 ordered pairs from four frontier states. It does not call the production selector’s helper functions. This is test authorship, not a passed qualification result.
+
 ## Acceptance gates
 
 | Measure | Target |
