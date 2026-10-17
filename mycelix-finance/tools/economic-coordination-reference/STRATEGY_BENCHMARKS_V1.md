@@ -23,7 +23,7 @@ The new module currently calls the reference recourse implementation to score ca
 Return a Pareto frontier minimizing these explicit dimensions:
 1. Upfront commitment cost: base cost plus all option-retainer fees, including unused options.
 2. Worst-case unfilled quantity across the declared scenario set.
-3. Sum of unfilled quantities across the declared scenarios, reported only as a corpus diagnostic.
+3. Sum of unfilled quantities across the declared scenarios as a Pareto axis and corpus diagnostic; it is not an expected shortage. Duplicate scenarios can change this axis, so the scenario manifest must be frozen.
 4. Worst-case all-in scenario cost, including activation cost and fees.
 5. Total reserved maximum activation quantity, as a physical-capacity diagnostic.
 
