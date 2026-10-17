@@ -50,8 +50,9 @@ An idempotency key by itself is not exactly-once delivery. The destination must 
 | EJ-013 | Duplicate delivery after terminal commit | Return the same stored result; do not dispatch again |
 | EJ-014 | Journal storage unavailable | Do not dispatch a protected effect |
 | EJ-015 | Key expiry/tombstone cleanup races with a late retry | No key reuse while the old effect can still be replayed |
+| EJ-016 | Sink proof is replayed under a different policy-binding digest | Reject proof and do not resolve the attempt |
 
-Only lifecycle cases EJ-001 through EJ-003 and EJ-007 through EJ-009 are represented by current pure source tests. The crash, multi-worker, durable-store, destination integration, privacy, and idempotent-result semantics remain external qualification gates.
+Current pure source tests cover the core prepared/submitted/unknown/terminal transitions, matching proof checks, policy-binding replay rejection, invalid proof, operation-ID mismatch, and snapshot restore invariants. The crash, multi-worker, durable-store, destination integration, privacy, and idempotent-result semantics remain external qualification gates.
 
 ## Proposed targets (not measured)
 
