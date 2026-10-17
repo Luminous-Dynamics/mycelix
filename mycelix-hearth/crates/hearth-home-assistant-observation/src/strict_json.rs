@@ -26,6 +26,40 @@ pub enum StrictJsonError {
     MalformedOrDuplicateKey,
 }
 
+/// Owned JSON value whose source bytes passed the bounded duplicate-key check.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StrictJsonValue {
+    value: Value,
+}
+
+impl StrictJsonValue {
+    pub fn as_value(&self) -> &Value {
+        &self.value
+    }
+
+    /// Obtain a nested read-only view that retains the strict-decoding marker.
+    pub fn get(&self, key: &str) -> Option<StrictJsonValueRef<'_>> {
+        self.value.get(key).map(|value| StrictJsonValueRef { value })
+    }
+}
+
+/// Read-only view into a StrictJsonValue. It has no public constructor, so an
+/// arbitrary serde_json::Value cannot be promoted to a trusted parsed view.
+#[derive(Debug, Clone, Copy)]
+pub struct StrictJsonValueRef<'a> {
+    value: &'a Value,
+}
+
+impl<'a> StrictJsonValueRef<'a> {
+    pub fn as_value(self) -> &'a Value {
+        self.value
+    }
+
+    pub fn get(self, key: &str) -> Option<StrictJsonValueRef<'a>> {
+        self.value.get(key).map(|value| StrictJsonValueRef { value })
+    }
+}
+
 impl fmt::Display for StrictJsonError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -158,7 +192,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
 /// Parse one bounded JSON frame, rejecting duplicate object keys at every
 /// nesting depth and any trailing non-whitespace data. Error values deliberately
 /// avoid reflecting raw bytes, tokens, entity IDs, or arbitrary provider text.
-pub fn parse_bounded_json(input: &[u8]) -> Result<Value, StrictJsonError> {
+pub fn parse_bounded_json(input: &[u8]) -> Result<StrictJsonValue, StrictJsonError> {
     if input.len() > MAX_HA_WS_JSON_FRAME_BYTES {
         return Err(StrictJsonError::FrameTooLarge);
     }
@@ -170,7 +204,7 @@ pub fn parse_bounded_json(input: &[u8]) -> Result<Value, StrictJsonError> {
     deserializer
         .end()
         .map_err(|_| StrictJsonError::MalformedOrDuplicateKey)?;
-    Ok(value)
+    Ok(StrictJsonValue { value })
 }
 
 #[cfg(test)]
@@ -194,9 +228,9 @@ mod tests {
             }
         }"#;
         let parsed = parse_bounded_json(input).unwrap();
-        assert_eq!(parsed.pointer("/id").and_then(Value::as_u64), Some(7));
+        assert_eq!(parsed.as_value().pointer("/id").and_then(Value::as_u64), Some(7));
         assert_eq!(
-            parsed.pointer("/event/a/sensor.example/s").and_then(Value::as_str),
+            parsed.as_value().pointer("/event/a/sensor.example/s").and_then(Value::as_str),
             Some("21.5")
         );
     }
