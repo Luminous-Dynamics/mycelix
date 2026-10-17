@@ -185,6 +185,7 @@ impl CreativeAssetPassportEnvelope {
             return Err(PassportEnvelopeError::TooManyAssets);
         }
         let mut assets = AssetRegistry::new();
+        let mut total_identifiers = 0u64;
         for _ in 0..asset_count {
             let id = AssetId::new(reader.string()?)?;
             let kind = decode_asset_kind(reader.u8()?)?;
@@ -202,8 +203,12 @@ impl CreativeAssetPassportEnvelope {
             assets.register_asset(id.clone(), kind, title)?;
 
             let identifier_count = reader.u64()?;
-            if identifier_count > MAX_CLAIMS || identifier_count > bytes.len() as u64 {
-                return Err(PassportEnvelopeError::TooManyClaims);
+            total_identifiers = total_identifiers.saturating_add(identifier_count);
+            if identifier_count > MAX_IDENTIFIERS
+                || total_identifiers > MAX_IDENTIFIERS
+                || identifier_count > bytes.len() as u64
+            {
+                return Err(PassportEnvelopeError::TooManyIdentifiers);
             }
             for _ in 0..identifier_count {
                 let identifier = match reader.u8()? {
@@ -312,6 +317,9 @@ impl CreativeAssetPassportEnvelope {
                         write_string(&mut output, scheme)?;
                         write_string(&mut output, value)?;
                     }
+                }
+                if output.len() > MAX_ENVELOPE_BYTES {
+                    return Err(PassportEnvelopeError::EnvelopeTooLarge);
                 }
             }
             if output.len() > MAX_ENVELOPE_BYTES {
