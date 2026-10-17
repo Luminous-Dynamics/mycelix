@@ -42,7 +42,8 @@ fn main() {
                 .expect("benchmark identity");
             let mut attempt = EffectAttempt::prepare(identity.clone());
             let sink_operation_id = format!("sink-{batch}-{operation}");
-            attempt.mark_submitted(&sink_operation_id).expect("prepare -> submit");
+            attempt.reserve(&sink_operation_id).expect("prepare -> reserve");
+            attempt.mark_dispatch_started().expect("reserve -> dispatch");
 
             let evidence = SinkOutcomeEvidence {
                 authority_domain: "benchmark-community".to_owned(),
@@ -56,7 +57,7 @@ fn main() {
             };
             let verified = VerifiedSinkOutcome::verify(evidence, &identity, &verifier)
                 .expect("benchmark fixture proof");
-            attempt.resolve(verified).expect("submitted -> committed");
+            attempt.resolve(verified).expect("dispatched -> committed");
             black_box(attempt);
         }
         let elapsed_us = start.elapsed().as_secs_f64() * 1_000_000.0;
