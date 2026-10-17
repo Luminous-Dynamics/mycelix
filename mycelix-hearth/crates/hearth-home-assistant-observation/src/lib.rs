@@ -429,7 +429,7 @@ pub fn map_state(
     }))
 }
 
-fn decode_state(
+pub(crate) fn decode_state(
     codec: &StateCodec,
     entity_id: &str,
     state: &str,
