@@ -6,6 +6,7 @@
 **Record schema:** [privacy-inventory.schema.json](privacy-inventory.schema.json)  
 **Machine-readable negative controls:** [privacy-negative-controls.json](privacy-negative-controls.json)  
 **Negative-control schema:** [privacy-negative-controls.schema.json](privacy-negative-controls.schema.json)  
+**Opaque mailbox architecture study:** [opaque-mailbox-architecture-study.md](opaque-mailbox-architecture-study.md)  
 **Metadata-privacy architecture tracker:** [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121)  
 **Tracker:** [#5112](https://github.com/Luminous-Dynamics/mycelix/issues/5112)
 
@@ -52,7 +53,14 @@ This implies that DNA participants may correlate sender/recipient identity, mess
 
 **Do not flip V2 entry visibility to private as a quick fix.** The current inbox depends on DHT-visible entries and links; hiding the entry would break remote recipient discovery unless a replacement retrieval/capability protocol is supplied. Hiding the `sender` JSON field alone also does not hide Holochain action authorship while `action.author == envelope.sender` remains enforced.
 
-This finding is tracked in [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121). The inventory's `source_observations` identify exact commit, file blob, lines, symbol and fact; `runtime_presence = not_audited` is intentionally unchanged until runtime evidence exists.
+Two related source-reviewed surfaces also matter:
+
+- DeliveryReceipt carries the original email ActionHash, recipient AgentPubKey and delivery timestamp. Its EntryTypes variant has no private-visibility override, and it is linked from the original email. The coordinator's acknowledge_delivery function explicitly documents that repeated calls create new receipts because the timestamp differs. This is both an activity-metadata surface and an idempotency issue; it is tracked in delivery work #5062.
+- The supported Leptos V2 compose path logs the ActionHash response from send_email_v2 to the browser console. This is a local diagnostic/correlation identifier, not evidence of remote telemetry leakage; inspect any diagnostic-export path separately.
+
+Private visibility for an entry would keep its entry content on the author's source chain, but Holochain documents that the action portion remains public. That still exposes action authorship and some timing/entry-hash metadata, so it is not sufficient to hide the sender under the current action-author invariant. The recipient link/discovery contract would also need a new design.
+
+This finding is tracked in [#5121](https://github.com/Luminous-Dynamics/mycelix/issues/5121). The inventory's source_observations identify exact commit, file blob, lines, symbol and fact; runtime_presence = not_audited is intentionally unchanged until runtime evidence exists.
 
 ## Candidate trust-boundary map
 
@@ -176,7 +184,7 @@ Have a reviewer distinct from the author inspect the exact build and its evidenc
 
 ## Negative controls
 
-The machine-readable catalog in privacy-negative-controls.json defines eleven synthetic control cases, each with inventory references, observer vantage points, expected results, a sensitivity gate and explicit claim limits. It includes a dedicated canonical V2 DHT metadata test that inspects envelope fields, action authorship, inbox link bases/targets, key-bundle references and thread/timing correlation; it explicitly distinguishes the current public metadata baseline from any future metadata-privacy target. Validate the catalog against privacy-negative-controls.schema.json, then bind each executed run to exact build/config/tool versions, fixture digest and observer method. All catalog entries currently have status not_run; this is a plan, not execution evidence.
+The machine-readable catalog in privacy-negative-controls.json defines thirteen synthetic control cases, each with inventory references, observer vantage points, expected results, a sensitivity gate and explicit claim limits. It includes a dedicated V2 DHT metadata observer test, delivery-receipt idempotency/replay checks, and local ActionHash console-log minimization. It explicitly distinguishes the current public metadata baseline from any future metadata-privacy target. Validate the catalog against privacy-negative-controls.schema.json, then bind each executed run to exact build/config/tool versions, fixture digest and observer method. All catalog entries currently have status not_run; this is a plan, not execution evidence.
 
 Every audit run must include appropriate controls proving that the test is sensitive:
 
