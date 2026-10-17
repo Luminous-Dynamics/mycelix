@@ -59,11 +59,24 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "url", "use"],
+        "required": [
+          "name",
+          "url",
+          "use"
+        ],
         "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "url": { "type": "string", "format": "uri" },
-          "use": { "type": "string", "minLength": 1 }
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "use": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }
@@ -92,9 +105,18 @@
           "type": "string",
           "pattern": "^PULSE-META-[0-9]{3}$"
         },
-        "name": { "type": "string", "minLength": 1 },
-        "data_class": { "type": "string", "minLength": 1 },
-        "surface": { "type": "string", "minLength": 1 },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "surface": {
+          "type": "string",
+          "minLength": 1
+        },
         "evidence_level": {
           "enum": [
             "source_verified_in_repo",
@@ -106,9 +128,15 @@
         "source_refs": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "format": "uri" }
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
         },
-        "design_fact": { "type": "string", "minLength": 1 },
+        "design_fact": {
+          "type": "string",
+          "minLength": 1
+        },
         "runtime_presence": {
           "enum": [
             "not_audited",
@@ -134,15 +162,95 @@
         "audit_questions": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "policy_intent": { "type": "string", "minLength": 1 },
+        "policy_intent": {
+          "type": "string",
+          "minLength": 1
+        },
         "claim_blockers": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_commit_sha",
+              "path",
+              "blob_sha",
+              "line_start",
+              "line_end",
+              "symbol",
+              "observed_fact",
+              "url"
+            ],
+            "properties": {
+              "source_commit_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "blob_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "line_start": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "line_end": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observed_fact": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_level": {
+                "const": "source_verified_in_repo"
+              }
+            },
+            "required": [
+              "evidence_level"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_observations"
+            ]
+          }
+        }
+      ]
     }
   }
 }
