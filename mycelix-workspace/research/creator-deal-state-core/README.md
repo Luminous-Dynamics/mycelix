@@ -11,6 +11,7 @@ A standard-library-only Rust prototype for evidence-backed commercial-deal lifec
 - Multiple sequential deliverables, with an explicit final-deliverable flag.
 - Dispute/cancellation terminal states.
 - Event-ID idempotency and fail-closed conflict detection.
+- Replay from event history to reconstruct and validate the current state without trusting a persisted status field.
 - Required evidence references, chronological event timestamps, and atomic transitions.
 
 ## Crucial semantic boundary
@@ -26,6 +27,8 @@ From the repository root:
 ```sh
 cargo test --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml
 ```
+
+The source currently contains 14 unit-test cases covering role authority, term changes, multi-deliverable sequencing, atomic rejection, event replay, and acceptance-vs-payment semantics. They have not yet been executed in this environment.
 
 ## Current limits
 
