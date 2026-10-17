@@ -16,7 +16,8 @@
     "payload_digest",
     "visibility_policy",
     "claim_status",
-    "payload"
+    "payload",
+    "signature"
   ],
   "properties": {
     "schema_version": {
@@ -32,7 +33,8 @@
       "type": "string",
       "minLength": 16,
       "maxLength": 128,
-      "description": "Opaque, non-guessable dossier reference; not a raw VIN."
+      "description": "Opaque, non-guessable dossier reference; not a raw VIN.",
+      "pattern": "^veh_[A-Za-z0-9_-]{16,96}$"
     },
     "event_kind": {
       "enum": [
