@@ -36,3 +36,15 @@ Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power
 ## Effect-journal benchmark
 
 Run `cargo bench --bench effect_journal --locked` to measure the reference state machine's prepare/submit/verify-fixture/resolve path. The harness reports p50/p95/p99 across 1,000 batches of 100 operations. Its verifier is deliberately a local fixture, and the benchmark excludes signature verification, durable storage, compare-and-swap, network transport, and process restarts. These numbers are not a production throughput claim. Record exact commit and hardware/toolchain metadata with every run.
+
+
+## Bounded correctness coverage (not a latency benchmark)
+
+- Exhaust all **2,520** order-preserving Load → Reserve schedules for four workers contending over one revision; every schedule must have exactly one reservation winner.
+- Exhaust reachable abstract lifecycle states to depth 8; require zero invariant violations for effect count, dispatch count, commit truth, and the two distinct `OutcomeUnknown` possibilities.
+- Keep negative controls that construct duplicate-effect and false-commit states; the invariant oracle must reject both. This checks harness sensitivity, not production correctness.
+- Validate all 24 stable fault-case IDs and every declared Rust test anchor; an inventory row marked as implemented is not evidence that the test executed or passed.
+
+## Production fault qualification ladder
+
+The next layer should test actual concurrent adapter synchronization with [Loom](https://github.com/tokio-rs/loom) and actual persistent transaction recovery with fault injection informed by [SQLite's atomic commit/crash testing](https://www.sqlite.org/atomiccommit.html#testing_atomic_commit_behavior). Reuse the existing PR #780 transaction-classification procedure. Do not replace database crash testing with process-kill-only tests or count an abstract model as durable evidence.
