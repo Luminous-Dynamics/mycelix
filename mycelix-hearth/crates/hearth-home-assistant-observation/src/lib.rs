@@ -310,9 +310,9 @@ impl HomeAssistantStateFrame {
                 "state exceeds {MAX_RAW_STATE_BYTES} bytes"
             )));
         }
-        if self.state.contains('\0') {
+        if self.state.chars().any(char::is_control) {
             return Err(ObservationError::InvalidFrame(
-                "state must not contain NUL".into(),
+                "state must not contain control characters".into(),
             ));
         }
         validate_frame_metadata("unit_of_measurement", self.unit_of_measurement.as_deref())?;
@@ -886,6 +886,18 @@ mod tests {
                 scale: 2
             }
         );
+    }
+
+    #[test]
+    fn control_characters_in_state_fail_closed_before_semantic_mapping() {
+        let profile = profile(StateCodec::Text {
+            max_bytes: 64,
+            allowed_values: BTreeSet::new(),
+        });
+        assert!(matches!(
+            map_state(&profile, &frame("occupied\\nforged-line")),
+            Err(ObservationError::InvalidFrame(_))
+        ));
     }
 
     #[test]
