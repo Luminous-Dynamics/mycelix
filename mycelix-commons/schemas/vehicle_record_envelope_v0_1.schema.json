@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:mobility:vehicle-record-envelope:0.1",
+  "title": "Mycelix Vehicle Record Envelope v0.1",
+  "description": "Envelope shape only. This schema does not verify signatures, external evidence, ownership, workmanship, legal title, or safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "vehicle_ref",
+    "event_kind",
+    "actor_ref",
+    "occurred_at",
+    "recorded_at",
+    "payload_digest",
+    "visibility_policy",
+    "claim_status",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "vehicle-record-envelope/0.1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "vehicle_ref": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "description": "Opaque, non-guessable dossier reference; not a raw VIN."
+    },
+    "event_kind": {
+      "enum": [
+        "dossier_created",
+        "configuration_linked",
+        "ownership_claim",
+        "custody_claim",
+        "transfer_proposed",
+        "transfer_acknowledged",
+        "maintenance_performed",
+        "part_installed",
+        "inspection_evidence",
+        "recall_notice",
+        "recall_completion",
+        "cost_record",
+        "dispute_opened",
+        "correction_appended",
+        "retirement_record"
+      ]
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "description": "Pseudonymous participant reference; actor authenticity is verified separately."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value",
+        "canonicalization_version"
+      ],
+      "properties": {
+        "algorithm": {
+          "enum": [
+            "sha-256",
+            "blake3"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "canonicalization_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_kind",
+          "artifact_ref"
+        ],
+        "properties": {
+          "artifact_kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 512
+          },
+          "artifact_digest": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "scope_note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "visibility_policy": {
+      "enum": [
+        "private",
+        "shared_pseudonymous",
+        "public_source_attestation"
+      ]
+    },
+    "claim_status": {
+      "enum": [
+        "asserted",
+        "counterparty_attested",
+        "independently_verified",
+        "disputed",
+        "superseded"
+      ]
+    },
+    "supersedes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 128
+      }
+    },
+    "dispute_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 128
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer_ref",
+        "algorithm",
+        "signature_b64"
+      ],
+      "properties": {
+        "signer_ref": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "signature_b64": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 8192
+        },
+        "credential_ref": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512
+        }
+      }
+    },
+    "privacy_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contains_direct_identifiers"
+      ],
+      "properties": {
+        "contains_direct_identifiers": {
+          "type": "boolean"
+        },
+        "consent_ref": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512
+        },
+        "review_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-kind-specific payload; require separate strict payload schemas before implementation."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "visibility_policy": {
+            "enum": [
+              "shared_pseudonymous",
+              "public_source_attestation"
+            ]
+          }
+        },
+        "required": [
+          "visibility_policy"
+        ]
+      },
+      "then": {
+        "properties": {
+          "privacy_review": {
+            "required": [
+              "contains_direct_identifiers"
+            ],
+            "properties": {
+              "contains_direct_identifiers": {
+                "const": false
+              }
+            }
+          }
+        },
+        "required": [
+          "privacy_review"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claim_status": {
+            "const": "independently_verified"
+          }
+        },
+        "required": [
+          "claim_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "evidence_refs"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claim_status": {
+            "const": "disputed"
+          }
+        },
+        "required": [
+          "claim_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "dispute_refs"
+        ]
+      }
+    }
+  ]
+}
