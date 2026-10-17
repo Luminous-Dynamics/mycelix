@@ -19,7 +19,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Event, IdbDatabase, IdbObjectStore, IdbOpenDbRequest, IdbRequest, IdbTransaction};
+use web_sys::{Event, IdbDatabase, IdbOpenDbRequest, IdbRequest, IdbTransaction};
 
 const DATABASE_NAME: &str = "mycelix-hearth-action-journal";
 const DATABASE_VERSION: u32 = 1;
@@ -198,13 +198,13 @@ pub async fn sha256_fingerprint(
         u64::try_from(canonical_bytes.len()).map_err(|_| JournalError::InvalidRecord)?;
 
     let mut material = Vec::with_capacity(
-        b"mycelix-hearth-journal-fingerprint-v1\\0".len()
+        b"mycelix-hearth-journal-fingerprint-v1\0".len()
             + 4
             + domain.len()
             + 8
             + canonical_bytes.len(),
     );
-    material.extend_from_slice(b"mycelix-hearth-journal-fingerprint-v1\\0");
+    material.extend_from_slice(b"mycelix-hearth-journal-fingerprint-v1\0");
     material.extend_from_slice(&domain_len.to_be_bytes());
     material.extend_from_slice(domain.as_bytes());
     material.extend_from_slice(&material_len.to_be_bytes());
