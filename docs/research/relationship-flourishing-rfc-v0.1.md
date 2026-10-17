@@ -56,7 +56,7 @@ Candidate algorithm families to compare:
 - **B0 — reciprocal filter + deterministic/random tie-break:** a simple auditable baseline.
 - **B1 — one-sided engagement ranking:** a research baseline only; never the safety or consent authority.
 - **B2 — two-sided matching:** matching-theory-inspired allocation that models both sides' preferences and recommendation congestion.
-- **B3 — constrained multi-objective ranking:** B2 plus coverage, diversity, explanation quality, and user-controlled exploration.
+- **B3 — exposure-aware multi-objective allocation:** B2 plus market-level coverage/exposure objectives, user-controlled exploration, and transparent tie-breaking. Pairwise mutual utility alone is not expected to remove recommendation concentration; allocation-level constraints are a separate intervention.
 
 Do not collapse everything into one magic compatibility number. Keep a vector of interpretable dimensions; prefer lexicographic constraints or Pareto comparisons where practical; disclose the ranking policy and uncertainty. Any exploration must remain within consent and hard-constraint boundaries.
 
@@ -166,24 +166,26 @@ All numerical values below are **proposed acceptance targets**, not current resu
 
 Build a deterministic synthetic market generator with configurable population size, feasible-match scarcity, preference heterogeneity, new-user cold starts, uneven activity, coordinated manipulators, and multiple user-defined outcomes. Synthetic profiles must contain no real people's personal data.
 
-Compare B0–B3 from Section 4.1 on a frozen corpus; repeat across seeds and report variance and confidence intervals.
+Compare B0–B3 from Section 4.1 on a frozen corpus; repeat across a preregistered seed suite and report variance and confidence intervals. Keep algorithm quality separate from feasibility, privacy/safety invariants, and simulated exposure opportunity. Exposure Gini must be reported beside a candidate's number of feasible counterparts (opportunity/degree); raw Gini can otherwise confuse lack of feasible options with ranking bias.
 
 | ID | Metric | Proposed gate for B3 against B1; compare B0/B2 as well |
 |---|---|---|
-| B1 | Eligible-user coverage | At least 90% of active users who have at least one feasible candidate receive at least one eligible introduction over a defined 14-day simulation window. Report users with no feasible candidates separately. |
-| B2 | Exposure concentration | At least 25% relative reduction in recommendation-exposure Gini versus the one-sided ranking baseline, without violating hard user preferences or creating artificial matches. |
-| B3 | Mutual acceptance | At least 10% relative lift in mutual acceptance per 100 eligible active users versus the strongest simple baseline, with confidence interval and seed variance reported. This is a hypothesis to validate, not an assumed effect. |
-| B4 | Quality/non-inferiority | Do not accept B3 if mutual-acceptance rate declines by more than 5% relative to B0 or B2, even if exposure inequality improves. |
-| B5 | Subgroup examination | Report coverage, exposure, mutual acceptance, and decline/block rates across appropriately consented and privacy-protected slices. Investigate unexplained relative gaps over 10%; do not force equal outcomes regardless of preference feasibility or publish small-cell data. |
-| B6 | Robustness | The eligibility and consent gates remain 100% enforced under cold-start, malformed profile, preference change, stale cache, replay, coordinated account and model-failure cases. |
+| B1 | Eligible-user coverage | Initial gate: at least 98% of active users who have at least one feasible counterpart receive at least one eligible recommendation in a defined 14-day simulation window under the exposure-aware policy. Report infeasible users separately; compare each baseline on identical inputs. |
+| B2 | Exposure concentration | Initial gate: at least 10% relative reduction in recommendation-exposure Gini versus B1's one-sided utility baseline; 25% is a stretch goal. Preserve hard constraints and report raw counts plus opportunity/degree-normalized exposure diagnostics. |
+| B3 | Reciprocal-shortlist proxy | Count unordered pairs where each person independently receives the other in their own top-k list. This is a synthetic recommendation-consistency proxy—not real mutual interest, acceptance, a date, or relationship quality. Report counts per 100 eligible users and seed-level uncertainty; no positive lift is assumed. |
+| B4 | Proxy non-inferiority | Do not accept exposure-aware B3 if reciprocal-shortlist-pair count is more than 5% lower than the strongest simpler baseline, unless a preregistered multi-objective rationale and human-outcome study justifies that trade-off. Never relabel this proxy as acceptance. |
+| B5 | Subgroup examination | Report coverage, raw and opportunity-normalized exposure, reciprocal-shortlist proxy and simulated decline/block cases across appropriately consented/privacy-protected slices. Investigate unexplained relative gaps over 10%; do not force equal outcomes regardless of preference feasibility or publish small-cell data. |
+| B6 | Robustness | Eligibility and consent gates remain 100% enforced under cold-start, malformed profile, preference change, stale cache, replay, coordinated account and model-failure cases. |
 
-The exact acceptance threshold may change after an independent review of simulation assumptions, but it must be frozen before the experiment. A synthetic pass does not establish human compatibility or real-world fairness.
+The thresholds are proposed engineering gates, not established scientific norms. Freeze them before the qualification run and revise only with an explicit benchmark-version change. Raw exposure Gini is affected by the feasible market graph: report candidate exposure conditional on opportunity, coverage at multiple top-k budgets, distribution tails (including zero exposure among feasible users), and the seed-level spread. A synthetic pass does not establish human compatibility or real-world fairness.
+
+**Exploratory sizing note — not Rust qualification or human-outcome evidence.** A separate quick Python reference simulation of the same synthetic-market/round-allocation idea (30 seeds, 200 synthetic participants per seed, top-k=5) yielded mean raw exposure Gini of roughly 0.354 for one-sided ranking, 0.356 for mutual-utility ranking, and 0.316 for exposure-balanced allocation; candidate coverage was approximately 97.6% for one-sided ranking and near 100% for exposure-balanced allocation. This is only a preliminary sizing observation from a reference implementation—not execution of the current Rust source, not proof the checked-in test passes, not a generalizable effect, and not real-world outcome evidence. It suggests that allocation-level exposure management deserves its own baseline, with 10% as a provisional initial Gini target and 25% as a stretch goal.
 
 ### 7.3 Lane C — scam and abuse resistance
 
 Create a versioned, held-out adversarial corpus with provenance, attack class, test owner, and negative controls. Keep the corpus private where disclosure would help attackers; publish non-sensitive counts and definitions.
 
-- Measure recall, precision, calibration, false-positive rates, time-to-detection, time-to-protection, and slice performance; never publish a single accuracy figure alone.
+- Measure recall, precision, calibration, false-positive rates, time-to-detection, time-to-protection, and slice performance; never publish a single accuracy figure alone. Detection metrics apply only to the named held-out corpus and label policy, not to the prevalence or truth of all scam activity in the wild.
 - Provisional offline target: at least 90% recall and 95% precision on the specifically defined held-out scam corpus, with confidence intervals and per-attack-class results. If the corpus is too small or non-representative, report “insufficient evidence” instead of passing.
 - No automated permanent ban based solely on this classifier. A low-confidence signal may trigger a warning or rate limit only if the policy is defined and proportionate; stronger action requires the stated review standard.
 - Re-check drift at least weekly during a pilot; conduct a named human policy/model review at least monthly and after a material incident or detected distribution shift. These are proposed operating targets, not substitutes for a staffed response function.
@@ -234,7 +236,7 @@ Implement a small Rust-first pure evaluation crate or reuse an appropriate exist
 1. Generate seeded synthetic markets and publish a canonical corpus manifest.
 2. Run B0–B3 on identical inputs.
 3. Measure eligibility failures separately from ranking quality.
-4. Compute exposure Gini, coverage, mutual acceptance, subgroup diagnostics, confidence intervals and runtime distributions.
+4. Compute exposure Gini, opportunity-normalized exposure, candidate coverage, reciprocal-shortlist proxy, subgroup diagnostics, seed-level intervals and runtime distributions. Keep real participant mutual acceptance for a later consent-based pilot; synthetic profiles cannot supply it.
 5. Exercise negative controls for block, withdrawal, stale preferences, malformed inputs, replay, cold starts, coordinated behavior and privacy violations.
 6. Emit a deterministic JSON/TOML report and digest; make missing metrics or missing test vectors fail closed.
 
@@ -271,7 +273,7 @@ Decentralization does not eliminate legal duties, moderation responsibilities, o
 1. **RFC review:** resolve terminology and ownership with existing Pulse social-contract, safety, and metadata work.
 2. **Rust synthetic-market harness:** deterministic generator, B0/B2 baselines, hard-constraint assertions, exposure/coverage metrics, corpus digest.
 3. **Adversarial corpus:** block/withdrawal/stale-consent/identity-replacement/privacy negative controls with explicit expected dispositions.
-4. **B3 proposal:** add multi-objective ranking and explanations only after baselines are stable.
+4. **B3 proposal:** add exposure-aware multi-objective allocation and explanations only after baselines are stable; compare pairwise mutual scoring against allocation-level exposure balancing separately.
 5. **Independent review:** matching methodology, human-subject research, safety operations and privacy assessment.
 6. **Pilot decision:** no launch date is set until evidence, staffing, governance and user research support it.
 
