@@ -126,12 +126,16 @@ async fn try_load_real_data(ctx: HearthCtx) {
     // Step 1: Get my hearths
     match hc.call_zome_default::<(), Vec<WireRecord>>("hearth_kinship", "get_my_hearths", &()).await {
         Ok(hearth_records) => {
+            let real_hearths = record_bridge::records_to_hearths(&hearth_records);
             web_sys::console::log_1(
-                &format!("[Hearth] Found {} hearths", hearth_records.len()).into()
+                &format!("[Hearth] Decoded {} Hearth records", real_hearths.len()).into()
             );
 
-            if let Some(first_hearth) = hearth_records.first() {
-                let hearth_hash = first_hearth.action_hash_b64();
+            // Only replace mock identity with a successfully decoded real Hearth
+            // record. A malformed/empty result must not become dispatch authority.
+            if let Some(first_hearth) = real_hearths.into_iter().next() {
+                let hearth_hash = first_hearth.hash.clone();
+                ctx.current_hearth.set(Some(first_hearth));
 
                 // Step 2: Get members for this hearth
                 match hc.call_zome_default::<String, Vec<WireRecord>>(
