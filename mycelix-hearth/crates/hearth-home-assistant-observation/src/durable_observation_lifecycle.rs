@@ -800,6 +800,8 @@ mod tests {
     struct MemoryStore {
         records: Vec<DurableLifecycleRecord>,
         fail_next_append: bool,
+        /// Simulate an append that committed but whose acknowledgement was lost.
+        fail_after_append: bool,
         fail_reads: bool,
     }
 
@@ -820,6 +822,10 @@ mod tests {
                 return Err(LifecycleStoreError::AppendAndSyncFailed);
             }
             self.records.push(record.clone());
+            if self.fail_after_append {
+                self.fail_after_append = false;
+                return Err(LifecycleStoreError::AppendAndSyncFailed);
+            }
             Ok(())
         }
     }
@@ -970,6 +976,40 @@ mod tests {
         assert_eq!(
             ledger.start_session(2, 40),
             Err(DurableLifecycleError::StorageFaulted)
+        );
+    }
+
+    #[test]
+    fn lost_append_acknowledgement_recovers_committed_invalidation_without_resurrection() {
+        let mut ledger = make_live();
+        let sequence_before = ledger.last_sequence();
+        ledger.store.fail_after_append = true;
+
+        assert_eq!(
+            ledger.disconnect(1, 30),
+            Err(DurableLifecycleError::StorageAppendAndSyncFailed)
+        );
+        assert_eq!(ledger.last_sequence(), sequence_before);
+        assert!(ledger.current_revision("sensor.living_room_temperature", 30).is_none());
+        assert!(!ledger.is_healthy());
+
+        // The storage layer committed sequence N+1 before reporting failure.
+        // The wrapper did not publish it in-process; cold recovery must discover
+        // and validate it, then add a recovery barrier before it can accept work.
+        let store = ledger.into_store();
+        assert_eq!(store.records.len() as u64, sequence_before + 1);
+        assert_eq!(
+            store.records.last().unwrap().transition,
+            DurableLifecycleTransition::Disconnect
+        );
+        let recovered =
+            DurableObservationLifecycle::recover(&profile(), store, 40).unwrap();
+        assert_eq!(recovered.phase(), LifecyclePhase::Dormant);
+        assert_eq!(recovered.last_sequence(), sequence_before + 2);
+        assert!(recovered.current_revision("sensor.living_room_temperature", 41).is_none());
+        assert_eq!(
+            recovered.store().records.last().unwrap().transition,
+            DurableLifecycleTransition::RecoveryBarrier
         );
     }
 
