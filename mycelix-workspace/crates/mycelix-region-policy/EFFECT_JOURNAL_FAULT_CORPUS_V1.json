@@ -30,7 +30,7 @@
       "fault": "Four workers concurrently load Prepared and reserve in all 2,520 order-preserving schedules.",
       "expected": "Exactly one compare-and-swap reservation wins in every enumerated four-worker load/reserve interleaving.",
       "status": "implemented_reference_model",
-      "test_anchor": "every_two_worker_load_reserve_interleaving_has_one_winner"
+      "test_anchor": "every_four_worker_load_reserve_interleaving_has_one_winner"
     },
     {
       "id": "EJM-002",
@@ -38,7 +38,7 @@
       "fault": "A worker attempts reservation using a stale revision after one of four workers has reserved.",
       "expected": "Stale reservation is rejected; shared row remains at one revision-1 Reserved state.",
       "status": "implemented_reference_model",
-      "test_anchor": "every_two_worker_load_reserve_interleaving_has_one_winner"
+      "test_anchor": "every_four_worker_load_reserve_interleaving_has_one_winner"
     },
     {
       "id": "EJM-003",
