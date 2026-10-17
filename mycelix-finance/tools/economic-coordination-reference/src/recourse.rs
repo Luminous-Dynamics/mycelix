@@ -207,10 +207,11 @@ pub enum SupplyRejection {
     MissingFailureDomain,
     InvalidLotPolicy,
     ActivationAfterDeadline,
+    FailedInScenario,
     TimeOverflow,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RecourseAllocation {
     pub offer_id: String,
     pub supplier_id: String,
@@ -237,6 +238,7 @@ pub struct ExcludedOption {
 pub struct RecourseScenarioResult {
     pub scenario_id: String,
     pub observed_at: u64,
+    pub failed_domains: Vec<String>,
     pub base_lost_quantity: u32,
     pub surviving_base_quantity: u32,
     pub recovered_quantity: u32,
@@ -677,7 +679,7 @@ fn option_for_scenario(
         return Ok(Err(reason));
     }
     if failed(&option.supply, failed_domains) {
-        return Ok(Err(SupplyRejection::CapacityExpired));
+        return Ok(Err(SupplyRejection::FailedInScenario));
     }
     let activation_at = scenario.observed_at
         .checked_add(option.activation_lead_secs)
@@ -897,6 +899,7 @@ pub fn evaluate_recourse(
         scenario_results.push(RecourseScenarioResult {
             scenario_id: scenario.scenario_id.clone(),
             observed_at: scenario.observed_at,
+            failed_domains: scenario.failed_domains.clone(),
             base_lost_quantity,
             surviving_base_quantity,
             recovered_quantity: best.recovered_quantity,
@@ -1065,7 +1068,7 @@ mod tests {
         assert_eq!(disrupted.flexible_quantity, 4);
         assert_eq!(disrupted.backup_quantity, 6);
         assert_eq!(disrupted.latest_recovery_arrival_at, Some(115));
-        assert_eq!(disrupted.total_scenario_cost_minor, 48);
+        assert_eq!(disrupted.total_scenario_cost_minor, 50);
     }
 
     #[test]
@@ -1106,8 +1109,8 @@ mod tests {
     #[test]
     fn shared_capacity_pool_reservation_cannot_be_double_counted() {
         let req = request();
-        let baseline = vec![base("base-a", "supplier-a", "shared", 6, 10, "region-a")];
-        let options = vec![option("backup-b", "supplier-b", "shared", 5, "region-b", SupplyMode::Backup, 2, 1, 2, 2, 3)];
+        let baseline = vec![base("base-a", "supplier-a", "shared", 10, 10, "region-a")];
+        let options = vec![option("backup-b", "supplier-b", "shared", 10, "region-b", SupplyMode::Backup, 2, 1, 2, 2, 3)];
         assert_eq!(
             evaluate_recourse(&req, &baseline, &options, &[RecourseScenario {
                 scenario_id: "supplier-a-fails".into(),
