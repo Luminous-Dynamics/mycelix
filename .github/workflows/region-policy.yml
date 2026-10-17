@@ -1,7 +1,9 @@
 name: Regional policy kernel
 
 on:
-  pull_request:
+  push:
+    branches:
+      - "feat/region-policy-core-v1"
     paths:
       - "mycelix-workspace/crates/mycelix-region-policy/**"
       - "mycelix-workspace/Cargo.toml"
