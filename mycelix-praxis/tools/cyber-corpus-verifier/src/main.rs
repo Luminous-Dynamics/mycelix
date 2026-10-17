@@ -831,6 +831,7 @@ mod tests {
         let mut value: Value = serde_json::from_str(corpus.lines().next().expect("first record"))
             .expect("first challenge should be JSON");
 
+        let valid_scenario_id = value["scenario_id"].clone();
         value.as_object_mut().expect("challenge is an object")
             .insert("unrecognized_field".to_string(), Value::Bool(true));
         assert!(validator.validate(&value).is_err(), "unknown fields must fail schema validation");
@@ -838,6 +839,25 @@ mod tests {
         value.as_object_mut().expect("challenge is an object").remove("unrecognized_field");
         value["scenario_id"] = Value::String("INVALID-ID".to_string());
         assert!(validator.validate(&value).is_err(), "scenario ID pattern must be enforced");
+
+        value["scenario_id"] = valid_scenario_id;
+        value["solver_view"]["observations"][0]["observed_at"] =
+            Value::String("yesterday".to_string());
+        assert!(validator.validate(&value).is_err(), "date-time format must be enforced");
+    }
+
+    #[test]
+    fn malformed_nested_schema_keyword_fails_meta_validation() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let schema_text = fs::read_to_string(root.join("schemas/cyber-challenge-v1.schema.json"))
+            .expect("challenge schema should be readable");
+        let mut schema: Value = serde_json::from_str(&schema_text)
+            .expect("challenge schema should be JSON");
+        schema["properties"]["domain"]["type"] = Value::String("not-a-json-type".to_string());
+        assert!(
+            !jsonschema::draft202012::meta::is_valid(&schema),
+            "a schema with an invalid type keyword must fail Draft 2020-12 meta-validation"
+        );
     }
 
     #[test]
