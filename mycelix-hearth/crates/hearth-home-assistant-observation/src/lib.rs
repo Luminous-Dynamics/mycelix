@@ -9,19 +9,17 @@
 //! observations only; it does not contribute household authority.
 
 use hearth_automation_types::EntityRef;
-use hearth_automation_types::{
-    AutomationValue, EvidenceSource, Observation, BASIS_POINTS_MAX,
-};
+use hearth_automation_types::{AutomationValue, BASIS_POINTS_MAX, EvidenceSource, Observation};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Projects compact provider events into profile-minimized entity frames.
+pub mod entity_stream;
 /// Bounded JSON parser that rejects duplicate object keys without exposing payloads.
 pub mod strict_json;
 /// Pure HA WebSocket protocol machine; contains no transport or credential API.
 pub mod websocket_protocol;
-/// Projects compact provider events into profile-minimized entity frames.
-pub mod entity_stream;
 
 pub const HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION: u16 = 1;
 pub const HOME_ASSISTANT_NAMESPACE: &str = "home-assistant";
@@ -71,7 +69,10 @@ impl fmt::Display for ObservationError {
                 "Home Assistant metadata mismatch for {entity_id}: {field} expected {expected:?}, got {actual:?}"
             ),
             Self::DecodeFailed { entity_id, reason } => {
-                write!(f, "Home Assistant state decode failed for {entity_id}: {reason}")
+                write!(
+                    f,
+                    "Home Assistant state decode failed for {entity_id}: {reason}"
+                )
             }
             Self::FreshnessOverflow => write!(f, "observation freshness timestamp overflow"),
         }
@@ -99,8 +100,7 @@ impl HomeAssistantObservationProfile {
             ));
         }
         validate_instance_id(&self.instance_id)?;
-        validate_profile_ref(&self.profile_ref)
-            .map_err(ObservationError::InvalidProfile)?;
+        validate_profile_ref(&self.profile_ref).map_err(ObservationError::InvalidProfile)?;
         if self.rules.is_empty() {
             return Err(ObservationError::InvalidProfile(
                 "rules must not be empty".into(),
@@ -238,9 +238,7 @@ impl StateCodec {
                     "{path}: min must be <= max"
                 )));
             }
-            Self::BasisPointsRange { min, max }
-                if min > max || *max > BASIS_POINTS_MAX =>
-            {
+            Self::BasisPointsRange { min, max } if min > max || *max > BASIS_POINTS_MAX => {
                 return Err(ObservationError::InvalidProfile(format!(
                     "{path}: invalid basis-point range"
                 )));
@@ -359,7 +357,11 @@ pub fn map_state(
     profile.validate()?;
     frame.validate()?;
 
-    let Some(rule) = profile.rules.iter().find(|rule| rule.entity_id == frame.entity_id) else {
+    let Some(rule) = profile
+        .rules
+        .iter()
+        .find(|rule| rule.entity_id == frame.entity_id)
+    else {
         return Ok(MappingOutcome::NotAllowlisted {
             entity_id: frame.entity_id.clone(),
         });
@@ -613,7 +615,9 @@ fn validate_profile_ref(value: &str) -> Result<(), String> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
     {
-        return Err("profile_ref suffix must contain only ASCII alphanumeric, '.', '_' or '-'".into());
+        return Err(
+            "profile_ref suffix must contain only ASCII alphanumeric, '.', '_' or '-'".into(),
+        );
     }
     Ok(())
 }
