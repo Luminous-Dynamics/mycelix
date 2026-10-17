@@ -307,8 +307,8 @@ impl ScientificBenchmarkManifest {
             }
         }
 
-        if let Some(completed_at) = self.completed_at {
-            if completed_at < self.created_at {
+        if let Some(completed_at) = self.completed_at.as_ref() {
+            if completed_at < &self.created_at {
                 return Err(Error::Validation(
                     "completion timestamp precedes manifest creation".into(),
                 ));
@@ -363,7 +363,7 @@ impl ScientificBenchmarkManifest {
                             .into(),
                     ));
                 }
-                if self.completed_at.is_some_and(|completed| verifier.verified_at < completed) {
+                if self.completed_at.as_ref().is_some_and(|completed| &verifier.verified_at < completed) {
                     return Err(Error::Validation(
                         "verifier timestamp precedes benchmark completion".into(),
                     ));
@@ -407,6 +407,11 @@ impl ScientificBenchmarkManifest {
         if self.completed_at.is_none() {
             return Err(Error::Validation(
                 "completed benchmark status requires completed_at".into(),
+            ));
+        }
+        if self.input_artifacts.is_empty() {
+            return Err(Error::Validation(
+                "completed benchmark status requires at least one input artifact".into(),
             ));
         }
         if self.output_artifacts.is_empty() {
