@@ -1373,7 +1373,8 @@ mod tests {
         .expect("fixture profile should verify through test adapter")
     }
 
-    const TEST_CONTENT_DIGEST: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const TEST_CONTENT_DIGEST: &str =
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
     fn verified_agreement(
         source: &VerifiedProfile,
@@ -1778,7 +1779,9 @@ mod tests {
         let decision = evaluate_transfer(&source, &destination, &request);
         assert!(!decision.allowed);
         assert!(decision.reasons.contains(&DenialReason::SourceProfileVerifiedAfterDecisionTime));
-        assert!(decision.reasons.contains(&DenialReason::DestinationProfileVerifiedAfterDecisionTime));
+        assert!(decision
+            .reasons
+            .contains(&DenialReason::DestinationProfileVerifiedAfterDecisionTime));
         assert!(decision.reasons.contains(&DenialReason::ClassificationVerifiedAfterDecisionTime));
         assert!(decision.reasons.contains(&DenialReason::AgreementVerifiedAfterDecisionTime));
     }
@@ -2038,10 +2041,22 @@ mod tests {
         let destination = verified("community-b", &[], &["community-a"]);
         let mut first = verified_agreement(&source, &destination).agreement;
         let mut second = first.clone();
-        first.allowed_purposes = vec!["credential-check".to_owned(), "care-coordination".to_owned()];
-        second.allowed_purposes = vec!["care-coordination".to_owned(), "credential-check".to_owned()];
-        first.allowed_recipient_ids = vec!["service:education".to_owned(), "service:care".to_owned()];
-        second.allowed_recipient_ids = vec!["service:care".to_owned(), "service:education".to_owned()];
+        first.allowed_purposes = vec![
+            "credential-check".to_owned(),
+            "care-coordination".to_owned(),
+        ];
+        second.allowed_purposes = vec![
+            "care-coordination".to_owned(),
+            "credential-check".to_owned(),
+        ];
+        first.allowed_recipient_ids = vec![
+            "service:education".to_owned(),
+            "service:care".to_owned(),
+        ];
+        second.allowed_recipient_ids = vec![
+            "service:care".to_owned(),
+            "service:education".to_owned(),
+        ];
         assert_eq!(first.canonical_payload(), second.canonical_payload());
     }
 
