@@ -1,0 +1,86 @@
+name: Relationship research harness
+
+on:
+  push:
+    paths:
+      - ".github/workflows/relationship-research.yml"
+      - "experiments/relationship-matching-eval/**"
+  pull_request:
+    paths:
+      - ".github/workflows/relationship-research.yml"
+      - "experiments/relationship-matching-eval/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relationship-research-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-research:
+    name: Exact-head Rust qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SUBJECT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          persist-credentials: false
+
+      - name: Assert checked-out subject
+        run: test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action revision
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Record compiler identity
+        run: |
+          rustc +1.96.0 --version --verbose
+          cargo +1.96.0 --version
+          rustfmt +1.96.0 --version
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path experiments/relationship-matching-eval/Cargo.toml --all -- --check
+
+      - name: Run unit tests
+        run: cargo +1.96.0 test --manifest-path experiments/relationship-matching-eval/Cargo.toml --all-targets
+
+      - name: Run Clippy
+        run: cargo +1.96.0 clippy --manifest-path experiments/relationship-matching-eval/Cargo.toml --all-targets -- -D warnings
+
+      - name: Prepare deterministic smoke reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/relationship-research"
+          export GIT_COMMIT_SHA="$SUBJECT_SHA"
+          export RUSTC_VERSION="$(rustc +1.96.0 --version)"
+          cargo +1.96.0 run --release --manifest-path experiments/relationship-matching-eval/Cargo.toml -- 20261017 40 3 2 > "$RUNNER_TEMP/relationship-research/baseline.json"
+          cargo +1.96.0 run --release --manifest-path experiments/relationship-matching-eval/Cargo.toml --bin robustness_sweep -- 20261017 40 3 2 > "$RUNNER_TEMP/relationship-research/robustness.json"
+          cargo +1.96.0 run --release --manifest-path experiments/relationship-matching-eval/Cargo.toml --bin temporal_sweep -- 20261017 40 3 2 2 > "$RUNNER_TEMP/relationship-research/temporal.json"
+          cargo +1.96.0 run --release --manifest-path experiments/relationship-matching-eval/Cargo.toml --bin quality_frontier -- 20261017 40 3 2 2 > "$RUNNER_TEMP/relationship-research/quality-frontier.json"
+          printf 'subject_sha=%s\nrustc=%s\n' "$SUBJECT_SHA" "$RUSTC_VERSION" > "$RUNNER_TEMP/relationship-research/qualification.txt"
+
+      - name: Validate report JSON
+        run: |
+          python3 -m json.tool "$RUNNER_TEMP/relationship-research/baseline.json" > /dev/null
+          python3 -m json.tool "$RUNNER_TEMP/relationship-research/robustness.json" > /dev/null
+          python3 -m json.tool "$RUNNER_TEMP/relationship-research/temporal.json" > /dev/null
+          python3 -m json.tool "$RUNNER_TEMP/relationship-research/quality-frontier.json" > /dev/null
+
+      - name: Upload exact-head research reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: relationship-research-${{ env.SUBJECT_SHA }}
+          path: ${{ runner.temp }}/relationship-research/
+          if-no-files-found: error
+          retention-days: 14
