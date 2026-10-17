@@ -4,6 +4,8 @@
 **Date:** 2026-10-17  
 **Machine-readable records:** [privacy-inventory.json](privacy-inventory.json)  
 **Record schema:** [privacy-inventory.schema.json](privacy-inventory.schema.json)  
+**Machine-readable negative controls:** [privacy-negative-controls.json](privacy-negative-controls.json)  
+**Negative-control schema:** [privacy-negative-controls.schema.json](privacy-negative-controls.schema.json)  
 **Tracker:** [#5112](https://github.com/Luminous-Dynamics/mycelix/issues/5112)
 
 ## Why this is a paradigm shift
@@ -147,6 +149,8 @@ Run paired synthetic sessions where exactly one variable changes: sender, recipi
 
 Reuse the existing PSI work (#2297) for contact discovery. Require separate evidence for input privacy, query enumeration control, relay/transport metadata, registry authenticity/currentness, epoch/key scoping, retention and issuer/server collusion. Do not create a second PSI protocol in Pulse to avoid the harder audit.
 
+Evaluate IETF Oblivious HTTP (RFC 9458) only as an optional relay/gateway composition for selected discovery or directory requests: the relay/gateway must be independently operated under the chosen threat model; request contents must not reintroduce stable identifiers; and traffic analysis, padding, timing, and service availability remain separate limitations. OHTTP does not make ordinary messaging anonymous by itself. Evaluate Privacy Pass (RFC 9576) as an authorization architecture for bounded, privacy-preserving query budgets; its token semantics, issuer/origin collusion, replay, service scoping and enumeration resistance must be separately qualified. Neither standard is a drop-in proof that a complete contact-discovery system is private.
+
 For federation, preserve source identity, audience, provenance and loss records; require explicit authority for every outbound publication. For key transparency, distinguish consistent account-to-key mapping from verification of a real-world person.
 
 ### Step 6 — independent review and release decision
@@ -154,6 +158,8 @@ For federation, preserve source identity, audience, provenance and loss records;
 Have a reviewer distinct from the author inspect the exact build and its evidence. The reviewer records open findings, scope exclusions and claim ceilings. High-risk unresolved findings block only the relevant release/claim but must be visible; do not inflate an aggregate privacy score to hide them.
 
 ## Negative controls
+
+The machine-readable catalog in privacy-negative-controls.json defines ten synthetic control cases, each with inventory references, observer vantage points, expected results, a sensitivity gate and explicit claim limits. Validate that catalog against privacy-negative-controls.schema.json, then bind each executed run to exact build/config/tool versions, fixture digest and observer method. All catalog entries currently have status not_run; this is a plan, not execution evidence.
 
 Every audit run must include appropriate controls proving that the test is sensitive:
 
