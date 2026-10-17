@@ -1136,15 +1136,32 @@ mod tests {
     fn incompatible_correction_and_cross_case_dispute_resolution_are_rejected() {
         let mut ledger = basic_finalized_ledger();
         let mut wrong_family = event(
-            "wrong-correction", "claim-wrong-correction", IssuerRole::Supplier, 110, 110,
-            OutcomeEventKind::ShipmentReported { quantity: 2, shipment_evidence_ref: "corrected-shipment".to_owned() },
+            "wrong-correction",
+            "claim-wrong-correction",
+            IssuerRole::Supplier,
+            110,
+            110,
+            OutcomeEventKind::ShipmentReported {
+                quantity: 2,
+                shipment_evidence_ref: "corrected-shipment".to_owned(),
+            },
         );
         wrong_family.supersedes_event_id = Some("receipt-1".to_owned());
-        assert_eq!(ledger.append(wrong_family), Err(OutcomeLedgerError::SupersessionChangesEventFamily));
+        assert_eq!(
+            ledger.append(wrong_family),
+            Err(OutcomeLedgerError::SupersessionChangesEventFamily)
+        );
 
         let mut cross_case = event(
-            "other-case-dispute", "claim-other-dispute", IssuerRole::Supplier, 109, 109,
-            OutcomeEventKind::DisputeOpened { reason_code: "claim".to_owned(), dispute_evidence_ref: "claim-doc".to_owned() },
+            "other-case-dispute",
+            "claim-other-dispute",
+            IssuerRole::Supplier,
+            109,
+            109,
+            OutcomeEventKind::DisputeOpened {
+                reason_code: "claim".to_owned(),
+                dispute_evidence_ref: "claim-doc".to_owned(),
+            },
         );
         cross_case.case_id = "case-2".to_owned();
         ledger.append(cross_case).unwrap();
