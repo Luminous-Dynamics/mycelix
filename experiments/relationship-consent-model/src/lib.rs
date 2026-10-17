@@ -490,7 +490,7 @@ mod tests {
         let mut machine = Machine::default();
         propose_a(&mut machine, 2);
         machine.apply(Event::AdvanceTime { to: 2 });
-        machine.apply(Event::Accept { actor: Actor::B, epoch: 1 });
+        machine.apply(Event::Accept { actor: Actor::B, sequence: 1, epoch: 1 });
 
         assert!(matches!(
             &machine.phase,
