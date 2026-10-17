@@ -12,15 +12,18 @@ use crate::effect_journal::{
     SinkOutcomeEvidence, SinkOutcomeVerifier, SinkProofError, VerifiedSinkOutcome,
 };
 
-const OPERATION_A: &str = "sink-operation-a";
-const OPERATION_B: &str = "sink-operation-b";
+const MODEL_WORKER_COUNT: usize = 4;
+const OPERATION_IDS: [&str; MODEL_WORKER_COUNT] = [
+    "sink-operation-a",
+    "sink-operation-b",
+    "sink-operation-c",
+    "sink-operation-d",
+];
 
 #[derive(Debug, Clone, Copy)]
 enum Event {
-    LoadA,
-    ReserveA,
-    LoadB,
-    ReserveB,
+    Load(usize),
+    Reserve(usize),
 }
 
 #[derive(Default, Debug, Clone)]
@@ -61,38 +64,35 @@ impl SharedRow {
 fn interleavings() -> Vec<Vec<Event>> {
     fn extend(
         schedule: &mut Vec<Event>,
-        loaded_a: bool,
-        reserved_a: bool,
-        loaded_b: bool,
-        reserved_b: bool,
+        next_stage: &mut [u8; MODEL_WORKER_COUNT],
         output: &mut Vec<Vec<Event>>,
     ) {
-        if reserved_a && reserved_b {
+        if next_stage.iter().all(|stage| *stage == 2) {
             output.push(schedule.clone());
             return;
         }
-        if !loaded_a {
-            schedule.push(Event::LoadA);
-            extend(schedule, true, reserved_a, loaded_b, reserved_b, output);
+
+        // Each worker preserves Load -> Reserve order; the recursive enumerator
+        // covers every interleaving that preserves those per-worker constraints.
+        for worker in 0..MODEL_WORKER_COUNT {
+            if next_stage[worker] >= 2 {
+                continue;
+            }
+            let event = if next_stage[worker] == 0 {
+                Event::Load(worker)
+            } else {
+                Event::Reserve(worker)
+            };
+            next_stage[worker] += 1;
+            schedule.push(event);
+            extend(schedule, next_stage, output);
             schedule.pop();
-        } else if !reserved_a {
-            schedule.push(Event::ReserveA);
-            extend(schedule, loaded_a, true, loaded_b, reserved_b, output);
-            schedule.pop();
-        }
-        if !loaded_b {
-            schedule.push(Event::LoadB);
-            extend(schedule, loaded_a, reserved_a, true, reserved_b, output);
-            schedule.pop();
-        } else if !reserved_b {
-            schedule.push(Event::ReserveB);
-            extend(schedule, loaded_a, reserved_a, loaded_b, true, output);
-            schedule.pop();
+            next_stage[worker] -= 1;
         }
     }
 
     let mut output = Vec::new();
-    extend(&mut Vec::new(), false, false, false, false, &mut output);
+    extend(&mut Vec::new(), &mut [0; MODEL_WORKER_COUNT], &mut output);
     output
 }
 
@@ -327,27 +327,19 @@ fn explore_schedule(schedule: &[Event]) -> (usize, SharedRow) {
     let mut shared = SharedRow {
         snapshot: EffectAttempt::prepare(identity()).snapshot(),
     };
-    let mut a = WorkerObservation::default();
-    let mut b = WorkerObservation::default();
+    let mut observations: [WorkerObservation; MODEL_WORKER_COUNT] =
+        std::array::from_fn(|_| WorkerObservation::default());
     let mut winners = 0usize;
 
     for event in schedule {
-        match event {
-            Event::LoadA => {
-                a.revision = Some(shared.snapshot.revision);
-                a.phase = Some(shared.snapshot.phase);
+        match *event {
+            Event::Load(worker) => {
+                observations[worker].revision = Some(shared.snapshot.revision);
+                observations[worker].phase = Some(shared.snapshot.phase);
             }
-            Event::LoadB => {
-                b.revision = Some(shared.snapshot.revision);
-                b.phase = Some(shared.snapshot.phase);
-            }
-            Event::ReserveA => {
-                if shared.try_reserve(a.revision, a.phase, OPERATION_A) {
-                    winners += 1;
-                }
-            }
-            Event::ReserveB => {
-                if shared.try_reserve(b.revision, b.phase, OPERATION_B) {
+            Event::Reserve(worker) => {
+                let observed = &observations[worker];
+                if shared.try_reserve(observed.revision, observed.phase, OPERATION_IDS[worker]) {
                     winners += 1;
                 }
             }
@@ -361,16 +353,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_two_worker_load_reserve_interleaving_has_one_winner() {
+    fn every_four_worker_load_reserve_interleaving_has_one_winner() {
         let schedules = interleavings();
-        assert_eq!(schedules.len(), 6, "all order-preserving interleavings must be enumerated");
+        assert_eq!(schedules.len(), 2_520, "all order-preserving interleavings must be enumerated");
         for schedule in &schedules {
             let (winners, shared) = explore_schedule(schedule);
             assert_eq!(winners, 1, "schedule {schedule:?}");
             assert_eq!(shared.snapshot.phase, AttemptPhase::Reserved);
             assert_eq!(shared.snapshot.revision, 1);
-            assert!(shared.snapshot.operation_id.as_deref() == Some(OPERATION_A)
-                || shared.snapshot.operation_id.as_deref() == Some(OPERATION_B));
+            assert!(OPERATION_IDS.contains(&shared.snapshot.operation_id.as_deref().unwrap_or_default()));
         }
     }
 
