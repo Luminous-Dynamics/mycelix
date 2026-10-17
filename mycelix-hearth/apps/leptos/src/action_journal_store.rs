@@ -160,6 +160,83 @@ impl JournalEntryV1 {
     }
 }
 
+/// Generate a random UUID using the browser's cryptographic RNG. If the
+/// required secure-context API is unavailable, fail closed instead of falling
+/// back to timestamps, Math.random, or counters.
+pub fn new_operation_id() -> Result<String, JournalError> {
+    let window = web_sys::window().ok_or(JournalError::IndexedDbUnavailable)?;
+    let crypto = window.crypto();
+    let random_uuid = Reflect::get(crypto.as_ref(), &JsValue::from_str("randomUUID"))
+        .map_err(|_| JournalError::IndexedDbUnavailable)?
+        .dyn_into::<Function>()
+        .map_err(|_| JournalError::IndexedDbUnavailable)?;
+    let value = random_uuid
+        .call0(crypto.as_ref())
+        .map_err(|_| JournalError::IndexedDbUnavailable)?;
+    let operation_id = value.as_string().ok_or(JournalError::InvalidRecord)?;
+    if operation_id.len() != 36
+        || !operation_id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
+    {
+        return Err(JournalError::InvalidRecord);
+    }
+    Ok(operation_id)
+}
+
+/// Domain-separated SHA-256 fingerprint for a canonical, non-secret identity
+/// byte representation. This is a pseudonymous locator, not encryption or
+/// authorization; public/low-entropy inputs can still be linkable or guessed.
+pub async fn sha256_fingerprint(
+    domain: &str,
+    canonical_bytes: &[u8],
+) -> Result<String, JournalError> {
+    if domain.is_empty() || domain.len() > 80 || !domain.is_ascii() {
+        return Err(JournalError::InvalidRecord);
+    }
+    let domain_len =
+        u32::try_from(domain.len()).map_err(|_| JournalError::InvalidRecord)?;
+    let material_len =
+        u64::try_from(canonical_bytes.len()).map_err(|_| JournalError::InvalidRecord)?;
+
+    let mut material = Vec::with_capacity(
+        b"mycelix-hearth-journal-fingerprint-v1\\0".len()
+            + 4
+            + domain.len()
+            + 8
+            + canonical_bytes.len(),
+    );
+    material.extend_from_slice(b"mycelix-hearth-journal-fingerprint-v1\\0");
+    material.extend_from_slice(&domain_len.to_be_bytes());
+    material.extend_from_slice(domain.as_bytes());
+    material.extend_from_slice(&material_len.to_be_bytes());
+    material.extend_from_slice(canonical_bytes);
+
+    let window = web_sys::window().ok_or(JournalError::IndexedDbUnavailable)?;
+    let digest = window
+        .crypto()
+        .subtle()
+        .digest_with_str_and_u8_array("SHA-256", &material)
+        .map_err(|_| JournalError::IndexedDbUnavailable)?;
+    let digest = JsFuture::from(digest)
+        .await
+        .map_err(|_| JournalError::IndexedDbUnavailable)?;
+    let bytes = js_sys::Uint8Array::new(&digest).to_vec();
+    fingerprint_from_digest(&bytes)
+}
+
+fn fingerprint_from_digest(digest: &[u8]) -> Result<String, JournalError> {
+    if digest.len() != 32 {
+        return Err(JournalError::InvalidRecord);
+    }
+    let mut fingerprint = String::with_capacity(7 + digest.len() * 2);
+    fingerprint.push_str("sha256:");
+    for byte in digest {
+        use std::fmt::Write as _;
+        write!(&mut fingerprint, "{byte:02x}")
+            .map_err(|_| JournalError::SerializationFailed)?;
+    }
+    Ok(fingerprint)
+}
+
 fn valid_sha256_fingerprint(value: &str) -> bool {
     let Some(hex) = value.strip_prefix("sha256:") else {
         return false;
@@ -739,6 +816,22 @@ mod tests {
         assert!(!encoded.contains("member name"));
         assert!(!encoded.contains("gratitude message"));
         assert!(!encoded.contains("uhCAk"));
+    }
+
+    #[test]
+    fn fingerprint_encoding_requires_exact_sha256_length_and_is_lowercase() {
+        assert_eq!(
+            super::fingerprint_from_digest(&[0u8; 32]).unwrap(),
+            format!("sha256:{}", "00".repeat(32))
+        );
+        assert_eq!(
+            super::fingerprint_from_digest(&[0xab; 32]).unwrap(),
+            format!("sha256:{}", "ab".repeat(32))
+        );
+        assert_eq!(
+            super::fingerprint_from_digest(&[0u8; 31]),
+            Err(JournalError::InvalidRecord)
+        );
     }
 
     #[test]
