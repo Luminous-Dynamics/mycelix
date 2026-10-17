@@ -39,7 +39,7 @@ jobs:
       - name: Install Rust and WASM target
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action
         with:
-          toolchain: stable
+          toolchain: 1.99.1
           components: rustfmt
           targets: wasm32-unknown-unknown
 
