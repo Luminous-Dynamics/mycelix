@@ -138,10 +138,22 @@ jobs:
         with:
           toolchain: 1.96.0
           components: rustfmt
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --all --check
       - name: Test crate
-        run: cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml
+        run: cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/Cargo.toml --locked
+      - name: Record resolved lock digest
+        if: always()
+        run: sha256sum mycelix-workspace/research/creator-sovereignty-core/Cargo.lock
+      - name: Upload resolved lockfile
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-creator-ledger-cargo-lock-${{ github.sha }}
+          path: mycelix-workspace/research/creator-sovereignty-core/Cargo.lock
+          if-no-files-found: warn
 
   test-cscp-deal-state:
     name: CSCP creator deal state
@@ -155,10 +167,22 @@ jobs:
         with:
           toolchain: 1.96.0
           components: rustfmt
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --all --check
       - name: Test crate
-        run: cargo test --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml
+        run: cargo test --manifest-path mycelix-workspace/research/creator-deal-state-core/Cargo.toml --locked
+      - name: Record resolved lock digest
+        if: always()
+        run: sha256sum mycelix-workspace/research/creator-deal-state-core/Cargo.lock
+      - name: Upload resolved lockfile
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-deal-state-cargo-lock-${{ github.sha }}
+          path: mycelix-workspace/research/creator-deal-state-core/Cargo.lock
+          if-no-files-found: warn
 
   test-cscp-asset-passport:
     name: CSCP creator asset passport
@@ -174,10 +198,22 @@ jobs:
         with:
           toolchain: 1.96.0
           components: rustfmt
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --all --check
       - name: Test crate
-        run: cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml
+        run: cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --locked
+      - name: Record resolved lock digest
+        if: always()
+        run: sha256sum mycelix-workspace/research/creator-asset-passport-core/Cargo.lock
+      - name: Upload resolved lockfile
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-asset-passport-cargo-lock-${{ github.sha }}
+          path: mycelix-workspace/research/creator-asset-passport-core/Cargo.lock
+          if-no-files-found: warn
 
   # Per-cluster test jobs
   test-cos-conformance:
