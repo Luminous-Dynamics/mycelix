@@ -235,6 +235,28 @@ The synthetic corpus can be reviewed and exercised locally without platform toke
 6. Selective Mycelix permissions/claims integration where it adds a documented benefit.
 7. Symthaea deeper career reasoning, Symtropy interactive experiences, and Sol-Atlas venue/tour intelligence only after creator research indicates demand.
 
+## Gate 5 — asset identity, split claims, and consent scope
+
+The initial implementation slice is tracked in [draft PR #5182](https://github.com/Luminous-Dynamics/mycelix/pull/5182). These are release thresholds, not achieved results.
+
+| Fixture family | Required oracle | Release threshold |
+|---|---|---:|
+| ISWC vs ISRC | Work identifiers cannot be assigned to recordings; recording identifiers cannot be assigned to works; malformed presentation syntax rejected | 100% correct fixed-fixture outcomes |
+| Identifier collisions | Same canonical external identifier on different local assets raises a conflict; no automatic merge | Zero silent merges |
+| Rights-pool arithmetic | Evaluate each asset and pool separately; a complete claim is exactly 10,000 basis points | Zero normalization; zero cross-pool aggregation |
+| Partial / unknown shares | Report known basis points and unattributed residual; do not assign the residual to a participant | Zero invented shares |
+| Claim state | Proposed and disputed claims remain distinguishable from confirmed arithmetic | Zero disputed claims reported as complete |
+| Permission scope | Asset, grantee, action, purpose and time interval all match the grant | Zero false allows in adversarial fixtures |
+| Sensitive use | Metadata analysis, publication, distribution, commercial use, model training, derivatives, and voice/likeness synthesis are not interchangeable | Zero cross-action permission expansion |
+| Expiry / revocation | Start is inclusive, expiry is exclusive, and revocation blocks evaluation at/after its timestamp while retaining historical evaluation before it | 100% fixed-fixture agreement |
+| Asset boundaries | A grant for one recording does not authorize a second recording or derivative asset | Zero implicit grant inheritance |
+
+The golden fixture corpus must include at least these negative controls: an ISWC attached to a recording; an ISRC attached to a composition; a cross-asset duplicate identifier; a 6,000-basis-point partial split; a complete split with an unknown share; a 10,500-basis-point over-allocation; duplicate participants in one pool; an analysis grant used for model training; an explicit training grant reused for a different model-purpose token; an expired grant; a revoked grant; and a grant for another asset. Add positive controls for valid syntax, an exact 6,000/4,000 complete split, an exact matching permission, and a request made before revocation.
+
+**Decision rule:** one false allow, silent identifier merge, invented share, or unmarked incomplete split blocks release. Aggregate accuracy cannot compensate for any of those failures. These fixtures only assess internal policy behavior; they do not prove legal ownership, grantor authority, identity, consent authenticity, or compliance with territory-specific law.
+
+Do not claim this gate is met until an independently reviewed build runs the corpus at the exact candidate commit with a pinned Rust toolchain and recorded exit status. The current PR records source-level tests only; compilation and runtime evidence are still outstanding.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
