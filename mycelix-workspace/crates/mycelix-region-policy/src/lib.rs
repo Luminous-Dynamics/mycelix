@@ -1681,6 +1681,9 @@ mod tests {
         };
         let decision = evaluate_transfer(&source, &destination, &request);
         assert!(decision.allowed);
+        assert_eq!(decision.agreement_id, "agreement-community-a-to-b");
+        assert_eq!(decision.agreement_version, "1.0.0");
+        assert_eq!(decision.agreement_digest, "c".repeat(64));
         assert_eq!(decision.source_profile_id, "profile-community-a");
         assert_eq!(decision.source_profile_version, "1.0.0");
         assert_eq!(decision.source_profile_digest, "a".repeat(64));
