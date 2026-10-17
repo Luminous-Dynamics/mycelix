@@ -170,6 +170,8 @@ pub struct OutcomeCaseReport {
     pub on_time_in_full: Option<bool>,
     /// actual acceptance time minus forecast point in seconds; positive is late.
     pub forecast_delivery_error_secs: Option<i128>,
+    /// Whether actual accepted time fell inside the pre-commitment forecast interval.
+    pub forecast_interval_covered: Option<bool>,
     /// realized landed cost minus authorized landed cost.
     pub landed_cost_variance_minor: Option<i128>,
     pub realized_landed_cost_minor: Option<u64>,
@@ -615,6 +617,7 @@ impl OutcomeLedger {
 
         let mut on_time_in_full = None;
         let mut forecast_delivery_error_secs = None;
+        let mut forecast_interval_covered = None;
         let mut landed_cost_variance_minor = None;
         let mut realized_landed_cost_minor = None;
         let mut final_accepted_at = None;
@@ -645,6 +648,9 @@ impl OutcomeLedger {
                     if let (Some(forecast), Some(accepted_at)) = (&pre_commitment_forecast, *accepted_at) {
                         forecast_delivery_error_secs =
                             Some(i128::from(accepted_at) - i128::from(forecast.predicted_delivery_at));
+                        forecast_interval_covered = forecast.delivery_interval.map(|interval| {
+                            interval.earliest_at <= accepted_at && accepted_at <= interval.latest_at
+                        });
                     }
                 }
             }
@@ -673,6 +679,7 @@ impl OutcomeLedger {
             finalized,
             on_time_in_full,
             forecast_delivery_error_secs,
+            forecast_interval_covered,
             landed_cost_variance_minor,
             realized_landed_cost_minor,
             final_accepted_at,
