@@ -43,6 +43,14 @@ A CHI 2023 qualitative study interviewed 21 creators about multi-platform work. 
 
 Source: [Multi-Platform Content Creation: The Configuration of Creator Ecology (CHI 2023)](https://doi.org/10.1145/3544548.3581106).
 
+### Deal fit and audience trust are economic constraints too
+
+CreatorIQ and Influencers.club's August 2026 survey of 5,095 creators across 100 regions reports that 42% of creators experience tension between the content their audience wants and the content brands request; the report says the share rises to 53% among creators with 500,000+ Instagram followers. This is survey evidence from a creator-marketing vendor and its research partner, not an independent causal estimate. It supports a design hypothesis: a deal can be financially attractive but conflict with a creator's voice, audience expectations, license boundaries, or future plans.
+
+Source: [CreatorIQ, State of Creators 2026](https://www.creatoriq.com/press/releases/creatoriq-state-of-creators-report-2026).
+
+The system should model **creator-defined fit constraints**, not a universal "brand fit score". Before a creator approves terms, let them record non-negotiables such as prohibited categories, required disclosure, permitted usage channels/duration, exclusivity, edit approvals, minimum compensation, and whether the deal requires a synthetic voice/likeness or use of unpublished material. Show financial terms and these constraints separately. A strong fee cannot override a prohibited category or unapproved rights scope.
+
 **Research conclusion:** deal-to-cash workflow visibility and repeat-booking evidence are worth testing. These sources do not establish demand for our product, that it will reduce time-to-payment, or that a reminder increases a buyer's willingness to pay.
 
 ## Product principle: separate contract expectations from observed cash
@@ -53,6 +61,8 @@ Maintain two distinct ledgers/views:
 2. **Cash events:** money received, fees, refunds, reversals, currency, source, date, and reconciliation status.
 
 Do not treat an agreement fee as income received. Do not treat an expected payment date as an actual event. Do not use unsigned or superseded terms as the current contract. If the source does not specify an enforceable date or condition, display it as missing rather than inventing one.
+
+A deal's **financial value, creator-defined fit, and audience/creative trade-offs are distinct fields**. The tool may show the trade-off but must not hide it inside one opaque recommendation score. If a creator's explicit constraint conflicts with the deal, flag the conflict and require changed terms or rejection; do not let projected reach or revenue override it.
 
 Every object should carry a stable local ID and schema version, source reference and source-recorded timestamp, creator-confirmed status and approval evidence, exact currency/amount where known, event time versus observation/import time, correction lineage, provenance/completeness status, permitted reuse scope, retention expiry, and deletion status.
 
