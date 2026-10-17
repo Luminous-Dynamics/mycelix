@@ -4,7 +4,7 @@ use cross_scale_wisdom_verifier::verify_files;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 4 || args[1] != "verify" {
+    if args.len() != 5 || args[1] != "verify" {
         eprintln!(
             "usage: cross-scale-wisdom-verifier verify <corpus.jsonl> <manifest.json> <case-schema.json>"
         );
