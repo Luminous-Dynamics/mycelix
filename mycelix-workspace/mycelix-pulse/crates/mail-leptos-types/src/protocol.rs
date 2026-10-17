@@ -423,6 +423,38 @@ pub fn canonical_envelope_commitment_preimage(
     Ok(out)
 }
 
+/// Result of comparing a candidate receipt with a stored receipt found by event ID.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReceiptReplayClassification {
+    /// The stable event ID and all signed transcript bytes are identical.
+    ExactReplay,
+    /// The stable event ID is reused with different signed transcript bytes.
+    ConflictingReuse,
+}
+
+/// Classify a candidate against the prior record already indexed by its event ID.
+///
+/// The caller MUST authenticate the incoming and stored recipient signatures
+/// before using the result to affect delivery state. The durable store must
+/// perform lookup/reservation atomically; this pure comparison does not prevent
+/// concurrent duplicate commits or provide durable persistence.
+pub fn classify_receipt_v2_replay(
+    existing: &RecipientReceiptV2,
+    incoming: &RecipientReceiptV2,
+) -> Result<ReceiptReplayClassification, ProtocolError> {
+    if existing.receipt_event_id != incoming.receipt_event_id {
+        return Err(ProtocolError::ReceiptEventIdentityMismatch);
+    }
+
+    let existing_transcript = existing.canonical_signing_bytes()?;
+    let incoming_transcript = incoming.canonical_signing_bytes()?;
+    if existing_transcript == incoming_transcript {
+        Ok(ReceiptReplayClassification::ExactReplay)
+    } else {
+        Ok(ReceiptReplayClassification::ConflictingReuse)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DerivedDeliveryState {
@@ -457,6 +489,7 @@ pub enum ProtocolError {
     UnsupportedCipherSuite(String),
     UnsupportedReceiptVersion(u16),
     ReceiptContextMismatch,
+    ReceiptEventIdentityMismatch,
     FieldTooLarge,
     HybridProfileUnavailable,
     InvalidComponentLength {
@@ -790,6 +823,46 @@ mod tests {
         let mut changed = first.clone();
         changed.recipient_signature = vec![99; 64];
         assert_eq!(canonical, changed.canonical_signing_bytes().unwrap());
+    }
+
+    #[test]
+    fn v2_receipt_replay_classifier_distinguishes_duplicate_and_conflict() {
+        let existing = receipt_v2();
+        assert_eq!(
+            classify_receipt_v2_replay(&existing, &existing).unwrap(),
+            ReceiptReplayClassification::ExactReplay
+        );
+
+        // Signature bytes are not signed by themselves. Verify both signatures
+        // before classification; alternate valid signature encodings for the
+        // same transcript still refer to one logical receipt event.
+        let mut alternate_signature = existing.clone();
+        alternate_signature.recipient_signature = vec![99; 64];
+        assert_eq!(
+            classify_receipt_v2_replay(&existing, &alternate_signature).unwrap(),
+            ReceiptReplayClassification::ExactReplay
+        );
+
+        let mut conflicting_payload = existing.clone();
+        conflicting_payload.occurred_at_micros += 1;
+        assert_eq!(
+            classify_receipt_v2_replay(&existing, &conflicting_payload).unwrap(),
+            ReceiptReplayClassification::ConflictingReuse
+        );
+
+        let mut conflicting_commitment = existing.clone();
+        conflicting_commitment.envelope_commitment[0] ^= 1;
+        assert_eq!(
+            classify_receipt_v2_replay(&existing, &conflicting_commitment).unwrap(),
+            ReceiptReplayClassification::ConflictingReuse
+        );
+
+        let mut different_identity = existing.clone();
+        different_identity.receipt_event_id[0] ^= 1;
+        assert_eq!(
+            classify_receipt_v2_replay(&existing, &different_identity),
+            Err(ProtocolError::ReceiptEventIdentityMismatch)
+        );
     }
 
     #[test]
