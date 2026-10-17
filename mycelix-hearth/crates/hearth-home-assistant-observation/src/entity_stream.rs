@@ -528,7 +528,7 @@ mod tests {
                         "a": {"unit_of_measurement": "°C"},
                         "lu": 1700000002
                     },
-                    "-": {"a": ["device_class", "friendly_name"]}
+                    "-": {"a": ["friendly_name"]}
                 }
             }
         });
@@ -617,6 +617,90 @@ mod tests {
             Err(EntityStreamProjectionError::UnknownEntityChange { .. })
         ));
         assert_eq!(projector.cached_entity_count(), 0);
+    }
+
+    #[test]
+    fn profile_metadata_drift_rejects_initial_snapshot_without_seeding_cache() {
+        let mut projector = projector();
+        let mut event = snapshot();
+        event["a"]["sensor.living_room_temperature"]["a"]["device_class"] =
+            json!("humidity");
+
+        assert!(matches!(
+            projector.apply(EntityStreamKind::InitialSnapshot, &event, 10),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.cached_entity_count(), 0);
+        assert!(!projector.initial_snapshot_seen());
+    }
+
+    #[test]
+    fn profile_metadata_drift_rejects_delta_without_refreshing_cache() {
+        let mut projector = projector();
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+
+        let event = json!({
+            "c": {
+                "sensor.living_room_temperature": {
+                    "+": {"s": "22.0", "a": {"unit_of_measurement": "°F"}}
+                }
+            }
+        });
+        assert!(matches!(
+            projector.apply(EntityStreamKind::Changes, &event, 20),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"].unit_of_measurement.as_deref(),
+            Some("°C")
+        );
+    }
+
+    #[test]
+    fn metadata_drift_in_later_entity_rolls_back_earlier_valid_delta() {
+        let mut base = profile();
+        let mut first = base.rules[0].clone();
+        first.entity_id = "sensor.a_temperature".into();
+        first.subject.id = "room-a".into();
+        let mut last = base.rules[0].clone();
+        last.entity_id = "sensor.z_temperature".into();
+        last.subject.id = "room-z".into();
+        base.rules = vec![first, last];
+
+        let mut projector = EntityStreamProjector::new(&base).unwrap();
+        let initial = json!({
+            "a": {
+                "sensor.a_temperature": {
+                    "s": "20.0",
+                    "a": {"unit_of_measurement": "°C", "device_class": "temperature"}
+                },
+                "sensor.z_temperature": {
+                    "s": "21.0",
+                    "a": {"unit_of_measurement": "°C", "device_class": "temperature"}
+                }
+            }
+        });
+        projector.apply(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
+
+        // Sorted map order visits a before z. The late metadata mismatch must
+        // reject the whole delta, not commit a's valid state/freshness update.
+        let update = json!({
+            "c": {
+                "sensor.a_temperature": {"+": {"s": "22.0"}},
+                "sensor.z_temperature": {"+": {"a": {"unit_of_measurement": "°F"}}}
+            }
+        });
+        assert!(matches!(
+            projector.apply(EntityStreamKind::Changes, &update, 20),
+            Err(EntityStreamProjectionError::InvalidEntityState { .. })
+        ));
+        assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
+        assert_eq!(projector.state["sensor.z_temperature"].state, "21.0");
+        assert_eq!(
+            projector.state["sensor.z_temperature"].unit_of_measurement.as_deref(),
+            Some("°C")
+        );
     }
 
     #[test]
