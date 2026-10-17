@@ -26,6 +26,8 @@ const DATABASE_NAME: &str = "mycelix-hearth-action-journal";
 const DATABASE_VERSION: u32 = 1;
 const STORE_NAME: &str = "attempts";
 const SCHEMA_VERSION: u16 = 1;
+// ECMAScript Date supports epoch milliseconds only within ±8.64e15.
+const MAX_DATE_UNIX_MS: u64 = 8_640_000_000_000_000;
 
 /// Safe, explicit failures. Raw browser/record content is never included.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +135,8 @@ impl JournalEntryV1 {
         if !valid_operation_id(&self.operation_id)
             || !valid_sha256_fingerprint(&self.hearth_scope_fingerprint)
             || !valid_sha256_fingerprint(&self.target_fingerprint)
+            || self.created_at_unix_ms > MAX_DATE_UNIX_MS
+            || self.updated_at_unix_ms > MAX_DATE_UNIX_MS
             || self.updated_at_unix_ms < self.created_at_unix_ms
         {
             return Err(JournalError::InvalidRecord);
@@ -1087,6 +1091,20 @@ mod tests {
                 from: AttemptStatus::OutcomeUnknown,
                 to: AttemptStatus::Submitted,
             })
+        );
+    }
+
+    #[test]
+    fn timestamps_outside_ecmascript_date_range_fail_closed() {
+        assert_eq!(
+            JournalEntryV1::new(
+                "c0ffee00-0000-4000-8000-000000000001",
+                ActionKind::CareCompletion,
+                FINGERPRINT,
+                FINGERPRINT,
+                super::MAX_DATE_UNIX_MS + 1,
+            ),
+            Err(JournalError::InvalidRecord)
         );
     }
 
