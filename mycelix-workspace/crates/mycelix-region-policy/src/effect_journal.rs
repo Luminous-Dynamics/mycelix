@@ -437,7 +437,12 @@ fn valid_reason_code(value: &str) -> bool {
         && value.len() <= MAX_REASON_BYTES
         && value
             .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'_')
+            .all(|byte| {
+                byte.is_ascii_lowercase()
+                    || byte.is_ascii_digit()
+                    || byte == b'-'
+                    || byte == b'_'
+            })
 }
 
 #[cfg(test)]
@@ -515,7 +520,9 @@ mod tests {
         attempt.reserve("sink-operation-1").expect("prepare -> reserve");
         attempt.mark_dispatch_started().expect("reserve -> dispatch");
         attempt.mark_outcome_unknown().expect("dispatch -> unknown");
-        attempt.resolve(verified_outcome(SinkDisposition::Applied)).expect("matching proof resolves");
+        attempt
+            .resolve(verified_outcome(SinkDisposition::Applied))
+            .expect("matching proof resolves");
         assert_eq!(attempt.phase(), AttemptPhase::Committed);
         let expected_digest = "c".repeat(64);
         assert_eq!(attempt.outcome_digest(), Some(expected_digest.as_str()));
@@ -526,7 +533,9 @@ mod tests {
         let mut attempt = EffectAttempt::prepare(identity());
         attempt.reserve("sink-operation-1").expect("prepare -> reserve");
         attempt.mark_dispatch_started().expect("reserve -> dispatch");
-        attempt.resolve(verified_outcome(SinkDisposition::DefinitivelyRejected)).expect("verified rejection");
+        attempt
+            .resolve(verified_outcome(SinkDisposition::DefinitivelyRejected))
+            .expect("verified rejection");
         assert_eq!(attempt.phase(), AttemptPhase::Rejected);
         assert_eq!(attempt.mark_outcome_unknown(), Err(JournalError::InvalidTransition));
     }
@@ -562,7 +571,10 @@ mod tests {
     #[test]
     fn cannot_resolve_prepared_or_terminal_attempt() {
         let mut attempt = EffectAttempt::prepare(identity());
-        assert_eq!(attempt.resolve(verified_outcome(SinkDisposition::Applied)), Err(JournalError::InvalidTransition));
+        assert_eq!(
+            attempt.resolve(verified_outcome(SinkDisposition::Applied)),
+            Err(JournalError::InvalidTransition)
+        );
         attempt.abort_before_dispatch("cancelled").expect("prepared can be aborted");
         assert_eq!(attempt.phase(), AttemptPhase::Rejected);
         assert_eq!(attempt.resolve(verified_outcome(SinkDisposition::Applied)), Err(JournalError::InvalidTransition));
@@ -588,13 +600,20 @@ mod tests {
             Err(JournalError::InvalidIdentity)
         );
         let mut attempt = EffectAttempt::prepare(identity());
-        assert_eq!(attempt.abort_before_dispatch("sensitive reason"), Err(JournalError::InvalidRejectionCode));
+        assert_eq!(
+            attempt.abort_before_dispatch("sensitive reason"),
+            Err(JournalError::InvalidRejectionCode)
+        );
     }
 
     #[test]
     fn sink_verifier_rejection_does_not_create_verified_outcome() {
         assert!(matches!(
-            VerifiedSinkOutcome::verify(evidence(SinkDisposition::Applied), &identity(), &RejectSinkProof),
+            VerifiedSinkOutcome::verify(
+                evidence(SinkDisposition::Applied),
+                &identity(),
+                &RejectSinkProof
+            ),
             Err(JournalError::OutcomeVerificationFailed)
         ));
     }
@@ -602,12 +621,14 @@ mod tests {
     fn snapshot_round_trips_reserved_dispatch_and_unknown_states() {
         let mut attempt = EffectAttempt::prepare(identity());
         attempt.reserve("sink-operation-1").expect("reserve");
-        let restored_reserved = EffectAttempt::restore(attempt.snapshot()).expect("restore reserved");
+        let restored_reserved =
+            EffectAttempt::restore(attempt.snapshot()).expect("restore reserved");
         assert_eq!(restored_reserved.phase(), AttemptPhase::Reserved);
         assert_eq!(restored_reserved.operation_id(), Some("sink-operation-1"));
         let mut dispatched = restored_reserved;
         dispatched.mark_dispatch_started().expect("dispatch started");
-        let restored_dispatched = EffectAttempt::restore(dispatched.snapshot()).expect("restore dispatched");
+        let restored_dispatched =
+            EffectAttempt::restore(dispatched.snapshot()).expect("restore dispatched");
         assert_eq!(restored_dispatched.phase(), AttemptPhase::DispatchStarted);
         let mut unknown = restored_dispatched;
         unknown.mark_outcome_unknown().expect("unknown");
