@@ -418,6 +418,20 @@ mod tests {
     }
 
     #[test]
+    fn canonical_bytes_match_frozen_cross_language_reference_vector() {
+        let envelope = GrantHistoryEnvelope::from_history(&demo_history()).unwrap();
+        let actual = envelope
+            .canonical_bytes()
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let expected = include_str!("../tests/fixtures/creator-grant-history-v1.hex")
+            .trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn digest_is_stable_and_detects_other_content() {
         let envelope = GrantHistoryEnvelope::from_history(&demo_history()).unwrap();
         let digest = envelope.digest_hex().unwrap();
