@@ -7,6 +7,7 @@
 
 use hearth_automation_types::{AutomationValue, EntityRef};
 use hearth_home_assistant_observation::{
+    strict_json::{parse_bounded_json, StrictJsonError},
     EntityObservationRule, HomeAssistantObservationProfile, MappingOutcome, StateCodec,
     HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
     entity_stream::{EntityStreamProjector, EntityStreamProjection},
@@ -81,6 +82,31 @@ fn project_one(
     result.frames.iter()
         .map(|frame| map_state(profile, frame).expect("profile-projected frame must map"))
         .collect()
+}
+
+#[test]
+fn duplicate_json_state_keys_are_rejected_before_projector_mutation() {
+    let profile = profile();
+    let mut projector = EntityStreamProjector::new(&profile).unwrap();
+    let ambiguous = br#"{
+        "a": {
+            "sensor.living_room_temperature": {
+                "s": "21.5",
+                "s": "99.9",
+                "a": {
+                    "unit_of_measurement": "°C",
+                    "device_class": "temperature"
+                }
+            }
+        }
+    }"#;
+
+    assert_eq!(
+        parse_bounded_json(ambiguous),
+        Err(StrictJsonError::MalformedOrDuplicateKey)
+    );
+    assert_eq!(projector.cached_entity_count(), 0);
+    assert!(!projector.initial_snapshot_seen());
 }
 
 #[test]
