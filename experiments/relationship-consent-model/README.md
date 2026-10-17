@@ -15,7 +15,7 @@ A fairer shortlist is not enough if a protocol leaks interest before consent, ac
 - Discovery opt-in is a prerequisite for starting an introduction, not acceptance of one. Turning off discovery closes a still-pending introduction but does not silently terminate an already connected conversation.
 - Both parties can decline or withdraw; either party can block. Withdrawal and block close current conversation permission. Prior disclosure cannot be made unknown again; a product must not promise otherwise.
 - Pending proposals expire at their deadline. Expiration is processed before any other event at that time, so acceptance exactly at the deadline is rejected.
-- Decline activates a symbolic cooldown (DECLINE_COOLDOWN_TICKS). This is a model placeholder, not a proposed wall-clock policy or sufficient anti-harassment control.
+- Decline, withdrawal, expiration, and blocking activate a symbolic pair-level no-recontact cooldown (RECONTACT_COOLDOWN_TICKS). A recent block keeps this cooldown even if the block is later lifted. This is a model placeholder, not a proposed wall-clock policy or sufficient anti-harassment control.
 - Every actor-originated command carries a monotonically increasing per-actor sequence. Duplicate or older commands are ignored even if policy conditions change later; a fresh sequence is consumed even when its command is policy-rejected. The model still assumes authenticated actor identity and durable sequence storage, which must be implemented and tested separately.
 - A new proposal gets a fresh epoch, preventing a delayed acceptance from a prior attempt from connecting it.
 
