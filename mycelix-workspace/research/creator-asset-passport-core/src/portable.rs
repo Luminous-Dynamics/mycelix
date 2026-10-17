@@ -184,6 +184,9 @@ impl GrantHistoryEnvelope {
     /// tags, big-endian integers, and UTF-8 strings with u32 byte lengths.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, PortableHistoryError> {
         self.validate_history()?;
+        if self.events.len() as u64 > MAX_EVENT_COUNT {
+            return Err(PortableHistoryError::TooManyEvents);
+        }
         let mut output = Vec::new();
         output.extend_from_slice(MAGIC);
         output.extend_from_slice(&self.version.to_be_bytes());
