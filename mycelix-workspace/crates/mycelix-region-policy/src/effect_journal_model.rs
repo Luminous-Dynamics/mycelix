@@ -369,19 +369,19 @@ mod tests {
     fn lost_reply_after_sink_commit_recovers_without_duplicate_effect() {
         let identity = identity();
         let mut attempt = EffectAttempt::prepare(identity.clone());
-        attempt.reserve(OPERATION_A).expect("reserve before dispatch");
+        attempt.reserve(OPERATION_IDS[0]).expect("reserve before dispatch");
         attempt.mark_dispatch_started().expect("durably mark dispatch started");
         let crash_cut = attempt.snapshot();
 
         let mut sink = IdempotentSink::default();
-        let _lost_reply = sink.dispatch(&identity, OPERATION_A).expect("first delivery applies");
+        let _lost_reply = sink.dispatch(&identity, OPERATION_IDS[0]).expect("first delivery applies");
         assert_eq!(sink.applied_effects, 1);
 
         // Simulate process restart: only the persisted snapshot survives.
         let mut recovered = EffectAttempt::restore(crash_cut).expect("restore uncertain dispatch");
         assert_eq!(recovered.phase(), AttemptPhase::DispatchStarted);
 
-        let replayed_reply = sink.dispatch(&identity, OPERATION_A).expect("same key returns stored result");
+        let replayed_reply = sink.dispatch(&identity, OPERATION_IDS[0]).expect("same key returns stored result");
         assert_eq!(sink.delivery_attempts, 2);
         assert_eq!(sink.applied_effects, 1, "destination idempotency prevents a duplicate effect");
 
@@ -395,7 +395,7 @@ mod tests {
     fn sink_idempotency_key_reuse_for_changed_target_is_a_conflict() {
         let identity = identity();
         let mut sink = IdempotentSink::default();
-        sink.dispatch(&identity, OPERATION_A).expect("first effect");
+        sink.dispatch(&identity, OPERATION_IDS[0]).expect("first effect");
         let changed_target = EffectIdentity::new(
             identity.authority_domain(),
             identity.idempotency_key(),
@@ -404,7 +404,7 @@ mod tests {
         )
         .expect("second identity is well-formed");
         assert!(matches!(
-            sink.dispatch(&changed_target, OPERATION_A),
+            sink.dispatch(&changed_target, OPERATION_IDS[0]),
             Err(ModelSinkError::Conflict)
         ));
         assert_eq!(sink.applied_effects, 1);
@@ -413,12 +413,12 @@ mod tests {
     #[test]
     fn revocation_before_dispatch_aborts_reserved_attempt_without_sink_call() {
         let mut attempt = EffectAttempt::prepare(identity());
-        attempt.reserve(OPERATION_A).expect("reserve");
+        attempt.reserve(OPERATION_IDS[0]).expect("reserve");
         let mut sink = IdempotentSink::default();
         let current_authority = false; // synthetic revocation between reservation and dispatch
         if current_authority {
             attempt.mark_dispatch_started().expect("only current authority may dispatch");
-            sink.dispatch(attempt.identity(), OPERATION_A).expect("dispatch");
+            sink.dispatch(attempt.identity(), OPERATION_IDS[0]).expect("dispatch");
         } else {
             attempt.abort_before_dispatch("authority-revoked").expect("reserved work is pre-dispatch");
         }
