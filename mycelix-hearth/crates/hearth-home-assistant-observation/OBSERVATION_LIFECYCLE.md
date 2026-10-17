@@ -28,8 +28,8 @@ The absence of a current positive means **unknown/not currently established**, n
 - `removed`: invalidate an active positive; removal is not physical-state evidence.
 - Freshness deadline reached: invalidate at `now >= valid_until_micros`.
 - Transport disconnect: invalidate active positives and close the session.
-- New session: immediately leave `Live`; old positives cannot be read as current during authentication, subscription, and snapshot bootstrap.
-- Reconnect snapshot: emit exactly one invalidation for each prior active positive. Reason is selected from the snapshot: `SnapshotOmitted`, `SourceUnknown`, `SourceUnavailable`, or `SessionReplaced`. Only then can positive observations from the new snapshot become current.
+- New session: synchronously emit exactly one `SessionReplaced` invalidation for every prior active positive before authentication/subscription begins. Old positives cannot be read as current during reconnect.
+- Reconnect snapshot: an omitted entity stays non-current and emits no second invalidation. A present entity may become current only after the replacement snapshot is applied and acknowledged; `unknown`/`unavailable` remains non-current.
 - Malformed JSON, invalid allowlisted state, codec/range failure, profile metadata drift, unexpected event ordering, or mapping rejection: reject the whole stream session, invalidate active positives, and require a fresh session/bootstrap. Projector rollback alone is insufficient because the old positive may already have been consumed downstream.
 - Duplicate/lower session epochs: no state mutation and no resurrection.
 - Duplicate invalidation: no second invalidation record when no active positive revision remains.
