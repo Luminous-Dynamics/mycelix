@@ -65,6 +65,19 @@ pub struct EvaluationMetrics {
     pub invalid_recommendation_count: usize,
 }
 
+/// Metrics for cumulative incoming exposure across multiple recommendation rounds.
+/// Repeated viewer/candidate pairs across separate rounds are valid repeated exposures.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CumulativeExposureMetrics {
+    pub feasible_pair_count: usize,
+    pub eligible_candidate_users: usize,
+    pub exposed_candidate_users: usize,
+    pub candidate_coverage: f64,
+    pub total_exposure: usize,
+    pub exposure_gini: f64,
+    pub opportunity_normalized_exposure_gini: f64,
+}
+
 /// Validate the benchmark input and fail closed on malformed profiles.
 pub fn validate_market(participants: &[Participant]) -> Result<(), String> {
     if participants.len() < 2 {
@@ -501,6 +514,81 @@ pub fn evaluate(
         mutual_shortlist_pair_count,
         invalid_recommendation_count,
     }
+}
+
+/// Accumulate incoming candidate exposure across batches. The caller must validate
+/// that rows represent authorized, eligible recommendations before aggregation.
+/// Updates are transactional: overflow leaves the original history unchanged.
+pub fn accumulate_exposure_history(
+    history: &mut BTreeMap<u32, usize>,
+    recommendations: &[Recommendation],
+) -> Result<(), String> {
+    let mut next = history.clone();
+    for row in recommendations {
+        let count = next.entry(row.candidate_id).or_default();
+        *count = count
+            .checked_add(1)
+            .ok_or_else(|| "cumulative exposure counter overflow".to_string())?;
+    }
+    *history = next;
+    Ok(())
+}
+
+/// Evaluate cumulative exposure history over the current feasible-candidate pool.
+/// Unknown IDs fail closed. People with no feasible counterpart are not silently
+/// assigned zero opportunity; they remain outside the opportunity-denominator and
+/// should be reported separately by the broader benchmark.
+pub fn evaluate_cumulative_exposure(
+    participants: &[Participant],
+    cumulative_exposure: &BTreeMap<u32, usize>,
+) -> Result<CumulativeExposureMetrics, String> {
+    validate_market(participants)?;
+    let known_ids: BTreeSet<u32> = participants.iter().map(|person| person.id).collect();
+    if let Some(unknown_id) = cumulative_exposure.keys().find(|id| !known_ids.contains(id)) {
+        return Err(format!("cumulative exposure contains unknown participant id: {unknown_id}"));
+    }
+
+    let (eligible_people, feasible_pair_count, opportunity_degree) =
+        eligible_candidate_pool(participants);
+    let mut total_exposure = 0usize;
+    let mut raw_values = Vec::with_capacity(eligible_people.len());
+    let mut normalized_values = Vec::with_capacity(eligible_people.len());
+    let mut exposed_candidate_users = 0usize;
+
+    for id in &eligible_people {
+        let observed = cumulative_exposure.get(id).copied().unwrap_or(0);
+        total_exposure = total_exposure
+            .checked_add(observed)
+            .ok_or_else(|| "total cumulative exposure overflow".to_string())?;
+        if observed > 0 {
+            exposed_candidate_users += 1;
+        }
+        raw_values.push(observed);
+        let opportunities = opportunity_degree
+            .get(id)
+            .copied()
+            .ok_or_else(|| format!("missing feasible-opportunity degree for candidate {id}"))?;
+        if opportunities == 0 {
+            return Err(format!("zero opportunity denominator for candidate {id}"));
+        }
+        normalized_values.push(observed as f64 / opportunities as f64);
+    }
+
+    let candidate_coverage = if eligible_people.is_empty() {
+        0.0
+    } else {
+        exposed_candidate_users as f64 / eligible_people.len() as f64
+    };
+
+    Ok(CumulativeExposureMetrics {
+        feasible_pair_count,
+        eligible_candidate_users: eligible_people.len(),
+        exposed_candidate_users,
+        candidate_coverage,
+        total_exposure,
+        exposure_gini: gini(&raw_values),
+        opportunity_normalized_exposure_gini: gini_f64(&normalized_values),
+    })
 }
 
 /// Generate deterministic synthetic profiles. The two partitions are abstract
@@ -1052,7 +1140,43 @@ mod tests {
     }
 
     #[test]
-    fn historical_exposure_changes_next_batch_allocation() {
+    fn temporal_exposure_ledger_reduces_repeated_concentration() {
+        let mut a2 = person(2, Partition::A, 30, 30, 30, ConnectionGoal::Dating, &[(1, 3)]);
+        a2.blocked_ids.push(4);
+        let b2 = person(4, Partition::B, 40, 30, 30, ConnectionGoal::Dating, &[(1, 3)]);
+        let people = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            a2,
+            person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
+            b2,
+        ];
+
+        let mut stateless_history = BTreeMap::new();
+        let mut temporal_history = BTreeMap::new();
+        for _round in 0..10 {
+            let stateless =
+                recommend(&people, 1, RankingPolicy::ExposureBalancedMutual).expect("valid");
+            let temporal = recommend_exposure_balanced_with_history(
+                &people,
+                1,
+                &temporal_history,
+            )
+            .expect("valid history");
+            accumulate_exposure_history(&mut stateless_history, &stateless).expect("count rows");
+            accumulate_exposure_history(&mut temporal_history, &temporal).expect("count rows");
+        }
+
+        let stateless_metrics =
+            evaluate_cumulative_exposure(&people, &stateless_history).expect("valid totals");
+        let temporal_metrics =
+            evaluate_cumulative_exposure(&people, &temporal_history).expect("valid totals");
+
+        assert!(temporal_metrics.exposure_gini < stateless_metrics.exposure_gini);
+        assert_eq!(stateless_metrics.total_exposure, temporal_metrics.total_exposure);
+    }
+
+    #[test]
+    fn exposure_history_rejects_unknown_ids_and_counter_overflow() {
         let people = vec![
             person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
             person(2, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
