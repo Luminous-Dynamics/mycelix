@@ -418,22 +418,16 @@ pub fn ComposePage() -> impl IntoView {
                 "ml_dsa_signature": envelope.ml_dsa_signature,
             });
 
-            // Decoded as `Vec<u8>`, not `serde_json::Value`: `send_email_v2`
-            // returns a real `ActionHash` (the Sweettest suite's
-            // `send_email_v2(pre-restart)`/`(post-restart)` type-annotates
-            // it directly, so the zome signature can't just become `()`),
-            // whose raw-byte msgpack encoding `serde_json::Value` cannot
-            // represent ("invalid type: byte array, expected any valid
-            // JSON value") — this caller only logs the value for
-            // debugging, never reads it structurally.
+            // Decode the real ActionHash return as bytes rather than
+            // serde_json::Value: msgpack byte arrays are not representable as
+            // arbitrary JSON values. Do not log the raw ActionHash: it is a
+            // stable pointer to the public DHT entry and its associated
+            // metadata, and is not needed for the user-visible send result.
             match hc
                 .call_zome::<serde_json::Value, Vec<u8>>("mail_messages", "send_email_v2", &payload)
                 .await
             {
-                Ok(response) => {
-                    web_sys::console::log_1(
-                        &format!("[Mail] send_email_v2 response: {:?}", response).into(),
-                    );
+                Ok(_response) => {
                     toasts_undo.push("Message sent and committed to DHT", "success");
                     mail.versions.inbox.update(|v| *v += 1);
                 }
