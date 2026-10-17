@@ -29,6 +29,7 @@ A state value is not a permanent fact. Every positive observation is scoped by a
 | HLC-019 | Cold recovery | Zero positives restored as current; recovery barrier must be durable before any new event; a strictly higher epoch and fresh snapshot are required | Not measured |
 | HLC-020 | Durable append latency | Report p50/p95/p99 sync latency separately from reducer overhead on each named backend; no target until a real backend exists | Blocked on durable backend |
 | HLC-021 | Recovery rollback | Zero acknowledged ledger sequence rollback across process-kill/power-loss points on the named storage profile | Blocked on durable backend |
+| HLC-022 | Entity-ID rename / identity drift | 100% of rename/removal cases invalidate the exact old positive; zero automatic aliasing or publication for a newly seen, unallowlisted ID; raw new state remains absent from the minimized journal | Not measured |
 
 ## Correctness workload
 
@@ -51,3 +52,8 @@ Include a two-entity delta where the first entity is valid and a later sorted en
 ## Claim ceiling
 
 Passing this pure lifecycle suite would establish behavior only for the tested source, profile and synthetic events. It would not prove Home Assistant's authenticity, persist the checkpoint, establish household authority, verify any physical device state, qualify any provider, or replace Hearth's 004C exclusive lease, 004D adapter admission, 004E runtime binding, durable effect journal, or postcondition reconciliation.
+
+
+## Identity drift rationale
+
+Home Assistant's [October 2026 entity lifecycle update](https://developers.home-assistant.io/blog/2026/10/12/new-entity-lifecycle-hooks/) supports entity IDs changing in place, and [Core 2026.11 restore-state changes](https://developers.home-assistant.io/blog/2026/10/06/restore-state-last-states-removal/) move restored-state lookup to entity registry identity instead of assuming the text entity ID remains a permanent identity. Hearth still uses an exact, operator-admitted entity ID as the observation-profile coordinate; a rename must therefore invalidate the old coordinate and require explicit profile remapping. Name, model, or matching state is not sufficient evidence to merge identities.
