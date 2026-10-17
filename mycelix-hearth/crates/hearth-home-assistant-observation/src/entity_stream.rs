@@ -9,12 +9,12 @@
 //! fields are not copied into the projection. Transport code remains responsible
 //! for frame limits, authentication, epoch/subscription checks and JSON decoding.
 
-use crate::{
-    decode_state, EntityObservationRule, HomeAssistantObservationProfile, HomeAssistantStateFrame,
-    HA_STATE_UNAVAILABLE, HA_STATE_UNKNOWN, MAX_METADATA_BYTES, MAX_RAW_STATE_BYTES,
-};
-use crate::strict_json::{parse_bounded_json, StrictJsonError, StrictJsonValueRef};
+use crate::strict_json::{StrictJsonError, StrictJsonValueRef, parse_bounded_json};
 use crate::websocket_protocol::EntityStreamKind;
+use crate::{
+    EntityObservationRule, HA_STATE_UNAVAILABLE, HA_STATE_UNKNOWN, HomeAssistantObservationProfile,
+    HomeAssistantStateFrame, MAX_METADATA_BYTES, MAX_RAW_STATE_BYTES, decode_state,
+};
 use hearth_automation_types::AutomationValue;
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -34,7 +34,9 @@ impl fmt::Display for EntityStreamProjectionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidProfile(message) => write!(f, "invalid observation profile: {message}"),
-            Self::InvalidPayload(message) => write!(f, "invalid compact entity-stream payload: {message}"),
+            Self::InvalidPayload(message) => {
+                write!(f, "invalid compact entity-stream payload: {message}")
+            }
             Self::InvalidJson(error) => write!(f, "invalid compact entity-stream JSON: {error}"),
             Self::DuplicateEntityAddition { entity_id } => write!(
                 f,
@@ -77,58 +79,90 @@ struct CachedEntityState {
 
 impl CachedEntityState {
     fn from_full(entity_id: &str, value: &Value) -> Result<Self, EntityStreamProjectionError> {
-        let object = value.as_object().ok_or_else(|| entity_error(entity_id, "full state must be an object"))?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| entity_error(entity_id, "full state must be an object"))?;
         reject_unknown_keys(object, &["s", "a", "c", "lc", "lu"])
             .map_err(|reason| entity_error(entity_id, reason))?;
 
-        let state = object.get("s").and_then(Value::as_str)
+        let state = object
+            .get("s")
+            .and_then(Value::as_str)
             .ok_or_else(|| entity_error(entity_id, "compressed state requires string field s"))?;
         validate_state(entity_id, state)?;
-        let attributes = object.get("a").and_then(Value::as_object)
+        let attributes = object
+            .get("a")
+            .and_then(Value::as_object)
             .ok_or_else(|| entity_error(entity_id, "full state requires an a attribute object"))?;
         validate_ignored_compressed_fields(entity_id, object)?;
 
         Ok(Self {
             state: state.to_owned(),
-            unit_of_measurement: optional_string_attribute(entity_id, attributes, "unit_of_measurement")?,
+            unit_of_measurement: optional_string_attribute(
+                entity_id,
+                attributes,
+                "unit_of_measurement",
+            )?,
             device_class: optional_string_attribute(entity_id, attributes, "device_class")?,
         })
     }
 
-    fn apply_diff(&mut self, entity_id: &str, value: &Value) -> Result<(), EntityStreamProjectionError> {
-        let object = value.as_object().ok_or_else(|| entity_error(entity_id, "entity diff must be an object"))?;
-        reject_unknown_keys(object, &["+", "-"]).map_err(|reason| entity_error(entity_id, reason))?;
+    fn apply_diff(
+        &mut self,
+        entity_id: &str,
+        value: &Value,
+    ) -> Result<(), EntityStreamProjectionError> {
+        let object = value
+            .as_object()
+            .ok_or_else(|| entity_error(entity_id, "entity diff must be an object"))?;
+        reject_unknown_keys(object, &["+", "-"])
+            .map_err(|reason| entity_error(entity_id, reason))?;
 
         if let Some(plus_value) = object.get("+") {
-            let plus = plus_value.as_object().ok_or_else(|| entity_error(entity_id, "+ diff must be an object"))?;
+            let plus = plus_value
+                .as_object()
+                .ok_or_else(|| entity_error(entity_id, "+ diff must be an object"))?;
             reject_unknown_keys(plus, &["s", "a", "c", "lc", "lu"])
                 .map_err(|reason| entity_error(entity_id, reason))?;
             validate_ignored_compressed_fields(entity_id, plus)?;
 
             if let Some(value) = plus.get("s") {
-                let state = value.as_str().ok_or_else(|| entity_error(entity_id, "+.s must be a string"))?;
+                let state = value
+                    .as_str()
+                    .ok_or_else(|| entity_error(entity_id, "+.s must be a string"))?;
                 validate_state(entity_id, state)?;
                 self.state = state.to_owned();
             }
 
             if let Some(value) = plus.get("a") {
-                let attributes = value.as_object().ok_or_else(|| entity_error(entity_id, "+.a must be an object"))?;
+                let attributes = value
+                    .as_object()
+                    .ok_or_else(|| entity_error(entity_id, "+.a must be an object"))?;
                 if attributes.contains_key("unit_of_measurement") {
-                    self.unit_of_measurement = optional_string_attribute(entity_id, attributes, "unit_of_measurement")?;
+                    self.unit_of_measurement =
+                        optional_string_attribute(entity_id, attributes, "unit_of_measurement")?;
                 }
                 if attributes.contains_key("device_class") {
-                    self.device_class = optional_string_attribute(entity_id, attributes, "device_class")?;
+                    self.device_class =
+                        optional_string_attribute(entity_id, attributes, "device_class")?;
                 }
             }
         }
 
         if let Some(minus_value) = object.get("-") {
-            let minus = minus_value.as_object().ok_or_else(|| entity_error(entity_id, "- diff must be an object"))?;
+            let minus = minus_value
+                .as_object()
+                .ok_or_else(|| entity_error(entity_id, "- diff must be an object"))?;
             reject_unknown_keys(minus, &["a"]).map_err(|reason| entity_error(entity_id, reason))?;
             if let Some(value) = minus.get("a") {
-                let removed = value.as_array().ok_or_else(|| entity_error(entity_id, "-.a must be an array"))?;
+                let removed = value
+                    .as_array()
+                    .ok_or_else(|| entity_error(entity_id, "-.a must be an array"))?;
                 for key in removed {
-                    match key.as_str().ok_or_else(|| entity_error(entity_id, "-.a values must be strings"))? {
+                    match key
+                        .as_str()
+                        .ok_or_else(|| entity_error(entity_id, "-.a values must be strings"))?
+                    {
                         "unit_of_measurement" => self.unit_of_measurement = None,
                         "device_class" => self.device_class = None,
                         _ => {}
@@ -147,20 +181,34 @@ impl CachedEntityState {
         // A known-good string is not enough: expected metadata is part of the
         // semantic profile binding. Reject drift before this state can enter
         // the cache or refresh the observation's local freshness timestamp.
-        if rule.expected_unit.as_deref().is_some_and(|expected| {
-            self.unit_of_measurement.as_deref() != Some(expected)
-        }) {
-            return Err(entity_error(entity_id, "unit_of_measurement does not match the admitted profile"));
+        if rule
+            .expected_unit
+            .as_deref()
+            .is_some_and(|expected| self.unit_of_measurement.as_deref() != Some(expected))
+        {
+            return Err(entity_error(
+                entity_id,
+                "unit_of_measurement does not match the admitted profile",
+            ));
         }
-        if rule.expected_device_class.as_deref().is_some_and(|expected| {
-            self.device_class.as_deref() != Some(expected)
-        }) {
-            return Err(entity_error(entity_id, "device_class does not match the admitted profile"));
+        if rule
+            .expected_device_class
+            .as_deref()
+            .is_some_and(|expected| self.device_class.as_deref() != Some(expected))
+        {
+            return Err(entity_error(
+                entity_id,
+                "device_class does not match the admitted profile",
+            ));
         }
         Ok(())
     }
 
-    fn frame(&self, entity_id: &str, received_at_micros: i64) -> Result<HomeAssistantStateFrame, EntityStreamProjectionError> {
+    fn frame(
+        &self,
+        entity_id: &str,
+        received_at_micros: i64,
+    ) -> Result<HomeAssistantStateFrame, EntityStreamProjectionError> {
         let frame = HomeAssistantStateFrame {
             entity_id: entity_id.to_owned(),
             state: self.state.clone(),
@@ -169,7 +217,9 @@ impl CachedEntityState {
             source_last_updated_micros: None,
             received_at_micros,
         };
-        frame.validate().map_err(|error| entity_error(entity_id, error.to_string()))?;
+        frame
+            .validate()
+            .map_err(|error| entity_error(entity_id, error.to_string()))?;
         Ok(frame)
     }
 }
@@ -196,17 +246,26 @@ pub struct EntityStreamProjector {
 }
 
 impl EntityStreamProjector {
-    pub fn new(profile: &HomeAssistantObservationProfile) -> Result<Self, EntityStreamProjectionError> {
-        profile.validate().map_err(|error| EntityStreamProjectionError::InvalidProfile(error.to_string()))?;
-        let allowlisted_entity_ids: BTreeSet<String> = profile.rules.iter()
+    pub fn new(
+        profile: &HomeAssistantObservationProfile,
+    ) -> Result<Self, EntityStreamProjectionError> {
+        profile
+            .validate()
+            .map_err(|error| EntityStreamProjectionError::InvalidProfile(error.to_string()))?;
+        let allowlisted_entity_ids: BTreeSet<String> = profile
+            .rules
+            .iter()
             .map(|rule: &EntityObservationRule| rule.entity_id.clone())
             .collect();
-        if allowlisted_entity_ids.is_empty() || allowlisted_entity_ids.len() != profile.rules.len() {
+        if allowlisted_entity_ids.is_empty() || allowlisted_entity_ids.len() != profile.rules.len()
+        {
             return Err(EntityStreamProjectionError::InvalidProfile(
-                "entity allowlist must be non-empty and unique".into()
+                "entity allowlist must be non-empty and unique".into(),
             ));
         }
-        let rules = profile.rules.iter()
+        let rules = profile
+            .rules
+            .iter()
             .cloned()
             .map(|rule| (rule.entity_id.clone(), rule))
             .collect();
@@ -237,8 +296,8 @@ impl EntityStreamProjector {
         json_bytes: &[u8],
         received_at_micros: i64,
     ) -> Result<EntityStreamProjection, EntityStreamProjectionError> {
-        let event = parse_bounded_json(json_bytes)
-            .map_err(EntityStreamProjectionError::InvalidJson)?;
+        let event =
+            parse_bounded_json(json_bytes).map_err(EntityStreamProjectionError::InvalidJson)?;
         self.apply_value(kind, event.as_value(), received_at_micros)
     }
 
@@ -263,20 +322,26 @@ impl EntityStreamProjector {
         event: &Value,
         received_at_micros: i64,
     ) -> Result<EntityStreamProjection, EntityStreamProjectionError> {
-        let object = event.as_object()
-            .ok_or_else(|| EntityStreamProjectionError::InvalidPayload("event body must be an object".into()))?;
+        let object = event.as_object().ok_or_else(|| {
+            EntityStreamProjectionError::InvalidPayload("event body must be an object".into())
+        })?;
 
         if kind == EntityStreamKind::InitialSnapshot {
             if self.initial_snapshot_seen {
-                return Err(EntityStreamProjectionError::InvalidPayload("duplicate initial snapshot".into()));
+                return Err(EntityStreamProjectionError::InvalidPayload(
+                    "duplicate initial snapshot".into(),
+                ));
             }
             if object.len() != 1 || !object.contains_key("a") {
                 return Err(EntityStreamProjectionError::InvalidPayload(
-                    "initial snapshot must contain only an a full-state map".into()
+                    "initial snapshot must contain only an a full-state map".into(),
                 ));
             }
-            let added = object.get("a").and_then(Value::as_object)
-                .ok_or_else(|| EntityStreamProjectionError::InvalidPayload("initial snapshot a field must be an object".into()))?;
+            let added = object.get("a").and_then(Value::as_object).ok_or_else(|| {
+                EntityStreamProjectionError::InvalidPayload(
+                    "initial snapshot a field must be an object".into(),
+                )
+            })?;
 
             let mut next = BTreeMap::new();
             for (entity_id, compressed) in added {
@@ -284,14 +349,18 @@ impl EntityStreamProjector {
                     continue;
                 }
                 let state = CachedEntityState::from_full(entity_id, compressed)?;
-                let rule = self.rules.get(entity_id).expect("allowlist and rule map are built together");
+                let rule = self
+                    .rules
+                    .get(entity_id)
+                    .expect("allowlist and rule map are built together");
                 state.validate_profile_metadata(entity_id, rule)?;
                 // Codec/range validation must happen before transactional cache
                 // commit, not later when a caller maps the returned frame.
                 semantic_state(entity_id, &state, rule)?;
                 next.insert(entity_id.clone(), state);
             }
-            let frames = next.iter()
+            let frames = next
+                .iter()
                 .map(|(id, state)| state.frame(id, received_at_micros))
                 .collect::<Result<Vec<_>, _>>()?;
             self.state = next;
@@ -305,7 +374,7 @@ impl EntityStreamProjector {
 
         if !self.initial_snapshot_seen {
             return Err(EntityStreamProjectionError::InvalidPayload(
-                "incremental update arrived before initial snapshot".into()
+                "incremental update arrived before initial snapshot".into(),
             ));
         }
         reject_unknown_keys(object, &["a", "c", "r"])
@@ -314,9 +383,11 @@ impl EntityStreamProjector {
         let added = parse_optional_object(object, "a")?;
         let changed = parse_optional_object(object, "c")?;
         let removed = match object.get("r") {
-            Some(value) => Some(value.as_array().ok_or_else(|| EntityStreamProjectionError::InvalidPayload(
-                "r field must be an array of entity IDs".into()
-            ))?),
+            Some(value) => Some(value.as_array().ok_or_else(|| {
+                EntityStreamProjectionError::InvalidPayload(
+                    "r field must be an array of entity IDs".into(),
+                )
+            })?),
             None => None,
         };
 
@@ -325,7 +396,7 @@ impl EntityStreamProjector {
             for id in added.keys() {
                 if !seen_ids.insert(id.as_str()) {
                     return Err(EntityStreamProjectionError::InvalidPayload(
-                        "entity occurs in multiple update groups".into()
+                        "entity occurs in multiple update groups".into(),
                     ));
                 }
             }
@@ -333,21 +404,23 @@ impl EntityStreamProjector {
         if let Some(changed) = changed {
             for id in changed.keys() {
                 if !seen_ids.insert(id.as_str()) {
-                    return Err(EntityStreamProjectionError::InvalidPayload(
-                        format!("entity occurs in multiple update groups: {id}")
-                    ));
+                    return Err(EntityStreamProjectionError::InvalidPayload(format!(
+                        "entity occurs in multiple update groups: {id}"
+                    )));
                 }
             }
         }
         if let Some(removed) = removed {
             for raw_id in removed.iter() {
-                let id = raw_id.as_str().ok_or_else(|| EntityStreamProjectionError::InvalidPayload(
-                    "r entries must be entity ID strings".into()
-                ))?;
+                let id = raw_id.as_str().ok_or_else(|| {
+                    EntityStreamProjectionError::InvalidPayload(
+                        "r entries must be entity ID strings".into(),
+                    )
+                })?;
                 if !seen_ids.insert(id) {
-                    return Err(EntityStreamProjectionError::InvalidPayload(
-                        format!("entity occurs in multiple update groups: {id}")
-                    ));
+                    return Err(EntityStreamProjectionError::InvalidPayload(format!(
+                        "entity occurs in multiple update groups: {id}"
+                    )));
                 }
             }
         }
@@ -376,7 +449,10 @@ impl EntityStreamProjector {
                     });
                 }
                 let state = CachedEntityState::from_full(id, compressed)?;
-                let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
+                let rule = self
+                    .rules
+                    .get(id)
+                    .expect("allowlisted entity must have a profile rule");
                 state.validate_profile_metadata(id, rule)?;
                 staged_states.insert(id.clone(), state.clone());
                 changed_states.insert(id.clone(), state);
@@ -389,11 +465,16 @@ impl EntityStreamProjector {
                     continue;
                 }
                 let mut state = self.state.get(id).cloned().ok_or_else(|| {
-                    EntityStreamProjectionError::UnknownEntityChange { entity_id: id.clone() }
+                    EntityStreamProjectionError::UnknownEntityChange {
+                        entity_id: id.clone(),
+                    }
                 })?;
                 let before = state.clone();
                 state.apply_diff(id, diff)?;
-                let rule = self.rules.get(id).expect("allowlisted entity must have a profile rule");
+                let rule = self
+                    .rules
+                    .get(id)
+                    .expect("allowlisted entity must have a profile rule");
                 state.validate_profile_metadata(id, rule)?;
                 let before_semantic = semantic_state(id, &before, rule)?;
                 let after_semantic = semantic_state(id, &state, rule)?;
@@ -423,7 +504,8 @@ impl EntityStreamProjector {
 
         // Generate/validate every frame before mutating the cache. If projection
         // fails, neither prior state nor freshness can be partially advanced.
-        let frames = changed_states.iter()
+        let frames = changed_states
+            .iter()
             .map(|(id, state)| state.frame(id, received_at_micros))
             .collect::<Result<Vec<_>, _>>()?;
         removed_ids.sort();
@@ -454,9 +536,9 @@ fn parse_optional_object<'a>(
     key: &str,
 ) -> Result<Option<&'a Map<String, Value>>, EntityStreamProjectionError> {
     match event.get(key) {
-        Some(value) => value.as_object().map(Some).ok_or_else(|| EntityStreamProjectionError::InvalidPayload(
-            format!("{key} field must be an object")
-        )),
+        Some(value) => value.as_object().map(Some).ok_or_else(|| {
+            EntityStreamProjectionError::InvalidPayload(format!("{key} field must be an object"))
+        }),
         None => Ok(None),
     }
 }
@@ -484,13 +566,19 @@ fn validate_ignored_compressed_fields(
 ) -> Result<(), EntityStreamProjectionError> {
     if let Some(context) = object.get("c") {
         if !(context.is_string() || context.is_object()) {
-            return Err(entity_error(entity_id, "compressed context must be a string or object"));
+            return Err(entity_error(
+                entity_id,
+                "compressed context must be a string or object",
+            ));
         }
     }
     for key in ["lc", "lu"] {
         if let Some(value) = object.get(key) {
             if !value.is_number() {
-                return Err(entity_error(entity_id, format!("compressed {key} must be numeric")));
+                return Err(entity_error(
+                    entity_id,
+                    format!("compressed {key} must be numeric"),
+                ));
             }
         }
     }
@@ -510,11 +598,17 @@ fn optional_string_attribute(
                 || value.chars().any(char::is_control)
                 || value.trim() != value
             {
-                return Err(entity_error(entity_id, format!("{key} metadata is empty, oversized, or malformed")));
+                return Err(entity_error(
+                    entity_id,
+                    format!("{key} metadata is empty, oversized, or malformed"),
+                ));
             }
             Ok(Some(value.clone()))
         }
-        Some(_) => Err(entity_error(entity_id, format!("{key} metadata must be a string or null"))),
+        Some(_) => Err(entity_error(
+            entity_id,
+            format!("{key} metadata must be a string or null"),
+        )),
     }
 }
 
@@ -522,7 +616,7 @@ fn optional_string_attribute(
 mod tests {
     use super::*;
     use crate::{
-        EntityObservationRule, EntityRef, StateCodec, HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
+        EntityObservationRule, EntityRef, HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION, StateCodec,
     };
     use serde_json::json;
 
@@ -581,7 +675,9 @@ mod tests {
     #[test]
     fn initial_snapshot_projects_only_profile_allowlisted_fields() {
         let mut projector = projector();
-        let out = projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10_000_000).unwrap();
+        let out = projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10_000_000)
+            .unwrap();
         assert!(out.initial_snapshot);
         assert_eq!(out.frames.len(), 1);
         assert_eq!(out.frames[0].entity_id, "sensor.living_room_temperature");
@@ -597,7 +693,9 @@ mod tests {
     #[test]
     fn compact_diff_merges_state_and_removes_selected_metadata_only() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         let event = serde_json::json!({
             "c": {
                 "sensor.living_room_temperature": {
@@ -610,7 +708,9 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply_value(EntityStreamKind::Changes, &event, 20).unwrap();
+        let out = projector
+            .apply_value(EntityStreamKind::Changes, &event, 20)
+            .unwrap();
         assert!(!out.initial_snapshot);
         assert_eq!(out.frames.len(), 1);
         assert_eq!(out.frames[0].state, "22.0");
@@ -622,7 +722,9 @@ mod tests {
     #[test]
     fn nonsemantic_attribute_changes_do_not_refresh_observation_frames() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
 
         let event = serde_json::json!({
             "c": {
@@ -634,10 +736,15 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply_value(EntityStreamKind::Changes, &event, 20).unwrap();
+        let out = projector
+            .apply_value(EntityStreamKind::Changes, &event, 20)
+            .unwrap();
         assert!(out.frames.is_empty());
         assert!(out.removed_entity_ids.is_empty());
-        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"].state,
+            "21.5"
+        );
     }
 
     #[test]
@@ -651,7 +758,9 @@ mod tests {
         p.rules[0].expected_unit = None;
         p.rules[0].expected_device_class = None;
         let mut projector = EntityStreamProjector::new(&p).unwrap();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
 
         let metadata_only = json!({
             "c": {
@@ -666,9 +775,14 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply_value(EntityStreamKind::Changes, &metadata_only, 999_999).unwrap();
+        let out = projector
+            .apply_value(EntityStreamKind::Changes, &metadata_only, 999_999)
+            .unwrap();
 
-        assert!(out.frames.is_empty(), "unasserted metadata is not a new semantic observation");
+        assert!(
+            out.frames.is_empty(),
+            "unasserted metadata is not a new semantic observation"
+        );
         assert!(out.removed_entity_ids.is_empty());
         let cached = &projector.state["sensor.living_room_temperature"];
         assert_eq!(cached.state, "21.5");
@@ -677,11 +791,13 @@ mod tests {
 
         // A subsequent semantic state change emits a frame using the latest
         // cached metadata, but its value remains the allowlisted primary state.
-        let changed = projector.apply_value(
-            EntityStreamKind::Changes,
-            &json!({"c": {"sensor.living_room_temperature": {"+": {"s": "22.0"}}}}),
-            1_000_000,
-        ).unwrap();
+        let changed = projector
+            .apply_value(
+                EntityStreamKind::Changes,
+                &json!({"c": {"sensor.living_room_temperature": {"+": {"s": "22.0"}}}}),
+                1_000_000,
+            )
+            .unwrap();
         assert_eq!(changed.frames.len(), 1);
         assert_eq!(changed.frames[0].state, "22.0");
         assert_eq!(changed.frames[0].unit_of_measurement.as_deref(), Some("°F"));
@@ -726,7 +842,9 @@ mod tests {
                 }
             }
         });
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &initial, 10)
+            .unwrap();
 
         let invalid_late_delta = json!({
             "c": {
@@ -745,13 +863,17 @@ mod tests {
     #[test]
     fn unallowlisted_entities_never_enter_the_projection() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         let event = serde_json::json!({
             "a": {"sensor.not_allowlisted": {"s": "private", "a": {}}},
             "c": {},
             "r": []
         });
-        let out = projector.apply_value(EntityStreamKind::Changes, &event, 20).unwrap();
+        let out = projector
+            .apply_value(EntityStreamKind::Changes, &event, 20)
+            .unwrap();
         assert!(out.frames.is_empty());
         assert!(out.removed_entity_ids.is_empty());
         assert_eq!(projector.cached_entity_count(), 1);
@@ -788,7 +910,13 @@ mod tests {
     #[test]
     fn allowlisted_change_without_cached_snapshot_fails_closed() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &serde_json::json!({"a": {}}), 10).unwrap();
+        projector
+            .apply_value(
+                EntityStreamKind::InitialSnapshot,
+                &serde_json::json!({"a": {}}),
+                10,
+            )
+            .unwrap();
         let event = serde_json::json!({
             "c": {"sensor.living_room_temperature": {"+": {"s": "22.0"}}}
         });
@@ -803,8 +931,7 @@ mod tests {
     fn profile_metadata_drift_rejects_initial_snapshot_without_seeding_cache() {
         let mut projector = projector();
         let mut event = snapshot();
-        event["a"]["sensor.living_room_temperature"]["a"]["device_class"] =
-            json!("humidity");
+        event["a"]["sensor.living_room_temperature"]["a"]["device_class"] = json!("humidity");
 
         assert!(matches!(
             projector.apply_value(EntityStreamKind::InitialSnapshot, &event, 10),
@@ -817,7 +944,9 @@ mod tests {
     #[test]
     fn profile_metadata_drift_rejects_delta_without_refreshing_cache() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
 
         let event = json!({
             "c": {
@@ -830,9 +959,14 @@ mod tests {
             projector.apply_value(EntityStreamKind::Changes, &event, 20),
             Err(EntityStreamProjectionError::InvalidEntityState { .. })
         ));
-        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
         assert_eq!(
-            projector.state["sensor.living_room_temperature"].unit_of_measurement.as_deref(),
+            projector.state["sensor.living_room_temperature"].state,
+            "21.5"
+        );
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"]
+                .unit_of_measurement
+                .as_deref(),
             Some("°C")
         );
     }
@@ -861,7 +995,9 @@ mod tests {
                 }
             }
         });
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &initial, 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &initial, 10)
+            .unwrap();
 
         // Sorted map order visits a before z. The late metadata mismatch must
         // reject the whole delta, not commit a's valid state/freshness update.
@@ -878,7 +1014,9 @@ mod tests {
         assert_eq!(projector.state["sensor.a_temperature"].state, "20.0");
         assert_eq!(projector.state["sensor.z_temperature"].state, "21.0");
         assert_eq!(
-            projector.state["sensor.z_temperature"].unit_of_measurement.as_deref(),
+            projector.state["sensor.z_temperature"]
+                .unit_of_measurement
+                .as_deref(),
             Some("°C")
         );
     }
@@ -906,7 +1044,9 @@ mod tests {
                 }
             }
         });
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot, 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot, 10)
+            .unwrap();
 
         // The valid 'a' change sorts before the malformed 'z' change. If the
         // projector mutates eagerly, the first entity would incorrectly stay at 22.0.
@@ -928,7 +1068,9 @@ mod tests {
     #[test]
     fn malformed_changes_are_transactional() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         let event = serde_json::json!({
             "c": {
                 "sensor.living_room_temperature": {
@@ -936,30 +1078,50 @@ mod tests {
                 }
             }
         });
-        assert!(projector.apply_value(EntityStreamKind::Changes, &event, 20).is_err());
-        let out = projector.apply_value(EntityStreamKind::Changes, &serde_json::json!({"c": {}, "r": []}), 30).unwrap();
+        assert!(
+            projector
+                .apply_value(EntityStreamKind::Changes, &event, 20)
+                .is_err()
+        );
+        let out = projector
+            .apply_value(
+                EntityStreamKind::Changes,
+                &serde_json::json!({"c": {}, "r": []}),
+                30,
+            )
+            .unwrap();
         assert!(out.frames.is_empty());
-        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"].state,
+            "21.5"
+        );
     }
 
     #[test]
     fn removal_invalidates_prior_state_without_claiming_physical_outcome() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         let out = projector.apply_value(
             EntityStreamKind::Changes,
             &serde_json::json!({"r": ["sensor.living_room_temperature", "sensor.not_allowlisted"]}),
             20,
         ).unwrap();
         assert!(out.frames.is_empty());
-        assert_eq!(out.removed_entity_ids, vec!["sensor.living_room_temperature".to_string()]);
+        assert_eq!(
+            out.removed_entity_ids,
+            vec!["sensor.living_room_temperature".to_string()]
+        );
         assert_eq!(projector.cached_entity_count(), 0);
     }
 
     #[test]
     fn duplicate_initial_snapshot_is_rejected() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         assert!(matches!(
             projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 20),
             Err(EntityStreamProjectionError::InvalidPayload(_))
@@ -969,7 +1131,9 @@ mod tests {
     #[test]
     fn duplicate_entity_across_update_groups_is_rejected_without_mutation() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         let event = serde_json::json!({
             "a": {"sensor.living_room_temperature": {"s": "new", "a": {}}},
             "c": {"sensor.living_room_temperature": {"+": {"s": "different"}}}
@@ -978,13 +1142,18 @@ mod tests {
             projector.apply_value(EntityStreamKind::Changes, &event, 20),
             Err(EntityStreamProjectionError::InvalidPayload(_))
         ));
-        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.5");
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"].state,
+            "21.5"
+        );
     }
 
     #[test]
     fn duplicate_added_entity_is_rejected_without_cache_or_freshness_change() {
         let mut projector = projector();
-        let initial = projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        let initial = projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
         assert_eq!(initial.frames.len(), 1);
         let prior = projector.state["sensor.living_room_temperature"].clone();
 
@@ -1012,7 +1181,9 @@ mod tests {
     #[test]
     fn replayed_identical_state_delta_does_not_refresh_freshness() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
 
         let delta = serde_json::json!({
             "c": {
@@ -1021,15 +1192,25 @@ mod tests {
                 }
             }
         });
-        let first = projector.apply_value(EntityStreamKind::Changes, &delta, 20).unwrap();
+        let first = projector
+            .apply_value(EntityStreamKind::Changes, &delta, 20)
+            .unwrap();
         assert_eq!(first.frames.len(), 1);
         assert_eq!(first.frames[0].state, "22.0");
         assert_eq!(first.frames[0].received_at_micros, 20);
 
-        let replay = projector.apply_value(EntityStreamKind::Changes, &delta, 99_999).unwrap();
-        assert!(replay.frames.is_empty(), "replaying the same semantic state must not mint a newer observation");
+        let replay = projector
+            .apply_value(EntityStreamKind::Changes, &delta, 99_999)
+            .unwrap();
+        assert!(
+            replay.frames.is_empty(),
+            "replaying the same semantic state must not mint a newer observation"
+        );
         assert!(replay.removed_entity_ids.is_empty());
-        assert_eq!(projector.state["sensor.living_room_temperature"].state, "22.0");
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"].state,
+            "22.0"
+        );
     }
 
     #[test]
@@ -1041,7 +1222,9 @@ mod tests {
             max_mantissa: 8_000,
         };
         let mut projector = EntityStreamProjector::new(&p).unwrap();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
 
         // Both lexical values decode to the same exact fixed-point mantissa.
         let equivalent = json!({
@@ -1051,39 +1234,56 @@ mod tests {
                 }
             }
         });
-        let out = projector.apply_value(EntityStreamKind::Changes, &equivalent, 999_999).unwrap();
-        assert!(out.frames.is_empty(), "equivalent typed values must not mint newer observations");
-        assert_eq!(projector.state["sensor.living_room_temperature"].state, "21.50");
+        let out = projector
+            .apply_value(EntityStreamKind::Changes, &equivalent, 999_999)
+            .unwrap();
+        assert!(
+            out.frames.is_empty(),
+            "equivalent typed values must not mint newer observations"
+        );
+        assert_eq!(
+            projector.state["sensor.living_room_temperature"].state,
+            "21.50"
+        );
     }
 
     #[test]
     fn explicit_removal_allows_a_later_valid_readdition() {
         let mut projector = projector();
-        projector.apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+        projector
+            .apply_value(EntityStreamKind::InitialSnapshot, &snapshot(), 10)
+            .unwrap();
 
-        let removed = projector.apply_value(
-            EntityStreamKind::Changes,
-            &serde_json::json!({"r": ["sensor.living_room_temperature"]}),
-            20,
-        ).unwrap();
-        assert_eq!(removed.removed_entity_ids, vec!["sensor.living_room_temperature"]);
+        let removed = projector
+            .apply_value(
+                EntityStreamKind::Changes,
+                &serde_json::json!({"r": ["sensor.living_room_temperature"]}),
+                20,
+            )
+            .unwrap();
+        assert_eq!(
+            removed.removed_entity_ids,
+            vec!["sensor.living_room_temperature"]
+        );
         assert_eq!(projector.cached_entity_count(), 0);
 
-        let added = projector.apply_value(
-            EntityStreamKind::Changes,
-            &serde_json::json!({
-                "a": {
-                    "sensor.living_room_temperature": {
-                        "s": "22.0",
-                        "a": {
-                            "unit_of_measurement": "°C",
-                            "device_class": "temperature"
+        let added = projector
+            .apply_value(
+                EntityStreamKind::Changes,
+                &serde_json::json!({
+                    "a": {
+                        "sensor.living_room_temperature": {
+                            "s": "22.0",
+                            "a": {
+                                "unit_of_measurement": "°C",
+                                "device_class": "temperature"
+                            }
                         }
                     }
-                }
-            }),
-            30,
-        ).unwrap();
+                }),
+                30,
+            )
+            .unwrap();
         assert_eq!(added.frames.len(), 1);
         assert_eq!(added.frames[0].state, "22.0");
         assert_eq!(added.frames[0].received_at_micros, 30);
