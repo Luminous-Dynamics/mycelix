@@ -76,7 +76,7 @@ The production crash/restart, multi-node uniqueness, fencing, and effect+nonce t
 
 ## Effect-journal lifecycle reference cases
 
-Thirteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
+Fourteen source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
 
 | Case ID | Scenario | Test anchor |
 |---|---|---|
