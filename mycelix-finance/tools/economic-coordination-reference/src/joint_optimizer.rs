@@ -831,6 +831,91 @@ mod tests {
     }
 
     #[test]
+    fn stale_mapping_never_generates_a_positive_assignment() {
+        let mut input = problem(2);
+        input
+            .capability_mappings
+            .iter_mut()
+            .find(|mapping| mapping.request_id == "urgent" && mapping.offer_id == "offer-a")
+            .unwrap()
+            .evidence_status = EvidenceStatus::Unknown;
+        let report = optimize_joint_allocation(&input).unwrap();
+        assert!(report.frontier.iter().all(|candidate| {
+            candidate.assignments.iter().all(|assignment| {
+                assignment.request_id != "urgent" || assignment.offer_id != "offer-a"
+            })
+        }));
+    }
+
+    #[test]
+    fn offer_arriving_after_request_deadline_is_not_used() {
+        let mut input = problem(2);
+        input
+            .requests
+            .iter_mut()
+            .find(|request| request.request_id == "urgent")
+            .unwrap()
+            .deliver_by = 99;
+        let report = optimize_joint_allocation(&input).unwrap();
+        assert!(report.frontier.iter().all(|candidate| {
+            candidate.assignments.iter().all(|assignment| assignment.request_id != "urgent")
+        }));
+    }
+
+    #[test]
+    fn request_budget_prevents_using_individually_over_budget_offers() {
+        let mut input = problem(2);
+        input
+            .requests
+            .iter_mut()
+            .find(|request| request.request_id == "urgent")
+            .unwrap()
+            .max_total_cost_minor = 5;
+        let report = optimize_joint_allocation(&input).unwrap();
+        assert!(report.frontier.iter().all(|candidate| {
+            candidate.assignments.iter().all(|assignment| {
+                assignment.request_id != "urgent" || assignment.offer_id != "offer-b"
+            })
+        }));
+    }
+
+    #[test]
+    fn no_offers_returns_a_valid_shortage_frontier_instead_of_inventing_supply() {
+        let mut input = problem(2);
+        input.offers.clear();
+        input.capacity_pools.clear();
+        input.capability_mappings.clear();
+        let report = optimize_joint_allocation(&input).unwrap();
+        assert_eq!(report.frontier.len(), 1);
+        assert!(report.frontier[0].assignments.is_empty());
+        assert!(report.frontier[0]
+            .objective
+            .unfilled_by_request
+            .iter()
+            .all(|shortage| shortage.unfilled_quantity == 1));
+    }
+
+    #[test]
+    fn duplicate_objective_vectors_keep_one_canonical_assignment() {
+        let mut input = problem(2);
+        input.offers[1].unit_cost_minor = input.offers[0].unit_cost_minor;
+        let report = optimize_joint_allocation(&input).unwrap();
+        let full_service: Vec<_> = report
+            .frontier
+            .iter()
+            .filter(|candidate| {
+                candidate.objective.unfilled_by_request.iter().all(|shortage| {
+                    shortage.unfilled_quantity == 0
+                })
+            })
+            .collect();
+        assert_eq!(full_service.len(), 1);
+        assert_eq!(full_service[0].objective.total_cost_minor, 10);
+        assert_eq!(full_service[0].assignments[0].request_id, "routine");
+        assert_eq!(full_service[0].assignments[0].offer_id, "offer-a");
+    }
+
+    #[test]
     fn missing_mapping_never_generates_an_assignment_edge() {
         let mut input = problem(2);
         input.capability_mappings.retain(|mapping| !(mapping.request_id == "urgent" && mapping.offer_id == "offer-a"));
