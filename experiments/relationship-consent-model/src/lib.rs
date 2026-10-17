@@ -105,6 +105,7 @@ pub struct ExplorationReport {
     pub transitions_checked: usize,
     pub maximum_depth_explored: usize,
     pub state_cap_reached: bool,
+    pub invariant_violation: bool,
 }
 
 impl Machine {
@@ -132,7 +133,7 @@ impl Machine {
                     // Pending introductions require current discovery permission.
                     // An already connected conversation has a separate consent
                     // lifecycle and is not silently terminated by discovery pause.
-                    if matches!(self.phase, Phase::Pending { .. }) {
+                    if matches!(&self.phase, Phase::Pending { .. }) {
                         self.close_current(CloseReason::Withdrawn);
                     }
                 }
@@ -149,7 +150,7 @@ impl Machine {
     }
 
     pub fn invariants_hold(&self) -> bool {
-        if self.chat_enabled != matches!(self.phase, Phase::Connected { .. }) {
+        if self.chat_enabled != matches!(&self.phase, Phase::Connected { .. }) {
             return false;
         }
 
@@ -157,7 +158,7 @@ impl Machine {
             return false;
         }
 
-        match self.phase {
+        match &self.phase {
             Phase::Idle => !self.chat_enabled,
             Phase::Pending {
                 epoch,
@@ -165,33 +166,33 @@ impl Machine {
                 opened_at,
                 deadline,
             } => {
-                epoch < self.next_epoch
-                    && (accepted_mask == 0b01 || accepted_mask == 0b10)
-                    && opened_at <= self.now
-                    && self.now < deadline
+                *epoch < self.next_epoch
+                    && (*accepted_mask == 0b01 || *accepted_mask == 0b10)
+                    && *opened_at <= self.now
+                    && self.now < *deadline
                     && self.opt_in_mask == BOTH_OPTED_IN
                     && self.blocked_mask == 0
                     && !self.chat_enabled
-                    && self.last_revealed_epoch != Some(epoch)
+                    && self.last_revealed_epoch != Some(*epoch)
             }
             Phase::Connected {
                 epoch,
                 accepted_mask,
             } => {
-                epoch < self.next_epoch
-                    && accepted_mask == BOTH_ACCEPTED
+                *epoch < self.next_epoch
+                    && *accepted_mask == BOTH_ACCEPTED
                     && self.blocked_mask == 0
                     && self.chat_enabled
-                    && self.last_revealed_epoch == Some(epoch)
+                    && self.last_revealed_epoch == Some(*epoch)
             }
             Phase::Closed { epoch, .. } => {
-                epoch < self.next_epoch && !self.chat_enabled
+                *epoch < self.next_epoch && !self.chat_enabled
             }
         }
     }
 
     fn propose(&mut self, actor: Actor, ttl: u64) {
-        if matches!(self.phase, Phase::Pending { .. } | Phase::Connected { .. })
+        if matches!(&self.phase, Phase::Pending { .. } | Phase::Connected { .. })
             || self.now < self.retry_after
             || ttl == 0
             || self.opt_in_mask != BOTH_OPTED_IN
@@ -258,7 +259,7 @@ impl Machine {
     }
 
     fn decline(&mut self, _actor: Actor, epoch: u64) {
-        if matches!(self.phase, Phase::Pending { epoch: active, .. } if active == epoch) {
+        if matches!(&self.phase, Phase::Pending { epoch: active, .. } if *active == epoch) {
             self.retry_after = self
                 .now
                 .saturating_add(DECLINE_COOLDOWN_TICKS);
@@ -267,9 +268,9 @@ impl Machine {
     }
 
     fn withdraw(&mut self, _actor: Actor, epoch: u64) {
-        let same_epoch_is_active = match self.phase {
+        let same_epoch_is_active = match &self.phase {
             Phase::Pending { epoch: active, .. } | Phase::Connected { epoch: active, .. } => {
-                active == epoch
+                *active == epoch
             }
             _ => false,
         };
@@ -280,16 +281,16 @@ impl Machine {
 
     fn block(&mut self, actor: Actor) {
         self.blocked_mask |= actor.bit();
-        if matches!(self.phase, Phase::Pending { .. } | Phase::Connected { .. }) {
+        if matches!(&self.phase, Phase::Pending { .. } | Phase::Connected { .. }) {
             self.close_current(CloseReason::Blocked);
         }
     }
 
     fn close_current(&mut self, reason: CloseReason) {
-        let epoch = match self.phase {
+        let epoch = match &self.phase {
             Phase::Pending { epoch, .. }
             | Phase::Connected { epoch, .. }
-            | Phase::Closed { epoch, .. } => Some(epoch),
+            | Phase::Closed { epoch, .. } => Some(*epoch),
             Phase::Idle => None,
         };
         if let Some(epoch) = epoch {
@@ -299,16 +300,16 @@ impl Machine {
     }
 
     fn expire_if_due(&mut self) {
-        if matches!(self.phase, Phase::Pending { deadline, .. } if self.now >= deadline) {
+        if matches!(&self.phase, Phase::Pending { deadline, .. } if self.now >= *deadline) {
             self.close_current(CloseReason::Expired);
         }
     }
 
     fn relevant_epoch(&self) -> u64 {
-        match self.phase {
+        match &self.phase {
             Phase::Pending { epoch, .. }
             | Phase::Connected { epoch, .. }
-            | Phase::Closed { epoch, .. } => epoch,
+            | Phase::Closed { epoch, .. } => *epoch,
             Phase::Idle => self.next_epoch.saturating_sub(1),
         }
     }
@@ -365,6 +366,7 @@ pub fn bounded_model_check(max_depth: usize, max_states: usize) -> ExplorationRe
         transitions_checked: 0,
         maximum_depth_explored: 0,
         state_cap_reached: false,
+        invariant_violation: false,
     };
 
     while let Some((state, depth)) = queue.pop_front() {
@@ -372,7 +374,7 @@ pub fn bounded_model_check(max_depth: usize, max_states: usize) -> ExplorationRe
         if !state.invariants_hold() {
             // Keep the report fail-closed: state_cap_reached is also used as a
             // non-success sentinel by the CLI, which labels the result invalid.
-            report.state_cap_reached = true;
+            report.invariant_violation = true;
             break;
         }
         if depth >= max_depth {
@@ -384,12 +386,14 @@ pub fn bounded_model_check(max_depth: usize, max_states: usize) -> ExplorationRe
             let mut next = state.clone();
             next.apply(event);
             if !next.invariants_hold() {
-                report.state_cap_reached = true;
+                report.invariant_violation = true;
+                report.unique_states = visited.len();
                 return report;
             }
             if visited.insert(next.clone()) {
                 if visited.len() >= max_states.max(1) {
                     report.state_cap_reached = true;
+                    report.unique_states = visited.len();
                     return report;
                 }
                 queue.push_back((next, depth + 1));
@@ -416,7 +420,7 @@ mod tests {
         propose_a(&mut machine, 5);
 
         assert!(matches!(
-            machine.phase,
+            &machine.phase,
             Phase::Pending { accepted_mask: 0b01, .. }
         ));
         assert_eq!(machine.reveal_count, 0);
@@ -435,7 +439,7 @@ mod tests {
 
         machine.apply(Event::Accept { actor: Actor::B, epoch: 1 });
         assert!(matches!(
-            machine.phase,
+            &machine.phase,
             Phase::Connected { accepted_mask: BOTH_ACCEPTED, .. }
         ));
         assert_eq!(machine.reveal_count, 1);
@@ -456,7 +460,7 @@ mod tests {
         machine.apply(Event::Accept { actor: Actor::B, epoch: 1 });
 
         assert!(matches!(
-            machine.phase,
+            &machine.phase,
             Phase::Closed { reason: CloseReason::Expired, .. }
         ));
         assert_eq!(machine.reveal_count, 0);
@@ -472,7 +476,7 @@ mod tests {
         assert!(blocked.chat_enabled);
         blocked.apply(Event::Block { actor: Actor::B });
         assert!(matches!(
-            blocked.phase,
+            &blocked.phase,
             Phase::Closed { reason: CloseReason::Blocked, .. }
         ));
         assert!(!blocked.chat_enabled);
@@ -485,7 +489,7 @@ mod tests {
         withdrawn.apply(Event::Accept { actor: Actor::B, epoch: 1 });
         withdrawn.apply(Event::Withdraw { actor: Actor::A, epoch: 1 });
         assert!(matches!(
-            withdrawn.phase,
+            &withdrawn.phase,
             Phase::Closed { reason: CloseReason::Withdrawn, .. }
         ));
         assert!(!withdrawn.chat_enabled);
@@ -498,7 +502,7 @@ mod tests {
         propose_a(&mut pending, 5);
         pending.apply(Event::SetDiscoveryOptIn { actor: Actor::B, enabled: false });
         assert!(matches!(
-            pending.phase,
+            &pending.phase,
             Phase::Closed { reason: CloseReason::Withdrawn, .. }
         ));
         assert!(pending.invariants_hold());
@@ -507,7 +511,7 @@ mod tests {
         propose_a(&mut connected, 5);
         connected.apply(Event::Accept { actor: Actor::B, epoch: 1 });
         connected.apply(Event::SetDiscoveryOptIn { actor: Actor::B, enabled: false });
-        assert!(matches!(connected.phase, Phase::Connected { .. }));
+        assert!(matches!(&connected.phase, Phase::Connected { .. }));
         assert!(connected.chat_enabled);
         assert!(connected.invariants_hold());
     }
@@ -518,37 +522,53 @@ mod tests {
         propose_a(&mut machine, 10);
         machine.apply(Event::Decline { actor: Actor::B, epoch: 1 });
         assert!(matches!(
-            machine.phase,
+            &machine.phase,
             Phase::Closed { reason: CloseReason::Declined, .. }
         ));
 
         machine.apply(Event::Propose { actor: Actor::B, ttl: 10 });
-        assert!(matches!(machine.phase, Phase::Closed { .. }));
+        assert!(matches!(&machine.phase, Phase::Closed { .. }));
 
         machine.apply(Event::AdvanceTime {
             to: DECLINE_COOLDOWN_TICKS,
         });
         machine.apply(Event::Propose { actor: Actor::B, ttl: 10 });
         assert!(matches!(
-            machine.phase,
+            &machine.phase,
             Phase::Pending { epoch: 2, .. }
         ));
 
         machine.apply(Event::Accept { actor: Actor::A, epoch: 1 });
         assert!(matches!(
-            machine.phase,
+            &machine.phase,
             Phase::Pending { epoch: 2, accepted_mask: 0b10, .. }
         ));
         machine.apply(Event::Accept { actor: Actor::A, epoch: 2 });
-        assert!(matches!(machine.phase, Phase::Connected { epoch: 2, .. }));
+        assert!(matches!(&machine.phase, Phase::Connected { epoch: 2, .. }));
         assert_eq!(machine.reveal_count, 1);
         assert!(machine.invariants_hold());
     }
 
     #[test]
+    fn invariant_checker_rejects_early_reveal_and_one_sided_connection() {
+        let mut early_reveal = Machine::default();
+        propose_a(&mut early_reveal, 5);
+        early_reveal.chat_enabled = true;
+        assert!(!early_reveal.invariants_hold());
+
+        let mut one_sided = Machine::default();
+        propose_a(&mut one_sided, 5);
+        one_sided.phase = Phase::Connected { epoch: 1, accepted_mask: 0b01 };
+        one_sided.chat_enabled = true;
+        one_sided.last_revealed_epoch = Some(1);
+        assert!(!one_sided.invariants_hold());
+    }
+
+    #[test]
     fn bounded_state_exploration_checks_invariants_after_each_transition() {
         let report = bounded_model_check(5, 100_000);
-        assert!(!report.state_cap_reached, "exploration was truncated or an invariant failed");
+        assert!(!report.state_cap_reached, "exploration hit its state cap");
+        assert!(!report.invariant_violation, "an invariant failed during exploration");
         assert!(report.unique_states > 10);
         assert!(report.transitions_checked > report.unique_states);
         assert_eq!(report.maximum_depth_explored, 5);
