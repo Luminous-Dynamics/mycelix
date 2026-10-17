@@ -249,11 +249,16 @@ The initial implementation slice is tracked in [draft PR #5182](https://github.c
 | Permission scope | Asset, grantee, action, purpose and time interval all match the grant | Zero false allows in adversarial fixtures |
 | Sensitive use | Metadata analysis, publication, distribution, commercial use, model training, derivatives, and voice/likeness synthesis are not interchangeable | Zero cross-action permission expansion |
 | Expiry / revocation | Start is inclusive, expiry is exclusive, and revocation blocks evaluation at/after its timestamp while retaining historical evaluation before it | 100% fixed-fixture agreement |
+| Revocation alongside original grant | At/after revocation timestamp, zero allows regardless of history order; historical requests before revocation remain allowed | Zero resurrection of revoked consent |
+| Conflicting grant ID reuse | Same ID with different immutable terms or inconsistent revocation times blocks authorization | 100% conflict detection; no first-match wins |
 | Asset boundaries | A grant for one recording does not authorize a second recording or derivative asset | Zero implicit grant inheritance |
 
 The golden fixture corpus must include at least these negative controls: an ISWC attached to a recording; an ISRC attached to a composition; a cross-asset duplicate identifier; a 6,000-basis-point partial split; a complete split with an unknown share; a 10,500-basis-point over-allocation; duplicate participants in one pool; an analysis grant used for model training; an explicit training grant reused for a different model-purpose token; an expired grant; a revoked grant; and a grant for another asset. Add positive controls for valid syntax, an exact 6,000/4,000 complete split, an exact matching permission, and a request made before revocation.
 
 **Decision rule:** one false allow, silent identifier merge, invented share, or unmarked incomplete split blocks release. Aggregate accuracy cannot compensate for any of those failures. These fixtures only assess internal policy behavior; they do not prove legal ownership, grantor authority, identity, consent authenticity, or compliance with territory-specific law.
+
+
+Also include a history-ordering fixture containing both the original grant and its revocation. Evaluate the request against both grant-then-revocation and revocation-then-grant orderings. Both must deny at and after the revocation timestamp and allow a historical query strictly before it. Reuse of a grant ID for a different asset, party, action, purpose, evidence binding, validity window, or incompatible revocation timestamp must block authorization; the evaluator must never use "first matching grant wins."
 
 Do not claim this gate is met until an independently reviewed build runs the corpus at the exact candidate commit with a pinned Rust toolchain and recorded exit status. The current PR records source-level tests only; compilation and runtime evidence are still outstanding.
 
