@@ -17,9 +17,9 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Rust crate isolated with its own Cargo workspace; BLAKE3 is pinned for content-digest integrity.
 - Typed asset kinds and separate ISWC / ISRC variants. The current checks validate syntax and asset-kind compatibility only; they do not validate check digits, registration status, or authentic assignment.
 - Duplicate external identifiers are surfaced, not auto-merged. Replaying the same identifier assignment to the same asset is idempotent.
-- Rights-pool-scoped split assessment with exact basis points (10,000 = 100%), duplicate-party rejection, explicit partial status, and fail-closed complete-split arithmetic.
+- Rights-pool-scoped split assessment with exact basis points (10,000 = 100%), duplicate-party rejection, explicit partial status, fail-closed complete-split arithmetic, and bounded/control-character-free evidence references.
 - Explicit, asset-bound grants for metadata analysis, publication, distribution, commercialization, model training, derivative generation, and voice/likeness synthesis.
-- Exact grantee, purpose, action, asset, start time and expiry checks; revocation is evaluated by time so historical uses before revocation can still be audited.
+- Exact grantee, purpose, action, asset, start time and expiry checks; revocation is evaluated by time so historical uses before revocation can still be audited. Evidence references have the same field-size/control-character constraints across split claims and grants.
 - Order-independent usage evaluation by immutable grant ID: a revocation dominates an original grant regardless of history ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
 - An append-only in-memory issue/revocation event log with event-ID idempotency, monotonic event-time checks, deterministic replay, and atomic rejection of invalid transitions.
 - A separately implemented event-stream reconstruction path for differential comparison against append-derived effective grant state; it does not call the append method.
