@@ -10,8 +10,8 @@
 
 use hearth_home_assistant_observation::{HomeAssistantStateFrame, ObservationError};
 use hearth_home_assistant_protocol::{CommandId, ReadOnlyCommand};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::de::{DeserializeOwned, IgnoredAny, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 
 pub const MAX_AUTH_MESSAGE_BYTES: usize = 4 * 1024;
@@ -57,7 +57,10 @@ impl fmt::Display for WireError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Oversized { limit, actual } => {
-                write!(f, "Home Assistant wire message is {actual} bytes; limit is {limit}")
+                write!(
+                    f,
+                    "Home Assistant wire message is {actual} bytes; limit is {limit}"
+                )
             }
             Self::Json {
                 category,
@@ -70,7 +73,9 @@ impl fmt::Display for WireError {
             Self::Serialize => write!(f, "failed to serialize Home Assistant read-only command"),
             Self::UnexpectedMessageType => write!(f, "unexpected Home Assistant message type"),
             Self::InvalidField(field) => write!(f, "invalid Home Assistant field: {field}"),
-            Self::InvalidText(field) => write!(f, "unsafe or oversized Home Assistant text field: {field}"),
+            Self::InvalidText(field) => {
+                write!(f, "unsafe or oversized Home Assistant text field: {field}")
+            }
             Self::BootstrapTooLarge { limit, actual } => write!(
                 f,
                 "Home Assistant bootstrap contains {actual} states; limit is {limit}"
@@ -187,14 +192,24 @@ pub fn parse_states_result(
 ) -> Result<StatesResult, WireError> {
     let raw: RawStatesResult = decode_json(input, MAX_BOOTSTRAP_MESSAGE_BYTES)?;
     require_type(&raw.kind, "result")?;
+    let RawStatesResult {
+        id,
+        success,
+        result,
+        error,
+        ..
+    } = raw;
 
-    if raw.success {
-        if raw.error.is_some() {
+    if success {
+        if !matches!(&error, FieldPresence::Missing) {
             return Err(WireError::InvalidField("result.error"));
         }
-        let raw_states = raw
-            .result
-            .ok_or(WireError::InvalidField("result.result"))?;
+        let raw_states = match result {
+            FieldPresence::Value(states) => states,
+            FieldPresence::Missing | FieldPresence::Null => {
+                return Err(WireError::InvalidField("result.result"));
+            }
+        };
         if raw_states.len() > MAX_BOOTSTRAP_STATES {
             return Err(WireError::BootstrapTooLarge {
                 limit: MAX_BOOTSTRAP_STATES,
@@ -206,20 +221,23 @@ pub fn parse_states_result(
             states.push(minimize_state(raw_state, received_at_micros)?);
         }
         Ok(StatesResult {
-            id: CommandId(raw.id),
+            id: CommandId(id),
             success: true,
             states,
             error: None,
         })
     } else {
-        if raw.result.is_some() {
+        if !matches!(&result, FieldPresence::Missing) {
             return Err(WireError::InvalidField("result.result"));
         }
-        let error = raw
-            .error
-            .ok_or(WireError::InvalidField("result.error"))?;
+        let error = match error {
+            FieldPresence::Value(error) => error,
+            FieldPresence::Missing | FieldPresence::Null => {
+                return Err(WireError::InvalidField("result.error"));
+            }
+        };
         Ok(StatesResult {
-            id: CommandId(raw.id),
+            id: CommandId(id),
             success: false,
             states: Vec::new(),
             error: Some(validate_failure(error)?),
@@ -230,17 +248,38 @@ pub fn parse_states_result(
 pub fn parse_subscription_result(input: &[u8]) -> Result<SubscriptionResult, WireError> {
     let raw: RawSubscriptionResult = decode_json(input, MAX_CONTROL_MESSAGE_BYTES)?;
     require_type(&raw.kind, "result")?;
+    let RawSubscriptionResult {
+        id,
+        success,
+        result,
+        error,
+        ..
+    } = raw;
 
-    let error = match (raw.success, raw.error) {
-        (true, None) => None,
-        (true, Some(_)) => return Err(WireError::InvalidField("result.error")),
-        (false, Some(error)) => Some(validate_failure(error)?),
-        (false, None) => return Err(WireError::InvalidField("result.error")),
+    let error = if success {
+        if !matches!(&result, FieldPresence::Null) {
+            return Err(WireError::InvalidField("result.result"));
+        }
+        if !matches!(&error, FieldPresence::Missing) {
+            return Err(WireError::InvalidField("result.error"));
+        }
+        None
+    } else {
+        if !matches!(&result, FieldPresence::Missing) {
+            return Err(WireError::InvalidField("result.result"));
+        }
+        let error = match error {
+            FieldPresence::Value(error) => error,
+            FieldPresence::Missing | FieldPresence::Null => {
+                return Err(WireError::InvalidField("result.error"));
+            }
+        };
+        Some(validate_failure(error)?)
     };
 
     Ok(SubscriptionResult {
-        id: CommandId(raw.id),
-        success: raw.success,
+        id: CommandId(id),
+        success,
         error,
     })
 }
@@ -257,8 +296,9 @@ pub fn parse_state_changed_event(
     validate_entity_id(&raw.event.data.entity_id)?;
 
     let new_state = match raw.event.data.new_state {
-        Some(state) => Some(minimize_state(state, received_at_micros)?),
-        None => None,
+        FieldPresence::Missing => return Err(WireError::InvalidField("event.data.new_state")),
+        FieldPresence::Null => None,
+        FieldPresence::Value(state) => Some(minimize_state(state, received_at_micros)?),
     };
 
     Ok(StateChangedEvent {
@@ -289,12 +329,7 @@ fn minimize_state(
 }
 
 fn validate_failure(raw: RawFailure) -> Result<WireFailure, WireError> {
-    validate_clean_text(
-        "error.code",
-        &raw.code,
-        MAX_SERVER_ERROR_CODE_BYTES,
-        false,
-    )?;
+    validate_clean_text("error.code", &raw.code, MAX_SERVER_ERROR_CODE_BYTES, false)?;
     validate_clean_text(
         "error.message",
         &raw.message,
@@ -419,9 +454,9 @@ struct RawStatesResult {
     kind: String,
     success: bool,
     #[serde(default)]
-    result: Option<Vec<RawState>>,
+    result: FieldPresence<Vec<RawState>>,
     #[serde(default)]
-    error: Option<RawFailure>,
+    error: FieldPresence<RawFailure>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -431,7 +466,9 @@ struct RawSubscriptionResult {
     kind: String,
     success: bool,
     #[serde(default)]
-    error: Option<RawFailure>,
+    result: FieldPresence<IgnoredAny>,
+    #[serde(default)]
+    error: FieldPresence<RawFailure>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -457,8 +494,71 @@ struct RawEvent {
 #[derive(Debug, Deserialize)]
 struct RawStateChangedData {
     entity_id: String,
+    /// Preserve field presence: only explicit JSON null means an entity removal.
+    /// A missing field is malformed input and must not invalidate prior evidence.
     #[serde(default)]
-    new_state: Option<RawState>,
+    new_state: FieldPresence<RawState>,
+}
+
+/// Preserve whether a nullable protocol field was absent, explicitly null, or
+/// contained a value. Plain `Option<T>` intentionally erases the first two.
+#[derive(Debug)]
+enum FieldPresence<T> {
+    Missing,
+    Null,
+    Value(T),
+}
+
+impl<T> Default for FieldPresence<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<'de, T> Deserialize<'de> for FieldPresence<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FieldPresenceVisitor<T>(std::marker::PhantomData<T>);
+
+        impl<'de, T> Visitor<'de> for FieldPresenceVisitor<T>
+        where
+            T: Deserialize<'de>,
+        {
+            type Value = FieldPresence<T>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a nullable Home Assistant protocol field")
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(FieldPresence::Null)
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(FieldPresence::Null)
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                T::deserialize(deserializer).map(FieldPresence::Value)
+            }
+        }
+
+        deserializer.deserialize_option(FieldPresenceVisitor(std::marker::PhantomData))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -479,12 +579,12 @@ struct RawAttributes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hearth_home_assistant_protocol::{SessionEpoch, STATE_CHANGED_EVENT_TYPE};
+    use hearth_home_assistant_protocol::{STATE_CHANGED_EVENT_TYPE, SessionEpoch};
 
     #[test]
     fn parses_auth_required() {
-        let parsed = parse_auth_required(br#"{"type":"auth_required","ha_version":"2026.9.0"}"#)
-            .unwrap();
+        let parsed =
+            parse_auth_required(br#"{"type":"auth_required","ha_version":"2026.9.0"}"#).unwrap();
         assert_eq!(parsed.ha_version, "2026.9.0");
     }
 
@@ -597,6 +697,94 @@ mod tests {
         assert_eq!(parsed.entity_id, "sensor.room_temperature");
         assert_eq!(parsed.new_state, None);
         assert_eq!(parsed.received_at_micros, 999);
+    }
+
+    #[test]
+    fn state_changed_missing_new_state_is_malformed_not_a_removal() {
+        let input = br#"{
+            "id":2,
+            "type":"event",
+            "event":{
+                "event_type":"state_changed",
+                "data":{
+                    "entity_id":"sensor.room_temperature",
+                    "old_state":{"ignored":true}
+                }
+            }
+        }"#;
+        assert_eq!(
+            parse_state_changed_event(input, 999),
+            Err(WireError::InvalidField("event.data.new_state"))
+        );
+    }
+
+    #[test]
+    fn subscription_success_requires_explicit_null_result() {
+        let ok = br#"{"id":2,"type":"result","success":true,"result":null}"#;
+        assert_eq!(
+            parse_subscription_result(ok),
+            Ok(SubscriptionResult {
+                id: CommandId(2),
+                success: true,
+                error: None,
+            })
+        );
+
+        let missing = br#"{"id":2,"type":"result","success":true}"#;
+        assert_eq!(
+            parse_subscription_result(missing),
+            Err(WireError::InvalidField("result.result"))
+        );
+
+        let non_null = br#"{"id":2,"type":"result","success":true,"result":{}}"#;
+        assert_eq!(
+            parse_subscription_result(non_null),
+            Err(WireError::InvalidField("result.result"))
+        );
+    }
+
+    #[test]
+    fn subscription_failure_requires_error_and_forbids_result_field() {
+        let explicit_null_result = br#"{
+            "id":2,"type":"result","success":false,"result":null,
+            "error":{"code":"not_allowed","message":"Not allowed"}
+        }"#;
+        assert_eq!(
+            parse_subscription_result(explicit_null_result),
+            Err(WireError::InvalidField("result.result"))
+        );
+
+        let null_error = br#"{"id":2,"type":"result","success":false,"error":null}"#;
+        assert_eq!(
+            parse_subscription_result(null_error),
+            Err(WireError::InvalidField("result.error"))
+        );
+    }
+
+    #[test]
+    fn successful_states_result_rejects_an_explicit_null_error() {
+        let input = br#"{
+            "id":1,"type":"result","success":true,
+            "result":[{"entity_id":"sensor.room_temperature","state":"21.5","attributes":{}}],
+            "error":null
+        }"#;
+        assert_eq!(
+            parse_states_result(input, 10),
+            Err(WireError::InvalidField("result.error"))
+        );
+    }
+
+    #[test]
+    fn failed_states_result_rejects_an_explicit_null_result() {
+        let input = br#"{
+            "id":1,"type":"result","success":false,
+            "result":null,
+            "error":{"code":"not_allowed","message":"Not allowed"}
+        }"#;
+        assert_eq!(
+            parse_states_result(input, 10),
+            Err(WireError::InvalidField("result.result"))
+        );
     }
 
     #[test]

@@ -24,9 +24,7 @@ pub const BASIS_POINTS_MAX: u32 = 10_000;
 
 macro_rules! id_type {
     ($name:ident) => {
-        #[derive(
-            Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-        )]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         pub struct $name(pub String);
 
         impl $name {
@@ -226,10 +224,7 @@ impl EvidenceRequirement {
             ));
         }
         for (index, namespace) in self.required_namespaces.iter().enumerate() {
-            require_nonempty(
-                &format!("{path}.required_namespaces[{index}]"),
-                namespace,
-            )?;
+            require_nonempty(&format!("{path}.required_namespaces[{index}]"), namespace)?;
         }
         Ok(())
     }
@@ -298,12 +293,16 @@ pub enum Reversibility {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AuthorityRequirement {
     None,
-    Capability { capability: String },
+    Capability {
+        capability: String,
+    },
     ExplicitApproval {
         capability: Option<String>,
         approvals_required: u16,
     },
-    HouseholdDecision { decision_ref: String },
+    HouseholdDecision {
+        decision_ref: String,
+    },
     Forbidden,
 }
 
@@ -483,7 +482,9 @@ pub enum Condition {
         evidence: EvidenceRequirement,
     },
     ModeIn(Vec<HouseholdMode>),
-    CapabilityAvailable { capability: String },
+    CapabilityAvailable {
+        capability: String,
+    },
     DomainPredicate {
         domain: String,
         predicate: String,
@@ -508,7 +509,10 @@ impl Condition {
             }
             Self::ModeIn(modes) => {
                 if modes.is_empty() {
-                    Err(ValidationError::new(path, "mode allowlist must not be empty"))
+                    Err(ValidationError::new(
+                        path,
+                        "mode allowlist must not be empty",
+                    ))
                 } else {
                     Ok(())
                 }
@@ -549,7 +553,10 @@ impl ConditionExpr {
             Self::Predicate(condition) => condition.validate(path),
             Self::All(children) | Self::Any(children) => {
                 if children.is_empty() {
-                    return Err(ValidationError::new(path, "condition group must not be empty"));
+                    return Err(ValidationError::new(
+                        path,
+                        "condition group must not be empty",
+                    ));
                 }
                 for (index, child) in children.iter().enumerate() {
                     child.validate(&format!("{path}[{index}]"))?;
@@ -749,8 +756,7 @@ impl AutomationIntent {
             trigger.validate(&format!("triggers[{index}]"))?;
         }
         self.conditions.validate("conditions")?;
-        self.authority
-            .validate_for(self.consequence, "authority")?;
+        self.authority.validate_for(self.consequence, "authority")?;
         self.outcome.validate_for(self.consequence, "outcome")?;
         if let AutomationLifecycle::Trial { expires_at_micros } = self.lifecycle
             && expires_at_micros <= self.created_at_micros
@@ -873,7 +879,10 @@ impl AutomationPlan {
             return Err(ValidationError::new("intent_id", "must not be empty"));
         }
         if self.steps.is_empty() {
-            return Err(ValidationError::new("steps", "plan must contain at least one step"));
+            return Err(ValidationError::new(
+                "steps",
+                "plan must contain at least one step",
+            ));
         }
 
         let ids: BTreeSet<_> = self.steps.iter().map(|step| step.id.clone()).collect();

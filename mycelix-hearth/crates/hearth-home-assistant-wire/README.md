@@ -36,6 +36,24 @@ All other attributes and fields—including `old_state`, context, friendly names
 
 Source `last_updated` is intentionally not parsed in this tranche; HA-0.1 already treats that provenance as optional and never uses it for freshness.
 
+## Exact field-presence semantics
+
+The codec uses a presence-aware field type wherever missing, explicit null, and value carry different protocol meanings. Plain `Option<T>` is not used for these fields because it collapses absent and null.
+
+For `state_changed.data.new_state`:
+
+- state object -> map/minimize a new observation frame;
+- explicit JSON `null` -> entity-removal invalidation;
+- field absent -> malformed event; reject and preserve the current observation.
+
+For command results:
+
+- successful `get_states` -> `result` must be a state array and `error` must be absent;
+- successful `subscribe_events` -> `result` must be explicitly `null` and `error` must be absent;
+- failed command -> `error` must be an object and `result` must be absent.
+
+Missing result fields, explicit null where a field must be absent, and null/non-null where a payload shape is required are rejected. These distinctions make malformed payloads unable to masquerade as an explicit removal or successful subscription.
+
 ## Bounds
 
 V1 freezes separate limits for authentication/control messages, live events, bootstrap snapshots, bootstrap entity count, server error strings, and Home Assistant version strings. Oversized or malformed inputs fail before they can construct protocol events.

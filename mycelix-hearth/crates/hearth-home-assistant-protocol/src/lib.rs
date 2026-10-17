@@ -10,8 +10,8 @@
 //! typed events represented here.
 
 use hearth_home_assistant_observation::{
-    map_state, HomeAssistantObservationProfile, HomeAssistantStateFrame, MappingOutcome,
-    ObservationError,
+    HomeAssistantObservationProfile, HomeAssistantStateFrame, MappingOutcome, ObservationError,
+    map_state,
 };
 use std::fmt;
 
@@ -43,14 +43,8 @@ pub enum SessionPhase {
 /// control variant.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadOnlyCommand {
-    GetStates {
-        epoch: SessionEpoch,
-        id: CommandId,
-    },
-    SubscribeStateChanged {
-        epoch: SessionEpoch,
-        id: CommandId,
-    },
+    GetStates { epoch: SessionEpoch, id: CommandId },
+    SubscribeStateChanged { epoch: SessionEpoch, id: CommandId },
 }
 
 impl ReadOnlyCommand {
@@ -157,11 +151,18 @@ impl fmt::Display for ProtocolError {
                 current.0, received.0
             ),
             Self::UnexpectedPhase { expected, actual } => {
-                write!(f, "unexpected Home Assistant phase {actual:?}; expected {expected}")
+                write!(
+                    f,
+                    "unexpected Home Assistant phase {actual:?}; expected {expected}"
+                )
             }
             Self::InvalidVersion(reason) => write!(f, "invalid Home Assistant version: {reason}"),
             Self::CommandRejected { command, id } => {
-                write!(f, "Home Assistant command {command} id={} was rejected", id.0)
+                write!(
+                    f,
+                    "Home Assistant command {command} id={} was rejected",
+                    id.0
+                )
             }
             Self::CorrelationMismatch { expected, received } => write!(
                 f,
@@ -181,7 +182,9 @@ impl fmt::Display for ProtocolError {
                 "state_changed entity mismatch: event={event_entity_id:?}, state={state_entity_id:?}"
             ),
             Self::InvalidEntityId(reason) => write!(f, "invalid state_changed entity id: {reason}"),
-            Self::Observation(error) => write!(f, "Home Assistant observation mapping failed: {error}"),
+            Self::Observation(error) => {
+                write!(f, "Home Assistant observation mapping failed: {error}")
+            }
         }
     }
 }
@@ -227,7 +230,11 @@ impl HomeAssistantReadOnlyProtocol {
     /// Start a fresh connection epoch. Existing command/subscription IDs from
     /// prior epochs become stale even if their integer values are reused.
     pub fn begin_session(&mut self) -> Result<SessionEpoch, ProtocolError> {
-        let next = self.epoch.0.checked_add(1).ok_or(ProtocolError::EpochOverflow)?;
+        let next = self
+            .epoch
+            .0
+            .checked_add(1)
+            .ok_or(ProtocolError::EpochOverflow)?;
         self.epoch = SessionEpoch(next);
         self.next_command_id = 1;
         self.phase = SessionPhase::AwaitingAuthRequired;
@@ -251,17 +258,17 @@ impl HomeAssistantReadOnlyProtocol {
 
     /// The native transport calls this only after receiving Home Assistant's
     /// `auth_ok`. Authentication secret material never enters this state machine.
-    pub fn on_auth_ok(
-        &mut self,
-        epoch: SessionEpoch,
-    ) -> Result<ProtocolOutput, ProtocolError> {
+    pub fn on_auth_ok(&mut self, epoch: SessionEpoch) -> Result<ProtocolOutput, ProtocolError> {
         self.require_epoch(epoch)?;
         self.require_phase("AwaitingAuthResult", |phase| {
             matches!(phase, SessionPhase::AwaitingAuthResult)
         })?;
         let id = self.allocate_command_id()?;
         self.phase = SessionPhase::AwaitingStates { command_id: id };
-        Ok(ProtocolOutput::Send(ReadOnlyCommand::GetStates { epoch, id }))
+        Ok(ProtocolOutput::Send(ReadOnlyCommand::GetStates {
+            epoch,
+            id,
+        }))
     }
 
     pub fn on_auth_invalid(
@@ -427,10 +434,7 @@ impl HomeAssistantReadOnlyProtocol {
     /// Disconnecting never emits a replacement observation and therefore never
     /// extends freshness. Existing HA-0.1 observations age on their original
     /// `valid_until_micros` deadlines.
-    pub fn disconnect(
-        &mut self,
-        epoch: SessionEpoch,
-    ) -> Result<ProtocolOutput, ProtocolError> {
+    pub fn disconnect(&mut self, epoch: SessionEpoch) -> Result<ProtocolOutput, ProtocolError> {
         self.require_epoch(epoch)?;
         self.phase = SessionPhase::Disconnected;
         Ok(ProtocolOutput::Disconnected { epoch })
@@ -515,11 +519,11 @@ fn validate_entity_id(value: &str) -> Result<(), ProtocolError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hearth_home_assistant_observation::{
-        EntityObservationRule, HomeAssistantSourceStatus, StateCodec,
-        HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
-    };
     use hearth_automation_types::{AutomationValue, EntityRef};
+    use hearth_home_assistant_observation::{
+        EntityObservationRule, HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION,
+        HomeAssistantSourceStatus, StateCodec,
+    };
 
     fn profile() -> HomeAssistantObservationProfile {
         HomeAssistantObservationProfile {
@@ -583,9 +587,18 @@ mod tests {
     fn orders_auth_bootstrap_and_subscription() {
         let (mut protocol, epoch, get_states_id) = authenticated_protocol();
         let outputs = protocol
-            .on_states_result(epoch, get_states_id, true, &[state("21.5", 100)], &profile())
+            .on_states_result(
+                epoch,
+                get_states_id,
+                true,
+                &[state("21.5", 100)],
+                &profile(),
+            )
             .unwrap();
-        assert!(matches!(outputs.first(), Some(ProtocolOutput::Bootstrap { .. })));
+        assert!(matches!(
+            outputs.first(),
+            Some(ProtocolOutput::Bootstrap { .. })
+        ));
         let subscription_id = subscription_command(&outputs);
         assert_eq!(subscription_id, CommandId(2));
         assert!(matches!(
@@ -628,13 +641,7 @@ mod tests {
     fn mismatched_result_id_fails_closed() {
         let (mut protocol, epoch, get_states_id) = authenticated_protocol();
         assert!(matches!(
-            protocol.on_states_result(
-                epoch,
-                CommandId(get_states_id.0 + 1),
-                true,
-                &[],
-                &profile()
-            ),
+            protocol.on_states_result(epoch, CommandId(get_states_id.0 + 1), true, &[], &profile()),
             Err(ProtocolError::CorrelationMismatch { .. })
         ));
     }
@@ -702,7 +709,10 @@ mod tests {
             Some(ProtocolOutput::Bootstrap { outcomes, .. }) => outcomes,
             _ => panic!("expected bootstrap"),
         };
-        assert!(matches!(outcomes.first(), Some(MappingOutcome::Observation(_))));
+        assert!(matches!(
+            outcomes.first(),
+            Some(MappingOutcome::Observation(_))
+        ));
         assert!(matches!(
             outcomes.get(1),
             Some(MappingOutcome::NotAllowlisted { .. })
@@ -749,14 +759,7 @@ mod tests {
         protocol.on_subscription_result(epoch, id, true).unwrap();
         assert_eq!(
             protocol
-                .on_state_changed(
-                    epoch,
-                    id,
-                    "sensor.room_temperature",
-                    None,
-                    900,
-                    &profile(),
-                )
+                .on_state_changed(epoch, id, "sensor.room_temperature", None, 900, &profile(),)
                 .unwrap(),
             ProtocolOutput::EntityRemoved {
                 epoch,
