@@ -18,6 +18,8 @@ use std::fmt;
 
 /// Pure HA WebSocket protocol machine; contains no transport or credential API.
 pub mod websocket_protocol;
+/// Projects compact provider events into profile-minimized entity frames.
+pub mod entity_stream;
 
 pub const HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION: u16 = 1;
 pub const HOME_ASSISTANT_NAMESPACE: &str = "home-assistant";
