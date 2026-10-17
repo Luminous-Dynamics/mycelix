@@ -1,6 +1,6 @@
 use creator_sovereignty_core::{
     InsertOutcome, Ledger, LedgerError, LedgerSummary, MoneyEvent, MoneyKind, RateUnavailableReason,
-    RationalRate, WorkSession, verify_summary,
+    RationalRate, VerificationError, WorkSession, verify_summary,
 };
 
 fn event(id: &str, currency: &str, amount: i64, kind: MoneyKind) -> MoneyEvent {
@@ -224,4 +224,30 @@ fn different_currencies_are_not_collapsed_to_one_total() {
             == vec![RateUnavailableReason::MultipleCurrencies]
     }));
     verify_summary(&ledger, &report).unwrap();
+}
+
+#[test]
+fn independent_checker_rejects_unjustified_cross_currency_hourly_rates() {
+    let mut ledger = Ledger::new();
+    ledger
+        .insert_money_event(event("usd", "USD", 1_000, MoneyKind::Receipt))
+        .unwrap();
+    ledger
+        .insert_money_event(event("eur", "EUR", 1_000, MoneyKind::Receipt))
+        .unwrap();
+    ledger.insert_work_session(session("work", 0, 3_600)).unwrap();
+
+    let mut report = ledger.summarize().unwrap();
+    for summary in &mut report.currencies {
+        summary.net_per_work_hour = Some(RationalRate {
+            numerator_minor_units_per_hour: summary.net_contribution_minor_units * 3_600,
+            denominator_work_seconds: report.recorded_work_seconds,
+        });
+        summary.rate_unavailable_reasons.clear();
+    }
+
+    assert!(matches!(
+        verify_summary(&ledger, &report),
+        Err(VerificationError::TotalsMismatch { .. })
+    ));
 }
