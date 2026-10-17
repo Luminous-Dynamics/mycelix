@@ -961,12 +961,12 @@ mod tests {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
         registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
-        let request = UseRequest::new(asset.clone(), party("editor"), UseAction::TrainModel, "demo", 50).unwrap();
+        let request = make_request(asset.clone(), "editor", UseAction::TrainModel, "demo", 50);
         assert_eq!(
             evaluate_usage(&registry, &[], &request),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
         );
-        let unknown = UseRequest::new(id("unknown"), party("editor"), UseAction::TrainModel, "demo", 50).unwrap();
+        let unknown = make_request(id("unknown"), "editor", UseAction::TrainModel, "demo", 50);
         assert_eq!(
             evaluate_usage(&registry, &[], &unknown),
             PermissionDecision::Denied(PermissionDenial::AssetNotRegistered)
@@ -982,7 +982,7 @@ mod tests {
             GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
             UseAction::AnalyzeMetadata, "release-review", party("creator"), "consent:1", 0, None,
         ).unwrap();
-        let request = UseRequest::new(asset, party("studio"), UseAction::TrainModel, "release-review", 1).unwrap();
+        let request = make_request(asset, "studio", UseAction::TrainModel, "release-review", 1);
         assert_eq!(
             evaluate_usage(&registry, &[grant], &request),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
@@ -1000,22 +1000,22 @@ mod tests {
             GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
             UseAction::Distribute, "single-release", party("creator"), "consent:1", 10, Some(100),
         ).unwrap();
-        let exact = UseRequest::new(asset.clone(), party("studio"), UseAction::Distribute, "single-release", 20).unwrap();
+        let exact = make_request(asset.clone(), "studio", UseAction::Distribute, "single-release", 20);
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &exact),
             PermissionDecision::Allowed { grant_id: GrantId::new("grant-1").unwrap() }
         );
-        let wrong_purpose = UseRequest::new(asset.clone(), party("studio"), UseAction::Distribute, "model-training", 20).unwrap();
+        let wrong_purpose = make_request(asset.clone(), "studio", UseAction::Distribute, "model-training", 20);
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &wrong_purpose),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
         );
-        let wrong_party = UseRequest::new(asset.clone(), party("other-studio"), UseAction::Distribute, "single-release", 20).unwrap();
+        let wrong_party = make_request(asset.clone(), "other-studio", UseAction::Distribute, "single-release", 20);
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &wrong_party),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
         );
-        let wrong_asset = UseRequest::new(other_asset, party("studio"), UseAction::Distribute, "single-release", 20).unwrap();
+        let wrong_asset = make_request(other_asset, "studio", UseAction::Distribute, "single-release", 20);
         assert_eq!(
             evaluate_usage(&registry, &[grant], &wrong_asset),
             PermissionDecision::Denied(PermissionDenial::NoExplicitGrant)
@@ -1031,9 +1031,9 @@ mod tests {
             GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
             UseAction::Publish, "campaign-a", party("creator"), "consent:1", 10, Some(20),
         ).unwrap();
-        let before = UseRequest::new(asset.clone(), party("studio"), UseAction::Publish, "campaign-a", 9).unwrap();
-        let start = UseRequest::new(asset.clone(), party("studio"), UseAction::Publish, "campaign-a", 10).unwrap();
-        let expiry = UseRequest::new(asset, party("studio"), UseAction::Publish, "campaign-a", 20).unwrap();
+        let before = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 9);
+        let start = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 10);
+        let expiry = make_request(asset, "studio", UseAction::Publish, "campaign-a", 20);
         assert_eq!(evaluate_usage(&registry, std::slice::from_ref(&grant), &before), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
         assert!(matches!(evaluate_usage(&registry, std::slice::from_ref(&grant), &start), PermissionDecision::Allowed { .. }));
         assert_eq!(evaluate_usage(&registry, &[grant], &expiry), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
@@ -1049,8 +1049,8 @@ mod tests {
             UseAction::Publish, "campaign-a", party("creator"), "consent:1", 10, None,
         ).unwrap();
         let revoked = grant.revoked_at(20).unwrap();
-        let historical = UseRequest::new(asset.clone(), party("studio"), UseAction::Publish, "campaign-a", 19).unwrap();
-        let future = UseRequest::new(asset, party("studio"), UseAction::Publish, "campaign-a", 20).unwrap();
+        let historical = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 19);
+        let future = make_request(asset, "studio", UseAction::Publish, "campaign-a", 20);
         assert!(matches!(evaluate_usage(&registry, &[revoked.clone()], &historical), PermissionDecision::Allowed { .. }));
         assert_eq!(evaluate_usage(&registry, &[revoked.clone()], &future), PermissionDecision::Denied(PermissionDenial::NoActiveGrantForExactScope));
 
@@ -1080,9 +1080,7 @@ mod tests {
             base_id, asset.clone(), party("studio"),
             UseAction::TrainModel, "model-b", party("creator"), "consent:b", 0, None,
         ).unwrap();
-        let request = UseRequest::new(
-            asset, party("studio"), UseAction::TrainModel, "model-a", 1,
-        ).unwrap();
+        let request = make_request(asset, "studio", UseAction::TrainModel, "model-a", 1);
 
         assert_eq!(
             evaluate_usage(&registry, &[exact, conflicting], &request),
@@ -1113,9 +1111,7 @@ mod tests {
             UseAction::TrainModel, "model-b", party("creator"), "consent:b", 0, None,
         ).unwrap();
 
-        let request = UseRequest::new(
-            requested_asset, party("studio"), UseAction::Publish, "campaign-a", 1,
-        ).unwrap();
+        let request = make_request(requested_asset, "studio", UseAction::Publish, "campaign-a", 1);
         assert_eq!(
             evaluate_usage(&registry, &[unrelated_a, valid.clone(), unrelated_b], &request),
             PermissionDecision::Allowed { grant_id: valid.id().clone() }
@@ -1133,9 +1129,7 @@ mod tests {
         ).unwrap();
         let revoked_at_20 = grant.revoked_at(20).unwrap();
         let revoked_at_30 = grant.revoked_at(30).unwrap();
-        let request = UseRequest::new(
-            asset, party("studio"), UseAction::Publish, "campaign-a", 10,
-        ).unwrap();
+        let request = make_request(asset, "studio", UseAction::Publish, "campaign-a", 10);
 
         assert_eq!(
             evaluate_usage(&registry, &[revoked_at_20, revoked_at_30], &request),
