@@ -5,6 +5,7 @@
 
 pub mod history;
 pub mod portable;
+pub mod passport_envelope;
 
 use std::collections::BTreeMap;
 use std::error::Error;
