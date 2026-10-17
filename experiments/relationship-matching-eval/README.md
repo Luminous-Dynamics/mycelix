@@ -11,6 +11,7 @@ Use a Rust 2021 toolchain. From this directory:
 - **Tests:** cargo test
 - **Baseline report across a 30-seed suite:** cargo run -- 20261017 200 5 30
 - **Eight-scenario robustness report:** cargo run --bin robustness_sweep -- 20261017 200 5 30
+- **Eight-scenario temporal exposure report (10 rounds by default):** cargo run --bin temporal_sweep -- 20261017 200 5 30 10
 
 Arguments are seed-start, even participant count (4..=2000), top-k recommendations per participant, and seed count (1..=1000; default 30). The harness evaluates consecutive seeds, emits per-seed corpus fingerprints and policy metrics, then reports means, sample standard deviations, ranges, normal-approximation 95% intervals where at least two seeds are present, and per-seed relative exposure-Gini reduction. Defaults are seed-start 20261017, 200 participants, top-k 5, and 30 seeds. A one-seed run is possible with a seed count of 1 but emits no confidence interval.
 
@@ -39,6 +40,23 @@ Scenario families:
 All families are synthetic stress fixtures, not representative estimates of people or dating markets. The concentration fixture is an intentional algorithmic negative control: a deterministic ranker that creates extreme exposure concentration should be caught by metrics, not allowed to "pass" because the data generator is too convenient.
 
 The same seed value is used across scenario families, but each scenario applies a deterministic transformation and therefore has its own corpus fingerprint. Fingerprints remain non-cryptographic and are not provenance/security receipts. Bind any published result to an exact source SHA and compiler version.
+
+## Multi-round exposure and historical allocation
+
+The `temporal_sweep` binary evaluates whether a fairness improvement survives repeated recommendation batches rather than resetting exposure counts each time:
+
+- `one_sided_repeated`: re-run one-sided utility every round.
+- `batch_balanced_repeated`: re-run exposure balancing with an empty exposure ledger each round.
+- `historical_exposure_balanced`: seed each new batch with the accumulated incoming exposure counts from previous rounds.
+
+Example:
+```sh
+cargo run --bin temporal_sweep -- 20261017 200 5 30 10
+```
+
+Arguments are seed-start, even participant count, top-k, seed count, and round count. It reports cumulative coverage, raw and opportunity-normalized exposure Gini, paired raw-Gini reductions, per-seed fingerprints, and optional source/toolchain metadata. The history API rejects unknown participant IDs and counter overflow. The accumulator updates atomically on overflow failure.
+
+**Interpretation limit:** participants and preferences remain static across rounds in this first temporal experiment. It demonstrates the difference between per-batch and cumulative allocation on a fixed market; it does not model join/leave events, preference drift, profile edits, changing opt-in, or a distributed durable ledger. Long-horizon production qualification must add those events and test history expiry, purpose limitation, deletion, and recovery.
 
 ## What the harness is designed to test
 
