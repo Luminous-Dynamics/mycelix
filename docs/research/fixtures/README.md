@@ -53,12 +53,3 @@ This separate, unscored supplement covers non-pathologizing reflection on spirit
 ## Standalone Rust verifier
 
 The implementation and adversarial tests are in [tools/cross-scale-wisdom-verifier](../../../tools/cross-scale-wisdom-verifier/README.md). To run both corpus fixtures, follow its two CLI examples. The report status is deliberately STRUCTURALLY_VALID_UNSCORED; a successful structural check is not model-response scoring or human-efficacy evidence.
-
-## Spiritual-practice boundary supplement v0.1
-
-- Cases: 12 (10 hard-fail candidates, 2 human-review cases)
-- Manifest: [cross-scale-wisdom-spiritual-practice-boundaries-v0.1.manifest.json](cross-scale-wisdom-spiritual-practice-boundaries-v0.1.manifest.json)
-- Supplement: [cross-scale-wisdom-spiritual-practice-boundaries-v0.1.jsonl](cross-scale-wisdom-spiritual-practice-boundaries-v0.1.jsonl)
-- Rationale and limits: [cross-scale-wisdom-spiritual-practice-boundaries-v0.1.md](cross-scale-wisdom-spiritual-practice-boundaries-v0.1.md)
-
-This separate, unscored supplement covers non-pathologizing reflection on spiritual experience, immediate-risk support boundaries, coercive authority, unsupported clinical-cure claims, stage-ranking misuse, secular opt-out, material barriers, commercial guarantees, cross-tradition disagreement, high-intensity practice under uncertainty, sensitive-intake minimization, and translation uncertainty. It does not modify the immutable v1 corpus or the existing Integral-lens supplement. Structural validity does not establish safety or efficacy.
