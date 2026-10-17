@@ -280,7 +280,9 @@ impl ReservationBook {
     }
 
     pub fn reservation_state(&self, reservation_id: &str) -> Option<ReservationState> {
-        self.reservations.get(reservation_id).map(|record| record.state)
+        self.reservations
+            .get(reservation_id)
+            .map(|record| record.state)
     }
 
     pub fn reservation_receipt(&self, reservation_id: &str) -> Option<&ReservationReceipt> {
@@ -319,10 +321,7 @@ impl ReservationBook {
     /// Exact retries under the same idempotency key return the original receipt.
     /// Conflicting key reuse, stale revision/token/snapshot, invalid evidence,
     /// expiry, arithmetic overflow and capacity exhaustion all fail closed.
-    pub fn reserve(
-        &mut self,
-        command: ReserveCommand,
-    ) -> Result<ReserveResult, ReservationError> {
+    pub fn reserve(&mut self, command: ReserveCommand) -> Result<ReserveResult, ReservationError> {
         if !non_empty(&command.idempotency_key) {
             return Err(ReservationError::InvalidIdentity);
         }
@@ -459,8 +458,10 @@ impl ReservationBook {
             .insert(command.idempotency_key.clone(), command.clone());
         self.reserve_receipts
             .insert(command.idempotency_key.clone(), receipt.clone());
-        self.used_command_ids
-            .insert(command.command_id.clone(), CommandIdentity::Reserve(command));
+        self.used_command_ids.insert(
+            command.command_id.clone(),
+            CommandIdentity::Reserve(command),
+        );
         self.command_events
             .insert(event.command_id.clone(), event.clone());
         self.events.push(event);
@@ -613,10 +614,7 @@ impl ReservationBook {
         })
     }
 
-    fn occupied_quantities(
-        &self,
-        pool_id: &str,
-    ) -> Result<(u64, u64, u64), ReservationError> {
+    fn occupied_quantities(&self, pool_id: &str) -> Result<(u64, u64, u64), ReservationError> {
         let mut reserved = 0u64;
         let mut consumed = 0u64;
         let mut occupied = 0u64;
@@ -655,10 +653,7 @@ fn validate_command_identity(
     }
 }
 
-fn validate_evidence(
-    spec: &CapacityPoolSpec,
-    now: u64,
-) -> Result<(), ReservationError> {
+fn validate_evidence(spec: &CapacityPoolSpec, now: u64) -> Result<(), ReservationError> {
     if spec.evidence_status != EvidenceStatus::Verified {
         return Err(ReservationError::EvidenceNotVerified);
     }
@@ -681,9 +676,8 @@ fn non_empty(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        CapacityPoolSpec, CommandDisposition, ReservationAction, ReservationBook,
-        ReservationError, ReservationEventKind, ReservationState, ReservationTransitionCommand,
-        ReserveCommand,
+        CapacityPoolSpec, CommandDisposition, ReservationAction, ReservationBook, ReservationError,
+        ReservationEventKind, ReservationState, ReservationTransitionCommand, ReserveCommand,
     };
     use crate::{EvidenceOrigin, EvidenceStatus};
 
@@ -702,7 +696,8 @@ mod tests {
     }
 
     fn register(book: &mut ReservationBook, capacity: u64) {
-        book.register_pool(pool_spec(capacity)).expect("register pool");
+        book.register_pool(pool_spec(capacity))
+            .expect("register pool");
     }
 
     fn reserve_command(
@@ -786,7 +781,12 @@ mod tests {
         assert_eq!(first.disposition, CommandDisposition::Inserted);
         assert_eq!(retry.disposition, CommandDisposition::IdempotentReplay);
         assert_eq!(first.receipt, retry.receipt);
-        assert_eq!(book.pool_capacity("supplier-site-week-44").unwrap().reserved_quantity, 2);
+        assert_eq!(
+            book.pool_capacity("supplier-site-week-44")
+                .unwrap()
+                .reserved_quantity,
+            2
+        );
         assert_eq!(book.events().len(), 1);
     }
 
@@ -794,9 +794,21 @@ mod tests {
     fn conflicting_idempotency_key_reuse_fails_closed() {
         let mut book = ReservationBook::new();
         register(&mut book, 4);
-        book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap();
+        book.reserve(reserve_command(
+            "cmd-1",
+            "idem-1",
+            "reservation-1",
+            1,
+            1,
+            1,
+            50,
+        ))
+        .unwrap();
         let conflict = reserve_command("cmd-1", "idem-1", "reservation-1", 2, 1, 1, 50);
-        assert_eq!(book.reserve(conflict), Err(ReservationError::IdempotencyKeyConflict));
+        assert_eq!(
+            book.reserve(conflict),
+            Err(ReservationError::IdempotencyKeyConflict)
+        );
         assert_eq!(book.events().len(), 1);
     }
 
@@ -804,15 +816,40 @@ mod tests {
     fn stale_revision_and_stale_fencing_token_do_not_mutate_state() {
         let mut book = ReservationBook::new();
         register(&mut book, 4);
-        book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap();
+        book.reserve(reserve_command(
+            "cmd-1",
+            "idem-1",
+            "reservation-1",
+            1,
+            1,
+            1,
+            50,
+        ))
+        .unwrap();
         let before = book.events().to_vec();
         assert_eq!(
-            book.reserve(reserve_command("cmd-2", "idem-2", "reservation-2", 1, 1, 1, 50)),
+            book.reserve(reserve_command(
+                "cmd-2",
+                "idem-2",
+                "reservation-2",
+                1,
+                1,
+                1,
+                50
+            )),
             Err(ReservationError::StaleRevision)
         );
         assert_eq!(book.events(), before.as_slice());
         assert_eq!(
-            book.reserve(reserve_command("cmd-3", "idem-3", "reservation-3", 1, 2, 1, 50)),
+            book.reserve(reserve_command(
+                "cmd-3",
+                "idem-3",
+                "reservation-3",
+                1,
+                2,
+                1,
+                50
+            )),
             Err(ReservationError::StaleFencingToken)
         );
         assert_eq!(book.events(), before.as_slice());
@@ -824,7 +861,10 @@ mod tests {
         register(&mut book, 4);
         let mut command = reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50);
         command.expected_snapshot_digest = "different-snapshot".to_owned();
-        assert_eq!(book.reserve(command), Err(ReservationError::SnapshotMismatch));
+        assert_eq!(
+            book.reserve(command),
+            Err(ReservationError::SnapshotMismatch)
+        );
         assert!(book.events().is_empty());
     }
 
@@ -835,7 +875,15 @@ mod tests {
         spec.valid_until = 9;
         stale.register_pool(spec).unwrap();
         assert_eq!(
-            stale.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)),
+            stale.reserve(reserve_command(
+                "cmd-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50
+            )),
             Err(ReservationError::EvidenceExpired)
         );
         assert!(stale.events().is_empty());
@@ -845,7 +893,15 @@ mod tests {
         spec.evidence_origin = EvidenceOrigin::SyntheticSimulation;
         synthetic.register_pool(spec).unwrap();
         assert_eq!(
-            synthetic.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)),
+            synthetic.reserve(reserve_command(
+                "cmd-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50
+            )),
             Err(ReservationError::EvidenceNotLive)
         );
         assert!(synthetic.events().is_empty());
@@ -855,65 +911,197 @@ mod tests {
     fn capacity_released_by_expiry_requires_explicit_expire_transition() {
         let mut book = ReservationBook::new();
         register(&mut book, 1);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 20)).unwrap().receipt;
-        assert_eq!(book.pool_capacity(&receipt.pool_id).unwrap().remaining_quantity, 0);
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                20,
+            ))
+            .unwrap()
+            .receipt;
+        assert_eq!(
+            book.pool_capacity(&receipt.pool_id)
+                .unwrap()
+                .remaining_quantity,
+            0
+        );
         let version = book.pool_version(&receipt.pool_id).unwrap();
         assert_eq!(
-            book.transition(transition_command("expire-early", "reservation-1", ReservationAction::Expire, 19, version.0, version.1)),
+            book.transition(transition_command(
+                "expire-early",
+                "reservation-1",
+                ReservationAction::Expire,
+                19,
+                version.0,
+                version.1
+            )),
             Err(ReservationError::LeaseNotExpired)
         );
-        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Active));
+        assert_eq!(
+            book.reservation_state("reservation-1"),
+            Some(ReservationState::Active)
+        );
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        let expired = book.transition(transition_command("expire-1", "reservation-1", ReservationAction::Expire, 20, version.0, version.1)).unwrap();
+        let expired = book
+            .transition(transition_command(
+                "expire-1",
+                "reservation-1",
+                ReservationAction::Expire,
+                20,
+                version.0,
+                version.1,
+            ))
+            .unwrap();
         assert_eq!(expired.event.kind, ReservationEventKind::Expired);
-        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Expired));
-        assert_eq!(book.pool_capacity(&receipt.pool_id).unwrap().remaining_quantity, 1);
+        assert_eq!(
+            book.reservation_state("reservation-1"),
+            Some(ReservationState::Expired)
+        );
+        assert_eq!(
+            book.pool_capacity(&receipt.pool_id)
+                .unwrap()
+                .remaining_quantity,
+            1
+        );
     }
 
     #[test]
     fn committed_reservation_cannot_be_released_and_keeps_capacity_occupied() {
         let mut book = ReservationBook::new();
         register(&mut book, 2);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        book.transition(transition_command("commit-1", "reservation-1", ReservationAction::Commit, 15, version.0, version.1)).unwrap();
+        book.transition(transition_command(
+            "commit-1",
+            "reservation-1",
+            ReservationAction::Commit,
+            15,
+            version.0,
+            version.1,
+        ))
+        .unwrap();
         let version = book.pool_version(&receipt.pool_id).unwrap();
         assert_eq!(
-            book.transition(transition_command("release-committed", "reservation-1", ReservationAction::Release, 16, version.0, version.1)),
+            book.transition(transition_command(
+                "release-committed",
+                "reservation-1",
+                ReservationAction::Release,
+                16,
+                version.0,
+                version.1
+            )),
             Err(ReservationError::InvalidTransition)
         );
-        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Committed));
-        assert_eq!(book.pool_capacity(&receipt.pool_id).unwrap().remaining_quantity, 1);
+        assert_eq!(
+            book.reservation_state("reservation-1"),
+            Some(ReservationState::Committed)
+        );
+        assert_eq!(
+            book.pool_capacity(&receipt.pool_id)
+                .unwrap()
+                .remaining_quantity,
+            1
+        );
     }
 
     #[test]
     fn consume_requires_commit_and_keeps_capacity_counted_as_consumed() {
         let mut book = ReservationBook::new();
         register(&mut book, 2);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
         assert_eq!(
-            book.transition(transition_command("consume-early", "reservation-1", ReservationAction::Consume, 15, version.0, version.1)),
+            book.transition(transition_command(
+                "consume-early",
+                "reservation-1",
+                ReservationAction::Consume,
+                15,
+                version.0,
+                version.1
+            )),
             Err(ReservationError::InvalidTransition)
         );
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        book.transition(transition_command("commit-1", "reservation-1", ReservationAction::Commit, 15, version.0, version.1)).unwrap();
+        book.transition(transition_command(
+            "commit-1",
+            "reservation-1",
+            ReservationAction::Commit,
+            15,
+            version.0,
+            version.1,
+        ))
+        .unwrap();
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        book.transition(transition_command("consume-1", "reservation-1", ReservationAction::Consume, 16, version.0, version.1)).unwrap();
+        book.transition(transition_command(
+            "consume-1",
+            "reservation-1",
+            ReservationAction::Consume,
+            16,
+            version.0,
+            version.1,
+        ))
+        .unwrap();
         let pool = book.pool_capacity(&receipt.pool_id).unwrap();
         assert_eq!(pool.reserved_quantity, 0);
         assert_eq!(pool.consumed_quantity, 1);
         assert_eq!(pool.remaining_quantity, 1);
-        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Consumed));
+        assert_eq!(
+            book.reservation_state("reservation-1"),
+            Some(ReservationState::Consumed)
+        );
     }
 
     #[test]
     fn exact_transition_retry_does_not_append_a_second_event() {
         let mut book = ReservationBook::new();
         register(&mut book, 2);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        let command = transition_command("commit-1", "reservation-1", ReservationAction::Commit, 15, version.0, version.1);
+        let command = transition_command(
+            "commit-1",
+            "reservation-1",
+            ReservationAction::Commit,
+            15,
+            version.0,
+            version.1,
+        );
         let first = book.transition(command.clone()).unwrap();
         let second = book.transition(command).unwrap();
         assert_eq!(first.disposition, CommandDisposition::Inserted);
@@ -926,14 +1114,35 @@ mod tests {
     fn commit_at_or_after_expiry_fails_without_implicitly_mutating_state() {
         let mut book = ReservationBook::new();
         register(&mut book, 1);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 20)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                20,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
         let before = book.events().to_vec();
         assert_eq!(
-            book.transition(transition_command("commit-expired", "reservation-1", ReservationAction::Commit, 20, version.0, version.1)),
+            book.transition(transition_command(
+                "commit-expired",
+                "reservation-1",
+                ReservationAction::Commit,
+                20,
+                version.0,
+                version.1
+            )),
             Err(ReservationError::LeaseExpired)
         );
-        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Active));
+        assert_eq!(
+            book.reservation_state("reservation-1"),
+            Some(ReservationState::Active)
+        );
         assert_eq!(book.events(), before.as_slice());
     }
 
@@ -941,41 +1150,124 @@ mod tests {
     fn released_capacity_can_be_reserved_again_only_under_new_revision() {
         let mut book = ReservationBook::new();
         register(&mut book, 1);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        book.transition(transition_command("release-1", "reservation-1", ReservationAction::Release, 15, version.0, version.1)).unwrap();
+        book.transition(transition_command(
+            "release-1",
+            "reservation-1",
+            ReservationAction::Release,
+            15,
+            version.0,
+            version.1,
+        ))
+        .unwrap();
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        let mut next = reserve_command("reserve-2", "idem-2", "reservation-2", 1, version.0, version.1, 50);
+        let mut next = reserve_command(
+            "reserve-2",
+            "idem-2",
+            "reservation-2",
+            1,
+            version.0,
+            version.1,
+            50,
+        );
         next.issued_at = 16;
         let second = book.reserve(next).unwrap();
         assert_eq!(second.receipt.reservation_id, "reservation-2");
-        assert_eq!(book.pool_capacity(&receipt.pool_id).unwrap().remaining_quantity, 0);
+        assert_eq!(
+            book.pool_capacity(&receipt.pool_id)
+                .unwrap()
+                .remaining_quantity,
+            0
+        );
     }
 
     #[test]
     fn duplicate_pool_and_reservation_identities_are_not_overwritten() {
         let mut book = ReservationBook::new();
         register(&mut book, 2);
-        assert_eq!(book.register_pool(pool_spec(9)), Err(ReservationError::DuplicatePool));
-        book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap();
+        assert_eq!(
+            book.register_pool(pool_spec(9)),
+            Err(ReservationError::DuplicatePool)
+        );
+        book.reserve(reserve_command(
+            "reserve-1",
+            "idem-1",
+            "reservation-1",
+            1,
+            1,
+            1,
+            50,
+        ))
+        .unwrap();
         let version = book.pool_version("supplier-site-week-44").unwrap();
         assert_eq!(
-            book.reserve(reserve_command("reserve-2", "idem-2", "reservation-1", 1, version.0, version.1, 50)),
+            book.reserve(reserve_command(
+                "reserve-2",
+                "idem-2",
+                "reservation-1",
+                1,
+                version.0,
+                version.1,
+                50
+            )),
             Err(ReservationError::DuplicateReservationId)
         );
-        assert_eq!(book.pool_capacity("supplier-site-week-44").unwrap().reserved_quantity, 1);
+        assert_eq!(
+            book.pool_capacity("supplier-site-week-44")
+                .unwrap()
+                .reserved_quantity,
+            1
+        );
     }
 
     #[test]
     fn operation_command_identity_cannot_be_reused_for_a_different_action() {
         let mut book = ReservationBook::new();
         register(&mut book, 2);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
-        book.transition(transition_command("op-1", "reservation-1", ReservationAction::Commit, 15, version.0, version.1)).unwrap();
+        book.transition(transition_command(
+            "op-1",
+            "reservation-1",
+            ReservationAction::Commit,
+            15,
+            version.0,
+            version.1,
+        ))
+        .unwrap();
         let version = book.pool_version(&receipt.pool_id).unwrap();
         assert_eq!(
-            book.transition(transition_command("op-1", "reservation-1", ReservationAction::Consume, 16, version.0, version.1)),
+            book.transition(transition_command(
+                "op-1",
+                "reservation-1",
+                ReservationAction::Consume,
+                16,
+                version.0,
+                version.1
+            )),
             Err(ReservationError::CommandIdentityConflict)
         );
     }
@@ -987,7 +1279,15 @@ mod tests {
         spec.valid_until = 9;
         book.register_pool(spec).unwrap();
         assert_eq!(
-            book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)),
+            book.reserve(reserve_command(
+                "cmd-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50
+            )),
             Err(ReservationError::EvidenceExpired)
         );
         assert!(book.events().is_empty());
@@ -1000,7 +1300,10 @@ mod tests {
         spec.valid_until = 20;
         book.register_pool(spec).unwrap();
         let command = reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 21);
-        assert_eq!(book.reserve(command), Err(ReservationError::LeaseOutlivesEvidence));
+        assert_eq!(
+            book.reserve(command),
+            Err(ReservationError::LeaseOutlivesEvidence)
+        );
         assert!(book.events().is_empty());
     }
 
@@ -1008,14 +1311,28 @@ mod tests {
     fn pool_mutation_timestamps_are_monotonic_across_reservations() {
         let mut book = ReservationBook::new();
         register(&mut book, 3);
-        book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap();
+        book.reserve(reserve_command(
+            "cmd-1",
+            "idem-1",
+            "reservation-1",
+            1,
+            1,
+            1,
+            50,
+        ))
+        .unwrap();
         let mut second = reserve_command("cmd-2", "idem-2", "reservation-2", 1, 2, 2, 50);
         second.issued_at = 9;
         assert_eq!(
             book.reserve(second),
             Err(ReservationError::NonMonotonicTime)
         );
-        assert_eq!(book.pool_capacity("supplier-site-week-44").unwrap().reserved_quantity, 1);
+        assert_eq!(
+            book.pool_capacity("supplier-site-week-44")
+                .unwrap()
+                .reserved_quantity,
+            1
+        );
         assert_eq!(book.events().len(), 1);
     }
 
@@ -1023,13 +1340,34 @@ mod tests {
     fn transition_time_cannot_move_backwards_from_reservation_creation() {
         let mut book = ReservationBook::new();
         register(&mut book, 2);
-        let receipt = book.reserve(reserve_command("reserve-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap().receipt;
+        let receipt = book
+            .reserve(reserve_command(
+                "reserve-1",
+                "idem-1",
+                "reservation-1",
+                1,
+                1,
+                1,
+                50,
+            ))
+            .unwrap()
+            .receipt;
         let version = book.pool_version(&receipt.pool_id).unwrap();
         assert_eq!(
-            book.transition(transition_command("commit-before-issued", "reservation-1", ReservationAction::Commit, 9, version.0, version.1)),
+            book.transition(transition_command(
+                "commit-before-issued",
+                "reservation-1",
+                ReservationAction::Commit,
+                9,
+                version.0,
+                version.1
+            )),
             Err(ReservationError::NonMonotonicTime)
         );
-        assert_eq!(book.reservation_state("reservation-1"), Some(ReservationState::Active));
+        assert_eq!(
+            book.reservation_state("reservation-1"),
+            Some(ReservationState::Active)
+        );
         assert_eq!(book.events().len(), 1);
     }
 }
