@@ -486,16 +486,23 @@ pub struct FederationAgreement {
     pub allowed_recipient_ids: Vec<String>,
     /// Lowercase hex BLAKE3-256 digest of canonical_payload().
     pub content_digest: String,
-    pub signing_key_id: String,
-    pub signature: Vec<u8>,
+    /// Approval by an authority authorized to act for source_profile_id.
+    pub source_approval_key_id: String,
+    pub source_approval_signature: Vec<u8>,
+    /// Approval by an authority authorized to act for destination_profile_id.
+    pub destination_approval_key_id: String,
+    pub destination_approval_signature: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgreementVerificationFailure {
     DigestMismatch,
-    InvalidSignature,
-    UnknownSigner,
-    RevokedSigner,
+    InvalidSourceApproval,
+    InvalidDestinationApproval,
+    UnknownSourceApprover,
+    UnknownDestinationApprover,
+    RevokedSourceApprover,
+    RevokedDestinationApprover,
     StaleTrustRoots,
     UnsupportedAlgorithm,
 }
@@ -519,9 +526,11 @@ pub enum AgreementValidationError {
     VerificationFailed(AgreementVerificationFailure),
 }
 
-/// Deployment-owned verifier hashes canonical_payload(), verifies
-/// signature_message(), validates key trust/revocation, and returns the latest
-/// time at which that evidence remains trustworthy.
+/// Deployment-owned verifier hashes canonical_payload(), verifies BOTH
+/// source_approval_message() and destination_approval_message(), and checks
+/// that each signing key is authorized for the corresponding exact profile ID
+/// and digest. It validates key trust/revocation and returns the latest time at
+/// which both approval and trust-root evidence remain trustworthy.
 pub trait AgreementVerifier {
     fn verify_agreement(
         &self,
@@ -539,7 +548,8 @@ impl FederationAgreement {
             || !valid_text(&self.agreement_version, MAX_PROFILE_VERSION_BYTES)
             || !valid_text(&self.source_profile_id, MAX_PROFILE_ID_BYTES)
             || !valid_text(&self.destination_profile_id, MAX_PROFILE_ID_BYTES)
-            || !valid_text(&self.signing_key_id, MAX_SIGNING_KEY_ID_BYTES)
+            || !valid_text(&self.source_approval_key_id, MAX_SIGNING_KEY_ID_BYTES)
+            || !valid_text(&self.destination_approval_key_id, MAX_SIGNING_KEY_ID_BYTES)
         {
             return Err(AgreementValidationError::InvalidIdentifier);
         }
@@ -552,7 +562,11 @@ impl FederationAgreement {
         if self.valid_from_unix_ms >= self.valid_until_unix_ms {
             return Err(AgreementValidationError::InvalidValidityWindow);
         }
-        if self.signature.is_empty() || self.signature.len() > MAX_SIGNATURE_BYTES {
+        if self.source_approval_signature.is_empty()
+            || self.source_approval_signature.len() > MAX_SIGNATURE_BYTES
+            || self.destination_approval_signature.is_empty()
+            || self.destination_approval_signature.len() > MAX_SIGNATURE_BYTES
+        {
             return Err(AgreementValidationError::InvalidSignatureLength);
         }
         if self.allowed_data_classes.is_empty() {
@@ -615,11 +629,23 @@ impl FederationAgreement {
         output
     }
 
-    pub fn signature_message(&self) -> Vec<u8> {
+    /// Source-side approval message. The role tag prevents a source signature
+    /// from being replayed as the destination's approval.
+    pub fn source_approval_message(&self) -> Vec<u8> {
+        self.approval_message(b"source", &self.source_approval_key_id)
+    }
+
+    /// Destination-side approval message, domain-separated from source approval.
+    pub fn destination_approval_message(&self) -> Vec<u8> {
+        self.approval_message(b"destination", &self.destination_approval_key_id)
+    }
+
+    fn approval_message(&self, role: &[u8], key_id: &str) -> Vec<u8> {
         let mut output = Vec::new();
-        output.extend_from_slice(b"MYCELIX_FEDERATION_AGREEMENT_SIGNATURE_V1\0");
+        output.extend_from_slice(b"MYCELIX_FEDERATION_AGREEMENT_APPROVAL_V1\0");
+        append_string(&mut output, role);
         append_string(&mut output, &self.agreement_id);
-        append_string(&mut output, &self.signing_key_id);
+        append_string(&mut output, key_id);
         append_string(&mut output, &self.content_digest);
         output
     }
@@ -1176,8 +1202,10 @@ mod tests {
             allowed_purposes: vec!["credential-check".to_owned()],
             allowed_recipient_ids: vec!["service:education".to_owned()],
             content_digest: "c".repeat(64),
-            signing_key_id: "agreement-test-key".to_owned(),
-            signature: vec![2; 64],
+            source_approval_key_id: "source-agreement-test-key".to_owned(),
+            source_approval_signature: vec![2; 64],
+            destination_approval_key_id: "destination-agreement-test-key".to_owned(),
+            destination_approval_signature: vec![3; 64],
         };
         VerifiedFederationAgreement::verify(
             agreement,
