@@ -23,6 +23,7 @@ pub enum HistoryError {
     RevocationBeforeGrantStart,
     ConflictingEventId,
     NonMonotonicEventTime,
+    SnapshotMismatch,
 }
 
 impl fmt::Display for HistoryError {
@@ -135,7 +136,7 @@ pub enum AppendOutcome {
 /// is idempotent. Reusing an event ID for different content, issuing a grant ID
 /// twice, or revoking a nonexistent/already-revoked grant fails without mutating
 /// the history.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GrantHistory {
     events: Vec<GrantEvent>,
     event_positions: BTreeMap<EventId, usize>,
@@ -225,7 +226,7 @@ impl GrantHistory {
         if rebuilt.effective_grants == self.effective_grants {
             Ok(())
         } else {
-            Err(HistoryError::ConflictingEventId)
+            Err(HistoryError::SnapshotMismatch)
         }
     }
 
