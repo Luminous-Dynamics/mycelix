@@ -95,9 +95,6 @@ struct SearchState {
 struct SearchContext<'a> {
     problem: &'a JointOptimizationProblem,
     edges: Vec<Edge>,
-    request_positions: Vec<usize>,
-    offer_positions: Vec<usize>,
-    pool_positions: Vec<usize>,
     served_by_request: Vec<u32>,
     cost_by_request: Vec<u64>,
     allocated_by_offer: Vec<u32>,
@@ -479,9 +476,6 @@ pub fn optimize_joint_allocation(
     let mut context = SearchContext {
         problem,
         edges,
-        request_positions,
-        offer_positions,
-        pool_positions,
         served_by_request: vec![0; problem.requests.len()],
         cost_by_request: vec![0; problem.requests.len()],
         allocated_by_offer: vec![0; problem.offers.len()],
@@ -525,9 +519,9 @@ pub fn optimize_joint_allocation(
 mod tests {
     use super::{
         JointOptimizationError, JointOptimizationProblem, JointObjective, JointOptimizationReport,
-        JointOptimizationCandidate, RequestShortage, optimize_joint_allocation,
+        optimize_joint_allocation,
     };
-    use crate::joint_capacity::{CapabilityMapping, JointAllocationError, JointOffer, JointRequest, SharedCapacityPool};
+    use crate::joint_capacity::{CapabilityMapping, JointOffer, JointRequest, SharedCapacityPool};
     use crate::{EvidenceOrigin, EvidenceStatus};
     use std::collections::BTreeSet;
 
