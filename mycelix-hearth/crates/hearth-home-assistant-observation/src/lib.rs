@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Pure HA WebSocket protocol machine; contains no transport or credential API.
+pub mod websocket_protocol;
+
 pub const HOME_ASSISTANT_OBSERVATION_SCHEMA_VERSION: u16 = 1;
 pub const HOME_ASSISTANT_NAMESPACE: &str = "home-assistant";
 pub const HA_STATE_UNKNOWN: &str = "unknown";
