@@ -2,10 +2,11 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use mycelix_region_policy::{
-    BoundaryAction, ClassificationClaim, ClassificationVerificationFailure,
-    ClassificationVerifier, DataClass, PlacementRule, ProfileVerificationFailure,
-    ProfileVerifier, RegionalProfile, TransferRequest, VerifiedClassification,
-    VerifiedProfile, evaluate_transfer,
+    AgreementVerificationFailure, AgreementVerifier, BoundaryAction, ClassificationClaim,
+    ClassificationVerificationFailure, ClassificationVerifier, DataClass, FederationAgreement,
+    PlacementRule, ProfileVerificationFailure, ProfileVerifier, RegionalProfile,
+    TransferRequest, VerifiedClassification, VerifiedFederationAgreement, VerifiedProfile,
+    evaluate_transfer,
 };
 
 struct BenchmarkVerifier;
@@ -18,6 +19,18 @@ impl ProfileVerifier for BenchmarkVerifier {
         // Measures only the already-verified policy decision path.
         // This test adapter is not a cryptographic verifier.
         Ok(profile.valid_until_unix_ms)
+    }
+}
+
+struct BenchmarkAgreementVerifier;
+impl AgreementVerifier for BenchmarkAgreementVerifier {
+    fn verify_agreement(
+        &self,
+        agreement: &FederationAgreement,
+        _now_ms: u64,
+    ) -> Result<u64, AgreementVerificationFailure> {
+        // Benchmark-only adapter; it is not a signature verifier.
+        Ok(agreement.valid_until_unix_ms)
     }
 }
 
@@ -92,11 +105,35 @@ fn main() {
         &BenchmarkClassificationVerifier { evidence_until_ms: 10_000_000 },
     )
     .expect("benchmark classification fixture");
+    let agreement = VerifiedFederationAgreement::verify(
+        FederationAgreement {
+            schema_version: 1,
+            agreement_id: "benchmark-agreement".to_owned(),
+            agreement_version: "1.0.0".to_owned(),
+            source_profile_id: source.profile().profile_id.clone(),
+            source_profile_digest: source.profile().content_digest.clone(),
+            destination_profile_id: destination.profile().profile_id.clone(),
+            destination_profile_digest: destination.profile().content_digest.clone(),
+            valid_from_unix_ms: 1,
+            valid_until_unix_ms: 10_000_000,
+            allowed_data_classes: vec![DataClass::Personal],
+            allowed_actions: vec![BoundaryAction::Disclose],
+            allowed_purposes: vec!["credential-check".to_owned()],
+            allowed_recipient_ids: vec!["service:education".to_owned()],
+            content_digest: "c".repeat(64),
+            signing_key_id: "benchmark-only".to_owned(),
+            signature: vec![1; 64],
+        },
+        NOW_MS,
+        &BenchmarkAgreementVerifier,
+    )
+    .expect("benchmark agreement fixture");
     let request = TransferRequest {
         action: BoundaryAction::Disclose,
         resource_id: "record:benchmark",
         content_digest: &content_digest,
         classification: &classification,
+        agreement: &agreement,
         purpose: Some("credential-check"),
         recipient_id: Some("service:education"),
         consent: None,
