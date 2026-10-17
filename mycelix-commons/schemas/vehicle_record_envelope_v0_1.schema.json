@@ -189,7 +189,8 @@
           "minLength": 8,
           "maxLength": 512
         }
-      }
+      },
+      "description": "Signature envelope shape only; cryptographic verification and credential authorization are separate checks."
     },
     "privacy_review": {
       "type": "object",
@@ -215,7 +216,72 @@
     },
     "payload": {
       "type": "object",
-      "description": "Event-kind-specific payload; require separate strict payload schemas before implementation."
+      "description": "Event-kind-specific payload. Strict event-specific payload schemas are required before implementation."
+    },
+    "verification_attestations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verification_id",
+          "verifier_ref",
+          "method",
+          "scope",
+          "outcome",
+          "verified_at",
+          "credential_ref",
+          "evidence_refs"
+        ],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "verifier_ref": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "outcome": {
+            "enum": [
+              "verified",
+              "not_verified",
+              "inconclusive"
+            ]
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "credential_ref": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 512
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "description": "Scoped independent-verification assertions; signature and verifier credential must be checked outside this JSON Schema."
     }
   },
   "allOf": [
@@ -234,6 +300,9 @@
         ]
       },
       "then": {
+        "required": [
+          "privacy_review"
+        ],
         "properties": {
           "privacy_review": {
             "required": [
@@ -244,11 +313,11 @@
                 "const": false
               }
             }
+          },
+          "payload": {
+            "$ref": "#/$defs/privacy_safe_value"
           }
-        },
-        "required": [
-          "privacy_review"
-        ]
+        }
       }
     },
     {
@@ -264,8 +333,29 @@
       },
       "then": {
         "required": [
-          "evidence_refs"
-        ]
+          "evidence_refs",
+          "verification_attestations"
+        ],
+        "properties": {
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1
+          },
+          "verification_attestations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "outcome": {
+                  "const": "verified"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            }
+          }
+        }
       }
     },
     {
@@ -282,8 +372,45 @@
       "then": {
         "required": [
           "dispute_refs"
-        ]
+        ],
+        "properties": {
+          "dispute_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "privacy_safe_value": {
+      "allOf": [
+        {
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "propertyNames": {
+              "not": {
+                "pattern": "^(owner_name|owner_email|phone|raw_vin|vin|latitude|longitude|trip_points|precise_location|bank_account|finance_agreement)$"
+              }
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/privacy_safe_value"
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "array"
+          },
+          "then": {
+            "items": {
+              "$ref": "#/$defs/privacy_safe_value"
+            }
+          }
+        }
+      ]
+    }
+  }
 }
