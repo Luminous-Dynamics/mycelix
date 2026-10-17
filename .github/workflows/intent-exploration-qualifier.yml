@@ -37,5 +37,5 @@ jobs:
         run: |
           cargo run --manifest-path tools/intent-exploration-qualifier/Cargo.toml -- \
             docs/research/experience/intent-exploration-benchmark-v0.1.json \
-            docs/research/experience/intent-exploration-qualification-gates-v0.1.json \\
+            docs/research/experience/intent-exploration-qualification-gates-v0.1.json \
             docs/research/experience/intent-exploration-trajectory-benchmark-v0.1.json
