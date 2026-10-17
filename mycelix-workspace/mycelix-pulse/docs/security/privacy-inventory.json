@@ -568,6 +568,105 @@
           "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L1170-L1183"
         }
       ]
+    },
+    {
+      "id": "PULSE-META-017",
+      "name": "Browser console logs the V2 message ActionHash",
+      "data_class": "local_diagnostic_correlation_identifier",
+      "surface": "Canonical Leptos compose success/error logging",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/apps/leptos/src/pages/compose.rs#L421-L441"
+      ],
+      "design_fact": "The supported Leptos V2 compose path logs the raw response bytes returned by send_email_v2 to the browser console. Comments say these bytes encode the created ActionHash, and the code does not log the ciphertext payload in this statement. The ActionHash can serve as a stable pointer to the public V2 record and its metadata; this is a local diagnostic/logging exposure, not evidence of service-side telemetry.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source shows console output on successful V2 send. Browser history, log retention, crash-report/diagnostic upload and remote access have not been audited.",
+      "linkability_risk": "medium_to_high",
+      "audit_questions": [
+        "Is this success-path console log needed outside development?",
+        "Can the ActionHash be joined to public envelope/link metadata by anyone who can view the DHT?",
+        "Are browser console logs included in diagnostics or remote support collection?",
+        "Can production builds suppress the raw identifier while preserving a stable non-linkable operation result?"
+      ],
+      "policy_intent": "Keep raw action hashes out of routine production console logs unless there is a justified debugging need; prefer a coarse status or local-only opt-in debug log.",
+      "claim_blockers": [
+        "Do not call this a remote leak without evidence that logs are exported or remotely readable.",
+        "Absence of the message body in this one log statement does not prove all diagnostics are content-free."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/apps/leptos/src/pages/compose.rs",
+          "blob_sha": "5aade01ade4ee83c55da94d9365452779c6ac4c6",
+          "line_start": 421,
+          "line_end": 441,
+          "symbol": "send_email_v2 success/error handling",
+          "observed_fact": "The V2 zome call returns ActionHash bytes and the success branch logs the response bytes to the browser console before showing the 'Message sent and committed to DHT' toast.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/apps/leptos/src/pages/compose.rs#L421-L441"
+        }
+      ]
+    },
+    {
+      "id": "PULSE-META-018",
+      "name": "Delivery receipt exposes recipient, message reference and timestamp",
+      "data_class": "delivery_activity_metadata",
+      "surface": "Holochain DeliveryReceipt entry and EmailToDeliveryReceipts link",
+      "evidence_level": "source_verified_in_repo",
+      "source_refs": [
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L346-L355",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L429-L430",
+        "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L894-L940",
+        "https://developer.holochain.org/build/entries/",
+        "https://developer.holochain.org/build/working-with-data/"
+      ],
+      "design_fact": "DeliveryReceipt carries email_hash, recipient AgentPubKey, delivered_at timestamp and signature; EntryTypes::DeliveryReceipt has a required-validation count but no explicit private visibility override. acknowledge_delivery creates the receipt and a link from the email hash to the receipt hash. The same function's docstring states that repeated calls create distinct receipts because delivered_at differs.",
+      "runtime_presence": "not_audited",
+      "exposure_persistence_retention_deletion": "Source shows a public-entry candidate with message/recipient/time metadata and repeatable creation. Exact runtime replication, link retrieval and observer visibility need pinned-version conductor testing.",
+      "linkability_risk": "very_high",
+      "audit_questions": [
+        "Can a DNA participant inspect receipt entries and correlate recipient, message and delivery time?",
+        "What message activity can be inferred from repeated receipts or timing?",
+        "Can concurrent or replayed acknowledgments create unbounded receipt/link history?",
+        "What are the expected deletion/tombstone and retention semantics for delivery evidence?"
+      ],
+      "policy_intent": "Treat receipt metadata as sensitive relationship/activity data. Make receipt acknowledgement idempotent at the protocol level, and document the minimum fields the selected observer model can see.",
+      "claim_blockers": [
+        "A signed receipt is not metadata-private by itself.",
+        "Latest-receipt-wins is not storage-level idempotency.",
+        "No runtime exposure or exploitation claim is made without a frozen multi-agent observer test."
+      ],
+      "source_observations": [
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 346,
+          "line_end": 355,
+          "symbol": "DeliveryReceipt",
+          "observed_fact": "The receipt struct contains email_hash, recipient AgentPubKey, delivered_at and signature.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L346-L355"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs",
+          "blob_sha": "6a806138f71e2f73a01f17dd0cb0483e57d73082",
+          "line_start": 429,
+          "line_end": 430,
+          "symbol": "EntryTypes::DeliveryReceipt",
+          "observed_fact": "DeliveryReceipt is declared with required validations and no private visibility override.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs#L429-L430"
+        },
+        {
+          "source_commit_sha": "f81361124d073a1db309db977abcf7bdce8ad4cb",
+          "path": "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs",
+          "blob_sha": "d818dfc333cdc1c538745a283cb92ec90f1fcadb",
+          "line_start": 894,
+          "line_end": 940,
+          "symbol": "acknowledge_delivery",
+          "observed_fact": "Each invocation uses a fresh sys_time timestamp, creates a new DeliveryReceipt entry and a link; its docstring states duplicate calls create two receipts.",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/f81361124d073a1db309db977abcf7bdce8ad4cb/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs#L894-L940"
+        }
+      ]
     }
   ],
   "external_baselines": [
