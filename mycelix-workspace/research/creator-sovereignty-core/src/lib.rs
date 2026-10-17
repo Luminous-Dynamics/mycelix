@@ -484,6 +484,7 @@ mod tests {
         let mut ledger = Ledger::new();
         ledger.insert_money_event(event("usd", "a", "USD", 10_000, MoneyKind::Receipt)).unwrap();
         ledger.insert_money_event(event("eur", "b", "EUR", 8_000, MoneyKind::Receipt)).unwrap();
+        ledger.insert_work_session(session("work", 0, 3_600)).unwrap();
         let report = ledger.summarize().unwrap();
         assert_eq!(
             report.currencies.iter().map(|item| item.currency.as_str()).collect::<Vec<_>>(),
