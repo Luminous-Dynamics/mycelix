@@ -132,6 +132,8 @@ struct FileResult {
 #[derive(Debug, serde::Serialize)]
 struct Report {
     report_version: &'static str,
+    verifier_version: &'static str,
+    verifier_source_commit: String,
     disposition: &'static str,
     manifest_version: String,
     source_base_commit: String,
@@ -360,7 +362,11 @@ fn validate_oracle_evidence_refs(
     Ok(())
 }
 
-fn verify(root: &Path, manifest_relative: &str) -> Result<Report, String> {
+fn verify(
+    root: &Path,
+    manifest_relative: &str,
+    verifier_source_commit: &str,
+) -> Result<Report, String> {
     let manifest_path = safe_relative_path(manifest_relative)?;
     let manifest_bytes = fs::read(root.join(&manifest_path))
         .map_err(|e| fail(format!("cannot read manifest {}: {e}", manifest_path.display())))?;
@@ -487,9 +493,17 @@ fn verify(root: &Path, manifest_relative: &str) -> Result<Report, String> {
         return Err(fail("solver and oracle scenario ID sets differ"));
     }
 
+    let source_commit_is_pinned = verifier_source_commit.len() == 40
+        && verifier_source_commit.bytes().all(|b| b.is_ascii_hexdigit());
     Ok(Report {
         report_version: "cyber-corpus-structural-report-v1",
-        disposition: "STRUCTURAL_PASS_NOT_CAPABILITY_PASS",
+        verifier_version: env!("CARGO_PKG_VERSION"),
+        verifier_source_commit: verifier_source_commit.to_string(),
+        disposition: if source_commit_is_pinned {
+            "STRUCTURAL_PASS_NOT_CAPABILITY_PASS"
+        } else {
+            "STRUCTURAL_PASS_UNPINNED_SOURCE_NOT_QUALIFICATION"
+        },
         manifest_version: manifest.manifest_version,
         source_base_commit: manifest.source_base_commit,
         seed_snapshot_commit: manifest.seed_snapshot_commit,
@@ -513,12 +527,15 @@ fn main() {
     let mut args = env::args().skip(1);
     let root = PathBuf::from(args.next().unwrap_or_else(|| "mycelix-praxis".to_string()));
     let manifest = args.next().unwrap_or_else(|| DEFAULT_MANIFEST.to_string());
+    let source_commit = args.next().unwrap_or_else(|| {
+        env::var("SOURCE_COMMIT").unwrap_or_else(|_| "UNPINNED_LOCAL_SOURCE".to_string())
+    });
     if args.next().is_some() {
-        eprintln!("usage: cyber-corpus-verifier [praxis-root] [manifest-relative-path]");
+        eprintln!("usage: cyber-corpus-verifier [praxis-root] [manifest-relative-path] [verifier-source-commit]");
         process::exit(2);
     }
 
-    match verify(&root, &manifest) {
+    match verify(&root, &manifest, &source_commit) {
         Ok(report) => {
             println!("{}", serde_json::to_string_pretty(&report).expect("report serialization is infallible"));
         }
@@ -597,8 +614,10 @@ mod tests {
     #[test]
     fn public_seed_passes_structural_verification_only() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let report = verify(&root, DEFAULT_MANIFEST).expect("checked-in public seed should conform");
+        let report = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40))
+            .expect("checked-in public seed should conform");
         assert_eq!(report.disposition, "STRUCTURAL_PASS_NOT_CAPABILITY_PASS");
+        assert_eq!(report.verifier_source_commit.len(), 40);
         assert_eq!(report.case_count, 8);
         assert_eq!(report.oracle_count, 8);
         assert_eq!(report.case_ids.len(), 8);
