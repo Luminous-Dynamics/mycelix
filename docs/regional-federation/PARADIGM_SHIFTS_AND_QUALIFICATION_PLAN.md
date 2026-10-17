@@ -87,6 +87,9 @@ These sources point toward adapters and evidence inventories, not blanket contin
 - **Holochain deterministic validation:** Holochain's official validation guidance says validation results must be deterministic across peers and time; time-dependent freshness checks belong in a runtime authorization/execution gate, not an integrity callback that requires the current wall clock. Integrity validation should check structural and action-bound invariants; the coordinator/adapter must check current profiles, trust-root status, consent freshness, and the exact action immediately before a protected side effect.
   - https://developer.holochain.org/build/validation/
 
+- **Consent must be object-bound:** a recipient/purpose match alone is insufficient. A grant should bind the exact subject, record ID, content digest, data class, action, recipient, purpose, validity and revocation evidence. A changed record or a different subject must require a separate valid grant unless a future, explicitly bounded scope model is designed and tested.
+  - The regional policy kernel now represents these fields in the signed consent-grant schema and has negative tests for consent replay across resource/content, subject, data-class and action.
+
 ## Benchmarks: hard safety gates first
 
 All targets below are proposed. Report the exact commit, environment, corpus digest and result. Unit test success must never be presented as deployment security or legal compliance.
