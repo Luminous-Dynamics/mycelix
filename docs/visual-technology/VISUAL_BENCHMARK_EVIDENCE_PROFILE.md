@@ -54,6 +54,8 @@ The first implementation should map fields to existing canonical types, not crea
 
 ### HDR transfer semantics
 
+The current reference work includes a mathematical PQ decoder/encoder, while a future HLG profile is tracked in [Symtropy VIS-HDR-001 #1819](https://github.com/Luminous-Dynamics/symtropy/issues/1819). Do not label these as interchangeable “HDR gamma” curves: PQ's EOTF is an absolute display-referred code-to-luminance mapping, while HLG's OETF is scene-referred and its display-side rendering depends on explicit system/display parameters. Every derived value must state which transform and parameter set produced it.
+
 An ST 2084 / PQ-decoded luminance value is a value computed from an encoded signal under a declared transfer function, not a physical measurement of a display. Store the signal input, PQ standard/edition, transfer implementation/version and computed cd/m² output as derived-analysis context. A physical display EOTF test must separately reference calibrated photometer/colorimeter readings, device mode, pattern/window size, sustained/peak duration, ambient conditions and instrument uncertainty. Do not let a correct PQ equation promote a hardware claim to measured or independently reproduced status.
 
 ### Scope and interpretation
