@@ -584,7 +584,7 @@ mod tests {
         ));
     }
     #[test]
-    fn snapshot_round_trips_submitted_and_unknown_states() {
+    fn snapshot_round_trips_reserved_dispatch_and_unknown_states() {
         let mut attempt = EffectAttempt::prepare(identity());
         attempt.reserve("sink-operation-1").expect("reserve");
         let restored_reserved = EffectAttempt::restore(attempt.snapshot()).expect("restore reserved");
