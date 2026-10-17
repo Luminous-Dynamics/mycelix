@@ -398,7 +398,7 @@ impl OutcomeLedger {
                 .ok_or(OutcomeLedgerError::InvalidDisputeReference)?;
             if dispute.case_id != event.case_id
                 || dispute.commitment_id != event.commitment_id
-                || !matches!(dispute.kind, OutcomeEventKind::DisputeOpened { .. })
+                || !matches!(&dispute.kind, OutcomeEventKind::DisputeOpened { .. })
             {
                 return Err(OutcomeLedgerError::InvalidDisputeReference);
             }
@@ -439,7 +439,7 @@ impl OutcomeLedger {
         let untrusted_count = active_all.iter().filter(|event| !trusted(event)).count() as u64;
         let events: Vec<&OutcomeEvent> = active_all.into_iter().filter(|event| trusted(event)).collect();
         let mut commitments: Vec<&OutcomeEvent> = events.iter().copied()
-            .filter(|event| matches!(event.kind, OutcomeEventKind::CommitmentAuthorized { .. }))
+            .filter(|event| matches!(&event.kind, OutcomeEventKind::CommitmentAuthorized { .. }))
             .collect();
         commitments.sort_by(|left, right| {
             left.occurred_at.cmp(&right.occurred_at).then_with(|| left.event_id.cmp(&right.event_id))
@@ -516,6 +516,9 @@ impl OutcomeLedger {
         if gross_accepted_quantity > received_quantity
             || returned_quantity > gross_accepted_quantity
             || rejected_quantity > received_quantity
+            || committed_quantity.map_or(false, |committed| {
+                gross_accepted_quantity + rejected_quantity > u64::from(committed)
+            })
         {
             return Err(OutcomeLedgerError::OutcomeQuantityMismatch);
         }
@@ -528,7 +531,7 @@ impl OutcomeLedger {
             }
         }
         let mut open_dispute_event_ids: Vec<String> = events.iter().filter_map(|event| {
-            if matches!(event.kind, OutcomeEventKind::DisputeOpened { .. })
+            if matches!(&event.kind, OutcomeEventKind::DisputeOpened { .. })
                 && !resolved_dispute_ids.contains(event.event_id.as_str())
             {
                 Some(event.event_id.clone())
@@ -537,7 +540,7 @@ impl OutcomeLedger {
         open_dispute_event_ids.sort();
 
         let mut finalizations: Vec<&OutcomeEvent> = events.iter().copied()
-            .filter(|event| matches!(event.kind, OutcomeEventKind::OutcomeFinalized { .. }))
+            .filter(|event| matches!(&event.kind, OutcomeEventKind::OutcomeFinalized { .. }))
             .collect();
         finalizations.sort_by(|left, right| {
             left.occurred_at.cmp(&right.occurred_at).then_with(|| left.event_id.cmp(&right.event_id))
@@ -591,7 +594,7 @@ impl OutcomeLedger {
             OutcomeState::InTransit
         } else if commitment_event.is_some() {
             OutcomeState::Committed
-        } else if pre_commitment_forecast.is_some() || events.iter().any(|event| matches!(event.kind, OutcomeEventKind::ForecastIssued { .. })) {
+        } else if pre_commitment_forecast.is_some() || events.iter().any(|event| matches!(&event.kind, OutcomeEventKind::ForecastIssued { .. })) {
             OutcomeState::Forecasted
         } else {
             OutcomeState::NoTrustedEvidence
