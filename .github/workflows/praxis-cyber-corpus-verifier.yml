@@ -40,7 +40,7 @@ jobs:
         run: |
           cargo run --manifest-path mycelix-praxis/tools/cyber-corpus-verifier/Cargo.toml -- mycelix-praxis docs/fixtures/cyber-public-seed-v1.manifest.json "$SOURCE_COMMIT" > cyber-corpus-structural-report.json
           cat cyber-corpus-structural-report.json
-          jq -e --arg commit "$SOURCE_COMMIT" '.verifier_source_commit == $commit and .disposition == "STRUCTURAL_PASS_NOT_CAPABILITY_PASS" and .case_count == 8 and .oracle_count == 8 and (.files | length) == 4' cyber-corpus-structural-report.json
+          jq -e --arg commit "$SOURCE_COMMIT" '.verifier_source_commit == $commit and .disposition == "STRUCTURAL_PASS_NOT_CAPABILITY_PASS" and .case_count == 8 and .oracle_count == 8 and (.files | length) == 4 and .schema_validation == "DRAFT_2020_12_META_AND_INSTANCE_VALIDATION_PASS"' cyber-corpus-structural-report.json
 
       - name: Preserve structural receipt
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
