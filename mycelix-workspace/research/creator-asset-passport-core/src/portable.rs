@@ -404,6 +404,30 @@ mod tests {
         GrantHistory::replay(&[issue, revoke]).unwrap()
     }
 
+    fn unicode_no_expiry_history() -> GrantHistory {
+        let grant = UsageGrant::new(
+            GrantId::new("grant-unicode").unwrap(),
+            AssetId::new("recording-δ").unwrap(),
+            party("voice-service"),
+            UseAction::SynthesizeVoiceOrLikeness,
+            "one-off-clone-demo",
+            party("artist-Δ"),
+            "consent://clip-specific",
+            1,
+            None,
+        )
+        .unwrap();
+        let issue = GrantEvent::issue(
+            EventId::new("event-unicode").unwrap(),
+            0,
+            party("artist-Δ"),
+            "evidence://approved",
+            grant,
+        )
+        .unwrap();
+        GrantHistory::replay(&[issue]).unwrap()
+    }
+
     #[test]
     fn encoding_is_deterministic_and_round_trips() {
         let envelope = GrantHistoryEnvelope::from_history(&demo_history()).unwrap();
@@ -428,6 +452,22 @@ mod tests {
             .collect::<String>();
         let expected = include_str!("../tests/fixtures/creator-grant-history-v1.hex")
             .trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn unicode_and_no_expiry_match_reference_vector() {
+        let envelope =
+            GrantHistoryEnvelope::from_history(&unicode_no_expiry_history()).unwrap();
+        let actual = envelope
+            .canonical_bytes()
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let expected =
+            include_str!("../tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex")
+                .trim();
         assert_eq!(actual, expected);
     }
 
