@@ -290,10 +290,17 @@ pub trait ActionJournalStore {
     ) -> Result<Vec<JournalEntryV1>, JournalError> {
         let entries = self.list().await?;
         for entry in &entries {
-            if entry.status() == AttemptStatus::Submitted {
+            let recovered_status = match entry.status() {
+                // The gate never sends while an attempt is merely Prepared.
+                AttemptStatus::Prepared => Some(AttemptStatus::NotSent),
+                // Submitted means dispatch may have happened, so never replay it.
+                AttemptStatus::Submitted => Some(AttemptStatus::OutcomeUnknown),
+                _ => None,
+            };
+            if let Some(recovered_status) = recovered_status {
                 self.transition(
                     entry.operation_id(),
-                    AttemptStatus::OutcomeUnknown,
+                    recovered_status,
                     now_unix_ms.max(entry.updated_at_unix_ms()),
                 )
                 .await?;
@@ -845,10 +852,15 @@ impl MemoryJournal {
 
     fn recover_sync(&self, now_unix_ms: u64) -> Result<Vec<JournalEntryV1>, JournalError> {
         for entry in self.list_sync() {
-            if entry.status() == AttemptStatus::Submitted {
+            let recovered_status = match entry.status() {
+                AttemptStatus::Prepared => Some(AttemptStatus::NotSent),
+                AttemptStatus::Submitted => Some(AttemptStatus::OutcomeUnknown),
+                _ => None,
+            };
+            if let Some(recovered_status) = recovered_status {
                 self.transition_sync(
                     entry.operation_id(),
-                    AttemptStatus::OutcomeUnknown,
+                    recovered_status,
                     now_unix_ms.max(entry.updated_at_unix_ms()),
                 )?;
             }
@@ -914,6 +926,18 @@ mod tests {
             Err(JournalError::CommitFailed)
         );
         assert!(journal.list_sync().is_empty());
+    }
+
+    #[test]
+    fn restart_recovery_marks_prepared_attempt_as_not_sent() {
+        let journal = MemoryJournal::default();
+        journal.insert_prepared_sync(prepared()).unwrap();
+
+        let recovered = journal.recover_sync(120).unwrap();
+        assert_eq!(recovered.len(), 1);
+        assert_eq!(recovered[0].status(), AttemptStatus::NotSent);
+        assert!(recovered[0].status().is_terminal());
+        assert!(!recovered[0].status().dispatch_eligible());
     }
 
     #[test]
