@@ -1,6 +1,6 @@
 use creator_sovereignty_core::{
     InsertOutcome, Ledger, LedgerError, LedgerSummary, MoneyEvent, MoneyKind, RationalRate,
-    VerificationError, WorkSession, verify_summary,
+    WorkSession, verify_summary,
 };
 
 fn event(id: &str, currency: &str, amount: i64, kind: MoneyKind) -> MoneyEvent {
@@ -40,8 +40,8 @@ fn standard_ledger() -> Ledger {
 fn rate_is_lower(left: &RationalRate, right: &RationalRate) -> bool {
     // Compare exact rational values without floating-point rounding. These test
     // fixtures are intentionally small enough for cross products to fit i128.
-    left.numerator_minor_units_per_hour * right.denominator_work_seconds as i128
-        < right.numerator_minor_units_per_hour * left.denominator_work_seconds as i128
+    (left.numerator_minor_units_per_hour * (right.denominator_work_seconds as i128))
+        < (right.numerator_minor_units_per_hour * (left.denominator_work_seconds as i128))
 }
 
 #[test]
