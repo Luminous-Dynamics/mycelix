@@ -70,3 +70,8 @@ https://www.gs1.org/standards/epcis
 - **Mycelix:** bind claim IDs, role/authority receipts, provenance and dispute transitions.
 - **Sol-Atlas:** distinguish observed movement/location evidence from inferred routes and forecasts.
 - **Symtropy:** test event loss, duplication, delay, correction and outage sequences without converting synthetic output into real outcome evidence.
+
+
+## Frozen corpus registry
+
+The fixture registry is maintained in [OUTCOME_LEDGER_GOLDEN_CORPUS_V1.md](OUTCOME_LEDGER_GOLDEN_CORPUS_V1.md). It assigns 40 stable fixture IDs with expected invariants and marks current authored coverage separately from planned rows. The registry itself is not proof that all 40 fixtures have executable tests. Four end-to-end golden tests are authored in `tests/outcome_ledger_golden.rs`, in addition to the module-local tests; all await exact-head qualification.
