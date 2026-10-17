@@ -12,6 +12,7 @@ use wasm_bindgen_futures::spawn_local;
 use hearth_leptos_types::*;
 use crate::mock_data;
 use crate::action_feedback::PublicationEvidenceNotice;
+use crate::action_journal_store::IndexedDbJournal;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use crate::record_bridge::{self, WireRecord};
 
@@ -38,6 +39,8 @@ pub struct HearthCtx {
     pub(crate) publication_evidence: RwSignal<Option<PublicationEvidenceNotice>>,
     /// Monotonic request generation preventing late evidence queries from replacing newer snapshots.
     pub(crate) publication_evidence_generation: RwSignal<u64>,
+    /// Available only after IndexedDB opens and restart recovery commits successfully.
+    pub(crate) action_journal: RwSignal<Option<IndexedDbJournal>>,
 }
 
 /// Initialize hearth context.
@@ -65,6 +68,7 @@ pub fn provide_hearth_context() -> HearthCtx {
         my_agent: RwSignal::new("agent_rowan".into()),
         publication_evidence: RwSignal::new(None),
         publication_evidence_generation: RwSignal::new(0),
+        action_journal: RwSignal::new(None),
     };
 
     provide_context(ctx.clone());
@@ -77,6 +81,24 @@ pub fn provide_hearth_context() -> HearthCtx {
             .count() as u32;
         set_care.set(care_count);
     }
+
+    // Open the action journal and finish restart recovery before live actions
+    // may dispatch. A failed open/recovery leaves the signal empty; live writes
+    // then fail closed rather than bypassing durable pre-dispatch recording.
+    let journal_signal = ctx.action_journal;
+    spawn_local(async move {
+        match IndexedDbJournal::open_recovered().await {
+            Ok(journal) => journal_signal.set(Some(journal)),
+            Err(error) => {
+                web_sys::console::error_1(
+                    &format!(
+                        "[Hearth] action journal unavailable; live writes remain disabled ({error:?})"
+                    )
+                    .into(),
+                );
+            }
+        }
+    });
 
     // Try to load real data from conductor (async, non-blocking)
     let ctx_for_load = ctx.clone();
