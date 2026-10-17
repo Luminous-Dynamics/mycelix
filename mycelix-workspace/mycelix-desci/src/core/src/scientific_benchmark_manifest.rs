@@ -403,6 +403,11 @@ impl ScientificBenchmarkManifest {
                             .into(),
                     ));
                 }
+                if self.verifier.is_some() {
+                    return Err(Error::Validation(
+                        "execution_failed cannot claim an independent verifier".into(),
+                    ));
+                }
                 self.require_clean_source()?;
             }
         }
@@ -631,6 +636,23 @@ mod tests {
         manifest.verifier.as_mut().unwrap().principal.actor_id =
             "did:key:independent-reviewer".to_string();
         assert!(manifest.validate().is_ok());
+    }
+
+    #[test]
+    fn failed_execution_cannot_claim_independent_verification() {
+        let mut manifest = fixture();
+        manifest.status = BenchmarkStatus::ExecutionFailed;
+        manifest.verifier = Some(BenchmarkVerifier {
+            principal: BenchmarkPrincipal {
+                actor_id: "did:key:reviewer".to_string(),
+                organization_id: "external-lab".to_string(),
+            },
+            verifier_implementation: "reference-runner".to_string(),
+            verifier_revision: "abcdef0123456789abcdef0123456789abcdef01".to_string(),
+            method: "independent replay".to_string(),
+            verified_at: manifest.created_at + chrono::Duration::seconds(20),
+        });
+        assert!(manifest.validate().is_err());
     }
 
     #[test]
