@@ -14,6 +14,7 @@
 
 use crate::action_lifecycle::{transition_allowed, ActionKind, AttemptStatus};
 use js_sys::{Array, Function, Object, Promise, Reflect};
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -362,6 +363,15 @@ impl IndexedDbJournal {
         self.posture
     }
 
+    /// Open the local store and persist restart recovery before allowing live
+    /// dispatch to obtain a handle to the journal.
+    pub async fn open_recovered() -> Result<Self, JournalError> {
+        let journal = Self::open().await?;
+        let now = current_unix_ms()?;
+        journal.recover_after_restart(now).await?;
+        Ok(journal)
+    }
+
     async fn write_entry(
         &self,
         entry: &JournalEntryV1,
@@ -675,6 +685,91 @@ async fn query_storage_persisted() -> Option<bool> {
         .ok()?;
     let result = persisted_fn.call0(&storage).ok()?.dyn_into::<Promise>().ok()?;
     JsFuture::from(result).await.ok()?.as_bool()
+}
+
+fn current_unix_ms() -> Result<u64, JournalError> {
+    let now = js_sys::Date::now();
+    if !now.is_finite() || now < 0.0 || now > u64::MAX as f64 {
+        return Err(JournalError::InvalidRecord);
+    }
+    Ok(now.floor() as u64)
+}
+
+/// One locally prepared attempt. It is not an idempotency key recognized by a
+/// zome; it represents local dispatch/recovery evidence only.
+#[derive(Clone)]
+pub struct PreparedJournalAttempt {
+    journal: IndexedDbJournal,
+    operation_id: String,
+}
+
+impl PreparedJournalAttempt {
+    pub fn operation_id(&self) -> &str {
+        &self.operation_id
+    }
+
+    /// Persist an observed successful response. False means the remote call
+    /// succeeded but its local terminal state could not be confirmed durable.
+    pub async fn mark_source_chain_committed(&self) -> bool {
+        let Ok(now) = current_unix_ms() else {
+            return false;
+        };
+        self.journal
+            .transition(&self.operation_id, AttemptStatus::SourceChainCommitted, now)
+            .await
+            .is_ok()
+    }
+
+    /// Persist ambiguity from timeout/transport/decode/restart-related errors.
+    /// False does not make the underlying action safe to retry.
+    pub async fn mark_outcome_unknown(&self) -> bool {
+        let Ok(now) = current_unix_ms() else {
+            return false;
+        };
+        self.journal
+            .transition(&self.operation_id, AttemptStatus::OutcomeUnknown, now)
+            .await
+            .is_ok()
+    }
+}
+
+/// Journal-gate a live dispatch. Returning Ok proves both Prepared and Submitted
+/// writes reported transaction completion; callers must not contact the
+/// conductor before this function succeeds. Operation IDs remain local.
+pub async fn prepare_live_attempt(
+    journal_signal: RwSignal<Option<IndexedDbJournal>>,
+    action: ActionKind,
+    hearth_scope_bytes: &[u8],
+    target_identity_bytes: &[u8],
+) -> Result<PreparedJournalAttempt, JournalError> {
+    if hearth_scope_bytes.is_empty() || target_identity_bytes.is_empty() {
+        return Err(JournalError::InvalidRecord);
+    }
+    let journal = journal_signal
+        .get_untracked()
+        .ok_or(JournalError::IndexedDbUnavailable)?;
+    let operation_id = new_operation_id()?;
+    let scope_fingerprint =
+        sha256_fingerprint("hearth-scope-v1", hearth_scope_bytes).await?;
+    let target_fingerprint =
+        sha256_fingerprint("hearth-target-v1", target_identity_bytes).await?;
+    let created_at = current_unix_ms()?;
+    let entry = JournalEntryV1::new(
+        operation_id.clone(),
+        action,
+        scope_fingerprint,
+        target_fingerprint,
+        created_at,
+    )?;
+
+    // Any error here returns before the caller is permitted to send.
+    journal.insert_prepared(entry).await?;
+    let submitted_at = current_unix_ms()?.max(created_at);
+    journal
+        .transition(&operation_id, AttemptStatus::Submitted, submitted_at)
+        .await?;
+
+    Ok(PreparedJournalAttempt { journal, operation_id })
 }
 
 #[cfg(test)]
