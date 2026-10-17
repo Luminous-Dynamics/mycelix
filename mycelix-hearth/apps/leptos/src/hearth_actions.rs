@@ -12,6 +12,8 @@ use wasm_bindgen_futures::spawn_local;
 
 use crate::hearth_context::{use_hearth, mock_now};
 use crate::action_feedback::{feedback_copy, ActionFeedbackKind};
+use crate::action_journal_store::{prepare_live_attempt, PreparedJournalAttempt};
+use crate::action_lifecycle::ActionKind;
 use crate::record_bridge::{self, WireRecord};
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{use_toasts, ToastKind};
@@ -75,10 +77,41 @@ pub fn tend_bond(bond_hash: String) {
         return;
     };
 
+    let Some(hearth_scope_bytes) = hearth
+        .current_hearth
+        .get_untracked()
+        .and_then(|h| record_bridge::decode_holo_hash_b64(&h.hash))
+    else {
+        toasts.push(
+            "Bond update not sent: the selected household identity is not verified.",
+            ToastKind::Custom("bond".into()),
+        );
+        return;
+    };
+
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
+    let action_journal = hearth.action_journal;
     let hc = hc.clone();
     spawn_local(async move {
+        let journal_attempt = match prepare_live_attempt(
+            action_journal,
+            ActionKind::BondUpdate,
+            &hearth_scope_bytes,
+            &bond_hash_bytes,
+        )
+        .await
+        {
+            Ok(attempt) => attempt,
+            Err(_) => {
+                toasts.push(
+                    "Bond update not sent: the durable local action journal is unavailable or could not commit.",
+                    ToastKind::Custom("bond".into()),
+                );
+                return;
+            }
+        };
+
         #[derive(serde::Serialize)]
         struct TendBondInput {
             bond_hash: Vec<u8>,
@@ -100,6 +133,12 @@ pub fn tend_bond(bond_hash: String) {
                     feedback_copy(ActionFeedbackKind::SourceChainCommitted, "Bond update"),
                     ToastKind::Custom("bond".into()),
                 );
+                if !journal_attempt.mark_source_chain_committed().await {
+                    toasts.push(
+                        "Bond update returned successfully, but its local recovery record could not be committed. Do not repeat it until reconciled.",
+                        ToastKind::Custom("bond".into()),
+                    );
+                }
                 crate::publication_evidence::check_and_store(
                     &hc,
                     publication_evidence,
@@ -114,6 +153,12 @@ pub fn tend_bond(bond_hash: String) {
                     feedback_copy(ActionFeedbackKind::OutcomeUnknown, "the bond update"),
                     ToastKind::Custom("bond".into()),
                 );
+                if !journal_attempt.mark_outcome_unknown().await {
+                    toasts.push(
+                        "The bond update remains unresolved and its local recovery record could not be committed. Do not retry it.",
+                        ToastKind::Custom("bond".into()),
+                    );
+                }
             }
         }
     });
