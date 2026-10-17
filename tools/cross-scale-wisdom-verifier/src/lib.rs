@@ -89,6 +89,41 @@ pub fn verify_bytes(
     if schema.get("additionalProperties").and_then(Value::as_bool) != Some(false) {
         return Err("case schema must reject undeclared properties".to_owned());
     }
+    if schema
+        .get("properties")
+        .and_then(|value| value.get("schema_version"))
+        .and_then(|value| value.get("const"))
+        .and_then(Value::as_str)
+        != Some(CASE_SCHEMA_VERSION)
+    {
+        return Err("case schema schema_version const does not match verifier contract".to_owned());
+    }
+    if schema
+        .get("properties")
+        .and_then(|value| value.get("evidence"))
+        .and_then(|value| value.get("items"))
+        .and_then(|value| value.get("additionalProperties"))
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return Err("evidence schema must reject undeclared properties".to_owned());
+    }
+
+    let manifest_schema = required_string(&manifest, "manifest_schema", "manifest")?;
+    if manifest_schema != "cross-scale-wisdom-manifest/1.0" {
+        return Err(format!("unsupported manifest schema {manifest_schema:?}"));
+    }
+    if required_string(&manifest, "hash_algorithm", "manifest")? != "sha256" {
+        return Err("manifest.hash_algorithm must be sha256".to_owned());
+    }
+    if required_string(&manifest, "record_format", "manifest")? != "JSON Lines; UTF-8" {
+        return Err("manifest.record_format must be JSON Lines; UTF-8".to_owned());
+    }
+    let _ = required_string(&manifest, "status", "manifest")?;
+    let _ = required_string(&manifest, "claim_ceiling", "manifest")?;
+    let schema_id = required_string(&schema, "$id", "schema")?;
+    let schema_digest = sha256_hex(schema_text.as_bytes());
+    let checker_version = env!("CARGO_PKG_VERSION");
 
     let manifest_version = required_string(&manifest, "corpus_version", "manifest")?;
     let manifest_id = required_string(&manifest, "corpus_id", "manifest")?;
@@ -201,7 +236,11 @@ pub fn verify_bytes(
             "family": family,
             "severity": severity,
             "disposition": "UNSCORED",
-            "receipt_scope": "STRUCTURAL_SCHEMA_VALIDATION_ONLY"
+            "receipt_scope": "STRUCTURAL_SCHEMA_VALIDATION_ONLY",
+            "corpus_sha256": actual_digest,
+            "schema_id": schema_id,
+            "schema_version": CASE_SCHEMA_VERSION,
+            "checker_version": checker_version
         }));
     }
 
@@ -218,6 +257,11 @@ pub fn verify_bytes(
         .get("severity_counts")
         .and_then(Value::as_object)
         .ok_or_else(|| "manifest.severity_counts must be an object".to_owned())?;
+    let declared_severity_keys: BTreeSet<String> =
+        manifest_severity_counts.keys().cloned().collect();
+    if declared_severity_keys != allowed_severity {
+        return Err("manifest severity count keys must exactly match the schema severity enum".to_owned());
+    }
     for required_severity in &allowed_severity {
         let declared = manifest_severity_counts
             .get(required_severity)
@@ -231,7 +275,7 @@ pub fn verify_bytes(
         }
     }
 
-    let declared_invariants = manifest
+    let declared_invariant_values = manifest
         .get("required_invariants")
         .and_then(Value::as_array)
         .ok_or_else(|| "manifest.required_invariants must be an array".to_owned())?
@@ -239,7 +283,12 @@ pub fn verify_bytes(
         .map(|value| value.as_str().map(ToOwned::to_owned).ok_or_else(|| {
             "manifest.required_invariants entries must be strings".to_owned()
         }))
-        .collect::<Result<BTreeSet<_>, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
+    let declared_invariants: BTreeSet<String> =
+        declared_invariant_values.iter().cloned().collect();
+    if declared_invariants.len() != declared_invariant_values.len() {
+        return Err("manifest.required_invariants contains duplicates".to_owned());
+    }
     if declared_invariants != seen_invariants {
         return Err("manifest.required_invariants does not exactly match corpus invariant set".to_owned());
     }
@@ -252,6 +301,11 @@ pub fn verify_bytes(
         "corpus_version": manifest_version,
         "corpus_path": manifest_path,
         "corpus_sha256": actual_digest,
+        "schema_id": schema_id,
+        "schema_sha256": schema_digest,
+        "schema_version": CASE_SCHEMA_VERSION,
+        "checker_version": checker_version,
+        "environment_identity": "NOT_CAPTURED_BY_STRUCTURAL_VERIFIER",
         "record_count": records_seen,
         "severity_counts": severity_counts,
         "case_receipts": case_receipts,
