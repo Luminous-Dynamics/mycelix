@@ -95,11 +95,17 @@ fn main() {
     let content_digest = "b".repeat(64);
     let classification = VerifiedClassification::verify(
         ClassificationClaim {
+            schema_version: 1,
             resource_id: "record:benchmark".to_owned(),
+            subject_id: Some("did:example:benchmark-subject".to_owned()),
             content_digest: content_digest.clone(),
             data_class: DataClass::Personal,
             valid_from_unix_ms: 1,
             valid_until_unix_ms: 10_000_000,
+            issuer_id: "issuer:benchmark-classifier".to_owned(),
+            signing_key_id: "benchmark-classification-key".to_owned(),
+            claim_digest: "d".repeat(64),
+            signature: vec![1; 64],
         },
         NOW_MS,
         &BenchmarkClassificationVerifier { evidence_until_ms: 10_000_000 },
