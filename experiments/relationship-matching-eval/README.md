@@ -9,9 +9,9 @@ This isolated, dependency-free Rust crate implements an initial offline slice pr
 Use a Rust 2021 toolchain. From this directory:
 
 - **Tests:** cargo test
-- **Example report:** cargo run -- 20261017 200 5
+- **Example report across a 30-seed suite:** cargo run -- 20261017 200 5 30
 
-Arguments are seed, even participant count (minimum 4), and top-k recommendations per participant. Defaults are seed 20261017, 200 participants, and top-k 5.
+Arguments are seed-start, even participant count (4..=2000), top-k recommendations per participant, and seed count (2..=1000; default 30). The harness evaluates consecutive seeds, emits per-seed corpus fingerprints and policy metrics, then reports means, sample standard deviations, ranges, normal-approximation 95% intervals where at least two seeds are present, and per-seed relative exposure-Gini reduction. Defaults are seed-start 20261017, 200 participants, top-k 5, and 30 seeds. A one-seed run is possible with a seed count of 1 but emits no confidence interval.
 
 ## What the harness is designed to test
 
@@ -22,7 +22,7 @@ Arguments are seed, even participant count (minimum 4), and top-k recommendation
 - Inactive users, mismatched connection goals, incompatible age ranges, mutual blocks, insufficient shared interests, and insufficient declared utility are filtered before ranking.
 - Output ordering is deterministic for fixed input and policy.
 - Exposure coverage and Gini are measured over the set of participants who have at least one feasible counterpart.
-- The report includes a canonical synthetic-corpus FNV-1a 64-bit fingerprint so same-input regressions are visible.
+- The report includes a canonical synthetic-corpus FNV-1a 64-bit fingerprint per seed so same-input regressions are visible. The fingerprint is non-cryptographic and cannot serve as a security or provenance receipt.
 
 ## What it does not prove
 
