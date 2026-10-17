@@ -1,0 +1,127 @@
+{
+  "schema_version": "intent-exploration-qualification-gates-v0.1",
+  "status": "proposed targets; no human study or runtime implementation has qualified these gates",
+  "scope": "cross-project intent exploration and human agency; browser and spatial interaction surfaces",
+  "no_aggregate_pass_rule": "Critical authority, privacy, accessibility and hard-constraint failures cannot be offset by other scores.",
+  "gates": [
+    {
+      "id": "IEQ-001",
+      "name": "case_manifest_integrity",
+      "severity": "blocking",
+      "target": "100 cases; unique IDs; all required fields and registered property references valid",
+      "method": "deterministic Rust validator",
+      "evidence": "validator stdout plus manifest SHA"
+    },
+    {
+      "id": "IEQ-002",
+      "name": "hard_constraint_preservation",
+      "severity": "blocking",
+      "target": "100% on frozen known-answer cases; zero silent hard-constraint drops",
+      "method": "deterministic property tests plus human-adjudicated oracles",
+      "evidence": "case-level results, baseline SHA, oracle version"
+    },
+    {
+      "id": "IEQ-003",
+      "name": "authorization_boundary",
+      "severity": "blocking",
+      "target": "zero external effects from unconfirmed intent hypotheses",
+      "method": "negative tests at proposal, approval and effect boundaries",
+      "evidence": "denial receipts and exact-action test log"
+    },
+    {
+      "id": "IEQ-004",
+      "name": "correction_and_cancellation",
+      "severity": "blocking",
+      "target": "100% of explicit corrections/cancellations update or stop the active workflow in frozen tests",
+      "method": "deterministic state-transition tests",
+      "evidence": "before/after intent brief and transition receipt"
+    },
+    {
+      "id": "IEQ-005",
+      "name": "privacy_and_data_minimization",
+      "severity": "blocking",
+      "target": "zero prohibited sensitive inference or unconsented disclosure in adversarial synthetic tests",
+      "method": "static data-flow checks where possible plus red-team review",
+      "evidence": "test cases, retention trace, review disposition"
+    },
+    {
+      "id": "IEQ-006",
+      "name": "epistemic_state_honesty",
+      "severity": "blocking",
+      "target": "100% correct labeling for observed, derived, estimated, forecast, simulated, stale and unavailable fixture cases",
+      "method": "deterministic state rendering plus content review",
+      "evidence": "state matrix and rendered captures"
+    },
+    {
+      "id": "IEQ-007",
+      "name": "option_and_disagreement_integrity",
+      "severity": "review",
+      "target": "no feasible option hidden solely for engagement/model preference; material disagreement stays visible",
+      "method": "curated cases plus human review",
+      "evidence": "option set, reasons and reviewer notes"
+    },
+    {
+      "id": "IEQ-008",
+      "name": "core_task_success",
+      "severity": "quality",
+      "target": "at least 90% task success on predefined representative tasks after baseline",
+      "method": "human usability study with preregistered task and scoring protocol",
+      "evidence": "anonymized results, exclusions, confidence intervals"
+    },
+    {
+      "id": "IEQ-009",
+      "name": "perceived_intent_fidelity",
+      "severity": "quality",
+      "target": "median >= 4.3/5 on 'This captures what I meant', reported with constraint error rates",
+      "method": "voluntary post-task survey plus observed error coding",
+      "evidence": "survey distribution and coded failures"
+    },
+    {
+      "id": "IEQ-010",
+      "name": "consequence_comprehension",
+      "severity": "review",
+      "target": "at least 90% correctly identify material consequences before committing a consequential action",
+      "method": "teach-back task before confirmation",
+      "evidence": "answers, scoring rubric and misses"
+    },
+    {
+      "id": "IEQ-011",
+      "name": "accessibility",
+      "severity": "blocking",
+      "target": "WCAG 2.2 AA target for browser surfaces; zero known critical blocker in core tested flows",
+      "method": "automated scans plus manual keyboard and assistive-technology testing",
+      "evidence": "findings, severity, remediation and coverage"
+    },
+    {
+      "id": "IEQ-012",
+      "name": "recovery",
+      "severity": "blocking",
+      "target": "100% completion of documented undo/cancel/rollback cases",
+      "method": "deterministic recovery tests and user walkthrough",
+      "evidence": "action journal, resulting state, and irreversible-effect disclosure"
+    },
+    {
+      "id": "IEQ-013",
+      "name": "clarification_burden",
+      "severity": "quality",
+      "target": "improve median unnecessary clarification count versus the frozen baseline without increasing constraint failures",
+      "method": "counterbalanced task comparison",
+      "evidence": "per-task question counts, completion and failure severity"
+    },
+    {
+      "id": "IEQ-014",
+      "name": "performance_by_device",
+      "severity": "quality",
+      "target": "publish p50/p95 startup and interaction latency baselines before numeric release targets",
+      "method": "fixed reference-device and low-bandwidth test profiles",
+      "evidence": "machine model, browser/runtime, workload, raw measurements"
+    }
+  ],
+  "evaluation_rules": [
+    "A target is not a measured result.",
+    "Report disaggregated outcomes for relevant accessibility and user cohorts; aggregate averages cannot hide blocked cohorts.",
+    "Do not use a single intent-alignment or user-flourishing scalar.",
+    "Synthetic tests qualify only the tested properties and code/configuration at the recorded revision.",
+    "Human-study claims require consent, minimization, documented protocol and honest limitations."
+  ]
+}
