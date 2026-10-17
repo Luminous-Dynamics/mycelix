@@ -687,6 +687,85 @@ mod tests {
         report.frontier.iter().map(|candidate| objective_key(&candidate.objective)).collect()
     }
 
+    fn quantity_problem(pool_capacity: u32) -> JointOptimizationProblem {
+        let mut input = problem(pool_capacity);
+        for request in &mut input.requests {
+            request.required_quantity = 2;
+        }
+        for offer in &mut input.offers {
+            offer.max_allocatable_quantity = 2;
+        }
+        input
+    }
+
+    /// Enumerates all 3^4 quantity vectors with each edge quantity in 0..=2.
+    /// The oracle uses direct demand/offer/pool sums and literal unit costs; it
+    /// does not call either optimize_joint_allocation or validate_joint_allocation.
+    fn independent_quantity_frontier(
+        pool_capacity: u32,
+    ) -> BTreeSet<(u64, Vec<(String, String, u64)>)> {
+        let edge_costs = [5u64, 8, 5, 8];
+        let mut feasible = BTreeSet::new();
+        for encoded in 0usize..81 {
+            let mut remainder = encoded;
+            let mut quantity = [0u32; 4];
+            for item in &mut quantity {
+                *item = (remainder % 3) as u32;
+                remainder /= 3;
+            }
+            let urgent = quantity[0] + quantity[1];
+            let routine = quantity[2] + quantity[3];
+            let offer_a = quantity[0] + quantity[2];
+            let offer_b = quantity[1] + quantity[3];
+            let total_pool = urgent + routine;
+            if urgent > 2 || routine > 2 || offer_a > 2 || offer_b > 2 || total_pool > pool_capacity {
+                continue;
+            }
+            let cost = quantity
+                .iter()
+                .zip(edge_costs)
+                .map(|(quantity, unit_cost)| u64::from(*quantity) * unit_cost)
+                .sum();
+            if cost > 400 {
+                continue;
+            }
+            feasible.insert((
+                cost,
+                vec![
+                    ("routine".to_owned(), "kit".to_owned(), u64::from(2 - routine)),
+                    ("urgent".to_owned(), "kit".to_owned(), u64::from(2 - urgent)),
+                ],
+            ));
+        }
+        let all: Vec<_> = feasible.iter().cloned().collect();
+        feasible
+            .iter()
+            .filter(|candidate| {
+                !all.iter().any(|other| {
+                    other != *candidate && dominates_key(other, candidate)
+                })
+            })
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn exact_quantity_frontier_matches_independent_oracle_for_all_81_edge_vectors() {
+        for pool_capacity in 1..=4 {
+            let report = optimize_joint_allocation(&quantity_problem(pool_capacity)).unwrap();
+            assert!(report.complete);
+            assert_eq!(
+                actual_frontier(&report),
+                independent_quantity_frontier(pool_capacity),
+                "pool capacity {pool_capacity}"
+            );
+            assert_eq!(
+                report.feasible_candidate_count + report.infeasible_candidate_count,
+                81
+            );
+        }
+    }
+
     #[test]
     fn exact_frontier_matches_independent_oracle_for_every_binary_matrix_and_pool_ceiling() {
         for pool_capacity in 1..=2 {
