@@ -551,6 +551,9 @@ impl OutcomeLedger {
             return Err(OutcomeLedgerError::DuplicateActiveFinalization);
         }
         let finalization = finalizations.first().copied();
+        if finalization.is_some() && commitment_event.is_none() {
+            return Err(OutcomeLedgerError::FinalizationMismatch);
+        }
         if let Some(event) = finalization {
             if let OutcomeEventKind::OutcomeFinalized {
                 net_accepted_quantity: finalized_accepted,
@@ -856,6 +859,61 @@ mod tests {
         assert_eq!(ledger.append(resolution.clone()), Err(OutcomeLedgerError::InvalidDisputeReference));
         resolution.case_id = "case-2".to_owned();
         assert_eq!(ledger.append(resolution), Ok(AppendDisposition::Inserted));
+    }
+
+    #[test]
+    fn same_claim_id_with_different_payload_is_rejected_even_if_event_id_changes() {
+        let mut ledger = basic_finalized_ledger();
+        let mut conflicting = ledger.get_event("receipt-1").unwrap().clone();
+        conflicting.event_id = "different-event-id".to_owned();
+        conflicting.kind = OutcomeEventKind::ReceiptObserved {
+            quantity: 4,
+            receipt_evidence_ref: "changed-receipt".to_owned(),
+        };
+        assert_eq!(
+            ledger.append(conflicting),
+            Err(OutcomeLedgerError::ClaimIdentityConflict)
+        );
+    }
+
+    #[test]
+    fn replay_is_independent_of_ingestion_order() {
+        let first = basic_finalized_ledger();
+        let events: Vec<OutcomeEvent> = first.events.values().cloned().collect();
+        let mut second = OutcomeLedger::new();
+        for event in events.into_iter().rev() {
+            second.append(event).unwrap();
+        }
+        assert_eq!(
+            first.report_case("case-1", "commitment-1").unwrap(),
+            second.report_case("case-1", "commitment-1").unwrap()
+        );
+    }
+
+    #[test]
+    fn a_valid_correction_is_append_only_and_replays_replacement() {
+        let mut ledger = basic_finalized_ledger();
+        let mut correction = event(
+            "receipt-corrected",
+            "claim-receipt-corrected",
+            IssuerRole::Buyer,
+            105,
+            120,
+            OutcomeEventKind::ReceiptObserved {
+                quantity: 5,
+                receipt_evidence_ref: "receiving-correction-1".to_owned(),
+            },
+        );
+        correction.supersedes_event_id = Some("receipt-1".to_owned());
+        ledger.append(correction).unwrap();
+        assert!(ledger.get_event("receipt-1").is_some());
+        assert_eq!(ledger.active_events("case-1").iter().filter(|e| {
+            matches!(&e.kind, OutcomeEventKind::ReceiptObserved { .. })
+        }).count(), 1);
+        let report = ledger.report_case("case-1", "commitment-1").unwrap();
+        assert_eq!(report.state, OutcomeState::Finalized);
+        assert_eq!(report.received_quantity, 5);
+        assert_eq!(report.on_time_in_full, Some(true));
     }
 
     #[test]
