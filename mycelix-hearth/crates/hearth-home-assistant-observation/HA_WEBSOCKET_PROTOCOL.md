@@ -26,7 +26,7 @@ The protocol machine builds the subscription allowlist directly from the validat
 
 The first event must be the initial snapshot. The transport should use a single serialized receive loop: decode/apply the initial snapshot, acknowledge it with `initial_snapshot_applied`, then proceed to later events. The machine does not enter `Live` until that explicit acknowledgement succeeds. A second event before the acknowledgement fails closed rather than risking a delta being applied before its base snapshot.
 
-Home Assistant's compact stream has separate added, changed and removed entity fields. The transport must merge these according to the provider protocol, reject malformed/oversized payloads, and never treat the arbitrary attribute bag as household authority. The HA-0.1 mapper remains the policy boundary for exact allowlisted entities, state codecs, metadata drift, and local-receive-time freshness.
+Home Assistant's compact stream has separate added, changed and removed entity fields. The transport must merge these according to the provider protocol, reject malformed/oversized payloads, and never treat the arbitrary attribute bag as household authority. The projector also rejects state strings containing control characters, both during compact payload projection and when a `HomeAssistantStateFrame` is supplied directly, so line breaks cannot be used to forge multiline semantic values or poison logs. The HA-0.1 mapper remains the policy boundary for exact allowlisted entities, state codecs, metadata drift, and local-receive-time freshness.
 
 ## Invariants
 
@@ -60,7 +60,7 @@ This state machine does not authenticate the remote peer by itself, establish ho
 
 ## Test plan
 
-The 20 protocol tests cover authentication/order, exact sorted profile allowlisting, invalid profile rejection, result correlation and shape, initial snapshot ordering, explicit snapshot-apply acknowledgement, subscription/session identity mismatch, stale epoch handling, reconnect behavior, terminal states, ID exhaustion, and credential-free protocol actions. The 12 projector tests cover compact snapshot/diff/remove handling, strict allowlist projection, transactional rejection, malformed metadata, and ensuring non-semantic attribute-only updates do not refresh observation freshness. Two cross-module integration tests exercise the entire protocol-gate → compact-projector → HA-0.1 mapper path: one verifies exact initial/change observations and that metadata-only changes cannot refresh freshness; the other verifies a wrong subscription ID fails before data can reach the projector.
+The 20 protocol tests cover authentication/order, exact sorted profile allowlisting, invalid profile rejection, result correlation and shape, initial snapshot ordering, explicit snapshot-apply acknowledgement, subscription/session identity mismatch, stale epoch handling, reconnect behavior, terminal states, ID exhaustion, and credential-free protocol actions. The 12 projector tests cover compact snapshot/diff/remove handling, strict allowlist projection, transactional rejection, malformed metadata, control-character rejection, and ensuring non-semantic attribute-only updates do not refresh observation freshness. Two cross-module integration tests exercise the entire protocol-gate → compact-projector → HA-0.1 mapper path: one verifies exact initial/change observations and that metadata-only changes cannot refresh freshness; the other verifies a wrong subscription ID fails before data can reach the projector.
 
 Run from the repository root:
 
