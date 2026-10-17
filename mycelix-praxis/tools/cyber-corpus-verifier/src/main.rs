@@ -802,6 +802,31 @@ mod tests {
         fs::remove_file(outside_path).expect("outside manifest should be removed");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn verifier_rejects_symlinked_parent_directories() {
+        use std::os::unix::fs::symlink;
+
+        let root = copy_fixture_tree_for_test();
+        let fixture_dir = root.join("docs/fixtures");
+        let outside_dir = root.with_extension("outside-fixtures");
+        fs::create_dir_all(&outside_dir).expect("outside fixture directory should be created");
+        fs::write(
+            outside_dir.join("cyber-public-seed-v1.manifest.json"),
+            b"{}\n",
+        )
+        .expect("outside manifest should be written");
+        fs::remove_dir_all(&fixture_dir).expect("copied fixture directory should be removed");
+        symlink(&outside_dir, &fixture_dir).expect("fixture directory should become a symlink");
+
+        let error = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40))
+            .expect_err("symlinked parent directory must be rejected");
+        assert!(error.contains("symlink inputs are not permitted"), "unexpected error: {error}");
+
+        fs::remove_dir_all(&root).expect("temporary test root should be removed");
+        fs::remove_dir_all(outside_dir).expect("outside fixture directory should be removed");
+    }
+
     #[test]
     fn tampered_fixture_bytes_fail_before_parsing() {
         let root = copy_fixture_tree_for_test();
