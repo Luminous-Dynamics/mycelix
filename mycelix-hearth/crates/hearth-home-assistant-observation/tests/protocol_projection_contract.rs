@@ -230,6 +230,55 @@ fn protocol_gate_and_projector_form_one_snapshot_to_live_observation_path() {
 }
 
 #[test]
+fn removal_invalidates_projected_state_without_emitting_a_positive_observation() {
+    let profile = profile();
+    let mut protocol = HomeAssistantWebSocketProtocol::new(12, &profile).unwrap();
+    let mut projector = EntityStreamProjector::new(&profile).unwrap();
+
+    send(&mut protocol, InboundMessage::AuthRequired);
+    send(&mut protocol, InboundMessage::AuthOk);
+    send(&mut protocol, InboundMessage::CommandResult {
+        id: 1,
+        success: true,
+        payload: ResultPayloadKind::Null,
+    });
+    assert_eq!(
+        send(&mut protocol, InboundMessage::EntityStreamUpdate {
+            subscription_id: 1,
+            kind: EntityStreamKind::InitialSnapshot,
+        }),
+        vec![ProtocolAction::InitialEntitySnapshotReady {
+            session_epoch: 12,
+            subscription_id: 1,
+        }]
+    );
+    let initial = projector.apply(EntityStreamKind::InitialSnapshot, &full_snapshot(), 10_000_000).unwrap();
+    assert_eq!(initial.frames.len(), 1);
+    assert_eq!(protocol.initial_snapshot_applied(12, 1), vec![
+        ProtocolAction::SessionLive { session_epoch: 12, subscription_id: 1 }
+    ]);
+
+    assert_eq!(
+        send(&mut protocol, InboundMessage::EntityStreamUpdate {
+            subscription_id: 1,
+            kind: EntityStreamKind::Changes,
+        }),
+        vec![ProtocolAction::DeliverEntityChanges {
+            session_epoch: 12,
+            subscription_id: 1,
+        }]
+    );
+    let removed = projector.apply(
+        EntityStreamKind::Changes,
+        &json!({"r": ["sensor.living_room_temperature"]}),
+        20_000_000,
+    ).unwrap();
+    assert!(removed.frames.is_empty(), "removal is not a positive state observation");
+    assert_eq!(removed.removed_entity_ids, vec!["sensor.living_room_temperature"]);
+    assert_eq!(projector.cached_entity_count(), 0, "removed entity must no longer have cached positive state");
+}
+
+#[test]
 fn mismatched_subscription_id_fails_closed_before_projector_invocation() {
     let profile = profile();
     let mut protocol = HomeAssistantWebSocketProtocol::new(9, &profile).unwrap();
