@@ -35,11 +35,21 @@ The follow-on branch/PR wires the durable gate into all five currently live UI m
 
 This narrows accidental client-side duplicate risk but is still not exactly-once remote execution. If the browser loses all local storage after dispatch, the client journal cannot recover its own history; domain reconciliation and a separately qualified backend idempotency contract remain necessary.
 
+## Local action history (HTH-UX-012)
+
+The Leptos UI now exposes a native, collapsible local action-history panel. The panel:
+- appears only after the current Hearth has been decoded from a real conductor record and its scope fingerprint is available;
+- filters rows by exact selected-Hearth fingerprint; an unknown scope shows no history;
+- presents at most 20 entries, newest update first, with allowlisted action/status copy, a short local operation reference, and created/updated timestamps;
+- updates its in-memory snapshot after this tab commits Prepared, Submitted, SourceChainCommitted, or OutcomeUnknown transitions, and initializes from the recovered IndexedDB list;
+- avoids target fingerprints, raw identity keys, household/member names, and private message payloads;
+- provides no retry/replay button. OutcomeUnknown stays unresolved until an authoritative reconciliation surface is implemented.
+
+The panel is a snapshot from this browser context. It is not a live cross-tab feed; reload re-reads the journal. Rows belonging to another household are not rendered merely because they exist in the same browser-origin database. Browser-local state is not proof of a remote outcome or peer propagation.
+
 ## Dispatch protocol required before production integration
 
-The adapter exists, but current Hearth live action handlers are **not yet routed through it**. Until that follow-on integration is complete, do not claim that actual UI dispatches are journal-gated or that blind replay has been eliminated end-to-end.
-
-The required sequence is:
+HTH-UX-011 routes the five currently live mutation handlers through the journal gate; the browser adapter and browser integration are still awaiting qualification. The required sequence remains:
 
 1. Generate an operation ID with cryptographic randomness and construct only allowlisted metadata.
 2. Insert `Prepared` and await transaction completion.
@@ -72,15 +82,18 @@ A plain hash is **not encryption or anonymization**. Fingerprints can be linkabl
 
 ## Authored test coverage
 
-Current module tests cover:
+Current authored test coverage includes:
 - strict record round-trip and allowlisted metadata;
 - invalid/raw/noncanonical fingerprint rejection and digest formatting;
 - unknown schema version and unknown fields failing closed;
 - legal transition, timestamp monotonicity and terminal status preservation;
 - injected Prepared persistence failure leaving no journal row;
-- restart recovery converting Prepared to NotSent and Submitted to OutcomeUnknown before returning rows.
+- restart recovery converting Prepared to NotSent and Submitted to OutcomeUnknown before returning rows;
+- mapping a decoded real Hearth record to its real Holochain action hash;
+- selected-Hearth history scoping, unknown-scope hiding, newest-first ordering and a 20-row display bound;
+- allowlisted action/status copy, short operation reference, and explicit no-repeat wording for OutcomeUnknown.
 
-These tests are authored, **not executed**. They do not substitute for a real IndexedDB browser test, multiple-tab race test, reload test, or native/WASM compile.
+These tests are authored, **not executed**. They do not substitute for a real IndexedDB browser test, multiple-tab race test, reload test, screen-reader session, or native/WASM compile.
 
 ## Benchmarks (targets, not results)
 
@@ -92,7 +105,10 @@ These tests are authored, **not executed**. They do not substitute for a real In
 6. **Crash matrix:** 10,000 deterministic injected crash/reload schedules with zero client-side blind replay, including before Prepared, between Prepared/Submitted, after Submitted/before send, in flight, after remote commit/before response, and after response/before confirmation commit.
 7. **Browser qualification:** test Chromium, Firefox, and WebKit profiles where available; record storage mode, transaction-option support, quota failure, browser restart/reload, and multiple-tab conflict results. Unsupported required storage semantics must produce a visible not-sent outcome rather than silently downgrade.
 8. **Human factors:** 100% of recovered Submitted attempts labeled as unknown; at least 90% of participants understand that “unknown” is neither proof of failure nor proof of success.
+9. **Household isolation:** zero journal rows from a different Hearth appear when selecting a household; zero history displayed when the current scope cannot be verified.
+10. **History attribution:** 100% of displayed entries carry an allowlisted action/status, and all visible updates match the journal's latest committed snapshot for this tab.
+11. **Recovery comprehension:** at least 90% of study participants correctly explain why an OutcomeUnknown attempt must not be repeated automatically.
 
 ## Nonclaims
 
-This tranche does not wire the adapter into live action dispatch, prove browser storage cannot be evicted, guarantee remote deduplication, establish globally unique operation IDs across devices/agents, provide exactly-once execution, reconcile an unknown write, or prove DHT propagation/global synchronization. Those remain separate engineering and qualification gates.
+The journal/history work does not prove browser storage cannot be evicted, guarantee remote deduplication, establish globally unique operation IDs across devices/agents, provide exactly-once execution, reconcile an unknown write, provide live cross-tab notifications, or prove DHT propagation/global synchronization. Browser/WASM/runtime qualification remains outstanding; these are separate engineering and qualification gates.
