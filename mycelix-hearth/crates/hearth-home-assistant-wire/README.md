@@ -36,6 +36,10 @@ All other attributes and fields—including `old_state`, context, friendly names
 
 Source `last_updated` is intentionally not parsed in this tranche; HA-0.1 already treats that provenance as optional and never uses it for freshness.
 
+## Entity removal semantics
+
+Only explicit JSON `new_state: null` means the provider reported an entity-removal transition. A missing `new_state` field is malformed input and fails closed; absence and explicit null are different wire facts. This prevents truncated or malformed event payloads from invalidating an existing observation.
+
 ## Bounds
 
 V1 freezes separate limits for authentication/control messages, live events, bootstrap snapshots, bootstrap entity count, server error strings, and Home Assistant version strings. Oversized or malformed inputs fail before they can construct protocol events.
