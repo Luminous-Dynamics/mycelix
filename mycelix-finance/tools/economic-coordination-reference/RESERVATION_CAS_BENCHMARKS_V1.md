@@ -54,9 +54,9 @@ The lease/evidence coupling prevents a reservation from promising more time than
 
 ## Independent oracle and schedule campaign
 
-Start with a separate test-local reference reducer that interprets accepted/rejected commands and expected pool state without calling ReservationBook. Freeze input commands and expected states for each fixture. Include exact retry and conflict schedules, delayed responses, stale revision/fence, expiry at exactly the boundary, release/commit races, crash points before/after event append, and restarts from durable snapshots once persistence is added.
+A first independent test-local reducer is authored in tests/reservation_cas_oracle.rs. It computes reserve admissibility, occupied quantity, revision and fencing-token changes without calling ReservationBook helpers and compares 108 three-command sequences across capacities 1–4. This oracle is authored, not yet qualified as passing on exact head.
 
-Only after that oracle qualifies, run at least 10,000 deterministic command schedules with a pinned generator, seed, toolchain, manifest/corpus digest and source revision. Shrink every counterexample into a named golden fixture. Do not call the production state machine twice and treat equality as independent verification.
+Next, extend the oracle to explicit transition schedules: exact retry/conflict, delayed responses, stale revision/fence, expiry at the boundary, release/commit races, crash points before/after event append, and restarts from durable snapshots once persistence exists. Only after those small oracles qualify should the project run at least 10,000 deterministic command schedules with pinned generator, seed, toolchain, manifest/corpus digest and source revision. Shrink every counterexample into a named golden fixture. Do not call the production state machine twice and treat equality as independent verification.
 
 ## Runtime and operational gates
 
