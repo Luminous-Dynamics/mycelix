@@ -1241,6 +1241,17 @@ mod tests {
         }
     }
 
+    struct RejectClassification;
+    impl ClassificationVerifier for RejectClassification {
+        fn verify_classification(
+            &self,
+            _claim: &ClassificationClaim,
+            _now_ms: u64,
+        ) -> Result<u64, ClassificationVerificationFailure> {
+            Err(ClassificationVerificationFailure::InvalidSignature)
+        }
+    }
+
     struct AcceptClassification {
         evidence_until_ms: u64,
     }
@@ -1277,6 +1288,17 @@ mod tests {
             _now_ms: u64,
         ) -> Result<u64, AgreementVerificationFailure> {
             Ok(self.evidence_until_ms)
+        }
+    }
+
+    struct RejectConsent;
+    impl ConsentVerifier for RejectConsent {
+        fn verify_current_grant(
+            &self,
+            _grant: &ConsentGrant,
+            _now_ms: u64,
+        ) -> Result<u64, ConsentVerificationFailure> {
+            Err(ConsentVerificationFailure::InvalidSignature)
         }
     }
 
@@ -2307,6 +2329,58 @@ mod tests {
         assert!(decision.reasons.contains(&DenialReason::ConsentSubjectMismatch));
         assert!(decision.reasons.contains(&DenialReason::ConsentDataClassMismatch));
         assert!(decision.reasons.contains(&DenialReason::ConsentActionMismatch));
+    }
+
+    #[test]
+    fn rejects_classification_when_trusted_adapter_rejects_signature() {
+        let claim = ClassificationClaim {
+            schema_version: 1,
+            resource_id: "record:education-credential".to_owned(),
+            subject_id: Some("did:example:subject-1".to_owned()),
+            content_digest: TEST_CONTENT_DIGEST.to_owned(),
+            data_class: DataClass::Personal,
+            valid_from_unix_ms: 150,
+            valid_until_unix_ms: 500,
+            issuer_id: "issuer:classification-authority".to_owned(),
+            signing_key_id: "classification-test-key".to_owned(),
+            claim_digest: "d".repeat(64),
+            signature: vec![4; 64],
+        };
+        let result = VerifiedClassification::verify(claim, 200, &RejectClassification);
+        assert_eq!(
+            result,
+            Err(ClassificationValidationError::VerificationFailed(
+                ClassificationVerificationFailure::InvalidSignature
+            ))
+        );
+    }
+
+    #[test]
+    fn rejects_consent_when_trusted_adapter_rejects_signature() {
+        let grant = ConsentGrant {
+            schema_version: 1,
+            grant_id: "grant-rejected".to_owned(),
+            subject_id: "did:example:subject-1".to_owned(),
+            resource_id: "record:education-credential".to_owned(),
+            content_digest: TEST_CONTENT_DIGEST.to_owned(),
+            data_class: DataClass::Personal,
+            action: BoundaryAction::Disclose,
+            recipient_id: "service:education".to_owned(),
+            purpose: "credential-check".to_owned(),
+            valid_from_unix_ms: 150,
+            valid_until_unix_ms: 500,
+            issuer_id: "did:example:subject-1".to_owned(),
+            signing_key_id: "consent-test-key".to_owned(),
+            grant_digest: "e".repeat(64),
+            signature: vec![5; 64],
+        };
+        let result = VerifiedConsentGrant::verify(grant, 200, &RejectConsent);
+        assert_eq!(
+            result,
+            Err(ConsentValidationError::VerificationFailed(
+                ConsentVerificationFailure::InvalidSignature
+            ))
+        );
     }
 
 }
