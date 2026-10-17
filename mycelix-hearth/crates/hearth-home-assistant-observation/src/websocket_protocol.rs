@@ -1043,7 +1043,10 @@ mod tests {
             live_histories > 0,
             "bounded generator lost the valid authentication/snapshot/apply positive control"
         );
-        assert_eq!(live_histories, 1, "only terminal event ordering should remain live at history end");
+        assert_eq!(
+            live_histories, 2,
+            "only a complete auth/subscription/snapshot/apply sequence followed by one live-safe event may remain live at history end"
+        );
     }
 
     #[test]
