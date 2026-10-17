@@ -31,6 +31,8 @@ pub struct Participant {
     pub minimum_shared_interests: usize,
     pub minimum_utility: u32,
     pub active: bool,
+    /// Explicit opt-in to appear in discovery. This is not consent to a specific introduction.
+    pub discovery_opt_in: bool,
     pub blocked_ids: Vec<u32>,
 }
 
@@ -134,6 +136,8 @@ pub fn eligible_pair(a: &Participant, b: &Participant) -> bool {
         || a.partition == b.partition
         || !a.active
         || !b.active
+        || !a.discovery_opt_in
+        || !b.discovery_opt_in
         || a.goal != b.goal
         || b.age < a.minimum_age
         || b.age > a.maximum_age
@@ -171,7 +175,7 @@ pub fn recommend(
         participants.iter().map(|person| (person.id, person)).collect();
     let mut viewers: Vec<&Participant> = participants
         .iter()
-        .filter(|person| person.active)
+        .filter(|person| person.active && person.discovery_opt_in)
         .collect();
     viewers.sort_by_key(|person| person.id);
 
@@ -230,7 +234,7 @@ fn recommend_exposure_balanced_validated(
 ) -> Result<Vec<Recommendation>, String> {
     let mut viewers: Vec<&Participant> = participants
         .iter()
-        .filter(|person| person.active)
+        .filter(|person| person.active && person.discovery_opt_in)
         .collect();
     viewers.sort_by_key(|person| person.id);
 
@@ -462,6 +466,7 @@ pub fn synthetic_market(seed: u64, participant_count: usize) -> Result<Vec<Parti
             minimum_shared_interests: rng.range(1, 3),
             minimum_utility: rng.range(10, 60) as u32,
             active: rng.range(0, 99) < 95,
+            discovery_opt_in: rng.range(0, 99) < 92,
             blocked_ids: Vec::new(),
         });
     }
@@ -509,7 +514,8 @@ pub fn corpus_fingerprint_fnv1a64(participants: &[Participant]) -> String {
             goal,
             person.minimum_shared_interests,
             person.minimum_utility,
-            person.active
+            person.active,
+            person.discovery_opt_in
         ));
 
         let mut interests = person.interests.clone();
@@ -588,6 +594,7 @@ mod tests {
             minimum_shared_interests: 1,
             minimum_utility: 10,
             active: true,
+            discovery_opt_in: true,
             blocked_ids: Vec::new(),
         }
     }
@@ -630,6 +637,17 @@ mod tests {
 
         b.blocked_ids.push(1);
         assert!(!eligible_pair(&a, &b));
+    }
+
+    #[test]
+    fn discovery_opt_out_excludes_a_person_from_recommendations() {
+        let a = person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
+        let mut b = person(2, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
+        b.discovery_opt_in = false;
+        assert!(!eligible_pair(&a, &b));
+        let recommendations = recommend(&[a, b], 5, RankingPolicy::ExposureBalancedMutual)
+            .expect("valid market");
+        assert!(recommendations.is_empty());
     }
 
     #[test]
