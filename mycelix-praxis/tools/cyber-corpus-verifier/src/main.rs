@@ -165,6 +165,50 @@ fn safe_relative_path(value: &str) -> Result<PathBuf, String> {
     Ok(path.to_path_buf())
 }
 
+fn resolve_regular_file_under_root(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let safe = safe_relative_path(relative)?;
+    let canonical_root = fs::canonicalize(root)
+        .map_err(|e| fail(format!("cannot canonicalize verifier root {}: {e}", root.display())))?;
+    let components: Vec<_> = safe.components().collect();
+    if components.is_empty() {
+        return Err(fail("manifest path resolves to the root, not a file"));
+    }
+
+    let mut current = canonical_root.clone();
+    for (index, component) in components.iter().enumerate() {
+        current.push(component.as_os_str());
+        let metadata = fs::symlink_metadata(&current)
+            .map_err(|e| fail(format!("cannot inspect verifier input {}: {e}", current.display())))?;
+        if metadata.file_type().is_symlink() {
+            return Err(fail(format!(
+                "symlink inputs are not permitted: {}",
+                current.display()
+            )));
+        }
+        let is_last = index + 1 == components.len();
+        if !is_last && !metadata.is_dir() {
+            return Err(fail(format!(
+                "verifier input parent is not a directory: {}",
+                current.display()
+            )));
+        }
+        if is_last && !metadata.is_file() {
+            return Err(fail(format!(
+                "verifier input is not a regular file: {}",
+                current.display()
+            )));
+        }
+    }
+
+    if !current.starts_with(&canonical_root) {
+        return Err(fail(format!(
+            "verifier input escapes root: {}",
+            current.display()
+        )));
+    }
+    Ok(current)
+}
+
 fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
@@ -423,8 +467,10 @@ fn verify(
     manifest_relative: &str,
     verifier_source_commit: &str,
 ) -> Result<Report, String> {
-    let manifest_path = safe_relative_path(manifest_relative)?;
-    let manifest_bytes = fs::read(root.join(&manifest_path))
+    let canonical_root = fs::canonicalize(root)
+        .map_err(|e| fail(format!("cannot canonicalize verifier root {}: {e}", root.display())))?;
+    let manifest_path = resolve_regular_file_under_root(&canonical_root, manifest_relative)?;
+    let manifest_bytes = fs::read(&manifest_path)
         .map_err(|e| fail(format!("cannot read manifest {}: {e}", manifest_path.display())))?;
     let manifest: Manifest = serde_json::from_slice(&manifest_bytes)
         .map_err(|e| fail(format!("cannot parse manifest: {e}")))?;
@@ -458,8 +504,8 @@ fn verify(
         if !valid_lower_hex(&identity.sha256, 64) {
             return Err(fail(format!("manifest SHA-256 is malformed for {relative}")));
         }
-        let safe = safe_relative_path(relative)?;
-        let bytes = fs::read(root.join(&safe))
+        let safe = resolve_regular_file_under_root(&canonical_root, relative)?;
+        let bytes = fs::read(&safe)
             .map_err(|e| fail(format!("cannot read {}: {e}", safe.display())))?;
         let actual_digest = digest(&bytes);
         if actual_digest != identity.sha256 {
@@ -712,6 +758,48 @@ mod tests {
             fs::copy(from, to).expect("fixture file should copy");
         }
         target
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn verifier_rejects_symlinked_inputs_even_when_the_target_is_outside_root() {
+        use std::os::unix::fs::symlink;
+
+        let root = copy_fixture_tree_for_test();
+        let solver_relative = EXPECTED_FILES[0];
+        let solver_path = root.join(solver_relative);
+        let outside_path = root.with_extension("outside-jsonl");
+        fs::write(&outside_path, b"{\"external\":true}\n")
+            .expect("outside target should be written");
+        fs::remove_file(&solver_path).expect("copied solver fixture should be removed");
+        symlink(&outside_path, &solver_path).expect("solver path should become a symlink");
+
+        let error = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40))
+            .expect_err("symlinked solver fixture must be rejected");
+        assert!(error.contains("symlink inputs are not permitted"), "unexpected error: {error}");
+
+        fs::remove_dir_all(&root).expect("temporary test root should be removed");
+        fs::remove_file(outside_path).expect("outside target should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn verifier_rejects_symlinked_manifest_inputs() {
+        use std::os::unix::fs::symlink;
+
+        let root = copy_fixture_tree_for_test();
+        let manifest_path = root.join(DEFAULT_MANIFEST);
+        let outside_path = root.with_extension("outside-manifest.json");
+        fs::write(&outside_path, b"{}\n").expect("outside manifest should be written");
+        fs::remove_file(&manifest_path).expect("copied manifest should be removed");
+        symlink(&outside_path, &manifest_path).expect("manifest path should become a symlink");
+
+        let error = verify(&root, DEFAULT_MANIFEST, &"a".repeat(40))
+            .expect_err("symlinked manifest must be rejected");
+        assert!(error.contains("symlink inputs are not permitted"), "unexpected error: {error}");
+
+        fs::remove_dir_all(&root).expect("temporary test root should be removed");
+        fs::remove_file(outside_path).expect("outside manifest should be removed");
     }
 
     #[test]
