@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the separate effect-journal module adds 13 more, for 56 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The root test module contains 43 source-level tests (including the six effect-lease tests); the separate effect-journal module adds 14 more, for 57 source-level test functions total. Exact-head CI must compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -93,6 +93,7 @@ Thirteen source-level state-machine tests are authored in `src/effect_journal.rs
 | RPK-JOURNAL-011 | Submitted/unknown snapshot round trip | `snapshot_round_trips_submitted_and_unknown_states` |
 | RPK-JOURNAL-012 | Impossible restored state | `restore_rejects_impossible_phase_field_combinations` |
 | RPK-JOURNAL-013 | Receipt proof replayed across different policy-binding digests | `rejects_replayed_sink_proof_for_changed_policy_binding` |
+| RPK-JOURNAL-014 | Receipt proof replayed across authority domains | `rejects_sink_proof_replayed_across_authority_domains` |
 | RPK-JOURNAL-010 | Rejecting verifier | `sink_verifier_rejection_does_not_create_verified_outcome` |
 
 The snapshot model adds round-trip restoration of Submitted/OutcomeUnknown and rejection of impossible phase-field combinations. The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
