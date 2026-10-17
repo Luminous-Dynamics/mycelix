@@ -31,6 +31,9 @@ pub mod recourse;
 /// Bounded ex-ante choice of flexible/backup commitments over a frozen scenario set.
 pub mod strategy;
 
+/// Append-only forecast-to-delivery outcome ledger with deterministic replay.
+pub mod outcomes;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
