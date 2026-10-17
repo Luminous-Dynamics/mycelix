@@ -13,6 +13,7 @@ const MAX_PROFILE_VERSION_BYTES: usize = 128;
 const MAX_SCOPE_ID_BYTES: usize = 256;
 const MAX_SIGNING_KEY_ID_BYTES: usize = 256;
 const MAX_GRANT_ID_BYTES: usize = 256;
+const MAX_DID_BYTES: usize = 256;
 const MAX_RECIPIENT_ID_BYTES: usize = 512;
 const MAX_PURPOSE_BYTES: usize = 512;
 const MAX_SIGNATURE_BYTES: usize = 4096;
