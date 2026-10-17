@@ -65,6 +65,20 @@ pub struct EvaluationMetrics {
     pub invalid_recommendation_count: usize,
 }
 
+/// Exposure metrics whose opportunity denominators include only directed
+/// viewer-to-candidate edges allowed by the same optional mutual-utility floor.
+/// This complements broad hard-feasibility metrics; the two answer different questions.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QualifiedOpportunityMetrics {
+    pub qualified_directed_opportunity_count: usize,
+    pub qualified_candidate_users: usize,
+    pub exposed_qualified_candidate_users: usize,
+    pub qualified_candidate_coverage: f64,
+    pub qualified_total_exposure: usize,
+    pub qualified_exposure_gini: f64,
+    pub qualified_opportunity_normalized_exposure_gini: f64,
+}
+
 /// Metrics for cumulative incoming exposure across multiple recommendation rounds.
 /// Repeated viewer/candidate pairs across separate rounds are valid repeated exposures.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -649,6 +663,97 @@ pub fn evaluate_cumulative_exposure(
         total_exposure,
         exposure_gini: gini(&raw_values),
         opportunity_normalized_exposure_gini: gini_f64(&normalized_values),
+    })
+}
+
+/// Evaluate cumulative incoming exposure using the same per-viewer quality
+/// constraint that generated recommendations. A threshold of 0 uses only the hard
+/// eligibility predicate; 1..=100 additionally requires each candidate's mutual
+/// utility floor to reach that percentage of the viewer's best feasible floor.
+pub fn evaluate_cumulative_exposure_with_quality_floor(
+    participants: &[Participant],
+    cumulative_exposure: &BTreeMap<u32, usize>,
+    quality_floor_percent: u8,
+) -> Result<QualifiedOpportunityMetrics, String> {
+    validate_market(participants)?;
+    if quality_floor_percent > 100 {
+        return Err("quality_floor_percent must be in 0..=100".to_string());
+    }
+    let known_ids: BTreeSet<u32> = participants.iter().map(|person| person.id).collect();
+    if let Some(unknown_id) = cumulative_exposure.keys().find(|id| !known_ids.contains(id)) {
+        return Err(format!("cumulative exposure contains unknown participant id: {unknown_id}"));
+    }
+
+    let viewers: Vec<&Participant> = participants
+        .iter()
+        .filter(|person| person.active && person.discovery_opt_in)
+        .collect();
+    let mut opportunity_degree = BTreeMap::<u32, usize>::new();
+    let mut qualified_directed_opportunity_count = 0usize;
+
+    for viewer in viewers {
+        let candidates: Vec<&Participant> = participants
+            .iter()
+            .filter(|candidate| eligible_pair(viewer, candidate))
+            .collect();
+        let best_floor = candidates
+            .iter()
+            .map(|candidate| directed_utility(viewer, candidate).min(directed_utility(candidate, viewer)))
+            .max()
+            .unwrap_or(0);
+
+        for candidate in candidates {
+            let floor = directed_utility(viewer, candidate).min(directed_utility(candidate, viewer));
+            let allowed = quality_floor_percent == 0
+                || u128::from(floor) * 100
+                    >= u128::from(best_floor) * u128::from(quality_floor_percent);
+            if allowed {
+                let degree = opportunity_degree.entry(candidate.id).or_default();
+                *degree = degree
+                    .checked_add(1)
+                    .ok_or_else(|| "qualified opportunity counter overflow".to_string())?;
+                qualified_directed_opportunity_count = qualified_directed_opportunity_count
+                    .checked_add(1)
+                    .ok_or_else(|| "qualified opportunity total overflow".to_string())?;
+            }
+        }
+    }
+
+    let mut exposure_values = Vec::with_capacity(opportunity_degree.len());
+    let mut normalized_values = Vec::with_capacity(opportunity_degree.len());
+    let mut qualified_total_exposure = 0usize;
+    let mut exposed_qualified_candidate_users = 0usize;
+
+    for (candidate_id, degree) in &opportunity_degree {
+        if *degree == 0 {
+            return Err(format!("zero qualified opportunity denominator for candidate {candidate_id}"));
+        }
+        let exposure = cumulative_exposure.get(candidate_id).copied().unwrap_or(0);
+        qualified_total_exposure = qualified_total_exposure
+            .checked_add(exposure)
+            .ok_or_else(|| "qualified total exposure overflow".to_string())?;
+        if exposure > 0 {
+            exposed_qualified_candidate_users += 1;
+        }
+        exposure_values.push(exposure);
+        normalized_values.push(exposure as f64 / *degree as f64);
+    }
+
+    let qualified_candidate_users = opportunity_degree.len();
+    let qualified_candidate_coverage = if qualified_candidate_users == 0 {
+        0.0
+    } else {
+        exposed_qualified_candidate_users as f64 / qualified_candidate_users as f64
+    };
+
+    Ok(QualifiedOpportunityMetrics {
+        qualified_directed_opportunity_count,
+        qualified_candidate_users,
+        exposed_qualified_candidate_users,
+        qualified_candidate_coverage,
+        qualified_total_exposure,
+        qualified_exposure_gini: gini(&exposure_values),
+        qualified_opportunity_normalized_exposure_gini: gini_f64(&normalized_values),
     })
 }
 
@@ -1295,6 +1400,27 @@ mod tests {
         // exposure. The allocator prefers 4 (1/2) over 3 (1/1).
         let viewer_one = rows.iter().find(|row| row.viewer_id == 1).unwrap();
         assert_eq!(viewer_one.candidate_id, 4);
+    }
+
+    #[test]
+    fn quality_adjusted_opportunity_denominator_matches_viewer_floor() {
+        let market = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 1)]),
+            person(2, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 1)]),
+            person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 1)]),
+            person(4, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(2, 5)]),
+        ];
+        let counts = BTreeMap::from([(3u32, 1usize)]);
+
+        let hard = evaluate_cumulative_exposure_with_quality_floor(&market, &counts, 0)
+            .expect("hard-feasible metrics");
+        let constrained = evaluate_cumulative_exposure_with_quality_floor(&market, &counts, 90)
+            .expect("qualified metrics");
+
+        assert!(hard.qualified_directed_opportunity_count >= constrained.qualified_directed_opportunity_count);
+        assert!(hard.qualified_candidate_users >= constrained.qualified_candidate_users);
+        assert_eq!(hard.qualified_total_exposure, 1);
+        assert_eq!(constrained.qualified_total_exposure, 1);
     }
 
     #[test]
