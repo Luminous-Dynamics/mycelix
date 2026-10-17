@@ -183,6 +183,7 @@ pub enum ReservationError {
     EvidenceExpired,
     ZeroQuantity,
     InvalidLease,
+    LeaseOutlivesEvidence,
     CapacityUnavailable,
     LeaseExpired,
     LeaseNotExpired,
@@ -196,6 +197,7 @@ struct PoolState {
     spec: CapacityPoolSpec,
     revision: u64,
     fencing_token: u64,
+    last_mutation_at: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -250,12 +252,14 @@ impl ReservationBook {
         if self.pools.contains_key(&spec.pool_id) {
             return Err(ReservationError::DuplicatePool);
         }
+        let last_mutation_at = spec.observed_at;
         self.pools.insert(
             spec.pool_id.clone(),
             PoolState {
                 spec,
                 revision: 1,
                 fencing_token: 1,
+                last_mutation_at,
             },
         );
         Ok(())
@@ -373,7 +377,13 @@ impl ReservationBook {
         if command.expected_snapshot_digest != pool.spec.snapshot_digest {
             return Err(ReservationError::SnapshotMismatch);
         }
+        if command.issued_at < pool.last_mutation_at {
+            return Err(ReservationError::NonMonotonicTime);
+        }
         validate_evidence(&pool.spec, command.issued_at)?;
+        if command.expires_at > pool.spec.valid_until {
+            return Err(ReservationError::LeaseOutlivesEvidence);
+        }
 
         let (_, _, occupied) = self.occupied_quantities(&command.pool_id)?;
         let after = occupied
@@ -436,6 +446,7 @@ impl ReservationBook {
             .ok_or(ReservationError::UnknownPool)?;
         pool_state.revision = next_revision;
         pool_state.fencing_token = next_fencing_token;
+        pool_state.last_mutation_at = command.issued_at;
         self.reservations.insert(
             command.reservation_id.clone(),
             ReservationRecord {
@@ -502,6 +513,9 @@ impl ReservationBook {
         }
         if command.expected_fencing_token != pool.fencing_token {
             return Err(ReservationError::StaleFencingToken);
+        }
+        if command.at < pool.last_mutation_at {
+            return Err(ReservationError::NonMonotonicTime);
         }
 
         if command.at < record.last_transition_at {
@@ -578,6 +592,7 @@ impl ReservationBook {
             .ok_or(ReservationError::UnknownPool)?;
         pool_state.revision = next_revision;
         pool_state.fencing_token = next_fencing_token;
+        pool_state.last_mutation_at = command.at;
         let updated_record = self
             .reservations
             .get_mut(&command.reservation_id)
@@ -975,6 +990,30 @@ mod tests {
             Err(ReservationError::EvidenceExpired)
         );
         assert!(book.events().is_empty());
+    }
+
+    #[test]
+    fn lease_may_not_outlive_the_evidence_snapshot() {
+        let mut book = ReservationBook::new();
+        let mut spec = pool_spec(3);
+        spec.valid_until = 20;
+        book.register_pool(spec).unwrap();
+        let command = reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 21);
+        assert_eq!(book.reserve(command), Err(ReservationError::LeaseOutlivesEvidence));
+        assert!(book.events().is_empty());
+    }
+
+    #[test]
+    fn pool_mutation_timestamps_are_monotonic_across_reservations() {
+        let mut book = ReservationBook::new();
+        register(&mut book, 3);
+        book.reserve(reserve_command("cmd-1", "idem-1", "reservation-1", 1, 1, 1, 50)).unwrap();
+        assert_eq!(
+            book.reserve(reserve_command("cmd-2", "idem-2", "reservation-2", 1, 2, 2, 50)),
+            Err(ReservationError::NonMonotonicTime)
+        );
+        assert_eq!(book.pool_capacity("supplier-site-week-44").unwrap().reserved_quantity, 1);
+        assert_eq!(book.events().len(), 1);
     }
 
     #[test]
