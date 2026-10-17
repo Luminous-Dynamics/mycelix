@@ -59,6 +59,7 @@ pub struct EvaluationMetrics {
     pub exposed_candidate_users: usize,
     pub candidate_coverage: f64,
     pub exposure_gini: f64,
+    pub opportunity_normalized_exposure_gini: f64,
     pub recommendation_count: usize,
     pub mutual_shortlist_pair_count: usize,
     pub invalid_recommendation_count: usize,
@@ -288,7 +289,7 @@ fn recommend_exposure_balanced_validated(
     // deterministically each round so the lowest IDs do not always go first.
     // Exposure load is the primary selection key; mutual utility breaks ties.
     for slot in 0..top_k {
-        let offset = slot.wrapping_mul(37) % viewers.len();
+        let offset = slot % viewers.len();
         for step in 0..viewers.len() {
             let viewer = viewers[(offset + step) % viewers.len()];
             let already_selected = selected
@@ -342,9 +343,12 @@ fn recommend_exposure_balanced_validated(
     Ok(flattened)
 }
 
-fn eligible_candidate_pool(participants: &[Participant]) -> (BTreeSet<u32>, usize) {
+fn eligible_candidate_pool(
+    participants: &[Participant],
+) -> (BTreeSet<u32>, usize, BTreeMap<u32, usize>) {
     let mut eligible_people = BTreeSet::new();
     let mut feasible_pairs = 0usize;
+    let mut opportunity_degree = BTreeMap::<u32, usize>::new();
 
     for left_index in 0..participants.len() {
         for right_index in (left_index + 1)..participants.len() {
@@ -355,11 +359,13 @@ fn eligible_candidate_pool(participants: &[Participant]) -> (BTreeSet<u32>, usiz
                 feasible_pairs += 1;
                 eligible_people.insert(left.id);
                 eligible_people.insert(right.id);
+                *opportunity_degree.entry(left.id).or_default() += 1;
+                *opportunity_degree.entry(right.id).or_default() += 1;
             }
         }
     }
 
-    (eligible_people, feasible_pairs)
+    (eligible_people, feasible_pairs, opportunity_degree)
 }
 
 fn gini(values: &[usize]) -> f64 {
@@ -382,13 +388,34 @@ fn gini(values: &[usize]) -> f64 {
     pairwise_difference / (2.0 * values.len() as f64 * sum as f64)
 }
 
+fn gini_f64(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+
+    let sum: f64 = values.iter().sum();
+    if sum <= 0.0 {
+        return 0.0;
+    }
+
+    let mut pairwise_difference = 0.0f64;
+    for left in values {
+        for right in values {
+            pairwise_difference += (left - right).abs();
+        }
+    }
+
+    pairwise_difference / (2.0 * values.len() as f64 * sum)
+}
+
 /// Evaluate recommendation exposure. Candidate coverage and exposure Gini are
 /// calculated only over participants who have at least one feasible counterpart.
 pub fn evaluate(
     participants: &[Participant],
     recommendations: &[Recommendation],
 ) -> EvaluationMetrics {
-    let (eligible_people, feasible_pair_count) = eligible_candidate_pool(participants);
+    let (eligible_people, feasible_pair_count, opportunity_degree) =
+        eligible_candidate_pool(participants);
     let by_id: BTreeMap<u32, &Participant> =
         participants.iter().map(|person| (person.id, person)).collect();
     let mut exposure: BTreeMap<u32, usize> =
@@ -397,12 +424,17 @@ pub fn evaluate(
     let mut directed_pairs = BTreeSet::new();
 
     for row in recommendations {
-        directed_pairs.insert((row.viewer_id, row.candidate_id));
-
         match (by_id.get(&row.viewer_id), by_id.get(&row.candidate_id)) {
             (Some(viewer), Some(candidate)) if eligible_pair(viewer, candidate) => {
+                if !directed_pairs.insert((row.viewer_id, row.candidate_id)) {
+                    invalid_recommendation_count += 1;
+                    continue;
+                }
                 if let Some(count) = exposure.get_mut(&row.candidate_id) {
                     *count += 1;
+                } else {
+                    invalid_recommendation_count += 1;
+                    directed_pairs.remove(&(row.viewer_id, row.candidate_id));
                 }
             }
             _ => invalid_recommendation_count += 1,
@@ -411,6 +443,14 @@ pub fn evaluate(
 
     let exposed_candidate_users = exposure.values().filter(|count| **count > 0).count();
     let values: Vec<usize> = exposure.values().copied().collect();
+    let normalized_exposure: Vec<f64> = eligible_people
+        .iter()
+        .map(|id| {
+            let observed = exposure.get(id).copied().unwrap_or(0) as f64;
+            let opportunities = opportunity_degree.get(id).copied().unwrap_or(1).max(1) as f64;
+            observed / opportunities
+        })
+        .collect();
     let candidate_coverage = if eligible_people.is_empty() {
         0.0
     } else {
@@ -430,6 +470,7 @@ pub fn evaluate(
         exposed_candidate_users,
         candidate_coverage,
         exposure_gini: gini(&values),
+        opportunity_normalized_exposure_gini: gini_f64(&normalized_exposure),
         recommendation_count: recommendations.len(),
         mutual_shortlist_pair_count,
         invalid_recommendation_count,
@@ -759,6 +800,46 @@ mod tests {
         let a = person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
         let duplicate_id = person(1, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
         assert!(validate_market(&[a, duplicate_id]).is_err());
+    }
+
+    #[test]
+    fn opportunity_normalization_separates_degree_from_exposure() {
+        let a1 = person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3), (2, 3)]);
+        let a2 = person(2, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
+        let b1 = person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3), (2, 3)]);
+        let b2 = person(4, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(2, 3)]);
+        let people = vec![a1, a2, b1, b2];
+        let rows = recommend(&people, 10, RankingPolicy::FeasibilityOnly).expect("valid market");
+        let metrics = evaluate(&people, &rows);
+
+        assert_eq!(metrics.feasible_pair_count, 3);
+        assert!(metrics.exposure_gini > 0.0);
+        assert!(metrics.opportunity_normalized_exposure_gini.abs() < 1e-12);
+    }
+
+    #[test]
+    fn duplicate_or_ineligible_evaluation_rows_are_counted_as_invalid() {
+        let a = person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
+        let b = person(2, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]);
+        let people = vec![a, b];
+        let row = Recommendation {
+            viewer_id: 1,
+            candidate_id: 2,
+            viewer_utility: 30,
+            candidate_utility: 30,
+        };
+        let duplicate = row.clone();
+        let invalid = Recommendation {
+            viewer_id: 1,
+            candidate_id: 999,
+            viewer_utility: 30,
+            candidate_utility: 30,
+        };
+        let metrics = evaluate(&people, &[row, duplicate, invalid]);
+
+        assert_eq!(metrics.invalid_recommendation_count, 2);
+        assert_eq!(metrics.mutual_shortlist_pair_count, 0);
+        assert_eq!(metrics.candidate_coverage, 1.0);
     }
 
     #[test]
