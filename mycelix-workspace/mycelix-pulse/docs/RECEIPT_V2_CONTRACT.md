@@ -28,6 +28,26 @@ commitment = SHA-256(preimage)
 
 The WASM-safe types crate defines the exact preimage bytes and intentionally does not add a second hash implementation. The caller must compute SHA-256 with the approved implementation. A receipt verifier must independently recompute the commitment from the exact envelope it validated. A caller-supplied commitment alone proves nothing.
 
+## Deterministic receipt-event identity
+
+For the coordinator profile, a deterministic event ID can be derived as:
+
+```text
+preimage = "mycelix-pulse/receipt-event-id/v2\\0"
+           || message_id[32]
+           || u32be(len(recipient_agent)) || recipient_agent
+           || receipt_kind_u8
+receipt_event_id = SHA-256(preimage)
+```
+
+Receipt-kind codes are `Observed=0x01`, `Delivered=0x02`, and `Read=0x03`.
+The exact preimage is frozen in
+`test-vectors/receipt-v2-event-id-preimage-delivered.hex`. Do not include the
+timestamp, route, attempt number, or envelope commitment in this identity
+derivation: otherwise an ordinary retry or conflicting transcript could be
+mistaken for a new logical receipt. The commitment itself remains signed and
+is compared as part of replay classification.
+
 ## Frozen canonical-byte vector
 
 The crate test `v2_receipt_matches_frozen_canonical_byte_vector` consumes
@@ -53,7 +73,7 @@ versioning decision and review, not a silent fixture update.
 
 ## Retry / conflict contract
 
-A sender/recipient implementation must persist `receipt_event_id` before its first attempt and reuse it for every retransmission of that *same signed receipt*. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
+A sender/recipient implementation must either persist `receipt_event_id` before its first attempt and reuse it for every retransmission of that *same signed receipt*, or derive it deterministically from an immutable semantic identity. The shared preimage helper `canonical_receipt_event_id_preimage` defines a deterministic option: SHA-256 over a domain-separated encoding of message ID, recipient agent bytes, and receipt kind. It deliberately excludes timestamp, transport route, attempt number, and envelope commitment, so conflicting content for the same logical message/recipient/kind reuses the same identity and is detected as a conflict. Replays with the same event ID and same canonical signing bytes are duplicate observations of one logical receipt. Reuse of that event ID with any changed signed field—including message ID, recipient, envelope commitment, profile, kind, or timestamp—is an integrity conflict and must fail closed.
 
 The type-level transcript makes those differences observable. It does **not** implement an atomic durable deduplication store, serialize concurrent coordinator calls, prevent duplicate DHT entries, or prove end-to-end exactly-once delivery.
 
