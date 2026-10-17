@@ -9,11 +9,11 @@
 The append-only in-memory reference links versioned forecasts, authorized commitments, shipment claims, receipts, acceptance/rejection, returns, disputes, dispute resolutions, and finalized outcomes. It is not a durable ledger, signature checker, evidence authenticator, distributed consensus protocol, payment authority, or supplier reputation engine.
 
 - Source claim IDs are upstream idempotency keys. Exact retries are idempotent; conflicting reuse fails closed.
-- Corrections append replacements and mark their predecessor superseded in the derived view. Prior event objects remain available for audit.
+- Corrections append replacements and mark their predecessor superseded in the derived view. Prior event objects remain available for audit, and reports expose a superseded-event count.
 - Replay sorts active events deterministically by occurrence time and event ID, not ingestion order.
 - Only events labelled both verified and live-domain affect trusted outcome totals. Other active events remain visible as excluded/unverified counts.
 - Open disputes suppress OTIF and forecast-calibration outputs until resolved.
-- Finalized quantities must reconcile with detailed receipt/acceptance/return evidence when that detail is present.
+- Finalized quantities must reconcile with detailed acceptance/return evidence when that detail is present; detailed accepted/rejected quantities cannot exceed the reported receipt quantity.
 - Caller-supplied status, origin, role and digest references are assertions; this module does not cryptographically authenticate them. Stable source claim IDs are required for idempotency; differently keyed duplicate assertions cannot reliably be recognized as the same real-world fact without stronger identity rules.
 
 ## Benchmarks
@@ -25,6 +25,7 @@ The append-only in-memory reference links versioned forecasts, authorized commit
 | Exact duplicate claim retries | 100% idempotent |
 | Conflicting reuse of event/claim identity | 100% rejected |
 | Corrections erase prior event history | 0 |
+| Superseded event history count visibility | 100% of corrected case reports |
 | Duplicate active commitment/finalization accepted | 0 |
 | Accepted + rejected quantity exceeding receipt or commitment | 0 |
 | Returned quantity exceeding previously accepted quantity | 0 |
