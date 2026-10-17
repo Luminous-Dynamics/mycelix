@@ -1,0 +1,47 @@
+name: Wood Products Manufacturing Contract
+
+on:
+  push:
+    branches: ["feat/wood-products-provenance-contract-v0-1"]
+    paths:
+      - "mycelix-manufacturing/crates/manufacturing_common/**"
+      - "mycelix-manufacturing/Cargo.toml"
+      - ".github/workflows/wood-products-contract.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-manufacturing/crates/manufacturing_common/**"
+      - "mycelix-manufacturing/Cargo.toml"
+      - ".github/workflows/wood-products-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wood-products-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manufacturing-common:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+
+      - name: Test manufacturing common wood contracts
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p manufacturing_common
+
+      - name: Verify exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
