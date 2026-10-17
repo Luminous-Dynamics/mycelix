@@ -28,6 +28,11 @@ The crate now includes a short-lived, single-use effect-lease reference gate. It
 
 The ledger is **process-local and volatile**. It is not cryptographic, durable, distributed, crash-safe, or an exactly-once side-effect guarantee. Production integration must refresh trusted revocation/evidence through adapters, independently derive the sink target, and atomically persist lease consumption with the side effect or use a qualified fencing protocol. See EFFECT_LEASE_V1.md and src/lease.rs.
 
+
+## Evidence-driven effect recovery
+
+`src/effect_journal.rs` adds a pure lifecycle model for `Prepared`, `Submitted`, `OutcomeUnknown`, `Committed`, and `Rejected` states. Only destination-verified evidence may resolve an unknown attempt; an uncertain submitted operation is not resubmitted. This module is not a persistent database, exactly-once mechanism, or network adapter. See `EFFECT_JOURNAL_V1.md` for the durable adapter contract, crash matrix, and acceptance criteria.
+
 ## Run
 
 ```sh
