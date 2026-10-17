@@ -4,6 +4,7 @@
 **Date:** 2026-10-17
 **Parent RFC:** [Creator Sovereignty Control Plane](CREATOR_SOVEREIGNTY_CONTROL_PLANE_RFC.md)
 **Companion benchmark contract:** [CSCP Benchmark Protocol](CSCP_BENCHMARK_PROTOCOL.md)
+**Deal-to-cash workflow:** [CSCP Deal-to-Cash and Repeat-Booking Model](CSCP_DEAL_TO_CASH_MODEL.md)
 
 ## Executive proposal
 
