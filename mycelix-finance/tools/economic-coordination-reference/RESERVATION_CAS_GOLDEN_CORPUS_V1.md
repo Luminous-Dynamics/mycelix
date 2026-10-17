@@ -4,7 +4,7 @@
 **Tracking issue:** [PROC-RESERVE-CAS-001 #5153](https://github.com/Luminous-Dynamics/mycelix/issues/5153).  
 **Implementation:** [reservation_cas.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-reservation-cas-v1/mycelix-finance/tools/economic-coordination-reference/src/reservation_cas.rs).
 
-Eighteen module test functions are authored. The current tests use the same deterministic serial authority as the code under test; they are not yet an independent state-machine oracle. Fixtures marked Authored are only test presence, not a pass.
+Eighteen module test functions plus one integration oracle test are authored. The current tests use the same deterministic serial authority as the code under test; they are not yet an independent state-machine oracle. Fixtures marked Authored are only test presence, not a pass.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -60,3 +60,5 @@ Eighteen module test functions are authored. The current tests use the same dete
 
 | RSC-041 | Requested lease expiry is later than the capacity snapshot validity | Lease rejected without reservation event | Authored |
 | RSC-042 | Two pool mutations presented with decreasing timestamps | Second mutation rejected with no journal growth | Authored |
+
+| RSC-043 | Exhaustive three-command quantity combinations for capacities 1–4 | 108 sequence outcomes and pool totals agree with separate test-local oracle | Authored |
