@@ -670,10 +670,8 @@ pub fn evaluate_usage(
     // authorization instead of letting "first matching grant wins".
     let mut effective: BTreeMap<GrantId, &UsageGrant> = BTreeMap::new();
     for grant in grants {
-        match effective.get(&grant.id) {
-            None => {
-                effective.insert(grant.id.clone(), grant);
-            }
+        let should_replace = match effective.get(&grant.id) {
+            None => true,
             Some(existing) => {
                 if !existing.same_terms_as(grant) {
                     return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
@@ -683,12 +681,15 @@ pub fn evaluate_usage(
                     (Some(previous), Some(next)) if previous != next => {
                         return PermissionDecision::Denied(PermissionDenial::ConflictingGrantId);
                     }
-                    (None, Some(_)) => {
-                        effective.insert(grant.id.clone(), grant);
-                    }
-                    _ => {}
+                    (None, Some(_)) => true,
+                    _ => false,
                 }
             }
+        };
+
+        // Mutate only after the immutable lookup borrow has ended.
+        if should_replace {
+            effective.insert(grant.id.clone(), grant);
         }
     }
 
