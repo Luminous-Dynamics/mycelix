@@ -1298,6 +1298,43 @@ mod tests {
     }
 
     #[test]
+    fn quality_floor_retention_is_a_per_recommendation_invariant() {
+        let market = vec![
+            person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 4), (3, 1)]),
+            person(2, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(3, 5)]),
+            person(3, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 4)]),
+            person(4, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5)]),
+            person(5, Partition::B, 30, 18, 60, ConnectionGoal::Dating, &[(1, 5), (2, 4)]),
+        ];
+        let threshold = 80u8;
+        let rows = recommend_quality_bounded_exposure_with_history(
+            &market,
+            2,
+            &BTreeMap::new(),
+            threshold,
+        )
+        .expect("valid market");
+
+        for row in &rows {
+            let viewer = market.iter().find(|person| person.id == row.viewer_id).unwrap();
+            let best = market
+                .iter()
+                .filter(|candidate| eligible_pair(viewer, candidate))
+                .map(|candidate| directed_utility(viewer, candidate).min(directed_utility(candidate, viewer)))
+                .max()
+                .unwrap_or(0);
+            let selected_floor = row.viewer_utility.min(row.candidate_utility);
+            assert!(
+                u128::from(selected_floor) * 100 >= u128::from(best) * u128::from(threshold),
+                "recommendation {} -> {} violated {}% mutual-utility floor",
+                row.viewer_id,
+                row.candidate_id,
+                threshold
+            );
+        }
+    }
+
+    #[test]
     fn historical_exposure_changes_next_batch_allocation() {
         let people = vec![
             person(1, Partition::A, 30, 18, 60, ConnectionGoal::Dating, &[(1, 3)]),
