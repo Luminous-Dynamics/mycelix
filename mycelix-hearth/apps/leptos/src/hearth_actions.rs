@@ -92,10 +92,12 @@ pub fn tend_bond(bond_hash: String) {
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
     let action_journal = hearth.action_journal;
+    let action_journal_entries = hearth.action_journal_entries;
     let hc = hc.clone();
     spawn_local(async move {
         let journal_attempt = match prepare_live_attempt(
             action_journal,
+            action_journal_entries,
             ActionKind::BondUpdate,
             &hearth_scope_bytes,
             &bond_hash_bytes,
@@ -213,10 +215,12 @@ pub fn express_gratitude(to_agent: String, message: String) {
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
     let action_journal = hearth.action_journal;
+    let action_journal_entries = hearth.action_journal_entries;
     let hc = hc.clone();
     spawn_local(async move {
         let journal_attempt = match prepare_live_attempt(
             action_journal,
+            action_journal_entries,
             ActionKind::Gratitude,
             &hearth_hash,
             &to_agent_bytes,
@@ -341,10 +345,12 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
     let action_journal = hearth.action_journal;
+    let action_journal_entries = hearth.action_journal_entries;
     let hc = hc.clone();
     spawn_local(async move {
         let journal_attempt = match prepare_live_attempt(
             action_journal,
+            action_journal_entries,
             ActionKind::Vote,
             &hearth_scope_bytes,
             &decision_hash_bytes,
@@ -452,10 +458,12 @@ pub fn change_presence(new_status: PresenceStatusType) {
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
     let action_journal = hearth.action_journal;
+    let action_journal_entries = hearth.action_journal_entries;
     let hc = hc.clone();
     spawn_local(async move {
         let journal_attempt = match prepare_live_attempt(
             action_journal,
+            action_journal_entries,
             ActionKind::Presence,
             &hearth_hash,
             &hearth_hash,
@@ -585,10 +593,12 @@ pub fn complete_care_task(task_hash: String) {
     let publication_evidence = hearth.publication_evidence;
     let publication_evidence_generation = hearth.publication_evidence_generation;
     let action_journal = hearth.action_journal;
+    let action_journal_entries = hearth.action_journal_entries;
     let hc = hc.clone();
     spawn_local(async move {
         let journal_attempt = match prepare_live_attempt(
             action_journal,
+            action_journal_entries,
             ActionKind::CareCompletion,
             &hearth_scope_bytes,
             &schedule_hash_bytes,
