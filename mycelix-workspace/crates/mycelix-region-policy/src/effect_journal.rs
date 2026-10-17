@@ -6,6 +6,7 @@
 //! transitions atomically, enforce a unique idempotency key, and verify
 //! destination-authenticated outcome evidence before calling resolve().
 
+const MAX_AUTHORITY_DOMAIN_BYTES: usize = 256;
 const MAX_KEY_BYTES: usize = 256;
 const MAX_OPERATION_ID_BYTES: usize = 256;
 const MAX_REASON_BYTES: usize = 128;
@@ -45,6 +46,7 @@ pub enum JournalError {
 /// the caller's authority domain in the production uniqueness constraint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectIdentity {
+    authority_domain: String,
     idempotency_key: String,
     target_digest: String,
     policy_binding_digest: String,
@@ -52,21 +54,28 @@ pub struct EffectIdentity {
 
 impl EffectIdentity {
     pub fn new(
+        authority_domain: &str,
         idempotency_key: &str,
         target_digest: &str,
         policy_binding_digest: &str,
     ) -> Result<Self, JournalError> {
-        if !valid_text(idempotency_key, MAX_KEY_BYTES)
+        if !valid_text(authority_domain, MAX_AUTHORITY_DOMAIN_BYTES)
+            || !valid_text(idempotency_key, MAX_KEY_BYTES)
             || !valid_digest(target_digest)
             || !valid_digest(policy_binding_digest)
         {
             return Err(JournalError::InvalidIdentity);
         }
         Ok(Self {
+            authority_domain: authority_domain.to_owned(),
             idempotency_key: idempotency_key.to_owned(),
             target_digest: target_digest.to_owned(),
             policy_binding_digest: policy_binding_digest.to_owned(),
         })
+    }
+
+    pub fn authority_domain(&self) -> &str {
+        &self.authority_domain
     }
 
     pub fn idempotency_key(&self) -> &str {
@@ -85,6 +94,7 @@ impl EffectIdentity {
 /// Raw sink evidence is untrusted until the configured verifier authenticates it
 /// and confirms the disposition, operation ID, key, target, and result digest.
 pub struct SinkOutcomeEvidence {
+    pub authority_domain: String,
     pub idempotency_key: String,
     pub target_digest: String,
     /// Digest binding the authorization decision to exact profile/agreement versions.
@@ -114,6 +124,7 @@ pub trait SinkOutcomeVerifier {
 /// Opaque destination-evidence result. It has no public constructor and cannot
 /// be built from a caller-provided boolean.
 pub struct VerifiedSinkOutcome {
+    authority_domain: String,
     idempotency_key: String,
     target_digest: String,
     policy_binding_digest: String,
@@ -128,7 +139,8 @@ impl VerifiedSinkOutcome {
         expected: &EffectIdentity,
         verifier: &V,
     ) -> Result<Self, JournalError> {
-        if !valid_text(&evidence.idempotency_key, MAX_KEY_BYTES)
+        if !valid_text(&evidence.authority_domain, MAX_AUTHORITY_DOMAIN_BYTES)
+            || !valid_text(&evidence.idempotency_key, MAX_KEY_BYTES)
             || !valid_digest(&evidence.target_digest)
             || !valid_text(&evidence.operation_id, MAX_OPERATION_ID_BYTES)
         {
@@ -140,7 +152,8 @@ impl VerifiedSinkOutcome {
         if evidence.proof.is_empty() || evidence.proof.len() > 16 * 1024 {
             return Err(JournalError::InvalidProofSize);
         }
-        if evidence.idempotency_key != expected.idempotency_key
+        if evidence.authority_domain != expected.authority_domain
+            || evidence.idempotency_key != expected.idempotency_key
             || evidence.target_digest != expected.target_digest
             || evidence.policy_binding_digest != expected.policy_binding_digest
         {
@@ -150,6 +163,7 @@ impl VerifiedSinkOutcome {
             .verify(&evidence)
             .map_err(|()| JournalError::OutcomeVerificationFailed)?;
         Ok(Self {
+            authority_domain: evidence.authority_domain,
             idempotency_key: evidence.idempotency_key,
             target_digest: evidence.target_digest,
             policy_binding_digest: evidence.policy_binding_digest,
@@ -334,7 +348,8 @@ impl EffectAttempt {
         if !matches!(self.phase, AttemptPhase::Submitted | AttemptPhase::OutcomeUnknown) {
             return Err(JournalError::InvalidTransition);
         }
-        if outcome.idempotency_key != self.identity.idempotency_key
+        if outcome.authority_domain != self.identity.authority_domain
+            || outcome.idempotency_key != self.identity.idempotency_key
             || outcome.target_digest != self.identity.target_digest
             || outcome.policy_binding_digest != self.identity.policy_binding_digest
         {
@@ -409,12 +424,13 @@ mod tests {
     }
 
     fn identity() -> EffectIdentity {
-        EffectIdentity::new("idem-key-1", &"a".repeat(64), &"b".repeat(64))
+        EffectIdentity::new("community-a", "idem-key-1", &"a".repeat(64), &"b".repeat(64))
             .expect("test identity is structurally valid")
     }
 
     fn evidence(disposition: SinkDisposition) -> SinkOutcomeEvidence {
         SinkOutcomeEvidence {
+            authority_domain: "community-a".to_owned(),
             idempotency_key: "idem-key-1".to_owned(),
             target_digest: "a".repeat(64),
             policy_binding_digest: "b".repeat(64),
@@ -521,7 +537,7 @@ mod tests {
     #[test]
     fn invalid_identity_and_reason_code_are_rejected() {
         assert_eq!(
-            EffectIdentity::new("", &"a".repeat(64), &"b".repeat(64)),
+            EffectIdentity::new("", "idem-key", &"a".repeat(64), &"b".repeat(64)),
             Err(JournalError::InvalidIdentity)
         );
         let mut attempt = EffectAttempt::prepare(identity());
@@ -566,6 +582,17 @@ mod tests {
         let expected = identity();
         let mut e = evidence(SinkDisposition::Applied);
         e.policy_binding_digest = "d".repeat(64);
+        assert!(matches!(
+            VerifiedSinkOutcome::verify(e, &expected, &AcceptSinkProof),
+            Err(JournalError::IdentityMismatch)
+        ));
+    }
+
+    #[test]
+    fn rejects_sink_proof_replayed_across_authority_domains() {
+        let expected = identity();
+        let mut e = evidence(SinkDisposition::Applied);
+        e.authority_domain = "community-b".to_owned();
         assert!(matches!(
             VerifiedSinkOutcome::verify(e, &expected, &AcceptSinkProof),
             Err(JournalError::IdentityMismatch)
