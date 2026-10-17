@@ -299,10 +299,7 @@ pub fn evaluate_strategy(
 mod tests {
     use super::*;
     use crate::{EvidenceOrigin, EvidenceStatus};
-    use crate::recourse::{
-        BaseAllocation, ContingencyOption, RecourseRequest, RecourseScenario, SupplyEvidence,
-        SupplyMode,
-    };
+    use crate::recourse::{SupplyEvidence, SupplyMode};
 
     fn evidence(
         offer_id: &str,
