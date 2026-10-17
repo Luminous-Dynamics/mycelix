@@ -9,6 +9,8 @@
 pub mod lease;
 /// Evidence-driven side-effect recovery state machine; not a durable store.
 pub mod effect_journal;
+/// Bounded schedule explorer for reference lifecycle invariants.
+pub mod effect_journal_model;
 
 use std::collections::BTreeSet;
 
