@@ -387,7 +387,9 @@ impl RecipientReceiptV2 {
             return Err(ProtocolError::ReceiptContextMismatch);
         }
 
-        let mut out = Vec::with_capacity(192 + self.recipient_agent.len() + self.cipher_suite.len());
+        let mut out = Vec::with_capacity(
+            192 + self.recipient_agent.len() + self.cipher_suite.len(),
+        );
         out.extend_from_slice(RECEIPT_V2_DOMAIN);
         put_u16(&mut out, self.protocol_version);
         out.extend_from_slice(&self.receipt_event_id);
@@ -413,7 +415,9 @@ impl RecipientReceiptV2 {
 pub fn canonical_envelope_commitment_preimage(
     canonical_signing_bytes: &[u8],
 ) -> Result<Vec<u8>, ProtocolError> {
-    let mut out = Vec::with_capacity(ENVELOPE_COMMITMENT_DOMAIN.len() + canonical_signing_bytes.len() + 4);
+    let mut out = Vec::with_capacity(
+        ENVELOPE_COMMITMENT_DOMAIN.len() + canonical_signing_bytes.len() + 4,
+    );
     out.extend_from_slice(ENVELOPE_COMMITMENT_DOMAIN);
     put_bytes(&mut out, canonical_signing_bytes)?;
     Ok(out)
