@@ -500,19 +500,31 @@ impl ActionJournalStore for IndexedDbJournal {
         let store = tx
             .object_store(STORE_NAME)
             .map_err(|_| JournalError::RequestFailed)?;
-        let request = store.get_all().map_err(|_| JournalError::RequestFailed)?;
-        let values = JsFuture::from(request_finished(request))
-            .await
-            .map_err(|_| JournalError::RequestFailed)?;
+        let values_request = store.get_all().map_err(|_| JournalError::RequestFailed)?;
+        let keys_request = store.get_all_keys().map_err(|_| JournalError::RequestFailed)?;
+        // Queue both reads before yielding, while this read-only transaction is
+        // active. A record must agree with the IndexedDB key under which it sits.
+        let values_future = JsFuture::from(request_finished(values_request));
+        let keys_future = JsFuture::from(request_finished(keys_request));
+        let values = values_future.await.map_err(|_| JournalError::RequestFailed)?;
+        let keys = keys_future.await.map_err(|_| JournalError::RequestFailed)?;
         JsFuture::from(done)
             .await
             .map_err(|_| JournalError::CommitFailed)?;
 
         let values = Array::from(&values);
+        let keys = Array::from(&keys);
+        if values.length() != keys.length() {
+            return Err(JournalError::CorruptRecord);
+        }
         let mut entries = Vec::with_capacity(values.length() as usize);
-        for value in values.iter() {
+        for (value, key) in values.iter().zip(keys.iter()) {
             let json = value.as_string().ok_or(JournalError::CorruptRecord)?;
-            entries.push(decode_record(&json)?);
+            let entry = decode_record(&json)?;
+            if key.as_string().as_deref() != Some(entry.operation_id()) {
+                return Err(JournalError::CorruptRecord);
+            }
+            entries.push(entry);
         }
         entries.sort_by(|a, b| {
             a.created_at_unix_ms()
