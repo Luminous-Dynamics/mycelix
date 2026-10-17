@@ -324,6 +324,12 @@ impl ScientificBenchmarkManifest {
                             .into(),
                     ));
                 }
+                if !self.output_artifacts.is_empty() || !self.metrics.is_empty() {
+                    return Err(Error::Validation(
+                        "proposed/not-run manifests cannot declare observed outputs or metrics"
+                            .into(),
+                    ));
+                }
             }
             BenchmarkStatus::LocallyVerified => {
                 self.require_completed_output_and_metrics()?;
@@ -625,6 +631,20 @@ mod tests {
         manifest.verifier.as_mut().unwrap().principal.actor_id =
             "did:key:independent-reviewer".to_string();
         assert!(manifest.validate().is_ok());
+    }
+
+    #[test]
+    fn not_run_manifest_cannot_smuggle_in_observed_results() {
+        let mut manifest = fixture();
+        let result_artifact = manifest.output_artifacts[0].clone();
+        manifest.status = BenchmarkStatus::NotRun;
+        manifest.completed_at = None;
+        manifest.output_artifacts.clear();
+        manifest.metrics.clear();
+        assert!(manifest.validate().is_ok());
+
+        manifest.output_artifacts.push(result_artifact);
+        assert!(manifest.validate().is_err());
     }
 
     #[test]
