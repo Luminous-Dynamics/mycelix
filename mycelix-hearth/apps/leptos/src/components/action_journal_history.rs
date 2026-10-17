@@ -116,7 +116,7 @@ pub fn ActionJournalHistory() -> impl IntoView {
                         "Recent actions in this Hearth"
                     </summary>
                     <p class="action-journal-history__scope-note">
-                        "This is local history from this browser. It can be cleared or evicted and does not prove that other peers have the latest data. Unknown outcomes must not be repeated until reconciled."
+                        "This is local history from this browser tab. Reload to refresh changes made by other tabs. Storage can be cleared or evicted, and this history does not prove that other peers have the latest data. Unknown outcomes must not be repeated until reconciled."
                     </p>
                     {move || {
                         let selected_scope = scope.get();
