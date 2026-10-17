@@ -78,8 +78,8 @@
         "occurred_at",
         "correlation_id",
         "operation_id",
-        "subject_ref_sha256",
-        "resource_ref_sha256",
+        "subject_ref",
+        "resource_ref",
         "decision",
         "decision_reason_code",
         "destination_class",
@@ -290,12 +290,6 @@
         "operation_id": {
           "$ref": "#/$defs/nullableOpaqueId"
         },
-        "subject_ref_sha256": {
-          "$ref": "#/$defs/nullableSha256"
-        },
-        "resource_ref_sha256": {
-          "$ref": "#/$defs/nullableSha256"
-        },
         "decision": {
           "enum": [
             "allow",
@@ -461,6 +455,12 @@
               "const": false
             }
           }
+        },
+        "subject_ref": {
+          "$ref": "#/$defs/nullableOpaqueId"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/nullableOpaqueId"
         }
       },
       "allOf": [
