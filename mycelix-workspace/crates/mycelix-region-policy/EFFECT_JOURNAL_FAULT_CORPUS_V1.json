@@ -199,6 +199,22 @@
       "expected": "Reevaluate current policy at dispatch boundary; stale policy binding must not authorize the effect.",
       "status": "integration_gate",
       "test_anchor": null
+    },
+    {
+      "id": "EJM-023",
+      "category": "bounded_state_exploration",
+      "fault": "Explore every reachable lifecycle state and legal transition to depth 8 under reservation, revocation, dispatch, sink result, crash/timeout, reconciliation, and retry events.",
+      "expected": "Every reachable state preserves effect_count <= 1, dispatch_count <= 1, committed implies one applied sink effect, pre-dispatch rejection implies zero effects, and OutcomeUnknown is reachable both with and without a sink effect.",
+      "status": "implemented_reference_model",
+      "test_anchor": "bounded_state_exploration_preserves_effect_safety_invariants"
+    },
+    {
+      "id": "EJM-024",
+      "category": "snapshot_integrity",
+      "fault": "Restore a DispatchStarted snapshot as Rejected with a caller-supplied local timeout reason and no destination outcome digest.",
+      "expected": "Reject the inconsistent snapshot; post-dispatch rejection requires authenticated sink-outcome evidence.",
+      "status": "implemented_reference_test",
+      "test_anchor": "restore_rejects_postdispatch_rejection_without_sink_evidence"
     }
   ]
 }
