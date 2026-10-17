@@ -23,14 +23,14 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Order-independent usage evaluation by immutable grant ID: a revocation dominates an original grant regardless of history ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
 - An append-only in-memory issue/revocation event log with event-ID idempotency, monotonic event-time checks, deterministic replay, and atomic rejection of invalid transitions.
 - A separately implemented event-stream reconstruction path for differential comparison against append-derived effective grant state; it does not call the append method.
-- A versioned binary portable envelope for grant/revocation events, deterministic canonical encoding, strict decoding, exact BLAKE3 content digest, and round-trip/replay checks. The envelope exports grant history only, not the complete asset registry or split claims.
+- A versioned binary portable envelope for grant/revocation history, plus a separate full passport snapshot envelope covering asset records, external identifiers, split claims, and the embedded grant-history envelope. Both have deterministic encoding, strict decoding and domain-separated BLAKE3-256 content digests.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
 
 This crate does **not** authenticate identity, verify digital signatures, prove that an evidence reference is truthful, establish legal ownership, resolve conflicting claims, validate contracts, calculate royalties, make payments, or determine whether a grantor has legal authority. A status named Confirmed is a workflow assertion provided by the caller, not an adjudication by the software. A syntactically valid ISWC/ISRC is not proof the identifier was issued to this asset.
 
-The registry and event history are in-memory only. Events are not signed or durably persisted. The portable envelope currently covers grant/revocation history only; it omits the asset registry, split claims, external source payloads, and provenance hashes for imported source messages. The crate also lacks external catalogue sync, rights-claim reconciliation, territory-specific rules, and standards adapters. Its BLAKE3 digest detects changed canonical bytes but does not authenticate authorship or prove legal rights. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
+The registry and event history are in-memory only. Events are not signed or durably persisted. The grant-history envelope covers only issue/revocation events; the separate full passport snapshot envelope adds current asset records, external identifiers, split claims, and the grant-history envelope. Neither format carries original external source payloads, source-message provenance hashes, rights-claim reconciliation results, territory-specific terms, or legal authority proofs. The crate also lacks external catalogue sync, territory-specific rules, and standards adapters. Its BLAKE3 digest detects changed canonical bytes but does not authenticate authorship or prove legal rights. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
 
 ## Portable grant-history envelope v1
 
@@ -49,6 +49,26 @@ The binary format is deliberately specified rather than relying on a platform's 
 Every string is UTF-8 with a u32 big-endian byte length and a 256-byte maximum. Integers are big-endian. Unsupported versions/tags, malformed UTF-8, oversized fields/counts, truncated bytes, invalid replay order, and trailing bytes are rejected. The canonical content digest uses BLAKE3-256 over the domain prefix MYCELIX-CSCP-GRANT-HISTORY-DIGEST-V1 plus a NUL byte, followed by the complete canonical envelope bytes. The digest is not embedded in the envelope and should travel as a separate integrity field.
 
 The on-disk binary format is experimental and not a ratified cross-language standard. Two frozen byte vectors are checked by the Rust encoder and a standard-library-only Python reference encoder in the test suite: an issue/revocation history and a UTF-8/absent-expiry case using the voice/likeness action tag. The Python script is test tooling only, not application code. This is not yet a broad adversarial corpus or a cross-language BLAKE3 digest vector. Freeze the format only after multiple edge-case vectors, independent digest agreement, fuzzing, and review. A valid digest proves byte agreement, not the identity of an author or legal consent.
+
+## Full passport snapshot envelope v1
+
+The public Rust API is passport_envelope::CreativeAssetPassportEnvelope. This is a separate outer format; it embeds the canonical grant-history envelope described above rather than changing that format.
+
+The canonical binary layout is:
+
+1. Magic bytes MYCELIX-CSCP-ASSET-PASSPORT followed by one NUL byte.
+2. Schema version as unsigned 16-bit big-endian integer (currently 1).
+3. Asset count as unsigned 64-bit big-endian integer, then assets in ascending AssetId order.
+4. Each asset contains a length-prefixed AssetId, one explicit asset-kind tag (1 work, 2 sound recording, 3 music video, 4 release, 5 visual asset, 6 live performance), an optional-title tag plus title when present, and an identifier count.
+5. Each external identifier has an explicit type tag: 1 ISWC, 2 ISRC, 3 other identifier followed by its scheme and value. Identifier records are sorted by typed scheme/value key; values themselves are preserved.
+6. Split-claim count, followed by claims sorted by asset ID, rights-pool tag, party ID, claim-state tag, optional basis points, and evidence reference. Rights-pool tags 1–5 are composition, master recording, performer rights, synchronization, and visual asset; state tags 1–3 are proposed, confirmed, disputed.
+7. The embedded grant-history envelope's byte length as unsigned 64-bit integer, followed by its complete canonical bytes.
+
+String fields use UTF-8 plus a u32 big-endian byte length, capped at 256 bytes. The outer decoder rejects unsupported versions/tags, malformed UTF-8, missing asset references, grant events referring to unregistered assets, identifier collisions, non-canonical ordering, malformed embedded grant history, truncation and trailing bytes. It preserves disputed/proposed claims rather than converting them into an ownership decision.
+
+The outer BLAKE3-256 digest is computed over domain prefix MYCELIX-CSCP-ASSET-PASSPORT-DIGEST-V1 plus a NUL byte, followed by the entire canonical outer envelope. The inner grant-history envelope has its own digest domain. Neither digest proves the issuer's identity, consent authenticity, legal title, or truth of the evidence. The full snapshot still omits original external source payloads and provenance hashes; those must be included in a future evidence-carrying exchange manifest, not inferred from metadata.
+
+The full snapshot format currently has round-trip regression tests but not yet a separate-language golden-vector implementation. It remains experimental and must not be advertised as interoperable or standards-compliant until an independent implementation reproduces frozen outer-envelope and digest vectors.
 
 ## Benchmark contract — targets, not results
 
@@ -72,6 +92,10 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Unsupported version, malformed tag, truncation or trailing bytes | Import rejects rather than silently ignoring unknown/corrupt data | 100% rejected |
 | Content digest | Same canonical bytes yield same 256-bit BLAKE3 digest; changed content yields a different digest in regression fixtures | 100% fixture agreement; no authenticity claim |
 | Cross-language canonical bytes/digest | A second implementation yields byte-identical envelope bytes and digest for frozen fixtures; current source includes two golden byte vectors, while the independent digest vector is still outstanding | 100% of the frozen corpus before format freeze |
+| Full snapshot round-trip | Assets, external IDs, split claims, grant history and revocation state survive encode/decode exactly | 100% fixed-fixture agreement |
+| Snapshot reference integrity | Every split claim and every grant/revocation history target resolves to a registered asset | Zero unresolved references accepted |
+| Snapshot canonical ordering | Asset/identifier/claim input ordering does not change canonical bytes; noncanonical wire order is rejected | 100% fixture agreement |
+| Full snapshot cross-language vectors | Independent implementation reproduces outer envelope bytes and digest for normal, disputed, Unicode, unknown-ID, and boundary cases | 100% golden-vector agreement before format freeze |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
 | Mutation/property testing | No invariant-breaking mutation survives the harness | Catch more than hand-picked cases |
