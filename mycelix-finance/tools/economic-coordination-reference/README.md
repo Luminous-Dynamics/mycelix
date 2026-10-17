@@ -147,6 +147,8 @@ This remains a research prototype. The module does not authenticate suppliers, p
 
 ## Adaptive procurement recourse (experimental)
 
+Benchmark and acceptance contract: [ADAPTIVE_RECOURSE_BENCHMARKS_V1.md](ADAPTIVE_RECOURSE_BENCHMARKS_V1.md). The first code slice evaluates a fixed baseline and already-committed options; it does not yet optimize which backup options to contract ex ante.
+
 The additive `recourse` module evaluates a fixed baseline allocation and pre-committed flexible/backup options against an explicit scenario set. For each scenario it calculates which baseline quantities fail, filters contingency options by evidence freshness, failure-domain exposure and activation-plus-transit deadline, then solves a bounded allocation problem that maximizes on-time recovery first, minimizes incremental recourse cost second, and minimizes latest arrival third. The tie-break is versioned and deterministic.
 
 - Normal/base allocations must conserve requested quantity and satisfy explicit lot, capacity, evidence, currency, unit, capability and deadline constraints.
