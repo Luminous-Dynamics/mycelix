@@ -102,13 +102,21 @@ fn envelope_rejects_unknown_use_action_tag() {
     // The action tag follows grant id, asset id, and grantee id length-prefixed strings.
     let magic_len = b"MYCELIX-CSCP-GRANT-HISTORY\0".len();
     let mut cursor = magic_len + 2 + 8;
-    for _ in 0..3 {
-        let len = u32::from_be_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
-        cursor += 4 + len;
-    }
-    cursor += 1 + 4 + 4; // field is arranged after the event prefix; advance defensively below
-    // Search the payload for the known purpose string boundary only within this tiny fixture.
-    let action_tag = bytes.iter().position(|byte| *byte == 5).unwrap();
+    let advance_string = |cursor: &mut usize| {
+        let len = u32::from_be_bytes(
+            bytes[*cursor..*cursor + 4].try_into().unwrap(),
+        ) as usize;
+        *cursor += 4 + len;
+    };
+    advance_string(&mut cursor); // event ID
+    cursor += 8; // event timestamp
+    advance_string(&mut cursor); // actor
+    advance_string(&mut cursor); // event evidence reference
+    cursor += 1; // issued-event tag
+    advance_string(&mut cursor); // grant ID
+    advance_string(&mut cursor); // asset ID
+    advance_string(&mut cursor); // grantee ID
+    let action_tag = cursor;
     assert_eq!(
         GrantHistoryEnvelope::from_bytes(&bytes),
         Ok(envelope.clone())
