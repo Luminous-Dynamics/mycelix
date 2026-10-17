@@ -845,6 +845,29 @@ mod tests {
     }
 
     #[test]
+    fn replayed_identical_state_delta_does_not_refresh_freshness() {
+        let mut projector = projector();
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+
+        let delta = serde_json::json!({
+            "c": {
+                "sensor.living_room_temperature": {
+                    "+": {"s": "22.0"}
+                }
+            }
+        });
+        let first = projector.apply(EntityStreamKind::Changes, &delta, 20).unwrap();
+        assert_eq!(first.frames.len(), 1);
+        assert_eq!(first.frames[0].state, "22.0");
+        assert_eq!(first.frames[0].received_at_micros, 20);
+
+        let replay = projector.apply(EntityStreamKind::Changes, &delta, 99_999).unwrap();
+        assert!(replay.frames.is_empty(), "replaying the same semantic state must not mint a newer observation");
+        assert!(replay.removed_entity_ids.is_empty());
+        assert_eq!(projector.state["sensor.living_room_temperature"].state, "22.0");
+    }
+
+    #[test]
     fn explicit_removal_allows_a_later_valid_readdition() {
         let mut projector = projector();
         projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
