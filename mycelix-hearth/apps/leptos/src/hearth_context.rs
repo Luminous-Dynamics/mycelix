@@ -12,7 +12,7 @@ use wasm_bindgen_futures::spawn_local;
 use hearth_leptos_types::*;
 use crate::mock_data;
 use crate::action_feedback::PublicationEvidenceNotice;
-use crate::action_journal_store::IndexedDbJournal;
+use crate::action_journal_store::{ActionJournalStore, IndexedDbJournal, JournalEntryV1};
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use crate::record_bridge::{self, WireRecord};
 
@@ -41,6 +41,10 @@ pub struct HearthCtx {
     pub(crate) publication_evidence_generation: RwSignal<u64>,
     /// Available only after IndexedDB opens and restart recovery commits successfully.
     pub(crate) action_journal: RwSignal<Option<IndexedDbJournal>, LocalStorage>,
+    /// A local snapshot of journal rows; always filter by the selected Hearth fingerprint.
+    pub(crate) action_journal_entries: RwSignal<Vec<JournalEntryV1>>,
+    /// Fingerprint of the currently selected, decoded Hearth. None means no scoped history is shown.
+    pub(crate) action_journal_scope_fingerprint: RwSignal<Option<String>>,
 }
 
 /// Initialize hearth context.
@@ -69,6 +73,8 @@ pub fn provide_hearth_context() -> HearthCtx {
         publication_evidence: RwSignal::new(None),
         publication_evidence_generation: RwSignal::new(0),
         action_journal: RwSignal::new_local(None),
+        action_journal_entries: RwSignal::new(Vec::new()),
+        action_journal_scope_fingerprint: RwSignal::new(None),
     };
 
     provide_context(ctx.clone());
@@ -86,9 +92,23 @@ pub fn provide_hearth_context() -> HearthCtx {
     // may dispatch. A failed open/recovery leaves the signal empty; live writes
     // then fail closed rather than bypassing durable pre-dispatch recording.
     let journal_signal = ctx.action_journal;
+    let journal_entries_signal = ctx.action_journal_entries;
     spawn_local(async move {
         match IndexedDbJournal::open_recovered().await {
-            Ok(journal) => journal_signal.set(Some(journal)),
+            Ok(journal) => match journal.list().await {
+                Ok(entries) => {
+                    journal_entries_signal.set(entries);
+                    journal_signal.set(Some(journal));
+                }
+                Err(error) => {
+                    web_sys::console::error_1(
+                        &format!(
+                            "[Hearth] action journal history unavailable; live writes remain disabled ({error:?})"
+                        )
+                        .into(),
+                    );
+                }
+            },
             Err(error) => {
                 web_sys::console::error_1(
                     &format!(
@@ -136,6 +156,26 @@ async fn try_load_real_data(ctx: HearthCtx) {
             if let Some(first_hearth) = real_hearths.into_iter().next() {
                 let hearth_hash = first_hearth.hash.clone();
                 ctx.current_hearth.set(Some(first_hearth));
+
+                // History is scoped to the selected, decoded Hearth. A failed
+                // hash decode/fingerprint keeps the history hidden rather than
+                // displaying actions from unrelated households.
+                ctx.action_journal_scope_fingerprint.set(None);
+                if let Some(scope_bytes) = record_bridge::decode_holo_hash_b64(&hearth_hash) {
+                    match crate::action_journal_store::sha256_fingerprint(
+                        "hearth-scope-v1",
+                        &scope_bytes,
+                    )
+                    .await
+                    {
+                        Ok(fingerprint) => {
+                            ctx.action_journal_scope_fingerprint.set(Some(fingerprint));
+                        }
+                        Err(_) => {
+                            ctx.action_journal_scope_fingerprint.set(None);
+                        }
+                    }
+                }
 
                 // Step 2: Get members for this hearth
                 match hc.call_zome_default::<String, Vec<WireRecord>>(
