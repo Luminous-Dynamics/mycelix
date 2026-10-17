@@ -1,10 +1,10 @@
 # Decision-Sensitive Procurement Evidence Actions — golden corpus v1
 
-**Status:** 42 stable fixture IDs. Authored means a test is present; Planned means coverage remains to be implemented. No case is marked Passing without exact-head evidence.  
+**Status:** 43 stable fixture IDs. Authored means a test is present; Planned means coverage remains to be implemented. No case is marked Passing without exact-head evidence.  
 **Tracking:** [PROC-INFO-001 #5163](https://github.com/Luminous-Dynamics/mycelix/issues/5163).  
 **Implementation:** [evidence_actions.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-evidence-actions-v1/mycelix-finance/tools/economic-coordination-reference/src/evidence_actions.rs).
 
-Ten module test functions are authored. They cover frontier sensitivity vs a no-change query, the decision deadline, evidence staleness, duplicate claim alternatives, mixed acquisition currency, inconsistent request axes, duplicated outcomes and canonical subject ordering. The module has not been qualified by exact-head execution.
+Ten module test functions and one test-local integration oracle are authored. They cover frontier sensitivity vs a no-change query, the decision deadline, evidence staleness, duplicate claim alternatives, mixed acquisition currency, inconsistent request axes, duplicated outcomes and canonical subject ordering. The module has not been qualified by exact-head execution.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -51,6 +51,8 @@ Ten module test functions are authored. They cover frontier sensitivity vs a no-
 
 | EAC-041 | Action completion predates evaluation time | Reject invalid action timeline | Authored |
 | EAC-042 | Decision-changing result branches | Return each named outcome frontier and source authority class | Authored |
+
+| EAC-043 | All 16 ordered pairs from four literal toy frontier states | Independent oracle agrees on distinct frontiers, frontier changes, symmetric-difference size and recommendation eligibility | Authored |
 
 ## Qualification sequence
 
