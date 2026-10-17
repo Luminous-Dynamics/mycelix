@@ -44,7 +44,9 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Format standalone frontend workspace
-        run: cargo fmt --manifest-path mycelix-commons/apps/leptos/Cargo.toml --all --check
+        # Check the standalone frontend workspace only; --all would also format
+      # unrelated path dependencies with independent formatting baselines.
+      run: cargo fmt --manifest-path mycelix-commons/apps/leptos/Cargo.toml --check
 
       # This app is a standalone Cargo workspace and currently has no checked-in
       # Cargo.lock. Generate and preserve the exact resolution used in this
