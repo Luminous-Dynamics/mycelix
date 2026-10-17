@@ -84,12 +84,53 @@ pub struct PlacementRule {
 /// editing TransferRequest; the verifier is the authority for this claim.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassificationClaim {
+    pub schema_version: u16,
+    /// Exact record/object identity; never a wildcard.
     pub resource_id: String,
+    /// Optional pseudonymous data-subject identifier; required when a
+    /// consent-required operation is evaluated.
+    pub subject_id: Option<String>,
     /// Lowercase BLAKE3-256 digest of the exact object bytes.
     pub content_digest: String,
     pub data_class: DataClass,
     pub valid_from_unix_ms: u64,
     pub valid_until_unix_ms: u64,
+    pub issuer_id: String,
+    pub signing_key_id: String,
+    /// Lowercase BLAKE3-256 digest of canonical_payload().
+    pub claim_digest: String,
+    pub signature: Vec<u8>,
+}
+
+impl ClassificationClaim {
+    pub fn canonical_payload(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_DATA_CLASSIFICATION_V1\0");
+        output.extend_from_slice(&self.schema_version.to_le_bytes());
+        append_string(&mut output, &self.resource_id);
+        match &self.subject_id {
+            Some(subject) => {
+                output.push(1);
+                append_string(&mut output, subject);
+            }
+            None => output.push(0),
+        }
+        append_string(&mut output, &self.content_digest);
+        output.push(self.data_class.tag());
+        output.extend_from_slice(&self.valid_from_unix_ms.to_le_bytes());
+        output.extend_from_slice(&self.valid_until_unix_ms.to_le_bytes());
+        append_string(&mut output, &self.issuer_id);
+        output
+    }
+
+    pub fn signature_message(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_DATA_CLASSIFICATION_SIGNATURE_V1\0");
+        append_string(&mut output, &self.issuer_id);
+        append_string(&mut output, &self.signing_key_id);
+        append_string(&mut output, &self.claim_digest);
+        output
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,16 +144,23 @@ pub enum ClassificationVerificationFailure {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClassificationValidationError {
+    UnsupportedSchemaVersion,
     InvalidResourceId,
+    InvalidSubjectId,
+    InvalidIssuer,
+    InvalidSigningKeyId,
     InvalidContentDigest,
+    InvalidClaimDigest,
+    InvalidSignatureLength,
     InvalidValidityWindow,
     ClaimNotActive,
     VerificationFailed(ClassificationVerificationFailure),
 }
 
-/// Trusted adapter must authenticate the exact resource ID, content digest,
-/// classification label, issuer authority and validity window. It returns the
-/// deadline until its evidence can be relied upon, including revocation freshness.
+/// Trusted adapter must recompute BLAKE3-256 over canonical_payload(), verify
+/// signature_message(), authorize the issuer for the classification method, and
+/// return a deadline bounded by signer-revocation freshness. The claim binds an
+/// exact resource identity and byte digest.
 pub trait ClassificationVerifier {
     fn verify_classification(
         &self,
@@ -136,15 +184,31 @@ impl VerifiedClassification {
         now_ms: u64,
         verifier: &V,
     ) -> Result<Self, ClassificationValidationError> {
+        if claim.schema_version != SUPPORTED_SCHEMA_VERSION {
+            return Err(ClassificationValidationError::UnsupportedSchemaVersion);
+        }
         if !valid_text(&claim.resource_id, MAX_RECIPIENT_ID_BYTES) {
             return Err(ClassificationValidationError::InvalidResourceId);
         }
-        if claim.content_digest.len() != 64
-            || !claim.content_digest.bytes().all(|byte| {
-                byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()
-            })
-        {
+        if claim.subject_id.as_ref().is_some_and(|subject| {
+            !valid_text(subject, MAX_DID_BYTES)
+        }) {
+            return Err(ClassificationValidationError::InvalidSubjectId);
+        }
+        if !valid_text(&claim.issuer_id, MAX_DID_BYTES) {
+            return Err(ClassificationValidationError::InvalidIssuer);
+        }
+        if !valid_text(&claim.signing_key_id, MAX_SIGNING_KEY_ID_BYTES) {
+            return Err(ClassificationValidationError::InvalidSigningKeyId);
+        }
+        if !valid_digest(&claim.content_digest) {
             return Err(ClassificationValidationError::InvalidContentDigest);
+        }
+        if !valid_digest(&claim.claim_digest) {
+            return Err(ClassificationValidationError::InvalidClaimDigest);
+        }
+        if claim.signature.is_empty() || claim.signature.len() > MAX_SIGNATURE_BYTES {
+            return Err(ClassificationValidationError::InvalidSignatureLength);
         }
         if claim.valid_from_unix_ms >= claim.valid_until_unix_ms {
             return Err(ClassificationValidationError::InvalidValidityWindow);
@@ -384,16 +448,60 @@ impl VerifiedProfile {
 /// The policy kernel does not regard possession of this struct alone as proof.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsentGrant {
+    pub schema_version: u16,
     pub grant_id: String,
+    /// Exact data-subject identity issuing the grant.
+    pub subject_id: String,
+    /// Exact record/object identity; grants are not wildcards.
+    pub resource_id: String,
+    /// Consent is bound to the exact content version, not only its identifier.
+    pub content_digest: String,
+    pub data_class: DataClass,
+    pub action: BoundaryAction,
     pub recipient_id: String,
     pub purpose: String,
     pub valid_from_unix_ms: u64,
     pub valid_until_unix_ms: u64,
+    pub issuer_id: String,
+    pub signing_key_id: String,
+    /// Lowercase BLAKE3-256 digest of canonical_payload().
+    pub grant_digest: String,
+    pub signature: Vec<u8>,
 }
 
-/// Verifies the exact grant, issuer, recipient/purpose binding and current
-/// revocation state. Returns the deadline until which that verification remains
-/// trustworthy; callers must not return an arbitrary far-future deadline.
+impl ConsentGrant {
+    pub fn canonical_payload(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_CONSENT_GRANT_V1\0");
+        output.extend_from_slice(&self.schema_version.to_le_bytes());
+        append_string(&mut output, &self.grant_id);
+        append_string(&mut output, &self.subject_id);
+        append_string(&mut output, &self.resource_id);
+        append_string(&mut output, &self.content_digest);
+        output.push(self.data_class.tag());
+        output.push(self.action.tag());
+        append_string(&mut output, &self.recipient_id);
+        append_string(&mut output, &self.purpose);
+        output.extend_from_slice(&self.valid_from_unix_ms.to_le_bytes());
+        output.extend_from_slice(&self.valid_until_unix_ms.to_le_bytes());
+        append_string(&mut output, &self.issuer_id);
+        output
+    }
+
+    pub fn signature_message(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(b"MYCELIX_CONSENT_GRANT_SIGNATURE_V1\0");
+        append_string(&mut output, &self.issuer_id);
+        append_string(&mut output, &self.signing_key_id);
+        append_string(&mut output, &self.grant_digest);
+        output
+    }
+}
+
+/// Verifies the exact signed grant, issuer authority, subject/resource/content
+/// binding, data class/action, recipient/purpose, and current revocation state.
+/// Must recompute grant_digest over canonical_payload() and verify signature_message().
+/// Returns the deadline until which evidence remains trustworthy.
 pub trait ConsentVerifier {
     fn verify_current_grant(
         &self,
@@ -414,7 +522,11 @@ pub enum ConsentVerificationFailure {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConsentValidationError {
+    UnsupportedSchemaVersion,
     InvalidGrantShape,
+    InvalidGrantDigest,
+    InvalidSigningKeyId,
+    InvalidSignatureLength,
     InvalidValidityWindow,
     GrantNotActive,
     VerificationFailed(ConsentVerificationFailure),
@@ -435,11 +547,25 @@ impl VerifiedConsentGrant {
         now_ms: u64,
         verifier: &V,
     ) -> Result<Self, ConsentValidationError> {
+        if grant.schema_version != SUPPORTED_SCHEMA_VERSION {
+            return Err(ConsentValidationError::UnsupportedSchemaVersion);
+        }
         if !valid_text(&grant.grant_id, MAX_GRANT_ID_BYTES)
+            || !valid_text(&grant.subject_id, MAX_DID_BYTES)
+            || !valid_text(&grant.resource_id, MAX_RECIPIENT_ID_BYTES)
             || !valid_text(&grant.recipient_id, MAX_RECIPIENT_ID_BYTES)
             || !valid_text(&grant.purpose, MAX_PURPOSE_BYTES)
+            || !valid_text(&grant.issuer_id, MAX_DID_BYTES)
+            || !valid_text(&grant.signing_key_id, MAX_SIGNING_KEY_ID_BYTES)
+            || !valid_digest(&grant.content_digest)
         {
             return Err(ConsentValidationError::InvalidGrantShape);
+        }
+        if !valid_digest(&grant.grant_digest) {
+            return Err(ConsentValidationError::InvalidGrantDigest);
+        }
+        if grant.signature.is_empty() || grant.signature.len() > MAX_SIGNATURE_BYTES {
+            return Err(ConsentValidationError::InvalidSignatureLength);
         }
         if grant.valid_from_unix_ms >= grant.valid_until_unix_ms {
             return Err(ConsentValidationError::InvalidValidityWindow);
@@ -747,6 +873,11 @@ pub enum DenialReason {
     ConsentVerifiedAfterDecisionTime,
     ConsentRecipientMismatch,
     ConsentPurposeMismatch,
+    ConsentSubjectMismatch,
+    ConsentResourceMismatch,
+    ConsentContentMismatch,
+    ConsentDataClassMismatch,
+    ConsentActionMismatch,
     ConsentNotYetValid,
     ConsentExpired,
 }
@@ -981,6 +1112,23 @@ pub fn evaluate_transfer(
                 }
                 if request.purpose != Some(consent.grant.purpose.as_str()) {
                     push_reason(&mut reasons, DenialReason::ConsentPurposeMismatch);
+                }
+                if classification.claim.subject_id.as_deref()
+                    != Some(consent.grant.subject_id.as_str())
+                {
+                    push_reason(&mut reasons, DenialReason::ConsentSubjectMismatch);
+                }
+                if request.resource_id != consent.grant.resource_id {
+                    push_reason(&mut reasons, DenialReason::ConsentResourceMismatch);
+                }
+                if request.content_digest != consent.grant.content_digest {
+                    push_reason(&mut reasons, DenialReason::ConsentContentMismatch);
+                }
+                if classification.claim.data_class != consent.grant.data_class {
+                    push_reason(&mut reasons, DenialReason::ConsentDataClassMismatch);
+                }
+                if request.action != consent.grant.action {
+                    push_reason(&mut reasons, DenialReason::ConsentActionMismatch);
                 }
             }
         }
@@ -1231,11 +1379,17 @@ mod tests {
     fn verified_classification(resource_id: &str, now_ms: u64) -> VerifiedClassification {
         VerifiedClassification::verify(
             ClassificationClaim {
+                schema_version: 1,
                 resource_id: resource_id.to_owned(),
+                subject_id: Some("did:example:subject-1".to_owned()),
                 content_digest: TEST_CONTENT_DIGEST.to_owned(),
                 data_class: DataClass::Personal,
                 valid_from_unix_ms: 150,
                 valid_until_unix_ms: 500,
+                issuer_id: "issuer:classification-authority".to_owned(),
+                signing_key_id: "classification-test-key".to_owned(),
+                claim_digest: "d".repeat(64),
+                signature: vec![4; 64],
             },
             now_ms,
             &AcceptClassification { evidence_until_ms: 300 },
@@ -1253,11 +1407,21 @@ mod tests {
     ) -> VerifiedConsentGrant {
         VerifiedConsentGrant::verify(
             ConsentGrant {
+                schema_version: 1,
                 grant_id: "grant-1".to_owned(),
+                subject_id: "did:example:subject-1".to_owned(),
+                resource_id: "record:education-credential".to_owned(),
+                content_digest: TEST_CONTENT_DIGEST.to_owned(),
+                data_class: DataClass::Personal,
+                action: BoundaryAction::Disclose,
                 recipient_id: recipient.to_owned(),
                 purpose: purpose.to_owned(),
                 valid_from_unix_ms: valid_from_ms,
                 valid_until_unix_ms: valid_until_ms,
+                issuer_id: "did:example:subject-1".to_owned(),
+                signing_key_id: "consent-test-key".to_owned(),
+                grant_digest: "e".repeat(64),
+                signature: vec![5; 64],
             },
             now_ms,
             &AcceptConsent {
