@@ -6,6 +6,7 @@ on:
     paths:
       - "mycelix-commons/schemas/vehicle_record_envelope_v0_1.schema.json"
       - "mycelix-commons/fixtures/vehicle_dossier_fixtures_v0_1.json"
+      - "mycelix-commons/fixtures/vehicle_record_envelopes_v0_1.json"
       - "tools/vehicle-record-audit/**"
       - ".github/workflows/vehicle-record-schema-audit.yml"
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - "mycelix-commons/schemas/vehicle_record_envelope_v0_1.schema.json"
       - "mycelix-commons/fixtures/vehicle_dossier_fixtures_v0_1.json"
+      - "mycelix-commons/fixtures/vehicle_record_envelopes_v0_1.json"
       - "tools/vehicle-record-audit/**"
       - ".github/workflows/vehicle-record-schema-audit.yml"
   workflow_dispatch:
