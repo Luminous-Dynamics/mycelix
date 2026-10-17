@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-creator-sovereignty-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Tristan Stoltz / Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Experimental deterministic, local-first creator career ledger core"
+
+[workspace]
+
+[lib]
+name = "creator_sovereignty_core"
+path = "src/lib.rs"
+
+[dependencies]
