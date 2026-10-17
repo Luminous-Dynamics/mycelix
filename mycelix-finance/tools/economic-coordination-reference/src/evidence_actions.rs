@@ -61,6 +61,7 @@ pub struct EvidenceAcquisitionProblem {
 pub enum EvidenceActionError {
     InvalidManifest,
     InvalidDecisionDeadline,
+    InvalidActionTimeline,
     InvalidBaselineFrontier,
     InvalidAction,
     DuplicateActionId,
@@ -82,9 +83,22 @@ pub enum EvidenceActionDisposition {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EvidenceOutcomeAssessment {
+    pub outcome_id: String,
+    pub kind: EvidenceOutcomeKind,
+    /// Canonical branch frontier. An empty vector means no feasible allocation
+    /// remains in the declared model for this outcome.
+    pub resulting_frontier: Vec<JointObjective>,
+    pub changes_baseline_frontier: bool,
+    pub frontier_symmetric_difference_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EvidenceActionAssessment {
     pub action_id: String,
     pub claim_version_key: String,
+    pub source_authority_class: String,
+    pub outcome_assessments: Vec<EvidenceOutcomeAssessment>,
     pub covered_subject_ids: Vec<String>,
     pub acquisition_cost_minor: u64,
     pub acquisition_currency: String,
@@ -171,13 +185,15 @@ fn frontier_difference_count(left: &[JointObjective], right: &[JointObjective]) 
     left.difference(&right).count() + right.difference(&left).count()
 }
 
-fn canonical_action_frontiers(
+fn canonical_outcome_assessments(
     action: &EvidenceAcquisitionAction,
     procurement_currency: &str,
     axes: &[(String, String)],
-) -> Result<Vec<Vec<JointObjective>>, EvidenceActionError> {
+    baseline: &[JointObjective],
+) -> Result<(Vec<EvidenceOutcomeAssessment>, Vec<Vec<JointObjective>>), EvidenceActionError> {
     let mut outcome_ids = BTreeSet::new();
     let mut distinct_frontiers = BTreeSet::new();
+    let mut assessments = Vec::with_capacity(action.outcomes.len());
 
     if action.outcomes.is_empty() {
         return Err(EvidenceActionError::InvalidAction);
@@ -191,9 +207,18 @@ fn canonical_action_frontiers(
             procurement_currency,
             Some(axes),
         )?;
+        let difference = frontier_difference_count(baseline, &frontier);
+        assessments.push(EvidenceOutcomeAssessment {
+            outcome_id: outcome.outcome_id.clone(),
+            kind: outcome.kind,
+            changes_baseline_frontier: frontier.as_slice() != baseline,
+            frontier_symmetric_difference_count: difference,
+            resulting_frontier: frontier.clone(),
+        });
         distinct_frontiers.insert(frontier);
     }
-    Ok(distinct_frontiers.into_iter().collect())
+    assessments.sort_by(|left, right| left.outcome_id.cmp(&right.outcome_id));
+    Ok((assessments, distinct_frontiers.into_iter().collect()))
 }
 
 fn impact(
@@ -307,11 +332,15 @@ pub fn rank_evidence_actions(
         if action.acquisition_currency != problem.acquisition_currency {
             return Err(EvidenceActionError::MixedAcquisitionCurrency);
         }
+        if action.latest_completion_at < problem.evaluated_at {
+            return Err(EvidenceActionError::InvalidActionTimeline);
+        }
 
-        let outcome_frontiers = canonical_action_frontiers(
+        let (outcome_assessments, outcome_frontiers) = canonical_outcome_assessments(
             action,
             &procurement_currency,
             &axes,
+            &baseline,
         )?;
         let (changed_count, max_delta) = impact(&baseline, &outcome_frontiers);
         let distinct_count = outcome_frontiers.len();
@@ -333,6 +362,8 @@ pub fn rank_evidence_actions(
         let assessment = EvidenceActionAssessment {
             action_id: action.action_id.clone(),
             claim_version_key: action.claim_version_key.clone(),
+            source_authority_class: action.source_authority_class.clone(),
+            outcome_assessments,
             covered_subject_ids,
             acquisition_cost_minor: action.acquisition_cost_minor,
             acquisition_currency: action.acquisition_currency.clone(),
@@ -579,6 +610,50 @@ mod tests {
                 .unwrap()
                 .disposition,
             EvidenceActionDisposition::DuplicateClaimAlternative
+        );
+    }
+
+    #[test]
+    fn returned_assessment_preserves_each_outcome_frontier_and_authority_class() {
+        let input = problem(vec![action(
+            "inspect-inventory",
+            "inventory:site-a:v1",
+            5,
+            20,
+            40,
+            valuable_outcomes(),
+        )]);
+        let report = rank_evidence_actions(&input).unwrap();
+        let assessment = report
+            .assessments
+            .iter()
+            .find(|item| item.action_id == "inspect-inventory")
+            .unwrap();
+        assert_eq!(assessment.source_authority_class, "supplier-confirmation");
+        assert_eq!(assessment.outcome_assessments.len(), 2);
+        assert!(assessment
+            .outcome_assessments
+            .iter()
+            .all(|outcome| outcome.changes_baseline_frontier));
+        assert!(assessment
+            .outcome_assessments
+            .iter()
+            .any(|outcome| outcome.resulting_frontier[0].total_cost_minor == 70));
+    }
+
+    #[test]
+    fn acquisition_action_with_completion_before_evaluation_is_rejected() {
+        let input = problem(vec![action(
+            "historical-check",
+            "inventory:site-a:v1",
+            5,
+            9,
+            40,
+            valuable_outcomes(),
+        )]);
+        assert_eq!(
+            rank_evidence_actions(&input),
+            Err(EvidenceActionError::InvalidActionTimeline)
         );
     }
 
