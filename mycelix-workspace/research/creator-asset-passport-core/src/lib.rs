@@ -26,6 +26,8 @@ pub enum PassportError {
     IdentifierIncompatibleWithAssetKind,
     DuplicateExternalIdentifier,
     EmptyEvidenceReference,
+    InvalidEvidenceReference,
+    EvidenceReferenceTooLong,
     EmptyPurpose,
     InvalidShareBasisPoints,
     DuplicatePartyInRightsPool,
@@ -356,6 +358,12 @@ impl SplitClaim {
         if evidence_ref.is_empty() {
             return Err(PassportError::EmptyEvidenceReference);
         }
+        if evidence_ref.len() > MAX_ID_LENGTH {
+            return Err(PassportError::EvidenceReferenceTooLong);
+        }
+        if evidence_ref.chars().any(char::is_control) {
+            return Err(PassportError::InvalidEvidenceReference);
+        }
         if basis_points.is_some_and(|bp| bp == 0 || u32::from(bp) > TOTAL_BASIS_POINTS) {
             return Err(PassportError::InvalidShareBasisPoints);
         }
@@ -417,6 +425,12 @@ pub fn assess_split(
         }
         if claim.evidence_ref.trim().is_empty() {
             return Err(PassportError::EmptyEvidenceReference);
+        }
+        if claim.evidence_ref.len() > MAX_ID_LENGTH {
+            return Err(PassportError::EvidenceReferenceTooLong);
+        }
+        if claim.evidence_ref.chars().any(char::is_control) {
+            return Err(PassportError::InvalidEvidenceReference);
         }
         if !parties.insert(claim.party_id.clone()) {
             return Err(PassportError::DuplicatePartyInRightsPool);
@@ -520,6 +534,12 @@ impl UsageGrant {
         }
         if evidence_ref.is_empty() {
             return Err(PassportError::EmptyEvidenceReference);
+        }
+        if evidence_ref.len() > MAX_ID_LENGTH {
+            return Err(PassportError::EvidenceReferenceTooLong);
+        }
+        if evidence_ref.chars().any(char::is_control) {
+            return Err(PassportError::InvalidEvidenceReference);
         }
         if purpose.len() > MAX_ID_LENGTH || purpose.chars().any(char::is_control) {
             return Err(PassportError::EmptyPurpose);
@@ -1272,6 +1292,46 @@ mod tests {
             Err(PassportError::InvalidGrantWindow)
         );
         assert_eq!(grant.revoked_at(9), Err(PassportError::RevocationBeforeEffectiveTime));
+    }
+
+    #[test]
+    fn evidence_references_reject_control_characters_and_oversized_fields() {
+        assert_eq!(
+            SplitClaim::new(
+                id("work"),
+                party("writer"),
+                RightsPool::Composition,
+                Some(10_000),
+                ClaimState::Confirmed,
+                "evidence\nforged",
+            ),
+            Err(PassportError::InvalidEvidenceReference)
+        );
+        assert_eq!(
+            SplitClaim::new(
+                id("work"),
+                party("writer"),
+                RightsPool::Composition,
+                Some(10_000),
+                ClaimState::Confirmed,
+                "e".repeat(257),
+            ),
+            Err(PassportError::EvidenceReferenceTooLong)
+        );
+        assert_eq!(
+            UsageGrant::new(
+                GrantId::new("g").unwrap(),
+                id("asset"),
+                party("grantee"),
+                UseAction::Publish,
+                "release",
+                party("issuer"),
+                "evidence\r\nforged",
+                0,
+                None,
+            ),
+            Err(PassportError::InvalidEvidenceReference)
+        );
     }
 
     #[test]
