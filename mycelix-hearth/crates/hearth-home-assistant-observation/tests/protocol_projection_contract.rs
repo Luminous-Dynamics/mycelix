@@ -50,7 +50,7 @@ fn full_snapshot() -> Value {
             "sensor.living_room_temperature": {
                 "s": "21.5",
                 "a": {
-                    "unit_of_measurement": "°C",
+                    "unit_of_measurement": "\u00b0C",
                     "device_class": "temperature",
                     "friendly_name": "Living room",
                     "private_marker": "must-not-cross-boundary"
