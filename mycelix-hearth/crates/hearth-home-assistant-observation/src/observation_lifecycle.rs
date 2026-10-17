@@ -76,6 +76,15 @@ pub struct PositiveRevisionRef {
     pub revision: u64,
 }
 
+/// Outcome of an authoritative lifecycle currentness check. The lifecycle
+/// update (including any expiry/clock-fault invalidations) must be durably
+/// committed before a consumer acts on `revision`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CurrentnessCheck {
+    pub revision: Option<PositiveRevisionRef>,
+    pub update: LifecycleUpdate,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LifecycleRecordKind {
     PositiveCurrent {
@@ -244,6 +253,25 @@ impl ObservationLifecycle {
             session_epoch: active.session_epoch,
             revision: active.revision,
         })
+    }
+
+    /// Time-check and currentness check for callers that need a fail-closed
+    /// lifecycle transition rather than a read-only lookup. This method runs
+    /// expiry processing first; a regressed clock tears down the session and
+    /// returns invalidation records. The caller must durably persist every
+    /// returned record before using any returned positive revision.
+    pub fn check_currentness(
+        &mut self,
+        entity_id: &str,
+        now_micros: i64,
+    ) -> CurrentnessCheck {
+        let update = self.expire(now_micros);
+        let revision = if update.failure.is_none() && update.phase == LifecyclePhase::Live {
+            self.current_revision(entity_id, now_micros)
+        } else {
+            None
+        };
+        CurrentnessCheck { revision, update }
     }
 
     /// Start a strictly newer local session. Old positives become non-current
@@ -1112,6 +1140,36 @@ mod tests {
             reason: InvalidationReason::ClockRegression, ..
         }));
         assert!(lifecycle.current_revision("sensor.living_room_temperature", 30).is_none());
+    }
+
+    #[test]
+    fn checked_currentness_latches_clock_regression_and_invalidates_positive() {
+        let mut lifecycle = start_live();
+        let entity_id = "sensor.living_room_temperature";
+        let valid = lifecycle.check_currentness(entity_id, 22);
+        assert!(valid.revision.is_some());
+        assert!(valid.update.records.is_empty());
+        assert_eq!(valid.update.phase, LifecyclePhase::Live);
+
+        let regressed = lifecycle.check_currentness(entity_id, 5);
+        assert_eq!(regressed.revision, None);
+        assert_eq!(regressed.update.failure, Some(LifecycleFailure::TimeRegression));
+        assert_eq!(regressed.update.phase, LifecyclePhase::NeedsNewSession);
+        assert_eq!(regressed.update.records.len(), 1);
+        assert!(matches!(
+            regressed.update.records[0].kind,
+            LifecycleRecordKind::Invalidated {
+                reason: InvalidationReason::ClockRegression,
+                ..
+            }
+        ));
+
+        // A later clock reading must not resurrect the old positive. A newer
+        // session/bootstrap is required after a clock regression.
+        let recovered = lifecycle.check_currentness(entity_id, 30);
+        assert_eq!(recovered.revision, None);
+        assert_eq!(recovered.update.phase, LifecyclePhase::NeedsNewSession);
+        assert!(recovered.update.records.is_empty());
     }
 
     #[test]
