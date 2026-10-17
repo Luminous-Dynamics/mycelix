@@ -396,6 +396,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     const PRIMARY_CORPUS: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-v1.jsonl");
     const PRIMARY_MANIFEST: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-v1.manifest.json");
     const SUPPLEMENT_CORPUS: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.jsonl");
@@ -408,6 +409,8 @@ mod tests {
         assert_eq!(report["status"], REPORT_STATUS);
         assert_eq!(report["record_count"], 32);
         assert_eq!(report["all_cases_scored"], false);
+        assert_eq!(report["case_receipts"][0]["disposition"], "UNSCORED");
+        assert_eq!(report["checker_version"], env!("CARGO_PKG_VERSION"));
     }
 
     #[test]
@@ -420,6 +423,13 @@ mod tests {
     }
 
     #[test]
+    fn report_is_byte_deterministic_for_identical_inputs() {
+        let first = serde_json::to_vec(&verify_bytes(PRIMARY_CORPUS.as_bytes(), PRIMARY_MANIFEST, CASE_SCHEMA).unwrap()).unwrap();
+        let second = serde_json::to_vec(&verify_bytes(PRIMARY_CORPUS.as_bytes(), PRIMARY_MANIFEST, CASE_SCHEMA).unwrap()).unwrap();
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn rejects_changed_corpus_bytes() {
         let mut corpus = PRIMARY_CORPUS.as_bytes().to_vec();
         corpus[0] ^= 1;
@@ -429,42 +439,145 @@ mod tests {
     #[test]
     fn rejects_malformed_jsonl_even_with_matching_digest() {
         let corpus = b"{not json}\n";
-        let manifest = minimal_manifest_for(corpus, 1, 0, 1, vec![]);
+        let records = vec![];
+        let manifest = manifest_for_records(corpus, &records, Some(1));
         assert!(verify_bytes(corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("not valid JSON"));
     }
 
     #[test]
     fn rejects_duplicate_case_id() {
-        let records: Vec<Value> = PRIMARY_CORPUS.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
-        let mut duplicate = records[1].clone();
-        duplicate["case_id"] = records[0]["case_id"].clone();
-        let corpus = format!("{}\n{}\n", records[0], duplicate);
-        let manifest = minimal_manifest_for(corpus.as_bytes(), 2, 2, 0, vec!["DISTINGUISH_EVIDENCE_KIND".to_owned()]);
-        assert!(verify_bytes(corpus.as_bytes(), &manifest, CASE_SCHEMA).unwrap_err().contains("duplicate case_id"));
+        let mut records = records_from_primary();
+        records[1]["case_id"] = records[0]["case_id"].clone();
+        let corpus = encode_corpus(&records);
+        let manifest = manifest_for_records(&corpus, &records, None);
+        assert!(verify_bytes(&corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("duplicate case_id"));
     }
 
     #[test]
-    fn rejects_missing_or_mismatched_digest() {
-        let no_digest = r#"{"corpus_version":"1","corpus_id":"x","corpus_path":"x","record_count":0,"severity_counts":{"hard_fail":0,"review":0},"required_invariants":[]}"#;
+    fn rejects_duplicate_evidence_id() {
+        let mut records = records_from_primary();
+        records[0]["evidence"][1]["id"] = json!("E1");
+        let corpus = encode_corpus(&records);
+        let manifest = manifest_for_records(&corpus, &records, None);
+        assert!(verify_bytes(&corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("duplicate evidence id"));
+    }
+
+    #[test]
+    fn rejects_unknown_invariant() {
+        let mut records = records_from_primary();
+        records[0]["expected_invariants"][0] = json!("WISDOM_SUPERIOR");
+        let corpus = encode_corpus(&records);
+        let manifest = manifest_for_records(&corpus, &records, None);
+        assert!(verify_bytes(&corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("unknown invariant"));
+    }
+
+    #[test]
+    fn rejects_unknown_evidence_kind() {
+        let mut records = records_from_primary();
+        records[0]["evidence"][0]["kind"] = json!("mystical_truth_grade");
+        let corpus = encode_corpus(&records);
+        let manifest = manifest_for_records(&corpus, &records, None);
+        assert!(verify_bytes(&corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("unknown evidence kind"));
+    }
+
+    #[test]
+    fn rejects_missing_required_field() {
+        let mut records = records_from_primary();
+        records[0].as_object_mut().unwrap().remove("rationale");
+        let corpus = encode_corpus(&records);
+        let manifest = manifest_for_records(&corpus, &records, None);
+        assert!(verify_bytes(&corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("missing required field rationale"));
+    }
+
+    #[test]
+    fn rejects_undeclared_record_field() {
+        let mut records = records_from_primary();
+        records[0]["surprise_authority"] = json!("override");
+        let corpus = encode_corpus(&records);
+        let manifest = manifest_for_records(&corpus, &records, None);
+        assert!(verify_bytes(&corpus, &manifest, CASE_SCHEMA).unwrap_err().contains("undeclared field surprise_authority"));
+    }
+
+    #[test]
+    fn rejects_manifest_record_count_mismatch() {
+        let manifest: Value = serde_json::from_str(PRIMARY_MANIFEST).unwrap();
+        let mut changed = manifest;
+        changed["record_count"] = json!(31);
+        let changed = serde_json::to_string(&changed).unwrap();
+        assert!(verify_bytes(PRIMARY_CORPUS.as_bytes(), &changed, CASE_SCHEMA).unwrap_err().contains("record_count mismatch"));
+    }
+
+    #[test]
+    fn rejects_manifest_severity_key_drift() {
+        let manifest: Value = serde_json::from_str(PRIMARY_MANIFEST).unwrap();
+        let mut changed = manifest;
+        changed["severity_counts"]["maybe"] = json!(0);
+        let changed = serde_json::to_string(&changed).unwrap();
+        assert!(verify_bytes(PRIMARY_CORPUS.as_bytes(), &changed, CASE_SCHEMA).unwrap_err().contains("severity count keys"));
+    }
+
+    #[test]
+    fn rejects_duplicate_manifest_invariant() {
+        let manifest: Value = serde_json::from_str(PRIMARY_MANIFEST).unwrap();
+        let mut changed = manifest;
+        let first = changed["required_invariants"][0].clone();
+        changed["required_invariants"].as_array_mut().unwrap().push(first);
+        let changed = serde_json::to_string(&changed).unwrap();
+        assert!(verify_bytes(PRIMARY_CORPUS.as_bytes(), &changed, CASE_SCHEMA).unwrap_err().contains("contains duplicates"));
+    }
+
+    #[test]
+    fn rejects_missing_digest() {
+        let no_digest = r#"{"manifest_schema":"cross-scale-wisdom-manifest/1.0","corpus_version":"1","corpus_id":"x","corpus_path":"x","record_count":0,"severity_counts":{"hard_fail":0,"review":0},"required_invariants":[]}"#;
         assert!(verify_bytes(b"", no_digest, CASE_SCHEMA).unwrap_err().contains("missing corpus_sha256"));
     }
 
-    fn minimal_manifest_for(
-        corpus: &[u8],
-        records: u64,
-        hard_fail: u64,
-        review: u64,
-        invariants: Vec<String>,
-    ) -> String {
-        let digest = sha256_hex(corpus);
+    #[test]
+    fn rejects_missing_final_newline() {
+        let mut records = records_from_primary();
+        records.truncate(1);
+        let corpus = serde_json::to_string(&records[0]).unwrap();
+        let manifest = manifest_for_records(corpus.as_bytes(), &records, None);
+        assert!(verify_bytes(corpus.as_bytes(), &manifest, CASE_SCHEMA).unwrap_err().contains("newline-terminated"));
+    }
+
+    fn records_from_primary() -> Vec<Value> {
+        PRIMARY_CORPUS.lines().map(|line| serde_json::from_str(line).unwrap()).collect()
+    }
+
+    fn encode_corpus(records: &[Value]) -> Vec<u8> {
+        let body = records.iter().map(|record| serde_json::to_string(record).unwrap()).collect::<Vec<_>>().join("\n");
+        format!("{body}\n").into_bytes()
+    }
+
+    fn manifest_for_records(corpus: &[u8], records: &[Value], count_override: Option<u64>) -> String {
+        let mut severity_counts = BTreeMap::<String, u64>::new();
+        let mut invariants = BTreeSet::<String>::new();
+        for record in records {
+            if let Some(severity) = record.get("severity").and_then(Value::as_str) {
+                *severity_counts.entry(severity.to_owned()).or_default() += 1;
+            }
+            if let Some(values) = record.get("expected_invariants").and_then(Value::as_array) {
+                for value in values.iter().filter_map(Value::as_str) {
+                    invariants.insert(value.to_owned());
+                }
+            }
+        }
+        severity_counts.entry("hard_fail".to_owned()).or_default();
+        severity_counts.entry("review".to_owned()).or_default();
         serde_json::to_string(&json!({
-            "corpus_sha256": digest,
-            "corpus_version": "test",
-            "corpus_id": "test",
+            "manifest_schema": "cross-scale-wisdom-manifest/1.0",
+            "corpus_id": "test-corpus",
+            "corpus_version": "test-version",
             "corpus_path": "test.jsonl",
-            "record_count": records,
-            "severity_counts": { "hard_fail": hard_fail, "review": review },
-            "required_invariants": invariants
+            "hash_algorithm": "sha256",
+            "corpus_sha256": sha256_hex(corpus),
+            "record_format": "JSON Lines; UTF-8",
+            "record_count": count_override.unwrap_or(records.len() as u64),
+            "severity_counts": severity_counts,
+            "status": "synthetic fixture",
+            "claim_ceiling": "structural validation only",
+            "required_invariants": invariants.into_iter().collect::<Vec<_>>()
         })).unwrap()
     }
 }
