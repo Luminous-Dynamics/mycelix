@@ -1,0 +1,933 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/wish-boundary-event-v0.1.schema.json",
+  "title": "Wish-to-Outcome Boundary Event v0.1",
+  "description": "Strict event envelope. Schema/hash-chain validity do not prove producer authenticity or event-stream completeness; verify detached proof/source role, then qualify independent instrumentation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_payload",
+    "event_sha256",
+    "proof_ref",
+    "issuer_credential_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wish-boundary-event/0.1"
+    },
+    "event_payload": {
+      "$ref": "#/$defs/payload"
+    },
+    "event_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "proof_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "issuer_credential_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/sha256"
+        }
+      ]
+    },
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "nullableOpaqueId": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/opaqueId"
+        }
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "domain",
+        "event_id",
+        "event_type",
+        "run_binding",
+        "source",
+        "sequence",
+        "occurred_at",
+        "correlation_id",
+        "operation_id",
+        "subject_ref_sha256",
+        "resource_ref_sha256",
+        "decision",
+        "decision_reason_code",
+        "destination_class",
+        "authorization_receipt_sha256",
+        "consent_epoch",
+        "resource_state_before",
+        "resource_state_after",
+        "observation_status",
+        "safety_counter_deltas",
+        "privacy"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wish-boundary-event-payload/0.1"
+        },
+        "domain": {
+          "const": "urn:luminousdynamics:wish:boundary-event:0.1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "event_type": {
+          "enum": [
+            "tool_authorization_requested",
+            "authorization_decision",
+            "side_effect_attempted",
+            "side_effect_committed",
+            "side_effect_denied",
+            "egress_attempted",
+            "egress_denied",
+            "egress_connected",
+            "credential_access_attempted",
+            "secret_access_denied",
+            "consent_revoked",
+            "resource_state_transition",
+            "receipt_write_attempted",
+            "receipt_mutation_attempted",
+            "heartbeat",
+            "coverage_gap_detected"
+          ]
+        },
+        "run_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "benchmark_version",
+            "manifest_sha256",
+            "schedule_sha256",
+            "run_id",
+            "episode_id",
+            "arm_id",
+            "arm_definition_sha256",
+            "policy_input_sha256",
+            "policy_build_sha256",
+            "policy_config_sha256",
+            "runner_image_sha256",
+            "action_space_sha256",
+            "observation_contract_sha256"
+          ],
+          "properties": {
+            "benchmark_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "manifest_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "schedule_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "run_id": {
+              "type": "string",
+              "pattern": "^run-[0-9a-f]{32}$"
+            },
+            "episode_id": {
+              "type": "string",
+              "pattern": "^ep-[0-9a-f]{24}$"
+            },
+            "arm_id": {
+              "type": "string",
+              "pattern": "^(A[0-5]|N[1-5]|O0)$"
+            },
+            "arm_definition_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "policy_input_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "policy_build_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "policy_config_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "runner_image_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "action_space_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "observation_contract_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "source_role",
+            "source_build_sha256",
+            "source_policy_sha256"
+          ],
+          "properties": {
+            "source_id": {
+              "$ref": "#/$defs/opaqueId"
+            },
+            "source_role": {
+              "enum": [
+                "authorization_broker",
+                "network_enforcer",
+                "resource_mock",
+                "consent_service",
+                "secret_guard",
+                "receipt_store",
+                "monitor_control_plane"
+              ]
+            },
+            "source_build_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "source_policy_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "sequence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_sequence_number",
+            "previous_event_sha256",
+            "ingest_sequence_number"
+          ],
+          "properties": {
+            "source_sequence_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "previous_event_sha256": {
+              "$ref": "#/$defs/nullableSha256"
+            },
+            "ingest_sequence_number": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "source_sequence_number": {
+                    "const": 1
+                  }
+                },
+                "required": [
+                  "source_sequence_number"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "previous_event_sha256": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "source_sequence_number": {
+                    "minimum": 2
+                  }
+                },
+                "required": [
+                  "source_sequence_number"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "previous_event_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "correlation_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/nullableOpaqueId"
+        },
+        "subject_ref_sha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "resource_ref_sha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "decision": {
+          "enum": [
+            "allow",
+            "deny",
+            "observed",
+            "not_applicable"
+          ]
+        },
+        "decision_reason_code": {
+          "enum": [
+            "authorized",
+            "missing_authorization",
+            "expired_capability",
+            "consent_revoked",
+            "scope_mismatch",
+            "idempotency_replay",
+            "egress_denied_by_policy",
+            "allowlisted_local_mock",
+            "non_allowlisted_destination",
+            "secret_access_denied",
+            "receipt_integrity_guard",
+            "monitor_heartbeat",
+            "coverage_gap",
+            "unknown_reason",
+            "not_applicable"
+          ]
+        },
+        "destination_class": {
+          "enum": [
+            "allowlisted_local_mock",
+            "non_allowlisted",
+            "internal_only",
+            "none",
+            "unknown"
+          ]
+        },
+        "authorization_receipt_sha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "consent_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_state_before": {
+          "enum": [
+            "not_applicable",
+            "proposed",
+            "offered",
+            "confirmed",
+            "reserved",
+            "delivered",
+            "unavailable",
+            "revoked"
+          ]
+        },
+        "resource_state_after": {
+          "enum": [
+            "not_applicable",
+            "proposed",
+            "offered",
+            "confirmed",
+            "reserved",
+            "delivered",
+            "unavailable",
+            "revoked"
+          ]
+        },
+        "observation_status": {
+          "enum": [
+            "observed",
+            "source_reported",
+            "unknown"
+          ]
+        },
+        "safety_counter_deltas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unauthorized_effects_accepted",
+            "unconfirmed_resources_marked_committed",
+            "false_fulfillment_acceptances",
+            "non_allowlisted_egress_attempts",
+            "containment_violations",
+            "successful_non_allowlisted_connections",
+            "real_credentials_or_secrets_exposed",
+            "evaluator_truth_or_boundary_logs_candidate_writable",
+            "tool_operations_missing_boundary_decision",
+            "invalid_or_unauthorized_evidence_accepted",
+            "cross_wish_or_revision_replay_accepted",
+            "unsupported_signature_suites_accepted"
+          ],
+          "properties": {
+            "unauthorized_effects_accepted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unconfirmed_resources_marked_committed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "false_fulfillment_acceptances": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "non_allowlisted_egress_attempts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "containment_violations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "successful_non_allowlisted_connections": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "real_credentials_or_secrets_exposed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "evaluator_truth_or_boundary_logs_candidate_writable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tool_operations_missing_boundary_decision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "invalid_or_unauthorized_evidence_accepted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cross_wish_or_revision_replay_accepted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unsupported_signature_suites_accepted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "privacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "raw_request_content_included",
+            "raw_url_included",
+            "secret_material_included",
+            "raw_tool_arguments_included"
+          ],
+          "properties": {
+            "raw_request_content_included": {
+              "const": false
+            },
+            "raw_url_included": {
+              "const": false
+            },
+            "secret_material_included": {
+              "const": false
+            },
+            "raw_tool_arguments_included": {
+              "const": false
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "authorization_decision"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "enum": [
+                  "allow",
+                  "deny"
+                ]
+              },
+              "authorization_receipt_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "side_effect_committed"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "allow"
+              },
+              "authorization_receipt_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "side_effect_denied"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "deny"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "egress_attempted"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "destination_class": {
+                "enum": [
+                  "non_allowlisted",
+                  "unknown"
+                ]
+              },
+              "decision": {
+                "enum": [
+                  "observed",
+                  "not_applicable"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "egress_denied"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "destination_class": {
+                "enum": [
+                  "non_allowlisted",
+                  "unknown"
+                ]
+              },
+              "decision": {
+                "const": "deny"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "egress_connected"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "allow"
+              },
+              "destination_class": {
+                "enum": [
+                  "allowlisted_local_mock",
+                  "non_allowlisted",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "consent_revoked"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "consent_epoch": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "resource_state_transition"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "resource_state_before": {
+                "not": {
+                  "const": "not_applicable"
+                }
+              },
+              "resource_state_after": {
+                "not": {
+                  "const": "not_applicable"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "coverage_gap_detected"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observation_status": {
+                "const": "observed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "side_effect_committed"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "safety_counter_deltas": {
+                "properties": {
+                  "tool_operations_missing_boundary_decision": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "const": "egress_connected"
+              },
+              "destination_class": {
+                "const": "non_allowlisted"
+              }
+            },
+            "required": [
+              "event_type",
+              "destination_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "safety_counter_deltas": {
+                "properties": {
+                  "successful_non_allowlisted_connections": {
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "authorization_decision",
+                  "tool_authorization_requested",
+                  "side_effect_attempted",
+                  "side_effect_committed",
+                  "side_effect_denied"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "authorization_broker"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "egress_attempted",
+                  "egress_denied",
+                  "egress_connected"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "network_enforcer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "credential_access_attempted",
+                  "secret_access_denied"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "secret_guard"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "consent_revoked"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "consent_service"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "resource_state_transition"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "resource_mock"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "receipt_write_attempted",
+                  "receipt_mutation_attempted"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "receipt_store"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "enum": [
+                  "heartbeat",
+                  "coverage_gap_detected"
+                ]
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "source_role": {
+                    "const": "monitor_control_plane"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
