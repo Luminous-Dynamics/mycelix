@@ -23,12 +23,15 @@ A state value is not a permanent fact. Every positive observation is scoped by a
 | HLC-013 | 1,024-entity snapshot | p95 snapshot reconciliation ≤ 25 ms on the same named host; separately report allocation and record count | Blocked on runtime measurement |
 | HLC-014 | Checkpoint representation | A round-trip preserves profile binding, highest epoch, and all tombstone revisions while restoring zero current positives | Not measured |
 | HLC-015 | Crash durability | No acknowledged lifecycle revision can roll back after process/power failure on the supported storage profile | Blocked on a durable persistence implementation |
+| HLC-016 | Clock-regression fail-closed | 100% of negative-time checks return no current revision, emit invalidation for each active positive, and keep prior positives non-current until a strictly newer session/bootstrap | Not measured |
 
 ## Correctness workload
 
 Test at least the following transitions and permutations: session start, subscription bind/ack, initial snapshot projection, snapshot acknowledgement, positive state, semantically equivalent replay, unknown, unavailable, removal, expiry, malformed delta, metadata drift, disconnect, higher-epoch reconnect, reconnect snapshot with the entity present, reconnect snapshot omission, stale epoch delivery, and checkpoint restore.
 
 For every rejected projector update, capture both the projector pre/post-cache digest in the *test harness* and the lifecycle before/after state. Test evidence can carry a local test digest, but production lifecycle records must not publish unsalted state hashes.
+
+For clock behavior, run the authoritative `check_currentness` gate with a regressed local monotonic timestamp, then with a later/recovered timestamp. Require the first call to return a clock-fault invalidation and enter `NeedsNewSession`; the second must not revive any prior positive. A read-only lookup returning `None` once is not sufficient evidence of a committed invalidation.
 
 Include a two-entity delta where the first entity is valid and a later sorted entity violates its codec/range bound. Acceptance requires zero staged observations escaping and explicit invalidation of every prior positive in the rejected session.
 
