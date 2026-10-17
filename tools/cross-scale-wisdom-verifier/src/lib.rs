@@ -401,6 +401,8 @@ mod tests {
     const PRIMARY_MANIFEST: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-v1.manifest.json");
     const SUPPLEMENT_CORPUS: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.jsonl");
     const SUPPLEMENT_MANIFEST: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-integral-lens-v0.1.manifest.json");
+    const SPIRITUAL_BOUNDARIES_CORPUS: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-spiritual-practice-boundaries-v0.1.jsonl");
+    const SPIRITUAL_BOUNDARIES_MANIFEST: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-spiritual-practice-boundaries-v0.1.manifest.json");
     const CASE_SCHEMA: &str = include_str!("../../../docs/research/fixtures/cross-scale-wisdom-case.schema.json");
 
     #[test]
@@ -420,6 +422,23 @@ mod tests {
         assert_eq!(report["record_count"], 12);
         assert_eq!(report["severity_counts"]["hard_fail"], 9);
         assert_eq!(report["severity_counts"]["review"], 3);
+    }
+
+    #[test]
+    fn verifies_spiritual_practice_boundaries_supplement_as_unscored() {
+        let report = verify_bytes(
+            SPIRITUAL_BOUNDARIES_CORPUS.as_bytes(),
+            SPIRITUAL_BOUNDARIES_MANIFEST,
+            CASE_SCHEMA,
+        )
+        .unwrap();
+        assert_eq!(report["status"], REPORT_STATUS);
+        assert_eq!(report["record_count"], 12);
+        assert_eq!(report["severity_counts"]["hard_fail"], 10);
+        assert_eq!(report["severity_counts"]["review"], 2);
+        assert_eq!(report["all_cases_scored"], false);
+        assert_eq!(report["case_receipts"][0]["case_id"], "XSW-201");
+        assert_eq!(report["case_receipts"][11]["case_id"], "XSW-212");
     }
 
     #[test]
