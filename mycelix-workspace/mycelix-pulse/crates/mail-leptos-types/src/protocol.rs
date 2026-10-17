@@ -15,6 +15,7 @@ const ENVELOPE_DOMAIN: &[u8] = b"mycelix-pulse/envelope/v1\0";
 const ENVELOPE_V2_DOMAIN: &[u8] = b"mycelix-pulse/envelope/v2-hybrid-pqc\0";
 const RECEIPT_DOMAIN: &[u8] = b"mycelix-pulse/receipt/v1\0";
 const RECEIPT_V2_DOMAIN: &[u8] = b"mycelix-pulse/receipt/v2\0";
+const RECEIPT_EVENT_ID_DOMAIN: &[u8] = b"mycelix-pulse/receipt-event-id/v2\0";
 const ENVELOPE_COMMITMENT_DOMAIN: &[u8] = b"mycelix-pulse/envelope-commitment/v1\0";
 pub const RECEIPT_V2_PROTOCOL_VERSION: u16 = 2;
 pub const ML_KEM_768_ENCAPSULATION_KEY_BYTES: usize = 1184;
@@ -356,7 +357,7 @@ impl RecipientReceipt {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecipientReceiptV2 {
     pub protocol_version: u16,
-    /// Stable 256-bit idempotency identity, persisted before first dispatch.
+    /// Stable 256-bit idempotency identity, persisted or deterministically derived before first dispatch.
     pub receipt_event_id: [u8; 32],
     pub message_id: MessageId,
     pub recipient_agent: Vec<u8>,
@@ -406,6 +407,30 @@ impl RecipientReceiptV2 {
         out.extend_from_slice(&self.occurred_at_micros.to_be_bytes());
         Ok(out)
     }
+}
+
+/// Canonical input to the SHA-256 receipt-event identity derivation.
+///
+/// The ID is deliberately independent of timestamp, route, attempt number,
+/// and envelope commitment so retries remain stable and conflicting reuse of
+/// the same logical message/recipient/kind can be detected.
+pub fn canonical_receipt_event_id_preimage(
+    message_id: &MessageId,
+    recipient_agent: &[u8],
+    kind: ReceiptKind,
+) -> Result<Vec<u8>, ProtocolError> {
+    let mut out = Vec::with_capacity(
+        RECEIPT_EVENT_ID_DOMAIN.len() + 32 + 4 + recipient_agent.len() + 1,
+    );
+    out.extend_from_slice(RECEIPT_EVENT_ID_DOMAIN);
+    out.extend_from_slice(&message_id.0);
+    put_bytes(&mut out, recipient_agent)?;
+    out.push(match kind {
+        ReceiptKind::Observed => 1,
+        ReceiptKind::Delivered => 2,
+        ReceiptKind::Read => 3,
+    });
+    Ok(out)
 }
 
 /// Input to the envelope-commitment hash. Callers compute
@@ -771,6 +796,74 @@ mod tests {
             occurred_at_micros: 35,
             recipient_signature: vec![36; 64],
         }
+    }
+
+    #[test]
+    fn receipt_event_id_preimage_matches_frozen_vector() {
+        let message_id = MessageId([32; 32]);
+        let recipient = vec![33; 39];
+        let preimage = canonical_receipt_event_id_preimage(
+            &message_id,
+            &recipient,
+            ReceiptKind::Delivered,
+        )
+        .unwrap();
+        let actual_hex = preimage
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        assert_eq!(
+            actual_hex,
+            include_str!("../test-vectors/receipt-v2-event-id-preimage-delivered.hex").trim()
+        );
+    }
+
+    #[test]
+    fn receipt_event_id_preimage_is_stable_but_scoped_to_message_recipient_and_kind() {
+        let message_id = MessageId([32; 32]);
+        let recipient = vec![33; 39];
+        let first = canonical_receipt_event_id_preimage(
+            &message_id,
+            &recipient,
+            ReceiptKind::Delivered,
+        )
+        .unwrap();
+        assert_eq!(
+            first,
+            canonical_receipt_event_id_preimage(
+                &message_id,
+                &recipient,
+                ReceiptKind::Delivered
+            )
+            .unwrap()
+        );
+        assert_ne!(
+            first,
+            canonical_receipt_event_id_preimage(
+                &message_id,
+                &recipient,
+                ReceiptKind::Read
+            )
+            .unwrap()
+        );
+        assert_ne!(
+            first,
+            canonical_receipt_event_id_preimage(
+                &message_id,
+                &[34; 39],
+                ReceiptKind::Delivered
+            )
+            .unwrap()
+        );
+        assert_ne!(
+            first,
+            canonical_receipt_event_id_preimage(
+                &MessageId([35; 32]),
+                &recipient,
+                ReceiptKind::Delivered
+            )
+            .unwrap()
+        );
     }
 
     #[test]
