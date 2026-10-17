@@ -92,13 +92,8 @@ impl HomeAssistantObservationProfile {
             ));
         }
         validate_instance_id(&self.instance_id)?;
-        validate_bounded_text(
-            "profile_ref",
-            &self.profile_ref,
-            MAX_PROFILE_REF_BYTES,
-            false,
-        )
-        .map_err(ObservationError::InvalidProfile)?;
+        validate_profile_ref(&self.profile_ref)
+            .map_err(ObservationError::InvalidProfile)?;
         if self.rules.is_empty() {
             return Err(ObservationError::InvalidProfile(
                 "rules must not be empty".into(),
@@ -592,6 +587,30 @@ fn pow10_i128(scale: u8) -> Result<i128, &'static str> {
     Ok(value)
 }
 
+/// Validate an opaque local profile identifier, not a network locator or transport option.
+/// Only stable identifier namespaces are admitted; URL/path punctuation is rejected.
+fn validate_profile_ref(value: &str) -> Result<(), String> {
+    if value.is_empty() || value.len() > MAX_PROFILE_REF_BYTES {
+        return Err(format!(
+            "profile_ref must be in 1..={MAX_PROFILE_REF_BYTES} bytes"
+        ));
+    }
+    let Some((namespace, identifier)) = value.split_once(':') else {
+        return Err("profile_ref must use an admitted identifier namespace".into());
+    };
+    if !matches!(namespace, "profile" | "ha-observation-profile-v1") {
+        return Err("profile_ref namespace is not admitted".into());
+    }
+    if identifier.is_empty()
+        || !identifier
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    {
+        return Err("profile_ref suffix must contain only ASCII alphanumeric, '.', '_' or '-'".into());
+    }
+    Ok(())
+}
+
 fn validate_instance_id(value: &str) -> Result<(), ObservationError> {
     if value.is_empty() || value.len() > MAX_INSTANCE_ID_BYTES {
         return Err(ObservationError::InvalidProfile(format!(
@@ -734,6 +753,30 @@ mod tests {
             source_last_updated_micros: Some(1),
             received_at_micros: 10_000_000,
         }
+    }
+
+    #[test]
+    fn profile_reference_is_an_identifier_not_a_network_locator() {
+        let mut profile = profile(StateCodec::Text {
+            max_bytes: 32,
+            allowed_values: BTreeSet::new(),
+        });
+        assert!(profile.validate().is_ok());
+
+        profile.profile_ref = "https://example.invalid/profile?token=fixture-only".into();
+        assert!(matches!(
+            profile.validate(),
+            Err(ObservationError::InvalidProfile(_))
+        ));
+
+        profile.profile_ref = "../profiles/home".into();
+        assert!(matches!(
+            profile.validate(),
+            Err(ObservationError::InvalidProfile(_))
+        ));
+
+        profile.profile_ref = "profile:home_v1.2-test".into();
+        assert!(profile.validate().is_ok());
     }
 
     #[test]
