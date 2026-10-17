@@ -48,7 +48,7 @@ The first implementation should map fields to existing canonical types, not crea
 - Device make/model, panel/optics/runtime/firmware version and configuration where publication is allowed.
 - Instrument type, serial/identifier when appropriate, calibration record and validity interval.
 - Capture/evaluation time, environment (ambient light, temperature, distance, screen geometry) as relevant to the specific metric.
-- Units, color space/white point, transfer function, coordinate frame, wavelength, pixel pitch, sampling rate or frame-time convention where applicable.
+- Units, color space/white point, transfer function, coordinate frame, wavelength, pixel pitch, sampling rate or frame-time convention where applicable. For light-field results also record observation angle and convention, image-depth position, angular sampling/viewpoint density, angle-resolved MTF, crosstalk metric, luminance by angle, exposure time, scan state and synchronization condition.
 - Repetition number, sample denominator, uncertainty/confidence interval and known exclusions.
 - Missing context must remain missing; do not infer device properties from file names or prose.
 
