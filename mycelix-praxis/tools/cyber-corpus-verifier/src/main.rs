@@ -144,6 +144,7 @@ struct Report {
     oracle_count: usize,
     case_ids: Vec<String>,
     files: BTreeMap<String, FileResult>,
+    schema_validation: &'static str,
     non_claims: Vec<&'static str>,
 }
 
@@ -221,6 +222,54 @@ fn check_schema_contract(bytes: &[u8], label: &str, expected_version: &str) -> R
         || !required.iter().any(|v| v.as_str() == Some("scenario_id"))
     {
         return Err(fail(format!("{label}: root requires schema_version and scenario_id")));
+    }
+    Ok(())
+}
+
+fn load_schema_validator(
+    bytes: &[u8],
+    label: &str,
+    expected_version: &str,
+) -> Result<jsonschema::Validator, String> {
+    let schema: Value = serde_json::from_slice(bytes)
+        .map_err(|e| fail(format!("{label}: schema JSON parse failed: {e}")))?;
+    check_schema_contract(bytes, label, expected_version)?;
+
+    if !jsonschema::draft202012::meta::is_valid(&schema) {
+        return Err(fail(format!(
+            "{label}: schema is invalid against the bundled Draft 2020-12 meta-schema"
+        )));
+    }
+
+    jsonschema::draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+        .map_err(|e| fail(format!("{label}: schema validator could not be built: {e}")))
+}
+
+fn validate_jsonl_against_schema(
+    bytes: &[u8],
+    label: &str,
+    validator: &jsonschema::Validator,
+) -> Result<(), String> {
+    let text = std::str::from_utf8(bytes)
+        .map_err(|e| fail(format!("{label}: not valid UTF-8: {e}")))?;
+    if !text.ends_with('\n') {
+        return Err(fail(format!("{label}: JSONL must end with LF")));
+    }
+
+    for (index, line) in text.split_terminator('\n').enumerate() {
+        if line.trim().is_empty() {
+            return Err(fail(format!("{label}: blank record at line {}", index + 1)));
+        }
+        let value: Value = serde_json::from_str(line)
+            .map_err(|e| fail(format!("{label}: JSON parse failed at line {}: {e}", index + 1)))?;
+        if let Err(error) = validator.validate(&value) {
+            return Err(fail(format!(
+                "{label}: schema validation failed at line {}: {error}",
+                index + 1
+            )));
+        }
     }
     Ok(())
 }
@@ -444,15 +493,26 @@ fn verify(
         byte_files.insert(relative.clone(), bytes);
     }
 
-    check_schema_contract(
+    let challenge_validator = load_schema_validator(
         &byte_files["schemas/cyber-challenge-v1.schema.json"],
         "challenge schema",
         "cyber-challenge-v1",
     )?;
-    check_schema_contract(
+    let oracle_validator = load_schema_validator(
         &byte_files["schemas/cyber-oracle-v1.schema.json"],
         "oracle schema",
         "cyber-oracle-v1",
+    )?;
+
+    validate_jsonl_against_schema(
+        &byte_files["docs/fixtures/cyber-public-seed-v1.jsonl"],
+        "solver seed",
+        &challenge_validator,
+    )?;
+    validate_jsonl_against_schema(
+        &byte_files["docs/fixtures/cyber-public-seed-v1.oracle.jsonl"],
+        "oracle seed",
+        &oracle_validator,
     )?;
 
     let cases = parse_jsonl::<Challenge>(
@@ -523,9 +583,10 @@ fn verify(
         oracle_count: oracles.len(),
         case_ids,
         files: file_results,
+        schema_validation: "DRAFT_2020_12_META_AND_INSTANCE_VALIDATION_PASS",
         non_claims: vec![
-            "This report establishes byte identity and bounded structural conformance only.",
-            "It does not validate the full JSON Schema dialect against a meta-schema.",
+            "This report establishes byte identity, schema conformance, and bounded structural checks only.",
+            "Schema validation uses the pinned Rust jsonschema implementation and bundled Draft 2020-12 meta-schema; it is not an independent external compliance audit.",
             "It does not score the semantic correctness of a solver or an evaluator rubric.",
             "The public seed and answer key are not a blind capability benchmark.",
             "It does not establish real-world security, learner efficacy, or execution authority.",
@@ -722,6 +783,61 @@ mod tests {
         assert!(result.expect_err("malformed commit pin must be rejected")
             .contains("manifest metadata"));
         fs::remove_dir_all(root).expect("temporary test root should be removed");
+    }
+
+    #[test]
+    fn schema_documents_pass_draft_2020_12_meta_validation_and_seed_instances_validate() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let challenge_schema_bytes = fs::read(root.join("schemas/cyber-challenge-v1.schema.json"))
+            .expect("challenge schema should be readable");
+        let oracle_schema_bytes = fs::read(root.join("schemas/cyber-oracle-v1.schema.json"))
+            .expect("oracle schema should be readable");
+        let challenge_validator = load_schema_validator(
+            &challenge_schema_bytes,
+            "challenge schema",
+            "cyber-challenge-v1",
+        )
+        .expect("challenge schema should be valid Draft 2020-12");
+        let oracle_validator = load_schema_validator(
+            &oracle_schema_bytes,
+            "oracle schema",
+            "cyber-oracle-v1",
+        )
+        .expect("oracle schema should be valid Draft 2020-12");
+
+        let challenges = fs::read(root.join("docs/fixtures/cyber-public-seed-v1.jsonl"))
+            .expect("solver fixture should be readable");
+        let oracles = fs::read(root.join("docs/fixtures/cyber-public-seed-v1.oracle.jsonl"))
+            .expect("oracle fixture should be readable");
+        validate_jsonl_against_schema(&challenges, "solver seed", &challenge_validator)
+            .expect("all solver cases should validate against their schema");
+        validate_jsonl_against_schema(&oracles, "oracle seed", &oracle_validator)
+            .expect("all oracle cases should validate against their schema");
+    }
+
+    #[test]
+    fn json_schema_validation_rejects_unknown_fields_and_bad_scenario_ids() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let schema_bytes = fs::read(root.join("schemas/cyber-challenge-v1.schema.json"))
+            .expect("challenge schema should be readable");
+        let validator = load_schema_validator(
+            &schema_bytes,
+            "challenge schema",
+            "cyber-challenge-v1",
+        )
+        .expect("challenge schema should compile");
+        let corpus = fs::read_to_string(root.join("docs/fixtures/cyber-public-seed-v1.jsonl"))
+            .expect("solver fixture should be readable");
+        let mut value: Value = serde_json::from_str(corpus.lines().next().expect("first record"))
+            .expect("first challenge should be JSON");
+
+        value.as_object_mut().expect("challenge is an object")
+            .insert("unrecognized_field".to_string(), Value::Bool(true));
+        assert!(validator.validate(&value).is_err(), "unknown fields must fail schema validation");
+
+        value.as_object_mut().expect("challenge is an object").remove("unrecognized_field");
+        value["scenario_id"] = Value::String("INVALID-ID".to_string());
+        assert!(validator.validate(&value).is_err(), "scenario ID pattern must be enforced");
     }
 
     #[test]
