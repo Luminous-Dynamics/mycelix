@@ -84,3 +84,8 @@ Current pure source tests cover the prepared/reserved/dispatch-started/unknown/t
 - [IETF Idempotency-Key draft -07](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-07) provides relevant HTTP vocabulary, but the cited draft expired on 18 April 2026 and is not treated here as a current final RFC.
 
 These sources motivate the design. They are not independent validation of this implementation.
+
+
+## Machine-readable fault corpus
+
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 22-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
