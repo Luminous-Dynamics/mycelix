@@ -100,6 +100,19 @@ Each fixture should have at least one mutation that a naive dashboard or recomme
 
 The targets below are proposals. They are not external standards or achieved results.
 
+### Current deterministic scenario-engine contract
+
+A first implementation slice now exists in the draft Rust prototype [PR #5172](https://github.com/Luminous-Dynamics/mycelix/pull/5172). It performs only user-specified source-decline arithmetic. The current contract is deliberately limited:
+
+- The declared observation window must be valid; source shocks must reference known, unique source IDs and use a decline between 0 and 10,000 basis points.
+- Every used currency must have exactly one explicit deductions row. Currencies are never combined.
+- Refunds, fees, and operating costs remain frozen in this version; this is displayed as an assumption, not inferred behavior.
+- Fractional minor-unit losses are rounded up conservatively. This may overstate the stress impact at tiny amounts; it must never be described as a statistical estimate.
+- The report carries creator-declared completeness or partial/unknown coverage. Partial observations must not be presented as a complete career ledger.
+- Scenarios never mutate observed ledger rows, imply a probability, or execute financial/creator actions.
+
+The draft's source has 12 scenario unit tests, but the Rust toolchain is not available in the current editing environment and those tests have not been executed here. These tests are design evidence only until compiled and run on a Rust-enabled environment.
+
 ### Gate 0 — arithmetic and data integrity
 
 - 100% exact agreement with golden integer-minor-unit totals for supported classifications.
