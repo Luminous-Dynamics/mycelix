@@ -245,9 +245,33 @@ fn valid_repair_record() -> Value {
             "review_version": "privacy-review-v0.1"
         },
         "payload": {
-            "work_kind": "scheduled_inspection",
-            "part_revision_ref": "part-rev-001",
-            "post_repair_check_ref": "measurement-001"
+            "work_type": "scheduled_service",
+            "repair_task_graph_ref": "art_1123456789abcdef",
+            "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "procedure_revision": "procedure-v1",
+            "work_status": "performed",
+            "task_results": [{
+                "task_id": "task_service01",
+                "status": "performed",
+                "component_ref": "part_serviceitem01",
+                "component_revision": "A",
+                "duration": {
+                    "value": 8,
+                    "unit": "min",
+                    "basis": "observed",
+                    "observation_ref": "observation_service_001",
+                    "observed_at": "2026-10-17T10:01:00Z",
+                    "technician_ref": "actor_workshop_01",
+                    "tool_context": "Synthetic fixture timing only.",
+                    "source_refs": ["work-order-2026-001"]
+                },
+                "evidence_refs": ["work-order-2026-001"]
+            }],
+            "post_repair_verification": {
+                "result": "passed",
+                "observation_ref": "measurement-001",
+                "evidence_refs": ["measurement-001"]
+            }
         }
     })
 }
@@ -380,6 +404,30 @@ mod tests {
         let record = valid_repair_record();
         assert!(passes(&schema, &record));
         assert!(signature_binding_errors(&record).is_empty());
+    }
+
+    #[test]
+    fn maintenance_event_requires_repair_graph_and_task_lineage() {
+        let schema=schema();
+        let mut record=valid_repair_record();
+        record["payload"].as_object_mut().expect("payload object").remove("repair_task_graph_ref");
+        assert!(!passes(&schema,&record));
+    }
+
+    #[test]
+    fn observed_task_duration_requires_observation_source() {
+        let schema=schema();
+        let mut record=valid_repair_record();
+        record["payload"]["task_results"][0]["duration"].as_object_mut().expect("duration").remove("observation_ref");
+        assert!(!passes(&schema,&record));
+    }
+
+    #[test]
+    fn post_repair_pass_requires_a_verification_receipt() {
+        let schema=schema();
+        let mut record=valid_repair_record();
+        record["payload"]["post_repair_verification"].as_object_mut().expect("post-check").remove("evidence_refs");
+        assert!(!passes(&schema,&record));
     }
 
     #[test]
