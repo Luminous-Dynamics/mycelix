@@ -50,7 +50,7 @@ The implementation in src/reservation_cas.rs is intentionally a serial reference
 | Stable hand-authored fixtures | 40 minimum |
 | Generated operation schedules after oracle qualification | 10,000 minimum |
 
-The lease/evidence coupling prevents a reservation from promising more time than its source snapshot warrants. The 100-attempt test in this module deterministically models contenders that all present the same initial revision. It is not a benchmark of actual concurrent threads or network calls. A proper store-level stress benchmark must race concurrent workers against the transaction adapter and observe committed receipts, not trust client-side success responses.
+The lease/evidence coupling prevents a reservation from promising more time than its source snapshot warrants. The separate integration test also compares 108 small generated reserve sequences against a test-local oracle which recomputes admissibility, capacity, revision and fence state without calling ReservationBook. This is authored but still requires exact-head execution. The 100-attempt test in this module deterministically models contenders that all present the same initial revision. It is not a benchmark of actual concurrent threads or network calls. A proper store-level stress benchmark must race concurrent workers against the transaction adapter and observe committed receipts, not trust client-side success responses.
 
 ## Independent oracle and schedule campaign
 
