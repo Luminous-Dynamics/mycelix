@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 35 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
+This matrix is the shared test contract for any native Rust, WASM, Holochain coordinator, storage adapter, or external-service implementation of the regional policy decision. It is designed to prevent each region from reinventing the policy engine and to make policy changes reviewable through stable expected outcomes. The current kernel contains 37 source-level tests, including the cases mapped below; exact-head CI must still compile and execute them before any is called passed.
 
 The test clock is an explicit deterministic input. Production adapters must obtain it from a trusted runtime clock, not from an untrusted request. Holochain integrity validation must remain deterministic across peers and time; current profile/consent freshness checks belong at the runtime action boundary.
 
@@ -52,6 +52,8 @@ The test clock is an explicit deterministic input. Production adapters must obta
 | RPK-DENY-027 | Destination-party approval verification fails | Agreement construction rejected | `rejects_agreement_when_destination_approval_verification_fails` |
 | RPK-DENY-028 | Consent is replayed for another resource or content digest | Resource and content mismatch reasons | `denies_consent_reused_for_another_resource_or_content_version` |
 | RPK-DENY-029 | Consent is replayed across subjects, data classes, or actions | Subject, data-class and action mismatch reasons | `denies_consent_for_another_subject_data_class_or_action` |
+| RPK-DENY-030 | Classification trust adapter rejects the claim signature | Verified classification construction rejected | `rejects_classification_when_trusted_adapter_rejects_signature` |
+| RPK-DENY-031 | Consent trust adapter rejects the grant signature | Verified consent construction rejected | `rejects_consent_when_trusted_adapter_rejects_signature` |
 
 
 ## Mandatory extension corpus before production
