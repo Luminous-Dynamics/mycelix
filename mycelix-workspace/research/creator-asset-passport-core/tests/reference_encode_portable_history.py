@@ -125,7 +125,10 @@ def main() -> int:
             return 1
 
     total_bytes = sum(len(value) for value in vectors.values())
-    print(f"portable-history v1 reference vectors passed ({len(vectors)} vectors, {total_bytes} bytes)")
+    print(
+        "portable-history v1 reference vectors passed "
+        f"({len(vectors)} vectors, {total_bytes} bytes)"
+    )
     return 0
 
 
