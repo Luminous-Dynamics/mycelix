@@ -9,3 +9,5 @@ description = "Dependency-free reference model for Mycelix's need-to-fulfilment 
 
 [lib]
 path = "src/lib.rs"
+
+[workspace]
