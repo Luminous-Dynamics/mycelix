@@ -620,7 +620,7 @@ mod tests {
                 locator: "artifact://result/eds-z1".to_string(),
                 media_type: "application/json".to_string(),
                 content_hash: ContentHash::digest(b"{\"h_z\":198.0}"),
-                size_bytes: 14,
+                size_bytes: 13,
             }],
             reference: Some(BenchmarkReference {
                 name: "Einstein-de-Sitter analytic solution".to_string(),
