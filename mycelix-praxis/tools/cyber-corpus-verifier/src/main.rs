@@ -270,6 +270,35 @@ fn check_schema_contract(bytes: &[u8], label: &str, expected_version: &str) -> R
     Ok(())
 }
 
+fn reject_external_schema_references(value: &Value, label: &str) -> Result<(), String> {
+    match value {
+        Value::Object(object) => {
+            for keyword in ["$ref", "$dynamicRef"] {
+                if let Some(reference_value) = object.get(keyword) {
+                    let reference = reference_value.as_str().ok_or_else(|| {
+                        fail(format!("{label}: {keyword} must be a string URI reference"))
+                    })?;
+                    if !reference.starts_with('#') {
+                        return Err(fail(format!(
+                            "{label}: external schema references are disabled ({keyword}={reference})"
+                        )));
+                    }
+                }
+            }
+            for child in object.values() {
+                reject_external_schema_references(child, label)?;
+            }
+        }
+        Value::Array(items) => {
+            for child in items {
+                reject_external_schema_references(child, label)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 fn load_schema_validator(
     bytes: &[u8],
     label: &str,
@@ -278,6 +307,7 @@ fn load_schema_validator(
     let schema: Value = serde_json::from_slice(bytes)
         .map_err(|e| fail(format!("{label}: schema JSON parse failed: {e}")))?;
     check_schema_contract(bytes, label, expected_version)?;
+    reject_external_schema_references(&schema, label)?;
 
     if !jsonschema::draft202012::meta::is_valid(&schema) {
         return Err(fail(format!(
@@ -957,6 +987,30 @@ mod tests {
         value["solver_view"]["observations"][0]["observed_at"] =
             Value::String("yesterday".to_string());
         assert!(validator.validate(&value).is_err(), "date-time format must be enforced");
+    }
+
+    #[test]
+    fn schema_validator_rejects_remote_and_file_references() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let schema_text = fs::read_to_string(root.join("schemas/cyber-challenge-v1.schema.json"))
+            .expect("challenge schema should be readable");
+        let mut schema: Value = serde_json::from_str(&schema_text)
+            .expect("challenge schema should be JSON");
+
+        for reference in [
+            "https://example.invalid/untrusted-schema.json",
+            "file:///etc/passwd",
+            "relative-schema.json",
+        ] {
+            schema["properties"]["external_probe"] = serde_json::json!({ "$ref": reference });
+            let bytes = serde_json::to_vec(&schema).expect("schema should serialize");
+            let error = load_schema_validator(&bytes, "test schema", "cyber-challenge-v1")
+                .expect_err("external and relative schema references must be rejected");
+            assert!(
+                error.contains("external schema references are disabled"),
+                "unexpected error for {reference}: {error}"
+            );
+        }
     }
 
     #[test]
