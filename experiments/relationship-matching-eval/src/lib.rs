@@ -401,7 +401,7 @@ fn gini_f64(values: &[f64]) -> f64 {
     let mut pairwise_difference = 0.0f64;
     for left in values {
         for right in values {
-            pairwise_difference += (left - right).abs();
+            pairwise_difference += (*left - *right).abs();
         }
     }
 
@@ -447,8 +447,10 @@ pub fn evaluate(
         .iter()
         .map(|id| {
             let observed = exposure.get(id).copied().unwrap_or(0) as f64;
-            let opportunities = opportunity_degree.get(id).copied().unwrap_or(1).max(1) as f64;
-            observed / opportunities
+            let opportunities = *opportunity_degree
+                .get(id)
+                .expect("every eligible candidate has at least one feasible counterpart");
+            observed / opportunities as f64
         })
         .collect();
     let candidate_coverage = if eligible_people.is_empty() {
