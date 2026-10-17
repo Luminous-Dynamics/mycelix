@@ -230,6 +230,18 @@ impl GrantHistory {
         }
     }
 
+    /// Reconstruct through the independent verifier path and compare with
+    /// the state derived during append. Unlike verify_against_replay, this does
+    /// not call GrantHistory::append to recreate its comparison state.
+    pub fn verify_against_independent_replay(&self) -> Result<(), HistoryError> {
+        let rebuilt = independently_reconstruct_effective_grants(&self.events)?;
+        if rebuilt == self.effective_grants() {
+            Ok(())
+        } else {
+            Err(HistoryError::SnapshotMismatch)
+        }
+    }
+
     pub fn events(&self) -> &[GrantEvent] {
         &self.events
     }
@@ -249,6 +261,71 @@ impl GrantHistory {
     pub fn is_empty(&self) -> bool {
         self.events.is_empty()
     }
+}
+
+/// Reconstruct effective grants using a separate implementation rather than
+/// delegating to GrantHistory::append. This is an independent code path for
+/// differential verification of the event log; it still cannot authenticate
+/// event authors or prove the truth/legal effect of referenced evidence.
+pub fn independently_reconstruct_effective_grants(
+    events: &[GrantEvent],
+) -> Result<Vec<UsageGrant>, HistoryError> {
+    let mut seen_events: BTreeMap<EventId, GrantEvent> = BTreeMap::new();
+    let mut grants: BTreeMap<GrantId, UsageGrant> = BTreeMap::new();
+    let mut last_event_time: Option<u64> = None;
+
+    for event in events {
+        if let Some(previous) = seen_events.get(event.event_id()) {
+            if previous == event {
+                continue;
+            }
+            return Err(HistoryError::ConflictingEventId);
+        }
+
+        if last_event_time.is_some_and(|last| event.occurred_at() < last) {
+            return Err(HistoryError::NonMonotonicEventTime);
+        }
+
+        validate_evidence_ref(event.evidence_ref())?;
+
+        match event.action() {
+            GrantEventAction::Issued { grant } => {
+                if event.actor() != grant.issued_by() {
+                    return Err(HistoryError::IssueActorDoesNotMatchGrantIssuer);
+                }
+                if event.occurred_at() > grant.valid_from() {
+                    return Err(HistoryError::IssueEventAfterGrantEffectiveTime);
+                }
+                if grants.contains_key(grant.id()) {
+                    return Err(HistoryError::DuplicateGrantId);
+                }
+                grants.insert(grant.id().clone(), grant.clone());
+            }
+            GrantEventAction::Revoked { grant_id } => {
+                let current = grants
+                    .get(grant_id)
+                    .ok_or(HistoryError::GrantNotFound)?;
+                if current.revocation_timestamp().is_some() {
+                    return Err(HistoryError::GrantAlreadyRevoked);
+                }
+                let updated = current.revoked_at(event.occurred_at()).map_err(|error| {
+                    match error {
+                        PassportError::GrantAlreadyRevoked => HistoryError::GrantAlreadyRevoked,
+                        PassportError::RevocationBeforeEffectiveTime => {
+                            HistoryError::RevocationBeforeGrantStart
+                        }
+                        _ => HistoryError::RevocationBeforeGrantStart,
+                    }
+                })?;
+                grants.insert(grant_id.clone(), updated);
+            }
+        }
+
+        seen_events.insert(event.event_id().clone(), event.clone());
+        last_event_time = Some(event.occurred_at());
+    }
+
+    Ok(grants.into_values().collect())
 }
 
 #[cfg(test)]
@@ -306,6 +383,43 @@ mod tests {
         assert_eq!(history.len(), 2);
         assert_eq!(effective.revocation_timestamp(), Some(20));
         assert!(history.verify_against_replay().is_ok());
+    }
+
+    #[test]
+    fn independent_reconstruction_matches_append_derived_state() {
+        let issue = issue_event("evt-1", 5, grant("g-1", 10));
+        let revoke = revoke_event("evt-2", 20, "g-1");
+        let history = GrantHistory::replay(&[issue.clone(), revoke.clone()]).unwrap();
+
+        assert_eq!(
+            independently_reconstruct_effective_grants(&[issue, revoke]).unwrap(),
+            history.effective_grants()
+        );
+        assert!(history.verify_against_independent_replay().is_ok());
+    }
+
+    #[test]
+    fn independent_reconstruction_rejects_conflicting_event_ids() {
+        let events = [
+            issue_event("evt-1", 5, grant("g-1", 10)),
+            issue_event("evt-1", 5, grant("g-2", 10)),
+        ];
+        assert_eq!(
+            independently_reconstruct_effective_grants(&events),
+            Err(HistoryError::ConflictingEventId)
+        );
+    }
+
+    #[test]
+    fn independent_reconstruction_rejects_non_monotonic_events() {
+        let events = [
+            issue_event("evt-1", 5, grant("g-1", 10)),
+            revoke_event("evt-2", 4, "g-1"),
+        ];
+        assert_eq!(
+            independently_reconstruct_effective_grants(&events),
+            Err(HistoryError::NonMonotonicEventTime)
+        );
     }
 
     #[test]
