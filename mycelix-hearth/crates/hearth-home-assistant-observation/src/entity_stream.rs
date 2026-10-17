@@ -845,6 +845,40 @@ mod tests {
     }
 
     #[test]
+    fn explicit_removal_allows_a_later_valid_readdition() {
+        let mut projector = projector();
+        projector.apply(EntityStreamKind::InitialSnapshot, &snapshot(), 10).unwrap();
+
+        let removed = projector.apply(
+            EntityStreamKind::Changes,
+            &serde_json::json!({"r": ["sensor.living_room_temperature"]}),
+            20,
+        ).unwrap();
+        assert_eq!(removed.removed_entity_ids, vec!["sensor.living_room_temperature"]);
+        assert_eq!(projector.cached_entity_count(), 0);
+
+        let added = projector.apply(
+            EntityStreamKind::Changes,
+            &serde_json::json!({
+                "a": {
+                    "sensor.living_room_temperature": {
+                        "s": "22.0",
+                        "a": {
+                            "unit_of_measurement": "°C",
+                            "device_class": "temperature"
+                        }
+                    }
+                }
+            }),
+            30,
+        ).unwrap();
+        assert_eq!(added.frames.len(), 1);
+        assert_eq!(added.frames[0].state, "22.0");
+        assert_eq!(added.frames[0].received_at_micros, 30);
+        assert_eq!(projector.cached_entity_count(), 1);
+    }
+
+    #[test]
     fn malformed_projected_metadata_fails_closed() {
         let mut projector = projector();
         let event = serde_json::json!({
