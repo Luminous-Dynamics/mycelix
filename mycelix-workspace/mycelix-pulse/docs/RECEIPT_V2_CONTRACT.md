@@ -26,7 +26,7 @@ preimage = "mycelix-pulse/envelope-commitment/v1\\0"
 commitment = SHA-256(preimage)
 ```
 
-The WASM-safe types crate defines the exact preimage bytes and intentionally does not add a second hash implementation. The caller must compute SHA-256 with the approved implementation. A receipt verifier must independently recompute the commitment from the exact envelope it validated. A caller-supplied commitment alone proves nothing.
+The WASM-safe types crate defines both the exact preimage and SHA-256 result using the constrained `sha2 0.10` dependency (`default-features = false`), matching the existing `keys_types` dependency profile. The shared helper computes the digest; a receipt verifier must still recompute the commitment from the exact envelope it validated. A caller-supplied commitment alone proves nothing.
 
 ## Deterministic receipt-event identity
 
@@ -67,6 +67,8 @@ from the signing transcript):
 - envelope commitment: 32 bytes of `0x22`
 - kind: `Delivered` (`0x02`)
 - timestamp: signed 64-bit big-endian `35`
+
+The commitment hash helper is also tested with a frozen known-answer fixture: SHA-256 of the domain-separated commitment preimage for the three-byte transcript `abc` must equal the contents of `test-vectors/envelope-commitment-abc.sha256`. This is a primitive/encoding fixture, not a real envelope.
 
 The vector is a wire-format conformance fixture, not a signature-validity vector:
 it does not contain a private key, signature verification result, or live
