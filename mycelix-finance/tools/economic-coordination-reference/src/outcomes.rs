@@ -513,11 +513,13 @@ impl OutcomeLedger {
             OutcomeEventKind::ReturnObserved { quantity, .. } => Some(*quantity),
             _ => None,
         })?;
-        if gross_accepted_quantity > received_quantity
+        let inspected_quantity = gross_accepted_quantity
+            .checked_add(rejected_quantity)
+            .ok_or(OutcomeLedgerError::ArithmeticOverflow)?;
+        if inspected_quantity > received_quantity
             || returned_quantity > gross_accepted_quantity
-            || rejected_quantity > received_quantity
             || committed_quantity.map_or(false, |committed| {
-                gross_accepted_quantity + rejected_quantity > u64::from(committed)
+                inspected_quantity > u64::from(committed)
             })
         {
             return Err(OutcomeLedgerError::OutcomeQuantityMismatch);
