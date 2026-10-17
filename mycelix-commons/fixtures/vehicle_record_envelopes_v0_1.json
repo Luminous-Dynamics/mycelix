@@ -1,0 +1,720 @@
+{
+  "corpus_version": "vehicle-record-envelope-instances/0.1",
+  "status": "synthetic-record-instances-not-production-signatures",
+  "schema_ref": "../schemas/vehicle_record_envelope_v0_1.schema.json",
+  "fixtures": [
+    {
+      "id": "VRE01_VALID_MAINTENANCE_EVENT",
+      "expectation": "accept",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "Synthetic record instance with explicit procedure graph, component revision, observed-duration reference, and post-repair check."
+    },
+    {
+      "id": "VRE02_MISSING_SIGNATURE",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "Every accepted record must carry a signature envelope."
+    },
+    {
+      "id": "VRE03_SIGNED_DIGEST_MISMATCH",
+      "expectation": "reject_signature_binding",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "Schema shape passes but the signature's declared digest must bind to the envelope digest."
+    },
+    {
+      "id": "VRE04_MISSING_PROCEDURE_GRAPH_REF",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "A maintenance event must reference the procedure graph it claims to follow."
+    },
+    {
+      "id": "VRE05_OBSERVED_DURATION_WITHOUT_SOURCE",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "An observed duration requires an observation reference and source list."
+    },
+    {
+      "id": "VRE06_POSTCHECK_WITHOUT_EVIDENCE",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001"
+          }
+        }
+      },
+      "reason": "A passed post-repair check must bind evidence."
+    },
+    {
+      "id": "VRE07_SHARED_RAW_VIN",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "counterparty_attested",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          },
+          "raw_vin": "SYNTHETICVIN0000001"
+        }
+      },
+      "reason": "A canonical sensitive field must not appear in a shared payload."
+    },
+    {
+      "id": "VRE08_VERIFIED_WITHOUT_ATTESTATION",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "independently_verified",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "Independent verification requires separate scoped evidence and attestation."
+    },
+    {
+      "id": "VRE09_DISPUTED_WITHOUT_DISPUTE_REF",
+      "expectation": "reject_schema",
+      "record": {
+        "schema_version": "vehicle-record-envelope/0.1",
+        "event_id": "evt_repair_20261017_01",
+        "vehicle_ref": "veh_0123456789abcdef",
+        "event_kind": "maintenance_performed",
+        "actor_ref": "actor_workshop_01",
+        "occurred_at": "2026-10-17T10:00:00Z",
+        "recorded_at": "2026-10-17T10:01:00Z",
+        "payload_digest": {
+          "algorithm": "sha-256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization_version": "json-c14n-v1"
+        },
+        "envelope_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_refs": [
+          {
+            "artifact_kind": "repair_order",
+            "artifact_ref": "repair-order-2026-001",
+            "artifact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "scope_note": "Synthetic repair-order reference"
+          }
+        ],
+        "visibility_policy": "shared_pseudonymous",
+        "claim_status": "disputed",
+        "signature": {
+          "signer_ref": "actor_workshop_01",
+          "algorithm": "ed25519",
+          "signature_b64": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+          "signed_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization_version": "json-c14n-v1",
+          "signature_context": "mycelix-vehicle-record-envelope/0.1",
+          "credential_ref": "credential_workshop_01"
+        },
+        "privacy_review": {
+          "contains_direct_identifiers": false,
+          "consent_ref": "consent_repair_2026_001",
+          "review_version": "privacy-review-v0.1"
+        },
+        "payload": {
+          "work_type": "scheduled_service",
+          "repair_task_graph_ref": "art_1123456789abcdef",
+          "repair_task_graph_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "procedure_revision": "procedure-v1",
+          "work_status": "performed",
+          "task_results": [
+            {
+              "task_id": "task_service01",
+              "status": "performed",
+              "component_ref": "part_serviceitem01",
+              "component_revision": "A",
+              "duration": {
+                "value": 8,
+                "unit": "min",
+                "basis": "observed",
+                "observation_ref": "observation_service_001",
+                "observed_at": "2026-10-17T10:00:30Z",
+                "technician_ref": "actor_workshop_01",
+                "tool_context": "Synthetic fixture timing only.",
+                "source_refs": [
+                  "work-order-2026-001"
+                ]
+              },
+              "evidence_refs": [
+                "work-order-2026-001"
+              ]
+            }
+          ],
+          "post_repair_verification": {
+            "result": "passed",
+            "observation_ref": "measurement-001",
+            "evidence_refs": [
+              "measurement-001"
+            ]
+          }
+        }
+      },
+      "reason": "Disputed records must preserve an explicit dispute reference."
+    }
+  ],
+  "claim_ceiling": [
+    "The signature bytes and digests are synthetic fixtures; this corpus does not cryptographically verify them.",
+    "Acceptance means the JSON Schema and declared digest-binding checks pass, not that the actor, claim, vehicle, repair or title is true.",
+    "No fixture establishes legal title, authentic parts, correct workmanship, roadworthiness or vehicle safety."
+  ]
+}
