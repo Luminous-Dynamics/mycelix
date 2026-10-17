@@ -22,6 +22,8 @@ current positive observation
 
 The absence of a current positive means **unknown/not currently established**, not "device is off", "device is absent", or "device is safe".
 
+For an authoritative read, use `check_currentness(entity_id, now)`, not the projection-only `current_revision` accessor. `check_currentness` runs expiry processing, catches clock regression as a terminal session fault, returns any invalidation records, and prevents a previous positive revision from resurfacing when the clock later advances. A consumer must durably commit returned lifecycle records before acting on a returned revision. A raw read-only lookup cannot itself emit an invalidation record.
+
 ## Required transitions
 
 - `unknown` / `unavailable`: invalidate an active positive for that entity.
