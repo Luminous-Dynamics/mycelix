@@ -476,4 +476,126 @@ mod tests {
         );
         assert_eq!(result, Err(StrategyError::SearchSpaceExceeded));
     }
+
+    #[test]
+    fn two_option_frontier_matches_independent_subset_and_quantity_oracle() {
+        let options = [
+            fixture_option("backup-a", "backup-a-supplier"),
+            fixture_option("backup-b", "backup-b-supplier"),
+        ];
+        let report = evaluate_strategy(
+            &fixture_request(),
+            &fixture_baseline(),
+            &options,
+            &fixture_scenarios(),
+            100_000,
+        )
+        .expect("small case must complete");
+
+        // Independent toy oracle: enumerate subsets and every integer activation
+        // quantity directly. It intentionally does not call evaluate_recourse,
+        // build_metrics, metric_vector, or dominates.
+        let ids = ["backup-a", "backup-b"];
+        let mut oracle_candidates: Vec<(Vec<String>, [u64; 5])> = Vec::new();
+        for mask in 0u64..4 {
+            let selected_ids: Vec<String> = ids
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| mask & (1 << index) != 0)
+                .map(|(_, id)| (*id).to_owned())
+                .collect();
+            let selected_count = selected_ids.len() as u64;
+            let commitment_cost = 40 + 2 * selected_count;
+
+            let mut max_recovered = 0u32;
+            let mut min_recourse_cost = 0u64;
+            let q_a_values: Vec<u32> = if mask & 1 != 0 {
+                (0..=4).collect()
+            } else {
+                vec![0]
+            };
+            let q_b_values: Vec<u32> = if mask & 2 != 0 {
+                (0..=4).collect()
+            } else {
+                vec![0]
+            };
+
+            for q_a in &q_a_values {
+                for q_b in &q_b_values {
+                    let recovered = q_a + q_b;
+                    if recovered > 4 {
+                        continue;
+                    }
+                    let activated_options = u64::from(*q_a > 0) + u64::from(*q_b > 0);
+                    let activation_cost = u64::from(recovered) * 2 + activated_options;
+                    if recovered > max_recovered
+                        || (recovered == max_recovered && activation_cost < min_recourse_cost)
+                    {
+                        max_recovered = recovered;
+                        min_recourse_cost = activation_cost;
+                    }
+                }
+            }
+
+            // The fixture scenarios are exactly no disruption and total base
+            // supplier failure. All selected backups arrive by the deadline.
+            let unfilled = 4 - max_recovered;
+            let worst_scenario_cost = commitment_cost + min_recourse_cost;
+            oracle_candidates.push((
+                selected_ids,
+                [
+                    commitment_cost,
+                    u64::from(unfilled),
+                    u64::from(unfilled),
+                    worst_scenario_cost,
+                    selected_count * 4,
+                ],
+            ));
+        }
+
+        let mut expected: Vec<(Vec<String>, [u64; 5])> = oracle_candidates
+            .iter()
+            .enumerate()
+            .filter(|(index, candidate)| {
+                !oracle_candidates.iter().enumerate().any(|(other_index, other)| {
+                    if *index == other_index {
+                        return false;
+                    }
+                    let no_worse = other
+                        .1
+                        .iter()
+                        .zip(candidate.1.iter())
+                        .all(|(left, right)| left <= right);
+                    let strictly_better = other
+                        .1
+                        .iter()
+                        .zip(candidate.1.iter())
+                        .any(|(left, right)| left < right);
+                    no_worse && strictly_better
+                })
+            })
+            .map(|(_, candidate)| candidate.clone())
+            .collect();
+        expected.sort_by(|left, right| left.0.cmp(&right.0));
+
+        let mut actual: Vec<(Vec<String>, [u64; 5])> = report
+            .frontier
+            .iter()
+            .map(|candidate| {
+                (
+                    candidate.selected_option_ids.clone(),
+                    [
+                        candidate.metrics.commitment_cost_minor,
+                        u64::from(candidate.metrics.worst_case_unfilled_quantity),
+                        candidate.metrics.unfilled_quantity_sum_across_scenarios,
+                        candidate.metrics.worst_case_scenario_cost_minor,
+                        candidate.metrics.reserved_quantity,
+                    ],
+                )
+            })
+            .collect();
+        actual.sort_by(|left, right| left.0.cmp(&right.0));
+        assert_eq!(actual, expected);
+    }
+
 }
