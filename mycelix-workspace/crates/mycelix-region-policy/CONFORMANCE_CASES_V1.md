@@ -73,6 +73,26 @@ The local reference gate adds six source-level tests for one-shot behavior. They
 
 The production crash/restart, multi-node uniqueness, fencing, and effect+nonce transaction tests remain unimplemented. The local in-memory ledger does not satisfy those requirements.
 
+
+## Effect-journal lifecycle reference cases
+
+Nine source-level state-machine tests are authored in `src/effect_journal.rs`; they are not executed until exact-head CI finishes.
+
+| Case ID | Scenario | Test anchor |
+|---|---|---|
+| RPK-JOURNAL-001 | Prepared -> Submitted revision progression | `starts_prepared_and_revision_increases_only_on_legal_transition` |
+| RPK-JOURNAL-002 | OutcomeUnknown cannot be submitted again | `submitted_attempt_becomes_unknown_not_retryable` |
+| RPK-JOURNAL-003 | Unknown resolves only via verified matching sink evidence | `only_authenticated_matching_outcome_resolves_unknown` |
+| RPK-JOURNAL-004 | Definitive sink rejection is terminal | `rejected_sink_outcome_is_terminal_only_when_verified` |
+| RPK-JOURNAL-005 | Mismatched idempotency key or target | `wrong_idempotency_key_or_target_is_rejected_before_verification` |
+| RPK-JOURNAL-006 | Missing/forged sink proof | `untrusted_or_missing_sink_proof_fails_closed` |
+| RPK-JOURNAL-007 | Prepared/terminal state cannot be resolved | `cannot_resolve_prepared_or_terminal_attempt` |
+| RPK-JOURNAL-008 | Sink operation ID mismatch | `operation_id_must_match_before_terminal_resolution` |
+| RPK-JOURNAL-009 | Invalid identity/reason codes | `invalid_identity_and_reason_code_are_rejected` |
+| RPK-JOURNAL-010 | Rejecting verifier | `sink_verifier_rejection_does_not_create_verified_outcome` |
+
+The production contract additionally requires persistent uniqueness, durable compare-and-swap, crash/restart recovery, destination idempotency, receipt retention, and a two-worker race harness. The in-memory reference model does not qualify those properties.
+
 ## Mandatory extension corpus before production
 
 The current source-level unit cases do not yet prove the production verifier or the storage/replication path. Implement these additions with a real cryptographic and runtime adapter:
