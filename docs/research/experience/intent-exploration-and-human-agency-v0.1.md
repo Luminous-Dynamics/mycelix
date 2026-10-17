@@ -261,16 +261,13 @@ For each product, pick at least three real core tasks plus the shared synthetic 
 
 ### Structural qualifier (first executable seam)
 
-A standalone Rust qualifier has been added at `tools/intent-exploration-qualifier/`, with a path-filtered workflow at `.github/workflows/intent-exploration-qualifier.yml` to run formatting, unit tests, and manifest validation on relevant pushes and pull requests after the workflow is available from the repository base branch.
+A standalone Rust qualifier has been added at `tools/intent-exploration-qualifier/`, with a path-filtered workflow at `.github/workflows/intent-exploration-qualifier.yml` to run structural unit tests and manifest validation on relevant pushes and pull requests after the workflow is available from the repository base branch.
 
 From the Mycelix repository root:
 
 ```bash
 cargo test --manifest-path tools/intent-exploration-qualifier/Cargo.toml
-cargo run --manifest-path tools/intent-exploration-qualifier/Cargo.toml -- \\
-  docs/research/experience/intent-exploration-benchmark-v0.1.json \\
-  docs/research/experience/intent-exploration-qualification-gates-v0.1.json \\
-  docs/research/experience/intent-exploration-trajectory-benchmark-v0.1.json
+cargo run --manifest-path tools/intent-exploration-qualifier/Cargo.toml -- docs/research/experience/intent-exploration-benchmark-v0.1.json docs/research/experience/intent-exploration-qualification-gates-v0.1.json docs/research/experience/intent-exploration-trajectory-benchmark-v0.1.json
 ```
 
 Its responsibility is deliberately narrow: parse all three JSON files; validate 100 single-turn cases across 20 families, 63 registered properties, 14 qualification gates, and 30 multi-turn trajectories (120 turns); enforce unique IDs, family/product/risk consistency, registered property references, contiguous turn order, per-turn invariants, and required gate coverage. Unit tests include duplicate case/trajectory IDs, unknown-property references, missing authorization-gate coverage, and missing per-turn invariants.
