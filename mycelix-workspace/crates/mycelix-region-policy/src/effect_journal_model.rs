@@ -225,7 +225,9 @@ const ABSTRACT_EVENTS: [AbstractEvent; 9] = [
 fn abstract_step(state: AbstractState, event: AbstractEvent) -> Option<AbstractState> {
     let mut next = state;
     match event {
-        AbstractEvent::Reserve if next.phase == AttemptPhase::Prepared && next.authority_current => {
+        AbstractEvent::Reserve
+            if next.phase == AttemptPhase::Prepared && next.authority_current =>
+        {
             next.phase = AttemptPhase::Reserved;
             Some(next)
         }
@@ -355,13 +357,19 @@ mod tests {
     #[test]
     fn every_four_worker_load_reserve_interleaving_has_one_winner() {
         let schedules = interleavings();
-        assert_eq!(schedules.len(), 2_520, "all order-preserving interleavings must be enumerated");
+        assert_eq!(
+            schedules.len(),
+            2_520,
+            "all order-preserving interleavings must be enumerated"
+        );
         for schedule in &schedules {
             let (winners, shared) = explore_schedule(schedule);
             assert_eq!(winners, 1, "schedule {schedule:?}");
             assert_eq!(shared.snapshot.phase, AttemptPhase::Reserved);
             assert_eq!(shared.snapshot.revision, 1);
-            assert!(OPERATION_IDS.contains(&shared.snapshot.operation_id.as_deref().unwrap_or_default()));
+            assert!(OPERATION_IDS.contains(
+                &shared.snapshot.operation_id.as_deref().unwrap_or_default()
+            ));
         }
     }
 
@@ -374,14 +382,18 @@ mod tests {
         let crash_cut = attempt.snapshot();
 
         let mut sink = IdempotentSink::default();
-        let _lost_reply = sink.dispatch(&identity, OPERATION_IDS[0]).expect("first delivery applies");
+        let _lost_reply = sink
+            .dispatch(&identity, OPERATION_IDS[0])
+            .expect("first delivery applies");
         assert_eq!(sink.applied_effects, 1);
 
         // Simulate process restart: only the persisted snapshot survives.
         let mut recovered = EffectAttempt::restore(crash_cut).expect("restore uncertain dispatch");
         assert_eq!(recovered.phase(), AttemptPhase::DispatchStarted);
 
-        let replayed_reply = sink.dispatch(&identity, OPERATION_IDS[0]).expect("same key returns stored result");
+        let replayed_reply = sink
+            .dispatch(&identity, OPERATION_IDS[0])
+            .expect("same key returns stored result");
         assert_eq!(sink.delivery_attempts, 2);
         assert_eq!(sink.applied_effects, 1, "destination idempotency prevents a duplicate effect");
 
@@ -420,7 +432,9 @@ mod tests {
             attempt.mark_dispatch_started().expect("only current authority may dispatch");
             sink.dispatch(attempt.identity(), OPERATION_IDS[0]).expect("dispatch");
         } else {
-            attempt.abort_before_dispatch("authority-revoked").expect("reserved work is pre-dispatch");
+            attempt
+                .abort_before_dispatch("authority-revoked")
+                .expect("reserved work is pre-dispatch");
         }
         assert_eq!(attempt.phase(), AttemptPhase::Rejected);
         assert_eq!(sink.applied_effects, 0);
@@ -432,8 +446,12 @@ mod tests {
         assert!(states.len() >= 8, "explorer should reach the meaningful lifecycle phases");
         assert!(transitions >= states.len(), "explorer should exercise distinct transitions");
         assert!(states.iter().all(|state| invariant_holds(*state)));
-        assert!(states.iter().any(|state| state.phase == AttemptPhase::OutcomeUnknown && state.sink_applied));
-        assert!(states.iter().any(|state| state.phase == AttemptPhase::OutcomeUnknown && !state.sink_applied));
+        assert!(states.iter().any(|state| {
+            state.phase == AttemptPhase::OutcomeUnknown && state.sink_applied
+        }));
+        assert!(states.iter().any(|state| {
+            state.phase == AttemptPhase::OutcomeUnknown && !state.sink_applied
+        }));
 
         // Negative controls: demonstrate that the oracle is sensitive to the
         // exact duplicate-effect and false-sink-applied failures it is meant to detect.
@@ -466,7 +484,8 @@ mod tests {
         };
         assert!(abstract_step(unknown, AbstractEvent::StartDispatch).is_none());
         assert!(abstract_step(unknown, AbstractEvent::RetryAsNewOperation).is_none());
-        let reconciled = abstract_step(unknown, AbstractEvent::Reconcile).expect("matching sink result reconciles");
+        let reconciled = abstract_step(unknown, AbstractEvent::Reconcile)
+            .expect("matching sink result reconciles");
         assert_eq!(reconciled.phase, AttemptPhase::Committed);
         assert_eq!(reconciled.effect_count, 1);
     }
