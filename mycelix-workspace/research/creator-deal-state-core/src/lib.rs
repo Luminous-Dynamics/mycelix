@@ -209,6 +209,24 @@ impl DealWorkflow {
         })
     }
 
+    /// Rebuild a workflow from its event history, validating each transition in order.
+    ///
+    /// Identical duplicate event deliveries are idempotent; reuse of an event ID
+    /// with changed content, an unauthorized actor, or an invalid transition fails.
+    /// This reconstructs state from source events rather than trusting a saved state field.
+    pub fn replay(
+        deal_id: impl Into<String>,
+        creator_party_id: impl Into<String>,
+        sponsor_party_id: impl Into<String>,
+        events: &[DealEvent],
+    ) -> Result<Self, DealError> {
+        let mut workflow = Self::new(deal_id, creator_party_id, sponsor_party_id)?;
+        for event in events {
+            workflow.append(event.clone())?;
+        }
+        Ok(workflow)
+    }
+
     pub fn deal_id(&self) -> &str {
         &self.deal_id
     }
@@ -742,6 +760,67 @@ mod tests {
             disputed.append(event("approve-after-dispute", 3, "creator-1", DealAction::ApproveTerms { terms_version: 1 })),
             Err(DealError::InvalidTransition { .. })
         ));
+    }
+
+    #[test]
+    fn replay_reconstructs_the_final_state_from_events() {
+        let events = vec![
+            event("propose", 1, "sponsor-1", DealAction::ProposeTerms { terms: terms(1, 1) }),
+            event("creator-approve", 2, "creator-1", DealAction::ApproveTerms { terms_version: 1 }),
+            event("sponsor-approve", 3, "sponsor-1", DealAction::ApproveTerms { terms_version: 1 }),
+            event("start", 4, "creator-1", DealAction::StartWork),
+            event("deliver", 5, "creator-1", DealAction::SubmitDeliverable {
+                deliverable_id: "d1".into(), final_for_deal: true
+            }),
+            event("accept", 6, "sponsor-1", DealAction::AcceptDeliverable {
+                deliverable_id: "d1".into()
+            }),
+        ];
+        let replayed = DealWorkflow::replay("deal-1", "creator-1", "sponsor-1", &events).unwrap();
+        assert_eq!(replayed.state(), DealState::Accepted);
+        assert_eq!(replayed.history(), events.as_slice());
+        assert_eq!(replayed.accepted_deliverable_ids(), &["d1".to_string()][..]);
+        assert_eq!(replayed.current_terms(), Some(&terms(1, 1)));
+    }
+
+    #[test]
+    fn replay_is_idempotent_but_rejects_conflicting_event_id_reuse() {
+        let proposal = event(
+            "propose", 1, "sponsor-1",
+            DealAction::ProposeTerms { terms: terms(1, 1) }
+        );
+        let replayed = DealWorkflow::replay(
+            "deal-1", "creator-1", "sponsor-1",
+            &[proposal.clone(), proposal.clone()]
+        ).unwrap();
+        assert_eq!(replayed.history().len(), 1);
+
+        let conflicting = event(
+            "propose", 1, "sponsor-1",
+            DealAction::ProposeTerms { terms: terms(1, 2) }
+        );
+        assert_eq!(
+            DealWorkflow::replay(
+                "deal-1", "creator-1", "sponsor-1",
+                &[proposal, conflicting]
+            ),
+            Err(DealError::ConflictingReplay("propose".into()))
+        );
+    }
+
+    #[test]
+    fn replay_rejects_invalid_transition_without_constructing_a_partial_result() {
+        let events = vec![
+            event("propose", 1, "sponsor-1", DealAction::ProposeTerms { terms: terms(1, 1) }),
+            event("start-too-early", 2, "creator-1", DealAction::StartWork),
+        ];
+        assert_eq!(
+            DealWorkflow::replay("deal-1", "creator-1", "sponsor-1", &events),
+            Err(DealError::InvalidTransition {
+                state: DealState::TermsProposed,
+                action: "StartWork",
+            })
+        );
     }
 
     #[test]
