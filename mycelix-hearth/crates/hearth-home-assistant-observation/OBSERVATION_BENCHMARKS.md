@@ -14,7 +14,7 @@ The native `subscribe_entities` stream is preferred because Home Assistant sends
 |---|---|---|---|
 | HAOBS-001 | Protocol transition safety | Zero invalid sequences reach `Live`; run 1,000,000 deterministic event sequences covering wrong IDs, wrong event kinds, stale epochs, duplicate snapshots, terminal replay and out-of-order responses | Not measured |
 | HAOBS-002 | Allowlist escape | Zero unallowlisted entities emitted as normalized observations in 1,000,000 generated snapshot/delta cases | Not measured |
-| HAOBS-003 | Projection atomicity | Zero partial cache commits on every malformed-state/metadata/group-overlap negative vector; pre/post cache digest identical on rejection | Not measured |
+| HAOBS-003 | Projection atomicity | Zero partial cache commits on every malformed-state, profile-metadata-drift, or group-overlap negative vector; pre/post cache digest identical on rejection, including when a later sorted entity invalidates a multi-entity delta | Not measured |
 | HAOBS-004 | Non-semantic freshness | Zero emitted observation frames for 100,000 attribute/context/time-metadata-only updates when semantic state and admitted metadata are unchanged | Not measured |
 | HAOBS-005 | Sensitive-field leakage | Zero seeded attribute/context markers in normalized observations and redacted diagnostics; no credentials enter protocol action, observation profile, receipt, or DHT fields | Not measured |
 | HAOBS-006 | Single-delta latency | p95 ≤ 10 ms from an already-decoded one-entity delta through projection and typed mapping on a named Raspberry Pi 5 profile; report p50/p95/p99 | Blocked on transport/runtime measurement |
@@ -28,7 +28,7 @@ All thresholds are engineering hypotheses. Revise them only with recorded baseli
 ## Reproducible method
 
 1. Freeze synthetic vector corpus and its SHA-256. Include positive controls, every named negative control, unknown/unavailable sources, malformed compact groups, allowlist misses, stale epochs, and command/subscription ID mismatches.
-2. Run deterministic correctness/mutation tests before performance sampling. A mutant that removes an epoch check, profile allowlist, atomic staging, or metadata-only freshness suppression must be killed by a named test.
+2. Run deterministic correctness/mutation tests before performance sampling. A mutant that removes an epoch check, profile allowlist, atomic staging, expected unit/device-class comparison, or metadata-only freshness suppression must be killed by a named test. In particular, a downstream mapper rejection must not be allowed to mask a cache mutation that already committed invalid metadata.
 3. For each performance workload, perform 10 warm-up iterations followed by at least 100 timed samples per run and 5 independent runs. Report sample distributions rather than only the fastest result.
 4. Separate JSON parsing, transport, projector, codec/mapping, and end-to-end latency. Never attribute the pure projector's time to a full WebSocket path.
 5. Record hardware model, OS/kernel, Rust toolchain, build profile, allocator, Home Assistant server version, profile size, event size, entity count, source SHA, corpus SHA, run ID, raw output and any excluded samples.
