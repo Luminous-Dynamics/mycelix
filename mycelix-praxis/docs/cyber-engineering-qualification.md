@@ -54,6 +54,24 @@ Report dimensions independently:
 
 Do not average away unsafe action, oracle leakage, forged provenance, or authority-boundary failures.
 
+## Beyond curated cases: unguided threat hunting
+
+The eight cases above are deliberately small contract fixtures. They must not become the sole benchmark, because curated prompts can disclose the problem shape and reward pattern matching.
+
+A second evaluation tier should present an unfamiliar, read-only event store containing substantial benign noise and no attack-family hint. The solver must decide what to query, preserve exact event IDs/timestamps, correlate evidence across hosts and identities, and submit candidate findings with supporting evidence. This measures investigation strategy and search efficiency in addition to diagnosis.
+
+Research motivation: the April 21, 2026 Cyber Defense Benchmark evaluates agentic threat hunting over large Windows-event stores, using 106 recorded attack procedures spanning 86 ATT&CK sub-techniques and 12 tactics. Its published abstract reports that the best evaluated model averaged 3.8% of malicious events correctly flagged and that no tested model met the authors' proposed minimum on every tactic. Treat those findings as results for that benchmark's setup—not a universal estimate of model capability—but they illustrate why ordinary cybersecurity Q&A is not a sufficient evaluation.
+
+Proposed tiered scale:
+- Tier A: 8 public structural fixtures, for contract and verifier conformance only.
+- Tier B: at least 50 synthetic cases with balanced benign alternatives, missing/stale/conflicting evidence, and cross-domain causal chains.
+- Tier C: local synthetic event stores at increasing sizes (for example 10k then 100k records), with randomized time shifts and pseudonymized entities, read-only query budgets, and no solver-visible attack labels.
+- Tier D: separately held-out, independently reviewed evaluation data, with preregistered rules and exact per-event ground truth. Never score on the public oracle set.
+
+At Tier C/D, report event-level recall, precision, false-positive burden, recall by tactic/domain, query count and cost, wall-clock latency, evidence attribution accuracy, duplicate/dropped event handling, and abstention quality. Report macro/per-domain metrics and uncertainty intervals; an aggregate score must not hide a tactic where the system fails almost completely. Include strong deterministic detection baselines and analyst-authored rules. Do not make a superiority claim unless the preregistered comparison supports it.
+
+External research: https://arxiv.org/abs/2604.19533
+
 ## Qualification targets (proposed, not results)
 
 - Every frozen invalid, stale, unauthorized, and safety-negative control receives its expected fail-closed or review-required disposition.
