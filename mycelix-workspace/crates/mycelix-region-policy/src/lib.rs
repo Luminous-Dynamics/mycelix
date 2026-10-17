@@ -5,6 +5,9 @@
 //! attested. Trust adapters must authenticate profiles and consent grants
 //! before constructing the opaque verified wrappers exposed by this crate.
 
+/// Last-boundary short-lived lease gate; see EFFECT_LEASE_V1.md for limitations.
+pub mod lease;
+
 use std::collections::BTreeSet;
 
 const SUPPORTED_SCHEMA_VERSION: u16 = 1;
@@ -2381,6 +2384,292 @@ mod tests {
                 ConsentVerificationFailure::InvalidSignature
             ))
         );
+    }
+
+
+    fn lease_fixture() -> (
+        VerifiedProfile,
+        VerifiedProfile,
+        VerifiedClassification,
+        VerifiedConsentGrant,
+        VerifiedFederationAgreement,
+    ) {
+        let source = verified("community-a", &["community-b"], &[]);
+        let destination = verified("community-b", &[], &["community-a"]);
+        let classification = verified_classification("record:education-credential", 200);
+        let consent = verified_consent(
+            "service:education",
+            "credential-check",
+            150,
+            500,
+            300,
+            200,
+        );
+        let agreement = verified_agreement(&source, &destination);
+        (source, destination, classification, consent, agreement)
+    }
+
+    fn lease_transfer<'a>(
+        classification: &'a VerifiedClassification,
+        consent: &'a VerifiedConsentGrant,
+        agreement: &'a VerifiedFederationAgreement,
+        evaluated_at_unix_ms: u64,
+    ) -> TransferRequest<'a> {
+        TransferRequest {
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential",
+            content_digest: TEST_CONTENT_DIGEST,
+            classification,
+            agreement,
+            purpose: Some("credential-check"),
+            recipient_id: Some("service:education"),
+            consent: Some(consent),
+            evaluated_at_unix_ms,
+        }
+    }
+
+    fn lease_observed_target() -> lease::EffectTarget {
+        lease::EffectTarget {
+            request_id: "request-lease-001".to_owned(),
+            action: BoundaryAction::Disclose,
+            resource_id: "record:education-credential".to_owned(),
+            content_digest: TEST_CONTENT_DIGEST.to_owned(),
+            recipient_id: Some("service:education".to_owned()),
+            purpose: Some("credential-check".to_owned()),
+        }
+    }
+
+    #[test]
+    fn effect_lease_rechecks_policy_and_runs_matching_effect_once() {
+        let (source, destination, classification, consent, agreement) = lease_fixture();
+        let issue_request = lease_transfer(&classification, &consent, &agreement, 220);
+        let lease_id = "a".repeat(64);
+        let token = lease::AuthorizationLease::issue(
+            &source,
+            &destination,
+            &issue_request,
+            "request-lease-001",
+            &lease_id,
+            220,
+            1_000,
+        )
+        .expect("exact, currently allowed transfer should issue a lease");
+
+        let current_request = lease_transfer(&classification, &consent, &agreement, 230);
+        let observed = lease_observed_target();
+        let mut ledger = lease::LeaseLedger::default();
+        let mut called = false;
+        let result = ledger.consume_before_effect(
+            token,
+            &source,
+            &destination,
+            &current_request,
+            &observed,
+            230,
+            || {
+                called = true;
+                Ok::<(), &'static str>(())
+            },
+        );
+        assert!(result.is_ok());
+        assert!(called);
+    }
+
+    #[test]
+    fn effect_lease_rejects_target_mismatch_without_running_effect() {
+        let (source, destination, classification, consent, agreement) = lease_fixture();
+        let request = lease_transfer(&classification, &consent, &agreement, 220);
+        let lease_id = "b".repeat(64);
+        let token = lease::AuthorizationLease::issue(
+            &source,
+            &destination,
+            &request,
+            "request-lease-001",
+            &lease_id,
+            220,
+            1_000,
+        )
+        .expect("fixture should issue");
+        let current_request = lease_transfer(&classification, &consent, &agreement, 230);
+        let mut observed = lease_observed_target();
+        observed.resource_id = "record:tampered".to_owned();
+        let mut ledger = lease::LeaseLedger::default();
+        let mut called = false;
+        let result = ledger.consume_before_effect(
+            token,
+            &source,
+            &destination,
+            &current_request,
+            &observed,
+            230,
+            || {
+                called = true;
+                Ok::<(), &'static str>(())
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(lease::ConsumeError::Rejected(lease::LeaseError::TargetMismatch))
+        ));
+        assert!(!called);
+    }
+
+    #[test]
+    fn effect_lease_expires_at_exact_boundary() {
+        let (source, destination, classification, consent, agreement) = lease_fixture();
+        let request = lease_transfer(&classification, &consent, &agreement, 220);
+        let lease_id = "c".repeat(64);
+        let token = lease::AuthorizationLease::issue(
+            &source,
+            &destination,
+            &request,
+            "request-lease-001",
+            &lease_id,
+            220,
+            10,
+        )
+        .expect("fixture should issue");
+        let current_request = lease_transfer(&classification, &consent, &agreement, 230);
+        let observed = lease_observed_target();
+        let mut ledger = lease::LeaseLedger::default();
+        let mut called = false;
+        let result = ledger.consume_before_effect(
+            token,
+            &source,
+            &destination,
+            &current_request,
+            &observed,
+            230,
+            || {
+                called = true;
+                Ok::<(), &'static str>(())
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(lease::ConsumeError::Rejected(lease::LeaseError::Expired))
+        ));
+        assert!(!called);
+    }
+
+    #[test]
+    fn effect_lease_rejects_noncurrent_evaluation_timestamp() {
+        let (source, destination, classification, consent, agreement) = lease_fixture();
+        let request = lease_transfer(&classification, &consent, &agreement, 220);
+        let lease_id = "d".repeat(64);
+        let token = lease::AuthorizationLease::issue(
+            &source,
+            &destination,
+            &request,
+            "request-lease-001",
+            &lease_id,
+            220,
+            1_000,
+        )
+        .expect("fixture should issue");
+        let stale_request = lease_transfer(&classification, &consent, &agreement, 229);
+        let observed = lease_observed_target();
+        let mut ledger = lease::LeaseLedger::default();
+        let result = ledger.consume_before_effect(
+            token,
+            &source,
+            &destination,
+            &stale_request,
+            &observed,
+            230,
+            || Ok::<(), &'static str>(()),
+        );
+        assert!(matches!(
+            result,
+            Err(lease::ConsumeError::Rejected(lease::LeaseError::DecisionNotFresh))
+        ));
+    }
+
+    #[test]
+    fn effect_lease_burns_nonce_before_effect_and_does_not_retry_failure() {
+        let (source, destination, classification, consent, agreement) = lease_fixture();
+        let request = lease_transfer(&classification, &consent, &agreement, 220);
+        let lease_id = "e".repeat(64);
+        let token = lease::AuthorizationLease::issue(
+            &source,
+            &destination,
+            &request,
+            "request-lease-001",
+            &lease_id,
+            220,
+            1_000,
+        )
+        .expect("fixture should issue");
+        let current_request = lease_transfer(&classification, &consent, &agreement, 230);
+        let observed = lease_observed_target();
+        let mut ledger = lease::LeaseLedger::default();
+        let result = ledger.consume_before_effect(
+            token,
+            &source,
+            &destination,
+            &current_request,
+            &observed,
+            230,
+            || Err::<(), &'static str>("outcome-unknown"),
+        );
+        assert!(matches!(
+            result,
+            Err(lease::ConsumeError::EffectFailed("outcome-unknown"))
+        ));
+
+        let retry_token = lease::AuthorizationLease::issue(
+            &source,
+            &destination,
+            &request,
+            "request-lease-001",
+            &lease_id,
+            220,
+            1_000,
+        )
+        .expect("recreated token should reach the ledger replay gate");
+        let retry = ledger.consume_before_effect(
+            retry_token,
+            &source,
+            &destination,
+            &current_request,
+            &observed,
+            230,
+            || Ok::<(), &'static str>(()),
+        );
+        assert!(matches!(
+            retry,
+            Err(lease::ConsumeError::Rejected(lease::LeaseError::Replay))
+        ));
+    }
+
+    #[test]
+    fn effect_lease_rejects_invalid_nonce_and_ttl() {
+        let (source, destination, classification, consent, agreement) = lease_fixture();
+        let request = lease_transfer(&classification, &consent, &agreement, 220);
+        assert!(matches!(
+            lease::AuthorizationLease::issue(
+                &source,
+                &destination,
+                &request,
+                "request-lease-001",
+                "not-a-cryptographic-nonce",
+                220,
+                1_000,
+            ),
+            Err(lease::LeaseError::InvalidLeaseId)
+        ));
+        assert!(matches!(
+            lease::AuthorizationLease::issue(
+                &source,
+                &destination,
+                &request,
+                "request-lease-001",
+                &"f".repeat(64),
+                220,
+                5_001,
+            ),
+            Err(lease::LeaseError::InvalidTtl)
+        ));
     }
 
 }
