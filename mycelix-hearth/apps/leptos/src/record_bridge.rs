@@ -111,6 +111,18 @@ impl WireRecord {
 // Domain-specific conversions: Record → View
 // ============================================================================
 
+/// Wire representation of a Hearth entry. AgentPubKey and Timestamp are
+/// mirrored as their raw bytes and microseconds to keep HDK out of the WASM app.
+#[derive(Debug, Clone, Deserialize)]
+pub struct WireHearth {
+    pub name: String,
+    pub description: String,
+    pub hearth_type: HearthType,
+    pub created_by: Vec<u8>,
+    pub created_at: i64,
+    pub max_members: u32,
+}
+
 /// Wire representation of HearthMembership entry (matches the zome's entry).
 #[derive(Debug, Clone, Deserialize)]
 pub struct WireMembership {
@@ -144,6 +156,25 @@ pub struct WireGratitude {
     pub gratitude_type: GratitudeType,
     pub visibility: HearthVisibility,
     pub created_at: i64,
+}
+
+/// Convert a vec of Hearth records into UI views with real action hashes.
+pub fn records_to_hearths(records: &[WireRecord]) -> Vec<HearthView> {
+    records
+        .iter()
+        .filter_map(|record| {
+            let hearth: WireHearth = record.decode_entry()?;
+            Some(HearthView {
+                hash: record.action_hash_b64(),
+                name: hearth.name,
+                description: hearth.description,
+                hearth_type: hearth.hearth_type,
+                created_by: base64_encode(&hearth.created_by),
+                created_at: hearth.created_at / 1_000_000,
+                max_members: hearth.max_members,
+            })
+        })
+        .collect()
 }
 
 /// Convert a vec of Records into MemberViews.
