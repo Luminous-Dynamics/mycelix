@@ -1,10 +1,10 @@
 # Exact Joint Allocation — golden corpus registry v1
 
-**Status:** 40 stable fixture IDs. Authored means test presence, not a pass; rows not currently covered remain Planned. No row is marked Passing without exact-head evidence.  
+**Status:** 46 stable fixture IDs. Authored means test presence, not a pass; rows not currently covered remain Planned. No row is marked Passing without exact-head evidence.  
 **Tracking issue:** [PROC-JOINT-EXACT-001 #5151](https://github.com/Luminous-Dynamics/mycelix/issues/5151).  
 **Implementation:** [joint_optimizer.rs](https://github.com/Luminous-Dynamics/mycelix/blob/feat/procurement-joint-exact-v1/mycelix-finance/tools/economic-coordination-reference/src/joint_optimizer.rs).
 
-Seven module tests are authored, including the binary-mask oracle, explicit search-bound error, mixed-currency rejection, input-order invariance, aggregate order-lot handling, and omission of non-mapped edges. They are not yet qualified as passing.
+Twelve module tests are authored, including the binary-mask oracle, explicit search-bound error, mixed-currency rejection, input-order invariance, aggregate order-lot handling, and omission of non-mapped edges. They are not yet qualified as passing.
 
 | Fixture ID | Scenario | Expected invariant | Status |
 |---|---|---|---|
@@ -50,6 +50,12 @@ Seven module tests are authored, including the binary-mask oracle, explicit sear
 | JEX-040 | Input order changes while manifest remains frozen | Output is deterministic and canonical | Authored |
 
 | JEX-041 | Four request/offer edges with quantities 0–2 and pool ceilings 1–4 | 81 quantity vectors agree with the independent frontier oracle; candidates bounded by per-edge pool ceiling | Authored |
+
+| JEX-042 | Stale capability mapping | No positive assignment uses the stale mapped edge | Authored |
+| JEX-043 | Offer arrives after request deadline | Request receives no assignment from the late offer | Authored |
+| JEX-044 | Request budget makes one offer unaffordable | No over-budget edge appears on the frontier | Authored |
+| JEX-045 | No eligible offers exist | Valid frontier contains only zero allocation and explicit shortages | Authored |
+| JEX-046 | Different assignments yield the same objective vector | One deterministic canonical assignment representative | Authored |
 
 ## Qualification sequence
 
