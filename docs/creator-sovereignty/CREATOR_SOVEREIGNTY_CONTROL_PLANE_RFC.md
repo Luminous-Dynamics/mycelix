@@ -22,6 +22,20 @@ This RFC is a product/architecture proposal, not a statement that the four proje
 
 These facts support an experiment, not a claim that the market is underserved in every segment. Existing tools cover many individual features. Differentiation must be demonstrated by outcomes, portability, and trust—not by aggregating more dashboards.
 
+## Competitive reality: do not rebuild an existing creator stack
+
+Official product material already advertises meaningful bundles:
+
+- [Beacons](https://website.beacons.ai/i/blog/announcing-beacons-2-0) combines a link-in-bio surface, store, email marketing, media kit, AI recommendations, and creator operations.
+- [Fourthwall](https://fourthwall.com/creators) combines merchandise, memberships, donations, a branded creator hub, and supporter-facing experiences; its [membership product](https://fourthwall.com/memberships) advertises subscriber analytics and retention views.
+- [StreamElements](https://streamelements.com/) supplies streaming alerts/overlays, chat tools, merch, and sponsorship offers.
+- [Passionfroot](https://www.passionfroot.me/creators) offers media kits, sponsor discovery, storefronts, booking, scheduling, and payment workflows.
+- Patreon and similar membership products compete strongly on paid community and direct-to-fan offers; the [State of Create](https://stateofcreate.co/) report should be read as useful vendor research, not as neutral market measurement.
+
+These products make a generic "all-in-one creator dashboard" a weak thesis. Do not rebuild storefronts, merch logistics, streaming overlays, or membership hosting in the MVP. Integrate or export to tools creators already choose, subject to explicit permissions and available interfaces.
+
+**The initial wedge is independent cross-tool career accounting and decision quality:** reconcile creator-controlled income, costs, work time, and observed content outcomes; show how every metric was derived; provide lossless export; and run small evidence-linked experiments without forcing a platform migration. This gives the creator value even if no sponsor marketplace, social integration, or new community network ever ships. A later product may expand only when design-partner evidence shows that adjacent workflows are painful enough to justify replacing an incumbent.
+
 ## Paradigm shifts
 
 ### 1. Platform-first → creator-owned control plane
