@@ -3,6 +3,8 @@
 //! This crate checks structural invariants only. It is not a rights registry,
 //! identity provider, signature verifier, legal opinion, or proof of ownership.
 
+pub mod history;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
@@ -80,6 +82,7 @@ macro_rules! string_id {
 string_id!(AssetId);
 string_id!(PartyId);
 string_id!(GrantId);
+string_id!(EventId);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum AssetKind {
