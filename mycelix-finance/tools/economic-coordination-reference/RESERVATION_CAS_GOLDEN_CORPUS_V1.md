@@ -36,17 +36,17 @@ Sixteen module test functions are authored. The current tests use the same deter
 | RSC-026 | Capacity quantity reached exactly | Accepted | Planned |
 | RSC-027 | Capacity exceeded by one after current-revision refresh | Rejected | Planned |
 | RSC-028 | Two distinct units use separate pool IDs | Accounting remains isolated | Planned |
-| RSC-029 | Same pool ID registered twice with a different snapshot digest | First snapshot not overwritten | Authored |
+| RSC-029 | Same pool ID registered again with a changed capacity ceiling | First snapshot not overwritten | Authored |
 | RSC-030 | Evidence observed after reservation command time | Rejected | Planned |
 | RSC-031 | Revision at u64 maximum | Revision overflow fails closed, no mutation | Planned |
 | RSC-032 | Fencing token at u64 maximum | Fence overflow fails closed, no mutation | Planned |
 | RSC-033 | Event sequence arithmetic boundary | No sequence wraparound | Planned |
 | RSC-034 | Two successful mutations use increasing revisions/fences | Strictly monotonic revision and fencing token | Planned |
 | RSC-035 | Release attempted exactly at expiry | Rejected; explicit expire transition required | Planned |
-| RSC-036 | Consumed reservation release attempt | Rejected; consumed capacity preserved | Authored |
+| RSC-036 | Consumed reservation release attempt | Rejected; consumed capacity preserved | Planned |
 | RSC-037 | Explicit release exact retry under same command ID | Idempotent event replay | Planned |
 | RSC-038 | Two concurrent operations against same revision | One mutation succeeds; stale sibling fails | Authored |
-| RSC-039 | Failed commit followed by valid expiry command | Failed commit creates no journal event; expiry is recorded | Authored |
+| RSC-039 | Failed commit followed by valid expiry command | Failed commit creates no journal event; expiry is recorded | Planned |
 | RSC-040 | Restart/replay from persisted event stream | Reconstructed states and pool totals match oracle | Planned |
 
 ## Qualification rules
