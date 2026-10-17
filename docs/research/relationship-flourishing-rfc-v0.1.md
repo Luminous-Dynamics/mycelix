@@ -240,6 +240,8 @@ Implement a small Rust-first pure evaluation crate or reuse an appropriate exist
 4. Compute exposure Gini, opportunity-normalized exposure, candidate coverage, reciprocal-shortlist proxy, subgroup diagnostics, seed-level intervals and runtime distributions. Keep real participant mutual acceptance for a later consent-based pilot; synthetic profiles cannot supply it.
 5. Exercise negative controls for block, withdrawal, stale preferences, malformed inputs, replay, cold starts, coordinated behavior and privacy violations.
 6. Emit a deterministic JSON/TOML report and digest; make missing metrics or missing test vectors fail closed.
+7. Run a multi-round allocation experiment that compares stateless per-batch exposure balancing with a historical exposure ledger, reporting cumulative raw and opportunity-normalized inequality across at least 10 rounds.
+8. Treat the historical ledger as experimental state only. Before production use, define its scope, retention, deletion, update atomicity, market-change semantics, and recovery behavior; a local counter is not a durable or privacy-qualified ledger.
 
 No real profiles, private messages, or safety reports are needed for Stage 1.
 
@@ -263,6 +265,7 @@ Use the same seed sequence for each family, but compute a separate corpus finger
 #### Interpretation and non-regression rules
 
 - Publish each family separately; never let an aggregate mean hide a catastrophic sparse, opt-out, or adversarial slice.
+- Report cumulative results across repeated batches as well as one-batch results. A per-batch Gini reduction is insufficient if the same people are systematically overexposed across time. Compare stateless balancing to a historical-exposure policy using identical market/seed sequences.
 - Require zero invalid recommendations and zero eligibility/consent negative-control violations across every tested family, seed, and policy. A fairness benefit cannot compensate for one hard-invariant violation.
 - Report the count of comparable seeds whenever a relative Gini reduction is calculated. When baseline Gini is zero or a denominator is not meaningful, report the metric as non-comparable rather than a false zero-percent improvement.
 - Retain the initial ≥8% raw-Gini and ≥10% opportunity-normalized-Gini relative-reduction targets as overall experimental targets, not universal guarantees for every market topology.
