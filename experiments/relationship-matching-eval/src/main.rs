@@ -202,7 +202,11 @@ fn print_stats_object(name: &str, values: &[f64], indent: &str, trailing_comma: 
     println!("{indent}  \"sample_sd\": {sample_sd:.8},");
     println!("{indent}  \"min\": {minimum:.8},");
     println!("{indent}  \"max\": {maximum:.8},");
-    println!("{indent}  \"ci95_normal_approx\": [{ci_low:.8}, {ci_high:.8}]");
+    if values.len() > 1 {
+        println!("{indent}  \"ci95_normal_approx\": [{ci_low:.8}, {ci_high:.8}]");
+    } else {
+        println!("{indent}  \"ci95_normal_approx\": null");
+    }
     println!(
         "{indent}}}{}",
         if trailing_comma { "," } else { "" }
@@ -268,8 +272,8 @@ fn stats(values: &[f64]) -> (f64, f64, f64, f64, f64, f64) {
         sample_sd,
         minimum,
         maximum,
-        (average - margin).max(0.0),
-        (average + margin).min(1.0),
+        average - margin,
+        average + margin,
     )
 }
 
