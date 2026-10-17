@@ -19,7 +19,12 @@ impl Actor {
         }
     }
 
-
+    fn index(self) -> usize {
+        match self {
+            Self::A => 0,
+            Self::B => 1,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -56,6 +61,9 @@ pub struct Machine {
     pub next_epoch: u64,
     pub opt_in_mask: u8,
     pub blocked_mask: u8,
+    /// Highest accepted command sequence per actor; duplicate or older commands
+    /// cannot overwrite newer block/opt-in/consent state.
+    pub last_sequence: [u64; 2],
     /// Current conversation permission, not proof that previously disclosed
     /// information can be made unknown again.
     pub chat_enabled: bool,
@@ -74,6 +82,7 @@ impl Default for Machine {
             next_epoch: 1,
             opt_in_mask: BOTH_OPTED_IN,
             blocked_mask: 0,
+            last_sequence: [0, 0],
             chat_enabled: false,
             reveal_count: 0,
             last_revealed_epoch: None,
@@ -84,14 +93,29 @@ impl Default for Machine {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Event {
-    Propose { actor: Actor, ttl: u64 },
-    Accept { actor: Actor, epoch: u64 },
-    Decline { actor: Actor, epoch: u64 },
-    Withdraw { actor: Actor, epoch: u64 },
-    Block { actor: Actor },
-    Unblock { actor: Actor },
-    SetDiscoveryOptIn { actor: Actor, enabled: bool },
+    Propose { actor: Actor, sequence: u64, ttl: u64 },
+    Accept { actor: Actor, sequence: u64, epoch: u64 },
+    Decline { actor: Actor, sequence: u64, epoch: u64 },
+    Withdraw { actor: Actor, sequence: u64, epoch: u64 },
+    Block { actor: Actor, sequence: u64 },
+    Unblock { actor: Actor, sequence: u64 },
+    SetDiscoveryOptIn { actor: Actor, sequence: u64, enabled: bool },
     AdvanceTime { to: u64 },
+}
+
+impl Event {
+    fn actor_sequence(&self) -> Option<(Actor, u64)> {
+        match self {
+            Self::Propose { actor, sequence, .. }
+            | Self::Accept { actor, sequence, .. }
+            | Self::Decline { actor, sequence, .. }
+            | Self::Withdraw { actor, sequence, .. }
+            | Self::Block { actor, sequence }
+            | Self::Unblock { actor, sequence }
+            | Self::SetDiscoveryOptIn { actor, sequence, .. } => Some((*actor, *sequence)),
+            Self::AdvanceTime { .. } => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -111,16 +135,28 @@ impl Machine {
         let before = self.clone();
         self.expire_if_due();
 
+        if let Some((actor, sequence)) = event.actor_sequence() {
+            let index = actor.index();
+            if sequence == 0 || sequence <= self.last_sequence[index] {
+                // Expiration above is time-driven and still takes effect even
+                // when the user command itself is a replay.
+                return *self != before;
+            }
+            // Consume fresh sequence numbers even for policy-rejected commands,
+            // so a delayed duplicate cannot become valid after conditions change.
+            self.last_sequence[index] = sequence;
+        }
+
         match event {
-            Event::Propose { actor, ttl } => self.propose(actor, ttl),
-            Event::Accept { actor, epoch } => self.accept(actor, epoch),
-            Event::Decline { actor, epoch } => self.decline(actor, epoch),
-            Event::Withdraw { actor, epoch } => self.withdraw(actor, epoch),
-            Event::Block { actor } => self.block(actor),
-            Event::Unblock { actor } => {
+            Event::Propose { actor, ttl, .. } => self.propose(actor, ttl),
+            Event::Accept { actor, epoch, .. } => self.accept(actor, epoch),
+            Event::Decline { actor, epoch, .. } => self.decline(actor, epoch),
+            Event::Withdraw { actor, epoch, .. } => self.withdraw(actor, epoch),
+            Event::Block { actor, .. } => self.block(actor),
+            Event::Unblock { actor, .. } => {
                 self.blocked_mask &= !actor.bit();
             }
-            Event::SetDiscoveryOptIn { actor, enabled } => {
+            Event::SetDiscoveryOptIn { actor, enabled, .. } => {
                 if enabled {
                     self.opt_in_mask |= actor.bit();
                 } else {
@@ -320,29 +356,31 @@ impl Machine {
         epochs.sort_unstable();
         epochs.dedup();
 
+        let sequence = |actor: Actor| self.last_sequence[actor.index()].saturating_add(1);
         let mut events = vec![
-            Event::Propose { actor: Actor::A, ttl: 2 },
-            Event::Propose { actor: Actor::B, ttl: 4 },
-            Event::Block { actor: Actor::A },
-            Event::Block { actor: Actor::B },
-            Event::Unblock { actor: Actor::A },
-            Event::Unblock { actor: Actor::B },
-            Event::SetDiscoveryOptIn { actor: Actor::A, enabled: false },
-            Event::SetDiscoveryOptIn { actor: Actor::A, enabled: true },
-            Event::SetDiscoveryOptIn { actor: Actor::B, enabled: false },
-            Event::SetDiscoveryOptIn { actor: Actor::B, enabled: true },
+            Event::Propose { actor: Actor::A, sequence: sequence(Actor::A), ttl: 2 },
+            Event::Propose { actor: Actor::B, sequence: sequence(Actor::B), ttl: 4 },
+            Event::Block { actor: Actor::A, sequence: sequence(Actor::A) },
+            Event::Block { actor: Actor::B, sequence: sequence(Actor::B) },
+            Event::Unblock { actor: Actor::A, sequence: sequence(Actor::A) },
+            Event::Unblock { actor: Actor::B, sequence: sequence(Actor::B) },
+            Event::SetDiscoveryOptIn { actor: Actor::A, sequence: sequence(Actor::A), enabled: false },
+            Event::SetDiscoveryOptIn { actor: Actor::A, sequence: sequence(Actor::A), enabled: true },
+            Event::SetDiscoveryOptIn { actor: Actor::B, sequence: sequence(Actor::B), enabled: false },
+            Event::SetDiscoveryOptIn { actor: Actor::B, sequence: sequence(Actor::B), enabled: true },
             Event::AdvanceTime { to: self.now.saturating_add(1) },
             Event::AdvanceTime { to: self.now.saturating_add(2) },
             Event::AdvanceTime { to: self.now.saturating_add(4) },
-            // Actor A's counterpart is included symmetrically; this also
-            // generates duplicate acceptance and stale-message negatives.
         ];
 
         for epoch in epochs {
             for actor in [Actor::A, Actor::B] {
-                events.push(Event::Accept { actor, epoch });
-                events.push(Event::Decline { actor, epoch });
-                events.push(Event::Withdraw { actor, epoch });
+                let fresh_sequence = sequence(actor);
+                let replay_sequence = self.last_sequence[actor.index()];
+                events.push(Event::Accept { actor, sequence: fresh_sequence, epoch });
+                events.push(Event::Accept { actor, sequence: replay_sequence, epoch });
+                events.push(Event::Decline { actor, sequence: fresh_sequence, epoch });
+                events.push(Event::Withdraw { actor, sequence: fresh_sequence, epoch });
             }
         }
         events
@@ -404,7 +442,8 @@ mod tests {
     use super::*;
 
     fn propose_a(machine: &mut Machine, ttl: u64) {
-        assert!(machine.apply(Event::Propose { actor: Actor::A, ttl }));
+        let sequence = machine.last_sequence[Actor::A.index()] + 1;
+        assert!(machine.apply(Event::Propose { actor: Actor::A, sequence, ttl }));
         assert!(machine.invariants_hold());
     }
 
@@ -427,11 +466,11 @@ mod tests {
         let mut machine = Machine::default();
         propose_a(&mut machine, 5);
 
-        machine.apply(Event::Accept { actor: Actor::A, epoch: 1 });
+        machine.apply(Event::Accept { actor: Actor::A, sequence: 2, epoch: 1 });
         assert_eq!(machine.reveal_count, 0);
         assert!(!machine.chat_enabled);
 
-        machine.apply(Event::Accept { actor: Actor::B, epoch: 1 });
+        machine.apply(Event::Accept { actor: Actor::B, sequence: 1, epoch: 1 });
         assert!(matches!(
             &machine.phase,
             Phase::Connected { accepted_mask: BOTH_ACCEPTED, .. }
@@ -441,7 +480,7 @@ mod tests {
         assert!(machine.invariants_hold());
 
         // Replayed acceptance is idempotent and cannot count a second reveal.
-        machine.apply(Event::Accept { actor: Actor::B, epoch: 1 });
+        machine.apply(Event::Accept { actor: Actor::B, sequence: 1, epoch: 1 });
         assert_eq!(machine.reveal_count, 1);
         assert!(machine.invariants_hold());
     }
@@ -466,9 +505,9 @@ mod tests {
     fn block_and_withdrawal_revoke_current_conversation_permission() {
         let mut blocked = Machine::default();
         propose_a(&mut blocked, 5);
-        blocked.apply(Event::Accept { actor: Actor::B, epoch: 1 });
+        blocked.apply(Event::Accept { actor: Actor::B, sequence: 1, epoch: 1 });
         assert!(blocked.chat_enabled);
-        blocked.apply(Event::Block { actor: Actor::B });
+        blocked.apply(Event::Block { actor: Actor::B, sequence: 2 });
         assert!(matches!(
             &blocked.phase,
             Phase::Closed { reason: CloseReason::Blocked, .. }
@@ -480,8 +519,8 @@ mod tests {
 
         let mut withdrawn = Machine::default();
         propose_a(&mut withdrawn, 5);
-        withdrawn.apply(Event::Accept { actor: Actor::B, epoch: 1 });
-        withdrawn.apply(Event::Withdraw { actor: Actor::A, epoch: 1 });
+        withdrawn.apply(Event::Accept { actor: Actor::B, sequence: 1, epoch: 1 });
+        withdrawn.apply(Event::Withdraw { actor: Actor::A, sequence: 2, epoch: 1 });
         assert!(matches!(
             &withdrawn.phase,
             Phase::Closed { reason: CloseReason::Withdrawn, .. }
@@ -494,7 +533,7 @@ mod tests {
     fn discovery_opt_out_closes_pending_but_not_connected_conversations() {
         let mut pending = Machine::default();
         propose_a(&mut pending, 5);
-        pending.apply(Event::SetDiscoveryOptIn { actor: Actor::B, enabled: false });
+        pending.apply(Event::SetDiscoveryOptIn { actor: Actor::B, sequence: 1, enabled: false });
         assert!(matches!(
             &pending.phase,
             Phase::Closed { reason: CloseReason::Withdrawn, .. }
@@ -503,8 +542,8 @@ mod tests {
 
         let mut connected = Machine::default();
         propose_a(&mut connected, 5);
-        connected.apply(Event::Accept { actor: Actor::B, epoch: 1 });
-        connected.apply(Event::SetDiscoveryOptIn { actor: Actor::B, enabled: false });
+        connected.apply(Event::Accept { actor: Actor::B, sequence: 1, epoch: 1 });
+        connected.apply(Event::SetDiscoveryOptIn { actor: Actor::B, sequence: 2, enabled: false });
         assert!(matches!(&connected.phase, Phase::Connected { .. }));
         assert!(connected.chat_enabled);
         assert!(connected.invariants_hold());
@@ -514,30 +553,33 @@ mod tests {
     fn declined_pair_has_cooldown_and_old_epochs_cannot_connect() {
         let mut machine = Machine::default();
         propose_a(&mut machine, 10);
-        machine.apply(Event::Decline { actor: Actor::B, epoch: 1 });
+        machine.apply(Event::Decline { actor: Actor::B, sequence: 1, epoch: 1 });
         assert!(matches!(
             &machine.phase,
             Phase::Closed { reason: CloseReason::Declined, .. }
         ));
 
-        machine.apply(Event::Propose { actor: Actor::B, ttl: 10 });
+        machine.apply(Event::Propose { actor: Actor::B, sequence: 2, ttl: 10 });
         assert!(matches!(&machine.phase, Phase::Closed { .. }));
 
         machine.apply(Event::AdvanceTime {
             to: DECLINE_COOLDOWN_TICKS,
         });
-        machine.apply(Event::Propose { actor: Actor::B, ttl: 10 });
+        // Replaying the rejected command after the cooldown must remain a no-op.
+        machine.apply(Event::Propose { actor: Actor::B, sequence: 2, ttl: 10 });
+        assert!(matches!(&machine.phase, Phase::Closed { .. }));
+        machine.apply(Event::Propose { actor: Actor::B, sequence: 3, ttl: 10 });
         assert!(matches!(
             &machine.phase,
             Phase::Pending { epoch: 2, .. }
         ));
 
-        machine.apply(Event::Accept { actor: Actor::A, epoch: 1 });
+        machine.apply(Event::Accept { actor: Actor::A, sequence: 2, epoch: 1 });
         assert!(matches!(
             &machine.phase,
             Phase::Pending { epoch: 2, accepted_mask: 0b10, .. }
         ));
-        machine.apply(Event::Accept { actor: Actor::A, epoch: 2 });
+        machine.apply(Event::Accept { actor: Actor::A, sequence: 3, epoch: 2 });
         assert!(matches!(&machine.phase, Phase::Connected { epoch: 2, .. }));
         assert_eq!(machine.reveal_count, 1);
         assert!(machine.invariants_hold());
@@ -556,6 +598,17 @@ mod tests {
         one_sided.chat_enabled = true;
         one_sided.last_revealed_epoch = Some(1);
         assert!(!one_sided.invariants_hold());
+    }
+
+    #[test]
+    fn stale_unblock_cannot_reverse_a_newer_block() {
+        let mut machine = Machine::default();
+        machine.apply(Event::Unblock { actor: Actor::B, sequence: 1 });
+        machine.apply(Event::Block { actor: Actor::B, sequence: 2 });
+        machine.apply(Event::Unblock { actor: Actor::B, sequence: 1 });
+
+        assert_eq!(machine.blocked_mask, Actor::B.bit());
+        assert!(machine.invariants_hold());
     }
 
     #[test]
