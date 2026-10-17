@@ -10,7 +10,7 @@ fn party(value: &str) -> PartyId {
     PartyId::new(value).unwrap()
 }
 
-fn history_with_grant() -> GrantHistory {
+fn history_with_issue_evidence(issue_evidence: &str) -> GrantHistory {
     let grant = UsageGrant::new(
         GrantId::new("grant-portable").unwrap(),
         AssetId::new("recording-portable").unwrap(),
@@ -27,7 +27,7 @@ fn history_with_grant() -> GrantHistory {
         EventId::new("event-issue").unwrap(),
         5,
         party("creator"),
-        "evidence://issue",
+        issue_evidence,
         grant,
     )
     .unwrap();
@@ -40,6 +40,10 @@ fn history_with_grant() -> GrantHistory {
     )
     .unwrap();
     GrantHistory::replay(&[event, revoke]).unwrap()
+}
+
+fn history_with_grant() -> GrantHistory {
+    history_with_issue_evidence("evidence://issue")
 }
 
 #[test]
@@ -62,36 +66,16 @@ fn portable_envelope_round_trip_preserves_effective_revocation() {
 
 #[test]
 fn different_event_evidence_changes_the_content_digest() {
-    let history = history_with_grant();
-    let original = GrantHistoryEnvelope::from_history(&history).unwrap();
-    let original_digest = original.digest_hex().unwrap();
-
-    let different_issue = GrantEvent::issue(
-        EventId::new("event-other-issue").unwrap(),
-        5,
-        party("creator"),
-        "evidence://different-source",
-        UsageGrant::new(
-            GrantId::new("grant-other").unwrap(),
-            AssetId::new("recording-portable").unwrap(),
-            party("studio"),
-            UseAction::TrainModel,
-            "private-model-v1",
-            party("creator"),
-            "consent://training",
-            10,
-            Some(100),
-        )
-        .unwrap(),
+    let original = GrantHistoryEnvelope::from_history(
+        &history_with_issue_evidence("evidence://issue"),
     )
     .unwrap();
-    let altered = GrantHistory::replay(&[different_issue]).unwrap();
-    let altered_digest = GrantHistoryEnvelope::from_history(&altered)
-        .unwrap()
-        .digest_hex()
-        .unwrap();
+    let changed_source = GrantHistoryEnvelope::from_history(
+        &history_with_issue_evidence("evidence://changed-source"),
+    )
+    .unwrap();
 
-    assert_ne!(original_digest, altered_digest);
+    assert_ne!(original.digest_hex().unwrap(), changed_source.digest_hex().unwrap());
 }
 
 #[test]
