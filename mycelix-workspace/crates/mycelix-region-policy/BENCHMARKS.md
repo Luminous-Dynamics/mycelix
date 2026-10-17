@@ -31,3 +31,4 @@ Record the exact 40-character commit SHA, toolchain, OS/kernel, processor, power
 3. Add fault injection: stale or rolled-back profile versions, revoked keys, unavailable trust roots, wall-clock rollback, dropped network, partial federation rollout, cache poisoning, and backup restore.
 4. Add a deterministic public fixture corpus with the profile digests, source/destination scopes, requested action, valid-time window, consent evidence state, expected decision, and expected reason codes.
 5. Measure end-to-end latency and reliability by data class, destination region, network quality, hardware tier, and payload size. Report p50/p95/p99 plus failure and denial rates.
+6. Add effect-lease issue/consume microbenchmarks including fresh reevaluation, TTL rejection, target mismatch, and replay rejection; report the reference ledger separately from any durable/distributed adapter.
