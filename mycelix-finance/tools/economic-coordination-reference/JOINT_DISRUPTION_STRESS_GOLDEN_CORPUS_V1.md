@@ -16,9 +16,9 @@
 | JDS-008 | Failure-domain list permutations preserve the report | Authored module test |
 | JDS-009 | Aggregate budget exhaustion returns no report | Authored module test |
 | JDS-010 | Empty scenario catalogue is rejected | Authored module test |
-| JDS-011 | Independent oracle: no-failure two-request/two-offer control | Planned |
-| JDS-012 | Independent oracle: one supplier outage | Planned |
-| JDS-013 | Independent oracle: shared-pool outage | Planned |
+| JDS-011 | Independent oracle: no-failure two-request/two-offer control | Authored integration oracle |
+| JDS-012 | Independent oracle: one supplier outage | Authored integration oracle |
+| JDS-013 | Independent oracle: shared-pool outage | Authored integration oracle |
 | JDS-014 | Independent oracle: two correlated supplier failures | Planned |
 | JDS-015 | Same supplier represented by several distinct offers | Planned |
 | JDS-016 | Several suppliers share one physical capacity pool | Planned |
