@@ -12,7 +12,7 @@ use crate::history::GrantHistory;
 use crate::portable::{GrantHistoryEnvelope, PortableHistoryError};
 use crate::{
     AssetId, AssetKind, AssetRegistry, ClaimState, ExternalIdentifier, PassportError,
-    RightsPool, SplitClaim, UsageGrant,
+    RightsPool, SplitClaim,
 };
 
 const MAGIC: &[u8] = b"MYCELIX-CSCP-ASSET-PASSPORT\0";
@@ -20,6 +20,7 @@ const FORMAT_VERSION: u16 = 1;
 const MAX_FIELD_BYTES: usize = 256;
 const MAX_ASSETS: u64 = 100_000;
 const MAX_CLAIMS: u64 = 1_000_000;
+const MAX_IDENTIFIERS: u64 = 1_000_000;
 const MAX_ENVELOPE_BYTES: usize = 256 * 1024 * 1024;
 const DIGEST_DOMAIN: &[u8] = b"MYCELIX-CSCP-ASSET-PASSPORT-DIGEST-V1\0";
 
@@ -34,6 +35,7 @@ pub enum PassportEnvelopeError {
     InvalidUtf8,
     TooManyAssets,
     TooManyClaims,
+    TooManyIdentifiers,
     EnvelopeTooLarge,
     InvalidAssetKind,
     InvalidIdentifierKind,
@@ -108,8 +110,13 @@ impl CreativeAssetPassportEnvelope {
             return Err(PassportEnvelopeError::TooManyClaims);
         }
 
+        let mut total_identifiers = 0u64;
         for asset in self.assets.assets() {
             validate_field(asset.id.as_str())?;
+            total_identifiers = total_identifiers.saturating_add(asset.identifiers().len() as u64);
+            if total_identifiers > MAX_IDENTIFIERS {
+                return Err(PassportEnvelopeError::TooManyIdentifiers);
+            }
             if let Some(title) = asset.title.as_deref() {
                 if title.trim().is_empty()
                     || title.len() > MAX_FIELD_BYTES
@@ -321,6 +328,9 @@ impl CreativeAssetPassportEnvelope {
         }
 
         let history_bytes = self.grant_history.canonical_bytes()?;
+        if output.len().saturating_add(8).saturating_add(history_bytes.len()) > MAX_ENVELOPE_BYTES {
+            return Err(PassportEnvelopeError::EnvelopeTooLarge);
+        }
         output.extend_from_slice(&(history_bytes.len() as u64).to_be_bytes());
         output.extend_from_slice(&history_bytes);
         if output.len() > MAX_ENVELOPE_BYTES {
@@ -390,12 +400,12 @@ fn validate_identifier_fields(
     }
 }
 
-fn identifier_sort_key(identifier: &ExternalIdentifier) -> String {
+fn identifier_sort_key(identifier: &ExternalIdentifier) -> (u8, String, String) {
     match identifier {
-        ExternalIdentifier::Iswc(value) => format!("1:{value}"),
-        ExternalIdentifier::Isrc(value) => format!("2:{value}"),
+        ExternalIdentifier::Iswc(value) => (1, value.clone(), String::new()),
+        ExternalIdentifier::Isrc(value) => (2, value.clone(), String::new()),
         ExternalIdentifier::Other { scheme, value } => {
-            format!("3:{}:{value}", scheme.to_ascii_lowercase())
+            (3, scheme.to_ascii_lowercase(), value.clone())
         }
     }
 }
