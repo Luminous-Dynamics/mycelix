@@ -104,7 +104,7 @@ Do not market these targets as achieved. Before a release gate can be claimed, p
 
 ## Test inventory and current maturity
 
-The current source has 53 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, a frozen full-snapshot byte vector, identifier/claim canonical ordering, unresolved asset references, and digest mutation fixtures. These are **authored test cases, not passed tests**.
+The current source has 54 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, a frozen full-snapshot byte vector, identifier/claim canonical ordering, unresolved asset references, and digest mutation fixtures. These are **authored test cases, not passed tests**.
 
 The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has two frozen Rust/Python byte vectors: a work with an ISWC and complete composition claim, plus a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. Neither format yet has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
 
