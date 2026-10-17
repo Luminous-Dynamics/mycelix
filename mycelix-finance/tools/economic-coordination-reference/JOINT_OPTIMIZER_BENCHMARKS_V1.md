@@ -38,7 +38,7 @@ The reference enumerates integer quantities over request/offer pairs explicitly 
 | Deterministic generated micro-instances after oracle qualification | At least 10,000 |
 | Search count or candidate count silently overflowing | 0 |
 
-The authored independent oracle enumerates all 16 binary allocation masks for a two-request/two-offer problem at two shared-capacity ceilings. A second authored oracle enumerates all 81 edge-quantity vectors (each edge quantity 0–2) across shared-pool ceilings 1–4, comparing objective frontiers and feasible/infeasible leaf counts. Neither oracle is yet qualified passing on exact head. The corpus must still expand to lot increments, tighter budgets, multiple shared pools, capability profiles, deadline boundaries and invalid manifests before the 10,000-instance campaign.
+The authored independent oracle enumerates all 16 binary allocation masks for a two-request/two-offer problem at two shared-capacity ceilings. A second authored oracle enumerates all 81 possible edge-quantity vectors (each edge quantity 0–2) across shared-pool ceilings 1–4 and compares objective frontiers. The solver prunes branches that cannot fit remaining shared capacity, so its visited-leaf count is not expected to equal the oracle’s full Cartesian-product count. Neither oracle is yet qualified passing on exact head. The corpus must still expand to lot increments, tighter budgets, multiple shared pools, capability profiles, deadline boundaries and invalid manifests before the 10,000-instance campaign.
 
 ## Baselines and regret analysis
 
