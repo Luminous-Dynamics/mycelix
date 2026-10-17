@@ -20,6 +20,7 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Rights-pool-scoped split assessment with exact basis points (10,000 = 100%), duplicate-party rejection, explicit partial status, and fail-closed complete-split arithmetic.
 - Explicit, asset-bound grants for metadata analysis, publication, distribution, commercialization, model training, derivative generation, and voice/likeness synthesis.
 - Exact grantee, purpose, action, asset, start time and expiry checks; revocation is evaluated by time so historical uses before revocation can still be audited.
+- Grant-history resolution by immutable grant ID: a revocation dominates an earlier grant independent of event ordering, while conflicting reuse of a grant ID fails closed.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
