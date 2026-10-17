@@ -913,7 +913,7 @@ mod tests {
     fn incompatible_correction_and_cross_case_dispute_resolution_are_rejected() {
         let mut ledger = basic_finalized_ledger();
         let mut wrong_family = event(
-            "wrong-correction", "claim-wrong-correction", IssuerRole::Buyer, 110, 110,
+            "wrong-correction", "claim-wrong-correction", IssuerRole::Supplier, 110, 110,
             OutcomeEventKind::ShipmentReported { quantity: 2, shipment_evidence_ref: "corrected-shipment".to_owned() },
         );
         wrong_family.supersedes_event_id = Some("receipt-1".to_owned());
