@@ -281,6 +281,25 @@ This is still not a portable or signed history. Actor IDs and evidence reference
 
 Keep the claim ceiling explicit: replay demonstrates deterministic internal reconstruction, not the truth of an event or legal validity of consent. A content hash can demonstrate byte equality only; it does not authenticate the issuer or prove rights. A future portable envelope should be versioned and canonicalized, carry the exact source schema/version, keep raw external messages or their cryptographic digests, and make unsupported fields visible rather than inventing defaults.
 
+## Gate 7 — canonical portable grant-history envelope
+
+The implementation slice in draft PR #5182 now exports the ordered grant/revocation event history through an experimental versioned binary envelope with deterministic canonical bytes and a domain-separated BLAKE3-256 content digest. The envelope schema and stable numeric tags are described in the public research crate README. It currently covers grants and revocations only, not the complete asset registry, contribution/split claims or source payloads.
+
+| Fixture family | Required outcome | Threshold |
+|---|---|---:|
+| Deterministic encoding | Repeated encoding of the same event history yields byte-identical output | 100% |
+| Decode/encode round trip | Re-encoding a decoded envelope yields byte-identical canonical bytes and preserves reconstructed effective grant state | 100% |
+| Digest | Same canonical bytes yield the same domain-separated digest; modified content changes fixture digest | 100% |
+| Unknown format version/action tag | Reject; never reinterpret an unknown tag as a permissive action | 100% rejected |
+| Truncation, invalid UTF-8, oversized fields/counts or trailing bytes | Reject import without partial state creation | 100% rejected |
+| History replay after import | Imported event stream reconstructs the same effective grants as append-derived state and independent reconstruction | 100% |
+| Cross-language interoperability | A second implementation reproduces frozen canonical-byte and digest golden vectors | 100% golden-vector agreement before format freeze |
+| Authorship/consent claim | No digest is presented as signature, trusted timestamp, consent proof or title evidence | Zero unsupported authenticity claims |
+
+The digest is carried separately from the envelope. BLAKE3 detects byte changes relative to an expected digest, but an attacker can replace both bytes and digest unless a separately authenticated channel/signature anchors the expected value. Keep source-system identifiers, raw message hashes, parser versions, and unresolved fields visible in a future full passport envelope. Do not silently drop unsupported fields during import/export.
+
+The current implementation is an experiment, not a ratified interoperability standard. Do not freeze the wire format or claim cross-language interoperability until a separately implemented encoder/decoder passes published golden vectors, property tests, mutation tests, and size-limit cases.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
