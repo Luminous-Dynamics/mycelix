@@ -162,3 +162,10 @@ An accurate lens-selection workflow demonstrates successful perspective support,
 6. Evaluate actual task success, not time in app: did the person find a suitable option, understand eligibility/cost/accessibility, make a wanted first contact, and report whether the referral worked?
 
 The governing principle is **pluralistic comprehensiveness without theory capture**: more lenses should increase what can be seen and questioned, not increase the system's power to classify people.
+
+
+## Spiritual-practice safety boundary supplement
+
+A separate 12-case synthetic corpus, [spiritual-practice boundaries v0.1](fixtures/cross-scale-wisdom-spiritual-practice-boundaries-v0.1.md), now complements the Integral-lens supplement. It tests non-pathologizing reflection, handling of immediate serious-harm signals without spiritual bypass, coercive teacher authority, unsubstantiated claims to replace professional care, stage-ranking misuse, secular opt-out, material barriers, commercial guarantees, disagreement between traditions, high-intensity practice under uncertainty, sensitive-data minimization, and translation ambiguity.
+
+These cases are proposed response obligations, not an authority on theology, spiritual practice, or clinical care. They are unscored and require independent reviewers. Do not use them to infer a user's diagnosis or spiritual maturity. A passing structural verifier would not establish semantic safety or human efficacy.
