@@ -29,7 +29,7 @@ Do not classify a transaction using returned error text/code. Do not treat `Defi
 
 ## Rust reference model
 
-`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and sixteen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
+`src/effect_journal.rs` provides a deterministic in-memory state machine, opaque `VerifiedSinkOutcome`, a verifier adapter trait, stable transition errors, and seventeen unit tests. It does not persist state or dispatch network requests. Test adapters are mocks, not cryptography.
 
 Production requirements:
 
@@ -88,4 +88,11 @@ These sources motivate the design. They are not independent validation of this i
 
 ## Machine-readable fault corpus
 
-[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 22-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+[`EFFECT_JOURNAL_FAULT_CORPUS_V1.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.json) is the 24-case fault inventory; [`EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json`](EFFECT_JOURNAL_FAULT_CORPUS_V1.schema.json) defines its closed JSON structure. `implemented_reference_model` and `implemented_reference_test` are source-level availability labels only, not executed PASS evidence. The remaining rows are explicit integration gates.
+
+
+## Snapshot dispatch-history invariant
+
+Restored records include a monotonic `dispatch_started` marker. A `Rejected` snapshot that crossed dispatch must carry a verified sink outcome digest; a caller-provided local timeout/reason cannot turn a dispatched-but-uncertain effect into a terminal rejection. This closes an ambiguity that a revision number alone cannot resolve. Test anchor: `restore_rejects_postdispatch_rejection_without_sink_evidence`.
+
+The bounded model explorer now enumerates reachable abstract states to depth 8 and checks effect-count/dispatch-count invariants, including both forms of `OutcomeUnknown` (destination may or may not have applied the effect). This remains abstract state exploration, not real storage proof.
