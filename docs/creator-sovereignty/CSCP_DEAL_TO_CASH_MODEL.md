@@ -4,6 +4,7 @@
 **Date:** 2026-10-17
 **Parent:** [Creator Sovereignty Control Plane RFC](CREATOR_SOVEREIGNTY_CONTROL_PLANE_RFC.md)
 **Companion:** [Creator Resilience and Creative Optionality](CSCP_CREATOR_RESILIENCE_MODEL.md)
+**Music/rights extension:** [Creative Asset Passport and Rights Graph](CSCP_CREATIVE_ASSET_PASSPORT.md)
 
 ## Executive thesis
 
