@@ -20,14 +20,15 @@ These are intentionally independent. An identifier is not an ownership certifica
 - Rights-pool-scoped split assessment with exact basis points (10,000 = 100%), duplicate-party rejection, explicit partial status, and fail-closed complete-split arithmetic.
 - Explicit, asset-bound grants for metadata analysis, publication, distribution, commercialization, model training, derivative generation, and voice/likeness synthesis.
 - Exact grantee, purpose, action, asset, start time and expiry checks; revocation is evaluated by time so historical uses before revocation can still be audited.
-- Grant-history resolution by immutable grant ID: a revocation dominates an earlier grant independent of event ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
+- Order-independent usage evaluation by immutable grant ID: a revocation dominates an original grant regardless of history ordering; conflicting reuse of a grant ID blocks only the exact scopes implicated, not unrelated catalogue permissions.
+- An append-only in-memory issue/revocation event log with event-ID idempotency, monotonic event-time checks, deterministic replay, and atomic rejection of invalid transitions.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
 
 This crate does **not** authenticate identity, verify digital signatures, prove that an evidence reference is truthful, establish legal ownership, resolve conflicting claims, validate contracts, calculate royalties, make payments, or determine whether a grantor has legal authority. A status named Confirmed is a workflow assertion provided by the caller, not an adjudication by the software. A syntactically valid ISWC/ISRC is not proof the identifier was issued to this asset.
 
-The registry is in-memory and has no serialization, signed event history, external catalogue sync, rights-claim reconciliation, territory-specific rules, or import/export adapters. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
+The registry and event history are in-memory only. Events are not signed or durably persisted, and the crate has no portable serialization/manifest, external catalogue sync, rights-claim reconciliation, territory-specific rules, or import/export adapters. It is an invariant kernel to test before building any of those. DDEX compatibility should be addressed through explicit, versioned adapters rather than by presenting this internal model as a replacement for an industry standard. The ISWC / ISRC distinctions and DDEX exchange boundaries are described in the public [ISWC guidance](https://www.iswc.org/iswc) and [DDEX Recording Data and Rights standards](https://ddex.net/standards/recording-data-and-rights/).
 
 ## Benchmark contract — targets, not results
 
@@ -43,6 +44,10 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Independent expected-outcome fixtures | 100% agreement on fixed corpus | Deterministic, reviewable behavior |
 | Repeated request evaluation | Same decision for same inputs | Reproducibility |
 | Grant + revocation both present in history | Zero allows at/after revocation in either event order; valid pre-revocation history stays allowed | Prevent stale-event consent resurrection |
+| Event-log replay | Rebuilt effective grant state equals state derived during append; duplicate exact event is idempotent | 100% fixture agreement |
+| Failed append | Invalid event leaves event count and effective-grant state unchanged | Zero partial mutations |
+| Event identity collision | Same event ID with different content is rejected | 100% conflict detection |
+| Event time order | Decreasing timestamps are rejected; same-time distinct events are deterministic | 100% fixture agreement |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
 | Mutation/property testing | No invariant-breaking mutation survives the harness | Catch more than hand-picked cases |
@@ -60,7 +65,8 @@ No runtime performance or compilation result is claimed in this source-only revi
 ## Next high-value steps
 
 1. Run and repair the test suite on a pinned stable Rust toolchain.
-2. Add property-based or exhaustive boundary tests for split sums and time windows.
-3. Add append-only, replayable grant/revocation events and independent reconstruction.
-4. Create small fixture adapters for externally supplied identifiers and DDEX metadata; preserve raw source bytes/hash and parser/version metadata. Do not silently map missing values.
-5. Add a differential oracle and fuzz corpus before relying on the policy check in a publishing or AI-workflow gate.
+2. Add an independently implemented history verifier and compare its result to the append/replay engine.
+3. Add property-based or exhaustive boundary tests for split sums, grant IDs and time windows.
+4. Define a versioned portable envelope with deterministic canonical bytes and a cryptographic content digest; do not claim a digest is a signature or proof of legal rights.
+5. Create fixture adapters for external identifiers and DDEX metadata/revenue exchange; preserve raw source digests and parser/version metadata and never silently map missing values.
+6. Add differential tests and fuzzing before relying on the policy check in a publishing or AI workflow gate.
