@@ -270,16 +270,6 @@ pub fn rank_evidence_actions(
         return Err(EvidenceActionError::InvalidDecisionDeadline);
     }
 
-    let (baseline, axes) =
-        canonicalize_frontier(&problem.baseline_frontier, "", None)
-            .or_else(|error| {
-                if matches!(error, EvidenceActionError::MixedProcurementCurrency) {
-                    Ok((Vec::new(), Vec::new()))
-                } else {
-                    Err(error)
-                }
-            })?;
-
     // Determine a single procurement currency from the baseline frontier.
     // It is intentionally distinct from the acquisition-cost currency.
     let procurement_currency = problem
@@ -298,7 +288,6 @@ pub fn rank_evidence_actions(
 
     let mut seen_action_ids = BTreeSet::new();
     let mut raw_assessments = Vec::with_capacity(problem.actions.len());
-    let mut claim_frontiers: BTreeMap<String, Vec<Vec<JointObjective>>> = BTreeMap::new();
 
     for action in &problem.actions {
         if !non_empty(&action.action_id)
@@ -355,9 +344,6 @@ pub fn rank_evidence_actions(
             disposition,
         };
 
-        if disposition == EvidenceActionDisposition::Recommended {
-            claim_frontiers.insert(action.action_id.clone(), outcome_frontiers);
-        }
         raw_assessments.push(assessment);
     }
 
