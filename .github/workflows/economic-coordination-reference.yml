@@ -48,7 +48,7 @@ jobs:
           crate_dir="mycelix-finance/tools/economic-coordination-reference"
           if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
             git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            changed_files="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- "$crate_dir")"
+            changed_files="$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- "$crate_dir")"
           else
             changed_files="$(git ls-files "$crate_dir")"
           fi
