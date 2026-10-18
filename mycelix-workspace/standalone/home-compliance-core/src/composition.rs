@@ -41,6 +41,46 @@ pub enum RuleForce {
     EvidenceBackedReformProposal,
 }
 
+/// Result from an external trust adapter that checks source bytes, the
+/// decision's authenticity, reviewer identity, and authority to vary the
+/// specific inherited rule in this jurisdiction. This crate does not implement
+/// that trust adapter.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OverrideVerification {
+    Verified,
+    AuthorityUnverified,
+    DecisionNotAuthenticated,
+    DecisionDoesNotAuthorizeOverride,
+    EvidenceBytesNotVerified,
+    VerificationUnavailable,
+}
+
+/// Trusted integration boundary for a jurisdiction-specific override registry.
+/// Implementations must verify the legal decision and actual evidence bytes;
+/// a string or digest-shaped value is not sufficient.
+pub trait OverrideVerifier {
+    fn verify_override(
+        &self,
+        source_module: &RuleModule,
+        source_statement: &RuleStatement,
+        directive: &OverrideDirective,
+    ) -> OverrideVerification;
+}
+
+impl<F> OverrideVerifier for F
+where
+    F: Fn(&RuleModule, &RuleStatement, &OverrideDirective) -> OverrideVerification,
+{
+    fn verify_override(
+        &self,
+        source_module: &RuleModule,
+        source_statement: &RuleStatement,
+        directive: &OverrideDirective,
+    ) -> OverrideVerification {
+        self(source_module, source_statement, directive)
+    }
+}
+
 /// A human-reviewed and evidence-linked request to supersede one inherited
 /// binding assertion. This prototype validates metadata and digest syntax only;
 /// production must authenticate the decision, reviewer, and evidence bytes.
@@ -101,6 +141,12 @@ pub enum CompositionIssue {
     BindingStatementInGlobalReference(String),
     BindingStatementFromNonApplicableSource(String),
     DuplicateOverrideTarget { statement_id: String, target_statement_id: String },
+    OverrideNotAuthenticated { statement_id: String, target_statement_id: String },
+    OverrideVerificationFailed {
+        statement_id: String,
+        target_statement_id: String,
+        reason: OverrideVerification,
+    },
     InvalidOverrideMetadata { statement_id: String, field: &'static str },
     InvalidOverrideEvidenceDigest { statement_id: String },
     UnknownOverrideTarget { statement_id: String, target_statement_id: String },
@@ -221,9 +267,33 @@ fn module_is_ancestor(
 /// Non-binding references and owner preferences are preserved separately from
 /// binding requirements, allowing creativity without misrepresenting a preference
 /// as law.
+/// Compose metadata-only rules without permitting any proposed override to
+/// displace a binding requirement. Override decisions require the verified
+/// variant below; names and well-formed digest strings are not proof of authority.
 pub fn compose_rule_modules(
     selected_module_ids: &[String],
     modules: &[RuleModule],
+) -> Result<ComposedRuleSet, Vec<CompositionIssue>> {
+    compose_rule_modules_internal(selected_module_ids, modules, None)
+}
+
+/// Compose rules with an externally trusted jurisdiction-specific override
+/// verifier. The verifier must authenticate the legal decision, verify the
+/// actual evidence bytes, and establish that the named authority can vary this
+/// exact inherited requirement. A successful return from this function is only
+/// as trustworthy as that adapter; it is not a general compliance certificate.
+pub fn compose_verified_rule_modules<V: OverrideVerifier>(
+    selected_module_ids: &[String],
+    modules: &[RuleModule],
+    verifier: &V,
+) -> Result<ComposedRuleSet, Vec<CompositionIssue>> {
+    compose_rule_modules_internal(selected_module_ids, modules, Some(verifier))
+}
+
+fn compose_rule_modules_internal(
+    selected_module_ids: &[String],
+    modules: &[RuleModule],
+    override_verifier: Option<&dyn OverrideVerifier>,
 ) -> Result<ComposedRuleSet, Vec<CompositionIssue>> {
     if selected_module_ids.is_empty() {
         return Err(vec![CompositionIssue::EmptySelection]);
@@ -443,6 +513,24 @@ pub fn compose_rule_modules(
                     });
                     continue;
                 }
+
+                let Some(verifier) = override_verifier else {
+                    issues.push(CompositionIssue::OverrideNotAuthenticated {
+                        statement_id: statement.statement_id.clone(),
+                        target_statement_id: directive.target_statement_id.clone(),
+                    });
+                    continue;
+                };
+                let verification = verifier.verify_override(module, statement, directive);
+                if verification != OverrideVerification::Verified {
+                    issues.push(CompositionIssue::OverrideVerificationFailed {
+                        statement_id: statement.statement_id.clone(),
+                        target_statement_id: directive.target_statement_id.clone(),
+                        reason: verification,
+                    });
+                    continue;
+                }
+
                 for (field, value) in [
                     ("target_statement_id", directive.target_statement_id.as_str()),
                     ("authority_decision_id", directive.authority_decision_id.as_str()),
@@ -742,18 +830,60 @@ mod tests {
     }
 
     #[test]
-    fn reviewed_explicit_override_preserves_superseded_provenance() {
+    fn metadata_only_composition_cannot_apply_override_even_with_digest_syntax() {
         let modules = layered_modules(
             "value:local-reviewed",
             vec![reviewed_override("national:ventilation")],
         );
-        let result = compose_rule_modules(&["ZA/GP/Johannesburg".into()], &modules).unwrap();
+        let issues = compose_rule_modules(&["ZA/GP/Johannesburg".into()], &modules).unwrap_err();
+        assert!(issues.contains(&CompositionIssue::OverrideNotAuthenticated {
+            statement_id: "municipal:ventilation".into(),
+            target_statement_id: "national:ventilation".into(),
+        }));
+    }
+
+    #[test]
+    fn verified_override_preserves_superseded_provenance() {
+        let modules = layered_modules(
+            "value:local-reviewed",
+            vec![reviewed_override("national:ventilation")],
+        );
+        // Test double only; production must use an authenticated registry adapter.
+        let result = compose_verified_rule_modules(
+            &["ZA/GP/Johannesburg".into()],
+            &modules,
+            &|_: &RuleModule, _: &RuleStatement, _: &OverrideDirective| {
+                OverrideVerification::Verified
+            },
+        )
+        .unwrap();
         assert!(result.conflicts.is_empty());
         assert_eq!(result.binding_requirements.len(), 1);
         let effective = &result.binding_requirements[0];
         assert_eq!(effective.normalized_value, "value:local-reviewed");
         assert_eq!(effective.superseded_sources.len(), 1);
         assert_eq!(effective.superseded_sources[0].statement_id, "national:ventilation");
+    }
+
+    #[test]
+    fn rejected_override_verification_blocks_instead_of_selecting_local_rule() {
+        let modules = layered_modules(
+            "value:local-reviewed",
+            vec![reviewed_override("national:ventilation")],
+        );
+        let result = compose_verified_rule_modules(
+            &["ZA/GP/Johannesburg".into()],
+            &modules,
+            &|_: &RuleModule, _: &RuleStatement, _: &OverrideDirective| {
+                OverrideVerification::DecisionDoesNotAuthorizeOverride
+            },
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains(&CompositionIssue::OverrideVerificationFailed {
+            statement_id: "municipal:ventilation".into(),
+            target_statement_id: "national:ventilation".into(),
+            reason: OverrideVerification::DecisionDoesNotAuthorizeOverride,
+        }));
     }
 
     #[test]
