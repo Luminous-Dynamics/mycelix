@@ -41,7 +41,7 @@ const REQUIRED_COPY: &[&str] = &[
     "evidence_stale", "evidence_conflict", "evidence_unknown", "modelled_route",
     "no_route_evidence", "no_provider", "quote_incomplete", "quote_expired",
     "booking_confirmed", "provider_reported_complete", "service_accepted",
-    "service_disputed", "permission_revoked", "human_mediation",
+    "service_disputed", "permission_revoked", "human_mediation", "outcome_unknown",
 ];
 const REQUIRED_INVARIANTS: &[&str] = &[
     "unknown_is_not_zero_or_verified",
@@ -134,6 +134,11 @@ const REQUIRED_COPY_NONIMPLICATIONS: &[(&str, &str)] = &[
     ("permission_revoked", "all_data_is_deleted_everywhere"),
     ("human_mediation", "app_registration_required"),
     ("human_mediation", "human_relay_authority_is_implicit"),
+    ("outcome_unknown", "request_not_applied"),
+    ("outcome_unknown", "request_received_by_provider"),
+    ("outcome_unknown", "booking_confirmed"),
+    ("outcome_unknown", "automatic_retry_is_safe"),
+    ("outcome_unknown", "request_was_lost"),
 ];
 
 #[derive(Debug, Serialize)]
@@ -672,6 +677,17 @@ mod tests {
         assert!(semantic_checks(&c, &roles(), &copy()).iter()
             .any(|e| e.contains("FUX-DIGEST-017") && e.contains("source_authenticated")));
     }
+    #[test]
+    fn outcome_unknown_copy_must_not_imply_success_failure_or_safe_retry() {
+        let mut p = copy();
+        p["states"].as_array_mut().expect("array").iter_mut()
+            .find(|state| state["key"].as_str() == Some("outcome_unknown")).expect("state")
+            ["must_not_imply"].as_array_mut().expect("array")
+            .retain(|label| label.as_str() != Some("automatic_retry_is_safe"));
+        assert!(semantic_checks(&cases(), &roles(), &p).iter()
+            .any(|e| e.contains("outcome_unknown") && e.contains("automatic_retry_is_safe")));
+    }
+
     #[test]
     fn copy_cannot_claim_a_booking_is_completed_or_paid() {
         let mut p = copy();
