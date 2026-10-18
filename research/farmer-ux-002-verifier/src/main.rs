@@ -616,10 +616,18 @@ mod tests {
     }
     #[test]
     fn frozen_mutation_corpus_is_rejected_for_expected_reasons() {
-        let corpus: MutationCorpus = serde_json::from_str(include_str!("../mutations-v1.json"))
-            .expect("frozen mutation corpus must parse");
+        let mutation_document = parse(include_str!("../mutations-v1.json"));
+        let mutation_schema = parse(include_str!("../mutations-v1.schema.json"));
+        assert!(
+            validate_schema("mutations", &mutation_document, &mutation_schema).is_empty(),
+            "frozen mutation corpus and its schema must validate"
+        );
+        let corpus: MutationCorpus = serde_json::from_value(mutation_document)
+            .expect("frozen mutation corpus must deserialize");
         assert_eq!(corpus.schema_version, "1.0.0");
         assert_eq!(corpus.mutations.len(), 12);
+        let mutation_ids: BTreeSet<&str> = corpus.mutations.iter().map(|mutation| mutation.id.as_str()).collect();
+        assert_eq!(mutation_ids.len(), corpus.mutations.len(), "mutation IDs must be unique");
 
         for mutation in &corpus.mutations {
             let mut c = cases();
