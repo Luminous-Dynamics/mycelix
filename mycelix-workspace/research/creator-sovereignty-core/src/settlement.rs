@@ -45,7 +45,6 @@ pub enum SettlementError {
     },
     AllocationNotFound(String),
     AllocationAlreadyReversed(String),
-    EmptyReversalReason,
     ArithmeticOverflow,
 }
 
@@ -102,7 +101,6 @@ impl fmt::Display for SettlementError {
             Self::AllocationAlreadyReversed(id) => {
                 write!(f, "allocation {id:?} has already been reversed")
             }
-            Self::EmptyReversalReason => write!(f, "reversal reason must not be empty"),
             Self::ArithmeticOverflow => write!(f, "checked arithmetic overflow"),
         }
     }
@@ -269,9 +267,6 @@ impl AllocationReversal {
         evidence_ref: impl AsRef<str>,
     ) -> Result<Self, SettlementError> {
         let reason = validate_field(reason.as_ref(), "reason")?;
-        if reason.is_empty() {
-            return Err(SettlementError::EmptyReversalReason);
-        }
         Ok(Self {
             reversal_id: validate_field(reversal_id.as_ref(), "reversal_id")?,
             allocation_id: validate_field(allocation_id.as_ref(), "allocation_id")?,
@@ -615,7 +610,7 @@ fn to_i64(value: i128) -> Result<i64, SettlementError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{InsertOutcome, MoneyEvent, WorkSession};
+    use crate::{MoneyEvent, WorkSession};
 
     fn line(id: &str, amount: i64, currency: &str) -> RoyaltyStatementLine {
         RoyaltyStatementLine::new(id, "statement-1", "distributor-1", 100, 200, currency, amount)
