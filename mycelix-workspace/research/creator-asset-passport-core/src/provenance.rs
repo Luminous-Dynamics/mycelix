@@ -1007,7 +1007,11 @@ mod tests {
 
     #[test]
     fn unsupported_field_must_be_preserved_and_disclosed() {
-        let field = FieldMapping::unsupported_retained("/Report/NewElement", "unknown_field").unwrap();
+        let field = FieldMapping::unsupported_retained(
+            "/Report/NewElement",
+            "unknown_field",
+        )
+        .unwrap();
         let diagnostic = ImportDiagnostic::new(
             "unsupported_source_field",
             DiagnosticSeverity::Warning,
