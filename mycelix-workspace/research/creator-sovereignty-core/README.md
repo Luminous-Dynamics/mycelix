@@ -6,12 +6,13 @@ A standard-library-only Rust prototype for deterministic creator career accounti
 
 - Exact minor-unit financial arithmetic without cross-currency aggregation.
 - Distinct receipts, refunds, fees, and operating costs.
+- Royalty-reporting lines are kept outside observed cash totals until an explicit approved allocation links a statement line to an actual ledger receipt. Partial settlements, multi-line payouts, currency mismatches, overallocations, and append-only allocation reversals are represented deterministically.
 - Creator-recorded work sessions with checked time arithmetic and overlap rejection, so one person's overlapping sessions cannot inflate the work-hour denominator.
 - Idempotent identical replays; fail-closed rejection when the same record ID is reused for different data.
 - Exact rational net-contribution-per-work-hour representation only when the ledger has one currency and recorded work time; missing time or multiple currencies returns an explicit unavailable reason.
 - Independent summary checker implemented with a separate aggregation path.
 - A deterministic revenue stress-scenario module for explicit user-entered source declines; it is labeled as a what-if, never a forecast, holds deductions constant visibly, marks data coverage, keeps currencies separate, and uses conservative minor-unit rounding.
-- Hostile/golden tests for arithmetic, tampering, higher gross receipts with worse economics, mixed-currency abstention, source shocks, incomplete evidence, and input rejection. Source contains 10 ledger unit tests, 9 ledger integration tests, and 12 scenario unit tests; these are not yet executed because the current environment has no Rust toolchain.
+- Hostile/golden tests for arithmetic, tampering, higher gross receipts with worse economics, mixed-currency abstention, source shocks, incomplete evidence, input rejection, and statement-to-cash reconciliation. Source currently contains 30 unit-test functions across the ledger/scenario/settlement modules and 19 integration-test functions; these are authored tests until the exact-head CI receipt confirms their execution.
 - No network, secrets, telemetry, database, serialization library, or third-party dependencies.
 
 ## Run
@@ -25,6 +26,8 @@ cargo test --manifest-path mycelix-workspace/research/creator-sovereignty-core/C
 ## Explicit limitations
 
 - No CSV/JSON parser or export adapter yet.
+- Settlement reconciliation is an in-memory reference model. It requires an explicit approved allocation; it does not auto-match equal amounts, authenticate the approver/evidence reference, or provide a durable transaction-backed import/reconciliation service.
+- V1 statement lines are positive payable amounts; reversals of allocations are supported, but signed corrections, tax/withholding semantics, payment-processor fees netted at payout, and currency exponent/display rules remain separate design tasks.
 - Scenario v1 holds refunds, fees, and operating costs constant when a source declines. This is an explicit stress assumption, not a prediction of how variable costs change.
 - Scenario inputs must share a declared window and currency-specific deductions; partial coverage stays visibly partial.
 - Currency validation checks three uppercase ASCII letters, not whether a code is currently assigned by ISO 4217.
