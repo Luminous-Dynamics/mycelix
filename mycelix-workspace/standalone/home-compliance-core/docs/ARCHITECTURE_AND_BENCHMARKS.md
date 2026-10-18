@@ -110,6 +110,10 @@ Once one municipal profile is reviewed and traceable, add other South African mu
 - buildingSMART, IFC 4.3.2.0 / ISO 16739-1:2024: https://www.buildingsmart.org/standards/bsi-standards/industry-foundation-classes/
 - buildingSMART, IDS 1.0 standard: https://technical.buildingsmart.org/Projects/Information-Delivery-Specification-Ids/
 - W3C, Shapes Constraint Language (SHACL): https://www.w3.org/TR/shacl/
+- W3C PROV-O, provenance interchange vocabulary: https://www.w3.org/TR/prov-o/
+- NIST Building Digitization and Semantic Interoperability, lifecycle data and shared building-system semantics: https://www.nist.gov/programs-projects/building-digitization-and-semantic-interoperability
+- NIST Digital Twin Standardization, common models and interfaces for interoperability: https://www.nist.gov/digital-twins/digital-twin-standardization
+- ISO 14721:2025 (OAIS), long-term preservation reference model: https://www.iso.org/standard/87471.html
 
 Standards establish data exchange or constraint languages; they do not themselves certify a building design. This plan is engineering research, not legal advice, code certification, or a claim that Symthaea, Symtropy, Sol-Atlas or Mycelix already implements this complete workflow.
 
