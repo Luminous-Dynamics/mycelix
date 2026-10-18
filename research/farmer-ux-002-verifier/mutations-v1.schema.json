@@ -23,7 +23,7 @@
     },
     "mutations": {
       "type": "array",
-      "minItems": 12,
+      "minItems": 13,
       "items": {
         "type": "object",
         "required": [
