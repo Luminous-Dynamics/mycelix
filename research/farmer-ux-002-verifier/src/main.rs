@@ -202,6 +202,11 @@ fn validate_schema(name: &str, instance: &Value, schema: &Value) -> Vec<String> 
         Some(other) => errors.push(format!("{name}: unsupported schema dialect {other:?}; expected {DIALECT}")),
         None => errors.push(format!("{name}: missing $schema dialect identifier")),
     }
+    match jsonschema::meta::validate(schema) {
+        Ok(()) => {}
+        Err(error) => errors.push(format!("{name}: invalid JSON Schema document: {error}")),
+    }
+
     match validator_for(schema) {
         Ok(validator) => {
             for error in validator.iter_errors(instance) {
@@ -483,6 +488,13 @@ mod tests {
         assert!(validate_schema("roles", &r, &role_schema()).is_empty());
         assert!(validate_schema("copy", &p, &copy_schema()).is_empty());
         assert!(semantic_checks(&c, &r, &p).is_empty());
+    }
+    #[test]
+    fn malformed_schema_document_is_rejected() {
+        let mut schema = case_schema();
+        schema["type"] = Value::String("not-a-json-schema-type".to_owned());
+        let errors = validate_schema("mutated schema", &cases(), &schema);
+        assert!(errors.iter().any(|e| e.contains("invalid JSON Schema document")));
     }
     #[test]
     fn duplicate_case_id_is_rejected() {
