@@ -278,7 +278,7 @@ pub fn plan_lossless_migration(
     visited.insert(from.clone());
 
     while let Some((current, depth)) = queue.pop_front() {
-        if current == *to {
+        if &current == to {
             break;
         }
         if depth >= max_steps {
@@ -322,7 +322,7 @@ pub fn plan_lossless_migration(
 
     let mut steps = Vec::new();
     let mut cursor = to.clone();
-    while cursor != *from {
+    while &cursor != from {
         let Some((previous, index)) = parent.get(&cursor).cloned() else {
             return MigrationPlan {
                 status: MigrationPlanStatus::Blocked,
