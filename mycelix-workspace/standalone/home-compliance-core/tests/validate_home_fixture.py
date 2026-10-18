@@ -165,10 +165,13 @@ def validate_semantics(fixture: dict[str, Any]) -> None:
             fail(f"scenario:{scenario['id']}", f"unknown changed_id {changed!r}")
         closure = descendants(changed, adjacency)
         expected = set(scenario.get("expected_to_invalidate", []))
-        if not expected <= closure:
+        actual_dependents = closure - {changed}
+        if expected != actual_dependents:
             fail(
                 f"scenario:{scenario['id']}.expected_to_invalidate",
-                f"expected items not in dependency closure: {sorted(expected - closure)}",
+                "expected invalidation set differs from dependency closure: "
+                f"missing={sorted(actual_dependents - expected)}, "
+                f"extra={sorted(expected - actual_dependents)}",
             )
         for key in ("expected_to_remain_current_until_other_change", "expected_not_to_invalidate"):
             excluded = set(scenario.get(key, []))
@@ -228,7 +231,16 @@ def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> in
         "candidate_style_families"
     ][0]["id"]
     expect_rejected("duplicate_style_family_id", lambda: validate_semantics(duplicate_family))
-    return 6
+
+    incomplete_invalidation = deepcopy(fixture)
+    incomplete_invalidation["change_scenarios"][0]["expected_to_invalidate"].remove(
+        "permit:submission"
+    )
+    expect_rejected(
+        "missing_transitive_invalidation",
+        lambda: validate_semantics(incomplete_invalidation),
+    )
+    return 7
 
 
 def main() -> int:
