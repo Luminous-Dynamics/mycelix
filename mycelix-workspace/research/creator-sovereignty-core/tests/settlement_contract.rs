@@ -14,6 +14,9 @@ fn statement_line(
         line_id,
         statement_id,
         "distributor-a",
+        "fixture-payable-normalization",
+        "1",
+        "evidence://source/statement-line",
         1_700_000_000,
         1_702_000_000,
         currency,
@@ -284,13 +287,83 @@ fn reversal_keeps_audit_history_and_releases_the_allocation_capacity() {
 }
 
 #[test]
+fn normalized_payable_line_retains_semantic_mapping_and_source_evidence() {
+    let line = statement_line("royalty-1", "statement-1", 1_250, "USD");
+    assert_eq!(
+        line.semantic_mapping_rule_id(),
+        "fixture-payable-normalization"
+    );
+    assert_eq!(line.semantic_mapping_version(), "1");
+    assert_eq!(
+        line.source_evidence_ref(),
+        "evidence://source/statement-line"
+    );
+}
+
+#[test]
+fn payable_line_requires_mapping_version_and_source_evidence() {
+    assert_eq!(
+        RoyaltyStatementLine::new(
+            "x",
+            "statement",
+            "source",
+            "payable-normalization",
+            " ",
+            "evidence://source/line",
+            100,
+            200,
+            "USD",
+            100,
+        ),
+        Err(SettlementError::EmptyField("semantic_mapping_version"))
+    );
+    assert_eq!(
+        RoyaltyStatementLine::new(
+            "x",
+            "statement",
+            "source",
+            "payable-normalization",
+            "1",
+            " ",
+            100,
+            200,
+            "USD",
+            100,
+        ),
+        Err(SettlementError::EmptyField("source_evidence_ref"))
+    );
+}
+
+#[test]
 fn invalid_report_fields_and_missing_cash_fail_closed() {
     assert_eq!(
-        RoyaltyStatementLine::new("x", "statement", "source", 100, 100, "USD", 1),
+        RoyaltyStatementLine::new(
+            "x",
+            "statement",
+            "source",
+            "manual-entry",
+            "1",
+            "evidence://creator-input",
+            100,
+            100,
+            "USD",
+            1,
+        ),
         Err(SettlementError::InvalidReportingPeriod)
     );
     assert!(matches!(
-        RoyaltyStatementLine::new("x", "statement", "source", 100, 200, "usd", 1),
+        RoyaltyStatementLine::new(
+            "x",
+            "statement",
+            "source",
+            "manual-entry",
+            "1",
+            "evidence://creator-input",
+            100,
+            200,
+            "usd",
+            1,
+        ),
         Err(SettlementError::InvalidCurrency(_))
     ));
     assert_eq!(
