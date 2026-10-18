@@ -73,7 +73,7 @@ The full snapshot format now has two frozen cross-language byte vectors checked 
 
 ## Import provenance manifest v1
 
-The public Rust API is provenance::ImportProvenanceManifest. It is a separate sidecar format; v1 does not change the outer passport snapshot format.
+The public Rust API is provenance::ImportProvenanceManifest. It is a separate sidecar format; v1 does not change the outer passport snapshot format. Design tracker: CSCP-PROV-001, issue #5187.
 
 A SourceDocument captures source system, optional source record ID, schema name/version, parser name/version, import timestamp, media type, raw-payload reference, raw byte length, and BLAKE3-256 of the actual byte slice passed to capture(). It does not accept a caller-supplied payload digest. verify_payload() checks retrieved bytes against the recorded length and digest. It does not fetch the locator or prove that the object remains available, that it came from an authenticated sender, or that its contents are truthful.
 
@@ -131,9 +131,9 @@ Do not market these targets as achieved. Before a release gate can be claimed, p
 
 ## Test inventory and current maturity
 
-The current source has 63 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, payload digest verification, field-disposition coverage, rejected-import atomicity, and provenance-manifest round trips. These are **authored test cases, not passed tests**.
+The current source has 63 in-module unit-test functions and 34 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, payload digest verification, field-disposition coverage, rejected-import atomicity, and provenance-manifest round trips. These are **authored test cases, not passed tests**.
 
-The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has two frozen Rust/Python byte vectors: a work with an ISWC and complete composition claim, plus a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. The import-provenance sidecar has one frozen Rust/Python byte vector for a clean import. These are small fixtures; no format has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
+The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has two frozen Rust/Python byte vectors: a work with an ISWC and complete composition claim, plus a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. The import-provenance sidecar has one frozen Rust/Python byte vector for a clean import. The [import provenance contract](https://github.com/Luminous-Dynamics/mycelix/blob/research/creator-sovereignty-control-plane-rfc/docs/creator-sovereignty/CSCP_IMPORT_PROVENANCE_CONTRACT.md) is tracked by [issue #5187](https://github.com/Luminous-Dynamics/mycelix/issues/5187). These are small fixtures; no format has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
 
 ## Dependency reproducibility boundary
 
