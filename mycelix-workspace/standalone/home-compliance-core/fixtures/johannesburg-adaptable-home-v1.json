@@ -214,6 +214,22 @@
       ]
     },
     {
+      "id": "simultaneous-floorplan-and-energy-rule-revision",
+      "changed_ids": [
+        "model:floorplan",
+        "rulepack:za-jhb:energy"
+      ],
+      "expected_to_invalidate": [
+        "assessment:permit-package",
+        "drawing:floorplan",
+        "export:ifc",
+        "finding:energy-rule",
+        "finding:structure-review",
+        "model:energy",
+        "permit:submission"
+      ]
+    },
+    {
       "id": "proposed-amendment",
       "expected_rule_status": "non_binding_until_status_and_effective_date_are_verified",
       "expected_behavior": "Do_not_let_a_proposed_value_silently_replace_a_binding_current_value"
