@@ -289,7 +289,7 @@ jobs:
           set -o pipefail
           python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_import_provenance.py --check 2>&1 | tee cscp-import-provenance-vector.log
       - name: Verify W3C provenance vocabulary stays a mapping reference
-        run: grep -q "does not claim PROV conformance" docs/creator-sovereignty/CSCP_IMPORT_PROVENANCE_CONTRACT.md
+        run: grep -q "does not claim PROV conformance" mycelix-workspace/research/creator-asset-passport-core/README.md
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: 1.96.0
