@@ -302,7 +302,7 @@ fn execute(root: &Path) -> Result<Report, String> {
         tool_version: env!("CARGO_PKG_VERSION").to_owned(),
         validator: VALIDATOR.to_owned(),
         status: if errors.is_empty() { "PASS" } else { "FAIL" }.to_owned(),
-        artifacts: artifacts.iter_mut().map(artifact_report).collect(),
+        artifacts: artifacts.iter().map(artifact_report).collect(),
         counts,
         schema_error_count: schema_errors.len(),
         semantic_error_count: semantic_errors.len(),
