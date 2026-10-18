@@ -1,0 +1,66 @@
+name: Farmer channel continuity oracle
+
+on:
+  pull_request:
+    paths:
+      - "research/farmer-ux-006-channel-*"
+      - "research/farmer-ux-006-channel-oracle/**"
+      - ".github/workflows/farmer-ux-channel-oracle.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/farmer-ux-006-channel-*"
+      - "research/farmer-ux-006-channel-oracle/**"
+      - ".github/workflows/farmer-ux-channel-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: farmer-ux-channel-oracle-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Schema, semantics and deterministic adversarial schedules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact tested subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact tested subject
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Record toolchain and initial lockfile status
+        run: |
+          rustc --version --verbose
+          cargo --version
+          if [ -f research/farmer-ux-006-channel-oracle/Cargo.lock ]; then
+            sha256sum research/farmer-ux-006-channel-oracle/Cargo.lock
+          else
+            echo "CARGO_LOCK=ABSENT_BEFORE_BUILD"
+          fi
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, commit 2026-10-16
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: research/farmer-ux-006-channel-oracle -> target
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path research/farmer-ux-006-channel-oracle/Cargo.toml -- --check
+      - name: Run oracle, mutation and 10,000-schedule tests
+        run: cargo test --manifest-path research/farmer-ux-006-channel-oracle/Cargo.toml
+      - name: Validate fixtures and emit deterministic report
+        run: cargo run --manifest-path research/farmer-ux-006-channel-oracle/Cargo.toml -- --root . --report-json research/farmer-ux-006-channel-oracle/target/channel-oracle-report.json
+      - name: Upload oracle report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: farmer-channel-oracle-report
+          path: research/farmer-ux-006-channel-oracle/target/channel-oracle-report.json
+          if-no-files-found: ignore
