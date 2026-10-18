@@ -62,7 +62,6 @@
         "type": "object",
         "required": [
           "status",
-          "dispatch_eligible",
           "needs_reconciliation",
           "meaning",
           "can_advance_to_submitted"
