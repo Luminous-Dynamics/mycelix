@@ -128,6 +128,17 @@
       "pointer": "/expected/side_effect_counts/bookings",
       "value": 1,
       "expected_error_contains": "side_effect_counts.bookings=0"
+    },
+    {
+      "id": "MUT-OUTCOME-UNKNOWN-013",
+      "target": "copy",
+      "collection": "states",
+      "id_field": "key",
+      "entry_id": "outcome_unknown",
+      "operation": "remove_string",
+      "pointer": "/must_not_imply",
+      "value": "automatic_retry_is_safe",
+      "expected_error_contains": "must_not_imply must retain"
     }
   ]
 }
