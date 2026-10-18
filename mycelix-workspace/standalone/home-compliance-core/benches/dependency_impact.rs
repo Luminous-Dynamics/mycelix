@@ -114,26 +114,30 @@ fn benchmark_size(edge_count: usize) {
     let nodes = edge_count + 1;
 
     let chain = chain_graph(edge_count);
+    let chain_tail_id = format!("artifact:{edge_count}");
+    let chain_tail_parent = format!("artifact:{}", edge_count - 1);
     report_shape(
         "chain",
         &chain,
         "artifact:0",
         nodes,
-        &format!("artifact:{edge_count}"),
-        Some(&format!("artifact:{}", edge_count - 1)),
+        &chain_tail_id,
+        Some(chain_tail_parent.as_str()),
     );
 
     let fanout = fanout_graph(edge_count);
+    let fanout_tail_id = format!("artifact:{}", edge_count - 1);
     report_shape(
         "fanout",
         &fanout,
         "artifact:root",
         nodes,
-        &format!("artifact:{}", edge_count - 1),
+        &fanout_tail_id,
         Some("artifact:root"),
     );
 
     let tree = binary_tree_graph(edge_count);
+    let tree_tail_id = format!("artifact:{}", edge_count - 1);
     let tail_parent = if edge_count - 1 < 2 {
         "artifact:root".to_owned()
     } else {
@@ -144,8 +148,8 @@ fn benchmark_size(edge_count: usize) {
         &tree,
         "artifact:root",
         nodes,
-        &format!("artifact:{}", edge_count - 1),
-        Some(&tail_parent),
+        &tree_tail_id,
+        Some(tail_parent.as_str()),
     );
 }
 
