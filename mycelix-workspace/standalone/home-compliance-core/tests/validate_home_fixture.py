@@ -8,6 +8,7 @@ cross-references that JSON Schema cannot conveniently express.
 """
 from __future__ import annotations
 
+from collections import deque
 from copy import deepcopy
 import json
 import re
@@ -40,6 +41,70 @@ def json_type_matches(value: Any, expected: str) -> bool:
     if expected == "string":
         return isinstance(value, str)
     return False
+
+
+SUPPORTED_SCHEMA_KEYWORDS = {
+    "$id",
+    "$schema",
+    "additionalProperties",
+    "anyOf",
+    "const",
+    "description",
+    "enum",
+    "exclusiveMinimum",
+    "items",
+    "maxItems",
+    "maximum",
+    "minItems",
+    "minLength",
+    "minProperties",
+    "minimum",
+    "pattern",
+    "prefixItems",
+    "properties",
+    "required",
+    "title",
+    "type",
+    "uniqueItems",
+}
+
+
+def validate_schema_supported(schema: Any, path: str = "$schema") -> None:
+    """Reject schema keywords this minimal validator does not implement."""
+    if isinstance(schema, bool):
+        return
+    if not isinstance(schema, dict):
+        fail(path, "schema must be an object or boolean")
+
+    unsupported = set(schema) - SUPPORTED_SCHEMA_KEYWORDS
+    if unsupported:
+        fail(path, f"unsupported JSON Schema keywords {sorted(unsupported)}")
+
+    properties = schema.get("properties", {})
+    if "properties" in schema and not isinstance(properties, dict):
+        fail(path, "properties must be an object")
+    for key, child in properties.items():
+        validate_schema_supported(child, f"{path}.properties.{key}")
+
+    items = schema.get("items")
+    if isinstance(items, dict):
+        validate_schema_supported(items, f"{path}.items")
+
+    extra = schema.get("additionalProperties")
+    if isinstance(extra, dict):
+        validate_schema_supported(extra, f"{path}.additionalProperties")
+
+    prefix = schema.get("prefixItems", [])
+    if "prefixItems" in schema and not isinstance(prefix, list):
+        fail(path, "prefixItems must be an array of schemas")
+    for index, child in enumerate(prefix):
+        validate_schema_supported(child, f"{path}.prefixItems[{index}]")
+
+    alternatives = schema.get("anyOf", [])
+    if "anyOf" in schema and not isinstance(alternatives, list):
+        fail(path, "anyOf must be an array of schemas")
+    for index, child in enumerate(alternatives):
+        validate_schema_supported(child, f"{path}.anyOf[{index}]")
 
 
 def validate(value: Any, schema: dict[str, Any], path: str = "$") -> None:
@@ -122,9 +187,9 @@ def validate(value: Any, schema: dict[str, Any], path: str = "$") -> None:
 
 def descendants(start: str, adjacency: dict[str, list[str]]) -> set[str]:
     visited = {start}
-    queue = [start]
+    queue = deque([start])
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         for child in adjacency.get(current, []):
             if child not in visited:
                 visited.add(child)
@@ -153,6 +218,25 @@ def validate_semantics(fixture: dict[str, Any]) -> None:
         if source == dependent:
             fail("$.dependency_edges", f"self-dependency is forbidden: {source!r}")
         adjacency.setdefault(source, []).append(dependent)
+
+    # A dependency graph is a DAG, not merely a graph whose traversal happens
+    # to terminate. Reject cycles before using the closure as invalidation proof.
+    nodes = set(values)
+    indegree = {node: 0 for node in nodes}
+    for source, dependents in adjacency.items():
+        for dependent in dependents:
+            indegree[dependent] += 1
+    queue = deque(sorted(node for node, degree in indegree.items() if degree == 0))
+    processed = 0
+    while queue:
+        current = queue.popleft()
+        processed += 1
+        for dependent in adjacency.get(current, []):
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                queue.append(dependent)
+    if processed != len(nodes):
+        fail("$.dependency_edges", "cyclic dependency graph is forbidden")
 
     scenarios = {item["id"]: item for item in fixture["change_scenarios"]}
     if len(scenarios) != len(fixture["change_scenarios"]):
@@ -240,7 +324,20 @@ def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> in
         "missing_transitive_invalidation",
         lambda: validate_semantics(incomplete_invalidation),
     )
-    return 7
+
+    unsupported_keyword_schema = deepcopy(schema)
+    unsupported_keyword_schema["properties"]["label"]["not"] = {"const": ""}
+    expect_rejected(
+        "unsupported_schema_keyword",
+        lambda: validate_schema_supported(unsupported_keyword_schema),
+    )
+
+    cyclic_graph = deepcopy(fixture)
+    cyclic_graph["dependency_edges"].append(
+        ["finding:energy-rule", "rulepack:za-jhb:energy"]
+    )
+    expect_rejected("cyclic_dependency_graph", lambda: validate_semantics(cyclic_graph))
+    return 9
 
 
 def main() -> int:
@@ -250,6 +347,7 @@ def main() -> int:
         fail("$schema", "unexpected JSON Schema dialect")
     if schema.get("$id") != "urn:luminous-dynamics:schema:home-design-reference-fixture:1.0.0":
         fail("$id", "unexpected or unversioned fixture schema identity")
+    validate_schema_supported(schema)
     validate(fixture, schema)
     validate_semantics(fixture)
     negative_controls = run_negative_controls(fixture, schema)
