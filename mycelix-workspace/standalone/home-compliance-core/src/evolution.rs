@@ -618,4 +618,93 @@ mod tests {
         assert_eq!(plan.status, MigrationPlanStatus::Ready);
         assert!(plan.steps.is_empty());
     }
+
+    fn dependency(input_id: &str, dependent_id: &str) -> DependencyEdge {
+        DependencyEdge {
+            input_id: input_id.into(),
+            dependent_id: dependent_id.into(),
+        }
+    }
+
+    #[test]
+    fn component_change_invalidates_transitive_outputs_but_not_unrelated_data() {
+        let edges = vec![
+            dependency("material-roof", "model-roof"),
+            dependency("model-roof", "calc-thermal"),
+            dependency("model-roof", "calc-structural"),
+            dependency("calc-structural", "review-package"),
+            dependency("owner-profile", "identity-receipt"),
+        ];
+        let affected = affected_closure(&["material-roof".into()], &edges).unwrap();
+        assert_eq!(
+            affected,
+            vec![
+                "calc-structural",
+                "calc-thermal",
+                "material-roof",
+                "model-roof",
+                "review-package",
+            ]
+        );
+        assert!(!affected.contains(&"identity-receipt".to_owned()));
+    }
+
+    #[test]
+    fn dependency_closure_is_deterministic_for_reordered_edges() {
+        let first = vec![
+            dependency("a", "c"),
+            dependency("a", "b"),
+            dependency("c", "d"),
+        ];
+        let second = vec![
+            dependency("c", "d"),
+            dependency("a", "b"),
+            dependency("a", "c"),
+        ];
+        assert_eq!(
+            affected_closure(&["a".into()], &first),
+            affected_closure(&["a".into()], &second)
+        );
+    }
+
+    #[test]
+    fn dependency_cycles_terminate_and_return_unique_ids() {
+        let edges = vec![
+            dependency("a", "b"),
+            dependency("b", "c"),
+            dependency("c", "a"),
+            dependency("c", "d"),
+        ];
+        let affected = affected_closure(&["a".into()], &edges).unwrap();
+        assert_eq!(affected, vec!["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn malformed_dependency_graph_is_rejected_without_partial_closure() {
+        let edges = vec![
+            dependency("a", "b"),
+            dependency("a", "b"),
+            dependency("b", "b"),
+        ];
+        let result = affected_closure(&["a".into()], &edges);
+        assert!(result.is_err());
+        let issues = result.unwrap_err();
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            DependencyGraphIssue::DuplicateEdge { input_id, dependent_id }
+                if input_id == "a" && dependent_id == "b"
+        )));
+        assert!(issues
+            .contains(&DependencyGraphIssue::SelfDependency("b".into())));
+    }
+
+    #[test]
+    fn blank_change_id_fails_closed() {
+        let result = affected_closure(&[" ".into()], &[]);
+        assert_eq!(
+            result,
+            Err(vec![DependencyGraphIssue::EmptyChangedArtifactId])
+        );
+    }
+
 }
