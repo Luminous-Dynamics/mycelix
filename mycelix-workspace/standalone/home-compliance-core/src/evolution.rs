@@ -62,9 +62,18 @@ pub enum RevisionIssue {
     DuplicateRevisionId(String),
     InvalidFormatVersion(String),
     InvalidContentDigest(String),
-    UnknownParent { revision_id: String, parent_id: String },
-    ParentArtifactMismatch { revision_id: String, parent_id: String },
-    ParentRecordedAfterChild { revision_id: String, parent_id: String },
+    UnknownParent {
+        revision_id: String,
+        parent_id: String,
+    },
+    ParentArtifactMismatch {
+        revision_id: String,
+        parent_id: String,
+    },
+    ParentRecordedAfterChild {
+        revision_id: String,
+        parent_id: String,
+    },
     ParentCycle(String),
 }
 
@@ -78,9 +87,7 @@ pub fn validate_revision_ledger(revisions: &[ArtifactRevision]) -> Vec<RevisionI
     let mut by_id: HashMap<&str, &ArtifactRevision> = HashMap::new();
     for revision in revisions {
         if !nonblank(&revision.artifact_id) {
-            issues.push(RevisionIssue::EmptyArtifactId(
-                revision.revision_id.clone(),
-            ));
+            issues.push(RevisionIssue::EmptyArtifactId(revision.revision_id.clone()));
         }
         if !nonblank(&revision.revision_id) {
             issues.push(RevisionIssue::EmptyRevisionId);
@@ -135,9 +142,7 @@ pub fn validate_revision_ledger(revisions: &[ArtifactRevision]) -> Vec<RevisionI
         let mut cursor: Option<&str> = Some(revision.revision_id.as_str());
         while let Some(revision_id) = cursor {
             if !visited.insert(revision_id) {
-                issues.push(RevisionIssue::ParentCycle(
-                    revision.revision_id.clone(),
-                ));
+                issues.push(RevisionIssue::ParentCycle(revision.revision_id.clone()));
                 break;
             }
             cursor = by_id
@@ -154,7 +159,6 @@ pub fn validate_revision_ledger(revisions: &[ArtifactRevision]) -> Vec<RevisionI
 /// Only VerifiedLossless edges can be traversed by the automatic planner.
 /// RequiresHumanReview, Lossy, Experimental, and Retired deliberately require
 /// another workflow and are never silently treated as safe.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MigrationDisposition {
     Pending,
@@ -258,10 +262,21 @@ pub enum MigrationVerificationIssue {
     NoRequiredInvariants,
     EmptyRequiredInvariant,
     DuplicateRequiredInvariant(String),
-    EmptyObservedInvariant { side: &'static str },
-    DuplicateObservedInvariant { side: &'static str, invariant_id: String },
-    InvalidInvariantDigest { side: &'static str, invariant_id: String },
-    MissingRequiredInvariant { side: &'static str, invariant_id: String },
+    EmptyObservedInvariant {
+        side: &'static str,
+    },
+    DuplicateObservedInvariant {
+        side: &'static str,
+        invariant_id: String,
+    },
+    InvalidInvariantDigest {
+        side: &'static str,
+        invariant_id: String,
+    },
+    MissingRequiredInvariant {
+        side: &'static str,
+        invariant_id: String,
+    },
     CriticalInvariantChanged(String),
 }
 
@@ -320,8 +335,8 @@ pub fn verify_migration_candidate(
     }
 
     let collect_observations = |side: &'static str,
-                               observations: &[SemanticInvariant],
-                               issues: &mut Vec<MigrationVerificationIssue>|
+                                observations: &[SemanticInvariant],
+                                issues: &mut Vec<MigrationVerificationIssue>|
      -> HashMap<String, String> {
         let mut values: HashMap<String, String> = HashMap::new();
         for observation in observations {
@@ -568,7 +583,10 @@ pub enum DependencyGraphIssue {
     EmptyInputId,
     EmptyDependentId,
     SelfDependency(String),
-    DuplicateEdge { input_id: String, dependent_id: String },
+    DuplicateEdge {
+        input_id: String,
+        dependent_id: String,
+    },
 }
 
 /// Return a deterministic closure of changed nodes plus all transitively
@@ -600,9 +618,7 @@ pub fn affected_closure(
             continue;
         }
         if edge.input_id == edge.dependent_id {
-            issues.push(DependencyGraphIssue::SelfDependency(
-                edge.input_id.clone(),
-            ));
+            issues.push(DependencyGraphIssue::SelfDependency(edge.input_id.clone()));
             continue;
         }
         let pair = (edge.input_id.clone(), edge.dependent_id.clone());
@@ -661,12 +677,7 @@ mod tests {
         FormatVersion::new("ifc-example", version)
     }
 
-    fn revision(
-        id: &str,
-        parent: Option<&str>,
-        day: u32,
-        artifact_id: &str,
-    ) -> ArtifactRevision {
+    fn revision(id: &str, parent: Option<&str>, day: u32, artifact_id: &str) -> ArtifactRevision {
         ArtifactRevision {
             artifact_id: artifact_id.into(),
             revision_id: id.into(),
@@ -742,12 +753,12 @@ mod tests {
     #[test]
     fn missing_parent_is_rejected() {
         let records = vec![revision("r2", Some("missing"), 2, "house-model")];
-        assert!(validate_revision_ledger(&records).contains(
-            &RevisionIssue::UnknownParent {
+        assert!(
+            validate_revision_ledger(&records).contains(&RevisionIssue::UnknownParent {
                 revision_id: "r2".into(),
                 parent_id: "missing".into(),
-            }
-        ));
+            })
+        );
     }
 
     #[test]
@@ -784,21 +795,23 @@ mod tests {
             revision("r1", Some("r2"), 10, "house-model"),
             revision("r2", Some("r1"), 10, "house-model"),
         ];
-        assert!(validate_revision_ledger(&records)
-            .iter()
-            .any(|issue| matches!(issue, RevisionIssue::ParentCycle(_))));
+        assert!(
+            validate_revision_ledger(&records)
+                .iter()
+                .any(|issue| matches!(issue, RevisionIssue::ParentCycle(_)))
+        );
     }
 
     #[test]
     fn planner_finds_a_verified_lossless_path() {
-        let paths = vec![
-            migration("m1", "1", "2"),
-            migration("m2", "2", "3"),
-        ];
+        let paths = vec![migration("m1", "1", "2"), migration("m2", "2", "3")];
         let plan = plan_lossless_migration(&fmt("1"), &fmt("3"), &paths, 3);
         assert_eq!(plan.status, MigrationPlanStatus::Ready);
         assert_eq!(
-            plan.steps.iter().map(|step| step.migration_id()).collect::<Vec<_>>(),
+            plan.steps
+                .iter()
+                .map(|step| step.migration_id())
+                .collect::<Vec<_>>(),
             vec!["m1", "m2"]
         );
     }
@@ -844,12 +857,12 @@ mod tests {
         );
         source_missing.source_invariants.pop();
         let issues = verify_migration_candidate(source_missing).unwrap_err();
-        assert!(issues.contains(
-            &MigrationVerificationIssue::MissingRequiredInvariant {
+        assert!(
+            issues.contains(&MigrationVerificationIssue::MissingRequiredInvariant {
                 side: "source",
                 invariant_id: "assembly:roof-fire-rating".into(),
-            }
-        ));
+            })
+        );
 
         let mut target_missing = migration_candidate(
             "m2",
@@ -859,12 +872,12 @@ mod tests {
         );
         target_missing.target_invariants.pop();
         let issues = verify_migration_candidate(target_missing).unwrap_err();
-        assert!(issues.contains(
-            &MigrationVerificationIssue::MissingRequiredInvariant {
+        assert!(
+            issues.contains(&MigrationVerificationIssue::MissingRequiredInvariant {
                 side: "target",
                 invariant_id: "assembly:roof-fire-rating".into(),
-            }
-        ));
+            })
+        );
     }
 
     #[test]
@@ -875,7 +888,9 @@ mod tests {
             "2",
             MigrationDisposition::ApprovedForAutomaticUse,
         );
-        duplicate.required_invariants.push("geometry:living-room-area".into());
+        duplicate
+            .required_invariants
+            .push("geometry:living-room-area".into());
         assert!(verify_migration_candidate(duplicate).is_err());
 
         let mut empty = migration_candidate(
@@ -897,9 +912,11 @@ mod tests {
             MigrationDisposition::ApprovedForAutomaticUse,
         );
         bad_evidence.verification_evidence_sha256 = "bad".into();
-        assert!(verify_migration_candidate(bad_evidence).unwrap_err().contains(
-            &MigrationVerificationIssue::InvalidVerificationEvidenceDigest
-        ));
+        assert!(
+            verify_migration_candidate(bad_evidence)
+                .unwrap_err()
+                .contains(&MigrationVerificationIssue::InvalidVerificationEvidenceDigest)
+        );
 
         let mut bad_invariant = migration_candidate(
             "m2",
@@ -908,12 +925,15 @@ mod tests {
             MigrationDisposition::ApprovedForAutomaticUse,
         );
         bad_invariant.target_invariants[0].canonical_value_sha256 = "bad".into();
-        assert!(verify_migration_candidate(bad_invariant).unwrap_err().iter().any(
-            |issue| matches!(
-                issue,
-                MigrationVerificationIssue::InvalidInvariantDigest { side: "target", .. }
-            )
-        ));
+        assert!(
+            verify_migration_candidate(bad_invariant)
+                .unwrap_err()
+                .iter()
+                .any(|issue| matches!(
+                    issue,
+                    MigrationVerificationIssue::InvalidInvariantDigest { side: "target", .. }
+                ))
+        );
     }
 
     #[test]
@@ -939,16 +959,15 @@ mod tests {
     #[test]
     fn duplicate_verified_migration_ids_block_the_catalog() {
         let duplicate = migration("same-id", "1", "2");
-        let plan = plan_lossless_migration(
-            &fmt("1"),
-            &fmt("2"),
-            &[duplicate.clone(), duplicate],
-            2,
-        );
+        let plan =
+            plan_lossless_migration(&fmt("1"), &fmt("2"), &[duplicate.clone(), duplicate], 2);
         assert_eq!(plan.status, MigrationPlanStatus::Blocked);
-        assert!(plan.blockers.contains(
-            &MigrationBlocker::DuplicateVerifiedMigrationId("same-id".into())
-        ));
+        assert!(
+            plan.blockers
+                .contains(&MigrationBlocker::DuplicateVerifiedMigrationId(
+                    "same-id".into()
+                ))
+        );
         assert!(plan.steps.is_empty());
     }
 
@@ -1042,8 +1061,7 @@ mod tests {
             DependencyGraphIssue::DuplicateEdge { input_id, dependent_id }
                 if input_id == "a" && dependent_id == "b"
         )));
-        assert!(issues
-            .contains(&DependencyGraphIssue::SelfDependency("b".into())));
+        assert!(issues.contains(&DependencyGraphIssue::SelfDependency("b".into())));
     }
 
     #[test]
@@ -1054,5 +1072,4 @@ mod tests {
             Err(vec![DependencyGraphIssue::EmptyChangedArtifactId])
         );
     }
-
 }
