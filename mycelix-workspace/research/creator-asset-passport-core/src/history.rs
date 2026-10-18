@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
-use crate::{EventId, GrantId, PassportError, PartyId, UsageGrant};
+use crate::{EventId, GrantId, PartyId, PassportError, UsageGrant};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HistoryError {
@@ -188,15 +188,16 @@ impl GrantHistory {
                 if grant.revocation_timestamp().is_some() {
                     return Err(HistoryError::GrantAlreadyRevoked);
                 }
-                let revoked = grant.revoked_at(event.occurred_at()).map_err(|error| {
-                    match error {
-                        PassportError::GrantAlreadyRevoked => HistoryError::GrantAlreadyRevoked,
-                        PassportError::RevocationBeforeEffectiveTime => {
-                            HistoryError::RevocationBeforeGrantStart
-                        }
-                        _ => HistoryError::RevocationBeforeGrantStart,
-                    }
-                })?;
+                let revoked =
+                    grant
+                        .revoked_at(event.occurred_at())
+                        .map_err(|error| match error {
+                            PassportError::GrantAlreadyRevoked => HistoryError::GrantAlreadyRevoked,
+                            PassportError::RevocationBeforeEffectiveTime => {
+                                HistoryError::RevocationBeforeGrantStart
+                            }
+                            _ => HistoryError::RevocationBeforeGrantStart,
+                        })?;
                 Some((grant_id.clone(), revoked))
             }
         };
@@ -302,21 +303,20 @@ pub fn independently_reconstruct_effective_grants(
                 grants.insert(grant.id().clone(), grant.clone());
             }
             GrantEventAction::Revoked { grant_id } => {
-                let current = grants
-                    .get(grant_id)
-                    .ok_or(HistoryError::GrantNotFound)?;
+                let current = grants.get(grant_id).ok_or(HistoryError::GrantNotFound)?;
                 if current.revocation_timestamp().is_some() {
                     return Err(HistoryError::GrantAlreadyRevoked);
                 }
-                let updated = current.revoked_at(event.occurred_at()).map_err(|error| {
-                    match error {
-                        PassportError::GrantAlreadyRevoked => HistoryError::GrantAlreadyRevoked,
-                        PassportError::RevocationBeforeEffectiveTime => {
-                            HistoryError::RevocationBeforeGrantStart
-                        }
-                        _ => HistoryError::RevocationBeforeGrantStart,
-                    }
-                })?;
+                let updated =
+                    current
+                        .revoked_at(event.occurred_at())
+                        .map_err(|error| match error {
+                            PassportError::GrantAlreadyRevoked => HistoryError::GrantAlreadyRevoked,
+                            PassportError::RevocationBeforeEffectiveTime => {
+                                HistoryError::RevocationBeforeGrantStart
+                            }
+                            _ => HistoryError::RevocationBeforeGrantStart,
+                        })?;
                 grants.insert(grant_id.clone(), updated);
             }
         }
@@ -476,9 +476,7 @@ mod tests {
         history
             .append(issue_event("evt-1", 5, grant("g-1", 10)))
             .unwrap();
-        history
-            .append(revoke_event("evt-2", 20, "g-1"))
-            .unwrap();
+        history.append(revoke_event("evt-2", 20, "g-1")).unwrap();
         assert_eq!(
             history.append(revoke_event("evt-3", 21, "g-1")),
             Err(HistoryError::GrantAlreadyRevoked)
