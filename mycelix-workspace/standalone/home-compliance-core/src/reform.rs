@@ -388,6 +388,8 @@ pub struct PublicConsultationCloseout {
     pub consultation_id: String,
     pub dossier_id: String,
     pub dossier_snapshot_sha256: String,
+    /// Digest of the canonical closeout record, excluding this self-digest field.
+    pub closeout_snapshot_sha256: String,
     pub jurisdiction_path: String,
     pub opened_on_day: u32,
     pub closed_on_day: u32,
@@ -416,6 +418,8 @@ pub struct AdoptionDecisionRecord {
     pub dossier_id: String,
     pub dossier_snapshot_sha256: String,
     pub consultation_id: String,
+    /// Pins the exact consultation closeout snapshot used for the decision.
+    pub consultation_closeout_sha256: String,
     pub jurisdiction_path: String,
     pub authority_id: String,
     pub decision_maker_id: String,
