@@ -21,7 +21,7 @@ The focused workflow runs both commands and uploads the JSON report.
 - Fail-closed promotion rules for the high-risk transitions covered in the contract.
 - 10,000 deterministic schedules per verifier run. Each schedule reorders eight events and injects one exact replay plus one same-ID/different-digest conflict. The seed and shuffle algorithm are fixed; no randomness dependency is used.
 - Mutation tests that remove required conflict, relay, consent and unknown-outcome protections and require the semantic verifier to reject the mutated corpus.
-- A JSON report with SHA-256 digests of source fixtures and schemas, schema-engine results, semantic errors, schedule count and an explicit claim ceiling.
+- A JSON report with SHA-256 digests of source fixtures and schemas, schema-engine results, semantic errors, schedule count, resolved standalone Cargo.lock digest (if Cargo generated/read one) and an explicit claim ceiling. The workflow logs whether a lock file existed before dependency resolution; a generated lock digest is evidence of that CI resolution, not a reviewed committed lock file.
 
 ## Research anchors (design hypotheses, not local impact claims)
 
@@ -36,3 +36,6 @@ The focused workflow runs both commands and uploads the JSON report.
 A passing model proves only the code and fixtures in this crate. It does not prove browser/IndexedDB durability, server-side idempotency, real actor identity or consent, secure field relaying, provider receipt, bookings, service fulfilment, farmer comprehension, accessibility conformance, or agricultural benefit. The schedule generator is a model-based stress test—not a statistically representative field study or exhaustive proof of all event histories.
 
 The contract and this verifier remain a stacked draft. Transitive dependency lockfile reproducibility is not qualified until a reviewed `Cargo.lock` is committed. The model must be checked against the exact reviewed shared journal/service-evaluator contracts before production integration.
+
+
+The oracle workflow checks out the pull-request head SHA explicitly, asserts the checked-out `HEAD` matches, and pins its GitHub Actions to commit SHAs. The Rust toolchain itself is still requested as the `stable` channel; the exact compiler version is emitted in the run logs. Use a reviewed committed lockfile and `--locked` as the next reproducibility gate before promoting this research crate beyond draft.
