@@ -134,6 +134,9 @@ The first implementation can be a local-first Rust record model and deterministi
 
 ## Benchmark protocol
 
+For the operational difference between a reported royalty line and money actually received, see the [CSCP Statement-to-Cash Reconciliation Contract](CSCP_STATEMENT_TO_CASH_RECONCILIATION.md) and [CSCP-RECON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5192). The Rust reference implementation is in [draft PR #5172](https://github.com/Luminous-Dynamics/mycelix/pull/5172); it requires explicit approved allocations and never auto-matches solely because amount and currency happen to be equal.
+
+
 All targets below are proposed internal gates, not achieved results or legal standards.
 
 | Metric | Proposed gate | Measurement definition / anti-gaming |
