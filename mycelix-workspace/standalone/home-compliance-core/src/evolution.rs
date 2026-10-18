@@ -657,7 +657,7 @@ pub fn affected_closure(
     }
     let mut topological_queue: VecDeque<String> = indegree
         .iter()
-        .filter_map(|(node, count)| (*count == 0).then(|| node.clone()))
+        .filter_map(|(node, count)| (*count == 0).then_some(node.clone()))
         .collect();
     let mut topologically_processed = 0;
     while let Some(current) = topological_queue.pop_front() {
