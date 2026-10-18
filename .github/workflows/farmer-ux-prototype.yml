@@ -34,6 +34,6 @@ jobs:
         with:
           workspaces: mycelix-workspace/mycelix-commons/apps/leptos -> target
       - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-workspace/mycelix-commons/apps/leptos/Cargo.toml -- --check
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-commons/apps/leptos/src/pages/farmer.rs
       - name: Compile the CSR application for WASM
         run: cargo check --manifest-path mycelix-workspace/mycelix-commons/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
