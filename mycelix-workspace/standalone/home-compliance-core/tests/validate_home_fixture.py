@@ -371,6 +371,8 @@ def validate_capability_registry(registry: dict[str, Any]) -> None:
         if card["source_registry_checked_on_day"] > card["registry_as_of_day"]:
             fail(path, "source-registry check date cannot be in the future")
 
+        if not card["card_author_id"].strip():
+            fail(path, "capability-card author is required")
         if not card["accountable_maintainer"].strip():
             fail(path, "accountable maintainer is required")
         if not card["update_policy"].strip():
@@ -405,8 +407,8 @@ def validate_capability_registry(registry: dict[str, Any]) -> None:
             if not reviewer.strip() or reviewer in reviewer_ids:
                 fail(path, f"reviewer ID is blank or duplicate: {reviewer!r}")
             reviewer_ids.add(reviewer)
-            if reviewer == card["accountable_maintainer"]:
-                fail(path, "accountable maintainer cannot count as an independent reviewer")
+            if reviewer in {card["card_author_id"], card["accountable_maintainer"]}:
+                fail(path, "card author and accountable maintainer cannot count as independent reviewers")
             if review["reviewed_subject_sha256"] != card["subject_sha256"]:
                 fail(path, f"reviewer {reviewer!r} did not review this exact card subject")
 
@@ -499,7 +501,15 @@ def run_capability_negative_controls(
         "reviewed_different_capability_snapshot",
         lambda: validate_capability_registry(wrong_snapshot),
     )
-    return 4
+
+    author_as_reviewer = deepcopy(supported_fixture)
+    author = author_as_reviewer["capability_cards"][0]["card_author_id"]
+    author_as_reviewer["capability_cards"][0]["independent_reviews"][0]["reviewer_id"] = author
+    expect_rejected(
+        "capability_author_claimed_as_independent",
+        lambda: validate_capability_registry(author_as_reviewer),
+    )
+    return 5
 
 
 def expect_rejected(name: str, operation: Any) -> None:
