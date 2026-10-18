@@ -737,12 +737,8 @@ pub fn affected_closure(
     changed_artifact_ids: &[String],
     dependencies: &[DependencyEdge],
 ) -> Result<Vec<String>, Vec<DependencyGraphIssue>> {
-    affected_cause_tree(changed_artifact_ids, dependencies).map(|affected| {
-        affected
-            .into_iter()
-            .map(|item| item.artifact_id)
-            .collect()
-    })
+    affected_cause_tree(changed_artifact_ids, dependencies)
+        .map(|affected| affected.into_iter().map(|item| item.artifact_id).collect())
 }
 
 #[cfg(test)]
@@ -1121,16 +1117,17 @@ mod tests {
             reconstructed_cause_path(&affected, "e"),
             vec!["a", "b", "d", "e"]
         );
-        assert!(affected
-            .windows(2)
-            .all(|pair| pair[0].artifact_id < pair[1].artifact_id));
+        assert!(
+            affected
+                .windows(2)
+                .all(|pair| pair[0].artifact_id < pair[1].artifact_id)
+        );
     }
 
     #[test]
     fn all_changed_roots_remain_roots_and_ties_are_deterministic() {
         let edges = vec![dependency("b", "shared"), dependency("a", "shared")];
-        let affected =
-            affected_cause_tree(&["b".into(), "a".into(), "a".into()], &edges).unwrap();
+        let affected = affected_cause_tree(&["b".into(), "a".into(), "a".into()], &edges).unwrap();
         let shared = affected
             .iter()
             .find(|item| item.artifact_id == "shared")
