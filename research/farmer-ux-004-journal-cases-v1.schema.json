@@ -28,7 +28,7 @@
     },
     "shared_invariants": {
       "type": "array",
-      "minItems": 12,
+      "minItems": 13,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -48,7 +48,10 @@
           "send",
           "recovery",
           "expected_state",
-          "expected_ui"
+          "expected_ui",
+          "remote_effect_state",
+          "auto_replay_allowed",
+          "reconciliation_required"
         ],
         "properties": {
           "id": {
@@ -69,7 +72,14 @@
           },
           "send": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "enum": [
+              "blocked",
+              "blocked_until_scope_confirmed",
+              "possibly_not_called",
+              "attempted",
+              "no_new_send"
+            ]
           },
           "recovery": {
             "type": "string",
@@ -77,11 +87,36 @@
           },
           "expected_state": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "enum": [
+              "Prepared",
+              "Submitted",
+              "Confirmed",
+              "ExplicitlyRejected",
+              "OutcomeUnknown",
+              "ReconciledApplied",
+              "ReconciledNotApplied",
+              "NotSent"
+            ]
           },
           "expected_ui": {
             "type": "string",
             "minLength": 1
+          },
+          "remote_effect_state": {
+            "enum": [
+              "not_sent",
+              "unknown",
+              "request_received",
+              "rejected",
+              "not_applicable"
+            ]
+          },
+          "auto_replay_allowed": {
+            "type": "boolean"
+          },
+          "reconciliation_required": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
