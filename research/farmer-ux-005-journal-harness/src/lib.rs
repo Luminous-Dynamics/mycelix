@@ -572,8 +572,8 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     }
     for (from_state, to_state, required_evidence) in REQUIRED_PROMOTIONS {
         let matches: Vec<&Value> = promotions.iter().filter(|p| {
-            p.get("from").and_then(Value::as_str) == Some(from_state)
-                && p.get("to").and_then(Value::as_str) == Some(to_state)
+            p.get("from").and_then(Value::as_str) == Some(*from_state)
+                && p.get("to").and_then(Value::as_str) == Some(*to_state)
         }).collect();
         if matches.len() != 1 {
             errors.push(format!("mapping must define exactly one guarded promotion {from_state}->{to_state}"));
