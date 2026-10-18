@@ -15,6 +15,10 @@ A standard-library-only Rust prototype for deterministic creator career accounti
 - Hostile/golden tests for arithmetic, tampering, higher gross receipts with worse economics, mixed-currency abstention, source shocks, incomplete evidence, input rejection, and statement-to-cash reconciliation. Source currently contains 30 unit-test functions across the ledger/scenario/settlement modules and 19 integration-test functions; these are authored tests until the exact-head CI receipt confirms their execution.
 - No network, secrets, telemetry, database, serialization library, or third-party dependencies.
 
+## Reconciliation contract and tracker
+
+The statement-to-cash model is specified in [CSCP Statement-to-Cash Reconciliation Contract](https://github.com/Luminous-Dynamics/mycelix/blob/research/creator-sovereignty-control-plane-rfc/docs/creator-sovereignty/CSCP_STATEMENT_TO_CASH_RECONCILIATION.md) and tracked by [CSCP-RECON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5192). Versioned ISO 4217 currency precision is a follow-on tracked in [CSCP-CURRENCY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5193); the current ledger's three-letter check is syntax-only.
+
 ## Run
 
 From the repository root:
