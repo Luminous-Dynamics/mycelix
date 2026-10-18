@@ -57,6 +57,7 @@ fn AppInner() -> impl IntoView {
             <main class="main-content">
                 <Routes fallback=|| view! { <div class="page"><h1>"404 — Page not found"</h1></div> }>
                     <Route path=path!("/") view=HomePage />
+                    <Route path=path!("/farmer") view=FarmerPage />
                     <Route path=path!("/property") view=PropertyPage />
                     <Route path=path!("/housing") view=HousingPage />
                     <Route path=path!("/care") view=CarePage />
