@@ -67,6 +67,9 @@ These are caller-recorded outcome assertions. The manifest itself does not commi
 
 ## Import replay and duplicate-effect guard
 
+For the separate replay-key/result-fingerprint model and durable transaction algorithm, see the [CSCP Import Replay Contract](CSCP_IMPORT_REPLAY_CONTRACT.md) and [CSCP-REPLAY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5190).
+
+
 Draft PR #5182 adds a separate experimental ImportReplayLedger. Its processing key binds source system/optional record identity, raw payload digest/length, schema name/version, parser name/version, and the exact source-field mapping/treatment rule versions. It excludes import timestamp and raw storage locator, so a retry that points at the same observed bytes does not become a new logical transformation just because it arrived later or was moved to a new vault object.
 
 The ledger records a separate result fingerprint over inventory status, outcome, before/after snapshot digests, and diagnostics. Same key + same result returns AlreadyPresent. Same key + a different result is a conflict and leaves the in-memory ledger unchanged. Changing the source bytes or parser/mapping version deliberately makes a distinct key that must be handled as a new revision/reprocessing event.
