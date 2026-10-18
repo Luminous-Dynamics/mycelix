@@ -3,8 +3,8 @@ use creator_asset_passport_core::passport_envelope::{
     CreativeAssetPassportEnvelope, PassportEnvelopeError,
 };
 use creator_asset_passport_core::{
-    AssetId, AssetKind, AssetRegistry, ClaimState, EventId, ExternalIdentifier, GrantId,
-    PartyId, RightsPool, SplitClaim, UseAction, UsageGrant,
+    AssetId, AssetKind, AssetRegistry, ClaimState, EventId, ExternalIdentifier, GrantId, PartyId,
+    RightsPool, SplitClaim, UsageGrant, UseAction,
 };
 
 fn party(value: &str) -> PartyId {
@@ -15,17 +15,10 @@ fn seeded_passport() -> CreativeAssetPassportEnvelope {
     let mut registry = AssetRegistry::new();
     let work = AssetId::new("work-a").unwrap();
     registry
-        .register_asset(
-            work.clone(),
-            AssetKind::MusicalWork,
-            Some("Song A".into()),
-        )
+        .register_asset(work.clone(), AssetKind::MusicalWork, Some("Song A".into()))
         .unwrap();
     registry
-        .attach_identifier(
-            &work,
-            ExternalIdentifier::Iswc("T-034.524.680-1".into()),
-        )
+        .attach_identifier(&work, ExternalIdentifier::Iswc("T-034.524.680-1".into()))
         .unwrap();
 
     let recording = AssetId::new("recording-a").unwrap();
@@ -141,7 +134,10 @@ fn claim_input_order_does_not_change_canonical_snapshot_bytes() {
         differently_ordered.canonical_bytes().unwrap(),
         passport.canonical_bytes().unwrap()
     );
-    assert_eq!(differently_ordered.digest_hex().unwrap(), passport.digest_hex().unwrap());
+    assert_eq!(
+        differently_ordered.digest_hex().unwrap(),
+        passport.digest_hex().unwrap()
+    );
 }
 
 #[test]
@@ -176,17 +172,22 @@ fn changing_asset_metadata_changes_the_snapshot_digest() {
         let mut replacement = AssetRegistry::new();
         let asset = AssetId::new("work-a").unwrap();
         replacement
-            .register_asset(asset.clone(), AssetKind::MusicalWork, Some("Different song".into()))
+            .register_asset(
+                asset.clone(),
+                AssetKind::MusicalWork,
+                Some("Different song".into()),
+            )
             .unwrap();
         replacement
-            .attach_identifier(
-                &asset,
-                ExternalIdentifier::Iswc("T-034.524.680-1".into()),
-            )
+            .attach_identifier(&asset, ExternalIdentifier::Iswc("T-034.524.680-1".into()))
             .unwrap();
         let recording = AssetId::new("recording-a").unwrap();
         replacement
-            .register_asset(recording.clone(), AssetKind::SoundRecording, Some("Master A".into()))
+            .register_asset(
+                recording.clone(),
+                AssetKind::SoundRecording,
+                Some("Master A".into()),
+            )
             .unwrap();
         replacement
             .attach_identifier(
@@ -213,12 +214,8 @@ fn changing_split_claim_evidence_changes_the_snapshot_digest() {
     let mut claims = passport.claims().to_vec();
     claims[0].evidence_ref.push_str("-amended");
 
-    let changed = CreativeAssetPassportEnvelope::from_parts(
-        passport.registry(),
-        &claims,
-        &history,
-    )
-    .unwrap();
+    let changed =
+        CreativeAssetPassportEnvelope::from_parts(passport.registry(), &claims, &history).unwrap();
     assert_ne!(changed.digest_hex().unwrap(), original);
 }
 
@@ -330,14 +327,17 @@ fn external_identifier_insertion_order_does_not_change_snapshot_bytes() {
     let history = GrantHistory::new();
     let first = CreativeAssetPassportEnvelope::from_parts(&registry(false), &[], &history).unwrap();
     let second = CreativeAssetPassportEnvelope::from_parts(&registry(true), &[], &history).unwrap();
-    assert_eq!(first.canonical_bytes().unwrap(), second.canonical_bytes().unwrap());
+    assert_eq!(
+        first.canonical_bytes().unwrap(),
+        second.canonical_bytes().unwrap()
+    );
 }
 
 #[test]
 fn unsupported_snapshot_versions_and_trailing_bytes_are_rejected() {
     let passport = seeded_passport();
     let mut bytes = passport.canonical_bytes().unwrap();
-    bytes[ b"MYCELIX-CSCP-ASSET-PASSPORT\0".len() + 1 ] = 2;
+    bytes[b"MYCELIX-CSCP-ASSET-PASSPORT\0".len() + 1] = 2;
     assert_eq!(
         CreativeAssetPassportEnvelope::from_bytes(&bytes),
         Err(PassportEnvelopeError::UnsupportedVersion(2))
