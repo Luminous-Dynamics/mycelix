@@ -639,11 +639,11 @@ mod tests {
         assert_eq!(
             affected,
             vec![
-                "calc-structural",
-                "calc-thermal",
-                "material-roof",
-                "model-roof",
-                "review-package",
+                "calc-structural".to_owned(),
+                "calc-thermal".to_owned(),
+                "material-roof".to_owned(),
+                "model-roof".to_owned(),
+                "review-package".to_owned(),
             ]
         );
         assert!(!affected.contains(&"identity-receipt".to_owned()));
@@ -676,7 +676,15 @@ mod tests {
             dependency("c", "d"),
         ];
         let affected = affected_closure(&["a".into()], &edges).unwrap();
-        assert_eq!(affected, vec!["a", "b", "c", "d"]);
+        assert_eq!(
+            affected,
+            vec![
+                "a".to_owned(),
+                "b".to_owned(),
+                "c".to_owned(),
+                "d".to_owned(),
+            ]
+        );
     }
 
     #[test]
