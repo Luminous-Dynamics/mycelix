@@ -191,7 +191,7 @@ The integration tests encode two golden dependency-closure cases:
 
 The test graph is deliberately small and explicit. It tests an architectural invariant: **recompute the smallest complete downstream closure, and do not make unaffected evidence stale by association**. In a larger graph, a package-level submission can be invalidated even while a sibling calculation remains current. These tests verify the closure helper's returned set; they do not yet persist stale status or rerun evaluators.
 
-The new integration suite also verifies that an unknown mandatory energy result blocks professional-review readiness and that a proposed amendment with a conflicting value cannot displace a current binding assertion. The JSON brief is currently a fixture contract rather than an input consumed by a production parser; one test guards selected shared identifiers, not full schema validity. Full JSON schema validation, IFC parsing, and geometry/solver integration remain future work.
+The new integration suite also verifies that an unknown mandatory energy result blocks professional-review readiness and that a proposed amendment with a conflicting value cannot displace a current binding assertion. The Rust helper now extracts dependency-edge pairs from the versioned JSON brief; it no longer duplicates that graph in test code. The published schema is accompanied by a standard-library-only CI verifier that checks the schema's used keyword subset, cross-references graph nodes against stable artifact IDs, checks each declared mutation against reachability, and runs six deliberately invalid mutation controls. This is not a generic JSON Schema engine, the Rust runtime does not load the fixture, and full IFC parsing plus geometry/solver integration remain future work.
 
 #### Near-term executable benchmarks
 
@@ -201,7 +201,7 @@ The new integration suite also verifies that an unknown mandatory energy result 
 | Graph scale and determinism | Complete, lexically deterministic closure for a 10,000-edge chain; no missing descendants | A 10,000-edge correctness stress test is authored; latency is deliberately not asserted by a flaky wall-clock unit test |
 | Gate fail-closed behavior | 0 review-ready outcomes when any mandatory check is Unknown, failed, missing, ambiguous or tied to the wrong rule edition | Unit and integration test cases authored; no engineering validator is implied |
 | Proposal/current-law separation | 100% of proposed-only assertions excluded from binding resolution; unresolved/unknown status remains indeterminate | Synthetic source-status integration case authored |
-| Fixture/schema integrity | JSON parsed against a published versioned schema; all identifiers and dependency edges loaded from fixture rather than duplicated in code | Not yet met; current test checks selected identity fragments only |
+| Fixture/schema integrity | Versioned schema contract checked; all dependency edges consumed from the same fixture; invalid authority/compliance claims and dangling dependencies rejected by negative controls | Schema-subset and semantic verifier authored with six negative controls; runtime typed loading and a generic JSON Schema validator remain unimplemented |
 | Variant feasibility | For a curated suite of feasible briefs, generate at least 3 distinct, constraint-satisfying candidates in a measured latency budget; report infeasible briefs rather than relaxing constraints silently | Not implemented |
 | Engineering validity | 0 missed critical violations in a curated, independently reviewed reference corpus; tolerances and solver/model versions published | Not implemented; no structural/HVAC/fire/electrical solver integration |
 | Lifecycle migration | 100% preservation of declared critical invariants or explicit blocked/lossy disposition; 0 silent dropping of fields | Generic migration guards implemented, artifact hashing and real adapters not implemented |
@@ -231,6 +231,28 @@ These are targets to implement and measure, not achieved claims.
 8. **Intergenerational comprehension:** a cold-read study asks professionals unfamiliar with the original project to identify the building's layout, materials, structural assumptions, system interfaces, inspection evidence, limitations and change history without oral help from the original designer.
 
 Century-scale preservation cannot be certified by a single benchmark today. We can test the invariants, run annual preservation drills, and make the organization capable of replacing formats, tools, custodians and funding sources without discarding the record.
+
+### Open model contracts and simulation validation
+
+The home compiler should distinguish three different kinds of validation rather than collapse them into a single "BIM passed" result:
+
+1. **Information exchange contract.** Use a pinned IFC release plus IDS requirements for required entities, properties, classifications, materials, values and units. buildingSMART states that IDS 1.0 became a final standard in June 2024 and is designed for machine-interpretable exchange requirements. IDS is tied to IFC and does not cover geometry, so a successful IDS check must not be presented as proof of geometric, structural, fire or accessibility validity. References: [official IDS standard overview](https://www.buildingsmart.org/standards/bsi-standards/information-delivery-specification-ids/) and [official IFC specification release table](https://technical.buildingsmart.org/standards/ifc/ifc-schema-specifications/).
+
+2. **Geometry and domain analysis.** Maintain separate validators for spatial relationships, egress, structural systems, moisture/durability, accessibility, energy and services. Each must declare the model properties it consumes, its domain and code scope, numerical tolerances, known limitations and the exact solver version. Unknown or missing inputs must remain visible rather than silently receiving defaults that create a pass.
+
+3. **Numerical verification and empirical validation.** For any future building-energy simulator, use applicable ANSI/ASHRAE Standard 140 test procedures as a software-capability baseline; the standard is specifically intended to reveal predictive differences from algorithmic differences, modeling limitations, code faults, documentation gaps or input errors. Comparative test success is not the same as empirical accuracy for a particular site: measured validation also depends on input quality and experimental uncertainty. Reference: [ASHRAE/IBPSA building energy simulation resources](https://www.ashrae.org/technical-resources/bookstore/ashrae-building-energy-simulation-and-performance-modeling-resources) and [ASHRAE Handbook discussion of verification and validation](https://handbook.ashrae.org/Handbooks/F21/IP/f21_ch19/f21_ch19_ip.aspx).
+
+NIST's building digitization work highlights the need for machine-readable semantic data across design and operations rather than repeated manual mapping. Its 2026 digital-twins workshop summary also identifies interoperability, verification/validation/uncertainty quantification, cybersecurity and workforce readiness as research priorities. These findings support contracts and independent evidence at every boundary, not a single monolithic generative model. References: [NIST Building Digitization and Semantic Interoperability](https://www.nist.gov/programs-projects/building-digitization-and-semantic-interoperability) and [NIST Digital Twins Workshops Summary Report (July 21, 2026)](https://www.nist.gov/publications/digital-twins-workshops-summary-report).
+
+#### Standards-aligned benchmark gates
+
+| Benchmark | Acceptance target | Current state |
+|---|---|---|
+| IFC/IDS information completeness | 100% required information requirements checked against a pinned IFC/IDS edition; zero silent required-field loss on export/import; every unsupported/geometry-only requirement routed to the relevant independent validator | Not implemented; current fixture is not IFC and the schema verifies only the software scenario contract |
+| Geometry separation | Zero geometry-critical requirements represented as "passed" solely because an IDS/alphanumeric property check passed | Architectural requirement; no geometry engine integrated |
+| Energy simulation software QA | All applicable Standard 140 cases for the declared software scope executed and reported; no out-of-scope accuracy claim | Not implemented |
+| Site-specific empirical validation | Publish residuals, calibration data, parameter uncertainty, missing sensors and weather/source editions; do not claim precision beyond measured evidence | Not implemented |
+| Lifecycle semantic preservation | Required identifiers, units, classifications and critical properties survive round trips or yield a machine-readable loss report | Future IFC corpus and exchange tests required |
 
 ### Standards are inputs, not permanent foundations
 
