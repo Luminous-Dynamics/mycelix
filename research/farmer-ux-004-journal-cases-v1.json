@@ -209,7 +209,7 @@
       "send": "blocked",
       "recovery": "quarantine_preserve_or_export_no_silent_reset",
       "expected_state": "OutcomeUnknown",
-      "expected_ui": "The saved operation needs recovery. No request was sent from this record.",
+      "expected_ui": "The saved operation could not be read safely. Its remote outcome may be unknown. Do not resend automatically; use the recovery or human-contact path.",
       "remote_effect_state": "unknown",
       "auto_replay_allowed": false,
       "reconciliation_required": true
