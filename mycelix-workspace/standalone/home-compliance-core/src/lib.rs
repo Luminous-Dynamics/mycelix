@@ -198,7 +198,10 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
             blockers.push(Blocker::EmptyCheckId);
             continue;
         }
-        if manifest_ids.insert(check.id.as_str(), check.mandatory).is_some() {
+        if manifest_ids
+            .insert(check.id.as_str(), check.mandatory)
+            .is_some()
+        {
             blockers.push(Blocker::DuplicateRulePackCheck(check.id.clone()));
         }
     }
@@ -224,7 +227,9 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
         match manifest_ids.get(check.id.as_str()) {
             None => blockers.push(Blocker::UnexpectedAssessmentCheck(check.id.clone())),
             Some(pack_mandatory) if *pack_mandatory != check.mandatory => {
-                blockers.push(Blocker::RulePackCheckMandatoryFlagMismatch(check.id.clone()));
+                blockers.push(Blocker::RulePackCheckMandatoryFlagMismatch(
+                    check.id.clone(),
+                ));
             }
             Some(_) => {}
         }
@@ -600,9 +605,11 @@ mod tests {
 
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::MissingRulePackCheck("fire-egress-review".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::MissingRulePackCheck("fire-egress-review".into()))
+        );
     }
 
     #[test]
@@ -612,9 +619,13 @@ mod tests {
 
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report.blockers.contains(
-            &Blocker::RulePackCheckMandatoryFlagMismatch("structural-review".into())
-        ));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::RulePackCheckMandatoryFlagMismatch(
+                    "structural-review".into()
+                ))
+        );
     }
 
     #[test]
@@ -624,16 +635,19 @@ mod tests {
             id: "comfort-recommendation".into(),
             mandatory: false,
         });
-        assessment.findings.push(finding(
-            "comfort-recommendation",
-            CheckOutcome::Unknown,
-        ));
+        assessment
+            .findings
+            .push(finding("comfort-recommendation", CheckOutcome::Unknown));
 
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report.blockers.contains(
-            &Blocker::UnexpectedAssessmentCheck("comfort-recommendation".into())
-        ));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::UnexpectedAssessmentCheck(
+                    "comfort-recommendation".into()
+                ))
+        );
     }
 
     #[test]
