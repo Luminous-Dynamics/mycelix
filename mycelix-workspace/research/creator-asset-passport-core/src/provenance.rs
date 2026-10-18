@@ -1098,6 +1098,57 @@ mod tests {
     }
 
     #[test]
+    fn canonical_manifest_matches_frozen_cross_language_vector() {
+        let source = SourceDocument::capture(
+            "test-source",
+            None,
+            "rdr-n",
+            "1.5",
+            "test-parser",
+            "0.1",
+            1,
+            None,
+            "vault://artifact-1",
+            b"",
+        )
+        .unwrap();
+        let manifest = ImportProvenanceManifest::new(
+            source,
+            InventoryStatus::CompleteAsReportedByParser,
+            ImportOutcome::Imported,
+            "00".repeat(32),
+            Some("11".repeat(32).as_str()),
+            vec![
+                FieldMapping::mapped(
+                    "/Report/Id",
+                    "/statement/id",
+                    "id-map",
+                    "1",
+                )
+                .unwrap(),
+                FieldMapping::mapped(
+                    "/Report/Period",
+                    "/statement/period",
+                    "period-map",
+                    "1",
+                )
+                .unwrap(),
+            ],
+            vec![],
+        )
+        .unwrap();
+        let actual = manifest
+            .canonical_bytes()
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let expected =
+            include_str!("../tests/fixtures/creator-import-provenance-v1.hex").trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn decoder_rejects_trailing_bytes_unknown_version_and_bad_magic() {
         let manifest = clean_manifest();
         let bytes = manifest.canonical_bytes().unwrap();
