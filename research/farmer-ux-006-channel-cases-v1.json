@@ -1,0 +1,295 @@
+{
+  "schema_version": "1.0.0",
+  "status": "synthetic_cross_channel_corpus_not_field_validated",
+  "contract": "FARMER-UX-006",
+  "cases": [
+    {
+      "case_id": "FUXC-001",
+      "scenario": "farmer switches from app to cooperative",
+      "event_ids": [
+        "evt-c001-start",
+        "evt-c001-relay"
+      ],
+      "request_refs": [
+        "req-irrigation-001",
+        "req-irrigation-001"
+      ],
+      "expected": "same_logical_request",
+      "allowed_effects": [
+        "append_relay_event"
+      ],
+      "prohibited": [
+        "create_second_request",
+        "assume_provider_receipt"
+      ]
+    },
+    {
+      "case_id": "FUXC-002",
+      "scenario": "same event imported twice from SMS gateway",
+      "event_ids": [
+        "evt-c002-ack",
+        "evt-c002-ack"
+      ],
+      "request_refs": [
+        "req-pump-002",
+        "req-pump-002"
+      ],
+      "digests_equal": true,
+      "expected": "idempotent_duplicate",
+      "allowed_effects": [
+        "return_existing_event_reference"
+      ],
+      "prohibited": [
+        "apply_effect_twice"
+      ]
+    },
+    {
+      "case_id": "FUXC-003",
+      "scenario": "event ID replayed with different payload digest",
+      "event_ids": [
+        "evt-c003-quote",
+        "evt-c003-quote"
+      ],
+      "request_refs": [
+        "req-crop-003",
+        "req-crop-003"
+      ],
+      "digests_equal": false,
+      "expected": "event_id_equivocation_conflict",
+      "allowed_effects": [
+        "quarantine_and_record_conflict"
+      ],
+      "prohibited": [
+        "overwrite_original",
+        "accept_as_retry"
+      ]
+    },
+    {
+      "case_id": "FUXC-004",
+      "scenario": "extension worker records farmer request but has no permission to share",
+      "actor": "farmer",
+      "recorder": "extension_worker",
+      "authority": "unverified_relay",
+      "expected": "local_or_nonshared_record_only",
+      "allowed_effects": [
+        "request_authority_review"
+      ],
+      "prohibited": [
+        "forward_sensitive_payload",
+        "claim_provider_receipt"
+      ]
+    },
+    {
+      "case_id": "FUXC-005",
+      "scenario": "cooperative agent says request was sent, but no provider receipt exists",
+      "actor": "cooperative_representative",
+      "recorder": "cooperative_representative",
+      "authority": "delegated_mandate",
+      "expected": "relayed_not_provider_acknowledged",
+      "allowed_effects": [
+        "show_relay_status"
+      ],
+      "prohibited": [
+        "promote_to_provider_receipt",
+        "promote_to_booking"
+      ]
+    },
+    {
+      "case_id": "FUXC-006",
+      "scenario": "provider receipt arrives after farmer changes channel",
+      "event_ids": [
+        "evt-c006-relay",
+        "evt-c006-receipt"
+      ],
+      "request_refs": [
+        "req-water-006",
+        "req-water-006"
+      ],
+      "expected": "append_authoritative_receipt_to_same_request",
+      "allowed_effects": [
+        "record_provider_receipt"
+      ],
+      "prohibited": [
+        "create_new_request",
+        "book_without_quote_acceptance"
+      ]
+    },
+    {
+      "case_id": "FUXC-007",
+      "scenario": "booking event arrives before delayed quote event",
+      "event_ids": [
+        "evt-c007-booking",
+        "evt-c007-quote"
+      ],
+      "request_refs": [
+        "req-tractor-007",
+        "req-tractor-007"
+      ],
+      "expected": "retain_order_uncertainty_and_block_illegal_promotion",
+      "allowed_effects": [
+        "store_pending_event",
+        "request_authoritative_reconciliation"
+      ],
+      "prohibited": [
+        "silently_reorder_into_valid_booking"
+      ]
+    },
+    {
+      "case_id": "FUXC-008",
+      "scenario": "farmer revokes relay consent before agent forwards request",
+      "authority": "consent_revoked_before_forward",
+      "expected": "block_new_disclosure",
+      "allowed_effects": [
+        "record_revocation",
+        "offer_farmer_direct_channel"
+      ],
+      "prohibited": [
+        "forward_payload",
+        "automatic_retry"
+      ]
+    },
+    {
+      "case_id": "FUXC-009",
+      "scenario": "farmer changes selected site after request was submitted",
+      "event_ids": [
+        "evt-c009-request"
+      ],
+      "request_refs": [
+        "req-site-009"
+      ],
+      "expected": "preserve_original_scope_and_block_retarget",
+      "allowed_effects": [
+        "new_explicit_request_if_farmer_chooses"
+      ],
+      "prohibited": [
+        "retarget_existing_request"
+      ]
+    },
+    {
+      "case_id": "FUXC-010",
+      "scenario": "device clock is five days ahead of server clock",
+      "time_source": "device_clock",
+      "expected": "preserve_capture_and_receipt_times_separately",
+      "allowed_effects": [
+        "mark_time_untrusted",
+        "use_authoritative_receipt_order"
+      ],
+      "prohibited": [
+        "promote_by_client_timestamp_alone"
+      ]
+    },
+    {
+      "case_id": "FUXC-011",
+      "scenario": "paper request entered into system a week after farmer wrote it",
+      "time_source": "paper_claim",
+      "expected": "retain_claimed_time_and_digitization_time",
+      "allowed_effects": [
+        "record_both_times"
+      ],
+      "prohibited": [
+        "backdate_server_receipt",
+        "present_claimed_time_as_verified"
+      ]
+    },
+    {
+      "case_id": "FUXC-012",
+      "scenario": "all providers decline or have no capacity",
+      "request_refs": [
+        "req-no-provider-012"
+      ],
+      "expected": "no_provider_outcome_remains_in_denominator",
+      "allowed_effects": [
+        "record_typed_nonfulfillment_reason"
+      ],
+      "prohibited": [
+        "drop_request_from_report"
+      ]
+    },
+    {
+      "case_id": "FUXC-013",
+      "scenario": "provider reports repair complete but farmer has not responded",
+      "request_refs": [
+        "req-repair-013"
+      ],
+      "expected": "provider_reported_not_farmer_accepted",
+      "allowed_effects": [
+        "await_farmer_decision",
+        "offer_dispute_or_acceptance_path"
+      ],
+      "prohibited": [
+        "count_as_accepted_service"
+      ]
+    },
+    {
+      "case_id": "FUXC-014",
+      "scenario": "farmer disputes completion after provider claim",
+      "request_refs": [
+        "req-repair-014"
+      ],
+      "expected": "dispute_remains_visible",
+      "allowed_effects": [
+        "append_farmer_dispute",
+        "offer_rework_or_resolution"
+      ],
+      "prohibited": [
+        "erase_provider_claim",
+        "force_acceptance"
+      ]
+    },
+    {
+      "case_id": "FUXC-015",
+      "scenario": "remote request outcome is unknown and no authoritative reconciliation source exists",
+      "request_refs": [
+        "req-unknown-015"
+      ],
+      "expected": "preserve_unknown_without_auto_retry",
+      "allowed_effects": [
+        "offer_human_contact",
+        "show_reference_if_safe"
+      ],
+      "prohibited": [
+        "claim_failure",
+        "claim_success",
+        "resend_automatically"
+      ]
+    },
+    {
+      "case_id": "FUXC-016",
+      "scenario": "new correction supersedes an earlier relayed quote",
+      "event_ids": [
+        "evt-c016-original",
+        "evt-c016-correction"
+      ],
+      "request_refs": [
+        "req-quote-016",
+        "req-quote-016"
+      ],
+      "expected": "append_correction_preserve_history",
+      "allowed_effects": [
+        "link_superseding_event"
+      ],
+      "prohibited": [
+        "rewrite_original_event",
+        "silently_promote_relay_to_authoritative_quote"
+      ]
+    },
+    {
+      "case_id": "FUXC-017",
+      "scenario": "two intermediaries create similar-looking requests with different request references and no shared verified identity",
+      "request_refs": [
+        "req-irrigation-017a",
+        "req-irrigation-017b"
+      ],
+      "expected": "suspected_duplicate_link_not_merge",
+      "allowed_effects": [
+        "record_suspected_duplicate_relation",
+        "request_human_reconciliation"
+      ],
+      "prohibited": [
+        "auto_merge_requests",
+        "drop_one_request_from_denominator",
+        "copy_remote_receipt_across_requests"
+      ]
+    }
+  ]
+}

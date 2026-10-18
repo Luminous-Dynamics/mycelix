@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/farmer-ux-006-channel-cases-v1.schema.json",
+  "title": "Farmer UX-006 synthetic cross-channel conformance cases",
+  "description": "Expected behavior for channel continuity and provenance; not field observations.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "contract",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic_cross_channel_corpus_not_field_validated"
+    },
+    "contract": {
+      "const": "FARMER-UX-006"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 17,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "scenario",
+          "expected",
+          "allowed_effects",
+          "prohibited"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^FUXC-[0-9]{3}$"
+          },
+          "scenario": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^evt-[a-z0-9-]{3,64}$"
+            }
+          },
+          "request_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^req-[a-z0-9-]{3,64}$"
+            }
+          },
+          "digests_equal": {
+            "type": "boolean"
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recorder": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "time_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allowed_effects": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "prohibited": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

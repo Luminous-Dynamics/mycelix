@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/farmer-ux-006-channel-envelope-v1.schema.json",
+  "title": "Farmer UX-006 channel-neutral request event envelope",
+  "description": "Privacy-minimized metadata; structural validation is not proof of actor identity, consent, source authenticity or remote effects.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "request_ref",
+    "event_id",
+    "event_kind",
+    "payload_digest",
+    "channel",
+    "asserting_actor_role",
+    "recording_actor_role",
+    "authority_basis",
+    "scope_ref",
+    "captured_at",
+    "capture_time_source",
+    "received_at",
+    "evidence_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "request_ref": {
+      "type": "string",
+      "pattern": "^req-[a-z0-9-]{3,64}$"
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt-[a-z0-9-]{3,64}$"
+    },
+    "event_kind": {
+      "enum": [
+        "request_captured",
+        "request_relayed",
+        "provider_receipt",
+        "quote_reported",
+        "quote_authoritatively_offered",
+        "farmer_quote_decision",
+        "booking_confirmed",
+        "provider_reported_complete",
+        "farmer_accepted",
+        "farmer_disputed",
+        "cancellation",
+        "no_provider",
+        "correction",
+        "consent_revoked",
+        "reconciliation_result"
+      ]
+    },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "channel": {
+      "enum": [
+        "app",
+        "sms",
+        "voice_phone",
+        "extension_assisted",
+        "cooperative_broker_assisted",
+        "paper_digitized",
+        "imported"
+      ]
+    },
+    "asserting_actor_role": {
+      "enum": [
+        "farmer",
+        "extension_worker",
+        "cooperative_representative",
+        "service_provider",
+        "system_import"
+      ]
+    },
+    "recording_actor_role": {
+      "enum": [
+        "farmer",
+        "extension_worker",
+        "cooperative_representative",
+        "service_provider",
+        "system_import"
+      ]
+    },
+    "authority_basis": {
+      "enum": [
+        "self_action",
+        "explicit_consent",
+        "delegated_mandate",
+        "provider_authority",
+        "unverified_relay",
+        "system_import"
+      ]
+    },
+    "authority_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "consent_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "scope_ref": {
+      "type": "string",
+      "pattern": "^scope-[a-z0-9-]{3,64}$"
+    },
+    "captured_at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capture_time_source": {
+      "enum": [
+        "device_clock",
+        "paper_claim",
+        "agent_report",
+        "provider_timestamp",
+        "server_clock",
+        "unknown"
+      ]
+    },
+    "capture_time_precision_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "received_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "verified_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "evidence_state": {
+      "enum": [
+        "self_reported",
+        "relayed",
+        "authoritative_provider_receipt",
+        "authoritative_service_event",
+        "conflicting",
+        "stale",
+        "unknown"
+      ]
+    },
+    "supersedes_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^evt-[a-z0-9-]{3,64}$"
+    },
+    "suspected_duplicate_request_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^req-[a-z0-9-]{3,64}$"
+    }
+  },
+  "additionalProperties": false
+}
