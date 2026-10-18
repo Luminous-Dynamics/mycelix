@@ -381,18 +381,23 @@ pub struct EventLedger {
     events: BTreeMap<String, Event>,
     applied_event_effects: BTreeSet<String>,
     request_refs: BTreeSet<String>,
-    conflicts: BTreeSet<String>,
+    conflicting_events: BTreeMap<String, Vec<Event>>,
     duplicate_deliveries: usize,
 }
 
 impl EventLedger {
     pub fn ingest(&mut self, event: Event) -> IngestResult {
         if let Some(previous) = self.events.get(&event.event_id) {
-            if previous.digest == event.digest && previous.request_ref == event.request_ref {
+            if previous == &event {
                 self.duplicate_deliveries += 1;
                 return IngestResult::Duplicate;
             }
-            self.conflicts.insert(event.event_id);
+            // The event identifier is already bound. A differing envelope must
+            // not replace the first event even when payload digests happen to match.
+            self.conflicting_events
+                .entry(event.event_id.clone())
+                .or_default()
+                .push(event);
             return IngestResult::Conflict;
         }
         self.request_refs.insert(event.request_ref.clone());
@@ -414,7 +419,14 @@ impl EventLedger {
     }
 
     pub fn conflict_count(&self) -> usize {
-        self.conflicts.len()
+        self.conflicting_events.values().map(Vec::len).sum()
+    }
+
+    pub fn conflicting_events(&self, event_id: &str) -> &[Event] {
+        self.conflicting_events
+            .get(event_id)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     pub fn duplicate_delivery_count(&self) -> usize {
@@ -632,31 +644,52 @@ mod tests {
     }
 
     #[test]
-    fn same_event_same_digest_is_idempotent_without_provenance_overwrite() {
+    fn exact_envelope_replay_is_idempotent_without_provenance_overwrite() {
         let mut ledger = EventLedger::default();
         let original = synthetic_event(42, 0);
         let event_id = original.event_id.clone();
         assert_eq!(ledger.ingest(original.clone()), IngestResult::Applied);
-        let mut replay = original.clone();
-        replay.recording_role = "different_recorder".to_owned();
-        assert_eq!(ledger.ingest(replay), IngestResult::Duplicate);
+        assert_eq!(ledger.ingest(original.clone()), IngestResult::Duplicate);
         assert_eq!(ledger.applied_effect_count(), 1);
-        assert_eq!(ledger.stored(&event_id).expect("stored original").recording_role, original.recording_role);
+        assert_eq!(
+            ledger.stored(&event_id).expect("stored original"),
+            &original
+        );
+        assert_eq!(ledger.duplicate_delivery_count(), 1);
     }
 
     #[test]
-    fn same_event_id_different_digest_is_conflict_not_overwrite() {
+    fn same_payload_digest_with_changed_provenance_is_conflict() {
+        let mut ledger = EventLedger::default();
+        let original = synthetic_event(42, 0);
+        let event_id = original.event_id.clone();
+        let mut altered = original.clone();
+        altered.recording_role = "different_recorder".to_owned();
+        assert_eq!(ledger.ingest(original.clone()), IngestResult::Applied);
+        assert_eq!(ledger.ingest(altered.clone()), IngestResult::Conflict);
+        assert_eq!(ledger.stored(&event_id).expect("first event remains"), &original);
+        assert_eq!(ledger.conflict_count(), 1);
+        assert_eq!(ledger.conflicting_events(&event_id), &[altered]);
+        assert_eq!(ledger.applied_effect_count(), 1);
+    }
+
+    #[test]
+    fn same_event_id_different_digest_is_recorded_conflict_not_overwrite() {
         let mut ledger = EventLedger::default();
         let original = synthetic_event(42, 1);
         let event_id = original.event_id.clone();
         let original_digest = original.digest.clone();
-        assert_eq!(ledger.ingest(original), IngestResult::Applied);
         let mut conflict = synthetic_event(42, 1);
         conflict.digest = "different-digest".to_owned();
-        assert_eq!(ledger.ingest(conflict), IngestResult::Conflict);
-        assert_eq!(ledger.stored(&event_id).expect("stored first event").digest, original_digest);
+        assert_eq!(ledger.ingest(original.clone()), IngestResult::Applied);
+        assert_eq!(ledger.ingest(conflict.clone()), IngestResult::Conflict);
+        assert_eq!(
+            ledger.stored(&event_id).expect("stored first event").digest,
+            original_digest
+        );
         assert_eq!(ledger.applied_effect_count(), 1);
         assert_eq!(ledger.conflict_count(), 1);
+        assert_eq!(ledger.conflicting_events(&event_id), &[conflict]);
     }
 
     #[test]
