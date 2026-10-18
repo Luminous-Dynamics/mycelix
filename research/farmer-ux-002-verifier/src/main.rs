@@ -57,6 +57,85 @@ const REQUIRED_INVARIANTS: &[&str] = &[
     "human_mediated_channel_must_preserve_request_reference",
 ];
 
+const REQUIRED_CASE_STATES: &[(&str, &str, &str)] = &[
+    ("FUX-QUOTE-002", "quote_expired_needs_new_offer", "expired_quote"),
+    ("FUX-QUOTE-003", "quote_incomplete", "needs_complete_quote"),
+    ("FUX-ROUTE-005", "route_access_unknown", "travel_time_unknown"),
+    ("FUX-COMPLETION-007", "completed_awaiting_farmer_decision", "provider_reports_completion_review_needed"),
+    ("FUX-AUTH-013", "relay_not_authorized", "authorization_needed"),
+    ("FUX-SCOPE-014", "quote_scope_mismatch", "quote_does_not_match_request"),
+    ("FUX-ROUTE-015", "route_estimate_only", "modelled_time_not_measured"),
+    ("FUX-PRIVACY-016", "precision_restricted", "coarsened_or_access_denied"),
+    ("FUX-DIGEST-017", "provenance_unverified", "reference_not_authenticated"),
+    ("FUX-CAPACITY-019", "provider_capacity_changed", "offer_no_longer_fulfillable"),
+    ("FUX-EXPORT-020", "export_includes_sync_state", "export_with_pending_events_disclosed"),
+    ("FUX-DEFER-021", "farmer_deferred_with_reminder", "deferred_not_failed"),
+    ("FUX-NOSHOW-022", "no_show_unresolved", "service_not_delivered_escalation_available"),
+];
+
+const REQUIRED_FORBIDDEN_LABELS: &[(&str, &str)] = &[
+    ("FUX-QUOTE-002", "booking_confirmed"),
+    ("FUX-QUOTE-003", "booking_confirmed"),
+    ("FUX-SYNC-004", "silent_last_write_wins"),
+    ("FUX-ROUTE-005", "invented_travel_minutes"),
+    ("FUX-NOPROVIDER-006", "service_delivered"),
+    ("FUX-COMPLETION-007", "farmer_accepted"),
+    ("FUX-REWORK-008", "accepted_service"),
+    ("FUX-CONSENT-010", "future_share_without_authority"),
+    ("FUX-HUMAN-011", "forced_app_registration"),
+    ("FUX-PAYMENT-012", "payment_completed"),
+    ("FUX-AUTH-013", "request_submitted_as_farmer"),
+    ("FUX-SCOPE-014", "booking_confirmed"),
+    ("FUX-ROUTE-015", "observed_trip_claim"),
+    ("FUX-PRIVACY-016", "exact_coordinate_in_public_projection"),
+    ("FUX-DIGEST-017", "source_authenticated"),
+    ("FUX-LANGUAGE-018", "acceptance_assumed_from_button_click"),
+    ("FUX-CAPACITY-019", "booking_confirmed"),
+    ("FUX-EXPORT-020", "all_events_claimed_server_confirmed"),
+    ("FUX-DEFER-021", "action_claimed_completed"),
+    ("FUX-NOSHOW-022", "service_fulfilled"),
+    ("FUX-NOSHOW-022", "request_removed_from_metrics"),
+];
+
+const REQUIRED_COPY_NONIMPLICATIONS: &[(&str, &str)] = &[
+    ("local_saved", "server_received"),
+    ("local_saved", "provider_notified"),
+    ("local_saved", "booking_confirmed"),
+    ("sync_pending", "request_received_by_provider"),
+    ("sync_pending", "booking_confirmed"),
+    ("sync_confirmed", "provider_available"),
+    ("sync_confirmed", "quote_accepted"),
+    ("sync_confirmed", "booking_confirmed"),
+    ("evidence_stale", "current_field_condition_verified"),
+    ("evidence_conflict", "conflicting_values_can_be_averaged_into_truth"),
+    ("evidence_unknown", "unknown_means_zero"),
+    ("evidence_unknown", "unknown_means_safe"),
+    ("evidence_unknown", "unknown_means_false"),
+    ("modelled_route", "observed_travel_time"),
+    ("modelled_route", "guaranteed_arrival"),
+    ("no_route_evidence", "zero_minutes"),
+    ("no_route_evidence", "guaranteed_service_access"),
+    ("no_provider", "service_delivered"),
+    ("no_provider", "request_deleted"),
+    ("quote_incomplete", "total_cost_is_known"),
+    ("quote_incomplete", "booking_confirmed"),
+    ("quote_expired", "old_price_is_still_valid"),
+    ("quote_expired", "booking_confirmed"),
+    ("booking_confirmed", "work_completed"),
+    ("booking_confirmed", "farmer_accepted_completion"),
+    ("booking_confirmed", "payment_completed"),
+    ("provider_reported_complete", "farmer_accepted"),
+    ("provider_reported_complete", "payment_authorized"),
+    ("service_accepted", "payment_completed_unless_separately_confirmed"),
+    ("service_disputed", "fault_or_guilt_adjudicated"),
+    ("service_disputed", "dispute_resolved"),
+    ("service_disputed", "farmer_penalized"),
+    ("permission_revoked", "external_copies_were_recalled"),
+    ("permission_revoked", "all_data_is_deleted_everywhere"),
+    ("human_mediation", "app_registration_required"),
+    ("human_mediation", "human_relay_authority_is_implicit"),
+];
+
 #[derive(Debug, Serialize)]
 struct ArtifactReport {
     name: String,
@@ -190,6 +269,46 @@ fn semantic_checks(cases: &Value, roles: &Value, copy: &Value) -> Vec<String> {
     for invariant in REQUIRED_INVARIANTS {
         if !invariants.contains(*invariant) {
             errors.push(format!("shared_invariants: missing required invariant {invariant}"));
+        }
+    }
+
+    for (case_id, request_state, visible_state) in REQUIRED_CASE_STATES {
+        match find(cases, "cases", "id", case_id) {
+            Some(case) => {
+                let actual_request = case.pointer("/expected/request_state").and_then(Value::as_str);
+                let actual_visible = case.pointer("/expected/visible_state").and_then(Value::as_str);
+                if actual_request != Some(*request_state) {
+                    errors.push(format!("{case_id}: expected request_state {request_state:?}, found {actual_request:?}"));
+                }
+                if actual_visible != Some(*visible_state) {
+                    errors.push(format!("{case_id}: expected visible_state {visible_state:?}, found {actual_visible:?}"));
+                }
+            }
+            None => errors.push(format!("{case_id}: pinned v1 state contract cannot be checked because the case is missing")),
+        }
+    }
+
+    for (case_id, forbidden_label) in REQUIRED_FORBIDDEN_LABELS {
+        match find(cases, "cases", "id", case_id) {
+            Some(case) => {
+                let forbidden = string_set(case.pointer("/expected/must_not_show"));
+                if !forbidden.contains(*forbidden_label) {
+                    errors.push(format!("{case_id}: must_not_show must retain {forbidden_label:?}"));
+                }
+            }
+            None => errors.push(format!("{case_id}: cannot check forbidden label {forbidden_label:?}; case is missing")),
+        }
+    }
+
+    for (copy_key, forbidden_implication) in REQUIRED_COPY_NONIMPLICATIONS {
+        match find(copy, "states", "key", copy_key) {
+            Some(state) => {
+                let forbidden = string_set(state.get("must_not_imply"));
+                if !forbidden.contains(*forbidden_implication) {
+                    errors.push(format!("{copy_key}: must_not_imply must retain {forbidden_implication:?}"));
+                }
+            }
+            None => errors.push(format!("{copy_key}: cannot check non-implication {forbidden_implication:?}; copy state is missing")),
         }
     }
 
@@ -394,6 +513,43 @@ mod tests {
         assert!(semantic_checks(&c, &roles(), &copy()).iter()
             .any(|e| e.contains("FUX-QUOTE-002") && e.contains("side_effect_counts.bookings=0")));
     }
+    #[test]
+    fn sha256_matches_standard_test_vector() {
+        assert_eq!(
+            sha256(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+    #[test]
+    fn expired_quote_state_drift_is_rejected() {
+        let mut c = cases();
+        c["cases"].as_array_mut().expect("array").iter_mut()
+            .find(|case| case["id"].as_str() == Some("FUX-QUOTE-002")).expect("case")
+            ["expected"]["request_state"] = Value::String("booking_confirmed".to_owned());
+        assert!(semantic_checks(&c, &roles(), &copy()).iter()
+            .any(|e| e.contains("FUX-QUOTE-002") && e.contains("request_state")));
+    }
+    #[test]
+    fn critical_forbidden_ui_label_cannot_be_removed() {
+        let mut c = cases();
+        c["cases"].as_array_mut().expect("array").iter_mut()
+            .find(|case| case["id"].as_str() == Some("FUX-DIGEST-017")).expect("case")
+            ["expected"]["must_not_show"].as_array_mut().expect("array")
+            .retain(|label| label.as_str() != Some("source_authenticated"));
+        assert!(semantic_checks(&c, &roles(), &copy()).iter()
+            .any(|e| e.contains("FUX-DIGEST-017") && e.contains("source_authenticated")));
+    }
+    #[test]
+    fn copy_cannot_claim_a_booking_is_completed_or_paid() {
+        let mut p = copy();
+        p["states"].as_array_mut().expect("array").iter_mut()
+            .find(|state| state["key"].as_str() == Some("booking_confirmed")).expect("state")
+            ["must_not_imply"].as_array_mut().expect("array")
+            .retain(|label| label.as_str() != Some("payment_completed"));
+        assert!(semantic_checks(&cases(), &roles(), &p).iter()
+            .any(|e| e.contains("booking_confirmed") && e.contains("payment_completed")));
+    }
+
     #[test]
     fn digest_syntax_cannot_become_source_authentication() {
         let mut c = cases();
