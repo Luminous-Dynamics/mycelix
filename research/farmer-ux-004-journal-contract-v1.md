@@ -15,9 +15,24 @@ A successful RPC may prove that the request was received. It does not automatica
 
 ## Reuse before implementing
 
-[Hearth PR #5059](https://github.com/Luminous-Dynamics/mycelix/pull/5059), branch `hth-ux-004-action-lifecycle`, currently has a pure lifecycle model at `mycelix-hearth/apps/leptos/src/action_lifecycle.rs`, source blob `1af673d1a38ea7d69ca51379088f07f088b5d080`. It defines eight statuses, an 8×8 transition oracle, fail-closed dispatch eligibility, and recovery of a persisted Submitted attempt as OutcomeUnknown. The durable browser journal is separately tracked in [HTH-UX-005 / issue #5060](https://github.com/Luminous-Dynamics/mycelix/issues/5060).
+The generic action lifecycle and browser journal are already being pursued in an open Hearth sequence; these PRs are not merged or fully qualified, so treat their APIs as review candidates, not an available production dependency:
 
-Both are open/unmerged. Do not assume the code exists on `main`, and do not fork a second competing generic status enum. Pin and review the exact owner head first. This farmer-specific layer defines adapter mapping, business-state distinctions, scope/consent policy, persistence fault cases and UI language.
+- [HTH-UX-004 / PR #5059](https://github.com/Luminous-Dynamics/mycelix/pull/5059) defines the dependency-free eight-state attempt lifecycle and transition oracle.
+- [HTH-UX-010 / PR #5116](https://github.com/Luminous-Dynamics/mycelix/pull/5116) adds a native web-sys IndexedDB adapter with strict transaction semantics.
+- [HTH-UX-011 / PR #5126](https://github.com/Luminous-Dynamics/mycelix/pull/5126) gates five live Hearth mutation paths on Prepared and Submitted commits.
+- [HTH-UX-012 / PR #5129](https://github.com/Luminous-Dynamics/mycelix/pull/5129) exposes scoped local action history without retry controls.
+- [HTH-UX-013 / issue #5130](https://github.com/Luminous-Dynamics/mycelix/issues/5130) specifies source-chain-scoped idempotency receipts for remote mutations.
+
+The canonical farm-service lifecycle also has an owner: [Symtropy PR #1906](https://github.com/Luminous-Dynamics/symtropy/pull/1906) implements a synthetic request-to-farmer-accepted-service evaluator, while [Symtropy issue #1936](https://github.com/Luminous-Dynamics/symtropy/issues/1936) covers offline-first and institution-integrated access. Those remain open work as well.
+
+Therefore this Mycelix farmer layer must **not** introduce another production attempt state machine, another browser-journal implementation, or a second quote/booking engine. Its role is to specify the adapter between the farmer-facing interaction and the owning contracts: local attempt status, receipt/quote/booking state, provider-reported completion, farmer acceptance/dispute, consent/scope binding, human-mediated channel, and honest recovery copy. Any shared crate extraction or browser-adapter reuse requires owner review and exact-head qualification.
+
+## Boundary between this adapter and the canonical service evaluator
+
+- Symtropy owns the request/quote/booking/completion/farmer-decision evaluation and its denominators; the Mycelix state mapping is an adapter contract and conformance guard, not a replacement service engine.
+- Mycelix/Hearth owns its generic client journal work. The Farmer Commons UI must reuse a qualified shared library/adapter or implement only a temporary, explicitly scoped adapter. Do not copy the IndexedDB journal source into a second app package as a long-term architecture.
+- Remote `operation_id` idempotency belongs to an authoritative backend/source-chain contract such as the work proposed in HTH-UX-013 / #5130. A browser UUID and fake dispatch harness cannot provide that guarantee.
+- Farmer-service completion/acceptance, service quality, affordability, task timing, no-provider outcomes and channel inclusion must be evaluated by the service contract and formative/field protocol—not by local journal or schema pass rates.
 
 ## Write-before-send invariant
 
