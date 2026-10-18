@@ -107,3 +107,20 @@ Before a pilot, define the farm task, season, eligible-request denominator, base
 - W3C, Web Content Accessibility Guidelines 2.2: https://www.w3.org/TR/WCAG22/
 
 These sources motivate design choices; they do not establish local user needs, South African field outcomes, route accuracy, or production readiness. Validate with farmers, extension workers, service providers and cooperatives before locking the information architecture.
+
+## Supporting machine-readable artifacts
+
+The same review branch provides supporting artifacts:
+
+- [Synthetic workflow corpus](farmer-ux-001-cases-v1.json) and [its JSON Schema](farmer-ux-001-cases-v1.schema.json). The corpus now contains 22 cases, including unauthorized delegated requests, quote-scope mismatch, modelled-versus-observed route semantics, precision leakage, digest-without-source-authentication, ambiguous fee translations, provider-capacity withdrawal, export/sync-state fidelity, deliberate deferral, and no-show denominator retention.
+- [Role/task matrix](farmer-ux-001-role-task-matrix-v1.json) and [its JSON Schema](farmer-ux-001-role-task-matrix-v1.schema.json). Nine proposed role profiles use the same underlying interaction primitives. Initial P0 roles are smallholder crop farmers, extension officers/agronomists, and irrigation/water service providers. P0/P1/P2/P3 are sequencing hypotheses to validate—not a market-size claim.
+- [State and microcopy deck](farmer-ux-001-copy-v1.json) and [its JSON Schema](farmer-ux-001-copy-v1.schema.json). It proposes 18 English user-visible states and prohibits claims that would exceed each state. Copy is not yet translated, comprehension-tested, or field-approved.
+
+A standalone structural check was run against the represented JSON Schema constraints after re-fetching the committed artifacts: 22 cases / 22 unique IDs, 9 role profiles / 9 unique IDs, and 18 copy states / 18 unique keys passed. This is not a full standards-compliant JSON Schema engine, independent semantic oracle, CI qualification, usability result, or field validation.
+
+## Research implications and design limits
+
+The 2026 *Field-Ready HCI* paper presents a conceptual model for mobile agricultural tools and explicitly treats benefits as conditional on context and user characteristics; its illustrative case is hypothetical, not field-trial evidence. The June 2026 *Journal of Rural Studies* paper reports limited or short-lived use despite high registrations/subscriptions in its examined settings and describes socio-technical misfit, low-tech channels, intermediaries, and farmer autonomy as relevant factors. Treat these as research inputs requiring local validation, not universal laws about every farmer or service.
+
+Use WCAG 2.2 AA as a baseline for applicable web UI conformance. The 44 x 44 CSS px primary-touch target is a product usability target informed by WCAG 2.2's AAA enhanced target criterion; WCAG 2.2 AA's minimum target-size criterion is 24 x 24 CSS px with exceptions. A 44 px target preference does not itself establish accessibility conformance.
+
