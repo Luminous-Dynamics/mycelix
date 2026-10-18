@@ -128,31 +128,71 @@ pub enum CompositionIssue {
     EmptyModuleId,
     DuplicateModuleId(String),
     UnknownSelectedModule(String),
-    UnknownParentModule { module_id: String, parent_id: String },
-    DuplicateParentModule { module_id: String, parent_id: String },
-    InvalidModuleMetadata { module_id: String, field: &'static str },
+    UnknownParentModule {
+        module_id: String,
+        parent_id: String,
+    },
+    DuplicateParentModule {
+        module_id: String,
+        parent_id: String,
+    },
+    InvalidModuleMetadata {
+        module_id: String,
+        field: &'static str,
+    },
     InvalidSourceDigest(String),
     InvalidJurisdictionPath(String),
-    IncompatibleParentScope { parent_id: String, child_id: String },
+    IncompatibleParentScope {
+        parent_id: String,
+        child_id: String,
+    },
     ModuleDependencyCycle,
-    EmptyStatementId { module_id: String },
+    EmptyStatementId {
+        module_id: String,
+    },
     DuplicateStatementId(String),
-    InvalidStatementMetadata { statement_id: String, field: &'static str },
+    InvalidStatementMetadata {
+        statement_id: String,
+        field: &'static str,
+    },
     BindingStatementInGlobalReference(String),
     BindingStatementFromNonApplicableSource(String),
-    DuplicateOverrideTarget { statement_id: String, target_statement_id: String },
-    OverrideNotAuthenticated { statement_id: String, target_statement_id: String },
+    DuplicateOverrideTarget {
+        statement_id: String,
+        target_statement_id: String,
+    },
+    OverrideNotAuthenticated {
+        statement_id: String,
+        target_statement_id: String,
+    },
     OverrideVerificationFailed {
         statement_id: String,
         target_statement_id: String,
         reason: OverrideVerification,
     },
-    InvalidOverrideMetadata { statement_id: String, field: &'static str },
-    InvalidOverrideEvidenceDigest { statement_id: String },
-    UnknownOverrideTarget { statement_id: String, target_statement_id: String },
-    OverrideTargetNotBinding { statement_id: String, target_statement_id: String },
-    OverrideTargetNotInherited { statement_id: String, target_statement_id: String },
-    OverrideRequirementMismatch { statement_id: String, target_statement_id: String },
+    InvalidOverrideMetadata {
+        statement_id: String,
+        field: &'static str,
+    },
+    InvalidOverrideEvidenceDigest {
+        statement_id: String,
+    },
+    UnknownOverrideTarget {
+        statement_id: String,
+        target_statement_id: String,
+    },
+    OverrideTargetNotBinding {
+        statement_id: String,
+        target_statement_id: String,
+    },
+    OverrideTargetNotInherited {
+        statement_id: String,
+        target_statement_id: String,
+    },
+    OverrideRequirementMismatch {
+        statement_id: String,
+        target_statement_id: String,
+    },
     OverrideSourceNotBinding(String),
 }
 
@@ -227,7 +267,10 @@ fn parent_scope_covers(parent: &RuleModuleScope, child: &RuleModuleScope) -> boo
             let parent_parts: Vec<_> = parent.split('/').collect();
             let child_parts: Vec<_> = child.split('/').collect();
             parent_parts.len() <= child_parts.len()
-                && parent_parts.iter().zip(child_parts.iter()).all(|(a, b)| a == b)
+                && parent_parts
+                    .iter()
+                    .zip(child_parts.iter())
+                    .all(|(a, b)| a == b)
         }
     }
 }
@@ -306,11 +349,10 @@ fn compose_rule_modules_internal(
             issues.push(CompositionIssue::EmptyModuleId);
             continue;
         }
-        if by_id
-            .insert(module.module_id.as_str(), module)
-            .is_some()
-        {
-            issues.push(CompositionIssue::DuplicateModuleId(module.module_id.clone()));
+        if by_id.insert(module.module_id.as_str(), module).is_some() {
+            issues.push(CompositionIssue::DuplicateModuleId(
+                module.module_id.clone(),
+            ));
         }
     }
     if !issues.is_empty() {
@@ -368,11 +410,15 @@ fn compose_rule_modules_internal(
             }
         }
         if !is_sha256_hex(&module.source_sha256) {
-            issues.push(CompositionIssue::InvalidSourceDigest(module.module_id.clone()));
+            issues.push(CompositionIssue::InvalidSourceDigest(
+                module.module_id.clone(),
+            ));
         }
         if let RuleModuleScope::Jurisdiction(path) = &module.scope {
             if !valid_jurisdiction_path(path) {
-                issues.push(CompositionIssue::InvalidJurisdictionPath(module.module_id.clone()));
+                issues.push(CompositionIssue::InvalidJurisdictionPath(
+                    module.module_id.clone(),
+                ));
             }
         }
         for parent_id in &module.parent_module_ids {
@@ -532,8 +578,14 @@ fn compose_rule_modules_internal(
                 }
 
                 for (field, value) in [
-                    ("target_statement_id", directive.target_statement_id.as_str()),
-                    ("authority_decision_id", directive.authority_decision_id.as_str()),
+                    (
+                        "target_statement_id",
+                        directive.target_statement_id.as_str(),
+                    ),
+                    (
+                        "authority_decision_id",
+                        directive.authority_decision_id.as_str(),
+                    ),
                     ("reviewed_by", directive.reviewed_by.as_str()),
                     ("rationale", directive.rationale.as_str()),
                 ] {
@@ -571,11 +623,8 @@ fn compose_rule_modules_internal(
                         target_statement_id: directive.target_statement_id.clone(),
                     });
                 }
-                if !module_is_ancestor(
-                    &target_module.module_id,
-                    &module.module_id,
-                    &by_id,
-                ) || !parent_scope_covers(&target_module.scope, &module.scope)
+                if !module_is_ancestor(&target_module.module_id, &module.module_id, &by_id)
+                    || !parent_scope_covers(&target_module.scope, &module.scope)
                     || target_module.scope == RuleModuleScope::GlobalReference
                 {
                     issues.push(CompositionIssue::OverrideTargetNotInherited {
@@ -622,7 +671,9 @@ fn compose_rule_modules_internal(
                 source: source.clone(),
             };
             match statement.force {
-                RuleForce::BindingRequirement if !superseded_ids.contains(statement.statement_id.as_str()) => {
+                RuleForce::BindingRequirement
+                    if !superseded_ids.contains(statement.statement_id.as_str()) =>
+                {
                     binding_groups
                         .entry(statement.requirement_id.clone())
                         .or_default()
@@ -648,23 +699,27 @@ fn compose_rule_modules_internal(
                         (&left.module_id, &left.statement_id)
                             .cmp(&(&right.module_id, &right.statement_id))
                     });
-                    RuleConflictCandidate { normalized_value, sources }
+                    RuleConflictCandidate {
+                        normalized_value,
+                        sources,
+                    }
                 })
                 .collect();
-            conflicts.push(RuleConflict { requirement_id, candidates });
+            conflicts.push(RuleConflict {
+                requirement_id,
+                candidates,
+            });
         } else if let Some((normalized_value, mut contributing_sources)) =
             value_groups.into_iter().next()
         {
             contributing_sources.sort_by(|left, right| {
-                (&left.module_id, &left.statement_id)
-                    .cmp(&(&right.module_id, &right.statement_id))
+                (&left.module_id, &left.statement_id).cmp(&(&right.module_id, &right.statement_id))
             });
             let mut superseded_sources = superseded_sources_by_requirement
                 .remove(&requirement_id)
                 .unwrap_or_default();
             superseded_sources.sort_by(|left, right| {
-                (&left.module_id, &left.statement_id)
-                    .cmp(&(&right.module_id, &right.statement_id))
+                (&left.module_id, &left.statement_id).cmp(&(&right.module_id, &right.statement_id))
             });
             binding_requirements.push(EffectiveBindingRequirement {
                 requirement_id,
@@ -676,12 +731,28 @@ fn compose_rule_modules_internal(
     }
 
     non_binding_assertions.sort_by(|left, right| {
-        (&left.requirement_id, &left.source.module_id, &left.source.statement_id)
-            .cmp(&(&right.requirement_id, &right.source.module_id, &right.source.statement_id))
+        (
+            &left.requirement_id,
+            &left.source.module_id,
+            &left.source.statement_id,
+        )
+            .cmp(&(
+                &right.requirement_id,
+                &right.source.module_id,
+                &right.source.statement_id,
+            ))
     });
     owner_preferences.sort_by(|left, right| {
-        (&left.requirement_id, &left.source.module_id, &left.source.statement_id)
-            .cmp(&(&right.requirement_id, &right.source.module_id, &right.source.statement_id))
+        (
+            &left.requirement_id,
+            &left.source.module_id,
+            &left.source.statement_id,
+        )
+            .cmp(&(
+                &right.requirement_id,
+                &right.source.module_id,
+                &right.source.statement_id,
+            ))
     });
     let mut superseded_sources: Vec<_> = superseded_sources_by_requirement
         .into_values()
@@ -745,7 +816,10 @@ mod tests {
         }
     }
 
-    fn layered_modules(local_value: &str, local_overrides: Vec<OverrideDirective>) -> Vec<RuleModule> {
+    fn layered_modules(
+        local_value: &str,
+        local_overrides: Vec<OverrideDirective>,
+    ) -> Vec<RuleModule> {
         let national_statement = statement(
             "national:ventilation",
             "ventilation.minimum_rate",
@@ -802,7 +876,8 @@ mod tests {
             target_statement_id: target.into(),
             authority_decision_id: "decision:municipal-reviewed-variance".into(),
             reviewed_by: "reviewer:independent-human".into(),
-            rationale: "Reviewed alternative with evidence and jurisdiction authority record".into(),
+            rationale: "Reviewed alternative with evidence and jurisdiction authority record"
+                .into(),
             evidence_sha256: "b".repeat(64),
         }
     }
@@ -893,11 +968,16 @@ mod tests {
         ] {
             let result = compose_rule_modules(&[jurisdiction.into()], &modules).unwrap();
             assert_eq!(result.binding_requirements.len(), 1);
-            assert_eq!(result.binding_requirements[0].normalized_value, expected_value);
+            assert_eq!(
+                result.binding_requirements[0].normalized_value,
+                expected_value
+            );
             assert_eq!(result.conflicts.len(), 0);
-            assert!(result
-                .module_lineage
-                .contains(&"global:ventilation-reference".to_owned()));
+            assert!(
+                result
+                    .module_lineage
+                    .contains(&"global:ventilation-reference".to_owned())
+            );
             assert!(!result.module_lineage.iter().any(|module_id| {
                 foreign_module_ids
                     .iter()
@@ -916,7 +996,10 @@ mod tests {
         let result = compose_rule_modules(&["ZA/GP/Johannesburg".into()], &modules).unwrap();
         assert!(result.binding_requirements.is_empty());
         assert_eq!(result.conflicts.len(), 1);
-        assert_eq!(result.conflicts[0].requirement_id, "ventilation.minimum_rate");
+        assert_eq!(
+            result.conflicts[0].requirement_id,
+            "ventilation.minimum_rate"
+        );
         assert_eq!(result.conflicts[0].candidates.len(), 2);
     }
 
@@ -927,10 +1010,12 @@ mod tests {
             vec![reviewed_override("national:ventilation")],
         );
         let issues = compose_rule_modules(&["ZA/GP/Johannesburg".into()], &modules).unwrap_err();
-        assert!(issues.contains(&CompositionIssue::OverrideNotAuthenticated {
-            statement_id: "municipal:ventilation".into(),
-            target_statement_id: "national:ventilation".into(),
-        }));
+        assert!(
+            issues.contains(&CompositionIssue::OverrideNotAuthenticated {
+                statement_id: "municipal:ventilation".into(),
+                target_statement_id: "national:ventilation".into(),
+            })
+        );
     }
 
     #[test]
@@ -953,7 +1038,10 @@ mod tests {
         let effective = &result.binding_requirements[0];
         assert_eq!(effective.normalized_value, "value:local-reviewed");
         assert_eq!(effective.superseded_sources.len(), 1);
-        assert_eq!(effective.superseded_sources[0].statement_id, "national:ventilation");
+        assert_eq!(
+            effective.superseded_sources[0].statement_id,
+            "national:ventilation"
+        );
     }
 
     #[test]
@@ -970,11 +1058,15 @@ mod tests {
             },
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains(&CompositionIssue::OverrideVerificationFailed {
-            statement_id: "municipal:ventilation".into(),
-            target_statement_id: "national:ventilation".into(),
-            reason: OverrideVerification::DecisionDoesNotAuthorizeOverride,
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .contains(&CompositionIssue::OverrideVerificationFailed {
+                    statement_id: "municipal:ventilation".into(),
+                    target_statement_id: "national:ventilation".into(),
+                    reason: OverrideVerification::DecisionDoesNotAuthorizeOverride,
+                })
+        );
     }
 
     #[test]
@@ -993,10 +1085,12 @@ mod tests {
             vec![proposal],
         )];
         let issues = compose_rule_modules(&["ZA/proposal".into()], &modules).unwrap_err();
-        assert!(issues.contains(&CompositionIssue::InvalidStatementMetadata {
-            statement_id: "reform:window-alternative".into(),
-            field: "reform_dossier_id",
-        }));
+        assert!(
+            issues.contains(&CompositionIssue::InvalidStatementMetadata {
+                statement_id: "reform:window-alternative".into(),
+                field: "reform_dossier_id",
+            })
+        );
 
         let mut proposal = statement(
             "reform:window-alternative",
@@ -1014,7 +1108,9 @@ mod tests {
         )];
         let result = compose_rule_modules(&["ZA/proposal".into()], &modules).unwrap();
         assert_eq!(
-            result.non_binding_assertions[0].reform_dossier_id.as_deref(),
+            result.non_binding_assertions[0]
+                .reform_dossier_id
+                .as_deref(),
             Some("reform:windows:case-1")
         );
         assert!(result.binding_requirements.is_empty());
@@ -1035,9 +1131,11 @@ mod tests {
             )],
         )];
         let issues = compose_rule_modules(&["ZA/proposal".into()], &modules).unwrap_err();
-        assert!(issues.contains(&CompositionIssue::BindingStatementFromNonApplicableSource(
-            "proposal:minimum-area".into()
-        )));
+        assert!(
+            issues.contains(&CompositionIssue::BindingStatementFromNonApplicableSource(
+                "proposal:minimum-area".into()
+            ))
+        );
     }
 
     #[test]
@@ -1055,9 +1153,11 @@ mod tests {
             )],
         )];
         let issues = compose_rule_modules(&["global:law".into()], &modules).unwrap_err();
-        assert!(issues.contains(&CompositionIssue::BindingStatementInGlobalReference(
-            "fake:binding".into()
-        )));
+        assert!(
+            issues.contains(&CompositionIssue::BindingStatementInGlobalReference(
+                "fake:binding".into()
+            ))
+        );
     }
 
     #[test]
@@ -1080,8 +1180,20 @@ mod tests {
     #[test]
     fn module_cycles_block_composition() {
         let modules = vec![
-            module("ZA", RuleModuleScope::Jurisdiction("ZA".into()), &["ZA/GP"], source_status(), vec![]),
-            module("ZA/GP", RuleModuleScope::Jurisdiction("ZA".into()), &["ZA"], source_status(), vec![]),
+            module(
+                "ZA",
+                RuleModuleScope::Jurisdiction("ZA".into()),
+                &["ZA/GP"],
+                source_status(),
+                vec![],
+            ),
+            module(
+                "ZA/GP",
+                RuleModuleScope::Jurisdiction("ZA".into()),
+                &["ZA"],
+                source_status(),
+                vec![],
+            ),
         ];
         let issues = compose_rule_modules(&["ZA/GP".into()], &modules).unwrap_err();
         assert!(issues.contains(&CompositionIssue::ModuleDependencyCycle));
@@ -1090,8 +1202,20 @@ mod tests {
     #[test]
     fn incompatible_parent_scope_blocks_composition() {
         let modules = vec![
-            module("ZA/GP", RuleModuleScope::Jurisdiction("ZA/GP".into()), &[], source_status(), vec![]),
-            module("ZA", RuleModuleScope::Jurisdiction("ZA".into()), &["ZA/GP"], source_status(), vec![]),
+            module(
+                "ZA/GP",
+                RuleModuleScope::Jurisdiction("ZA/GP".into()),
+                &[],
+                source_status(),
+                vec![],
+            ),
+            module(
+                "ZA",
+                RuleModuleScope::Jurisdiction("ZA".into()),
+                &["ZA/GP"],
+                source_status(),
+                vec![],
+            ),
         ];
         let issues = compose_rule_modules(&["ZA".into()], &modules).unwrap_err();
         assert!(issues.contains(&CompositionIssue::IncompatibleParentScope {
