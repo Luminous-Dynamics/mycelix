@@ -19,6 +19,22 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = ROOT / "fixtures" / "johannesburg-adaptable-home-v1.json"
 SCHEMA_PATH = ROOT / "fixtures" / "home-design-reference-fixture-1.0.0.schema.json"
+CAPABILITY_REGISTRY_PATH = ROOT / "fixtures" / "jurisdiction-capability-cards-synthetic-v1.json"
+CAPABILITY_SCHEMA_PATH = ROOT / "fixtures" / "jurisdiction-capability-cards-1.0.0.schema.json"
+REQUIRED_CAPABILITY_DOMAINS = {
+    "residential_building",
+    "planning_and_land_use",
+    "structural_safety",
+    "fire_and_life_safety",
+    "energy_and_thermal",
+    "accessibility",
+    "water_and_sanitation",
+    "electrical_installations",
+    "permit_and_inspection_process",
+    "heritage_and_conservation",
+    "environmental_and_site_hazards",
+}
+SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 def fail(path: str, message: str) -> None:
@@ -335,6 +351,157 @@ def validate_semantics(fixture: dict[str, Any]) -> None:
         fail("$.evidence_boundary", "fixture must not imply real design or compliance evidence")
 
 
+def validate_capability_registry(registry: dict[str, Any]) -> None:
+    """Cross-check global rollout claims beyond the portable schema shape."""
+    seen_jurisdictions: set[str] = set()
+    for card in registry["capability_cards"]:
+        path = f"capability_card:{card['jurisdiction_id']}"
+        jurisdiction = card["jurisdiction_id"]
+        if jurisdiction in seen_jurisdictions:
+            fail("$.capability_cards", f"duplicate jurisdiction ID {jurisdiction!r}")
+        seen_jurisdictions.add(jurisdiction)
+
+        for field in (
+            "subject_sha256",
+            "source_registry_snapshot_sha256",
+            "test_corpus_sha256",
+        ):
+            if not SHA256_PATTERN.fullmatch(card[field]):
+                fail(f"{path}.{field}", "expected a 64-character SHA-256 hex digest")
+        if card["source_registry_checked_on_day"] > card["registry_as_of_day"]:
+            fail(path, "source-registry check date cannot be in the future")
+
+        if not card["accountable_maintainer"].strip():
+            fail(path, "accountable maintainer is required")
+        if not card["update_policy"].strip():
+            fail(path, "source update policy is required")
+        if any(not gap.strip() for gap in card["known_scope_gaps"]):
+            fail(path, "known scope gaps must be explicit, nonblank records")
+
+        coverage_by_domain: dict[str, dict[str, Any]] = {}
+        for record in card["coverage"]:
+            domain = record["domain"]
+            if domain in coverage_by_domain:
+                fail(path, f"duplicate coverage record for {domain}")
+            coverage_by_domain[domain] = record
+            disposition = record["disposition"]
+            if disposition == "covered":
+                if not record["module_ids"] or any(not value.strip() for value in record["module_ids"]):
+                    fail(path, f"{domain}: covered state requires module IDs")
+                if len(set(record["module_ids"])) != len(record["module_ids"]):
+                    fail(path, f"{domain}: module IDs must be unique")
+                if not SHA256_PATTERN.fullmatch(record["source_snapshot_sha256"]):
+                    fail(path, f"{domain}: source snapshot digest is malformed")
+            elif disposition == "explicitly_not_applicable":
+                if not record["rationale"].strip() or not record["decision_reference"].strip():
+                    fail(path, f"{domain}: not-applicable needs rationale and decision reference")
+            elif disposition == "missing":
+                if not record["gap_description"].strip():
+                    fail(path, f"{domain}: missing coverage needs an explicit gap")
+
+        reviewer_ids: set[str] = set()
+        for review in card["independent_reviews"]:
+            reviewer = review["reviewer_id"]
+            if not reviewer.strip() or reviewer in reviewer_ids:
+                fail(path, f"reviewer ID is blank or duplicate: {reviewer!r}")
+            reviewer_ids.add(reviewer)
+            if reviewer == card["accountable_maintainer"]:
+                fail(path, "accountable maintainer cannot count as an independent reviewer")
+            if review["reviewed_subject_sha256"] != card["subject_sha256"]:
+                fail(path, f"reviewer {reviewer!r} did not review this exact card subject")
+
+        if card["declared_status"] == "supported":
+            missing = REQUIRED_CAPABILITY_DOMAINS - set(coverage_by_domain)
+            if missing:
+                fail(path, f"supported claim omits regulatory domains {sorted(missing)}")
+            gaps = [
+                domain for domain, record in coverage_by_domain.items()
+                if domain in REQUIRED_CAPABILITY_DOMAINS and record["disposition"] == "missing"
+            ]
+            if gaps:
+                fail(path, f"supported claim has missing domain coverage {sorted(gaps)}")
+            if card["tested_case_count"] <= 0:
+                fail(path, "supported claim requires a nonempty independent test corpus")
+            if len(reviewer_ids) < 2:
+                fail(path, "supported claim requires at least two independent reviewers")
+            if not card["independent_reviews"] or any(
+                review["disposition"] != "supports_bounded_support_claim"
+                for review in card["independent_reviews"]
+            ):
+                fail(path, "supported claim requires explicit supportive reviews; dissent must not be erased")
+
+
+def run_capability_negative_controls(
+    registry: dict[str, Any], schema: dict[str, Any]
+) -> int:
+    base = deepcopy(registry["capability_cards"][0])
+    base["declared_status"] = "supported"
+    base["tested_case_count"] = 120
+    base["coverage"] = [
+        {
+            "domain": domain,
+            "disposition": "covered",
+            "module_ids": [f"synthetic:{domain}:v1"],
+            "source_snapshot_sha256": "d" * 64,
+        }
+        for domain in sorted(REQUIRED_CAPABILITY_DOMAINS)
+    ]
+    base["independent_reviews"] = [
+        {
+            "reviewer_id": reviewer,
+            "review_scope": "Independent source and scope review",
+            "reviewed_subject_sha256": base["subject_sha256"],
+            "disposition": "supports_bounded_support_claim",
+            "rationale": "Synthetic test-only review",
+            "conflict_of_interest_disclosure": "Synthetic disclosure",
+        }
+        for reviewer in ("reviewer-a", "reviewer-b")
+    ]
+    base["known_scope_gaps"] = []
+    supported_fixture = deepcopy(registry)
+    supported_fixture["capability_cards"] = [base]
+    validate(supported_fixture, schema)
+    validate_capability_registry(supported_fixture)
+
+    missing_domain = deepcopy(supported_fixture)
+    missing_domain["capability_cards"][0]["coverage"] = [
+        item for item in missing_domain["capability_cards"][0]["coverage"]
+        if item["domain"] != "accessibility"
+    ]
+    expect_rejected(
+        "supported_jurisdiction_missing_domain",
+        lambda: validate_capability_registry(missing_domain),
+    )
+
+    inconclusive_review = deepcopy(supported_fixture)
+    inconclusive_review["capability_cards"][0]["independent_reviews"][1][
+        "disposition"
+    ] = "inconclusive"
+    expect_rejected(
+        "supported_jurisdiction_inconclusive_review",
+        lambda: validate_capability_registry(inconclusive_review),
+    )
+
+    duplicate_jurisdiction = deepcopy(registry)
+    duplicate_jurisdiction["capability_cards"][1]["jurisdiction_id"] = (
+        duplicate_jurisdiction["capability_cards"][0]["jurisdiction_id"]
+    )
+    expect_rejected(
+        "duplicate_jurisdiction_id",
+        lambda: validate_capability_registry(duplicate_jurisdiction),
+    )
+
+    wrong_snapshot = deepcopy(supported_fixture)
+    wrong_snapshot["capability_cards"][0]["independent_reviews"][0][
+        "reviewed_subject_sha256"
+    ] = "e" * 64
+    expect_rejected(
+        "reviewed_different_capability_snapshot",
+        lambda: validate_capability_registry(wrong_snapshot),
+    )
+    return 4
+
+
 def expect_rejected(name: str, operation: Any) -> None:
     try:
         operation()
@@ -450,7 +617,20 @@ def main() -> int:
     validate_schema_supported(schema)
     validate(fixture, schema)
     validate_semantics(fixture)
-    negative_controls = run_negative_controls(fixture, schema)
+    home_negative_controls = run_negative_controls(fixture, schema)
+
+    capability_registry = json.loads(CAPABILITY_REGISTRY_PATH.read_text(encoding="utf-8"))
+    capability_schema = json.loads(CAPABILITY_SCHEMA_PATH.read_text(encoding="utf-8"))
+    if capability_schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        fail("$capability_schema", "unexpected JSON Schema dialect")
+    if capability_schema.get("$id") != "urn:luminous-dynamics:schema:jurisdiction-capability-cards:1.0.0":
+        fail("$capability_schema.$id", "unexpected or unversioned capability schema identity")
+    validate_schema_supported(capability_schema)
+    validate(capability_registry, capability_schema)
+    validate_capability_registry(capability_registry)
+    capability_negative_controls = run_capability_negative_controls(
+        capability_registry, capability_schema
+    )
 
     print(
         "HOME_FIXTURE_VALIDATION=PASS "
@@ -459,7 +639,10 @@ def main() -> int:
         f"construction_families={len(fixture['candidate_construction_families'])} "
         f"edges={len(fixture['dependency_edges'])} "
         f"scenarios={len(fixture['change_scenarios'])} "
-        f"negative_controls={negative_controls}"
+        f"home_negative_controls={home_negative_controls} "
+        f"jurisdictions={len(capability_registry['capability_cards'])} "
+        f"capability_negative_controls={capability_negative_controls} "
+        f"negative_controls={home_negative_controls + capability_negative_controls}"
     )
     return 0
 
