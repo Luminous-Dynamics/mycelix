@@ -122,6 +122,9 @@ pub struct ComposedAssertion {
     pub requirement_id: String,
     pub normalized_value: String,
     pub force: RuleForce,
+    /// Identifier of an evidence-backed reform dossier, when the assertion is
+    /// a non-binding reform proposal.
+    pub reform_dossier_id: Option<String>,
     pub source_applicability: SourceApplicability,
     pub source: ComposedSource,
 }
@@ -526,6 +529,7 @@ pub fn compose_rule_modules(
                 requirement_id: statement.requirement_id.clone(),
                 normalized_value: statement.normalized_value.clone(),
                 force: statement.force,
+                reform_dossier_id: statement.reform_dossier_id.clone(),
                 source_applicability: module.source_applicability.clone(),
                 source: source.clone(),
             };
@@ -750,6 +754,49 @@ mod tests {
         assert_eq!(effective.normalized_value, "value:local-reviewed");
         assert_eq!(effective.superseded_sources.len(), 1);
         assert_eq!(effective.superseded_sources[0].statement_id, "national:ventilation");
+    }
+
+    #[test]
+    fn evidence_backed_reform_reference_is_required_and_preserved() {
+        let proposal = statement(
+            "reform:window-alternative",
+            "window.operation",
+            "value:alternative",
+            RuleForce::EvidenceBackedReformProposal,
+        );
+        let modules = vec![module(
+            "ZA/proposal",
+            RuleModuleScope::Jurisdiction("ZA".into()),
+            &[],
+            SourceApplicability::NonBinding(NonBindingReason::Proposal),
+            vec![proposal],
+        )];
+        let issues = compose_rule_modules(&["ZA/proposal".into()], &modules).unwrap_err();
+        assert!(issues.contains(&CompositionIssue::InvalidStatementMetadata {
+            statement_id: "reform:window-alternative".into(),
+            field: "reform_dossier_id",
+        }));
+
+        let mut proposal = statement(
+            "reform:window-alternative",
+            "window.operation",
+            "value:alternative",
+            RuleForce::EvidenceBackedReformProposal,
+        );
+        proposal.reform_dossier_id = Some("reform:windows:case-1".into());
+        let modules = vec![module(
+            "ZA/proposal",
+            RuleModuleScope::Jurisdiction("ZA".into()),
+            &[],
+            SourceApplicability::NonBinding(NonBindingReason::Proposal),
+            vec![proposal],
+        )];
+        let result = compose_rule_modules(&["ZA/proposal".into()], &modules).unwrap();
+        assert_eq!(
+            result.non_binding_assertions[0].reform_dossier_id.as_deref(),
+            Some("reform:windows:case-1")
+        );
+        assert!(result.binding_requirements.is_empty());
     }
 
     #[test]
