@@ -21,7 +21,7 @@ The standalone crate now includes a composable ruleset engine and a code-reform 
 - Conflicting binding requirements remain explicit conflicts. A narrower module may supersede an inherited binding statement only through a reviewed, provenance-linked override directive; the prototype validates metadata and digest syntax, not the reviewer's identity or evidence bytes.
 - Owner preferences are kept distinct from law, guidance, engineering baselines, and proposals.
 - Evidence-backed reform proposals are tied to a reform dossier that records supporting and conflicting evidence, methods, uncertainty, counter-evidence searches, affected-group impacts, conflicts of interest, and independent reviews pinned to a specific dossier snapshot.
-- Preparing a dossier for public consultation is not a finding that science is conclusive and does not amend a live building code. Adoption still requires the legally authorized process.
+- Preparing a dossier for public consultation is not a finding that science is conclusive and does not amend a live building code. A separate consultation closeout records the public notice, feedback archive, response record, and dates. An adoption-decision record must cite the exact dossier snapshot and consultation closeout, the authority and its decision basis, the public decision source, disposition, and effective date. These are metadata-consistency checks only; they do not authenticate the authority or change active rules automatically.
 
 See [Global Building-Code Composition and Evidence Reform](docs/GLOBAL_BUILDING_CODE_COMPOSITION_AND_REFORM.md) for the design, workflow, and acceptance targets. The types are prototypes; they are not a globally authoritative code database or a legal interpreter.
 
