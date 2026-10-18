@@ -22,7 +22,7 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 16,
+      "minItems": 17,
       "items": {
         "type": "object",
         "required": [
