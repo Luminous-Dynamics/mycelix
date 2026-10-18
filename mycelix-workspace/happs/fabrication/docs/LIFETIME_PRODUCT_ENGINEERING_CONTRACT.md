@@ -99,6 +99,7 @@ Interface compatibility is not merely matching dimensions. It includes thermal p
 
 - [LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json](./LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json) defines the proposed product record, component/supplier evidence, module interfaces, metrics, release gates, and lifecycle evidence.
 - [LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json](./LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json) is an illustrative LKI-01 record with three placeholder BOM entries, two provisional interfaces, and five unpassed release gates.
+- [LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json](./LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json) defines 14 adversarial known-answer scenarios, nine hard invariants, and five proposed software-evaluator metrics covering unsafe compatibility claims, thermal boundaries, stale sourcing evidence, revision integrity, repair damage, invalid energy comparisons, and unsupported lifetime/LCA claims.
 
 Both artifacts are drafts for review, not canonical wire contracts or approved manufacturing data. The example intentionally has no supplier records or test evidence; its dimensions and target values are provisional. Schema adoption must include validator tests, migration/version policy, and ownership review against the existing Fabrication/BOM types.
 
