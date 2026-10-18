@@ -318,6 +318,27 @@ The implementation slice in draft PR #5182 now includes a separate CreativeAsset
 
 Do not describe the digest as proof of rights/consent or the snapshot as a full evidence archive. The snapshot currently omits original external source payloads and provenance hashes for those imports; it carries the record/evidence references, not proof that their contents are genuine. The format is experimental, not standards-compliant or ratified for interoperability. Preserve claims and disputes rather than turning split arithmetic into an automated ownership judgment.
 
+## Gate 9 — field-level import provenance and failure atomicity
+
+Draft PR #5182 now adds a standalone import-provenance sidecar. It computes BLAKE3 from exact raw payload bytes; records source/schema/parser versions and import time; associates each parser-enumerated field with a mapping rule or explicit retained-raw/unsupported treatment; records diagnostics; and binds the outcome to before/after passport digests. The sidecar is not embedded in the full passport snapshot v1 and does not prove that the payload reference stays available or that the source is authentic.
+
+| Fixture family | Required outcome | Threshold |
+|---|---|---:|
+| Raw payload verification | Exact observed bytes match length and digest; changed bytes or length are rejected | 100% |
+| Source-field disposition | Each parser-enumerated source path has exactly one treatment; duplicate paths fail closed | 100% |
+| Unsupported/retained field | Every field not mapped into canonical state has an explicit field-level diagnostic and remains in the raw source | Zero silent drops |
+| Clean import label | A clean Imported result requires parser-reported complete inventory, all declared fields mapped, and zero diagnostics | 100% rejected if preconditions fail |
+| Rejected import | An error diagnostic exists and after snapshot digest equals before snapshot digest | Zero mutations |
+| Partial/unknown inventory | Outcome cannot be labelled clean Imported | 100% warning or rejection |
+| Mapping version | Parser/mapping version changes are represented in provenance and later produce a reviewable before/after diff | 100% manifest completeness |
+| Canonical sidecar | Decode/encode preserves exact manifest bytes; malformed version, invalid fields, unknown diagnostic paths, duplicate field paths and trailing bytes reject | 100% fixture agreement / invalid cases rejected |
+| Independent reference encoder | Python reference encoder reproduces the frozen manifest bytes independently of Rust code | 100% of vectors; currently one minimal clean-import vector |
+| Cross-language digest | Independent implementation reproduces domain-separated BLAKE3 manifest digest for frozen source fixtures | Required before format freeze; outstanding |
+| Persistence enforcement | Backing ingress layer confirms rejected import did not mutate persisted snapshot, not merely that a manifest says so | 100% |
+| Raw-source availability | Source locator resolves under declared access controls, and bytes match recorded digest | 100% for records marked retained |
+
+A parser's "complete inventory" is only a parser assertion, not independent proof that every source field was discovered. A digest is integrity evidence only; it does not prove authenticity, consent, or rights. The integration layer—not this manifest constructor—must enforce transaction boundaries and verify the post-import snapshot digest from the actual persisted state.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
