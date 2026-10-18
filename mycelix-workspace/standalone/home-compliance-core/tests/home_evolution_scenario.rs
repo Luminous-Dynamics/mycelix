@@ -11,8 +11,9 @@ use home_compliance_core::regulatory::{
     evaluate_source_applicability, resolve_requirement,
 };
 use home_compliance_core::{
-    AssessmentInput, Blocker, CheckDefinition, CheckOutcome, EvidenceRef, Finding, GateStatus,
-    RulePack, RulePackStatus, evaluate_review_gate,
+    AssessmentInput, Blocker, CheckDefinition, CheckOutcome, EvidenceRef,
+    EvidenceVerification, Finding, GateStatus, RulePack, RulePackStatus,
+    evaluate_review_gate, evaluate_verified_review_gate,
 };
 
 const JURISDICTION: &str = "ZA/Johannesburg/pilot-synthetic";
@@ -188,7 +189,12 @@ fn assessment(energy_outcome: CheckOutcome) -> AssessmentInput {
 
 #[test]
 fn complete_fixture_is_only_ready_for_professional_review() {
-    let report = evaluate_review_gate(&assessment(CheckOutcome::Pass));
+    // This fixture verifier is deliberately a test double. Production must
+    // connect the trait to immutable artifact retrieval and actual SHA-256.
+    let report = evaluate_verified_review_gate(
+        &assessment(CheckOutcome::Pass),
+        &|_: &EvidenceRef| EvidenceVerification::Verified,
+    );
     assert_eq!(report.status, GateStatus::ReadyForProfessionalReview);
     assert!(report.blockers.is_empty());
 }
