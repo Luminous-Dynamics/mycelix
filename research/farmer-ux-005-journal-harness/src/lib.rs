@@ -31,6 +31,14 @@ const REQUIRED_INVARIANTS: &[&str] = &[
     "corrupt_journal_does_not_prove_operation_was_never_sent",
 ];
 
+const REQUIRED_PROMOTIONS: &[(&str, &str, &[&str])] = &[
+    ("RequestReceived", "QuoteOffered", &["complete_scoped_provider_quote", "validity_and_price_terms"]),
+    ("QuoteOffered", "BookingConfirmed", &["explicit_farmer_quote_acceptance", "unexpired_quote", "scope_match", "authoritative_booking_confirmation"]),
+    ("ProviderReportedComplete", "FarmerAccepted", &["explicit_farmer_acceptance_event"]),
+    ("ProviderReportedComplete", "DisputedOrRework", &["explicit_farmer_dispute_event"]),
+    ("OutcomeUnknown", "RequestReceived", &["authoritative_reconciliation_receipt"]),
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttemptStatus {
     Prepared,
@@ -464,6 +472,31 @@ fn artifact_check(
         errors,
     }
 }
+/// Consult the versioned farmer-service mapping, requiring every evidence item for a guarded promotion.
+pub fn promotion_allowed(
+    mapping: &Value,
+    from_state: &str,
+    to_state: &str,
+    evidence: &BTreeSet<String>,
+) -> bool {
+    let promotions = mapping
+        .get("allowed_promotions")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    promotions.iter().find(|promotion| {
+        promotion.get("from").and_then(Value::as_str) == Some(from_state)
+            && promotion.get("to").and_then(Value::as_str) == Some(to_state)
+    }).and_then(|promotion| promotion.get("requires").and_then(Value::as_array))
+        .is_some_and(|required| {
+            !required.is_empty()
+                && required.iter().all(|item| {
+                    item.as_str().is_some_and(|key| evidence.contains(key))
+                })
+        })
+}
+
 fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     let mut errors = Vec::new();
     let case_list = cases.get("cases").and_then(Value::as_array).cloned().unwrap_or_default();
@@ -527,8 +560,33 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     }
     let service_count = mapping.get("farmer_service_states").and_then(Value::as_array).map_or(0, Vec::len);
     if service_count != 11 { errors.push(format!("expected 11 service states, found {service_count}")); }
-    let promotion_count = mapping.get("allowed_promotions").and_then(Value::as_array).map_or(0, Vec::len);
+    let promotions = mapping.get("allowed_promotions").and_then(Value::as_array).cloned().unwrap_or_default();
+    let promotion_count = promotions.len();
     if promotion_count != 9 { errors.push(format!("expected 9 guarded promotions, found {promotion_count}")); }
+    let pairs: Vec<(String, String)> = promotions.iter().filter_map(|p| {
+        Some((p.get("from")?.as_str()?.to_owned(), p.get("to")?.as_str()?.to_owned()))
+    }).collect();
+    if pairs.len() != promotion_count { errors.push("a promotion is missing a string from/to state".to_owned()); }
+    if pairs.iter().collect::<BTreeSet<_>>().len() != pairs.len() {
+        errors.push("promotion source/target pairs must be unique".to_owned());
+    }
+    for (from_state, to_state, required_evidence) in REQUIRED_PROMOTIONS {
+        let matches: Vec<&Value> = promotions.iter().filter(|p| {
+            p.get("from").and_then(Value::as_str) == Some(from_state)
+                && p.get("to").and_then(Value::as_str) == Some(to_state)
+        }).collect();
+        if matches.len() != 1 {
+            errors.push(format!("mapping must define exactly one guarded promotion {from_state}->{to_state}"));
+            continue;
+        }
+        let actual: BTreeSet<&str> = matches[0].get("requires").and_then(Value::as_array)
+            .into_iter().flatten().filter_map(Value::as_str).collect();
+        for required in *required_evidence {
+            if !actual.contains(required) {
+                errors.push(format!("mapping promotion {from_state}->{to_state} missing evidence requirement {required}"));
+            }
+        }
+    }
     errors.sort();
     errors.dedup();
     errors
@@ -759,6 +817,64 @@ mod tests {
         assert!(!transition_allowed(AttemptStatus::OutcomeUnknown, AttemptStatus::Submitted));
         assert!(!transition_allowed(AttemptStatus::Confirmed, AttemptStatus::Submitted));
         assert!(transition_allowed(AttemptStatus::OutcomeUnknown, AttemptStatus::ReconciledApplied));
+    }
+
+    fn loaded_mapping() -> Value {
+        serde_json::from_str(include_str!("../../farmer-ux-004-state-mapping-v1.json"))
+            .expect("mapping fixture")
+    }
+
+    #[test]
+    fn farmer_acceptance_is_distinct_from_provider_completion() {
+        let mapping = loaded_mapping();
+        let no_evidence = BTreeSet::new();
+        assert!(!promotion_allowed(&mapping, "ProviderReportedComplete", "FarmerAccepted", &no_evidence));
+        let evidence = BTreeSet::from(["explicit_farmer_acceptance_event".to_owned()]);
+        assert!(promotion_allowed(&mapping, "ProviderReportedComplete", "FarmerAccepted", &evidence));
+        assert!(!promotion_allowed(&mapping, "ProviderReportedComplete", "BookingConfirmed", &BTreeSet::from([
+            "explicit_farmer_acceptance_event".to_owned()
+        ])));
+    }
+
+    #[test]
+    fn booking_requires_explicit_acceptance_validity_scope_and_confirmation() {
+        let mapping = loaded_mapping();
+        let incomplete = BTreeSet::from([
+            "explicit_farmer_quote_acceptance".to_owned(),
+            "unexpired_quote".to_owned(),
+        ]);
+        assert!(!promotion_allowed(&mapping, "QuoteOffered", "BookingConfirmed", &incomplete));
+        let complete = BTreeSet::from([
+            "explicit_farmer_quote_acceptance".to_owned(),
+            "unexpired_quote".to_owned(),
+            "scope_match".to_owned(),
+            "authoritative_booking_confirmation".to_owned(),
+        ]);
+        assert!(promotion_allowed(&mapping, "QuoteOffered", "BookingConfirmed", &complete));
+    }
+
+    #[test]
+    fn outcome_unknown_needs_authoritative_reconciliation() {
+        let mapping = loaded_mapping();
+        let none = BTreeSet::new();
+        assert!(!promotion_allowed(&mapping, "OutcomeUnknown", "RequestReceived", &none));
+        assert!(!promotion_allowed(&mapping, "OutcomeUnknown", "BookingConfirmed", &BTreeSet::from([
+            "authoritative_reconciliation_receipt".to_owned()
+        ])));
+        let receipt = BTreeSet::from(["authoritative_reconciliation_receipt".to_owned()]);
+        assert!(promotion_allowed(&mapping, "OutcomeUnknown", "RequestReceived", &receipt));
+    }
+
+    #[test]
+    fn farmer_service_mapping_mutation_cannot_remove_acceptance_evidence() {
+        let mut mapping = loaded_mapping();
+        let promotions = mapping["allowed_promotions"].as_array_mut().expect("promotions");
+        let promotion = promotions.iter_mut().find(|p| {
+            p["from"] == "ProviderReportedComplete" && p["to"] == "FarmerAccepted"
+        }).expect("promotion");
+        promotion["requires"] = serde_json::json!([]);
+        assert!(semantic_errors(&serde_json::from_str(include_str!("../../farmer-ux-004-journal-cases-v1.json")).expect("cases"), &mapping)
+            .iter().any(|e| e.contains("missing evidence requirement explicit_farmer_acceptance_event")));
     }
 
     #[test]
