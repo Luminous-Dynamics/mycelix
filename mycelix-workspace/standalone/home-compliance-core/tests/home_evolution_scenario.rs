@@ -4,7 +4,7 @@
 //! engineering model. It checks the evidence/workflow boundaries that a future
 //! BIM and engineering adapter must preserve.
 
-use home_compliance_core::evolution::{DependencyEdge, affected_closure};
+use home_compliance_core::evolution::{DependencyEdge, affected_cause_tree, affected_closure};
 use home_compliance_core::regulatory::{
     LegalSourceStatus, NonBindingReason, RegulatorySource, RequirementAssertion,
     RequirementResolution, RequirementResolutionPolicy, SourceApplicability,
@@ -116,6 +116,33 @@ fn floorplan_revision_invalidates_derived_geometry_energy_and_submission_artifac
         ]
     );
     assert!(!affected.iter().any(|id| id == "rulepack:za-jhb:energy"));
+}
+
+/// Read the simultaneous-change roots from the versioned fixture rather
+/// than duplicating the root set in this Rust integration test.
+fn simultaneous_change_roots() -> Vec<String> {
+    let fixture = include_str!("../fixtures/johannesburg-adaptable-home-v1.json");
+    let scenario_marker = "\"id\": \"simultaneous-floorplan-and-energy-rule-revision\"";
+    let scenario_start = fixture
+        .find(scenario_marker)
+        .expect("fixture must contain the simultaneous-change scenario");
+    let changed_ids_marker = "\"changed_ids\": [";
+    let roots_start = scenario_start
+        + fixture[scenario_start..]
+            .find(changed_ids_marker)
+            .expect("simultaneous-change scenario must declare changed_ids")
+        + changed_ids_marker.len();
+    let roots_section = &fixture[roots_start..];
+    let roots_end = roots_section
+        .find(']')
+        .expect("changed_ids array must terminate");
+    roots_section[..roots_end]
+        .lines()
+        .filter_map(|line| {
+            let value = line.trim().trim_end_matches(',').trim_matches('"');
+            (!value.is_empty()).then(|| value.to_owned())
+        })
+        .collect()
 }
 
 fn evidence(artifact_id: &str, digest_byte: char) -> EvidenceRef {
@@ -298,6 +325,44 @@ fn fixture_has_a_shared_machine_readable_identity_contract() {
             "fixture is missing expected contract fragment: {required_fragment}"
         );
     }
+}
+
+#[test]
+fn simultaneous_floorplan_and_rule_change_invalidates_the_union_once() {
+    let dependencies = reference_home_dependencies();
+    let changed = simultaneous_change_roots();
+    assert_eq!(
+        changed,
+        vec!["model:floorplan".to_owned(), "rulepack:za-jhb:energy".to_owned()]
+    );
+
+    let affected = affected_closure(&changed, &dependencies)
+        .expect("fixture simultaneous-change graph must be a valid DAG");
+    assert_eq!(
+        affected,
+        vec![
+            "assessment:permit-package".to_owned(),
+            "drawing:floorplan".to_owned(),
+            "export:ifc".to_owned(),
+            "finding:energy-rule".to_owned(),
+            "finding:structure-review".to_owned(),
+            "model:energy".to_owned(),
+            "model:floorplan".to_owned(),
+            "permit:submission".to_owned(),
+            "rulepack:za-jhb:energy".to_owned(),
+        ]
+    );
+
+    let causes = affected_cause_tree(&changed, &dependencies)
+        .expect("simultaneous-change graph must produce a compact cause tree");
+    let energy_finding = causes
+        .iter()
+        .find(|item| item.artifact_id == "finding:energy-rule")
+        .expect("energy finding must be invalidated");
+    assert_eq!(
+        energy_finding.cause_parent_id.as_deref(),
+        Some("rulepack:za-jhb:energy")
+    );
 }
 
 #[test]
