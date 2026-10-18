@@ -1,0 +1,45 @@
+name: Farmer journal contract harness
+
+on:
+  pull_request:
+    paths:
+      - "research/farmer-ux-004-*.json"
+      - "research/farmer-ux-005-journal-harness/**"
+      - ".github/workflows/farmer-ux-journal-harness.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/farmer-ux-004-*.json"
+      - "research/farmer-ux-005-journal-harness/**"
+      - ".github/workflows/farmer-ux-journal-harness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: farmer-ux-journal-harness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Journal ordering, recovery, and fixture checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: research/farmer-ux-005-journal-harness -> target
+      - name: Run deterministic harness tests
+        run: cargo test --manifest-path research/farmer-ux-005-journal-harness/Cargo.toml
+      - name: Verify committed journal corpus
+        run: cargo run --manifest-path research/farmer-ux-005-journal-harness/Cargo.toml -- --root . --report-json research/farmer-ux-005-journal-harness/target/farmer-journal-report.json
+      - name: Upload verifier report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: farmer-journal-harness-report
+          path: research/farmer-ux-005-journal-harness/target/farmer-journal-report.json
+          if-no-files-found: ignore
