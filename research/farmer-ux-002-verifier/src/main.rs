@@ -323,7 +323,7 @@ fn apply_mutation(
                 .ok_or_else(|| format!("mutation {}: append_string requires pointer", mutation.id))?;
             let target = entry.pointer_mut(pointer).and_then(Value::as_array_mut)
                 .ok_or_else(|| format!("mutation {}: pointer {pointer:?} is not an array", mutation.id))?;
-            let value = mutation.value.as_str()
+            let value = mutation.value.as_ref().and_then(Value::as_str)
                 .ok_or_else(|| format!("mutation {}: append_string requires string value", mutation.id))?;
             target.push(Value::String(value.to_owned()));
         }
@@ -334,7 +334,7 @@ fn apply_mutation(
                 .ok_or_else(|| format!("mutation {}: remove_string requires pointer", mutation.id))?;
             let target = entry.pointer_mut(pointer).and_then(Value::as_array_mut)
                 .ok_or_else(|| format!("mutation {}: pointer {pointer:?} is not an array", mutation.id))?;
-            let value = mutation.value.as_str()
+            let value = mutation.value.as_ref().and_then(Value::as_str)
                 .ok_or_else(|| format!("mutation {}: remove_string requires string value", mutation.id))?;
             target.retain(|item| item.as_str() != Some(value));
         }
