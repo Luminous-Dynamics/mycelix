@@ -10,6 +10,7 @@
 
 pub mod composition;
 pub mod evolution;
+pub mod jurisdiction_registry;
 pub mod reform;
 pub mod regulatory;
 
