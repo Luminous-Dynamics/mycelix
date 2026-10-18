@@ -65,6 +65,14 @@ The manifest binds processing to the before/after passport digests:
 
 These are caller-recorded outcome assertions. The manifest itself does not commit a database transaction or independently observe the passport; the integration layer must enforce that the recorded snapshot digests accurately reflect persisted state.
 
+## Import replay and duplicate-effect guard
+
+Draft PR #5182 adds a separate experimental ImportReplayLedger. Its processing key binds source system/optional record identity, raw payload digest/length, schema name/version, parser name/version, and the exact source-field mapping/treatment rule versions. It excludes import timestamp and raw storage locator, so a retry that points at the same observed bytes does not become a new logical transformation just because it arrived later or was moved to a new vault object.
+
+The ledger records a separate result fingerprint over inventory status, outcome, before/after snapshot digests, and diagnostics. Same key + same result returns AlreadyPresent. Same key + a different result is a conflict and leaves the in-memory ledger unchanged. Changing the source bytes or parser/mapping version deliberately makes a distinct key that must be handled as a new revision/reprocessing event.
+
+This is not durable exactly-once processing. The ledger is in memory and not yet tied to the database transaction. Production ingress must atomically commit the replay key, canonical mutation and receipt using a persistent unique constraint or equivalent transaction guarantee; it must survive process restart and concurrent duplicate requests. See [CSCP-REPLAY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5190).
+
 ## Required workflow
 
 1. **Capture before mutation.** Store or retain the original payload in access-controlled storage. Compute byte length and BLAKE3 digest from those exact bytes. Record source/schema/parser versions.
@@ -101,6 +109,7 @@ Targets below are proposed gates, not measured results.
 - A digest and caller-provided raw_payload_ref cannot prove that the referenced bytes remain available. Add retention/availability checks in the storage adapter.
 - The source field inventory is only as complete as the parser says it is; independently enumerate unknown XML/JSON fields in adapter conformance tests.
 - The current schema has a small Rust/Python byte vector but no broad cross-language corpus, BLAKE3 digest vector, fuzz campaign, or externally reviewed conformance result.
+- The import replay ledger is only in-memory; production durability/concurrency semantics remain tracked by CSCP-REPLAY-001.
 - Imported and Rejected are manifest assertions. The persistence/ingress layer must enforce transaction boundaries and prove the after digest it records.
 - The sidecar has no digital signature, trusted timestamp, cryptographic sender identity, or legal-validity check. Add signing only after key management, identity binding, revocation, retention and threat model are specified.
 - DDEX/ODRL/PROV adapters must use applicable normative schemas/specifications and honest conformance claims. Internal field-name similarity is not compliance.
