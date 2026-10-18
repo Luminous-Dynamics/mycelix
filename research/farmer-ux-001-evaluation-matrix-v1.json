@@ -1,0 +1,184 @@
+{
+  "schema_version": "1.0.0",
+  "status": "proposed_matrix_for_local_validation",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5194",
+  "thesis": "Evaluate agricultural advice at model, system, and process levels; no single score substitutes for farmer agency or demonstrated outcomes.",
+  "research_anchors": [
+    {
+      "name": "Beyond the model: Evaluating AI agricultural advisory systems so they work in the field",
+      "organization": "IFPRI / CGIAR",
+      "published": "2026-05-18",
+      "url": "https://www.ifpri.org/blog/beyond-the-model-evaluating-ai-agricultural-advisory-systems-so-they-work-in-the-field/",
+      "relevance": "Recommends complementary model-, system-, and process-level evaluation including usability, trust, reliability, expert roles, and equity."
+    },
+    {
+      "name": "Field-Ready HCI: A Conceptual Model of Mobile Application Use in Agriculture for Low-Resource and Smallholder Contexts",
+      "organization": "Applied Sciences",
+      "published": "2026-07-12",
+      "url": "https://doi.org/10.3390/app16146985",
+      "relevance": "Frames local language, low literacy, offline operation, explainable advice, trust and farmer networks as field-readiness dimensions."
+    },
+    {
+      "name": "Not-so-digital platforms? Non-use, (in)appropriate technologies, and offline dimensions of digital agricultural services for smallholders in rural Africa",
+      "organization": "Journal of Rural Studies",
+      "published": "2026-06",
+      "url": "https://doi.org/10.1016/j.jrurstud.2026.104210",
+      "relevance": "Finds registration can conceal limited or short-lived use in studied settings; warns about socio-technical misfit and emphasizes existing peer, extension and low-tech channels."
+    },
+    {
+      "name": "ICT-Based Versus Human-Based Climate Information: Implications for Agronomic Decisions Among Smallholder Farmers in the Eastern Cape, South Africa",
+      "organization": "Sustainability",
+      "published": "2026",
+      "url": "https://doi.org/10.3390/su18168114",
+      "relevance": "Motivates locally comparing digital climate information and human-mediated advice; its sample/context are not transferable as universal estimates."
+    }
+  ],
+  "claim_boundary": "A model oracle pass is not usability evidence. A usable prototype is not field validation. Use/adoption is not evidence of agricultural benefit. Yield, income, water-saving and causal claims require task-specific measurements, a valid comparison and uncertainty reporting.",
+  "levels": [
+    {
+      "id": "model",
+      "name": "Model and advice quality",
+      "decision_question": "Given a defined query, evidence envelope, locality, crop/task and time window, does the advice remain factual, bounded, useful and appropriately uncertain?",
+      "unit_of_evaluation": "versioned advice case with frozen inputs and independent expected outcome",
+      "hard_gates": [
+        "Every material factual claim traces to an available source reference or is labelled unknown/inferred/modelled/forecast.",
+        "Unknown, stale and conflicting inputs are never silently promoted to a current verified observation.",
+        "No recommendation is emitted as a verified diagnosis, guaranteed result or confirmed external fact beyond its qualified evidence.",
+        "Inapplicable, missing or contradictory inputs trigger an explicit abstention, caveat, clarification request or human referral according to the case contract.",
+        "Observed results are never relabelled as model predictions, and predictions are never relabelled as observations."
+      ],
+      "metrics": [
+        {
+          "id": "frozen_case_exact_match",
+          "method": "Compare response state, claim provenance, uncertainty disposition and available alternatives to a separately authored oracle.",
+          "target": "100% on the registered synthetic acceptance corpus",
+          "denominator": "all registered corpus cases; report every failed case"
+        },
+        {
+          "id": "unsupported_claim_rate",
+          "method": "Independent annotation of claims in a sampled advice output; distinguish unsupported, contradicted, stale and properly qualified claims.",
+          "target": "zero unsupported claims in hard-gate synthetic cases; field sample reported with confidence intervals",
+          "denominator": "all material claims audited"
+        },
+        {
+          "id": "abstention_disposition",
+          "method": "Check that missing/conflicting/unsafe-to-infer cases result in the registered abstain, clarification or escalation state.",
+          "target": "100% exact disposition match on frozen negative controls",
+          "denominator": "all registered abstention/negative-control cases"
+        },
+        {
+          "id": "prediction_calibration",
+          "method": "Use Brier score, log loss, CRPS, interval coverage or task-appropriate absolute error only after target, forecast horizon and ground truth are defined and sufficient data exists.",
+          "target": "registered by task and data volume before any claim; no universal target",
+          "denominator": "eligible predictions with independently observed outcome and disclosed missingness"
+        }
+      ],
+      "do_not_collapse": [
+        "model confidence is not evidence quality",
+        "factual correctness is not farmer comprehension",
+        "one case result is not causal yield or income impact"
+      ]
+    },
+    {
+      "id": "system",
+      "name": "End-to-end product and user journey",
+      "decision_question": "Can the farmer or adviser understand, use, recover and complete the task on the actual supported device and channel?",
+      "unit_of_evaluation": "complete task journey on declared device, language, role and connectivity profile",
+      "hard_gates": [
+        "Local save, awaiting sync, server acknowledgement, offer, accepted quote, booking, provider-reported completion and farmer acceptance remain distinct states.",
+        "Every locally acknowledged event survives defined offline/restart/replay fault tests; retries create zero duplicate side effects.",
+        "Incomplete, expired, scope-mismatched or withdrawn-capacity offers cannot become confirmed bookings.",
+        "Every critical task has visible labels, accessible names, keyboard/focus support and recovery after interruption.",
+        "The same request reference survives app, phone/SMS/USSD and human-assisted channels where those paths are supported."
+      ],
+      "metrics": [
+        {
+          "id": "critical_task_success",
+          "method": "Observe representative users attempting preregistered core tasks without facilitator intervention after the same brief orientation.",
+          "target": ">=90% per critical task as an initial product target, not an observed result",
+          "denominator": "all eligible participants attempting that task; publish task-level and subgroup results"
+        },
+        {
+          "id": "routine_capture_time",
+          "method": "Measure median and P90 time to save a routine observation, including correction/error rate and omitted fields.",
+          "target": "median <30 seconds on a preconfigured farm profile as an initial target",
+          "denominator": "successful and failed capture attempts reported separately"
+        },
+        {
+          "id": "state_comprehension",
+          "method": "Ask users to explain whether a sample item is measured, modelled/forecast, local-only, received, booked, provider-reported complete or farmer-accepted.",
+          "target": ">=90% correct distinction in initial comprehension checks",
+          "denominator": "all comprehension prompts; report confusion pairs"
+        },
+        {
+          "id": "offline_integrity",
+          "method": "Inject process kill, reconnection, duplicate/out-of-order events, storage pressure and conflict cases.",
+          "target": "zero lost locally acknowledged events, zero duplicate booking/payment/completion effects, zero silent overwrite",
+          "denominator": "all registered fault injections"
+        }
+      ],
+      "do_not_collapse": [
+        "registrations are not repeated useful use",
+        "fast taps are not comprehension",
+        "scheduled jobs are not completed work",
+        "browser prototype results are not device/field results"
+      ]
+    },
+    {
+      "id": "process",
+      "name": "Governance, human support, equity and field outcomes",
+      "decision_question": "Does the service preserve farmer control, accountable advice, fair access and outcomes that can actually be demonstrated?",
+      "unit_of_evaluation": "whole service process across advice, decisions, action/no-action, follow-up, correction and repair",
+      "hard_gates": [
+        "Declining, deferring, modifying or correcting advice is not treated as user failure or a negative reputation event.",
+        "Advice requiring qualified human review can be referred without losing the farmer's place or request reference.",
+        "Consent, data purpose, recipient, correction path, export and limits of revoking previously copied information are visible.",
+        "Harms, failed requests, no-provider outcomes, no-action, missing follow-up and unresolved cases remain in declared denominators.",
+        "A source correction or superseded premise triggers dependent-decision review; prior advice is not silently rewritten.",
+        "No public farmer leaderboard, coercive data sharing, automatic adverse decision, procurement/payment, or physical actuation is authorized by the recommendation itself."
+      ],
+      "metrics": [
+        {
+          "id": "agency_and_comprehension",
+          "method": "Use task observation, interviews and accessible surveys about ability to question, decline, correct, appeal and understand who sees the record.",
+          "target": "proposed >=90% success on critical control/comprehension tasks; qualitative findings and subgroup variance reported",
+          "denominator": "all participants, including those who choose not to use digital advice"
+        },
+        {
+          "id": "channel_equity",
+          "method": "Compare app, phone/SMS, adviser, cooperative and paper-assisted paths by access, fulfillment, time/cost and failure mode where comparable.",
+          "target": "no universal numeric threshold before local baseline; disclose coverage and missingness",
+          "denominator": "all eligible requests across channels, not only app users"
+        },
+        {
+          "id": "accepted_service_outcome",
+          "method": "Measure farmer-accepted delivery within the farmer-declared useful window, plus declined, no-provider, cancelled, late, no-show, disputed, rework and unresolved outcomes.",
+          "target": "register local baseline and comparison before the pilot; no universal percent improvement claim",
+          "denominator": "all eligible requests in the declared window"
+        },
+        {
+          "id": "real_agronomic_or_economic_effect",
+          "method": "Measure crop/task-specific outcome with a suitable comparison design and report assumptions, uncertainty, adverse outcomes, and non-participants.",
+          "target": "no claim from synthetic tests; numeric thresholds only after local baseline and measurement plan",
+          "denominator": "all enrolled eligible units in the registered design, with exclusions and attrition disclosed"
+        }
+      ],
+      "do_not_collapse": [
+        "adoption is not benefit",
+        "satisfaction is not objective outcome",
+        "human mediation is not automatically effective; compare it",
+        "observed change is not a causal effect without a suitable design"
+      ]
+    }
+  ],
+  "release_maturity_levels": [
+    "specified",
+    "schema_validated",
+    "synthetic_oracle_passed",
+    "running_system_tested",
+    "representative_user_tested",
+    "field_validated",
+    "causal_impact_supported"
+  ],
+  "release_rule": "Report the highest level supported by exact, reviewable evidence. Never promote maturity because a workflow is queued, a schema is valid, or synthetic cases pass."
+}
