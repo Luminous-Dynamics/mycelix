@@ -67,6 +67,7 @@ Once one municipal profile is reviewed and traceable, add other South African mu
 - Same input, schema version and evaluator version must yield the same ordered report and digest once canonical serialization is added.
 - Initial budget to test on a published reference machine: evaluate 10,000 findings and 10,000 scoped checks in under 100 ms in optimized release mode; test 100,000 as a scale curve. These are proposed budgets, not current performance claims.
 - Rule-pack activation and revision changes must invalidate affected findings; never silently reuse a finding computed against a different edition.
+- Change-impact reporting must achieve 100% downstream invalidation recall and 0 unrelated invalidations on the reference dependency corpus. Every invalidated node must have a reconstructible deterministic shortest cause chain; changed roots remain explicit, and malformed/cyclic graphs yield an error rather than a partial report. Target linear-space cause reporting at 10,000 nodes and test 100,000-node shapes; these are acceptance targets, not current measured performance.
 
 ### Model interoperability
 - Use a curated test set covering spaces, doors, windows, walls, slabs, roof assemblies, site boundary, levels, units, classifications and quantities.
