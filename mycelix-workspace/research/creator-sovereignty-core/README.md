@@ -6,7 +6,7 @@ A standard-library-only Rust prototype for deterministic creator career accounti
 
 - Exact minor-unit financial arithmetic without cross-currency aggregation.
 - Distinct receipts, refunds, fees, and operating costs.
-- Royalty-reporting lines are kept outside observed cash totals until an explicit approved allocation links a statement line to an actual ledger receipt. Partial settlements, multi-line payouts, currency mismatches, overallocations, and append-only allocation reversals are represented deterministically.
+- Normalized payable assertions are kept outside observed cash totals until an explicit approved allocation links a statement line to an actual ledger receipt. Raw usage revenue is not automatically treated as payable or cash. Partial settlements, multi-line payouts, currency mismatches, overallocations, and append-only allocation reversals are represented deterministically.
 - Creator-recorded work sessions with checked time arithmetic and overlap rejection, so one person's overlapping sessions cannot inflate the work-hour denominator.
 - Idempotent identical replays; fail-closed rejection when the same record ID is reused for different data.
 - Exact rational net-contribution-per-work-hour representation only when the ledger has one currency and recorded work time; missing time or multiple currencies returns an explicit unavailable reason.
