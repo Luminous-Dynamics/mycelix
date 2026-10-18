@@ -35,7 +35,8 @@ pub struct RulePack {
     /// A source locator, ideally an official publisher or authority.
     pub source_uri: String,
     /// SHA-256 of the normalized rule-pack artifact, not of a copyrighted
-    /// standard. This core validates the digest's syntax, not its authenticity.
+    /// standard. Production must ensure the digest covers this check manifest;
+    /// this core validates syntax only, not the digest or artifact authenticity.
     pub pack_sha256: String,
     pub status: RulePackStatus,
     /// UTC calendar day number since 1970-01-01.
@@ -111,7 +112,7 @@ pub enum Blocker {
     EmptyRulePackCheckManifest,
     DuplicateRulePackCheck(String),
     MissingRulePackCheck(String),
-    UnexpectedRulePackCheck(String),
+    UnexpectedAssessmentCheck(String),
     RulePackCheckMandatoryFlagMismatch(String),
     EmptyCheckId,
     DuplicateCheckDefinition(String),
@@ -221,7 +222,7 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
             blockers.push(Blocker::DuplicateCheckDefinition(check.id.clone()));
         }
         match manifest_ids.get(check.id.as_str()) {
-            None => blockers.push(Blocker::UnexpectedRulePackCheck(check.id.clone())),
+            None => blockers.push(Blocker::UnexpectedAssessmentCheck(check.id.clone())),
             Some(pack_mandatory) if *pack_mandatory != check.mandatory => {
                 blockers.push(Blocker::RulePackCheckMandatoryFlagMismatch(check.id.clone()));
             }
@@ -613,6 +614,25 @@ mod tests {
         assert_eq!(report.status, GateStatus::Blocked);
         assert!(report.blockers.contains(
             &Blocker::RulePackCheckMandatoryFlagMismatch("structural-review".into())
+        ));
+    }
+
+    #[test]
+    fn assessment_cannot_add_a_check_outside_the_rule_pack() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.required_checks.push(CheckDefinition {
+            id: "comfort-recommendation".into(),
+            mandatory: false,
+        });
+        assessment.findings.push(finding(
+            "comfort-recommendation",
+            CheckOutcome::Unknown,
+        ));
+
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(
+            &Blocker::UnexpectedAssessmentCheck("comfort-recommendation".into())
         ));
     }
 
