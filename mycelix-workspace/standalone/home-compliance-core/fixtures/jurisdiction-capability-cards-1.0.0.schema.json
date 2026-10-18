@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:schema:jurisdiction-capability-cards:1.0.0",
+  "title": "Jurisdiction capability card registry fixture",
+  "description": "Portable schema for bounded jurisdiction-support claims. Schema validation is not legal verification or source authentication.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_notice",
+    "capability_cards"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "fixture_notice": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capability_cards": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jurisdiction_id",
+          "display_name",
+          "declared_status",
+          "subject_sha256",
+          "source_registry_snapshot_sha256",
+          "test_corpus_sha256",
+          "tested_case_count",
+          "coverage",
+          "independent_reviews",
+          "known_scope_gaps",
+          "update_policy",
+          "accountable_maintainer",
+          "source_registry_checked_on_day",
+          "registry_as_of_day"
+        ],
+        "properties": {
+          "jurisdiction_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "declared_status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "researching",
+              "pilot",
+              "supported",
+              "suspended"
+            ]
+          },
+          "subject_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "minLength": 64
+          },
+          "source_registry_snapshot_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "minLength": 64
+          },
+          "test_corpus_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "minLength": 64
+          },
+          "tested_case_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "coverage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "anyOf": [
+                {
+                  "required": [
+                    "domain",
+                    "disposition",
+                    "module_ids",
+                    "source_snapshot_sha256"
+                  ],
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "enum": [
+                        "residential_building",
+                        "planning_and_land_use",
+                        "structural_safety",
+                        "fire_and_life_safety",
+                        "energy_and_thermal",
+                        "accessibility",
+                        "water_and_sanitation",
+                        "electrical_installations",
+                        "permit_and_inspection_process",
+                        "heritage_and_conservation",
+                        "environmental_and_site_hazards"
+                      ]
+                    },
+                    "disposition": {
+                      "const": "covered"
+                    },
+                    "module_ids": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "source_snapshot_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-fA-F]{64}$",
+                      "minLength": 64
+                    }
+                  }
+                },
+                {
+                  "required": [
+                    "domain",
+                    "disposition",
+                    "rationale",
+                    "decision_reference"
+                  ],
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "enum": [
+                        "residential_building",
+                        "planning_and_land_use",
+                        "structural_safety",
+                        "fire_and_life_safety",
+                        "energy_and_thermal",
+                        "accessibility",
+                        "water_and_sanitation",
+                        "electrical_installations",
+                        "permit_and_inspection_process",
+                        "heritage_and_conservation",
+                        "environmental_and_site_hazards"
+                      ]
+                    },
+                    "disposition": {
+                      "const": "explicitly_not_applicable"
+                    },
+                    "rationale": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "decision_reference": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                {
+                  "required": [
+                    "domain",
+                    "disposition",
+                    "gap_description"
+                  ],
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "enum": [
+                        "residential_building",
+                        "planning_and_land_use",
+                        "structural_safety",
+                        "fire_and_life_safety",
+                        "energy_and_thermal",
+                        "accessibility",
+                        "water_and_sanitation",
+                        "electrical_installations",
+                        "permit_and_inspection_process",
+                        "heritage_and_conservation",
+                        "environmental_and_site_hazards"
+                      ]
+                    },
+                    "disposition": {
+                      "const": "missing"
+                    },
+                    "gap_description": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "independent_reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reviewer_id",
+                "review_scope",
+                "reviewed_subject_sha256",
+                "disposition",
+                "rationale",
+                "conflict_of_interest_disclosure"
+              ],
+              "properties": {
+                "reviewer_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "review_scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reviewed_subject_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{64}$",
+                  "minLength": 64
+                },
+                "disposition": {
+                  "type": "string",
+                  "enum": [
+                    "supports_bounded_support_claim",
+                    "challenges_support_claim",
+                    "inconclusive"
+                  ]
+                },
+                "rationale": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "conflict_of_interest_disclosure": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "known_scope_gaps": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "update_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "accountable_maintainer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_registry_checked_on_day": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "registry_as_of_day": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
