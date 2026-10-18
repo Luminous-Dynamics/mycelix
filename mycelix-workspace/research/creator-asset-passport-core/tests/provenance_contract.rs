@@ -28,13 +28,7 @@ fn clean_fields() -> Vec<FieldMapping> {
             "1",
         )
         .unwrap(),
-        FieldMapping::mapped(
-            "/Message/MessageId",
-            "/source_record/id",
-            "message-id",
-            "1",
-        )
-        .unwrap(),
+        FieldMapping::mapped("/Message/MessageId", "/source_record/id", "message-id", "1").unwrap(),
     ]
 }
 
