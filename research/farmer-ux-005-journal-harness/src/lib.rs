@@ -669,7 +669,7 @@ mod tests {
         r.set_status(AttemptStatus::Submitted).expect("transition");
         journal.commit(r).expect("commit submitted");
         assert_eq!(recover_after_restart(&mut journal,"synthetic-op-1"),AttemptStatus::OutcomeUnknown);
-        assert!(!recover_after_restart(&mut journal,"synthetic-op-1").dispatch_eligible());
+        assert!(!recover_after_restart(&mut journal,"synthetic-op-1").can_start_attempt());
     }
 
     #[test]
