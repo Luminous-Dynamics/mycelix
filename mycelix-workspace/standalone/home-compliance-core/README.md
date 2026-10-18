@@ -13,6 +13,18 @@ This crate is intentionally separate from Holochain WASM zomes. It does not run 
 - Missing findings, duplicate or unexpected findings, mandatory Fail/Unknown results, invalid evidence-digest syntax, and unjustified NotApplicable results block readiness.
 - `evaluate_review_gate` performs metadata/scope checks only and can return `MetadataCompleteAwaitingEvidenceVerification`, never review-ready. `evaluate_verified_review_gate` promotes to `ReadyForProfessionalReview` only after a trusted `EvidenceVerifier` adapter confirms each referenced artifact exists and its actual bytes match the declared SHA-256; missing, mismatched, or unverifiable evidence blocks. The crate defines the adapter boundary but does not yet provide a production artifact-store implementation. Neither status means Compliant, Certified, Approved, or ReadyToBuild. The evolution module validates artifact revision lineage, verifies declared critical invariants before minting an opaque migration type accepted by the bounded planner, and computes deterministic downstream invalidation closure after a changed input. The `affected_cause_tree` API records a stable parent pointer for each impacted artifact so a reviewer can reconstruct the shortest change-to-output chain in linear space. The regulatory module distinguishes in-force law, adopted-but-not-yet-effective instruments, proposals, guidance, withdrawn sources and unknown status, and refuses to silently resolve conflicting normalized requirements unless an explicit jurisdiction-specific precedence policy uniquely settles them.
 
+## Global rule composition and evidence-led reform
+
+The standalone crate now includes a composable ruleset engine and a code-reform dossier contract:
+
+- Global reference modules remain non-binding references; jurisdictional modules compose by explicit parent links, but geographic scope never silently creates legal precedence.
+- Conflicting binding requirements remain explicit conflicts. A narrower module may supersede an inherited binding statement only through a reviewed, provenance-linked override directive; the prototype validates metadata and digest syntax, not the reviewer's identity or evidence bytes.
+- Owner preferences are kept distinct from law, guidance, engineering baselines, and proposals.
+- Evidence-backed reform proposals are tied to a reform dossier that records supporting and conflicting evidence, methods, uncertainty, counter-evidence searches, affected-group impacts, conflicts of interest, and independent reviews pinned to a specific dossier snapshot.
+- Preparing a dossier for public consultation is not a finding that science is conclusive and does not amend a live building code. Adoption still requires the legally authorized process.
+
+See [Global Building-Code Composition and Evidence Reform](docs/GLOBAL_BUILDING_CODE_COMPOSITION_AND_REFORM.md) for the design, workflow, and acceptance targets. The types are prototypes; they are not a globally authoritative code database or a legal interpreter.
+
 ## Status
 
 Early prototype and design slice. Unit tests are included but were not run in the authoring environment because Rust tooling is unavailable there. The crate includes revision-lineage, invariant-gated migration planning, dependency invalidation and time-aware regulatory-source modules, but is not yet integrated with an IFC parser, a live source registry, identity verification, cryptographic artifact storage, trusted semantic extraction, migration executors, or a professional/municipal workflow.
