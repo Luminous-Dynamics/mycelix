@@ -155,32 +155,256 @@ pub fn validate_revision_ledger(revisions: &[ArtifactRevision]) -> Vec<RevisionI
 /// RequiresHumanReview, Lossy, Experimental, and Retired deliberately require
 /// another workflow and are never silently treated as safe.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MigrationAssurance {
-    VerifiedLossless,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MigrationDisposition {
+    Pending,
     RequiresHumanReview,
+    ApprovedForAutomaticUse,
     Lossy,
     Experimental,
     Retired,
 }
 
+/// A semantic property that must survive migration. Values are digests of
+/// canonicalized property values; the adapter must compute them from actual
+/// source/target artifacts before submitting this evidence.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MigrationDefinition {
+pub struct SemanticInvariant {
+    pub invariant_id: String,
+    pub canonical_value_sha256: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MigrationCandidate {
     pub migration_id: String,
     pub from: FormatVersion,
     pub to: FormatVersion,
-    /// Version or immutable identifier for the migration implementation.
     pub tool_version: String,
-    pub assurance: MigrationAssurance,
-    /// Digest of the conformance fixture/report package. Syntax only here.
+    pub disposition: MigrationDisposition,
+    pub source_artifact_sha256: String,
+    pub target_artifact_sha256: String,
     pub verification_evidence_sha256: String,
+    /// Critical semantic properties the migration contract promises to retain.
+    pub required_invariants: Vec<String>,
+    pub source_invariants: Vec<SemanticInvariant>,
+    pub target_invariants: Vec<SemanticInvariant>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct MigrationDefinition {
+    migration_id: String,
+    from: FormatVersion,
+    to: FormatVersion,
+    tool_version: String,
+    source_artifact_sha256: String,
+    target_artifact_sha256: String,
+    verification_evidence_sha256: String,
+    required_invariants: Vec<String>,
+}
+
+/// This type can only be constructed inside this module after candidate
+/// validation. It is an API-level guard against accidentally passing an
+/// unverified candidate into automatic planning, not a cryptographic boundary:
+/// production still needs authenticated reviewer authorization and real digest
+/// recomputation from artifact bytes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedMigration {
+    definition: MigrationDefinition,
+}
+
+impl VerifiedMigration {
+    pub fn migration_id(&self) -> &str {
+        &self.definition.migration_id
+    }
+
+    pub fn from(&self) -> &FormatVersion {
+        &self.definition.from
+    }
+
+    pub fn to(&self) -> &FormatVersion {
+        &self.definition.to
+    }
+
+    pub fn tool_version(&self) -> &str {
+        &self.definition.tool_version
+    }
+
+    pub fn source_artifact_sha256(&self) -> &str {
+        &self.definition.source_artifact_sha256
+    }
+
+    pub fn target_artifact_sha256(&self) -> &str {
+        &self.definition.target_artifact_sha256
+    }
+
+    pub fn verification_evidence_sha256(&self) -> &str {
+        &self.definition.verification_evidence_sha256
+    }
+
+    pub fn required_invariants(&self) -> &[String] {
+        &self.definition.required_invariants
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MigrationVerificationIssue {
+    InvalidMetadata(&'static str),
+    InvalidSourceVersion,
+    InvalidTargetVersion,
+    NotApprovedForAutomaticUse(MigrationDisposition),
+    InvalidSourceArtifactDigest,
+    InvalidTargetArtifactDigest,
+    InvalidVerificationEvidenceDigest,
+    NoRequiredInvariants,
+    EmptyRequiredInvariant,
+    DuplicateRequiredInvariant(String),
+    EmptyObservedInvariant { side: &'static str },
+    DuplicateObservedInvariant { side: &'static str, invariant_id: String },
+    InvalidInvariantDigest { side: &'static str, invariant_id: String },
+    MissingRequiredInvariant { side: &'static str, invariant_id: String },
+    CriticalInvariantChanged(String),
+}
+
+/// Validate the explicit migration contract and mint an opaque
+/// VerifiedMigration only when every declared critical invariant is present
+/// on both sides and its canonical value digest is unchanged.
+///
+/// Important limit: this compares adapter-supplied observations and verifies
+/// digest syntax; it does not hash the files itself or prove the adapter
+/// extracted all critical properties. Those claims require a trusted adapter,
+/// authenticated review, and independent conformance fixtures.
+pub fn verify_migration_candidate(
+    candidate: MigrationCandidate,
+) -> Result<VerifiedMigration, Vec<MigrationVerificationIssue>> {
+    let mut issues = Vec::new();
+
+    if !nonblank(&candidate.migration_id) {
+        issues.push(MigrationVerificationIssue::InvalidMetadata("migration_id"));
+    }
+    if !nonblank(&candidate.tool_version) {
+        issues.push(MigrationVerificationIssue::InvalidMetadata("tool_version"));
+    }
+    if !candidate.from.is_well_formed() {
+        issues.push(MigrationVerificationIssue::InvalidSourceVersion);
+    }
+    if !candidate.to.is_well_formed() {
+        issues.push(MigrationVerificationIssue::InvalidTargetVersion);
+    }
+    if candidate.disposition != MigrationDisposition::ApprovedForAutomaticUse {
+        issues.push(MigrationVerificationIssue::NotApprovedForAutomaticUse(
+            candidate.disposition,
+        ));
+    }
+    if !is_sha256_hex(&candidate.source_artifact_sha256) {
+        issues.push(MigrationVerificationIssue::InvalidSourceArtifactDigest);
+    }
+    if !is_sha256_hex(&candidate.target_artifact_sha256) {
+        issues.push(MigrationVerificationIssue::InvalidTargetArtifactDigest);
+    }
+    if !is_sha256_hex(&candidate.verification_evidence_sha256) {
+        issues.push(MigrationVerificationIssue::InvalidVerificationEvidenceDigest);
+    }
+    if candidate.required_invariants.is_empty() {
+        issues.push(MigrationVerificationIssue::NoRequiredInvariants);
+    }
+
+    let mut required = HashSet::new();
+    for invariant_id in &candidate.required_invariants {
+        if !nonblank(invariant_id) {
+            issues.push(MigrationVerificationIssue::EmptyRequiredInvariant);
+        } else if !required.insert(invariant_id.as_str()) {
+            issues.push(MigrationVerificationIssue::DuplicateRequiredInvariant(
+                invariant_id.clone(),
+            ));
+        }
+    }
+
+    let collect_observations = |side: &'static str,
+                               observations: &[SemanticInvariant],
+                               issues: &mut Vec<MigrationVerificationIssue>|
+     -> HashMap<&str, &str> {
+        let mut values = HashMap::new();
+        for observation in observations {
+            if !nonblank(&observation.invariant_id) {
+                issues.push(MigrationVerificationIssue::EmptyObservedInvariant { side });
+                continue;
+            }
+            if !is_sha256_hex(&observation.canonical_value_sha256) {
+                issues.push(MigrationVerificationIssue::InvalidInvariantDigest {
+                    side,
+                    invariant_id: observation.invariant_id.clone(),
+                });
+                continue;
+            }
+            if values
+                .insert(
+                    observation.invariant_id.as_str(),
+                    observation.canonical_value_sha256.as_str(),
+                )
+                .is_some()
+            {
+                issues.push(MigrationVerificationIssue::DuplicateObservedInvariant {
+                    side,
+                    invariant_id: observation.invariant_id.clone(),
+                });
+            }
+        }
+        values
+    };
+
+    let source = collect_observations("source", &candidate.source_invariants, &mut issues);
+    let target = collect_observations("target", &candidate.target_invariants, &mut issues);
+
+    for invariant_id in &candidate.required_invariants {
+        if !nonblank(invariant_id) {
+            continue;
+        }
+        let source_value = source.get(invariant_id.as_str());
+        let target_value = target.get(invariant_id.as_str());
+        if source_value.is_none() {
+            issues.push(MigrationVerificationIssue::MissingRequiredInvariant {
+                side: "source",
+                invariant_id: invariant_id.clone(),
+            });
+        }
+        if target_value.is_none() {
+            issues.push(MigrationVerificationIssue::MissingRequiredInvariant {
+                side: "target",
+                invariant_id: invariant_id.clone(),
+            });
+        }
+        if let (Some(source_value), Some(target_value)) = (source_value, target_value) {
+            if source_value != target_value {
+                issues.push(MigrationVerificationIssue::CriticalInvariantChanged(
+                    invariant_id.clone(),
+                ));
+            }
+        }
+    }
+
+    if !issues.is_empty() {
+        return Err(issues);
+    }
+
+    Ok(VerifiedMigration {
+        definition: MigrationDefinition {
+            migration_id: candidate.migration_id,
+            from: candidate.from,
+            to: candidate.to,
+            tool_version: candidate.tool_version,
+            source_artifact_sha256: candidate.source_artifact_sha256,
+            target_artifact_sha256: candidate.target_artifact_sha256,
+            verification_evidence_sha256: candidate.verification_evidence_sha256,
+            required_invariants: candidate.required_invariants,
+        },
+    })
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MigrationBlocker {
     InvalidSourceVersion,
     InvalidTargetVersion,
-    InvalidMigrationMetadata(String),
-    InvalidVerificationEvidenceDigest(String),
+    DuplicateVerifiedMigrationId(String),
     NoVerifiedLosslessPath {
         from: FormatVersion,
         to: FormatVersion,
@@ -197,20 +421,16 @@ pub enum MigrationPlanStatus {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MigrationPlan {
     pub status: MigrationPlanStatus,
-    pub steps: Vec<MigrationDefinition>,
+    pub steps: Vec<VerifiedMigration>,
     pub blockers: Vec<MigrationBlocker>,
 }
 
-/// Find a shortest path of verified-lossless migration edges.
-///
-/// This is a path planner, not a migration executor. It assumes that the
-/// VerifiedLossless label has already been earned through independent
-/// round-trip tests and review. A hash-shaped evidence string alone is not
-/// proof that any report exists or that a migration preserves meaning.
+/// Find a shortest path through opaque VerifiedMigration values only. Raw
+/// MigrationCandidate values cannot be passed to this function.
 pub fn plan_lossless_migration(
     from: &FormatVersion,
     to: &FormatVersion,
-    migrations: &[MigrationDefinition],
+    migrations: &[VerifiedMigration],
     max_steps: usize,
 ) -> MigrationPlan {
     let mut blockers = Vec::new();
@@ -235,30 +455,18 @@ pub fn plan_lossless_migration(
         };
     }
 
+    let mut seen_ids = HashSet::new();
     let mut adjacency: HashMap<FormatVersion, Vec<usize>> = HashMap::new();
     for (index, migration) in migrations.iter().enumerate() {
-        if !nonblank(&migration.migration_id)
-            || !migration.from.is_well_formed()
-            || !migration.to.is_well_formed()
-            || !nonblank(&migration.tool_version)
-        {
-            blockers.push(MigrationBlocker::InvalidMigrationMetadata(
-                migration.migration_id.clone(),
-            ));
-            continue;
-        }
-
-        if migration.assurance != MigrationAssurance::VerifiedLossless {
-            continue;
-        }
-        if !is_sha256_hex(&migration.verification_evidence_sha256) {
-            blockers.push(MigrationBlocker::InvalidVerificationEvidenceDigest(
-                migration.migration_id.clone(),
+        let definition = &migration.definition;
+        if !seen_ids.insert(definition.migration_id.as_str()) {
+            blockers.push(MigrationBlocker::DuplicateVerifiedMigrationId(
+                definition.migration_id.clone(),
             ));
             continue;
         }
         adjacency
-            .entry(migration.from.clone())
+            .entry(definition.from.clone())
             .or_default()
             .push(index);
     }
@@ -266,8 +474,8 @@ pub fn plan_lossless_migration(
     for indexes in adjacency.values_mut() {
         indexes.sort_by(|left, right| {
             migrations[*left]
-                .migration_id
-                .cmp(&migrations[*right].migration_id)
+                .migration_id()
+                .cmp(migrations[*right].migration_id())
         });
     }
 
@@ -288,8 +496,7 @@ pub fn plan_lossless_migration(
             continue;
         };
         for index in indexes {
-            let migration = &migrations[*index];
-            let next = migration.to.clone();
+            let next = migrations[*index].to().clone();
             if visited.insert(next.clone()) {
                 parent.insert(next.clone(), (current.clone(), *index));
                 queue.push_back((next, depth + 1));
@@ -310,8 +517,6 @@ pub fn plan_lossless_migration(
         };
     }
 
-    // Do not report Ready if the migration catalog contains malformed
-    // metadata: ambiguity in the catalog is itself a fail-closed condition.
     if !blockers.is_empty() {
         return MigrationPlan {
             status: MigrationPlanStatus::Blocked,
