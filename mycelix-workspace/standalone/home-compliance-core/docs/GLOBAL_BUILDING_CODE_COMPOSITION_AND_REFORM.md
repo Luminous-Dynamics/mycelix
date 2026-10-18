@@ -32,7 +32,7 @@ For every binding requirement, the composer must return one of three meaningful 
 
 - **Agreement:** applicable binding statements agree on the exact normalized value; source and clause references are retained.
 - **Conflict:** applicable binding statements disagree. There is no selected effective value until a reviewed resolution is recorded.
-- **Explicitly reviewed override:** a binding statement may supersede a named inherited binding statement only with an authority-decision reference, reviewer, rationale, and evidence digest. The superseded source stays in the audit record.
+- **Explicitly verified override:** a binding statement may supersede a named inherited binding statement only with an authority-decision reference, reviewer, rationale, and evidence digest. The metadata-only composer rejects overrides. The separate verified composer requires an external jurisdiction-specific verifier to authenticate the decision, reviewer, source bytes, and authority to vary that exact rule. The superseded source stays in the audit record.
 
 A digest-shaped string or reviewer name is not authentication. Production must authenticate the module publisher, reviewer authority, override decision, source bytes, and signature/digest chain. An override in a prototype fixture is never permission to ignore a real code requirement.
 
