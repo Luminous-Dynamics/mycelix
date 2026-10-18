@@ -155,11 +155,22 @@ fn finding(check_id: &str, outcome: CheckOutcome) -> Finding {
 }
 
 fn assessment(energy_outcome: CheckOutcome) -> AssessmentInput {
+    let required_checks = vec![
+        CheckDefinition {
+            id: "energy-performance".into(),
+            mandatory: true,
+        },
+        CheckDefinition {
+            id: "structure-review".into(),
+            mandatory: true,
+        },
+    ];
     AssessmentInput {
         rule_pack: RulePack {
             id: "za-jhb-synthetic-home-pack".into(),
             jurisdiction: JURISDICTION.into(),
             edition: "fixture-1".into(),
+            required_checks: required_checks.clone(),
             source_uri: "https://example.invalid/synthetic-home-rule-pack".into(),
             pack_sha256: "a".repeat(64),
             status: RulePackStatus::Active,
@@ -167,16 +178,7 @@ fn assessment(energy_outcome: CheckOutcome) -> AssessmentInput {
             effective_until_day_exclusive: None,
         },
         assessed_on_day: 200,
-        required_checks: vec![
-            CheckDefinition {
-                id: "energy-performance".into(),
-                mandatory: true,
-            },
-            CheckDefinition {
-                id: "structure-review".into(),
-                mandatory: true,
-            },
-        ],
+        required_checks,
         findings: vec![
             finding("energy-performance", energy_outcome),
             finding("structure-review", CheckOutcome::Pass),
