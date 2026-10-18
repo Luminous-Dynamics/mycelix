@@ -346,6 +346,108 @@ pub fn plan_lossless_migration(
     }
 }
 
+/// A directed dependency: dependent_id was derived from input_id.
+///
+/// If input_id changes, the dependent output and all transitive dependents
+/// become stale until re-evaluated. Identifiers should refer to stable object,
+/// rule, solver, dataset, or evidence identities—not display names.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DependencyEdge {
+    pub input_id: String,
+    pub dependent_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DependencyGraphIssue {
+    EmptyChangedArtifactId,
+    EmptyInputId,
+    EmptyDependentId,
+    SelfDependency(String),
+    DuplicateEdge { input_id: String, dependent_id: String },
+}
+
+/// Return a deterministic closure of changed nodes plus all transitively
+/// dependent outputs. If the dependency graph is malformed, return all issues
+/// instead of a partial closure that might leave stale safety findings current.
+///
+/// This identifies what must be re-evaluated; it does not run the evaluators or
+/// mark real stored findings stale. The caller must persist the invalidation.
+pub fn affected_closure(
+    changed_artifact_ids: &[String],
+    dependencies: &[DependencyEdge],
+) -> Result<Vec<String>, Vec<DependencyGraphIssue>> {
+    let mut issues = Vec::new();
+    for changed_id in changed_artifact_ids {
+        if !nonblank(changed_id) {
+            issues.push(DependencyGraphIssue::EmptyChangedArtifactId);
+        }
+    }
+
+    let mut seen_edges: HashSet<(String, String)> = HashSet::new();
+    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+    for edge in dependencies {
+        if !nonblank(&edge.input_id) {
+            issues.push(DependencyGraphIssue::EmptyInputId);
+            continue;
+        }
+        if !nonblank(&edge.dependent_id) {
+            issues.push(DependencyGraphIssue::EmptyDependentId);
+            continue;
+        }
+        if edge.input_id == edge.dependent_id {
+            issues.push(DependencyGraphIssue::SelfDependency(
+                edge.input_id.clone(),
+            ));
+            continue;
+        }
+        let pair = (edge.input_id.clone(), edge.dependent_id.clone());
+        if !seen_edges.insert(pair) {
+            issues.push(DependencyGraphIssue::DuplicateEdge {
+                input_id: edge.input_id.clone(),
+                dependent_id: edge.dependent_id.clone(),
+            });
+            continue;
+        }
+        adjacency
+            .entry(edge.input_id.clone())
+            .or_default()
+            .push(edge.dependent_id.clone());
+    }
+
+    if !issues.is_empty() {
+        return Err(issues);
+    }
+
+    for dependents in adjacency.values_mut() {
+        dependents.sort();
+    }
+
+    let mut queue: VecDeque<String> = VecDeque::new();
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut changed = changed_artifact_ids.to_vec();
+    changed.sort();
+    changed.dedup();
+    for changed_id in changed {
+        if visited.insert(changed_id.clone()) {
+            queue.push_back(changed_id);
+        }
+    }
+
+    while let Some(current) = queue.pop_front() {
+        if let Some(dependents) = adjacency.get(&current) {
+            for dependent in dependents {
+                if visited.insert(dependent.clone()) {
+                    queue.push_back(dependent.clone());
+                }
+            }
+        }
+    }
+
+    let mut affected: Vec<String> = visited.into_iter().collect();
+    affected.sort();
+    Ok(affected)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
