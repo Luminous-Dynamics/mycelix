@@ -51,7 +51,7 @@ pub struct EvidenceRef {
     pub artifact_sha256: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CheckOutcome {
     Pass,
     Fail,
