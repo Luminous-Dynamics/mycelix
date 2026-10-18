@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/farmer-ux-002-verifier/mutations-v1.schema.json",
+  "title": "Farmer UX verifier mutation corpus",
+  "description": "Data-driven synthetic mutation instructions for verifying that semantic corpus checks fail closed. This schema validates mutation instruction structure, not the correctness of a production service workflow.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "purpose",
+    "mutations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "frozen_semantic_mutation_cases"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mutations": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "target",
+          "collection",
+          "id_field",
+          "entry_id",
+          "operation",
+          "expected_error_contains"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^MUT-[A-Z0-9-]+$"
+          },
+          "target": {
+            "enum": [
+              "cases",
+              "roles",
+              "copy"
+            ]
+          },
+          "collection": {
+            "enum": [
+              "cases",
+              "roles",
+              "states"
+            ]
+          },
+          "id_field": {
+            "enum": [
+              "id",
+              "key"
+            ]
+          },
+          "entry_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "enum": [
+              "duplicate_entry",
+              "remove_entry",
+              "set_value",
+              "append_string",
+              "remove_string"
+            ]
+          },
+          "pointer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {},
+          "expected_error_contains": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "operation": {
+                  "const": "set_value"
+                }
+              },
+              "required": [
+                "operation"
+              ]
+            },
+            "then": {
+              "required": [
+                "pointer",
+                "value"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "operation": {
+                  "const": "append_string"
+                }
+              },
+              "required": [
+                "operation"
+              ]
+            },
+            "then": {
+              "required": [
+                "pointer",
+                "value"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "operation": {
+                  "const": "remove_string"
+                }
+              },
+              "required": [
+                "operation"
+              ]
+            },
+            "then": {
+              "required": [
+                "pointer",
+                "value"
+              ]
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
