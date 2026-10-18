@@ -43,12 +43,23 @@ pub enum AttemptStatus {
     NotSent,
 }
 impl AttemptStatus {
-    pub fn dispatch_eligible(self) -> bool {
+    /// A new attempt may be started from Prepared; this does not itself authorize a network send.
+    pub fn can_start_attempt(self) -> bool {
         matches!(self, Self::Prepared)
     }
     pub fn needs_reconciliation(self) -> bool {
         matches!(self, Self::Submitted | Self::OutcomeUnknown)
     }
+}
+
+/// Network send is allowed only when the exact Submitted record was committed and read back.
+/// The boolean is evidence supplied by the journal adapter; it is not inferred from an enum alone.
+pub fn network_send_authorized(
+    record: Option<&JournalRecord>,
+    submitted_commit_verified: bool,
+) -> bool {
+    submitted_commit_verified
+        && record.is_some_and(|r| r.schema_version == 1 && r.status == AttemptStatus::Submitted)
 }
 
 pub fn transition_allowed(from: AttemptStatus, to: AttemptStatus) -> bool {
@@ -496,7 +507,7 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     for entry in &statuses {
         let name = entry.get("status").and_then(Value::as_str).unwrap_or("");
         if !names.insert(name) { errors.push(format!("duplicate attempt status {name:?}")); }
-        if name == "OutcomeUnknown" && (entry.get("dispatch_eligible").and_then(Value::as_bool) != Some(false) || entry.get("needs_reconciliation").and_then(Value::as_bool) != Some(true)) {
+        if name == "OutcomeUnknown" && (entry.get("can_start_attempt").and_then(Value::as_bool) != Some(false) || entry.get("needs_reconciliation").and_then(Value::as_bool) != Some(true)) {
             errors.push("mapping: OutcomeUnknown must not dispatch and must require reconciliation".to_owned());
         }
         if name == "Prepared" && entry.get("dispatch_eligible").and_then(Value::as_bool) != Some(true) {
@@ -504,6 +515,9 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
         }
     }
     if statuses.len() != 8 || names.len() != 8 { errors.push("mapping must define exactly eight attempt statuses".to_owned()); }
+    if mapping.get("network_send_rule").and_then(Value::as_str).is_none_or(str::is_empty) {
+        errors.push("mapping missing explicit durable Submitted network-send rule".to_owned());
+    }
     let service_count = mapping.get("farmer_service_states").and_then(Value::as_array).map_or(0, Vec::len);
     if service_count != 11 { errors.push(format!("expected 11 service states, found {service_count}")); }
     let promotion_count = mapping.get("allowed_promotions").and_then(Value::as_array).map_or(0, Vec::len);
@@ -608,7 +622,7 @@ mod tests {
         let result=submit_new(&mut journal,&mut remote,"op-4","site-1");
         assert_eq!(result.status,AttemptStatus::OutcomeUnknown);
         assert_eq!(remote.calls,1);
-        assert!(!AttemptStatus::OutcomeUnknown.dispatch_eligible());
+        assert!(!AttemptStatus::OutcomeUnknown.can_start_attempt());
         assert!(AttemptStatus::OutcomeUnknown.needs_reconciliation());
     }
 
@@ -692,6 +706,17 @@ mod tests {
         assert!(!second.send_attempted);
         assert_eq!(remote.calls, 1);
         assert_eq!(remote.applied_effects, 1);
+    }
+
+    #[test]
+    fn network_send_requires_verified_durable_submitted_record() {
+        let mut r = record();
+        assert!(!network_send_authorized(Some(&r), false));
+        assert!(!network_send_authorized(Some(&r), true));
+        r.set_status(AttemptStatus::Submitted).expect("Submitted transition");
+        assert!(!network_send_authorized(Some(&r), false));
+        assert!(network_send_authorized(Some(&r), true));
+        assert!(!network_send_authorized(None, true));
     }
 
     #[test]
