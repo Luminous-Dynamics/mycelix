@@ -642,6 +642,20 @@ mod tests {
     }
 
     #[test]
+    fn malformed_response_after_possible_apply_stays_unknown() {
+        let mut journal = FakeJournal::default();
+        let mut remote = FakeRemote::new(RemoteMode::MalformedAfterPossibleApply);
+        let result = submit_new(&mut journal, &mut remote, "op-malformed", "site-1");
+        assert_eq!(result.status, AttemptStatus::OutcomeUnknown);
+        assert_eq!(remote.calls, 1);
+        assert_eq!(remote.applied_effects, 1);
+        assert_eq!(
+            journal.read("op-malformed").expect("record").status,
+            AttemptStatus::OutcomeUnknown
+        );
+    }
+
+    #[test]
     fn typed_rejection_is_not_ambiguous() {
         let mut journal=FakeJournal::default();
         let mut remote=FakeRemote::new(RemoteMode::TypedRejection);
@@ -686,6 +700,20 @@ mod tests {
         let r=record();
         assert!(!target_matches(&r,"different-site"));
         assert!(target_matches(&r,"site-fingerprint-1"));
+    }
+
+    #[test]
+    fn journal_rejects_retargeting_same_operation_id() {
+        let mut journal = FakeJournal::default();
+        let record = JournalRecord::new("op-target", "site-original").expect("valid record");
+        journal.commit(record.clone()).expect("prepared commit");
+        let mut retargeted = record;
+        retargeted.target_fingerprint = "site-changed".to_owned();
+        assert_eq!(journal.commit(retargeted), Err(StoreError::IdentityChanged));
+        assert_eq!(
+            journal.read("op-target").expect("original").target_fingerprint,
+            "site-original"
+        );
     }
 
     #[test]
