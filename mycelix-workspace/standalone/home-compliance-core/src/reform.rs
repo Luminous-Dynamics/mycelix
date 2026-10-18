@@ -702,6 +702,7 @@ mod tests {
             consultation_id: "consultation:ventilation:2026".into(),
             dossier_id: dossier.dossier_id.clone(),
             dossier_snapshot_sha256: dossier.snapshot_sha256.clone(),
+            closeout_snapshot_sha256: "9".repeat(64),
             jurisdiction_path: dossier.jurisdiction_path.clone(),
             opened_on_day: 110,
             closed_on_day: 120,
@@ -724,6 +725,7 @@ mod tests {
             dossier_id: dossier.dossier_id.clone(),
             dossier_snapshot_sha256: dossier.snapshot_sha256.clone(),
             consultation_id: closeout.consultation_id.clone(),
+            consultation_closeout_sha256: closeout.closeout_snapshot_sha256.clone(),
             jurisdiction_path: dossier.jurisdiction_path.clone(),
             authority_id: "authority:lawfully-designated-building-board".into(),
             decision_maker_id: "decision-maker:recorded-signatory".into(),
@@ -785,6 +787,17 @@ mod tests {
         assert!(validate_adoption_decision(&dossier, &closeout, decision)
             .unwrap_err()
             .contains(&ReformWorkflowIssue::DossierSnapshotMismatch));
+    }
+
+    #[test]
+    fn adoption_record_pins_the_exact_consultation_closeout_snapshot() {
+        let dossier = consultation_ready_dossier();
+        let closeout = consultation_closeout(&dossier);
+        let mut decision = adoption_decision(&dossier, &closeout);
+        decision.consultation_closeout_sha256 = "8".repeat(64);
+        assert!(validate_adoption_decision(&dossier, &closeout, decision)
+            .unwrap_err()
+            .contains(&ReformWorkflowIssue::ConsultationCloseoutSnapshotMismatch));
     }
 
     #[test]
