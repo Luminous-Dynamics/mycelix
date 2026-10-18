@@ -9,9 +9,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
-use crate::provenance::{
-    FieldTreatment, ImportOutcome, ImportProvenanceManifest, InventoryStatus,
-};
+use crate::provenance::{FieldTreatment, ImportOutcome, ImportProvenanceManifest, InventoryStatus};
 
 const KEY_DOMAIN: &[u8] = b"MYCELIX-CSCP-IMPORT-REPLAY-KEY-V1\0";
 const RESULT_DOMAIN: &[u8] = b"MYCELIX-CSCP-IMPORT-RESULT-V1\0";
@@ -127,9 +125,7 @@ impl ImportReplayLedger {
     }
 }
 
-fn replay_key_digest(
-    manifest: &ImportProvenanceManifest,
-) -> Result<String, ImportReplayError> {
+fn replay_key_digest(manifest: &ImportProvenanceManifest) -> Result<String, ImportReplayError> {
     let source = manifest.source();
     let mut bytes = Vec::new();
     write_string(&mut bytes, source.source_system())?;
@@ -175,9 +171,7 @@ fn replay_key_digest(
     Ok(hasher.finalize().to_hex().to_string())
 }
 
-fn result_fingerprint(
-    manifest: &ImportProvenanceManifest,
-) -> Result<String, ImportReplayError> {
+fn result_fingerprint(manifest: &ImportProvenanceManifest) -> Result<String, ImportReplayError> {
     let mut bytes = Vec::new();
     bytes.push(encode_inventory(manifest.inventory_status()));
     bytes.push(encode_outcome(manifest.outcome()));
@@ -224,8 +218,7 @@ fn write_count(output: &mut Vec<u8>, count: usize) -> Result<(), ImportReplayErr
 
 fn write_string(output: &mut Vec<u8>, value: &str) -> Result<(), ImportReplayError> {
     let bytes = value.as_bytes();
-    let length =
-        u32::try_from(bytes.len()).map_err(|_| ImportReplayError::ManifestInvalid)?;
+    let length = u32::try_from(bytes.len()).map_err(|_| ImportReplayError::ManifestInvalid)?;
     output.extend_from_slice(&length.to_be_bytes());
     output.extend_from_slice(bytes);
     Ok(())
@@ -248,9 +241,7 @@ fn write_optional_string(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provenance::{
-        DiagnosticSeverity, FieldMapping, ImportDiagnostic, SourceDocument,
-    };
+    use crate::provenance::{DiagnosticSeverity, FieldMapping, ImportDiagnostic, SourceDocument};
 
     fn source(
         payload: &[u8],
@@ -288,13 +279,8 @@ mod tests {
             Some(after_digest),
             vec![
                 FieldMapping::mapped("/Report/Id", "/statement/id", "report-id", "1").unwrap(),
-                FieldMapping::mapped(
-                    "/Report/Period",
-                    "/statement/period",
-                    "report-period",
-                    "1",
-                )
-                .unwrap(),
+                FieldMapping::mapped("/Report/Period", "/statement/period", "report-period", "1")
+                    .unwrap(),
             ],
             vec![],
         )
@@ -303,7 +289,13 @@ mod tests {
 
     #[test]
     fn exact_replay_is_idempotent_and_does_not_grow_ledger() {
-        let manifest = manifest(b"<report id='42'/>", 10, "vault://first", "1.0", &"11".repeat(32));
+        let manifest = manifest(
+            b"<report id='42'/>",
+            10,
+            "vault://first",
+            "1.0",
+            &"11".repeat(32),
+        );
         let mut ledger = ImportReplayLedger::new();
 
         let first = ledger.record(&manifest).unwrap();
@@ -344,8 +336,20 @@ mod tests {
 
     #[test]
     fn changed_source_bytes_create_a_new_replay_key() {
-        let first = manifest(b"<report id='42'/>", 10, "vault://source", "1.0", &"11".repeat(32));
-        let second = manifest(b"<report id='43'/>", 11, "vault://source", "1.0", &"22".repeat(32));
+        let first = manifest(
+            b"<report id='42'/>",
+            10,
+            "vault://source",
+            "1.0",
+            &"11".repeat(32),
+        );
+        let second = manifest(
+            b"<report id='43'/>",
+            11,
+            "vault://source",
+            "1.0",
+            &"22".repeat(32),
+        );
         let mut ledger = ImportReplayLedger::new();
 
         let a = ledger.record(&first).unwrap();
@@ -357,8 +361,20 @@ mod tests {
 
     #[test]
     fn changed_parser_version_creates_a_new_replay_key() {
-        let first = manifest(b"<report id='42'/>", 10, "vault://source", "1.0", &"11".repeat(32));
-        let second = manifest(b"<report id='42'/>", 10, "vault://source", "1.1", &"22".repeat(32));
+        let first = manifest(
+            b"<report id='42'/>",
+            10,
+            "vault://source",
+            "1.0",
+            &"11".repeat(32),
+        );
+        let second = manifest(
+            b"<report id='42'/>",
+            10,
+            "vault://source",
+            "1.1",
+            &"22".repeat(32),
+        );
         let mut ledger = ImportReplayLedger::new();
 
         let a = ledger.record(&first).unwrap();
@@ -370,7 +386,13 @@ mod tests {
 
     #[test]
     fn same_key_with_different_after_digest_fails_without_mutation() {
-        let first = manifest(b"<report id='42'/>", 10, "vault://source", "1.0", &"11".repeat(32));
+        let first = manifest(
+            b"<report id='42'/>",
+            10,
+            "vault://source",
+            "1.0",
+            &"11".repeat(32),
+        );
         let conflicting = manifest(
             b"<report id='42'/>",
             99,
@@ -421,9 +443,8 @@ mod tests {
     #[test]
     fn conflicting_result_for_same_processing_key_fails_closed() {
         let source = source(b"<report><id>42</id></report>", 1, "vault://source", "1.0");
-        let fields = vec![
-            FieldMapping::mapped("/Report/Id", "/statement/id", "report-id", "1").unwrap(),
-        ];
+        let fields =
+            vec![FieldMapping::mapped("/Report/Id", "/statement/id", "report-id", "1").unwrap()];
         let clean = ImportProvenanceManifest::new(
             source.clone(),
             InventoryStatus::CompleteAsReportedByParser,
@@ -443,19 +464,24 @@ mod tests {
             "00".repeat(32),
             Some("11".repeat(32).as_str()),
             fields,
-            vec![ImportDiagnostic::new(
-                "source_warning",
-                DiagnosticSeverity::Warning,
-                None,
-                "Source carried a warning not present in the first receipt",
-            )
-            .unwrap()],
+            vec![
+                ImportDiagnostic::new(
+                    "source_warning",
+                    DiagnosticSeverity::Warning,
+                    None,
+                    "Source carried a warning not present in the first receipt",
+                )
+                .unwrap(),
+            ],
         )
         .unwrap();
         let mut ledger = ImportReplayLedger::new();
         let first = ledger.record(&clean).unwrap();
         assert_eq!(ledger.len(), 1);
-        assert_eq!(ledger.record(&warned), Err(ImportReplayError::ResultConflict));
+        assert_eq!(
+            ledger.record(&warned),
+            Err(ImportReplayError::ResultConflict)
+        );
         assert_eq!(ledger.len(), 1);
         assert_eq!(first.disposition(), ReplayDisposition::Recorded);
     }
