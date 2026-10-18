@@ -25,6 +25,14 @@ The standalone crate now includes a composable ruleset engine and a code-reform 
 
 See [Global Building-Code Composition and Evidence Reform](docs/GLOBAL_BUILDING_CODE_COMPOSITION_AND_REFORM.md) for the design, workflow, and acceptance targets. The types are prototypes; they are not a globally authoritative code database or a legal interpreter.
 
+## Global composition and evidence-backed reform
+
+The crate now includes a prototype composable ruleset engine in `src/composition.rs` and a reform dossier workflow in `src/reform.rs`. Global reference modules do not become law by being imported; jurisdiction module ancestry is validated without inferring precedence. Conflicting applicable binding statements remain explicit conflicts until a reviewed override record names the inherited statement and preserves its provenance. Owner preferences and non-binding baselines/proposals remain separate.
+
+Code-reform dossiers record methods, evidence that supports or challenges a proposal, limitations, counter-evidence searches, uncertainty, affected-group impacts, conflicts of interest, and independent reviews pinned to a specific snapshot. A dossier can be prepared for public consultation, but this does not mean the science is conclusive or that a code has changed. A legally authorized authority must still adopt any amendment.
+
+See [Global Building-Code Composition and Evidence Reform](docs/GLOBAL_BUILDING_CODE_COMPOSITION_AND_REFORM.md) for the global architecture, design-freedom principles, public reform lifecycle, and acceptance benchmarks. The implementation is prototype metadata and workflow logic—not an authoritative global code database or legal interpreter.
+
 ## Status
 
 Early prototype and design slice. Unit tests are included but were not run in the authoring environment because Rust tooling is unavailable there. The crate includes revision-lineage, invariant-gated migration planning, dependency invalidation and time-aware regulatory-source modules, but is not yet integrated with an IFC parser, a live source registry, identity verification, cryptographic artifact storage, trusted semantic extraction, migration executors, or a professional/municipal workflow.
