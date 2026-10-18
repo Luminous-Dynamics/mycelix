@@ -1,7 +1,7 @@
 use creator_asset_passport_core::{
-    assess_split, evaluate_usage, AssetId, AssetKind, AssetRegistry, ClaimState, ExternalIdentifier,
-    GrantId, PartyId, PermissionDecision, PermissionDenial, RightsPool, SplitAssessment,
-    SplitClaim, SplitCompleteness, UsageGrant, UseAction, UseRequest,
+    AssetId, AssetKind, AssetRegistry, ClaimState, ExternalIdentifier, GrantId, PartyId,
+    PermissionDecision, PermissionDenial, RightsPool, SplitAssessment, SplitClaim,
+    SplitCompleteness, UsageGrant, UseAction, UseRequest, assess_split, evaluate_usage,
 };
 
 fn asset(value: &str) -> AssetId {
@@ -36,7 +36,11 @@ fn make_grant(
 fn registry_with_recording(id: &AssetId) -> AssetRegistry {
     let mut registry = AssetRegistry::new();
     registry
-        .register_asset(id.clone(), AssetKind::SoundRecording, Some("Demo recording".into()))
+        .register_asset(
+            id.clone(),
+            AssetKind::SoundRecording,
+            Some("Demo recording".into()),
+        )
         .unwrap();
     registry
 }
@@ -44,15 +48,17 @@ fn registry_with_recording(id: &AssetId) -> AssetRegistry {
 #[test]
 fn confirmed_contribution_split_is_not_a_model_training_grant() {
     let recording = asset("recording-1");
-    let claims = vec![SplitClaim::new(
-        recording.clone(),
-        party("creator"),
-        RightsPool::MasterRecording,
-        Some(10_000),
-        ClaimState::Confirmed,
-        "evidence://split",
-    )
-    .unwrap()];
+    let claims = vec![
+        SplitClaim::new(
+            recording.clone(),
+            party("creator"),
+            RightsPool::MasterRecording,
+            Some(10_000),
+            ClaimState::Confirmed,
+            "evidence://split",
+        )
+        .unwrap(),
+    ];
     assert!(matches!(
         assess_split(
             &recording,
@@ -136,13 +142,7 @@ fn grant_is_not_inherited_from_another_recording() {
     registry
         .register_asset(derivative.clone(), AssetKind::SoundRecording, None)
         .unwrap();
-    let source_grant = make_grant(
-        source,
-        UseAction::Distribute,
-        "release-a",
-        0,
-        None,
-    );
+    let source_grant = make_grant(source, UseAction::Distribute, "release-a", 0, None);
     let derivative_request = UseRequest::new(
         derivative,
         party("studio"),
@@ -161,7 +161,13 @@ fn grant_is_not_inherited_from_another_recording() {
 fn purpose_is_part_of_the_permission_scope() {
     let recording = asset("recording-1");
     let registry = registry_with_recording(&recording);
-    let grant = make_grant(recording.clone(), UseAction::Distribute, "release-a", 0, None);
+    let grant = make_grant(
+        recording.clone(),
+        UseAction::Distribute,
+        "release-a",
+        0,
+        None,
+    );
     let other_purpose = UseRequest::new(
         recording,
         party("studio"),
@@ -179,15 +185,17 @@ fn purpose_is_part_of_the_permission_scope() {
 #[test]
 fn split_claims_cannot_be_combined_across_rights_pools() {
     let work = asset("work-1");
-    let claims = vec![SplitClaim::new(
-        work.clone(),
-        party("writer"),
-        RightsPool::Composition,
-        Some(10_000),
-        ClaimState::Confirmed,
-        "evidence://work-split",
-    )
-    .unwrap()];
+    let claims = vec![
+        SplitClaim::new(
+            work.clone(),
+            party("writer"),
+            RightsPool::Composition,
+            Some(10_000),
+            ClaimState::Confirmed,
+            "evidence://work-split",
+        )
+        .unwrap(),
+    ];
     assert_eq!(
         assess_split(
             &work,
@@ -267,13 +275,7 @@ fn expiry_is_exclusive_and_never_becomes_an_active_grant_again() {
 fn revocation_is_effective_at_its_timestamp_without_rewriting_past_results() {
     let recording = asset("recording-1");
     let registry = registry_with_recording(&recording);
-    let grant = make_grant(
-        recording.clone(),
-        UseAction::Publish,
-        "release-a",
-        10,
-        None,
-    );
+    let grant = make_grant(recording.clone(), UseAction::Publish, "release-a", 10, None);
     let revoked = grant.revoked_at(20).unwrap();
     let before = UseRequest::new(
         recording.clone(),
@@ -316,14 +318,8 @@ fn revocation_is_effective_at_its_timestamp_without_rewriting_past_results() {
 fn an_unregistered_asset_is_never_authorized_by_a_matching_grant() {
     let unknown = asset("unknown-recording");
     let grant = make_grant(unknown.clone(), UseAction::Publish, "release-a", 0, None);
-    let request = UseRequest::new(
-        unknown,
-        party("studio"),
-        UseAction::Publish,
-        "release-a",
-        1,
-    )
-    .unwrap();
+    let request =
+        UseRequest::new(unknown, party("studio"), UseAction::Publish, "release-a", 1).unwrap();
     assert_eq!(
         evaluate_usage(&AssetRegistry::new(), &[grant], &request),
         PermissionDecision::Denied(PermissionDenial::AssetNotRegistered)
