@@ -491,6 +491,38 @@ mod tests {
         )
     }
 
+    fn assertion(
+        source_id: &str,
+        clause_ref: &str,
+        normalized_value: &str,
+        precedence_rank: Option<i32>,
+        applicability: SourceApplicability,
+    ) -> RequirementAssertion {
+        RequirementAssertion {
+            requirement_id: "egress:min-width".into(),
+            source_id: source_id.into(),
+            clause_ref: clause_ref.into(),
+            normalized_value: normalized_value.into(),
+            precedence_rank,
+            applicability,
+        }
+    }
+
+    fn applicable_assertion(
+        source_id: &str,
+        clause_ref: &str,
+        normalized_value: &str,
+        precedence_rank: Option<i32>,
+    ) -> RequirementAssertion {
+        assertion(
+            source_id,
+            clause_ref,
+            normalized_value,
+            precedence_rank,
+            SourceApplicability::Applicable,
+        )
+    }
+
     #[test]
     fn active_in_force_source_is_applicable_in_its_window() {
         assert_eq!(
@@ -642,6 +674,172 @@ mod tests {
             evaluate(&value, 60, 60),
             SourceApplicability::Indeterminate(
                 IndeterminateReason::InvalidMetadata("source_id")
+            )
+        );
+    }
+
+    #[test]
+    fn agreeing_requirements_resolve_with_all_provenance() {
+        let assertions = vec![
+            applicable_assertion("national-code", "clause-1", "min-width:900mm", Some(10)),
+            applicable_assertion("municipal-scheme", "clause-8", "min-width:900mm", Some(20)),
+        ];
+        let result =
+            resolve_requirement(&assertions, RequirementResolutionPolicy::RequireAgreement);
+        match result {
+            RequirementResolution::Resolved {
+                normalized_value,
+                basis,
+                contributing_sources,
+                superseded_sources,
+                ..
+            } => {
+                assert_eq!(normalized_value, "min-width:900mm");
+                assert_eq!(basis, ResolutionBasis::Agreement);
+                assert_eq!(contributing_sources.len(), 2);
+                assert!(superseded_sources.is_empty());
+            }
+            other => panic!("expected an agreed resolution, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn conflicting_requirements_are_not_guessed_away() {
+        let assertions = vec![
+            applicable_assertion("source-a", "clause-1", "min-width:850mm", Some(10)),
+            applicable_assertion("source-b", "clause-2", "min-width:900mm", Some(20)),
+        ];
+        assert!(matches!(
+            resolve_requirement(&assertions, RequirementResolutionPolicy::RequireAgreement),
+            RequirementResolution::Conflict { .. }
+        ));
+    }
+
+    #[test]
+    fn explicit_precedence_resolves_only_when_top_rank_agrees() {
+        let assertions = vec![
+            applicable_assertion("source-low", "clause-a", "min-width:850mm", Some(10)),
+            applicable_assertion("source-high", "clause-b", "min-width:900mm", Some(20)),
+        ];
+        match resolve_requirement(
+            &assertions,
+            RequirementResolutionPolicy::UseExplicitPrecedence,
+        ) {
+            RequirementResolution::Resolved {
+                normalized_value,
+                basis,
+                contributing_sources,
+                superseded_sources,
+                ..
+            } => {
+                assert_eq!(normalized_value, "min-width:900mm");
+                assert_eq!(basis, ResolutionBasis::ExplicitJurisdictionPrecedence);
+                assert_eq!(contributing_sources.len(), 1);
+                assert_eq!(contributing_sources[0].source_id, "source-high");
+                assert_eq!(superseded_sources.len(), 1);
+                assert_eq!(superseded_sources[0].source_id, "source-low");
+            }
+            other => panic!("expected precedence resolution, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn equal_highest_precedence_conflict_remains_blocked() {
+        let assertions = vec![
+            applicable_assertion("source-a", "clause-1", "value-a", Some(20)),
+            applicable_assertion("source-b", "clause-2", "value-b", Some(20)),
+            applicable_assertion("source-low", "clause-3", "value-low", Some(10)),
+        ];
+        assert!(matches!(
+            resolve_requirement(
+                &assertions,
+                RequirementResolutionPolicy::UseExplicitPrecedence
+            ),
+            RequirementResolution::Conflict { .. }
+        ));
+    }
+
+    #[test]
+    fn missing_precedence_cannot_be_invented_by_the_resolver() {
+        let assertions = vec![applicable_assertion("source-a", "clause-1", "value-a", None)];
+        assert_eq!(
+            resolve_requirement(
+                &assertions,
+                RequirementResolutionPolicy::UseExplicitPrecedence
+            ),
+            RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::MissingExplicitPrecedence {
+                    source_id: "source-a".into()
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn indeterminate_source_status_blocks_a_partial_resolution() {
+        let assertions = vec![
+            applicable_assertion("source-current", "clause-1", "value-a", Some(10)),
+            assertion(
+                "source-uncertain",
+                "clause-2",
+                "value-a",
+                Some(20),
+                SourceApplicability::Indeterminate(
+                    IndeterminateReason::StaleSourceVerification
+                ),
+            ),
+        ];
+        assert!(matches!(
+            resolve_requirement(&assertions, RequirementResolutionPolicy::RequireAgreement),
+            RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::SourceStatusIndeterminate { .. }
+            )
+        ));
+    }
+
+    #[test]
+    fn proposal_does_not_count_as_an_applicable_binding_requirement() {
+        let assertions = vec![assertion(
+            "proposed-change",
+            "draft-clause",
+            "min-width:1000mm",
+            Some(100),
+            SourceApplicability::NonBinding(NonBindingReason::Proposal),
+        )];
+        assert_eq!(
+            resolve_requirement(&assertions, RequirementResolutionPolicy::RequireAgreement),
+            RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::NoApplicableAssertions
+            )
+        );
+    }
+
+    #[test]
+    fn duplicate_source_clauses_are_rejected() {
+        let value = applicable_assertion("source-a", "clause-1", "value-a", Some(10));
+        assert_eq!(
+            resolve_requirement(
+                &[value.clone(), value],
+                RequirementResolutionPolicy::RequireAgreement
+            ),
+            RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::DuplicateSourceClause {
+                    source_id: "source-a".into(),
+                    clause_ref: "clause-1".into(),
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn mixed_requirement_ids_are_rejected() {
+        let first = applicable_assertion("source-a", "clause-1", "value-a", Some(10));
+        let mut second = applicable_assertion("source-b", "clause-2", "value-a", Some(10));
+        second.requirement_id = "fire:rating".into();
+        assert_eq!(
+            resolve_requirement(&[first, second], RequirementResolutionPolicy::RequireAgreement),
+            RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::MixedRequirementIds
             )
         );
     }
