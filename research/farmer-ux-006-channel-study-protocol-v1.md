@@ -18,6 +18,18 @@ Use roleplay and synthetic identifiers only. Do not ask for real farm coordinate
 
 Where feasible, repeat tasks in app-like, voice/phone, cooperative/extension-assisted, and paper-digitized scenarios. Do not require a participant to own a smartphone or have mobile data to participate. Record device/connectivity constraints descriptively, not as deficits of the participant.
 
+## Orientation, facilitation and learning effects
+
+Use the same neutral orientation script for every participant and session. It should explain that the data are synthetic, nothing is sent to a provider, participation can stop at any time, and participants may request help. Do not teach the correct answers or promote the product before baseline tasks. Version the script alongside the prototype and task fixtures.
+
+Record the task result **before** any rescue or explanation. At task level, record a small assistance code: `A0` self-directed; `A1` task prompt re-read verbatim; `A2` technical/navigation hint that does not explain the decision rule; `A3` explanation of the domain, authority or consent rule; `A4` moderator rescue to finish. If assistance changes the result, retain both the unaided and assisted outcome. A critical error before assistance remains a critical error; do not turn a rescued task into an unaided success.
+
+With consent, record only the minimum non-identifying context needed to interpret the task: participant-selected language, channel/test mode, orientation version, prior familiarity with similar tools (including “prefer not to answer”), whether the task was self-directed or mediated, and assistance code. Do not collect identity, precise farm details, education, age or other demographic fields unless a separately reviewed protocol demonstrates the need and specifies protection/consent. Do not use those attributes as proxies for competence.
+
+This control matters because a June 2026 randomized intervention in Egypt reported that digital-literacy training affected tool uptake/use and trust, with heterogeneous effects across participant groups ([Food Policy study](https://doi.org/10.1016/j.foodpol.2026.103108)). That result is not evidence of the same effect in South Africa; it is a reason to avoid conflating interface usability with training or facilitator help. The June 2026 qualitative work in Ghana and Kenya also cautions that registrations can hide uneven, short-lived use ([Journal of Rural Studies study](https://doi.org/10.1016/j.jrurstud.2026.104210)).
+
+If a later study compares onboarding or training approaches, preregister it as a separate versioned research question with standardized content, comparison conditions, task order, outcomes, and stopping rules. Do not estimate causal training effects from this small formative sample. Report results descriptively and keep aided/unaided performance distinct.
+
 ## Tasks and success criteria
 
 ### A — Keep one request across channels
