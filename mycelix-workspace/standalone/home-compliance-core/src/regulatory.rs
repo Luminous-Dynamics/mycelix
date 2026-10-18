@@ -53,10 +53,14 @@ pub enum NonBindingReason {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NotInEffectReason {
-    JurisdictionMismatch,
     NotYetEffective,
     Expired,
     Withdrawn,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ScopeExclusionReason {
+    JurisdictionMismatch,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -77,6 +81,7 @@ pub enum SourceApplicability {
     Applicable,
     NonBinding(NonBindingReason),
     NotInEffect(NotInEffectReason),
+    OutOfScope(ScopeExclusionReason),
     Indeterminate(IndeterminateReason),
 }
 
@@ -140,8 +145,8 @@ pub fn evaluate_source_applicability(
     }
 
     if source.jurisdiction != requested_jurisdiction {
-        return SourceApplicability::NotInEffect(
-            NotInEffectReason::JurisdictionMismatch,
+        return SourceApplicability::OutOfScope(
+            ScopeExclusionReason::JurisdictionMismatch,
         );
     }
 
@@ -289,8 +294,8 @@ mod tests {
         let value = source(LegalSourceStatus::InForce);
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/other-municipality", 60, 60, 30),
-            SourceApplicability::NotInEffect(
-                NotInEffectReason::JurisdictionMismatch
+            SourceApplicability::OutOfScope(
+                ScopeExclusionReason::JurisdictionMismatch
             )
         );
     }
