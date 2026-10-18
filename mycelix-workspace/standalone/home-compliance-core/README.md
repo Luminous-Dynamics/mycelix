@@ -9,6 +9,7 @@ This crate is intentionally separate from Holochain WASM zomes. It does not run 
 - Rule-pack metadata is present, its declared status is active, and its effective-date window includes the assessment date.
 - Each declared mandatory check has exactly one finding.
 - Findings bind to the exact rule-pack ID and edition used by the assessment.
+- The assessment check list must exactly match the check manifest declared inside the supplied rule pack, including mandatory flags; omitted, unexpected, duplicate or flag-changed checks block readiness. This is a consistency guard, not proof that the rule pack is complete, authentic or legally authoritative.
 - Missing findings, duplicate or unexpected findings, mandatory Fail/Unknown results, invalid evidence-digest syntax, and unjustified NotApplicable results block readiness.
 - The only positive status is ReadyForProfessionalReview; there is no Compliant, Certified, Approved, or ReadyToBuild enum. The evolution module validates artifact revision lineage, verifies declared critical invariants before minting an opaque migration type accepted by the bounded planner, and computes deterministic downstream invalidation closure after a changed input. The regulatory module distinguishes in-force law, adopted-but-not-yet-effective instruments, proposals, guidance, withdrawn sources and unknown status, and refuses to silently resolve conflicting normalized requirements unless an explicit jurisdiction-specific precedence policy uniquely settles them.
 
