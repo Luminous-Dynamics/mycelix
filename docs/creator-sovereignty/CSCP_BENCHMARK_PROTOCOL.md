@@ -357,6 +357,29 @@ Draft PR #5182 adds a separate in-memory ImportReplayLedger. Its key binds sourc
 
 The current ledger is in-memory and does not provide the concurrency, restart, or crash guarantees in the stress rows. Those rows are release targets for the future transaction-backed integration, tracked by [CSCP-REPLAY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5190). Do not market this prototype as exactly-once processing.
 
+## Gate 11 — royalty statement versus observed cash
+
+Draft PR #5172 adds a standard-library-only in-memory Rust model that keeps royalty statement lines separate from the actual cash ledger. Approved allocations may connect one statement line to one existing Receipt-kind money event; the system can express partial payments and one payout split across multiple statement lines, but it never infers payment merely from matching amounts. Allocation/reversal history is preserved in the reference model.
+
+| Fixture family | Required outcome | Threshold |
+|---|---|---:|
+| Statement-only import | Reported royalty remains outside observed cash totals | 100% |
+| Amount-only equality | Same currency + same amount does not auto-match | Zero automatic allocations |
+| Actual receipt identity | Only an existing Receipt-kind event may serve as cash evidence | 100% |
+| Partial payments | Exact integer minor-unit allocation; remaining amount stays outstanding | 100% |
+| One receipt / multiple lines | Aggregate allocations never exceed cash receipt | 100% |
+| Multiple receipts / one line | Aggregate allocations never exceed reported statement amount | 100% |
+| Cross-currency input | Currency mismatch is rejected; no implicit FX | 100% |
+| Duplicate statement/allocation IDs | Identical replay is idempotent; changed content under same ID fails closed | 100% |
+| Allocation reversal | Original remains visible; capacity is released exactly once | 100% |
+| Failure atomicity | Failed over-allocation/reversal leaves reconciliation state unchanged | 100% |
+| Creator approval and evidence | Every committed allocation names approver and evidence reference | 100% |
+| Currency precision | Before external display, validate code and minor-unit exponent against a dated/versioned ISO 4217 dataset | 100% |
+| DDEX separation | RDR-N rights metadata and RDR-R/DSR revenue reporting are not treated as recipient cash | Zero semantic conflation |
+| Durable execution (future) | Receipt, replay key, allocation/reversal, provenance and canonical result commit atomically | Zero duplicates under fault injection |
+
+The prototype is an in-memory reference model and is not bank/DDEX connected, does not authenticate the approver/evidence, and does not provide durable transaction guarantees. Before release, add a versioned currency code/precision registry; signed/verified source evidence only where source trust is defined; and transactional replay keys with concurrency/crash tests. See [CSCP-RECON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5192) and the [Statement-to-Cash Reconciliation Contract](CSCP_STATEMENT_TO_CASH_RECONCILIATION.md).
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
