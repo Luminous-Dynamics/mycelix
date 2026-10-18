@@ -15,7 +15,7 @@ A reviewed and committed `Cargo.lock` is still required before this harness can 
 
 ## Contracts exercised
 
-- The code distinguishes eligibility to start a new attempt from actual network-send authorization: a successful, verified durable Submitted marker is required before any fake remote send.
+- The code distinguishes a Prepared record's eligibility to advance to Submitted from actual network-send authorization: a successful, verified durable Submitted marker is required before any fake remote send.
 - Duplicate operation IDs do not trigger another send, and a previously fixed operation ID cannot be silently rebound to a new target scope.
 - Durable Prepared and Submitted writes must succeed before any fake remote send.
 - Failed Submitted commit means no send.
