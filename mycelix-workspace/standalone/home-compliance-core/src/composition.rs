@@ -7,7 +7,7 @@
 //! through an explicit reviewed override record. The record's identity and
 //! evidence still require authentication by a production registry adapter.
 
-use crate::regulatory::{IndeterminateReason, SourceApplicability};
+use crate::regulatory::SourceApplicability;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 fn nonblank(value: &str) -> bool {
@@ -602,7 +602,7 @@ pub fn compose_rule_modules(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::regulatory::{NonBindingReason, ScopeExclusionReason};
+    use crate::regulatory::NonBindingReason;
 
     fn source_status() -> SourceApplicability {
         SourceApplicability::Applicable
@@ -642,7 +642,7 @@ mod tests {
     }
 
     fn layered_modules(local_value: &str, local_overrides: Vec<OverrideDirective>) -> Vec<RuleModule> {
-        let mut national_statement = statement(
+        let national_statement = statement(
             "national:ventilation",
             "ventilation.minimum_rate",
             "value:base",
@@ -801,7 +801,7 @@ mod tests {
     fn module_cycles_block_composition() {
         let modules = vec![
             module("ZA", RuleModuleScope::Jurisdiction("ZA".into()), &["ZA/GP"], source_status(), vec![]),
-            module("ZA/GP", RuleModuleScope::Jurisdiction("ZA/GP".into()), &["ZA"], source_status(), vec![]),
+            module("ZA/GP", RuleModuleScope::Jurisdiction("ZA".into()), &["ZA"], source_status(), vec![]),
         ];
         let issues = compose_rule_modules(&["ZA/GP".into()], &modules).unwrap_err();
         assert!(issues.contains(&CompositionIssue::ModuleDependencyCycle));
