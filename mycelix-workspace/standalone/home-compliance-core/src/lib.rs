@@ -423,12 +423,10 @@ pub fn evaluate_verified_review_gate<V: EvidenceVerifier + ?Sized>(
         for evidence in &finding.evidence {
             let blocker = match verifier.verify(evidence) {
                 EvidenceVerification::Verified => None,
-                EvidenceVerification::ArtifactNotFound => {
-                    Some(Blocker::EvidenceArtifactNotFound {
-                        check_id: finding.check_id.clone(),
-                        evidence_id: evidence.artifact_id.clone(),
-                    })
-                }
+                EvidenceVerification::ArtifactNotFound => Some(Blocker::EvidenceArtifactNotFound {
+                    check_id: finding.check_id.clone(),
+                    evidence_id: evidence.artifact_id.clone(),
+                }),
                 EvidenceVerification::DigestMismatch => Some(Blocker::EvidenceDigestMismatch {
                     check_id: finding.check_id.clone(),
                     evidence_id: evidence.artifact_id.clone(),
@@ -801,10 +799,14 @@ mod tests {
             EvidenceVerification::ArtifactNotFound
         });
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report.blockers.contains(&Blocker::EvidenceArtifactNotFound {
-            check_id: "structural-review".into(),
-            evidence_id: "drawing:A-101".into(),
-        }));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::EvidenceArtifactNotFound {
+                    check_id: "structural-review".into(),
+                    evidence_id: "drawing:A-101".into(),
+                })
+        );
     }
 
     #[test]
@@ -827,10 +829,14 @@ mod tests {
             EvidenceVerification::Unavailable
         });
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report.blockers.contains(&Blocker::EvidenceVerificationUnavailable {
-            check_id: "structural-review".into(),
-            evidence_id: "drawing:A-101".into(),
-        }));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::EvidenceVerificationUnavailable {
+                    check_id: "structural-review".into(),
+                    evidence_id: "drawing:A-101".into(),
+                })
+        );
     }
 
     #[test]
@@ -843,11 +849,13 @@ mod tests {
         });
         assert_eq!(report.status, GateStatus::Blocked);
         assert!(report.blockers.contains(&Blocker::NoMandatoryChecks));
-        assert!(report
-            .blockers
-            .contains(&Blocker::RulePackCheckMandatoryFlagMismatch(
-                "structural-review".into()
-            )));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::RulePackCheckMandatoryFlagMismatch(
+                    "structural-review".into()
+                ))
+        );
     }
 
     #[test]
