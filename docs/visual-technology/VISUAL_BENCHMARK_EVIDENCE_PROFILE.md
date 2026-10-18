@@ -58,6 +58,16 @@ Compose with [Symthaea VIS-METRO-001 #7894](https://github.com/Luminous-Dynamics
 
 A pattern-sensitivity envelope is not a confidence interval. When energy intervals are used to compute a conservative percent-saving interval, preserve the interval method, bounds and any dependency/covariance assumption. If the conservative lower bound does not meet the preregistered energy target, the energy gate is inconclusive even when the point estimate reaches the target.
 
+### Display manufacturing route and stage evidence
+
+Compose with [Symthaea VIS-MFG-001 #8012](https://github.com/Luminous-Dynamics/symthaea/issues/8012) and the [UNQUALIFIED four-route/41-stage profile manifest](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/display-manufacturing-route-profiles-v0.1.json). Do not add a new manufacturing receipt or process-flow ontology. Preserve references to canonical MFG-PROC/SEMI-PROC stage and state-transition contracts.
+
+For a route/stage artifact, bind the exact route profile/version and digest, stage ID and dependency/branch condition, input/output subject/state references, upstream wafer/die/component lot lineage, process-family and equipment-capability profile refs, and the declared state of evidence (plan/model/attempt/observed/accepted/rejected/unknown). Keep intended output constraints separate from post-step measured output. A completed command is not proof of transformation, and an accepted component does not imply a qualified final display.
+
+Where a production run is actually evidenced, preserve per-stage attempted/inspected/accepted/rejected/reworked/scrapped/unknown denominators, inspection coverage and defect taxonomy, calibration/currentness, raw metrology digest/access status, uncertainty, and the disposition/hold/rework branch taken. Never overwrite original defect/failure records after repair or retest. Route-level conditional dependencies must be explicit; a skipped optional stage does not create an inferred output state.
+
+For economics, bind the cost-accounting boundary and numerator inputs (material, energy, inspection, process time, rework/scrap, equipment allocation) together with unique final calibrated-good-unit denominator. Keep first-pass yield, post-repair yield, final calibrated-good yield and reliability fallout separate. A missing stage result or unresolved denominator blocks route-level yield/cost claims; synthetic route profiles remain planning data only.
+
 ### Task-conditioned energy and task-outcome evidence
 
 Compose with [Symthaea VIS-ENERGY-001 #7878](https://github.com/Luminous-Dynamics/symthaea/issues/7878) and its [protocol/reference package](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/VISUAL_UTILITY_PER_JOULE_PROTOCOL.md). Treat the following as evidence context, not a new canonical receipt or scoring authority:
