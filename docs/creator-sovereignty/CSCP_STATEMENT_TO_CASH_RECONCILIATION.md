@@ -30,7 +30,7 @@ The normalization boundary is deliberate: preserving a source's semantics is a p
 
 ### RoyaltyStatementLine
 
-A statement line in this prototype is a **normalized payable assertion**: the source has been interpreted, by an explicit versioned mapping, as saying a positive amount is payable for this line and reporting period. It records a stable line ID, statement ID, reporting-source ID, reporting interval, currency, and integer minor-unit amount.
+A statement line in this prototype is a **normalized payable assertion**: the source has been interpreted, by an explicit versioned mapping, as saying a positive amount is payable for this line and reporting period. It records a stable line ID, statement ID, reporting-source ID, the semantic mapping-rule ID/version that establishes the payable interpretation, a source-evidence reference, reporting interval, currency, and integer minor-unit amount.
 
 Do not map every external field named revenue or royalty directly into this type. DDEX RDR-R and DSR can report revenue generated from usage or sales/usage data, which is not automatically the net amount payable to this specific creator. A future adapter must retain raw source semantics and declare whether a field is usage revenue, reported/accrued royalty, payable amount, or actual remittance; it may create this normalized payable line only when a versioned mapping and supporting evidence justify that interpretation. RDR-N recording/right/party metadata is yet another distinct class of source fact.
 
@@ -44,7 +44,7 @@ This reference model uses the caller's ledger as its receipt source; it does not
 
 ### Approved allocation
 
-An allocation explicitly connects one statement line to one observed receipt for a positive amount, with an allocation ID, the receipt event ID, creator/reviewer ID, and evidence reference. Multiple allocations may split one statement line across instalments; one actual receipt may settle portions of multiple statement lines. Aggregate allocations may never exceed either line amount or receipt amount, and currencies must match exactly.
+An allocation explicitly connects one statement line to one observed receipt for a positive amount, with an allocation ID, the receipt event ID, creator/reviewer ID, and evidence reference. The payable line separately preserves its mapping-rule ID/version and source-evidence reference, so the transformation from external source semantics to a payable assertion remains auditable. Multiple allocations may split one statement line across instalments; one actual receipt may settle portions of multiple statement lines. Aggregate allocations may never exceed either line amount or receipt amount, and currencies must match exactly.
 
 An equal amount and currency are only a candidate match—not proof. There is no auto-allocation on amount equality alone. A source reference may inform a future candidate ranker, but any future ranker must offer a reviewable suggestion rather than committing a financial match without an explicit approval action.
 
@@ -83,6 +83,8 @@ This is an in-memory append-only model, not a durable event store. Persisting al
 | Multi-statement payout | Exact sum of allocations never exceeds receipt; remaining cash stays unallocated |
 | Unmatched liability | 100% statement-only obligations remain visibly outstanding, never reported as received cash |
 | Auditability | Every allocation has approver and evidence reference; 100% reversal entries have reason/approver/evidence |
+| Payable normalization provenance | Every normalized payable line carries semantic mapping-rule ID/version and source-evidence reference | 100%; zero untraceable payable assertions |
+
 | Privacy | Zero cross-creator leakage of raw statements or account transaction references |
 | Currency precision before external display | 100% codes validated against a dated ISO 4217 dataset and exponent used by its version |
 | Suggested matching (future) | Candidate ranking evaluated on adjudicated fixtures; zero silent auto-commits; false-positive and abstention rates separately reported |
