@@ -4,15 +4,15 @@
 //! engineering model. It checks the evidence/workflow boundaries that a future
 //! BIM and engineering adapter must preserve.
 
-use home_compliance_core::evolution::{affected_closure, DependencyEdge};
+use home_compliance_core::evolution::{DependencyEdge, affected_closure};
 use home_compliance_core::regulatory::{
-    evaluate_source_applicability, resolve_requirement, LegalSourceStatus, NonBindingReason,
-    RegulatorySource, RequirementAssertion, RequirementResolution, RequirementResolutionPolicy,
-    SourceApplicability,
+    LegalSourceStatus, NonBindingReason, RegulatorySource, RequirementAssertion,
+    RequirementResolution, RequirementResolutionPolicy, SourceApplicability,
+    evaluate_source_applicability, resolve_requirement,
 };
 use home_compliance_core::{
-    evaluate_review_gate, AssessmentInput, Blocker, CheckDefinition, CheckOutcome, EvidenceRef,
-    Finding, GateStatus, RulePack, RulePackStatus,
+    AssessmentInput, Blocker, CheckDefinition, CheckOutcome, EvidenceRef, Finding, GateStatus,
+    RulePack, RulePackStatus, evaluate_review_gate,
 };
 
 const JURISDICTION: &str = "ZA/Johannesburg/pilot-synthetic";
@@ -100,7 +100,11 @@ fn finding(check_id: &str, outcome: CheckOutcome) -> Finding {
             } else {
                 "report:structure-review"
             },
-            if check_id == "energy-performance" { 'b' } else { 'c' },
+            if check_id == "energy-performance" {
+                'b'
+            } else {
+                'c'
+            },
         )]
     };
 
@@ -157,9 +161,11 @@ fn complete_fixture_is_only_ready_for_professional_review() {
 fn unknown_energy_result_blocks_even_when_structure_result_passes() {
     let report = evaluate_review_gate(&assessment(CheckOutcome::Unknown));
     assert_eq!(report.status, GateStatus::Blocked);
-    assert!(report
-        .blockers
-        .contains(&Blocker::MandatoryCheckUnknown("energy-performance".into())));
+    assert!(
+        report
+            .blockers
+            .contains(&Blocker::MandatoryCheckUnknown("energy-performance".into()))
+    );
 }
 
 fn regulatory_source(
@@ -190,10 +196,8 @@ fn regulatory_source(
 fn proposed_amendment_cannot_overwrite_current_binding_assertion() {
     let current = regulatory_source("current-rule", LegalSourceStatus::InForce, "current");
     let proposed = regulatory_source("future-amendment", LegalSourceStatus::Proposed, "draft");
-    let current_status =
-        evaluate_source_applicability(&current, JURISDICTION, 200, 200, 30);
-    let proposed_status =
-        evaluate_source_applicability(&proposed, JURISDICTION, 200, 200, 30);
+    let current_status = evaluate_source_applicability(&current, JURISDICTION, 200, 200, 30);
+    let proposed_status = evaluate_source_applicability(&proposed, JURISDICTION, 200, 200, 30);
 
     assert_eq!(current_status, SourceApplicability::Applicable);
     assert_eq!(
@@ -270,4 +274,3 @@ fn ten_thousand_node_dependency_chain_has_complete_deterministic_closure() {
     assert!(affected.contains(&format!("artifact:{edge_count}")));
     assert!(affected.windows(2).all(|pair| pair[0] <= pair[1]));
 }
-
