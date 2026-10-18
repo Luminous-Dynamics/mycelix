@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-leptos-ui"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Accessible shared Leptos 0.8 UI primitives for public Mycelix frontends"
+publish = false
+
+[dependencies]
+leptos = { version = "0.8" }
+leptos_router = { version = "0.8" }
+
+[workspace]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
