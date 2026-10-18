@@ -11,59 +11,59 @@
   "operation_attempt_statuses": [
     {
       "status": "Prepared",
-      "dispatch_eligible": false,
       "needs_reconciliation": false,
-      "meaning": "Validated local operation exists. It may advance to a durable Submitted record after revalidation; this persisted state is not a network-send permit.",
-      "can_advance_to_submitted": true
+      "meaning": "May begin an attempt. This does not authorize a network send; dispatch requires a durably committed and verified Submitted record.",
+      "can_advance_to_submitted": true,
+      "can_start_attempt": false
     },
     {
       "status": "Submitted",
-      "dispatch_eligible": false,
       "needs_reconciliation": true,
       "meaning": "Durable pre-send marker exists and an in-process one-shot send permit may have been issued; after restart, this persisted status is ambiguous and is never itself permission to resend.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     },
     {
       "status": "Confirmed",
-      "dispatch_eligible": false,
       "needs_reconciliation": false,
       "meaning": "A successful typed response was received; only its precise semantics are confirmed.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     },
     {
       "status": "ExplicitlyRejected",
-      "dispatch_eligible": false,
       "needs_reconciliation": false,
       "meaning": "A typed authoritative rejection proves the mutation was not applied.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     },
     {
       "status": "OutcomeUnknown",
-      "dispatch_eligible": false,
       "needs_reconciliation": true,
       "meaning": "Remote effect may or may not have occurred; never blindly replay.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     },
     {
       "status": "ReconciledApplied",
-      "dispatch_eligible": false,
       "needs_reconciliation": false,
       "meaning": "Authoritative evidence confirms the operation effect exists.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     },
     {
       "status": "ReconciledNotApplied",
-      "dispatch_eligible": false,
       "needs_reconciliation": false,
       "meaning": "Authoritative evidence confirms the operation effect does not exist.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     },
     {
       "status": "NotSent",
-      "dispatch_eligible": false,
       "needs_reconciliation": false,
       "meaning": "A local gate blocked transmission.",
-      "can_advance_to_submitted": false
+      "can_advance_to_submitted": false,
+      "can_start_attempt": false
     }
   ],
   "farmer_service_states": [
@@ -240,5 +240,6 @@
     "autonomous_payment_or_dispatch",
     "assumed_remote_idempotency_from_client_operation_id",
     "model_output_as_authoritative_service_state"
-  ]
+  ],
+  "network_send_rule": "A network call is authorized only after the Submitted state has been durably committed and that exact operation record has been verified. No enum value alone proves the storage commit occurred."
 }
