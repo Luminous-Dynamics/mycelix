@@ -102,7 +102,13 @@ struct Artifact {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(64);
+    for byte in Sha256::digest(bytes) {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
 }
 fn read_json(root: &Path, relative: &str) -> Result<(Vec<u8>, Value), String> {
     let path = root.join(relative);
@@ -271,7 +277,7 @@ fn usage() -> &'static str {
      It performs no network access and makes no UI or field-impact claim."
 }
 fn execute(root: &Path) -> Result<Report, String> {
-    let mut artifacts = vec![
+    let artifacts = vec![
         load(root, "cases", CASES, CASES_SCHEMA)?,
         load(root, "roles", ROLES, ROLES_SCHEMA)?,
         load(root, "copy", COPY, COPY_SCHEMA)?,
