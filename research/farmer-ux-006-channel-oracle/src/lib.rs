@@ -35,6 +35,8 @@ pub struct ArtifactCheck {
 #[derive(Debug, Serialize)]
 pub struct ScheduleReport {
     pub schedules_executed: u64,
+    pub clock_skew_schedules: u64,
+    pub consent_revocation_schedules: u64,
     pub invariant_violations: Vec<String>,
 }
 
@@ -415,6 +417,44 @@ pub fn forwarding_allowed(authority_verified: bool, consent_current: bool) -> bo
     authority_verified && consent_current
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConsentState {
+    pub version: u64,
+    pub forwarding_enabled: bool,
+}
+
+impl ConsentState {
+    pub fn new(version: u64) -> Self {
+        Self {
+            version,
+            forwarding_enabled: true,
+        }
+    }
+
+    /// Revocation both disables forwarding and advances the consent epoch.
+    /// Overflow fails closed: forwarding stays disabled.
+    pub fn revoke(&mut self) {
+        self.forwarding_enabled = false;
+        if let Some(next_version) = self.version.checked_add(1) {
+            self.version = next_version;
+        }
+    }
+
+    /// An explicit new grant creates a new epoch. Old queued operations carry
+    /// the prior version and cannot silently inherit the new grant.
+    pub fn grant(&mut self) {
+        self.forwarding_enabled = false;
+        if let Some(next_version) = self.version.checked_add(1) {
+            self.version = next_version;
+            self.forwarding_enabled = true;
+        }
+    }
+
+    pub fn permits(&self, authority_verified: bool, grant_version: u64) -> bool {
+        self.forwarding_enabled && authority_verified && grant_version == self.version
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Event {
     pub event_id: String,
@@ -423,6 +463,18 @@ pub struct Event {
     pub asserting_role: String,
     pub recording_role: String,
     pub evidence: EvidenceKind,
+    pub captured_at_seconds: i64,
+    pub server_received_order: Option<u64>,
+    pub consent_grant_version: u64,
+    pub authority_verified: bool,
+}
+
+impl Event {
+    /// Client/paper capture time is descriptive; only a server-issued ordering
+    /// value can establish authoritative order in this reference model.
+    pub fn authoritative_order(&self) -> Option<u64> {
+        self.server_received_order
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -497,13 +549,29 @@ fn synthetic_event(seed: u64, index: usize) -> Event {
         2 => EvidenceKind::ProviderReportedComplete,
         _ => EvidenceKind::FarmerReported,
     };
+    let base_time = 1_800_000_000_i64 + i64::try_from(index).unwrap_or(0) * 60;
+    let clock_skew = match index {
+        0 => 5 * 24 * 60 * 60,
+        1 => -5 * 24 * 60 * 60,
+        _ => 0,
+    };
+
     Event {
         event_id: format!("evt-{seed:05}-{index:02}"),
         request_ref: format!("req-{seed:05}-{index:02}"),
         digest: format!("canonical-digest-{seed}-{index}"),
         asserting_role: if index % 2 == 0 { "farmer" } else { "provider" }.to_owned(),
-        recording_role: if index % 3 == 0 { "extension_worker" } else { "participant" }.to_owned(),
+        recording_role: if index % 3 == 0 {
+            "extension_worker"
+        } else {
+            "participant"
+        }
+        .to_owned(),
         evidence,
+        captured_at_seconds: base_time + clock_skew,
+        server_received_order: Some(index as u64),
+        consent_grant_version: 1,
+        authority_verified: index % 3 != 0,
     }
 }
 
@@ -511,32 +579,38 @@ fn synthetic_event(seed: u64, index: usize) -> Event {
 /// exact replay and a same-event-ID/different-digest conflict.
 pub fn run_deterministic_schedules() -> ScheduleReport {
     let mut violations = Vec::new();
+
     for seed in 0..SCHEDULE_COUNT {
-        let mut events: Vec<Event> = (0..8).map(|index| synthetic_event(seed, index)).collect();
+        let base_events: Vec<Event> =
+            (0..8).map(|index| synthetic_event(seed, index)).collect();
         let duplicate_index = (seed as usize) % 8;
         let conflict_index = (duplicate_index + 3) % 8;
-        events.push(events[duplicate_index].clone());
-        let mut conflict = events[conflict_index].clone();
+
+        let mut delivery = base_events.clone();
+        delivery.push(delivery[duplicate_index].clone());
+        let mut conflict = delivery[conflict_index].clone();
         conflict.digest = format!("conflicting-digest-{seed}-{conflict_index}");
-        events.push(conflict);
+        delivery.push(conflict);
 
         // Fisher-Yates with a fixed LCG: reproducible without a random dependency.
         let mut random = seed.wrapping_add(1);
-        for i in (1..events.len()).rev() {
-            random = random.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        for i in (1..delivery.len()).rev() {
+            random = random
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
             let j = (random as usize) % (i + 1);
-            events.swap(i, j);
+            delivery.swap(i, j);
         }
 
         let mut ledger = EventLedger::default();
-        let mut first_digest_by_id = BTreeMap::new();
+        let mut first_event_by_id = BTreeMap::new();
         let mut applied = 0usize;
         let mut duplicates = 0usize;
         let mut conflicts = 0usize;
-        for event in events {
-            first_digest_by_id
+        for event in delivery {
+            first_event_by_id
                 .entry(event.event_id.clone())
-                .or_insert_with(|| event.digest.clone());
+                .or_insert_with(|| event.clone());
             match ledger.ingest(event) {
                 IngestResult::Applied => applied += 1,
                 IngestResult::Duplicate => duplicates += 1,
@@ -546,13 +620,19 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
 
         let mut reasons = Vec::new();
         if applied != 8 || ledger.applied_effect_count() != 8 {
-            reasons.push(format!("expected 8 applied event effects, observed {applied}"));
+            reasons.push(format!(
+                "expected 8 applied event effects, observed {applied}"
+            ));
         }
         if duplicates != 1 || ledger.duplicate_delivery_count() != 1 {
-            reasons.push(format!("expected 1 exact replay, observed {duplicates}"));
+            reasons.push(format!(
+                "expected 1 exact replay, observed {duplicates}"
+            ));
         }
         if conflicts != 1 || ledger.conflict_count() != 1 {
-            reasons.push(format!("expected 1 quarantined conflict, observed {conflicts}"));
+            reasons.push(format!(
+                "expected 1 quarantined conflict, observed {conflicts}"
+            ));
         }
         if ledger.request_count() != 8 {
             reasons.push(format!(
@@ -560,27 +640,76 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
                 ledger.request_count()
             ));
         }
-        for (event_id, expected_digest) in first_digest_by_id {
-            if ledger.stored(&event_id).map(|event| event.digest.as_str())
-                != Some(expected_digest.as_str())
-            {
-                reasons.push(format!("first-seen event was silently overwritten: {event_id}"));
+        for (event_id, expected_event) in first_event_by_id {
+            if ledger.stored(&event_id) != Some(&expected_event) {
+                reasons.push(format!(
+                    "first-seen event was silently overwritten: {event_id}"
+                ));
             }
         }
+
+        // Each schedule contains severe client-clock skew. Authoritative order
+        // must remain the server sequence, even when capture timestamps invert.
+        let mut ordered_by_server = base_events.iter().collect::<Vec<_>>();
+        ordered_by_server.sort_by_key(|event| event.authoritative_order());
+        for (expected, event) in ordered_by_server.iter().enumerate() {
+            if event.authoritative_order() != Some(expected as u64) {
+                reasons.push("event ordering used an untrusted timestamp".to_owned());
+                break;
+            }
+        }
+        if base_events[0].captured_at_seconds <= base_events[1].captured_at_seconds {
+            reasons.push("clock-skew negative control was not present".to_owned());
+        }
+        let no_authoritative_order = Event {
+            server_received_order: None,
+            ..base_events[0].clone()
+        };
+        if no_authoritative_order.authoritative_order().is_some() {
+            reasons.push("missing authoritative order was inferred from capture time".to_owned());
+        }
+
+        // Each schedule includes a consent revocation. Any queued request with
+        // the prior consent epoch must be denied from the revocation onward.
+        let revoke_after = (seed % 7) + 1;
+        let mut consent = ConsentState::new(1);
+        for sequence in 0..8_u64 {
+            if sequence == revoke_after {
+                consent.revoke();
+            }
+            let authority_verified = sequence % 3 != 0;
+            let actual = consent.permits(authority_verified, 1);
+            let expected = sequence < revoke_after && authority_verified;
+            if actual != expected {
+                reasons.push(format!(
+                    "consent revocation invariant failed at sequence {sequence}"
+                ));
+                break;
+            }
+        }
+        if consent.permits(true, 1) {
+            reasons.push("stale consent epoch remained eligible after revocation".to_owned());
+        }
+        consent.grant();
+        if consent.permits(true, 1) {
+            reasons.push("old queued operation inherited a newer consent grant".to_owned());
+        }
+
         if evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::BookingConfirmed) {
             reasons.push("relay evidence was promoted to booking".to_owned());
         }
         if forwarding_allowed(true, false) || forwarding_allowed(false, true) {
-            reasons.push(
-                "forwarding allowed without both authority and current consent".to_owned(),
-            );
+            reasons.push("forwarding allowed without both authority and current consent".to_owned());
         }
         if !reasons.is_empty() && violations.len() < 100 {
             violations.push(format!("schedule {seed}: {}", reasons.join("; ")));
         }
     }
+
     ScheduleReport {
         schedules_executed: SCHEDULE_COUNT,
+        clock_skew_schedules: SCHEDULE_COUNT,
+        consent_revocation_schedules: SCHEDULE_COUNT,
         invariant_violations: violations,
     }
 }
@@ -828,10 +957,39 @@ mod tests {
     }
 
     #[test]
+    fn captured_clock_never_substitutes_for_authoritative_order() {
+        let first = synthetic_event(7, 0);
+        let second = synthetic_event(7, 1);
+        assert!(first.captured_at_seconds > second.captured_at_seconds);
+        assert_eq!(first.authoritative_order(), Some(0));
+        assert_eq!(second.authoritative_order(), Some(1));
+        let missing = Event {
+            server_received_order: None,
+            ..first
+        };
+        assert_eq!(missing.authoritative_order(), None);
+    }
+
+    #[test]
+    fn revocation_blocks_old_grant_and_new_grant_does_not_reauthorize_old_queue() {
+        let mut consent = ConsentState::new(4);
+        assert!(consent.permits(true, 4));
+        consent.revoke();
+        assert!(!consent.permits(true, 4));
+        let revoked_version = consent.version;
+        consent.grant();
+        assert!(consent.version > revoked_version);
+        assert!(!consent.permits(true, 4));
+        assert!(consent.permits(true, consent.version));
+    }
+
+    #[test]
     fn deterministic_schedules_are_reproducible_and_clean() {
         let first = run_deterministic_schedules();
         let second = run_deterministic_schedules();
         assert_eq!(first.schedules_executed, 10_000);
+        assert_eq!(first.clock_skew_schedules, 10_000);
+        assert_eq!(first.consent_revocation_schedules, 10_000);
         assert_eq!(first.invariant_violations, second.invariant_violations);
         assert!(first.invariant_violations.is_empty());
     }
