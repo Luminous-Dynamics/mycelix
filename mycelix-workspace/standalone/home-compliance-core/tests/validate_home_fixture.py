@@ -8,6 +8,7 @@ cross-references that JSON Schema cannot conveniently express.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 import re
 import sys
@@ -131,12 +132,11 @@ def descendants(start: str, adjacency: dict[str, list[str]]) -> set[str]:
     return visited
 
 
-def main() -> int:
-    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
-        fail("$schema", "unexpected JSON Schema dialect")
-    validate(fixture, schema)
+def validate_semantics(fixture: dict[str, Any]) -> None:
+    for key in ("candidate_style_families", "candidate_construction_families"):
+        family_ids = [item["id"] for item in fixture[key]]
+        if len(set(family_ids)) != len(family_ids):
+            fail(f"$.{key}", "family IDs must be unique")
 
     ids = fixture["stable_artifact_ids"]
     values = list(ids.values())
@@ -164,15 +164,20 @@ def main() -> int:
         if changed not in known:
             fail(f"scenario:{scenario['id']}", f"unknown changed_id {changed!r}")
         closure = descendants(changed, adjacency)
-        for key in ("expected_to_invalidate",):
-            expected = set(scenario.get(key, []))
-            if not expected <= closure:
-                fail(f"scenario:{scenario['id']}.{key}", f"expected items not in dependency closure: {sorted(expected - closure)}")
+        expected = set(scenario.get("expected_to_invalidate", []))
+        if not expected <= closure:
+            fail(
+                f"scenario:{scenario['id']}.expected_to_invalidate",
+                f"expected items not in dependency closure: {sorted(expected - closure)}",
+            )
         for key in ("expected_to_remain_current_until_other_change", "expected_not_to_invalidate"):
             excluded = set(scenario.get(key, []))
             overlap = excluded & closure
             if overlap:
-                fail(f"scenario:{scenario['id']}.{key}", f"items incorrectly considered unaffected: {sorted(overlap)}")
+                fail(
+                    f"scenario:{scenario['id']}.{key}",
+                    f"items incorrectly considered unaffected: {sorted(overlap)}",
+                )
 
     evidence_boundary = fixture["evidence_boundary"]
     if evidence_boundary["source_files_are_synthetic"] is not True:
@@ -183,15 +188,70 @@ def main() -> int:
     )):
         fail("$.evidence_boundary", "fixture must not imply real design or compliance evidence")
 
+
+def expect_rejected(name: str, operation: Any) -> None:
+    try:
+        operation()
+    except (ValueError, KeyError, TypeError):
+        return
+    fail(f"negative_control:{name}", "mutated invalid fixture was incorrectly accepted")
+
+
+def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> int:
+    missing_field = deepcopy(fixture)
+    del missing_field["owner_brief"]
+    expect_rejected("missing_required_owner_brief", lambda: validate(missing_field, schema))
+
+    false_authority = deepcopy(fixture)
+    false_authority["jurisdiction_profile"]["authority_verified"] = True
+    expect_rejected("unverified_authority_claim", lambda: validate(false_authority, schema))
+
+    false_compliance = deepcopy(fixture)
+    false_compliance["evidence_boundary"]["code_compliance_claim"] = True
+    expect_rejected("unsupported_compliance_claim", lambda: validate(false_compliance, schema))
+
+    dangling_edge = deepcopy(fixture)
+    dangling_edge["dependency_edges"][0][1] = "artifact:undeclared"
+    expect_rejected("dangling_dependency", lambda: validate_semantics(dangling_edge))
+
+    stale_finding_marked_current = deepcopy(fixture)
+    stale_finding_marked_current["change_scenarios"][0][
+        "expected_to_remain_current_until_other_change"
+    ].append("finding:energy-rule")
+    expect_rejected(
+        "dependent_finding_marked_unaffected",
+        lambda: validate_semantics(stale_finding_marked_current),
+    )
+
+    duplicate_family = deepcopy(fixture)
+    duplicate_family["candidate_style_families"][1]["id"] = duplicate_family[
+        "candidate_style_families"
+    ][0]["id"]
+    expect_rejected("duplicate_style_family_id", lambda: validate_semantics(duplicate_family))
+    return 6
+
+
+def main() -> int:
+    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        fail("$schema", "unexpected JSON Schema dialect")
+    if schema.get("$id") != "urn:luminous-dynamics:schema:home-design-reference-fixture:1.0.0":
+        fail("$id", "unexpected or unversioned fixture schema identity")
+    validate(fixture, schema)
+    validate_semantics(fixture)
+    negative_controls = run_negative_controls(fixture, schema)
+
     print(
         "HOME_FIXTURE_VALIDATION=PASS "
         f"scenario={fixture['scenario_id']} "
         f"styles={len(fixture['candidate_style_families'])} "
         f"construction_families={len(fixture['candidate_construction_families'])} "
-        f"edges={len(edges)} scenarios={len(scenarios)}"
+        f"edges={len(fixture['dependency_edges'])} "
+        f"scenarios={len(fixture['change_scenarios'])} "
+        f"negative_controls={negative_controls}"
     )
     return 0
-
 
 if __name__ == "__main__":
     try:
