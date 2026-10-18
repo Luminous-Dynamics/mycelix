@@ -587,11 +587,13 @@ pub enum DependencyGraphIssue {
         input_id: String,
         dependent_id: String,
     },
+    CycleDetected,
 }
 
 /// Return a deterministic closure of changed nodes plus all transitively
-/// dependent outputs. If the dependency graph is malformed, return all issues
-/// instead of a partial closure that might leave stale safety findings current.
+/// dependent outputs. Malformed edges and cyclic dependency graphs return an
+/// error instead of a partial closure that might leave stale safety findings
+/// current.
 ///
 /// This identifies what must be re-evaluated; it does not run the evaluators or
 /// mark real stored findings stale. The caller must persist the invalidation.
@@ -641,6 +643,39 @@ pub fn affected_closure(
 
     for dependents in adjacency.values_mut() {
         dependents.sort();
+    }
+
+    // Reject cycles before calculating any closure. A circular derivation graph
+    // cannot establish a safe recomputation order and must not yield a plausible
+    // partial "affected" set.
+    let mut indegree: HashMap<String, usize> = HashMap::new();
+    for (source, dependents) in &adjacency {
+        indegree.entry(source.clone()).or_insert(0);
+        for dependent in dependents {
+            *indegree.entry(dependent.clone()).or_insert(0) += 1;
+        }
+    }
+    let mut topological_queue: VecDeque<String> = indegree
+        .iter()
+        .filter_map(|(node, count)| (*count == 0).then(|| node.clone()))
+        .collect();
+    let mut topologically_processed = 0;
+    while let Some(current) = topological_queue.pop_front() {
+        topologically_processed += 1;
+        if let Some(dependents) = adjacency.get(&current) {
+            for dependent in dependents {
+                let remaining = indegree
+                    .get_mut(dependent)
+                    .expect("each dependency target must have an indegree");
+                *remaining -= 1;
+                if *remaining == 0 {
+                    topological_queue.push_back(dependent.clone());
+                }
+            }
+        }
+    }
+    if topologically_processed != indegree.len() {
+        return Err(vec![DependencyGraphIssue::CycleDetected]);
     }
 
     let mut queue: VecDeque<String> = VecDeque::new();
@@ -1027,22 +1062,16 @@ mod tests {
     }
 
     #[test]
-    fn dependency_cycles_terminate_and_return_unique_ids() {
+    fn dependency_cycles_block_closure_instead_of_returning_partial_results() {
         let edges = vec![
             dependency("a", "b"),
             dependency("b", "c"),
             dependency("c", "a"),
             dependency("c", "d"),
         ];
-        let affected = affected_closure(&["a".into()], &edges).unwrap();
         assert_eq!(
-            affected,
-            vec![
-                "a".to_owned(),
-                "b".to_owned(),
-                "c".to_owned(),
-                "d".to_owned(),
-            ]
+            affected_closure(&["a".into()], &edges),
+            Err(vec![DependencyGraphIssue::CycleDetected])
         );
     }
 
