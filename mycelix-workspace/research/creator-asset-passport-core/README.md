@@ -89,7 +89,7 @@ Each manifest binds the outcome to before/after snapshot digests:
 - ImportedWithWarnings requires an after digest and explicit limitations, retained raw fields, or diagnostics.
 - Rejected requires at least one error diagnostic and an after digest identical to the before digest, making the no-canonical-mutation invariant explicit.
 
-The sidecar has canonical binary encoding and a domain-separated BLAKE3-256 digest. The digest proves equality to canonical bytes only. It does not authenticate a sender, prove consent, validate source authority, or verify legal rights. Continued availability of the raw-payload reference remains a storage-system responsibility.
+The current compact Rust manifest does not claim PROV conformance. The sidecar has canonical binary encoding and a domain-separated BLAKE3-256 digest. The digest proves equality to canonical bytes only. It does not authenticate a sender, prove consent, validate source authority, or verify legal rights. Continued availability of the raw-payload reference remains a storage-system responsibility.
 
 ## Benchmark contract — targets, not results
 
