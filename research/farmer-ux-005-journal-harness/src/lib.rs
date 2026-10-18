@@ -505,7 +505,6 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     if ids.len() != case_list.len() { errors.push("case corpus contains case without string id".to_owned()); }
     if ids.iter().collect::<BTreeSet<_>>().len() != ids.len() { errors.push("case IDs must be unique".to_owned()); }
     if case_list.len() != 16 { errors.push(format!("expected 16 frozen cases, found {}", case_list.len())); }
-    let required_invariants: BTreeSet<&str> = REQUIRED_INVARIANTS.iter().copied().collect();
     let corpus_invariants: BTreeSet<&str> = cases.get("shared_invariants").and_then(Value::as_array)
         .into_iter().flatten().filter_map(Value::as_str).collect();
     for invariant in REQUIRED_INVARIANTS {
