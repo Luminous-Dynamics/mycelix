@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 mod home;
+mod farmer;
 mod property;
 mod housing;
 mod care;
@@ -14,6 +15,7 @@ mod tools;
 mod calendar;
 
 pub use home::HomePage;
+pub use farmer::FarmerPage;
 pub use property::PropertyPage;
 pub use housing::HousingPage;
 pub use care::CarePage;
