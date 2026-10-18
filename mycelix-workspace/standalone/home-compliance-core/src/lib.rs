@@ -8,6 +8,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod composition;
 pub mod evolution;
 pub mod regulatory;
 
