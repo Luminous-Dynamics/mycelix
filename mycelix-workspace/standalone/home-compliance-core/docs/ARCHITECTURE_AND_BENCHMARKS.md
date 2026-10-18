@@ -156,7 +156,7 @@ Migrations are versioned, reviewable edges between exact format versions:
 - **Lossy:** only with an explicit, recorded acceptance of identified losses; never choose automatically for safety-critical or legal evidence.
 - **Experimental or retired:** not eligible for automatic migration until the status is reviewed.
 
-Retain the source revision and migration report after every conversion. Compare semantic invariants and required object identities before and after. A syntactically valid digest is not proof that bytes match it, and a migration marked lossless by its author is not independent proof of fidelity. The new evolution module supplies basic parent-chain validation and a bounded path planner; it does not execute migrations, recompute file digests, or establish independent assurance.
+Retain the source revision and migration report after every conversion. Compare semantic invariants and required object identities before and after. A syntactically valid digest is not proof that bytes match it, and a migration marked lossless by its author is not independent proof of fidelity. The evolution module supplies basic parent-chain validation, a bounded path planner, and deterministic transitive dependency closure for change-impact analysis. The closure identifies what the caller must mark stale, but does not itself persist invalidation. It does not execute migrations, recompute file digests, or establish independent assurance.
 
 ### Adaptation to future architectures and construction methods
 
