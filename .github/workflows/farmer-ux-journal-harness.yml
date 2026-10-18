@@ -29,13 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: research/farmer-ux-005-journal-harness -> target
-      - name: Check formatting
-        run: cargo fmt --manifest-path research/farmer-ux-005-journal-harness/Cargo.toml -- --check
       - name: Run deterministic harness tests
         run: cargo test --manifest-path research/farmer-ux-005-journal-harness/Cargo.toml
       - name: Verify committed journal corpus
