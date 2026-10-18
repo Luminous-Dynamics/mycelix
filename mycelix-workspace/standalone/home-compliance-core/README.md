@@ -32,7 +32,7 @@ The Rust integration tests in `tests/home_evolution_scenario.rs` exercise seven 
 - the key identifiers used by the tests are checked against the machine-readable brief; and
 - a 10,000-edge dependency chain returns the complete, deterministic closure. This is a scale/correctness test, not yet a latency benchmark.
 
-The core currently mirrors the relevant dependency edges in Rust and checks identity fragments in the JSON fixture; it does **not** parse the entire JSON document. Keep this limitation explicit until a proper, versioned schema validator is added. The only positive outcome remains `ReadyForProfessionalReview`, not compliance, certification, approval, or permission to build.
+The Rust integration tests read dependency-edge pairs from the shared JSON fixture instead of maintaining a second hand-coded graph. A standard-library-only CI verifier checks the fixture against the supported keyword subset of the published JSON Schema, validates that mutation expectations agree with dependency reachability, and runs six negative controls. This verifier is a test tool, not a generic JSON Schema implementation or a production runtime dependency. The production crate still does not load the fixture or generate building geometry. The only positive outcome remains `ReadyForProfessionalReview`, not compliance, certification, approval, or permission to build.
 
 ## Run
 
