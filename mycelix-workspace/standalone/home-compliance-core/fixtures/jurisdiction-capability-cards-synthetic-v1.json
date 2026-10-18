@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_notice": "Synthetic registry examples only. These real place names are research targets, not claims that any building code has been ingested, interpreted, verified, or supported.",
+  "capability_cards": [
+    {
+      "jurisdiction_id": "ZA/GP/Johannesburg",
+      "display_name": "Johannesburg, Gauteng, South Africa",
+      "declared_status": "researching",
+      "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_registry_snapshot_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "test_corpus_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "tested_case_count": 0,
+      "coverage": [
+        {
+          "domain": "residential_building",
+          "disposition": "missing",
+          "gap_description": "No authoritative source pack or independent code fixture has been reviewed for this synthetic card."
+        },
+        {
+          "domain": "planning_and_land_use",
+          "disposition": "missing",
+          "gap_description": "Authoritative instrument set, edition lineage, and applicability rules are not yet reviewed in this synthetic fixture."
+        }
+      ],
+      "independent_reviews": [],
+      "known_scope_gaps": [
+        "No authoritative source pack or independent code fixture has been reviewed for this synthetic card.",
+        "No permit, code-compliance, engineering-safety, or professional-approval claim is made."
+      ],
+      "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
+      "accountable_maintainer": "governance:unassigned",
+      "source_registry_checked_on_day": 120,
+      "registry_as_of_day": 120
+    },
+    {
+      "jurisdiction_id": "US/CA/SanFrancisco",
+      "display_name": "San Francisco, California, United States",
+      "declared_status": "researching",
+      "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_registry_snapshot_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "test_corpus_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "tested_case_count": 0,
+      "coverage": [
+        {
+          "domain": "residential_building",
+          "disposition": "missing",
+          "gap_description": "No California or municipal instrument applicability has been reviewed for this synthetic card."
+        },
+        {
+          "domain": "planning_and_land_use",
+          "disposition": "missing",
+          "gap_description": "Authoritative instrument set, edition lineage, and applicability rules are not yet reviewed in this synthetic fixture."
+        }
+      ],
+      "independent_reviews": [],
+      "known_scope_gaps": [
+        "No California or municipal instrument applicability has been reviewed for this synthetic card.",
+        "No permit, code-compliance, engineering-safety, or professional-approval claim is made."
+      ],
+      "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
+      "accountable_maintainer": "governance:unassigned",
+      "source_registry_checked_on_day": 120,
+      "registry_as_of_day": 120
+    },
+    {
+      "jurisdiction_id": "DE/BE/Berlin",
+      "display_name": "Berlin, Germany",
+      "declared_status": "researching",
+      "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_registry_snapshot_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "test_corpus_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "tested_case_count": 0,
+      "coverage": [
+        {
+          "domain": "residential_building",
+          "disposition": "missing",
+          "gap_description": "No German federal/state/municipal instrument relationships have been reviewed for this synthetic card."
+        },
+        {
+          "domain": "planning_and_land_use",
+          "disposition": "missing",
+          "gap_description": "Authoritative instrument set, edition lineage, and applicability rules are not yet reviewed in this synthetic fixture."
+        }
+      ],
+      "independent_reviews": [],
+      "known_scope_gaps": [
+        "No German federal/state/municipal instrument relationships have been reviewed for this synthetic card.",
+        "No permit, code-compliance, engineering-safety, or professional-approval claim is made."
+      ],
+      "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
+      "accountable_maintainer": "governance:unassigned",
+      "source_registry_checked_on_day": 120,
+      "registry_as_of_day": 120
+    }
+  ]
+}
