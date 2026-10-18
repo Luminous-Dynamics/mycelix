@@ -25,6 +25,75 @@ pub enum LegalSourceStatus {
     Unknown,
 }
 
+/// Explicitly reviewed geographic applicability for a legal source.
+///
+/// Geographic ancestry is not enough on its own to establish legal effect.
+/// The profile must select the mode after checking the instrument and the
+/// jurisdiction's actual delegation/applicability rules. The evaluator never
+/// infers descendant reach just from the shape of a jurisdiction ID.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum JurisdictionApplicabilityScope {
+    /// Source contributes only when its jurisdiction ID exactly equals the
+    /// requested project jurisdiction.
+    ExactJurisdiction,
+    /// Reviewed profile says this source reaches its own jurisdiction and
+    /// descendant jurisdictions in the slash-separated path hierarchy.
+    JurisdictionAndDescendants,
+    /// Reviewed source/profile enumerates exact project jurisdiction IDs.
+    ExplicitJurisdictions(Vec<String>),
+}
+
+fn valid_jurisdiction_path(path: &str) -> bool {
+    !path.trim().is_empty()
+        && path.split('/').all(|segment| {
+            !segment.is_empty()
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+        })
+}
+
+fn path_is_ancestor_or_equal(ancestor: &str, child: &str) -> bool {
+    if !valid_jurisdiction_path(ancestor) || !valid_jurisdiction_path(child) {
+        return false;
+    }
+    let ancestor_parts: Vec<_> = ancestor.split('/').collect();
+    let child_parts: Vec<_> = child.split('/').collect();
+    ancestor_parts.len() <= child_parts.len()
+        && ancestor_parts
+            .iter()
+            .zip(child_parts.iter())
+            .all(|(parent, child)| parent == child)
+}
+
+fn source_covers_jurisdiction(
+    source: &RegulatorySource,
+    requested_jurisdiction: &str,
+) -> Result<bool, IndeterminateReason> {
+    if !valid_jurisdiction_path(requested_jurisdiction)
+        || !valid_jurisdiction_path(&source.jurisdiction)
+    {
+        return Err(IndeterminateReason::InvalidJurisdictionScope);
+    }
+    match &source.applicability_scope {
+        JurisdictionApplicabilityScope::ExactJurisdiction => {
+            Ok(source.jurisdiction == requested_jurisdiction)
+        }
+        JurisdictionApplicabilityScope::JurisdictionAndDescendants => Ok(
+            path_is_ancestor_or_equal(&source.jurisdiction, requested_jurisdiction),
+        ),
+        JurisdictionApplicabilityScope::ExplicitJurisdictions(targets) => {
+            let mut seen = std::collections::HashSet::new();
+            for target in targets {
+                if !valid_jurisdiction_path(target) || !seen.insert(target.as_str()) {
+                    return Err(IndeterminateReason::InvalidJurisdictionScope);
+                }
+            }
+            Ok(targets.iter().any(|target| target == requested_jurisdiction))
+        }
+    }
+}
+
 /// Metadata for a jurisdiction-specific source snapshot.
 ///
 /// source_sha256 should identify the exact locally preserved source artifact or
@@ -38,6 +107,9 @@ pub struct RegulatorySource {
     pub edition: String,
     pub source_uri: String,
     pub source_sha256: String,
+    /// Jurisdictional reach reviewed for this instrument; never inferred merely
+    /// from slash-separated IDs.
+    pub applicability_scope: JurisdictionApplicabilityScope,
     pub legal_status: LegalSourceStatus,
     pub published_on_day: u32,
     pub effective_from_day: Option<u32>,
@@ -76,6 +148,7 @@ pub enum IndeterminateReason {
     StaleSourceVerification,
     ContradictoryStatusAndDates,
     UnknownLegalStatus,
+    InvalidJurisdictionScope,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -134,7 +207,11 @@ pub fn evaluate_source_applicability(
         }
     }
 
-    if source.jurisdiction != requested_jurisdiction {
+    let covers = match source_covers_jurisdiction(source, requested_jurisdiction) {
+        Ok(covers) => covers,
+        Err(reason) => return SourceApplicability::Indeterminate(reason),
+    };
+    if !covers {
         return SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch);
     }
 
@@ -458,6 +535,7 @@ mod tests {
             edition: "fixture-1".into(),
             source_uri: "https://example.invalid/instrument".into(),
             source_sha256: "c".repeat(64),
+            applicability_scope: JurisdictionApplicabilityScope::ExactJurisdiction,
             legal_status: status,
             published_on_day: 10,
             effective_from_day: Some(20),
@@ -556,6 +634,79 @@ mod tests {
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/other-municipality", 60, 60, 30),
             SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
+        );
+    }
+
+    #[test]
+    fn descendant_applicability_requires_explicit_scope_policy() {
+        let mut value = source(LegalSourceStatus::InForce);
+        value.jurisdiction = "ZA".into();
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
+            SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
+        );
+
+        value.applicability_scope =
+            JurisdictionApplicabilityScope::JurisdictionAndDescendants;
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
+            SourceApplicability::Applicable
+        );
+    }
+
+    #[test]
+    fn descendant_scope_does_not_leak_to_sibling_jurisdictions() {
+        let mut value = source(LegalSourceStatus::InForce);
+        value.jurisdiction = "ZA/GP".into();
+        value.applicability_scope =
+            JurisdictionApplicabilityScope::JurisdictionAndDescendants;
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/EC/municipality-a", 60, 60, 30),
+            SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
+        );
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
+            SourceApplicability::Applicable
+        );
+    }
+
+    #[test]
+    fn explicit_jurisdiction_set_is_exact_and_does_not_expand_automatically() {
+        let mut value = source(LegalSourceStatus::InForce);
+        value.jurisdiction = "ZA".into();
+        value.applicability_scope =
+            JurisdictionApplicabilityScope::ExplicitJurisdictions(vec![
+                "ZA/GP/Johannesburg".into(),
+                "ZA/GP/Tshwane".into(),
+            ]);
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
+            SourceApplicability::Applicable
+        );
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Ekurhuleni", 60, 60, 30),
+            SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
+        );
+    }
+
+    #[test]
+    fn malformed_or_duplicate_explicit_scope_fails_closed() {
+        let mut value = source(LegalSourceStatus::InForce);
+        value.applicability_scope =
+            JurisdictionApplicabilityScope::ExplicitJurisdictions(vec![
+                "ZA/GP/Johannesburg".into(),
+                "ZA/GP/Johannesburg".into(),
+            ]);
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
+            SourceApplicability::Indeterminate(IndeterminateReason::InvalidJurisdictionScope)
+        );
+
+        value.applicability_scope =
+            JurisdictionApplicabilityScope::ExplicitJurisdictions(vec!["ZA//broken".into()]);
+        assert_eq!(
+            evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
+            SourceApplicability::Indeterminate(IndeterminateReason::InvalidJurisdictionScope)
         );
     }
 
