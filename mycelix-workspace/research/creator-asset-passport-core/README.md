@@ -25,6 +25,7 @@ These are intentionally independent. An identifier is not an ownership certifica
 - A separately implemented event-stream reconstruction path for differential comparison against append-derived effective grant state; it does not call the append method.
 - A versioned binary portable envelope for grant/revocation history, plus a separate full passport snapshot envelope covering asset records, external identifiers, split claims, and the embedded grant-history envelope. Both have deterministic encoding, strict decoding and domain-separated BLAKE3-256 content digests.
 - A separate import-provenance sidecar records source system/record, schema and parser versions, import time, raw payload reference/length/BLAKE3 digest, per-field mapping/retention decisions, diagnostics, and before/after passport snapshot digests. It is linked by digest and is not yet embedded in the passport snapshot format.
+- An in-memory import replay ledger computes a deterministic processing key from source identity, exact payload digest, schema/parser versions, and mapping versions. Same-key/same-effect retries are idempotent; a changed effect under the same key is rejected without mutating the ledger.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
@@ -91,6 +92,22 @@ Each manifest binds the outcome to before/after snapshot digests:
 
 The current compact Rust manifest does not claim PROV conformance. The sidecar has canonical binary encoding and a domain-separated BLAKE3-256 digest. The digest proves equality to canonical bytes only. It does not authenticate a sender, prove consent, validate source authority, or verify legal rights. Continued availability of the raw-payload reference remains a storage-system responsibility.
 
+## Import replay ledger v1
+
+The public Rust API is import_ledger::ImportReplayLedger. It is a small in-memory reference implementation for a production ingress rule: the same source payload processed by the same schema/parser/mapping version must not silently create a second canonical mutation.
+
+The replay key is a domain-separated BLAKE3 digest over:
+- source system and optional source record ID;
+- schema name/version and parser name/version;
+- BLAKE3 digest and exact byte length of the observed raw payload;
+- each source field path and its typed mapping/retained/unsupported treatment, including mapping-rule IDs and versions.
+
+The key deliberately excludes the import timestamp and raw storage locator. A retry can move the original bytes to another access-controlled object store, or occur at a later time, without being treated as a new logical transformation, so long as the payload digest and transformation identity are unchanged.
+
+The result fingerprint separately binds inventory state, outcome, before/after snapshot digests, and diagnostics. Re-recording the same key and result returns AlreadyPresent; re-recording the same key with a different result returns ResultConflict and leaves the ledger unchanged. A parser/mapping-version upgrade or changed raw payload produces a new key and can be handled as an explicit revision rather than an invisible overwrite.
+
+This is **not** a durable exactly-once guarantee. The ledger exists only in memory and is not wired to a transactional import/database layer. In production, persist the replay key and canonical mutation in the same transaction (typically with a unique constraint); a retry must re-read the prior commit receipt. If the store commit succeeds but the receipt write fails, the transactional integration must still prevent double application. The prototype only defines the comparison rule and fails closed for inconsistent outcomes.
+
 ## Benchmark contract — targets, not results
 
 The following are release gates to measure; they have **not** been demonstrated by this PR.
@@ -122,6 +139,10 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Import rejection atomicity | Rejected import has an after snapshot digest identical to before digest | 100%; zero canonical mutations |
 | Provenance sidecar round-trip | Decode/encode returns byte-identical canonical manifest and the same digest | 100% fixed fixtures |
 | Inventory certainty | Partial/unknown parser inventory cannot be labeled clean Imported | Zero unqualified clean imports |
+| Identical import retry | Same source identity, payload bytes, schema/parser and mapping versions yield AlreadyPresent without a second ledger entry | 100% fixture agreement |
+| Changed payload or transformation version | A changed byte digest, parser version or mapping-rule version creates a distinct processing key | 100% fixture agreement |
+| Conflicting same-key result | Changed outcome, diagnostics or before/after snapshot digests under the same key return a conflict and do not mutate the ledger | Zero silent overwrite; zero partial mutations |
+| Durable integration (future release gate) | Replay key and canonical mutation commit atomically with a durable receipt/unique constraint | Zero duplicate royalty lines or claims under retry/restart fault injection |
 | Full snapshot cross-language vectors | Independent implementation reproduces outer envelope bytes and digest for normal, disputed, Unicode, unknown-ID, and boundary cases | 100% golden-vector agreement before format freeze |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
@@ -131,7 +152,7 @@ Do not market these targets as achieved. Before a release gate can be claimed, p
 
 ## Test inventory and current maturity
 
-The current source has 64 in-module unit-test functions and 34 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, payload digest verification, field-disposition coverage, rejected-import atomicity, and provenance-manifest round trips. These are **authored test cases, not passed tests**.
+The current source has 71 in-module unit-test functions and 34 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, payload digest verification, field-disposition coverage, rejected-import atomicity, provenance-manifest round trips, and import replay idempotency/conflict detection. These are **authored test cases, not passed tests**.
 
 The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has two frozen Rust/Python byte vectors: a work with an ISWC and complete composition claim, plus a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. The import-provenance sidecar has one frozen Rust/Python byte vector for a clean import. The [import provenance contract](https://github.com/Luminous-Dynamics/mycelix/blob/research/creator-sovereignty-control-plane-rfc/docs/creator-sovereignty/CSCP_IMPORT_PROVENANCE_CONTRACT.md) is tracked by [issue #5187](https://github.com/Luminous-Dynamics/mycelix/issues/5187). These are small fixtures; no format has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
 
