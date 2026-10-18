@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/farmer-ux-004-journal-cases-v1.schema.json",
+  "title": "Farmer UX-004 journal failure-injection corpus",
+  "description": "Synthetic fault schedules for durable local-operation journal semantics. Schema validation does not qualify a working storage or dispatch implementation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "contract",
+    "workflow",
+    "shared_invariants",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic_fault_injection_corpus_not_field_validated"
+    },
+    "contract": {
+      "const": "FARMER-UX-004"
+    },
+    "workflow": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shared_invariants": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "phase",
+          "fault",
+          "durable_last",
+          "send",
+          "recovery",
+          "expected_state",
+          "expected_ui"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^FUXJ-[0-9]{3}$"
+          },
+          "phase": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fault": {
+            "type": "string",
+            "minLength": 1
+          },
+          "durable_last": {
+            "type": "string",
+            "minLength": 1
+          },
+          "send": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_state": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_ui": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
