@@ -11,9 +11,7 @@ use crate::history::{
     GrantEvent, GrantEventAction, GrantHistory, HistoryError,
     independently_reconstruct_effective_grants,
 };
-use crate::{
-    AssetId, EventId, GrantId, PassportError, PartyId, UsageGrant, UseAction,
-};
+use crate::{AssetId, EventId, GrantId, PartyId, PassportError, UsageGrant, UseAction};
 
 const MAGIC: &[u8] = b"MYCELIX-CSCP-GRANT-HISTORY\0";
 const FORMAT_VERSION: u16 = 1;
@@ -132,23 +130,11 @@ impl GrantHistoryEnvelope {
                         valid_from,
                         expires_at,
                     )?;
-                    GrantEvent::issue(
-                        event_id,
-                        occurred_at,
-                        actor,
-                        event_evidence,
-                        grant,
-                    )?
+                    GrantEvent::issue(event_id, occurred_at, actor, event_evidence, grant)?
                 }
                 2 => {
                     let grant_id = GrantId::new(reader.string()?)?;
-                    GrantEvent::revoke(
-                        event_id,
-                        occurred_at,
-                        actor,
-                        event_evidence,
-                        grant_id,
-                    )?
+                    GrantEvent::revoke(event_id, occurred_at, actor, event_evidence, grant_id)?
                 }
                 _ => return Err(PortableHistoryError::InvalidEventKind),
             };
@@ -170,8 +156,7 @@ impl GrantHistoryEnvelope {
         }
         let history = GrantHistory::replay(&self.events)?;
         history.verify_against_independent_replay()?;
-        let independently_rebuilt =
-            independently_reconstruct_effective_grants(&self.events)?;
+        let independently_rebuilt = independently_reconstruct_effective_grants(&self.events)?;
         if independently_rebuilt != history.effective_grants() {
             return Err(PortableHistoryError::InvalidHistory(
                 HistoryError::SnapshotMismatch,
@@ -343,8 +328,7 @@ impl<'a> Reader<'a> {
     fn u64(&mut self) -> Result<u64, PortableHistoryError> {
         let bytes = self.take(8)?;
         Ok(u64::from_be_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]))
     }
 
@@ -366,7 +350,7 @@ impl<'a> Reader<'a> {
 mod tests {
     use super::*;
     use crate::history::{GrantEvent, GrantHistory};
-    use crate::{AssetId, EventId, GrantId, PartyId, UseAction, UsageGrant};
+    use crate::{AssetId, EventId, GrantId, PartyId, UsageGrant, UseAction};
 
     fn party(value: &str) -> PartyId {
         PartyId::new(value).unwrap()
@@ -450,15 +434,13 @@ mod tests {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        let expected = include_str!("../tests/fixtures/creator-grant-history-v1.hex")
-            .trim();
+        let expected = include_str!("../tests/fixtures/creator-grant-history-v1.hex").trim();
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn unicode_and_no_expiry_match_reference_vector() {
-        let envelope =
-            GrantHistoryEnvelope::from_history(&unicode_no_expiry_history()).unwrap();
+        let envelope = GrantHistoryEnvelope::from_history(&unicode_no_expiry_history()).unwrap();
         let actual = envelope
             .canonical_bytes()
             .unwrap()
@@ -466,8 +448,7 @@ mod tests {
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
         let expected =
-            include_str!("../tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex")
-                .trim();
+            include_str!("../tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex").trim();
         assert_eq!(actual, expected);
     }
 
