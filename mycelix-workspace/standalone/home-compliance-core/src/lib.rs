@@ -196,12 +196,12 @@ fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// Evaluate only the evidence-package gate.
+/// Evaluate metadata and check-scope consistency only.
 ///
-/// ReadyForProfessionalReview means the declared rule pack is active for the
-/// assessment date and each declared mandatory check has one traceable,
-/// unambiguous disposition. It does not mean the design is safe, legal,
-/// certified, approved, or ready to build.
+/// An empty blocker list yields `MetadataCompleteAwaitingEvidenceVerification`,
+/// never review readiness. This function does not read referenced artifact bytes
+/// or independently confirm their hashes; use `evaluate_verified_review_gate`
+/// with a trusted artifact-store adapter before allowing review-ready status.
 pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
     let mut blockers = Vec::new();
     let pack = &input.rule_pack;
