@@ -2,7 +2,7 @@
 
 **Status:** experimental internal contract; not a conformance claim for W3C PROV, DDEX, or ODRL.
 **Related implementation:** public Mycelix draft PR #5182, isolated Rust crate module provenance.rs.
-**Tracker:** CSCP-PROV-001, issue to be created.
+**Tracker:** [CSCP-PROV-001](https://github.com/Luminous-Dynamics/mycelix/issues/5187).
 **Research checked:** 2026-10-18.
 
 ## Executive decision
@@ -93,7 +93,7 @@ Targets below are proposed gates, not measured results.
 | Digest correctness | Independent implementation matches domain-separated manifest digest on frozen fixtures | Integrity without authenticity overclaim |
 | Source authenticity | No provenance manifest is labelled signed/authenticated without a verifiable signature and identity policy | Prevent false trust |
 | Sensitive metadata access | 0 raw-payload, statement, or unpublished asset leaks across permission scopes | Creator privacy |
-| DEX/DDEX schema validity | All export fixtures validate against the exact licensed/versioned source or recipient profile | No guessed interoperability |
+| DDEX schema validity | All export fixtures validate against the exact licensed/versioned source or recipient profile | No guessed interoperability |
 
 ## Known limitations / next implementation steps
 
