@@ -249,7 +249,7 @@ fn fixture_has_a_shared_machine_readable_identity_contract() {
         "\"status\": \"software_fixture_only_not_regulatory_or_engineering_evidence\"",
         "\"floorplan\": \"model:floorplan\"",
         "\"energy_rule_pack_logical_id\": \"rulepack:za-jhb:energy\"",
-        "[\"rulepack:za-jhb:energy\", \"finding:energy-rule\"]",
+        "\"energy_finding\": \"finding:energy-rule\"",
     ] {
         assert!(
             fixture.contains(required_fragment),
