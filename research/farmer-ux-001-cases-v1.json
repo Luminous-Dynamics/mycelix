@@ -1,0 +1,466 @@
+{
+  "schema_version": "1.0.0",
+  "status": "synthetic_contract_draft_not_field_validated",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5194",
+  "workflow": "irrigation_problem_to_farmer_decided_service_outcome",
+  "shared_invariants": [
+    "unknown_is_not_zero_or_verified",
+    "modelled_is_not_observed",
+    "request_is_not_quote",
+    "quote_is_not_booking",
+    "booking_is_not_completed_work",
+    "provider_completion_is_not_farmer_acceptance",
+    "locally_acknowledged_event_must_not_be_lost",
+    "duplicate_replay_must_not_duplicate_side_effects",
+    "conflicting_commitments_must_not_be_silently_overwritten",
+    "recommendation_does_not_authorize_payment_procurement_dispatch_or_actuation",
+    "human_mediated_channel_must_preserve_request_reference"
+  ],
+  "cases": [
+    {
+      "id": "FUX-OFFLINE-001",
+      "purpose": "Capture irrigation issue offline, restart, reconnect and replay duplicate sync delivery.",
+      "setup": {
+        "connectivity": "offline",
+        "quote": "none",
+        "provider": "unknown"
+      },
+      "events": [
+        {
+          "kind": "farmer_records_issue",
+          "local_receipt": "local-opaque-001"
+        },
+        {
+          "kind": "process_restarts"
+        },
+        {
+          "kind": "device_reconnects"
+        },
+        {
+          "kind": "sync_replays_event",
+          "replay_count": 2
+        }
+      ],
+      "expected": {
+        "request_state": "synced_pending_triage",
+        "visible_state": "synced_request_no_provider_commitment",
+        "side_effect_counts": {
+          "service_requests": 1,
+          "bookings": 0,
+          "payments": 0,
+          "accepted_services": 0
+        },
+        "must_show": [
+          "original_request_receipt",
+          "sync_confirmed",
+          "no_booking_yet"
+        ],
+        "must_not_show": [
+          "booking_confirmed",
+          "work_completed"
+        ],
+        "invariant_checks": [
+          "local_event_survives_restart",
+          "duplicate_replay_is_idempotent"
+        ]
+      }
+    },
+    {
+      "id": "FUX-QUOTE-002",
+      "purpose": "A quote expires while the farmer is offline.",
+      "setup": {
+        "connectivity": "offline",
+        "quote_state": "offered_then_expired",
+        "quote_accepted": false
+      },
+      "events": [
+        {
+          "kind": "quote_received",
+          "expiry": "t1"
+        },
+        {
+          "kind": "time_advances_past_expiry"
+        },
+        {
+          "kind": "farmer_attempts_acceptance"
+        }
+      ],
+      "expected": {
+        "request_state": "quote_expired_needs_new_offer",
+        "visible_state": "expired_quote",
+        "side_effect_counts": {
+          "bookings": 0,
+          "payments": 0
+        },
+        "must_show": [
+          "quote_expired",
+          "request_updated_quote_or_choose_another_channel"
+        ],
+        "must_not_show": [
+          "booking_confirmed",
+          "provider_committed"
+        ],
+        "invariant_checks": [
+          "expired_quote_cannot_be_accepted"
+        ]
+      }
+    },
+    {
+      "id": "FUX-QUOTE-003",
+      "purpose": "Incomplete quote omits travel fee or price basis.",
+      "setup": {
+        "connectivity": "online",
+        "quote_state": "incomplete",
+        "farmer_accepts": true
+      },
+      "events": [
+        {
+          "kind": "provider_offer_received",
+          "missing_fields": [
+            "travel_fee_treatment",
+            "price_basis"
+          ]
+        },
+        {
+          "kind": "farmer_attempts_acceptance"
+        }
+      ],
+      "expected": {
+        "request_state": "quote_incomplete",
+        "visible_state": "needs_complete_quote",
+        "side_effect_counts": {
+          "bookings": 0,
+          "payments": 0
+        },
+        "must_show": [
+          "which_terms_are_missing",
+          "decline_or_request_clarification"
+        ],
+        "must_not_show": [
+          "booking_confirmed"
+        ],
+        "invariant_checks": [
+          "incomplete_terms_block_booking"
+        ]
+      }
+    },
+    {
+      "id": "FUX-SYNC-004",
+      "purpose": "Local change conflicts with a newer server-side commitment.",
+      "setup": {
+        "connectivity": "offline_then_online",
+        "local_state": "farmer_rescheduled",
+        "server_state": "provider_confirmed_original_time"
+      },
+      "events": [
+        {
+          "kind": "local_change_created"
+        },
+        {
+          "kind": "server_snapshot_received"
+        },
+        {
+          "kind": "sync_conflict_detected"
+        }
+      ],
+      "expected": {
+        "request_state": "conflict_requires_resolution",
+        "visible_state": "conflicting_changes",
+        "side_effect_counts": {
+          "bookings": 1,
+          "duplicate_bookings": 0
+        },
+        "must_show": [
+          "both_versions",
+          "who_confirmed_each_change",
+          "choose_or_contact_provider"
+        ],
+        "must_not_show": [
+          "silent_last_write_wins",
+          "both_times_as_confirmed"
+        ],
+        "invariant_checks": [
+          "confirmed_commitment_not_silently_overwritten"
+        ]
+      }
+    },
+    {
+      "id": "FUX-ROUTE-005",
+      "purpose": "A nearby provider has no validated route-time evidence for the farm.",
+      "setup": {
+        "provider_exists": true,
+        "straight_line_distance_available": true,
+        "route_time_state": "unknown"
+      },
+      "events": [
+        {
+          "kind": "service_access_assessed"
+        }
+      ],
+      "expected": {
+        "request_state": "route_access_unknown",
+        "visible_state": "travel_time_unknown",
+        "side_effect_counts": {
+          "bookings": 0
+        },
+        "must_show": [
+          "route_time_unknown",
+          "route_data_coverage_limit"
+        ],
+        "must_not_show": [
+          "invented_travel_minutes",
+          "geodesic_distance_as_travel_time"
+        ],
+        "invariant_checks": [
+          "straight_line_distance_not_promoted_to_route_time"
+        ]
+      }
+    },
+    {
+      "id": "FUX-NOPROVIDER-006",
+      "purpose": "No provider accepts or can fulfil the request.",
+      "setup": {
+        "connectivity": "online",
+        "provider_capacity": "none"
+      },
+      "events": [
+        {
+          "kind": "service_request_submitted"
+        },
+        {
+          "kind": "provider_search_completed",
+          "result": "no_available_provider"
+        }
+      ],
+      "expected": {
+        "request_state": "no_provider_found",
+        "visible_state": "request_unfulfilled_options_available",
+        "side_effect_counts": {
+          "service_requests": 1,
+          "bookings": 0,
+          "payments": 0
+        },
+        "must_show": [
+          "no_provider_found",
+          "try_existing_channel_or_retry_later",
+          "request_receipt"
+        ],
+        "must_not_show": [
+          "fake_provider_offer",
+          "request_hidden_from_history"
+        ],
+        "invariant_checks": [
+          "unfulfilled_request_retained_in_denominator"
+        ]
+      }
+    },
+    {
+      "id": "FUX-COMPLETION-007",
+      "purpose": "Provider reports a completed repair, but farmer has not accepted it.",
+      "setup": {
+        "quote_state": "accepted",
+        "booking_state": "confirmed",
+        "provider_completion": "reported",
+        "farmer_acceptance": "missing"
+      },
+      "events": [
+        {
+          "kind": "provider_marks_work_complete"
+        }
+      ],
+      "expected": {
+        "request_state": "completed_awaiting_farmer_decision",
+        "visible_state": "provider_reports_completion_review_needed",
+        "side_effect_counts": {
+          "bookings": 1,
+          "accepted_services": 0,
+          "payments": 0
+        },
+        "must_show": [
+          "provider_completion_is_a_claim",
+          "inspect_accept_dispute_or_request_rework"
+        ],
+        "must_not_show": [
+          "farmer_accepted",
+          "service_success_confirmed"
+        ],
+        "invariant_checks": [
+          "provider_completion_not_equal_farmer_acceptance"
+        ]
+      }
+    },
+    {
+      "id": "FUX-REWORK-008",
+      "purpose": "Farmer finds the irrigation repair incomplete and requests rework.",
+      "setup": {
+        "provider_completion": "reported",
+        "farmer_acceptance": "pending"
+      },
+      "events": [
+        {
+          "kind": "farmer_inspects_work"
+        },
+        {
+          "kind": "farmer_disputes_completion",
+          "reason": "repair_incomplete"
+        }
+      ],
+      "expected": {
+        "request_state": "disputed_rework_requested",
+        "visible_state": "rework_requested_receipt_created",
+        "side_effect_counts": {
+          "accepted_services": 0,
+          "rework_requests": 1,
+          "payments": 0
+        },
+        "must_show": [
+          "dispute_receipt",
+          "evidence_upload_optional",
+          "contact_or_escalation_path"
+        ],
+        "must_not_show": [
+          "accepted_service",
+          "automatic_penalty_or_guilt_verdict"
+        ],
+        "invariant_checks": [
+          "dispute_path_preserves_prior_events"
+        ]
+      }
+    },
+    {
+      "id": "FUX-EVIDENCE-009",
+      "purpose": "Recommendation depends on stale weather or field evidence.",
+      "setup": {
+        "evidence_freshness": "stale",
+        "competing_observations": "present"
+      },
+      "events": [
+        {
+          "kind": "symthaea_recommendation_requested"
+        }
+      ],
+      "expected": {
+        "request_state": "recommendation_qualified_or_abstained",
+        "visible_state": "stale_conflicting_evidence_warning",
+        "side_effect_counts": {
+          "bookings": 0,
+          "payments": 0,
+          "physical_actions": 0
+        },
+        "must_show": [
+          "source_and_as_of_time",
+          "uncertainty_or_conflict",
+          "refresh_or_ask_adviser"
+        ],
+        "must_not_show": [
+          "stale_observation_as_current_fact",
+          "unqualified_diagnosis"
+        ],
+        "invariant_checks": [
+          "advice_does_not_authorize_action"
+        ]
+      }
+    },
+    {
+      "id": "FUX-CONSENT-010",
+      "purpose": "Farmer revokes a prior permission to share precise field location.",
+      "setup": {
+        "sharing_permission": "granted_to_adviser",
+        "location_precision": "precise"
+      },
+      "events": [
+        {
+          "kind": "farmer_revokes_location_sharing"
+        }
+      ],
+      "expected": {
+        "request_state": "future_sharing_revoked",
+        "visible_state": "permission_updated_with_receipt",
+        "side_effect_counts": {
+          "new_shares_after_revocation": 0
+        },
+        "must_show": [
+          "revocation_receipt",
+          "what_changes_now",
+          "limits_for_prior_copies_if_any"
+        ],
+        "must_not_show": [
+          "future_share_without_authority",
+          "false_claim_of_recall_from_external_copies"
+        ],
+        "invariant_checks": [
+          "revocation_effect_and_limits_are_explained"
+        ]
+      }
+    },
+    {
+      "id": "FUX-HUMAN-011",
+      "purpose": "Farmer chooses a phone or cooperative-assisted workflow instead of app onboarding.",
+      "setup": {
+        "channel_preference": "human_mediated",
+        "app_registration": "absent"
+      },
+      "events": [
+        {
+          "kind": "agent_records_request_with_authorized_relay"
+        },
+        {
+          "kind": "request_reference_given_to_farmer"
+        }
+      ],
+      "expected": {
+        "request_state": "request_recorded_via_authorized_relay",
+        "visible_state": "same_request_history_channel_disclosed",
+        "side_effect_counts": {
+          "service_requests": 1,
+          "duplicate_bookings": 0
+        },
+        "must_show": [
+          "request_reference",
+          "relay_actor_role",
+          "how_to_follow_up"
+        ],
+        "must_not_show": [
+          "forced_app_registration",
+          "hidden_relay_identity_or_authority"
+        ],
+        "invariant_checks": [
+          "channel_does_not_change_canonical_request_identity"
+        ]
+      }
+    },
+    {
+      "id": "FUX-PAYMENT-012",
+      "purpose": "A recommendation or confirmed booking is mistaken for payment authorization.",
+      "setup": {
+        "recommendation": "issued",
+        "booking_state": "confirmed",
+        "payment_authorization": "absent"
+      },
+      "events": [
+        {
+          "kind": "workflow_syncs"
+        }
+      ],
+      "expected": {
+        "request_state": "booked_payment_not_authorized",
+        "visible_state": "booking_confirmed_payment_not_authorized",
+        "side_effect_counts": {
+          "bookings": 1,
+          "payments": 0
+        },
+        "must_show": [
+          "explicit_payment_state",
+          "payment_terms_if_any"
+        ],
+        "must_not_show": [
+          "payment_completed",
+          "implicit_debit"
+        ],
+        "invariant_checks": [
+          "advice_and_booking_do_not_authorize_payment"
+        ]
+      }
+    }
+  ]
+}
