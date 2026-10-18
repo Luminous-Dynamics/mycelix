@@ -820,6 +820,96 @@ mod tests {
     }
 
     #[test]
+    fn global_reference_is_shared_without_cross_jurisdiction_rule_leakage() {
+        // Synthetic IDs/values only: this tests graph isolation, not the law of
+        // South Africa, Germany, or the United States.
+        let modules = vec![
+            module(
+                "global:ventilation-reference",
+                RuleModuleScope::GlobalReference,
+                &[],
+                global_status(),
+                vec![statement(
+                    "reference:ventilation",
+                    "ventilation.minimum_rate",
+                    "value:engineering-reference",
+                    RuleForce::EngineeringBaseline,
+                )],
+            ),
+            module(
+                "ZA/GP/Johannesburg",
+                RuleModuleScope::Jurisdiction("ZA/GP/Johannesburg".into()),
+                &["global:ventilation-reference"],
+                source_status(),
+                vec![statement(
+                    "za:ventilation",
+                    "ventilation.minimum_rate",
+                    "value:za-profile",
+                    RuleForce::BindingRequirement,
+                )],
+            ),
+            module(
+                "EU/DE/Berlin",
+                RuleModuleScope::Jurisdiction("EU/DE/Berlin".into()),
+                &["global:ventilation-reference"],
+                source_status(),
+                vec![statement(
+                    "de:ventilation",
+                    "ventilation.minimum_rate",
+                    "value:de-profile",
+                    RuleForce::BindingRequirement,
+                )],
+            ),
+            module(
+                "US/CA/Los-Angeles",
+                RuleModuleScope::Jurisdiction("US/CA/Los-Angeles".into()),
+                &["global:ventilation-reference"],
+                source_status(),
+                vec![statement(
+                    "us-ca:ventilation",
+                    "ventilation.minimum_rate",
+                    "value:us-ca-profile",
+                    RuleForce::BindingRequirement,
+                )],
+            ),
+        ];
+
+        for (jurisdiction, expected_value, foreign_statement_ids) in [
+            (
+                "ZA/GP/Johannesburg",
+                "value:za-profile",
+                vec!["de:ventilation", "us-ca:ventilation"],
+            ),
+            (
+                "EU/DE/Berlin",
+                "value:de-profile",
+                vec!["za:ventilation", "us-ca:ventilation"],
+            ),
+            (
+                "US/CA/Los-Angeles",
+                "value:us-ca-profile",
+                vec!["za:ventilation", "de:ventilation"],
+            ),
+        ] {
+            let result = compose_rule_modules(&[jurisdiction.into()], &modules).unwrap();
+            assert_eq!(result.binding_requirements.len(), 1);
+            assert_eq!(result.binding_requirements[0].normalized_value, expected_value);
+            assert_eq!(result.conflicts.len(), 0);
+            assert!(result
+                .module_lineage
+                .contains(&"global:ventilation-reference".to_owned()));
+            assert!(!result
+                .module_lineage
+                .iter()
+                .any(|module_id| foreign_statement_ids.iter().any(|foreign| module_id == foreign)));
+            assert!(result.non_binding_assertions.iter().any(|item| {
+                item.source.module_id == "global:ventilation-reference"
+                    && item.force == RuleForce::EngineeringBaseline
+            }));
+        }
+    }
+
+    #[test]
     fn jurisdiction_scope_does_not_implicitly_override_parent_rule() {
         let modules = layered_modules("value:local-different", Vec::new());
         let result = compose_rule_modules(&["ZA/GP/Johannesburg".into()], &modules).unwrap();
