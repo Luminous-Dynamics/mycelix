@@ -4,8 +4,8 @@
 //! identity provider, signature verifier, legal opinion, or proof of ownership.
 
 pub mod history;
-pub mod portable;
 pub mod passport_envelope;
+pub mod portable;
 pub mod provenance;
 
 use std::collections::BTreeMap;
@@ -216,7 +216,11 @@ impl ExternalIdentifier {
                     .to_ascii_uppercase()
             ),
             Self::Other { scheme, value } => {
-                format!("other:{}:{}", scheme.trim().to_ascii_lowercase(), value.trim())
+                format!(
+                    "other:{}:{}",
+                    scheme.trim().to_ascii_lowercase(),
+                    value.trim()
+                )
             }
         }
     }
@@ -316,19 +320,20 @@ impl AssetRegistry {
         self.assets.values()
     }
 
-
     /// Put each asset's identifier list into stable scheme/value order.
     /// This changes representation order only; it does not merge identifiers
     /// or change their recorded values.
     pub fn canonicalize_identifier_order(&mut self) {
         for asset in self.assets.values_mut() {
-            asset.identifiers.sort_by_key(|identifier| match identifier {
-                ExternalIdentifier::Iswc(value) => (1u8, value.clone(), String::new()),
-                ExternalIdentifier::Isrc(value) => (2u8, value.clone(), String::new()),
-                ExternalIdentifier::Other { scheme, value } => {
-                    (3u8, scheme.to_ascii_lowercase(), value.clone())
-                }
-            });
+            asset
+                .identifiers
+                .sort_by_key(|identifier| match identifier {
+                    ExternalIdentifier::Iswc(value) => (1u8, value.clone(), String::new()),
+                    ExternalIdentifier::Isrc(value) => (2u8, value.clone(), String::new()),
+                    ExternalIdentifier::Other { scheme, value } => {
+                        (3u8, scheme.to_ascii_lowercase(), value.clone())
+                    }
+                });
         }
     }
 
@@ -477,14 +482,10 @@ pub fn assess_split(
     }
 
     if has_dispute {
-        return Ok(SplitAssessment::Disputed {
-            known_basis_points,
-        });
+        return Ok(SplitAssessment::Disputed { known_basis_points });
     }
     if has_unconfirmed {
-        return Ok(SplitAssessment::Unconfirmed {
-            known_basis_points,
-        });
+        return Ok(SplitAssessment::Unconfirmed { known_basis_points });
     }
 
     match completeness {
@@ -733,9 +734,8 @@ pub fn evaluate_usage(
             None => true,
             Some(existing) => {
                 if !existing.same_terms_as(grant) {
-                    conflicting_exact_scope |=
-                        matches_requested_scope(existing, request)
-                            || matches_requested_scope(grant, request);
+                    conflicting_exact_scope |= matches_requested_scope(existing, request)
+                        || matches_requested_scope(grant, request);
                     false
                 } else {
                     match (existing.revoked_at, grant.revoked_at) {
@@ -801,7 +801,6 @@ mod tests {
         PartyId::new(value).unwrap()
     }
 
-
     fn composition_claim(
         asset_id: &AssetId,
         participant: &str,
@@ -847,7 +846,9 @@ mod tests {
     fn malformed_iswc_is_rejected() {
         let mut registry = AssetRegistry::new();
         let work = id("work-1");
-        registry.register_asset(work.clone(), AssetKind::MusicalWork, None).unwrap();
+        registry
+            .register_asset(work.clone(), AssetKind::MusicalWork, None)
+            .unwrap();
         assert_eq!(
             registry.attach_identifier(&work, ExternalIdentifier::Iswc("not-an-iswc".into())),
             Err(PassportError::InvalidIswcSyntax)
@@ -874,7 +875,9 @@ mod tests {
     fn isrc_does_not_attach_to_a_composition() {
         let mut registry = AssetRegistry::new();
         let work = id("work-1");
-        registry.register_asset(work.clone(), AssetKind::MusicalWork, None).unwrap();
+        registry
+            .register_asset(work.clone(), AssetKind::MusicalWork, None)
+            .unwrap();
         assert_eq!(
             registry.attach_identifier(&work, ExternalIdentifier::Isrc("USABC2300001".into())),
             Err(PassportError::IdentifierIncompatibleWithAssetKind)
@@ -886,8 +889,12 @@ mod tests {
         let mut registry = AssetRegistry::new();
         let first = id("recording-1");
         let second = id("recording-2");
-        registry.register_asset(first.clone(), AssetKind::SoundRecording, None).unwrap();
-        registry.register_asset(second.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(first.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
+        registry
+            .register_asset(second.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let isrc = ExternalIdentifier::Isrc("US-ABC-23-00001".into());
         registry.attach_identifier(&first, isrc.clone()).unwrap();
         registry.attach_identifier(&first, isrc.clone()).unwrap();
@@ -913,7 +920,9 @@ mod tests {
                 SplitCompleteness::ClaimedComplete,
             )
             .unwrap(),
-            SplitAssessment::CompleteClaimConsistent { total_basis_points: 10_000 }
+            SplitAssessment::CompleteClaimConsistent {
+                total_basis_points: 10_000
+            }
         );
     }
 
@@ -973,7 +982,12 @@ mod tests {
             composition_claim(&asset, "b", Some(5000), ClaimState::Confirmed, "evidence:b"),
         ];
         assert_eq!(
-            assess_split(&asset, RightsPool::Composition, &claims, SplitCompleteness::Partial),
+            assess_split(
+                &asset,
+                RightsPool::Composition,
+                &claims,
+                SplitCompleteness::Partial
+            ),
             Err(PassportError::SplitExceedsOneHundredPercent)
         );
     }
@@ -1000,8 +1014,20 @@ mod tests {
     fn duplicate_party_claim_is_not_silently_added_twice() {
         let asset = id("work-1");
         let claims = vec![
-            composition_claim(&asset, "a", Some(5000), ClaimState::Confirmed, "evidence:a1"),
-            composition_claim(&asset, "a", Some(5000), ClaimState::Confirmed, "evidence:a2"),
+            composition_claim(
+                &asset,
+                "a",
+                Some(5000),
+                ClaimState::Confirmed,
+                "evidence:a1",
+            ),
+            composition_claim(
+                &asset,
+                "a",
+                Some(5000),
+                ClaimState::Confirmed,
+                "evidence:a2",
+            ),
         ];
         assert_eq!(
             assess_split(
@@ -1078,7 +1104,9 @@ mod tests {
     fn permission_requires_registered_asset_and_exact_grant() {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let request = make_request(asset.clone(), "editor", UseAction::TrainModel, "demo", 50);
         assert_eq!(
             evaluate_usage(&registry, &[], &request),
@@ -1095,11 +1123,21 @@ mod tests {
     fn one_action_does_not_authorize_another() {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let grant = UsageGrant::new(
-            GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
-            UseAction::AnalyzeMetadata, "release-review", party("creator"), "consent:1", 0, None,
-        ).unwrap();
+            GrantId::new("grant-1").unwrap(),
+            asset.clone(),
+            party("studio"),
+            UseAction::AnalyzeMetadata,
+            "release-review",
+            party("creator"),
+            "consent:1",
+            0,
+            None,
+        )
+        .unwrap();
         let request = make_request(asset, "studio", UseAction::TrainModel, "release-review", 1);
         assert_eq!(
             evaluate_usage(&registry, &[grant], &request),
@@ -1112,12 +1150,24 @@ mod tests {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
         let other_asset = id("recording-2");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
-        registry.register_asset(other_asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
+        registry
+            .register_asset(other_asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let grant = UsageGrant::new(
-            GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
-            UseAction::Distribute, "single-release", party("creator"), "consent:1", 10, Some(100),
-        ).unwrap();
+            GrantId::new("grant-1").unwrap(),
+            asset.clone(),
+            party("studio"),
+            UseAction::Distribute,
+            "single-release",
+            party("creator"),
+            "consent:1",
+            10,
+            Some(100),
+        )
+        .unwrap();
         let exact = make_request(
             asset.clone(),
             "studio",
@@ -1127,7 +1177,9 @@ mod tests {
         );
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &exact),
-            PermissionDecision::Allowed { grant_id: GrantId::new("grant-1").unwrap() }
+            PermissionDecision::Allowed {
+                grant_id: GrantId::new("grant-1").unwrap()
+            }
         );
         let wrong_purpose = make_request(
             asset.clone(),
@@ -1168,13 +1220,29 @@ mod tests {
     fn grant_validity_window_is_start_inclusive_and_expiry_exclusive() {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let grant = UsageGrant::new(
-            GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
-            UseAction::Publish, "campaign-a", party("creator"), "consent:1", 10, Some(20),
-        ).unwrap();
+            GrantId::new("grant-1").unwrap(),
+            asset.clone(),
+            party("studio"),
+            UseAction::Publish,
+            "campaign-a",
+            party("creator"),
+            "consent:1",
+            10,
+            Some(20),
+        )
+        .unwrap();
         let before = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 9);
-        let start = make_request(asset.clone(), "studio", UseAction::Publish, "campaign-a", 10);
+        let start = make_request(
+            asset.clone(),
+            "studio",
+            UseAction::Publish,
+            "campaign-a",
+            10,
+        );
         let expiry = make_request(asset, "studio", UseAction::Publish, "campaign-a", 20);
         assert_eq!(
             evaluate_usage(&registry, std::slice::from_ref(&grant), &before),
@@ -1194,11 +1262,21 @@ mod tests {
     fn revocation_stops_future_uses_but_not_historical_evaluation() {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let grant = UsageGrant::new(
-            GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
-            UseAction::Publish, "campaign-a", party("creator"), "consent:1", 10, None,
-        ).unwrap();
+            GrantId::new("grant-1").unwrap(),
+            asset.clone(),
+            party("studio"),
+            UseAction::Publish,
+            "campaign-a",
+            party("creator"),
+            "consent:1",
+            10,
+            None,
+        )
+        .unwrap();
         let revoked = grant.revoked_at(20).unwrap();
         let historical = make_request(
             asset.clone(),
@@ -1233,16 +1311,34 @@ mod tests {
     fn conflicting_reuse_of_grant_id_fails_closed() {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let base_id = GrantId::new("grant-reused").unwrap();
         let exact = UsageGrant::new(
-            base_id.clone(), asset.clone(), party("studio"),
-            UseAction::TrainModel, "model-a", party("creator"), "consent:a", 0, None,
-        ).unwrap();
+            base_id.clone(),
+            asset.clone(),
+            party("studio"),
+            UseAction::TrainModel,
+            "model-a",
+            party("creator"),
+            "consent:a",
+            0,
+            None,
+        )
+        .unwrap();
         let conflicting = UsageGrant::new(
-            base_id, asset.clone(), party("studio"),
-            UseAction::TrainModel, "model-b", party("creator"), "consent:b", 0, None,
-        ).unwrap();
+            base_id,
+            asset.clone(),
+            party("studio"),
+            UseAction::TrainModel,
+            "model-b",
+            party("creator"),
+            "consent:b",
+            0,
+            None,
+        )
+        .unwrap();
         let request = make_request(asset, "studio", UseAction::TrainModel, "model-a", 1);
 
         assert_eq!(
@@ -1256,28 +1352,68 @@ mod tests {
         let mut registry = AssetRegistry::new();
         let requested_asset = id("recording-requested");
         let unrelated_asset = id("recording-unrelated");
-        registry.register_asset(requested_asset.clone(), AssetKind::SoundRecording, None).unwrap();
-        registry.register_asset(unrelated_asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(requested_asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
+        registry
+            .register_asset(unrelated_asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
 
         let valid = UsageGrant::new(
-            GrantId::new("valid-grant").unwrap(), requested_asset.clone(), party("studio"),
-            UseAction::Publish, "campaign-a", party("creator"), "consent:valid", 0, None,
-        ).unwrap();
+            GrantId::new("valid-grant").unwrap(),
+            requested_asset.clone(),
+            party("studio"),
+            UseAction::Publish,
+            "campaign-a",
+            party("creator"),
+            "consent:valid",
+            0,
+            None,
+        )
+        .unwrap();
 
         let reused_id = GrantId::new("conflicting-unrelated-id").unwrap();
         let unrelated_a = UsageGrant::new(
-            reused_id.clone(), unrelated_asset.clone(), party("studio"),
-            UseAction::TrainModel, "model-a", party("creator"), "consent:a", 0, None,
-        ).unwrap();
+            reused_id.clone(),
+            unrelated_asset.clone(),
+            party("studio"),
+            UseAction::TrainModel,
+            "model-a",
+            party("creator"),
+            "consent:a",
+            0,
+            None,
+        )
+        .unwrap();
         let unrelated_b = UsageGrant::new(
-            reused_id, unrelated_asset, party("studio"),
-            UseAction::TrainModel, "model-b", party("creator"), "consent:b", 0, None,
-        ).unwrap();
+            reused_id,
+            unrelated_asset,
+            party("studio"),
+            UseAction::TrainModel,
+            "model-b",
+            party("creator"),
+            "consent:b",
+            0,
+            None,
+        )
+        .unwrap();
 
-        let request = make_request(requested_asset, "studio", UseAction::Publish, "campaign-a", 1);
+        let request = make_request(
+            requested_asset,
+            "studio",
+            UseAction::Publish,
+            "campaign-a",
+            1,
+        );
         assert_eq!(
-            evaluate_usage(&registry, &[unrelated_a, valid.clone(), unrelated_b], &request),
-            PermissionDecision::Allowed { grant_id: valid.id().clone() }
+            evaluate_usage(
+                &registry,
+                &[unrelated_a, valid.clone(), unrelated_b],
+                &request
+            ),
+            PermissionDecision::Allowed {
+                grant_id: valid.id().clone()
+            }
         );
     }
 
@@ -1285,11 +1421,21 @@ mod tests {
     fn inconsistent_revocation_timestamps_fail_closed_for_the_affected_scope() {
         let mut registry = AssetRegistry::new();
         let asset = id("recording-1");
-        registry.register_asset(asset.clone(), AssetKind::SoundRecording, None).unwrap();
+        registry
+            .register_asset(asset.clone(), AssetKind::SoundRecording, None)
+            .unwrap();
         let grant = UsageGrant::new(
-            GrantId::new("grant-one-revocation").unwrap(), asset.clone(), party("studio"),
-            UseAction::Publish, "campaign-a", party("creator"), "consent:1", 0, None,
-        ).unwrap();
+            GrantId::new("grant-one-revocation").unwrap(),
+            asset.clone(),
+            party("studio"),
+            UseAction::Publish,
+            "campaign-a",
+            party("creator"),
+            "consent:1",
+            0,
+            None,
+        )
+        .unwrap();
         let revoked_at_20 = grant.revoked_at(20).unwrap();
         let revoked_at_30 = grant.revoked_at(30).unwrap();
         let request = make_request(asset, "studio", UseAction::Publish, "campaign-a", 10);
@@ -1304,17 +1450,35 @@ mod tests {
     fn invalid_expiry_and_early_revocation_are_rejected() {
         let asset = id("recording-1");
         let grant = UsageGrant::new(
-            GrantId::new("grant-1").unwrap(), asset.clone(), party("studio"),
-            UseAction::Publish, "campaign-a", party("creator"), "consent:1", 10, None,
-        ).unwrap();
+            GrantId::new("grant-1").unwrap(),
+            asset.clone(),
+            party("studio"),
+            UseAction::Publish,
+            "campaign-a",
+            party("creator"),
+            "consent:1",
+            10,
+            None,
+        )
+        .unwrap();
         assert_eq!(
             UsageGrant::new(
-                GrantId::new("bad-window").unwrap(), asset, party("studio"), UseAction::Publish,
-                "campaign-a", party("creator"), "consent:1", 10, Some(10),
+                GrantId::new("bad-window").unwrap(),
+                asset,
+                party("studio"),
+                UseAction::Publish,
+                "campaign-a",
+                party("creator"),
+                "consent:1",
+                10,
+                Some(10),
             ),
             Err(PassportError::InvalidGrantWindow)
         );
-        assert_eq!(grant.revoked_at(9), Err(PassportError::RevocationBeforeEffectiveTime));
+        assert_eq!(
+            grant.revoked_at(9),
+            Err(PassportError::RevocationBeforeEffectiveTime)
+        );
     }
 
     #[test]
@@ -1373,8 +1537,15 @@ mod tests {
         );
         assert_eq!(
             UsageGrant::new(
-                GrantId::new("g").unwrap(), id("asset"), party("grantee"), UseAction::Publish,
-                " ", party("issuer"), "evidence", 0, None,
+                GrantId::new("g").unwrap(),
+                id("asset"),
+                party("grantee"),
+                UseAction::Publish,
+                " ",
+                party("issuer"),
+                "evidence",
+                0,
+                None,
             ),
             Err(PassportError::EmptyPurpose)
         );
