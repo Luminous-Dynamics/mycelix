@@ -294,6 +294,19 @@ This is exact-value resolution over normalized assertions, not a building-code i
 
 Relevant reference: ISO 14721:2025 (OAIS), whose published description covers long-term preservation and information-model changes over time: https://www.iso.org/standard/87471.html .
 
+## Global jurisdiction capability registry
+
+The new `jurisdiction_registry` module uses capability cards so global rollout is a **measured, bounded assertion**, not a country-name toggle. A declared Supported card has to account for all 11 defined regulatory domains; each domain must either have source-backed module coverage or a documented not-applicable decision with rationale. The card pins a source-registry snapshot and test-corpus digest, reports a positive test count, has a dated registry check subject to a caller-configured freshness threshold, documents an update policy and accountable maintainer, and contains two independent reviews pinned to the same immutable subject digest. A challenging or inconclusive review prevents the supported-claim metadata gate from passing; dissent is kept rather than averaged away.
+
+The gate checks metadata, not the law or source bytes. Production must authenticate reviewers and publishers, recompute hashes over actual archived artifacts, verify authority records, demonstrate test-corpus adequacy, and define a legal scope for the supported claim. The profile cannot imply support for omitted domains. Every domain is either Covered, ExplicitlyNotApplicable with a recorded decision, or Missing; only the last form blocks research omissions in a declared Supported profile.
+
+Acceptance targets:
+- **Zero unsupported jurisdiction labels:** every Supported claim has complete domain accounting, source/test snapshot references, update ownership, and two independent supportive reviews.
+- **Zero hidden gaps:** 100% of regulatory domains have either source-backed coverage or an explicit, reasoned not-applicable decision.
+- **Zero stale support cards:** an expired registry freshness window or future check date blocks the supported-claim metadata gate.
+- **100% review-snapshot agreement:** each reviewer attests to the same canonical subject digest, excluding the review-attestation list to avoid a self-referential hash.
+- **No global extrapolation:** support for one jurisdiction never implies support for a sibling jurisdiction or a different country.
+
 ## Global code composition and evidence-backed reform
 
 The new `composition` module makes rule-module ancestry explicit while refusing to infer legal precedence from geographic scope or numeric ordering. Global-reference modules cannot declare binding requirements. Binding statements from indeterminate/non-applicable sources are rejected; conflicts return multiple provenance-carrying candidates without a selected winner. Explicit overrides name the inherited statement, decision record, reviewer, rationale, and evidence digest. The metadata-only composer rejects any override; a separate `compose_verified_rule_modules` entry point requires an external jurisdiction-specific `OverrideVerifier` to authenticate the decision, reviewer, source bytes, and authority to vary that exact rule. No production verifier is included. Owner preferences, engineering baselines, proposals, and evidence-backed reform proposals remain separate from binding requirements.
