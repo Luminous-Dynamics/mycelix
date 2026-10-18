@@ -252,14 +252,19 @@ mod tests {
         DiagnosticSeverity, FieldMapping, ImportDiagnostic, SourceDocument,
     };
 
-    fn source(payload: &[u8], imported_at: u64, record_ref: &str) -> SourceDocument {
+    fn source(
+        payload: &[u8],
+        imported_at: u64,
+        record_ref: &str,
+        parser_version: &str,
+    ) -> SourceDocument {
         SourceDocument::capture(
             "platform-export",
             Some("record-42"),
             "ddex-rdr-n",
             "1.5",
             "cscp-parser",
-            "1.0",
+            parser_version,
             imported_at,
             Some("application/xml"),
             record_ref,
@@ -276,7 +281,7 @@ mod tests {
         after_digest: &str,
     ) -> ImportProvenanceManifest {
         ImportProvenanceManifest::new(
-            source(payload, imported_at, record_ref),
+            source(payload, imported_at, record_ref, parser_version),
             InventoryStatus::CompleteAsReportedByParser,
             ImportOutcome::Imported,
             "00".repeat(32),
@@ -294,18 +299,6 @@ mod tests {
             vec![],
         )
         .unwrap()
-        .with_parser_version_for_test(parser_version)
-    }
-
-    trait ManifestParserVersionTestExt {
-        fn with_parser_version_for_test(self, parser_version: &str)
-            -> ImportProvenanceManifest;
-    }
-
-    impl ManifestParserVersionTestExt for ImportProvenanceManifest {
-        fn with_parser_version_for_test(self, _parser_version: &str) -> ImportProvenanceManifest {
-            self
-        }
     }
 
     #[test]
@@ -391,7 +384,7 @@ mod tests {
 
     #[test]
     fn mapping_rule_version_is_part_of_replay_identity() {
-        let source = source(b"<report id='42'/>", 1, "vault://source");
+        let source = source(b"<report id='42'/>", 1, "vault://source", "1.0");
         let first = ImportProvenanceManifest::new(
             source.clone(),
             InventoryStatus::CompleteAsReportedByParser,
@@ -421,7 +414,7 @@ mod tests {
 
     #[test]
     fn warnings_are_part_of_the_import_result_fingerprint() {
-        let source = source(b"<report><extra/></report>", 1, "vault://source");
+        let source = source(b"<report><extra/></report>", 1, "vault://source", "1.0");
         let clean = ImportProvenanceManifest::new(
             source.clone(),
             InventoryStatus::CompleteAsReportedByParser,
