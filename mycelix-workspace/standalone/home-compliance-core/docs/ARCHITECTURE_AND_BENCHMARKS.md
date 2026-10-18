@@ -50,7 +50,7 @@ The prototype currently implements only the scoped review gate and digest-shape 
 
 Start with an explicitly scoped South African residential demonstrator, selected municipality, property/land-use constraints, and a modest single-storey home. Before encoding a rule, classify the source as enacted/current, officially published standard, municipal by-law/scheme, proposed bill, guidance, or unresolved interpretation. Keep SANS clause references and independently authored rule summaries separate from the copyrighted full text; check licensing before redistribution. Do not infer that a proposal or consultation is in force.
 
-The National Building Regulations and Building Standards Act 103 of 1977 provides the national statutory framework, with municipal approval and other applicable law in scope. Municipality guidance says approval is required before construction. Electrical installations and their certificates have separate legal and competent-person requirements. The government has also published a 2026 amendment bill for public comment; the rule-pack workflow must treat proposals distinctly from effective requirements.
+The National Building Regulations and Building Standards Act 103 of 1977 provides the national statutory framework, with municipal approval and other applicable law in scope. Municipality guidance says approval is required before construction. Electrical installations and their certificates have separate legal and competent-person requirements. As of 18 October 2026, the official government listing says the 2026 amendment bill's public-comment deadline was extended to 12 November 2026. The proposal must remain a proposal in the registry unless and until its legal status changes through an authoritative, recorded update: https://www.gov.za/documents/notices/national-building-regulations-and-building-standards-act-extension-submission .
 
 Once one municipal profile is reviewed and traceable, add other South African municipalities as data packs, then other countries as separate jurisdiction adapters. Do not mark a jurisdiction supported until its scope, sources, professional boundaries, test fixtures, and update policy are auditable.
 
@@ -213,3 +213,14 @@ The standalone Rust crate now has an evolution module that:
 - fails closed when the migration catalogue contains malformed metadata.
 
 It does not enforce append-only storage, recompute content digests, cryptographically validate signers, execute transformations, prove semantic equivalence, or constitute an archival service. Those remain subsequent work with dedicated fixtures and independent review.
+
+
+### Regulatory-source clock and status contract
+
+The new standalone Rust regulatory module keeps **law-as-of date** separate from **registry-knowledge-as-of date**. Each source records jurisdiction, edition, official locator, source digest, legal status, publication date, effective interval and the date its currentness was last checked. Eligibility has three distinct results: Applicable, NonBinding, NotInEffect, and Indeterminate. The implementation uses a status enum plus these outcomes so that proposed instruments, guidance, withdrawn sources, stale source checks, unknown status and contradictory dates cannot quietly act as binding in-force rules.
+
+This does not automatically discover amendments or prove legal status. A production source-maintenance service must poll or receive publisher/authority updates, retain each dated source snapshot, require independent confirmation for status transitions, and produce an append-only update event. Historical assessments read the registry snapshot pinned to that assessment; current reassessments use the latest verified snapshot. Source freshness thresholds must be configured per jurisdiction and risk class, not hardcoded as a universal legal requirement.
+
+The module currently checks metadata and digest shape only. It cannot validate the underlying document, legal authority, signatures or exact law without a source-verification adapter and professional/legal review.
+
+Relevant reference: ISO 14721:2025 (OAIS), whose published description covers long-term preservation and information-model changes over time: https://www.iso.org/standard/87471.html .
