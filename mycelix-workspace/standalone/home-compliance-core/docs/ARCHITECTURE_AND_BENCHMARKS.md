@@ -281,7 +281,7 @@ The new standalone Rust regulatory module keeps **law-as-of date** separate from
 
 This does not automatically discover amendments or prove legal status. A production source-maintenance service must poll or receive publisher/authority updates, retain each dated source snapshot, require independent confirmation for status transitions, and produce an append-only update event. Historical assessments read the registry snapshot pinned to that assessment; current reassessments use the latest verified snapshot. Source freshness thresholds must be configured per jurisdiction and risk class, not hardcoded as a universal legal requirement.
 
-The module currently checks metadata and digest shape only. It cannot validate the underlying document, legal authority, signatures or exact law without a source-verification adapter and professional/legal review.
+The module currently checks metadata and digest shape only. It cannot validate the underlying document, legal authority, signatures or exact law without a source-verification adapter and professional/legal review. Source applicability is now configured explicitly: exact jurisdiction is the conservative default; broader ancestor/descendant reach or a list of exact target jurisdictions must be selected by a reviewed profile. Slash-separated jurisdiction identifiers are used only to evaluate the declared mode, never to infer legal reach automatically. Sibling jurisdictions do not inherit each other's scope.
 
 ### Rule conflict resolution: no silent winner
 
