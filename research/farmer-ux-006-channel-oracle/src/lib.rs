@@ -419,7 +419,7 @@ impl EventLedger {
     }
 
     pub fn conflict_count(&self) -> usize {
-        self.conflicting_events.values().map(Vec::len).sum()
+        self.conflicting_events.values().map(|events| events.len()).sum()
     }
 
     pub fn conflicting_events(&self, event_id: &str) -> &[Event] {
