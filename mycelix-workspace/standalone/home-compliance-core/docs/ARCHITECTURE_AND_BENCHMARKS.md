@@ -160,7 +160,7 @@ Migrations are versioned, reviewable edges between exact format versions:
 - **Lossy:** only with an explicit, recorded acceptance of identified losses; never choose automatically for safety-critical or legal evidence.
 - **Experimental or retired:** not eligible for automatic migration until the status is reviewed.
 
-Retain the source revision and migration report after every conversion. Compare semantic invariants and required object identities before and after. A syntactically valid digest is not proof that bytes match it, and a migration marked lossless by its author is not independent proof of fidelity. The evolution module supplies basic parent-chain validation, a bounded path planner, and deterministic transitive dependency closure for change-impact analysis. The closure identifies what the caller must mark stale, but does not itself persist invalidation. It does not execute migrations, recompute file digests, or establish independent assurance.
+Retain the source revision and migration report after every conversion. Compare semantic invariants and required object identities before and after. A syntactically valid digest is not proof that bytes match it, and a migration marked lossless by its author is not independent proof of fidelity. The evolution module now requires a candidate migration to declare critical invariants, source and target invariant digests, source/target artifact digests, a verification-evidence digest, tool version, and an explicit ApprovedForAutomaticUse disposition. A validator compares every declared critical invariant and only then creates an opaque VerifiedMigration value that the automatic path planner accepts. This API-level guard reduces accidental misuse but is not a cryptographic boundary: callers can still lie about extracted observations or approval unless the production adapter recomputes actual content digests and verifies reviewer authorization. The module supplies parent-chain validation, bounded path planning, semantic-invariant comparison, and deterministic transitive dependency closure. The closure identifies what the caller must mark stale, but does not itself persist invalidation. It does not execute migrations, hash artifact bytes, prove the required invariant set is complete, or establish independent assurance.
 
 ### Adaptation to future architectures and construction methods
 
@@ -213,7 +213,7 @@ Track standards by publisher, identifier, version, status, publication/effective
 The standalone Rust crate now has an evolution module that:
 - validates supplied artifact-revision lineage for missing parents, cross-artifact parent links, duplicate revision IDs, invalid digest syntax, time inversions and cycles;
 - models migration edges with explicit assurance classes;
-- searches a bounded, deterministic path composed only of edges declared verified-lossless and carrying well-formed evidence-digest strings;
+- verifies declared critical semantic invariants and only then mints an opaque migration value accepted by the bounded, deterministic automatic path planner;
 - fails closed when the migration catalogue contains malformed metadata.
 
 It does not enforce append-only storage, recompute content digests, cryptographically validate signers, execute transformations, prove semantic equivalence, or constitute an archival service. Those remain subsequent work with dedicated fixtures and independent review.
