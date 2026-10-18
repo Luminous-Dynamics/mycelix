@@ -139,8 +139,8 @@
 }
 
 .farmer-button-primary:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
+    background: #166534;
+    border-color: #166534;
     color: #ffffff;
 }
 
