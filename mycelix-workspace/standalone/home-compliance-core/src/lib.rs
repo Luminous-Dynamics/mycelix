@@ -26,6 +26,12 @@ pub struct RulePack {
     pub id: String,
     pub jurisdiction: String,
     pub edition: String,
+    /// Exact declared check scope for this edition of the rule pack.
+    ///
+    /// Production must verify that this manifest is part of the exact hashed
+    /// and authenticated pack artifact. This prototype checks scope agreement
+    /// with the assessment but does not authenticate the pack or its author.
+    pub required_checks: Vec<CheckDefinition>,
     /// A source locator, ideally an official publisher or authority.
     pub source_uri: String,
     /// SHA-256 of the normalized rule-pack artifact, not of a copyrighted
@@ -102,6 +108,11 @@ pub enum Blocker {
     RulePackExpired,
     InvalidRulePackValidityWindow,
     InvalidRulePackDigest,
+    EmptyRulePackCheckManifest,
+    DuplicateRulePackCheck(String),
+    MissingRulePackCheck(String),
+    UnexpectedRulePackCheck(String),
+    RulePackCheckMandatoryFlagMismatch(String),
     EmptyCheckId,
     DuplicateCheckDefinition(String),
     MissingMandatoryFinding(String),
@@ -177,6 +188,20 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
         }
     }
 
+    if pack.required_checks.is_empty() {
+        blockers.push(Blocker::EmptyRulePackCheckManifest);
+    }
+    let mut manifest_ids: HashMap<&str, bool> = HashMap::new();
+    for check in &pack.required_checks {
+        if !nonblank(&check.id) {
+            blockers.push(Blocker::EmptyCheckId);
+            continue;
+        }
+        if manifest_ids.insert(check.id.as_str(), check.mandatory).is_some() {
+            blockers.push(Blocker::DuplicateRulePackCheck(check.id.clone()));
+        }
+    }
+
     if input.required_checks.is_empty() {
         blockers.push(Blocker::EmptyScope);
     }
@@ -194,6 +219,22 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
         allowed_ids.insert(check.id.as_str());
         if !definition_ids.insert(check.id.as_str()) {
             blockers.push(Blocker::DuplicateCheckDefinition(check.id.clone()));
+        }
+        match manifest_ids.get(check.id.as_str()) {
+            None => blockers.push(Blocker::UnexpectedRulePackCheck(check.id.clone())),
+            Some(pack_mandatory) if *pack_mandatory != check.mandatory => {
+                blockers.push(Blocker::RulePackCheckMandatoryFlagMismatch(check.id.clone()));
+            }
+            Some(_) => {}
+        }
+    }
+    for check_id in manifest_ids.keys() {
+        if !input
+            .required_checks
+            .iter()
+            .any(|check| check.id.as_str() == *check_id)
+        {
+            blockers.push(Blocker::MissingRulePackCheck((*check_id).to_owned()));
         }
     }
 
@@ -317,6 +358,10 @@ mod tests {
             id: "za-residential-demo".into(),
             jurisdiction: "ZA/demo-municipality".into(),
             edition: "0.1.0-test".into(),
+            required_checks: vec![CheckDefinition {
+                id: "structural-review".into(),
+                mandatory: true,
+            }],
             source_uri: "https://example.invalid/rule-pack".into(),
             pack_sha256: "a".repeat(64),
             status: RulePackStatus::Active,
@@ -545,6 +590,33 @@ mod tests {
     }
 
     #[test]
+    fn assessment_cannot_omit_a_check_declared_by_the_rule_pack() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.rule_pack.required_checks.push(CheckDefinition {
+            id: "fire-egress-review".into(),
+            mandatory: true,
+        });
+
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report
+            .blockers
+            .contains(&Blocker::MissingRulePackCheck("fire-egress-review".into())));
+    }
+
+    #[test]
+    fn assessment_cannot_change_mandatory_status_from_rule_pack() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.required_checks[0].mandatory = false;
+
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(
+            &Blocker::RulePackCheckMandatoryFlagMismatch("structural-review".into())
+        ));
+    }
+
+    #[test]
     fn empty_scope_and_scope_without_mandatory_checks_block() {
         let mut empty = input(Vec::new());
         empty.required_checks.clear();
@@ -567,10 +639,12 @@ mod tests {
     #[test]
     fn optional_unknown_is_reported_but_does_not_mask_mandatory_gate() {
         let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
-        assessment.required_checks.push(CheckDefinition {
+        let optional_check = CheckDefinition {
             id: "comfort-recommendation".into(),
             mandatory: false,
-        });
+        };
+        assessment.required_checks.push(optional_check.clone());
+        assessment.rule_pack.required_checks.push(optional_check);
         assessment
             .findings
             .push(finding("comfort-recommendation", CheckOutcome::Unknown));
