@@ -28,6 +28,7 @@
           "jurisdiction_id",
           "display_name",
           "declared_status",
+          "card_author_id",
           "subject_sha256",
           "source_registry_snapshot_sha256",
           "test_corpus_sha256",
@@ -273,6 +274,10 @@
           "registry_as_of_day": {
             "type": "integer",
             "minimum": 0
+          },
+          "card_author_id": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
