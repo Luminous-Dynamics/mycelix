@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "request_ref": "req-irrigation-001",
+  "event_id": "evt-irrigation-001-relay",
+  "event_kind": "request_relayed",
+  "payload_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "channel": "extension_assisted",
+  "asserting_actor_role": "farmer",
+  "recording_actor_role": "extension_worker",
+  "authority_basis": "explicit_consent",
+  "authority_ref": "mandate-demo-001",
+  "consent_ref": "consent-demo-001",
+  "scope_ref": "scope-demo-001",
+  "captured_at": 1792340000,
+  "capture_time_source": "agent_report",
+  "capture_time_precision_seconds": 3600,
+  "received_at": 1792343600,
+  "verified_at": null,
+  "evidence_state": "relayed",
+  "supersedes_event_id": null,
+  "suspected_duplicate_request_ref": null
+}
