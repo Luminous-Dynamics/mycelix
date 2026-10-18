@@ -44,7 +44,7 @@ Each check finding should carry:
 - evaluator name/version, timestamp, input-model revision, units, uncertainty/tolerance, and dependencies;
 - reviewer/approver identity evidence where required. A string saying who approved something is not sufficient identity verification.
 
-The prototype currently implements only the scoped review gate and digest-shape checks. It does not hash files, validate identities, evaluate code rules, or confirm the authenticity/currentness of external law.
+The prototype performs metadata/scope checks and defines an `EvidenceVerifier` interface. `evaluate_review_gate` cannot advance beyond `MetadataCompleteAwaitingEvidenceVerification`; only `evaluate_verified_review_gate` can return `ReadyForProfessionalReview`, after the supplied trusted adapter confirms artifact existence and recomputes SHA-256 over the actual bytes. No production artifact store/verifier implementation is included, so deployments must not treat a mock verifier as proof. The crate does not validate identities, evaluate code rules, or confirm the authenticity/currentness of external law.
 
 ## South Africa first, with a global extension path
 
@@ -59,12 +59,13 @@ Once one municipal profile is reviewed and traceable, add other South African mu
 ### Gate correctness and safety
 - **Zero false review-ready results** in the versioned adversarial suite: missing mandatory check, Fail, Unknown mandatory, stale/future/draft/withdrawn rule pack, bad pack digest syntax, finding bound to the wrong edition, duplicate/unrecognized finding, Pass without evidence, malformed evidence digest, unjustified NotApplicable, and empty or optional-only scope.
 - **100% mandatory-scope accounting:** each mandatory check is Pass, Fail, Unknown, or justified NotApplicable; no silent omission.
-- **100% positive-finding traceability:** every Pass references the exact rule pack/edition and at least one artifact ID plus expected SHA-256 digest.
+- **100% positive-finding traceability and byte integrity:** every Pass references the exact rule pack/edition and an artifact ID plus digest; the review-ready status is unavailable unless a trusted adapter confirms the object exists and hashes to that digest. Tests must distinguish missing object, digest mismatch, unavailable store, and successful verification.
 - **No legal-status overclaim:** output schema never emits Compliant, Approved, Certified, or ReadyToBuild from this core.
 - Mutation-test every gate condition and retain every minimized regression fixture in the repository. Before any pilot, have an independent professional label the expected results.
 
 ### Determinism and performance
 - Same input, schema version and evaluator version must yield the same ordered report and digest once canonical serialization is added.
+- The metadata-only API must never emit `ReadyForProfessionalReview`; verified readiness requires every evidence object to be resolved and hashed by the configured verifier. Zero unavailable or digest-mismatched objects may be accepted.
 - Initial budget to test on a published reference machine: evaluate 10,000 findings and 10,000 scoped checks in under 100 ms in optimized release mode; test 100,000 as a scale curve. These are proposed budgets, not current performance claims.
 - Rule-pack activation and revision changes must invalidate affected findings; never silently reuse a finding computed against a different edition.
 - Change-impact reporting must achieve 100% downstream invalidation recall and 0 unrelated invalidations on the reference dependency corpus. Every invalidated node must have a reconstructible deterministic shortest cause chain; changed roots remain explicit, and malformed/cyclic graphs yield an error rather than a partial report. Target linear-space cause reporting at 10,000 nodes and test 100,000-node shapes; these are acceptance targets, not current measured performance.
