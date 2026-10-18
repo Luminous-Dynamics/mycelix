@@ -22,7 +22,12 @@ fn edge(input_id: impl Into<String>, dependent_id: impl Into<String>) -> Depende
 
 fn chain_graph(edge_count: usize) -> Vec<DependencyEdge> {
     (0..edge_count)
-        .map(|index| edge(format!("artifact:{index}"), format!("artifact:{}", index + 1)))
+        .map(|index| {
+            edge(
+                format!("artifact:{index}"),
+                format!("artifact:{}", index + 1),
+            )
+        })
         .collect()
 }
 
@@ -70,30 +75,27 @@ fn report_shape(
 ) {
     let changed = vec![changed_id.to_owned()];
     let closure_samples = measure_ms(|| {
-        let closure = affected_closure(
-            black_box(changed.as_slice()),
-            black_box(dependencies),
-        )
-        .expect("generated dependency graph must be valid");
+        let closure = affected_closure(black_box(changed.as_slice()), black_box(dependencies))
+            .expect("generated dependency graph must be valid");
         assert_eq!(closure.len(), expected_nodes);
         assert!(closure.binary_search(&changed_id.to_owned()).is_ok());
     });
 
     let cause_tree_samples = measure_ms(|| {
-        let cause_tree = affected_cause_tree(
-            black_box(changed.as_slice()),
-            black_box(dependencies),
-        )
-        .expect("generated dependency graph must produce a cause tree");
+        let cause_tree =
+            affected_cause_tree(black_box(changed.as_slice()), black_box(dependencies))
+                .expect("generated dependency graph must produce a cause tree");
         assert_eq!(cause_tree.len(), expected_nodes);
         let tail = cause_tree
             .iter()
             .find(|item| item.artifact_id == tail_id)
             .expect("the expected tail node must be reported");
         assert_eq!(tail.cause_parent_id.as_deref(), expected_tail_parent);
-        assert!(cause_tree
-            .windows(2)
-            .all(|pair| pair[0].artifact_id < pair[1].artifact_id));
+        assert!(
+            cause_tree
+                .windows(2)
+                .all(|pair| pair[0].artifact_id < pair[1].artifact_id)
+        );
     });
 
     println!(
