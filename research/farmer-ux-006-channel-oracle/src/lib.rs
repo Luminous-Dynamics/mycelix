@@ -15,10 +15,9 @@ pub const ENVELOPE_SCHEMA_PATH: &str = "research/farmer-ux-006-channel-envelope-
 pub const SCHEDULE_COUNT: u64 = 10_000;
 
 const REQUIRED_CASES: &[&str] = &[
-    "FUXC-001", "FUXC-002", "FUXC-003", "FUXC-004", "FUXC-005",
-    "FUXC-006", "FUXC-007", "FUXC-008", "FUXC-009", "FUXC-010",
-    "FUXC-011", "FUXC-012", "FUXC-013", "FUXC-014", "FUXC-015",
-    "FUXC-016", "FUXC-017",
+    "FUXC-001", "FUXC-002", "FUXC-003", "FUXC-004", "FUXC-005", "FUXC-006", "FUXC-007", "FUXC-008",
+    "FUXC-009", "FUXC-010", "FUXC-011", "FUXC-012", "FUXC-013", "FUXC-014", "FUXC-015", "FUXC-016",
+    "FUXC-017",
 ];
 
 #[derive(Debug, Serialize)]
@@ -70,8 +69,7 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn read_json(root: &Path, path: &str) -> Result<(Vec<u8>, Value), String> {
     let bytes = fs::read(root.join(path)).map_err(|e| format!("cannot read {path}: {e}"))?;
-    let value = serde_json::from_slice(&bytes)
-        .map_err(|e| format!("cannot parse {path}: {e}"))?;
+    let value = serde_json::from_slice(&bytes).map_err(|e| format!("cannot parse {path}: {e}"))?;
     Ok((bytes, value))
 }
 
@@ -86,7 +84,10 @@ fn validate_schema(instance: &Value, schema: &Value) -> Vec<String> {
     match validator_for(schema) {
         Ok(validator) => {
             for error in validator.iter_errors(instance) {
-                errors.push(format!("schema violation at {}: {error}", error.instance_path()));
+                errors.push(format!(
+                    "schema violation at {}: {error}",
+                    error.instance_path()
+                ));
             }
         }
         Err(error) => errors.push(format!("schema compilation failed: {error}")),
@@ -158,14 +159,11 @@ fn has_different_two_strings(case: &Value, field: &str) -> bool {
         })
 }
 
-fn required_case_rule(
-    errors: &mut Vec<String>,
-    id: &str,
-    description: &str,
-    holds: bool,
-) {
+fn required_case_rule(errors: &mut Vec<String>, id: &str, description: &str, holds: bool) {
     if !holds {
-        errors.push(format!("{id}: missing or weakened invariant: {description}"));
+        errors.push(format!(
+            "{id}: missing or weakened invariant: {description}"
+        ));
     }
 }
 
@@ -229,11 +227,7 @@ pub fn semantic_errors(document: &Value) -> Vec<String> {
                     && has_same_two_strings(case, "event_ids")
                     && case.get("digests_equal").and_then(Value::as_bool) == Some(false)
                     && has_effect(case, "prohibited", "overwrite_original")
-                    && has_effect(
-                        case,
-                        "allowed_effects",
-                        "quarantine_and_record_conflict",
-                    ),
+                    && has_effect(case, "allowed_effects", "quarantine_and_record_conflict"),
             ),
             "FUXC-004" => required_case_rule(
                 &mut errors,
@@ -268,11 +262,7 @@ pub fn semantic_errors(document: &Value) -> Vec<String> {
                     case,
                     "expected",
                     "retain_order_uncertainty_and_block_illegal_promotion",
-                ) && has_effect(
-                    case,
-                    "prohibited",
-                    "silently_reorder_into_valid_booking",
-                ),
+                ) && has_effect(case, "prohibited", "silently_reorder_into_valid_booking"),
             ),
             "FUXC-008" => required_case_rule(
                 &mut errors,
@@ -286,8 +276,11 @@ pub fn semantic_errors(document: &Value) -> Vec<String> {
                 &mut errors,
                 id,
                 "a submitted request cannot be silently retargeted",
-                has_string(case, "expected", "preserve_original_scope_and_block_retarget")
-                    && has_effect(case, "prohibited", "retarget_existing_request"),
+                has_string(
+                    case,
+                    "expected",
+                    "preserve_original_scope_and_block_retarget",
+                ) && has_effect(case, "prohibited", "retarget_existing_request"),
             ),
             "FUXC-010" => required_case_rule(
                 &mut errors,
@@ -308,8 +301,11 @@ pub fn semantic_errors(document: &Value) -> Vec<String> {
                 &mut errors,
                 id,
                 "no-provider outcomes remain in the denominator",
-                has_string(case, "expected", "no_provider_outcome_remains_in_denominator")
-                    && has_effect(case, "prohibited", "drop_request_from_report"),
+                has_string(
+                    case,
+                    "expected",
+                    "no_provider_outcome_remains_in_denominator",
+                ) && has_effect(case, "prohibited", "drop_request_from_report"),
             ),
             "FUXC-013" => required_case_rule(
                 &mut errors,
@@ -527,7 +523,10 @@ impl EventLedger {
     }
 
     pub fn conflict_count(&self) -> usize {
-        self.conflicting_events.values().map(|events| events.len()).sum()
+        self.conflicting_events
+            .values()
+            .map(|events| events.len())
+            .sum()
     }
 
     pub fn conflicting_events(&self, event_id: &str) -> &[Event] {
@@ -581,8 +580,7 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
     let mut violations = Vec::new();
 
     for seed in 0..SCHEDULE_COUNT {
-        let base_events: Vec<Event> =
-            (0..8).map(|index| synthetic_event(seed, index)).collect();
+        let base_events: Vec<Event> = (0..8).map(|index| synthetic_event(seed, index)).collect();
         let duplicate_index = (seed as usize) % 8;
         let conflict_index = (duplicate_index + 3) % 8;
 
@@ -625,9 +623,7 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             ));
         }
         if duplicates != 1 || ledger.duplicate_delivery_count() != 1 {
-            reasons.push(format!(
-                "expected 1 exact replay, observed {duplicates}"
-            ));
+            reasons.push(format!("expected 1 exact replay, observed {duplicates}"));
         }
         if conflicts != 1 || ledger.conflict_count() != 1 {
             reasons.push(format!(
@@ -699,9 +695,8 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             reasons.push("relay evidence was promoted to booking".to_owned());
         }
         if forwarding_allowed(true, false) || forwarding_allowed(false, true) {
-            reasons.push(
-                "forwarding allowed without both authority and current consent".to_owned(),
-            );
+            reasons
+                .push("forwarding allowed without both authority and current consent".to_owned());
         }
         if !reasons.is_empty() && violations.len() < 100 {
             violations.push(format!("schedule {seed}: {}", reasons.join("; ")));
@@ -754,21 +749,22 @@ pub fn verify_repository(root: &Path) -> Result<OracleReport, String> {
             &envelope_schema_bytes,
         ),
     ];
-    let case_count = cases.get("cases").and_then(Value::as_array).map_or(0, Vec::len);
+    let case_count = cases
+        .get("cases")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
     let mut errors = semantic_errors(&cases);
     let schedules = run_deterministic_schedules();
     errors.sort();
     let schema_failed = artifact_checks
         .iter()
         .any(|artifact| artifact.schema_status != "PASS");
-    let status = if schema_failed
-        || !errors.is_empty()
-        || !schedules.invariant_violations.is_empty()
-    {
-        "FAIL"
-    } else {
-        "PASS"
-    };
+    let status =
+        if schema_failed || !errors.is_empty() || !schedules.invariant_violations.is_empty() {
+            "FAIL"
+        } else {
+            "PASS"
+        };
     Ok(OracleReport {
         version: "1.0.0".to_owned(),
         status: status.to_owned(),
@@ -817,11 +813,22 @@ mod tests {
         );
         assert_eq!(report.case_count, 17);
         assert_eq!(report.artifact_checks.len(), 2);
-        assert!(report.artifact_checks.iter().all(|item| item.schema_status == "PASS"));
-        assert_eq!(report.adversarial_schedules.schedules_executed, SCHEDULE_COUNT);
+        assert!(
+            report
+                .artifact_checks
+                .iter()
+                .all(|item| item.schema_status == "PASS")
+        );
+        assert_eq!(
+            report.adversarial_schedules.schedules_executed,
+            SCHEDULE_COUNT
+        );
         assert!(report.adversarial_schedules.invariant_violations.is_empty());
         assert!(
-            report.dependency_lock.as_ref().is_some_and(|lock| lock.sha256.len() == 64),
+            report
+                .dependency_lock
+                .as_ref()
+                .is_some_and(|lock| lock.sha256.len() == 64),
             "Cargo should resolve the standalone crate's lock before tests run"
         );
     }
@@ -831,39 +838,67 @@ mod tests {
         let mut document = fixture_document();
         let duplicate = document["cases"][1]["case_id"].clone();
         document["cases"][0]["case_id"] = duplicate;
-        assert!(semantic_errors(&document).iter().any(|error| error.contains("duplicate case_id")));
+        assert!(
+            semantic_errors(&document)
+                .iter()
+                .any(|error| error.contains("duplicate case_id"))
+        );
     }
 
     #[test]
     fn conflict_case_cannot_drop_overwrite_prohibition() {
         let mut document = fixture_document();
-        let prohibited = document["cases"][2]["prohibited"].as_array_mut().expect("prohibited");
+        let prohibited = document["cases"][2]["prohibited"]
+            .as_array_mut()
+            .expect("prohibited");
         prohibited.retain(|item| item.as_str() != Some("overwrite_original"));
-        assert!(semantic_errors(&document).iter().any(|error| error.contains("FUXC-003")));
+        assert!(
+            semantic_errors(&document)
+                .iter()
+                .any(|error| error.contains("FUXC-003"))
+        );
     }
 
     #[test]
     fn relay_case_cannot_be_weakened_into_booking_claim() {
         let mut document = fixture_document();
-        let prohibited = document["cases"][4]["prohibited"].as_array_mut().expect("prohibited");
+        let prohibited = document["cases"][4]["prohibited"]
+            .as_array_mut()
+            .expect("prohibited");
         prohibited.retain(|item| item.as_str() != Some("promote_to_booking"));
-        assert!(semantic_errors(&document).iter().any(|error| error.contains("FUXC-005")));
+        assert!(
+            semantic_errors(&document)
+                .iter()
+                .any(|error| error.contains("FUXC-005"))
+        );
     }
 
     #[test]
     fn revoked_consent_case_must_prohibit_forwarding() {
         let mut document = fixture_document();
-        let prohibited = document["cases"][7]["prohibited"].as_array_mut().expect("prohibited");
+        let prohibited = document["cases"][7]["prohibited"]
+            .as_array_mut()
+            .expect("prohibited");
         prohibited.retain(|item| item.as_str() != Some("forward_payload"));
-        assert!(semantic_errors(&document).iter().any(|error| error.contains("FUXC-008")));
+        assert!(
+            semantic_errors(&document)
+                .iter()
+                .any(|error| error.contains("FUXC-008"))
+        );
     }
 
     #[test]
     fn unknown_outcome_case_must_prohibit_automatic_resend() {
         let mut document = fixture_document();
-        let prohibited = document["cases"][14]["prohibited"].as_array_mut().expect("prohibited");
+        let prohibited = document["cases"][14]["prohibited"]
+            .as_array_mut()
+            .expect("prohibited");
         prohibited.retain(|item| item.as_str() != Some("resend_automatically"));
-        assert!(semantic_errors(&document).iter().any(|error| error.contains("FUXC-015")));
+        assert!(
+            semantic_errors(&document)
+                .iter()
+                .any(|error| error.contains("FUXC-015"))
+        );
     }
 
     #[test]
@@ -890,7 +925,10 @@ mod tests {
         altered.recording_role = "different_recorder".to_owned();
         assert_eq!(ledger.ingest(original.clone()), IngestResult::Applied);
         assert_eq!(ledger.ingest(altered.clone()), IngestResult::Conflict);
-        assert_eq!(ledger.stored(&event_id).expect("first event remains"), &original);
+        assert_eq!(
+            ledger.stored(&event_id).expect("first event remains"),
+            &original
+        );
         assert_eq!(ledger.conflict_count(), 1);
         assert_eq!(ledger.conflicting_events(&event_id), &[altered]);
         assert_eq!(ledger.applied_effect_count(), 1);
@@ -905,7 +943,10 @@ mod tests {
         changed.request_ref = "req-different-logical-request".to_owned();
         assert_eq!(ledger.ingest(original.clone()), IngestResult::Applied);
         assert_eq!(ledger.ingest(changed.clone()), IngestResult::Conflict);
-        assert_eq!(ledger.stored(&event_id).expect("first event remains"), &original);
+        assert_eq!(
+            ledger.stored(&event_id).expect("first event remains"),
+            &original
+        );
         assert_eq!(ledger.conflicting_events(&event_id), &[changed]);
         assert_eq!(ledger.applied_effect_count(), 1);
         assert_eq!(ledger.request_count(), 1);
@@ -945,8 +986,14 @@ mod tests {
 
     #[test]
     fn source_evidence_cannot_claim_a_higher_authority_class() {
-        assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::ProviderReceipt));
-        assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::BookingConfirmed));
+        assert!(!evidence_can_support_claim(
+            EvidenceKind::Relayed,
+            ClaimType::ProviderReceipt
+        ));
+        assert!(!evidence_can_support_claim(
+            EvidenceKind::Relayed,
+            ClaimType::BookingConfirmed
+        ));
         assert!(!evidence_can_support_claim(
             EvidenceKind::ProviderReportedComplete,
             ClaimType::FarmerAccepted
