@@ -284,6 +284,26 @@
         "app_registration_required",
         "human_relay_authority_is_implicit"
       ]
+    },
+    {
+      "key": "outcome_unknown",
+      "state_family": "sync",
+      "headline": "We couldn't confirm whether this went through",
+      "body": "Your request may have reached the service, but we do not have an authoritative response. It has not been confirmed or rejected.",
+      "primary_action": "Review safe next steps",
+      "secondary_actions": [
+        "Check status if an authoritative check is available",
+        "Contact a person",
+        "View request reference",
+        "Leave as unknown"
+      ],
+      "must_not_imply": [
+        "request_not_applied",
+        "request_received_by_provider",
+        "booking_confirmed",
+        "automatic_retry_is_safe",
+        "request_was_lost"
+      ]
     }
   ]
 }
