@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use leptos::prelude::*;
+use leptos_router::components::A;
 
 /// Farmer-first Today screen prototype.
 ///
@@ -52,14 +53,14 @@ pub fn FarmerPage() -> impl IntoView {
                     <span aria-hidden="true">"＋"</span>
                     " Record a problem"
                 </button>
-                <a class="farmer-button farmer-button-secondary" href="/food">
+                <A class="farmer-button farmer-button-secondary" href="/food">
                     <span aria-hidden="true">"▧"</span>
                     " Food cooperative"
-                </a>
-                <a class="farmer-button farmer-button-secondary" href="/water">
+                </A>
+                <A class="farmer-button farmer-button-secondary" href="/water">
                     <span aria-hidden="true">"≈"</span>
                     " Water resources"
-                </a>
+                </A>
             </nav>
 
             <div class="farmer-primary-grid">
