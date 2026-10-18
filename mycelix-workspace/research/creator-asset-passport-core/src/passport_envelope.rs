@@ -11,8 +11,8 @@ use std::fmt;
 use crate::history::GrantHistory;
 use crate::portable::{GrantHistoryEnvelope, PortableHistoryError};
 use crate::{
-    AssetId, AssetKind, AssetRegistry, ClaimState, ExternalIdentifier, PassportError,
-    RightsPool, SplitClaim,
+    AssetId, AssetKind, AssetRegistry, ClaimState, ExternalIdentifier, PassportError, RightsPool,
+    SplitClaim,
 };
 
 const MAGIC: &[u8] = b"MYCELIX-CSCP-ASSET-PASSPORT\0";
@@ -255,8 +255,8 @@ impl CreativeAssetPassportEnvelope {
         if history_len > MAX_ENVELOPE_BYTES as u64 {
             return Err(PassportEnvelopeError::EnvelopeTooLarge);
         }
-        let history_len = usize::try_from(history_len)
-            .map_err(|_| PassportEnvelopeError::EnvelopeTooLarge)?;
+        let history_len =
+            usize::try_from(history_len).map_err(|_| PassportEnvelopeError::EnvelopeTooLarge)?;
         let history_bytes = reader.take(history_len)?;
         let grant_history = GrantHistoryEnvelope::from_bytes(history_bytes)?;
 
@@ -347,7 +347,12 @@ impl CreativeAssetPassportEnvelope {
         }
 
         let history_bytes = self.grant_history.canonical_bytes()?;
-        if output.len().saturating_add(8).saturating_add(history_bytes.len()) > MAX_ENVELOPE_BYTES {
+        if output
+            .len()
+            .saturating_add(8)
+            .saturating_add(history_bytes.len())
+            > MAX_ENVELOPE_BYTES
+        {
             return Err(PassportEnvelopeError::EnvelopeTooLarge);
         }
         output.extend_from_slice(&(history_bytes.len() as u64).to_be_bytes());
@@ -409,9 +414,7 @@ fn validate_identifier_fields(
     identifier: &ExternalIdentifier,
 ) -> Result<(), PassportEnvelopeError> {
     match identifier {
-        ExternalIdentifier::Iswc(value) | ExternalIdentifier::Isrc(value) => {
-            validate_field(value)
-        }
+        ExternalIdentifier::Iswc(value) | ExternalIdentifier::Isrc(value) => validate_field(value),
         ExternalIdentifier::Other { scheme, value } => {
             validate_field(scheme)?;
             validate_field(value)
@@ -429,14 +432,7 @@ fn identifier_sort_key(identifier: &ExternalIdentifier) -> (u8, String, String) 
     }
 }
 
-fn claim_sort_key(claim: &SplitClaim) -> (
-    String,
-    u8,
-    String,
-    u8,
-    Option<u16>,
-    String,
-) {
+fn claim_sort_key(claim: &SplitClaim) -> (String, u8, String, u8, Option<u16>, String) {
     (
         claim.asset_id.as_str().to_owned(),
         encode_rights_pool(claim.pool),
@@ -512,10 +508,7 @@ fn decode_claim_state(value: u8) -> Result<ClaimState, PassportEnvelopeError> {
     }
 }
 
-fn write_string(
-    output: &mut Vec<u8>,
-    value: &str,
-) -> Result<(), PassportEnvelopeError> {
+fn write_string(output: &mut Vec<u8>, value: &str) -> Result<(), PassportEnvelopeError> {
     validate_field(value)?;
     let bytes = value.as_bytes();
     let length = u32::try_from(bytes.len()).map_err(|_| PassportEnvelopeError::FieldTooLong)?;
@@ -559,8 +552,7 @@ impl<'a> Reader<'a> {
     fn u64(&mut self) -> Result<u64, PassportEnvelopeError> {
         let bytes = self.take(8)?;
         Ok(u64::from_be_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]))
     }
 
@@ -582,7 +574,7 @@ impl<'a> Reader<'a> {
 mod tests {
     use super::*;
     use crate::history::{GrantEvent, GrantHistory};
-    use crate::{EventId, GrantId, PartyId, UseAction, UsageGrant};
+    use crate::{EventId, GrantId, PartyId, UsageGrant, UseAction};
 
     fn party(value: &str) -> PartyId {
         PartyId::new(value).unwrap()
@@ -599,10 +591,7 @@ mod tests {
             )
             .unwrap();
         registry
-            .attach_identifier(
-                &work,
-                ExternalIdentifier::Iswc("T-034.524.680-1".into()),
-            )
+            .attach_identifier(&work, ExternalIdentifier::Iswc("T-034.524.680-1".into()))
             .unwrap();
 
         let recording = AssetId::new("recording-a").unwrap();
@@ -673,10 +662,7 @@ mod tests {
             .register_asset(work.clone(), AssetKind::MusicalWork, Some("Song A".into()))
             .unwrap();
         registry
-            .attach_identifier(
-                &work,
-                ExternalIdentifier::Iswc("T-034.524.680-1".into()),
-            )
+            .attach_identifier(&work, ExternalIdentifier::Iswc("T-034.524.680-1".into()))
             .unwrap();
         let claims = vec![
             SplitClaim::new(
@@ -722,20 +708,18 @@ mod tests {
                 },
             )
             .unwrap();
-        let claims = vec![SplitClaim::new(
-            recording,
-            party("performer-Δ"),
-            RightsPool::MasterRecording,
-            None,
-            ClaimState::Disputed,
-            "evidence://争議",
-        ).unwrap()];
-        CreativeAssetPassportEnvelope::from_parts(
-            &registry,
-            &claims,
-            &GrantHistory::new(),
-        )
-        .unwrap()
+        let claims = vec![
+            SplitClaim::new(
+                recording,
+                party("performer-Δ"),
+                RightsPool::MasterRecording,
+                None,
+                ClaimState::Disputed,
+                "evidence://争議",
+            )
+            .unwrap(),
+        ];
+        CreativeAssetPassportEnvelope::from_parts(&registry, &claims, &GrantHistory::new()).unwrap()
     }
 
     #[test]
@@ -747,8 +731,7 @@ mod tests {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        let expected =
-            include_str!("../tests/fixtures/creator-asset-passport-v1.hex").trim();
+        let expected = include_str!("../tests/fixtures/creator-asset-passport-v1.hex").trim();
         assert_eq!(actual, expected);
     }
 
@@ -761,10 +744,8 @@ mod tests {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        let expected = include_str!(
-            "../tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex"
-        )
-        .trim();
+        let expected =
+            include_str!("../tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex").trim();
         assert_eq!(actual, expected);
     }
 
