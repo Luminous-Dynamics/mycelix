@@ -52,6 +52,23 @@ The first implementation should map fields to existing canonical types, not crea
 - Repetition number, sample denominator, uncertainty/confidence interval and known exclusions.
 - Missing context must remain missing; do not infer device properties from file names or prose.
 
+### Open display metrology run records
+
+Compose with Symthaea's [ODRH-001 open display hardware issue #8030](https://github.com/Luminous-Dynamics/symthaea/issues/8030), [ODRH-MET-001 decision-capable metrology issue #8049](https://github.com/Luminous-Dynamics/symthaea/issues/8049), the [reproducibility protocol](https://github.com/Luminous-Dynamics/symthaea/blob/research/odrh-001-open-display-hardware-2026-10-18/docs/engineering/DISPLAY_METROLOGY_REPRODUCIBILITY_PROTOCOL.md), and the [machine-readable measurement run template/schema](https://github.com/Luminous-Dynamics/symthaea/blob/research/odrh-001-open-display-hardware-2026-10-18/docs/engineering/display-measurement-run-template-v0.1.json). Mycelix should anchor or authorize the existing record under canonical scientific-evidence semantics; it must not define a competing run schema or turn a ledger receipt into metrology certification.
+
+For an ODRH run, preserve references/digests for:
+
+- stable run ID, record state, exact protocol ID/revision, source commit and configuration;
+- device-under-test identity/revision, host/output mode, signal format/range, pattern sequence digest, OSD profile, APL/dwell and declared measurement geometry;
+- instrument identity, calibration record/currentness, sample clock/rate and uncertainty-method identity;
+- each measurand and unit, value or explicit NOT_EVALUATED state, expanded uncertainty, minimum decision effect (MDE), decision-capability state and uncertainty budget/covariance treatment;
+- raw artifact IDs/content digests/access/retention state, invalid samples, exclusions/aborts, operator/procedure changes and independent reviewer/reproducer;
+- claim scope and the distinction between instrument/geometry verification, bench measurement, independent review and physical qualification.
+
+The run template is intentionally PLAN_ONLY with four NOT_EVALUATED observations and no instruments/raw artifacts. That is a planning example, not measured evidence. ACQUIRED_UNQUALIFIED must not be promoted merely because the schema validates, a producer writes PASS, an output file exists, or CI succeeds. Unsupported metrics remain NOT_EVALUATED with null value; missing calibration or an uncertainty budget that cannot resolve the declared MDE blocks that metric from candidate ranking. The proposed U95_total <= MDE/3 gate is a project-level capability hypothesis, not an IDMS requirement or universal metrology rule.
+
+For the first open CAD fixture, preserve the exact native-source digest, license, OpenSCAD/tool version, parameter configuration, mesh bounds/triangle count and invalid-parameter tests. A successful geometry export is a source/build check only: physical fit, part tolerance, material strength, optical baffling, instrument calibration and measured display performance remain separate evidence gates. Per-run STL hashes are provenance; byte-level identity must not be assumed across different OpenSCAD builds unless that reproducibility requirement has been demonstrated. The current [CAD check receipt](https://github.com/Luminous-Dynamics/symthaea/blob/research/odrh-001-open-display-hardware-2026-10-18/hardware/open-display-reference/validation/odrh_sensor_plate_cad_check-v0.1.json) explicitly leaves physical validation NOT_PERFORMED.
+
 ### Nanoimprint/grating-route evidence
 
 For AR waveguide manufacturing, compose with [Symthaea VIS-MFG-001 #8012](https://github.com/Luminous-Dynamics/symthaea/issues/8012) and preserve distinct IDs for master/template, resist/material lot, tool profile, each replicated optic and final assembly. Where NIL is used, record master revision/use-cycle and inspection, replica pattern digest, feature geometry/fidelity over the declared field, residual-layer thickness/uniformity, overlay/registration, fill/demolding defect map, calibration/inspection coverage and source/tool provenance. Downstream module acceptance must bind the replicated grating to its waveguide/light-engine pair and angle-/wavelength-resolved optical measurements. The process route is still a planning profile until local tool/process capability, raw metrology and final module behavior are evidenced. Literature-reported resolution or a master-template specification does not qualify the replica or module.
