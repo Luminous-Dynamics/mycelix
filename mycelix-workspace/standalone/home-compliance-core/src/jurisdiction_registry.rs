@@ -116,6 +116,9 @@ pub struct JurisdictionCapabilityCard {
     pub jurisdiction_id: String,
     pub display_name: String,
     pub declared_status: JurisdictionSupportStatus,
+    /// Identity accountable for authoring the card subject, distinct from the
+    /// ongoing maintainer and every independent reviewer.
+    pub card_author_id: String,
     /// Digest of canonical card content excluding reviewer attestations.
     pub subject_sha256: String,
     pub source_registry_snapshot_sha256: String,
@@ -195,6 +198,7 @@ pub fn validate_capability_card(
     for (field, value) in [
         ("jurisdiction_id", card.jurisdiction_id.as_str()),
         ("display_name", card.display_name.as_str()),
+        ("card_author_id", card.card_author_id.as_str()),
         ("update_policy", card.update_policy.as_str()),
         ("accountable_maintainer", card.accountable_maintainer.as_str()),
     ] {
@@ -216,6 +220,11 @@ pub fn validate_capability_card(
     }
     if card.tested_case_count == 0 {
         issues.push(CapabilityCardIssue::NoTestCases);
+    }
+    for gap in &card.known_scope_gaps {
+        if !nonblank(gap) {
+            issues.push(CapabilityCardIssue::KnownGapUndisclosedOrBlank);
+        }
     }
     if card.source_registry_checked_on_day > card.registry_as_of_day {
         issues.push(CapabilityCardIssue::FutureSourceRegistryCheck);
@@ -302,7 +311,9 @@ pub fn validate_capability_card(
         if !reviewer_ids.insert(review.reviewer_id.as_str()) {
             issues.push(CapabilityCardIssue::DuplicateReview(review.reviewer_id.clone()));
         }
-        if review.reviewer_id == card.accountable_maintainer {
+        if review.reviewer_id == card.card_author_id
+            || review.reviewer_id == card.accountable_maintainer
+        {
             issues.push(CapabilityCardIssue::AuthorIncludedAsReviewer(
                 review.reviewer_id.clone(),
             ));
@@ -392,6 +403,7 @@ mod tests {
             jurisdiction_id: "ZA/GP/Johannesburg".into(),
             display_name: "Synthetic Johannesburg-area profile".into(),
             declared_status: status,
+            card_author_id: "author:pilot".into(),
             subject_sha256: "a".repeat(64),
             source_registry_snapshot_sha256: "b".repeat(64),
             test_corpus_sha256: "c".repeat(64),
@@ -545,6 +557,27 @@ mod tests {
             &CapabilityCardIssue::IndependentReviewerInconclusive("reviewer-b".into())
         ));
         assert!(!report.supported_claim_metadata_complete);
+    }
+
+    #[test]
+    fn card_author_cannot_count_as_an_independent_reviewer() {
+        let mut value = card(JurisdictionSupportStatus::Supported);
+        value.independent_reviews[0].reviewer_id = value.card_author_id.clone();
+        let report = validate_capability_card(&value, 30);
+        assert!(report.issues.contains(
+            &CapabilityCardIssue::AuthorIncludedAsReviewer("author:pilot".into())
+        ));
+        assert!(!report.supported_claim_metadata_complete);
+    }
+
+    #[test]
+    fn blank_known_scope_gap_is_not_an_auditable_gap_record() {
+        let mut value = card(JurisdictionSupportStatus::Researching);
+        value.known_scope_gaps.push("  ".into());
+        let report = validate_capability_card(&value, 30);
+        assert!(report
+            .issues
+            .contains(&CapabilityCardIssue::KnownGapUndisclosedOrBlank));
     }
 
     #[test]
