@@ -325,6 +325,11 @@ impl<'a> Reader<'a> {
         Ok(u16::from_be_bytes([bytes[0], bytes[1]]))
     }
 
+    fn u32(&mut self) -> Result<u32, PortableHistoryError> {
+        let bytes = self.take(4)?;
+        Ok(u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+
     fn u64(&mut self) -> Result<u64, PortableHistoryError> {
         let bytes = self.take(8)?;
         Ok(u64::from_be_bytes([
