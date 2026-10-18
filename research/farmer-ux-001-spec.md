@@ -124,3 +124,15 @@ The 2026 *Field-Ready HCI* paper presents a conceptual model for mobile agricult
 
 Use WCAG 2.2 AA as a baseline for applicable web UI conformance. The 44 x 44 CSS px primary-touch target is a product usability target informed by WCAG 2.2's AAA enhanced target criterion; WCAG 2.2 AA's minimum target-size criterion is 24 x 24 CSS px with exceptions. A 44 px target preference does not itself establish accessibility conformance.
 
+## Multi-level evaluation matrix
+
+See [`farmer-ux-001-evaluation-matrix-v1.json`](farmer-ux-001-evaluation-matrix-v1.json) and its schema for a machine-readable evaluation contract. It separates three layers rather than compressing them into one score:
+
+- **Model:** factual/source fidelity, uncertainty/abstention, case-oracle agreement, and calibration only when outcome labels and data volumes justify it.
+- **System:** full task journey, offline/replay integrity, state comprehension, recovery, accessibility and constrained-device behavior.
+- **Process:** farmer agency, consent, human-mediated channels, equity, correction/repair, adverse outcomes and independently measured field benefit.
+
+This follows IFPRI's May 18, 2026 review of agricultural AI advisory evaluation, which recommends model-, system-, and process-level assessment and highlights that technical scores miss user-journey, language, trust, and equity failures: https://www.ifpri.org/blog/beyond-the-model-evaluating-ai-agricultural-advisory-systems-so-they-work-in-the-field/
+
+The matrix provides 12 metrics, 16 hard gates, denominators and claim-boundary rules. Proposed targets (90% task success/comprehension, under-30-second median capture, zero data-loss/duplicate-effect faults) are targets to test, not measured values. A schema or oracle pass cannot be reported as user validation, field readiness, or impact.
+
