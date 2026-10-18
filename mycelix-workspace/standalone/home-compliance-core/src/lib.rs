@@ -427,6 +427,29 @@ mod tests {
     }
 
     #[test]
+    fn malformed_rule_pack_digest_blocks() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.rule_pack.pack_sha256 = "not-a-digest".into();
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::InvalidRulePackDigest));
+    }
+
+    #[test]
+    fn duplicate_check_definitions_block() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.required_checks.push(CheckDefinition {
+            id: "structural-review".into(),
+            mandatory: true,
+        });
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report
+            .blockers
+            .contains(&Blocker::DuplicateCheckDefinition("structural-review".into())));
+    }
+
+    #[test]
     fn expired_rule_pack_blocks() {
         let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
         assessment.assessed_on_day = 200;
