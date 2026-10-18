@@ -23,6 +23,14 @@ The focused workflow runs both commands and uploads the JSON report.
 - Mutation tests that remove required conflict, relay, consent and unknown-outcome protections and require the semantic verifier to reject the mutated corpus.
 - A JSON report with SHA-256 digests of source fixtures and schemas, schema-engine results, semantic errors, schedule count and an explicit claim ceiling.
 
+## Research anchors (design hypotheses, not local impact claims)
+
+- Gatti et al., *Not-so-digital platforms?* (Journal of Rural Studies, June 2026), reports from multi-year qualitative fieldwork in Ghana and Kenya that registrations/subscriptions can mask uneven or short-lived use and that peer networks, extension staff and low-tech channels can outperform poorly fitted platforms. This is a warning to test institutional fit, not a universal claim that digital services fail: https://doi.org/10.1016/j.jrurstud.2026.104210
+- *Digital literacy training to promote diffusion of digital agricultural tools to smallholder farmers* (Food Policy, June 2026) reports a randomized intervention in Egypt where training affected uptake, use, trust and perceived usefulness, with heterogeneous effects by demographic characteristics. Therefore a field study should record training/assistance exposure separately from service quality rather than attribute every change to interface design: https://doi.org/10.1016/j.foodpol.2026.103108
+- FAO's Digital Services Portfolio is designed for country/local tailoring and targets smallholders, family farmers and other rural actors. This supports localized task and language testing rather than a presumed universal workflow: https://www.fao.org/digital-services/about/
+
+**Measurement implication:** registrations, subscriptions and page views are not farmer-service outcomes. The outcome layer should report eligible requests, provider availability, authoritative receipts, cancellations/no-shows, accepted service inside a farmer-declared useful window, quality disputes/rework and farmer-paid cost separately. FUXC's synthetic tests check the integrity of evidence and denominators; they cannot tell us whether any channel improves these outcomes in South Africa.
+
 ## Interpret results honestly
 
 A passing model proves only the code and fixtures in this crate. It does not prove browser/IndexedDB durability, server-side idempotency, real actor identity or consent, secure field relaying, provider receipt, bookings, service fulfilment, farmer comprehension, accessibility conformance, or agricultural benefit. The schedule generator is a model-based stress test—not a statistically representative field study or exhaustive proof of all event histories.
