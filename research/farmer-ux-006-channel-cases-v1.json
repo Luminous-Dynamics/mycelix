@@ -272,6 +272,24 @@
         "rewrite_original_event",
         "silently_promote_relay_to_authoritative_quote"
       ]
+    },
+    {
+      "case_id": "FUXC-017",
+      "scenario": "two intermediaries create similar-looking requests with different request references and no shared verified identity",
+      "request_refs": [
+        "req-irrigation-017a",
+        "req-irrigation-017b"
+      ],
+      "expected": "suspected_duplicate_link_not_merge",
+      "allowed_effects": [
+        "record_suspected_duplicate_relation",
+        "request_human_reconciliation"
+      ],
+      "prohibited": [
+        "auto_merge_requests",
+        "drop_one_request_from_denominator",
+        "copy_remote_receipt_across_requests"
+      ]
     }
   ]
 }
