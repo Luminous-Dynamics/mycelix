@@ -380,6 +380,25 @@ Draft PR #5172 adds a standard-library-only in-memory Rust model that keeps roya
 
 The prototype is an in-memory reference model and is not bank/DDEX connected, does not authenticate the approver/evidence, and does not provide durable transaction guarantees. Before release, add a versioned currency code/precision registry; signed/verified source evidence only where source trust is defined; and transactional replay keys with concurrency/crash tests. See [CSCP-RECON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5192) and the [Statement-to-Cash Reconciliation Contract](CSCP_STATEMENT_TO_CASH_RECONCILIATION.md).
 
+## Gate 12 — versioned currency precision
+
+The current creator ledger and settlement model use positive integer minor units and only validate the lexical shape of three-letter currency codes. Before any external amount parsing/display, add a dated/versioned ISO 4217 registry that supplies code and minor-unit exponent. ISO currency precision is not universally two decimal places, so hard-coding cents can corrupt imported amounts.
+
+| Fixture family | Required outcome | Threshold |
+|---|---|---:|
+| Registry snapshot integrity | Exact currency codes/exponents agree with the pinned snapshot; record its version/date/source/digest | 100% |
+| 0/2/3 decimal exponents | Exact parse and display across representative zero-, two-, and three-decimal currencies | 100% |
+| Excess fractional digits | Reject or route through an explicit, separate rounding policy; no truncation | Zero silent truncations |
+| Unknown code | Explicit unsupported/unknown status; never infer precision from three-letter syntax | 100% abstention |
+| Historical code | Preserve original code, lexical amount, registry version and policy decision | Zero silent rewriting |
+| Registry update | Stored integer minor units and original source lexical values remain stable across updates | Zero automatic amount mutation |
+| Floating-point conversion | No binary-float path for accounting parse/format | Zero |
+| FX conversion | No implicit conversion or cross-currency netting | Zero |
+| Deterministic formatting | Identical version + value + exponent produce byte-identical output on all supported platforms | 100% |
+| Boundary safety | Property tests cover i64 edges, exponent boundaries, trailing zeros and decimal sign handling | 100% fixture agreement |
+
+Tracker: [CSCP-CURRENCY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5193). This is a release gate for CSV/JSON and other external adapters; internal integer accounting must not guess exponents while the registry remains unimplemented.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
