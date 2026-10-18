@@ -1,0 +1,37 @@
+name: Shared Leptos UI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/shared-leptos-ui.yml"
+      - "crates/mycelix-leptos-ui/**"
+      - "crates/mycelix-leptos-core/**"
+      - "crates/mycelix-leptos-client/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/shared-leptos-ui.yml"
+      - "crates/mycelix-leptos-ui/**"
+      - "crates/mycelix-leptos-core/**"
+      - "crates/mycelix-leptos-client/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-leptos-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wasm-check:
+    name: Check shared UI and core for browser WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Check shared UI crate
+        run: cargo check --manifest-path crates/mycelix-leptos-ui/Cargo.toml --target wasm32-unknown-unknown
+      - name: Check shared core crate
+        run: cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --target wasm32-unknown-unknown
