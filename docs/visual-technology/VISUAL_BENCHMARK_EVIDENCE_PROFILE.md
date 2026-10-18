@@ -58,6 +58,12 @@ Compose with [Symthaea VIS-METRO-001 #7894](https://github.com/Luminous-Dynamics
 
 A pattern-sensitivity envelope is not a confidence interval. When energy intervals are used to compute a conservative percent-saving interval, preserve the interval method, bounds and any dependency/covariance assumption. If the conservative lower bound does not meet the preregistered energy target, the energy gate is inconclusive even when the point estimate reaches the target.
 
+### Manufacturing cost and inspection metrics
+
+Compose with the isolated [Symthaea display-manufacturing-economics reference](https://github.com/Luminous-Dynamics/symthaea/tree/research/vis-tech-001-program-2026-10-17/tools/display-manufacturing-economics). For a batch summary, bind one cost currency and accounting boundary, batch/lot identity, unique incoming-unit count, first-pass final-good count, final calibrated-good count, and cost ledger categories. Preserve materials, labor, equipment/facility allocation, energy/utilities, inspection/test, rework/retest, packaging/logistics and incremental scrap handling separately to prevent hidden double counting.
+
+Record cost per calibrated-good unit only when that final-good denominator is positive. Zero final-good output is a valid zero-yield result, but unit cost remains undefined; it must not be represented as zero. For inspection, retain eligible and inspected populations, true/false positives and false negatives, reference-review method, and resulting coverage/precision/recall. Undefined denominators stay undefined; the accounting helper does not establish ground-truth label quality or measured economic completeness.
+
 ### Display manufacturing route and stage evidence
 
 Compose with [Symthaea VIS-MFG-001 #8012](https://github.com/Luminous-Dynamics/symthaea/issues/8012) and the [UNQUALIFIED four-route/41-stage profile manifest](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/display-manufacturing-route-profiles-v0.1.json). Do not add a new manufacturing receipt or process-flow ontology. Preserve references to canonical MFG-PROC/SEMI-PROC stage and state-transition contracts.
