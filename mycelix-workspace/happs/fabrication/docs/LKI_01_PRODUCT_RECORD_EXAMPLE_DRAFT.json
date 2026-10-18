@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Illustrative only. Dimensions, targets, materials, and interfaces below are provisional engineering placeholders, not a released design, a supplier quote, or a safety assessment.",
+  "schema_version": "lifetime-product-v1-draft",
+  "product_id": "LKI-01",
+  "revision": "0.1.0-draft",
+  "lifecycle_state": "concept",
+  "product_name": "Lifetime Kitchen Island",
+  "product_family": "Modular household furniture and appliance platform",
+  "intended_use": "A repairable kitchen island with a long-lived furniture structure and replaceable refrigeration/freezer and optional induction modules.",
+  "target_markets": [],
+  "units": {
+    "length": "mm",
+    "mass": "kg",
+    "temperature": "degC"
+  },
+  "geometry": {
+    "geometry_revision": "0.1.0-draft",
+    "coordinate_system": "right-handed-mm",
+    "envelope_mm": {
+      "width": 1800,
+      "depth": 900,
+      "height": 920
+    },
+    "geometry_status": "conceptual"
+  },
+  "bom": {
+    "bom_revision": "0.1.0-draft",
+    "bom_status": "illustrative",
+    "items": [
+      {
+        "component_id": "FRAME-001",
+        "revision": "0.1.0-draft",
+        "kind": "permanent_structure",
+        "quantity": 1,
+        "unit": "each",
+        "criticality": "functional",
+        "material_or_specification": "Candidate timber, engineered-panel, or metal structure; final selection requires load, moisture, repair, sourcing, and lifecycle review.",
+        "supplier_validation_state": "not_assessed",
+        "supplier_records": [],
+        "interface_refs": [],
+        "replaceability": "replaceable_after_partial_disassembly",
+        "failure_modes": [
+          "mechanical_wear",
+          "fatigue",
+          "moisture",
+          "unknown"
+        ],
+        "notes": "No material grade, joint, finish, or allowable load has been released."
+      },
+      {
+        "component_id": "COLD-MODULE-001",
+        "revision": "0.1.0-draft",
+        "kind": "replaceable_module",
+        "quantity": 1,
+        "unit": "each",
+        "criticality": "critical_pending_review",
+        "material_or_specification": "Refrigeration/freezer appliance module selected only after capacity, energy, ventilation, refrigerant-safety, serviceability, and market requirements are defined.",
+        "supplier_validation_state": "not_assessed",
+        "supplier_records": [],
+        "interface_refs": [
+          "IF-COOL-001"
+        ],
+        "replaceability": "replaceable_non_destructively",
+        "failure_modes": [
+          "thermal_cycling",
+          "seal_failure",
+          "electrical_failure",
+          "obsolescence",
+          "unknown"
+        ],
+        "notes": "No appliance make/model has been selected or qualified."
+      },
+      {
+        "component_id": "COOKTOP-MODULE-001",
+        "revision": "0.1.0-draft",
+        "kind": "appliance",
+        "quantity": 1,
+        "unit": "each",
+        "criticality": "critical_pending_review",
+        "material_or_specification": "Optional certified third-party induction module; no model selected. Omit the module if separation, ventilation, electrical, or spill-safety requirements cannot be met.",
+        "supplier_validation_state": "not_assessed",
+        "supplier_records": [],
+        "interface_refs": [
+          "IF-COOK-001"
+        ],
+        "replaceability": "replaceable_non_destructively",
+        "failure_modes": [
+          "thermal_cycling",
+          "electrical_failure",
+          "impact",
+          "obsolescence",
+          "unknown"
+        ],
+        "notes": "A conceptual placeholder, not permission to fabricate or energize an improvised cooktop."
+      }
+    ]
+  },
+  "interfaces": [
+    {
+      "interface_id": "IF-COOL-001",
+      "revision": "0.1.0-draft",
+      "module_class": "refrigeration",
+      "envelope_mm": {
+        "width": 600,
+        "depth": 600,
+        "height": 800
+      },
+      "removal_direction": "front",
+      "service_clearance_mm": {
+        "width": 100,
+        "depth": 100,
+        "height": 100
+      },
+      "thermal_boundary": "Provisional only. Final bay must follow the selected appliance manufacturer's ventilation, installation, and heat-rejection requirements; thermal interaction with any cooktop must be tested.",
+      "utility_requirements": [
+        "mains_electricity",
+        "ventilation_inlet",
+        "ventilation_outlet"
+      ],
+      "compatibility_test_refs": [],
+      "verification_state": "proposed"
+    },
+    {
+      "interface_id": "IF-COOK-001",
+      "revision": "0.1.0-draft",
+      "module_class": "induction_cooktop",
+      "envelope_mm": {
+        "width": 600,
+        "depth": 600,
+        "height": 100
+      },
+      "removal_direction": "top",
+      "service_clearance_mm": {
+        "width": 100,
+        "depth": 100,
+        "height": 100
+      },
+      "thermal_boundary": "Provisional only. Final requirements must follow the exact selected cooktop instructions and qualified assessment; separate heat and spill paths from refrigerated storage.",
+      "utility_requirements": [
+        "mains_electricity",
+        "ventilation_inlet",
+        "ventilation_outlet"
+      ],
+      "compatibility_test_refs": [],
+      "verification_state": "proposed"
+    }
+  ],
+  "service_policy": {
+    "parts_support_target_years_after_last_sale": 20,
+    "repair_documentation": "public",
+    "module_replacement_policy": "mixed_by_module",
+    "policy_status": "proposed",
+    "compatibility_policy": "The 20-year value is a programme target, not a supplier commitment. Replacement modules require full interface, safety, electrical, ventilation, thermal, and service-access compatibility review."
+  },
+  "metrics": [
+    {
+      "metric_id": "LKI-SERVICE-001",
+      "statement": "Replace the defined major appliance module without destructive disassembly of the permanent furniture structure.",
+      "target_value": 1,
+      "unit": "pass",
+      "comparison_baseline": "No destructive change to permanent structure.",
+      "status": "proposed",
+      "measurement_method": "Timed removal-and-replacement trial with trained technicians; record tools, time, damage, rework, and successful reassembly."
+    },
+    {
+      "metric_id": "LKI-SERVICE-002",
+      "statement": "Target maximum replacement duration for the defined module swap.",
+      "target_value": 60,
+      "unit": "minutes",
+      "status": "proposed",
+      "measurement_method": "Repeated timed technician trials on the released assembly and service instructions; publish median, range, failures, and trial conditions."
+    },
+    {
+      "metric_id": "LKI-ENERGY-001",
+      "statement": "Investigate at least 15% lower energy use than a matched certified baseline, if a defensible size/capacity/use-matched comparison exists.",
+      "target_value": 15,
+      "unit": "percent_below_matched_baseline",
+      "comparison_baseline": "To be selected and justified before testing.",
+      "status": "proposed",
+      "measurement_method": "Instrumented energy testing under declared ambient, load, door-cycle, and recovery conditions; compare matched capacities and state measurement uncertainty."
+    },
+    {
+      "metric_id": "LKI-LIFE-001",
+      "statement": "Design horizon for the permanent furniture structure.",
+      "target_value": 50,
+      "unit": "years_design_intent",
+      "status": "proposed",
+      "measurement_method": "Materials/joints rationale, replaceable wear strategy, accelerated tests with stated limits, supplier continuity plan, and long-term field evidence. This is not a demonstrated lifetime."
+    }
+  ],
+  "release_gates": [
+    {
+      "gate_id": "GATE-SAFETY-001",
+      "requirement": "Applicable appliance/electrical/fire/refrigerant and installation requirements reviewed for the exact configuration.",
+      "status": "not_tested",
+      "owner_role": "qualified_assessor",
+      "evidence_refs": []
+    },
+    {
+      "gate_id": "GATE-THERMAL-001",
+      "requirement": "Integrated enclosure preserves the selected refrigeration module's declared airflow and thermal conditions, including cooktop interaction if installed.",
+      "status": "not_tested",
+      "owner_role": "mechanical_engineer",
+      "evidence_refs": []
+    },
+    {
+      "gate_id": "GATE-STRUCTURE-001",
+      "requirement": "Defined structural load, stability, fastening, fatigue, and foreseeable-misuse requirements pass documented tests.",
+      "status": "not_tested",
+      "owner_role": "design_engineer",
+      "evidence_refs": []
+    },
+    {
+      "gate_id": "GATE-REPAIR-001",
+      "requirement": "The designated module can be removed and replaced using the approved service procedure without destructive disassembly.",
+      "status": "not_tested",
+      "owner_role": "service_engineer",
+      "evidence_refs": []
+    },
+    {
+      "gate_id": "GATE-BOM-001",
+      "requirement": "The BOM, released geometry, interface revisions, installation instructions, and tested physical build are revision-consistent.",
+      "status": "not_tested",
+      "owner_role": "manufacturing_quality",
+      "evidence_refs": []
+    }
+  ],
+  "evidence": []
+}
