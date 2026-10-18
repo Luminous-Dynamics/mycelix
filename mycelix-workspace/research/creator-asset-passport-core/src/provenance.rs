@@ -23,6 +23,8 @@ pub enum ProvenanceError {
     FieldTooLong,
     InvalidControlCharacter,
     InvalidDigest,
+    InvalidUtf8,
+    ManifestDigestMismatch,
     PayloadLengthMismatch,
     PayloadDigestMismatch,
     UnsupportedVersion(u16),
@@ -539,7 +541,7 @@ impl ImportProvenanceManifest {
             unsupported_retained: 0,
         };
         for field in &self.field_mappings {
-            match field.treatment {
+            match &field.treatment {
                 FieldTreatment::Mapped { .. } => coverage.mapped += 1,
                 FieldTreatment::RetainedRaw { .. } => coverage.retained_raw += 1,
                 FieldTreatment::UnsupportedRetained { .. } => {
@@ -700,7 +702,7 @@ impl ImportProvenanceManifest {
         if self.digest_hex()? == expected {
             Ok(())
         } else {
-            Err(ProvenanceError::PayloadDigestMismatch)
+            Err(ProvenanceError::ManifestDigestMismatch)
         }
     }
 
@@ -910,7 +912,7 @@ impl<'a> Reader<'a> {
         if length > MAX_TEXT_BYTES {
             return Err(ProvenanceError::FieldTooLong);
         }
-        String::from_utf8(self.take(length)?.to_vec()).map_err(|_| ProvenanceError::InvalidControlCharacter)
+        String::from_utf8(self.take(length)?.to_vec()).map_err(|_| ProvenanceError::InvalidUtf8)
     }
 
     fn is_empty(&self) -> bool {
@@ -932,7 +934,7 @@ mod tests {
             "0.1.0",
             1_797_000_000,
             Some("application/xml"),
-            "vault://source-objects/sha256-placeholder",
+            "vault://source-objects/record-1",
             payload,
         )
         .unwrap()
@@ -1091,7 +1093,7 @@ mod tests {
         assert!(decoded.verify_digest(&digest).is_ok());
         assert_eq!(
             decoded.verify_digest("ff".repeat(32).as_str()),
-            Err(ProvenanceError::PayloadDigestMismatch)
+            Err(ProvenanceError::ManifestDigestMismatch)
         );
     }
 
