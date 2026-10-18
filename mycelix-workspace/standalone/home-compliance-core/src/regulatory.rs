@@ -337,6 +337,62 @@ mod tests {
     }
 
     #[test]
+    fn withdrawn_source_is_not_applicable() {
+        let mut value = source(LegalSourceStatus::Withdrawn);
+        value.checked_on_day = 60;
+        assert_eq!(
+            evaluate(&value, 60, 60),
+            SourceApplicability::NotInEffect(NotInEffectReason::Withdrawn)
+        );
+    }
+
+    #[test]
+    fn invalid_effective_window_is_indeterminate() {
+        let mut value = source(LegalSourceStatus::InForce);
+        value.effective_from_day = Some(80);
+        value.effective_until_day_exclusive = Some(70);
+        assert_eq!(
+            evaluate(&value, 60, 60),
+            SourceApplicability::Indeterminate(
+                IndeterminateReason::InvalidValidityWindow
+            )
+        );
+    }
+
+    #[test]
+    fn future_publication_or_verification_date_is_indeterminate() {
+        let mut future_publication = source(LegalSourceStatus::InForce);
+        future_publication.published_on_day = 61;
+        assert_eq!(
+            evaluate(&future_publication, 60, 60),
+            SourceApplicability::Indeterminate(
+                IndeterminateReason::FuturePublicationDate
+            )
+        );
+
+        let mut future_check = source(LegalSourceStatus::InForce);
+        future_check.checked_on_day = 61;
+        assert_eq!(
+            evaluate(&future_check, 60, 60),
+            SourceApplicability::Indeterminate(
+                IndeterminateReason::FutureVerificationDate
+            )
+        );
+    }
+
+    #[test]
+    fn missing_source_identity_is_indeterminate() {
+        let mut value = source(LegalSourceStatus::InForce);
+        value.source_id.clear();
+        assert_eq!(
+            evaluate(&value, 60, 60),
+            SourceApplicability::Indeterminate(
+                IndeterminateReason::InvalidMetadata("source_id")
+            )
+        );
+    }
+
+    #[test]
     fn missing_effective_date_blocks_in_force_source() {
         let mut value = source(LegalSourceStatus::InForce);
         value.effective_from_day = None;
