@@ -18,7 +18,7 @@
     {
       "status": "Submitted",
       "needs_reconciliation": true,
-      "meaning": "Durable pre-send marker exists; request may have been sent.",
+      "meaning": "Durable pre-send marker exists and an in-process one-shot send permit may have been issued; after restart, this persisted status is ambiguous and is never itself permission to resend.",
       "can_advance_to_submitted": false
     },
     {
