@@ -150,7 +150,7 @@ fn has_different_two_strings(case: &Value, field: &str) -> bool {
 }
 
 fn required_case_rule(
-    document: &Value,
+    _document: &Value,
     errors: &mut Vec<String>,
     id: &str,
     description: &str,
@@ -308,9 +308,22 @@ pub fn semantic_errors(document: &Value) -> Vec<String> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ServiceState {
-    CapturedLocally,
-    RelayedWithAuthority,
+pub enum EvidenceKind {
+    FarmerReported,
+    Relayed,
+    ProviderReceipt,
+    QuoteOffered,
+    BookingConfirmed,
+    ProviderReportedComplete,
+    FarmerAcceptance,
+    FarmerDispute,
+    OutcomeUnknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClaimType {
+    FarmerReported,
+    Relayed,
     ProviderReceipt,
     QuoteOffered,
     BookingConfirmed,
@@ -318,42 +331,28 @@ pub enum ServiceState {
     FarmerAccepted,
     DisputedOrRework,
     OutcomeUnknown,
-    RequestReceived,
 }
 
-/// A deliberately small reference rule set for dangerous state promotions.
-/// It is not a production service evaluator and fails closed for unspecified transitions.
-pub fn promotion_allowed(
-    from: ServiceState,
-    to: ServiceState,
-    evidence: &BTreeSet<&str>,
-) -> bool {
-    match (from, to) {
-        (ServiceState::ProviderReceipt, ServiceState::QuoteOffered) => [
-            "complete_scoped_provider_quote",
-            "validity_and_price_terms",
-        ]
-        .iter()
-        .all(|item| evidence.contains(item)),
-        (ServiceState::QuoteOffered, ServiceState::BookingConfirmed) => [
-            "explicit_farmer_quote_acceptance",
-            "unexpired_quote",
-            "scope_match",
-            "authoritative_booking_confirmation",
-        ]
-        .iter()
-        .all(|item| evidence.contains(item)),
-        (ServiceState::ProviderReportedComplete, ServiceState::FarmerAccepted) => {
-            evidence.contains("explicit_farmer_acceptance_event")
-        }
-        (ServiceState::ProviderReportedComplete, ServiceState::DisputedOrRework) => {
-            evidence.contains("explicit_farmer_dispute_event")
-        }
-        (ServiceState::OutcomeUnknown, ServiceState::RequestReceived) => {
-            evidence.contains("authoritative_reconciliation_receipt")
-        }
-        _ => false,
-    }
+/// A channel adapter's claim ceiling, not the service lifecycle evaluator.
+/// Each evidence class can support only the matching claim class here.
+/// Quote validity, booking acceptance, scheduling and fulfilment remain owned
+/// by the canonical Symtropy evaluator.
+pub fn evidence_can_support_claim(evidence: EvidenceKind, claim: ClaimType) -> bool {
+    matches!(
+        (evidence, claim),
+        (EvidenceKind::FarmerReported, ClaimType::FarmerReported)
+            | (EvidenceKind::Relayed, ClaimType::Relayed)
+            | (EvidenceKind::ProviderReceipt, ClaimType::ProviderReceipt)
+            | (EvidenceKind::QuoteOffered, ClaimType::QuoteOffered)
+            | (EvidenceKind::BookingConfirmed, ClaimType::BookingConfirmed)
+            | (
+                EvidenceKind::ProviderReportedComplete,
+                ClaimType::ProviderReportedComplete
+            )
+            | (EvidenceKind::FarmerAcceptance, ClaimType::FarmerAccepted)
+            | (EvidenceKind::FarmerDispute, ClaimType::DisputedOrRework)
+            | (EvidenceKind::OutcomeUnknown, ClaimType::OutcomeUnknown)
+    )
 }
 
 pub fn forwarding_allowed(authority_verified: bool, consent_current: bool) -> bool {
@@ -367,7 +366,7 @@ pub struct Event {
     pub digest: String,
     pub asserting_role: String,
     pub recording_role: String,
-    pub evidence: ServiceState,
+    pub evidence: EvidenceKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -425,10 +424,10 @@ impl EventLedger {
 
 fn synthetic_event(seed: u64, index: usize) -> Event {
     let evidence = match index % 4 {
-        0 => ServiceState::RelayedWithAuthority,
-        1 => ServiceState::OutcomeUnknown,
-        2 => ServiceState::ProviderReportedComplete,
-        _ => ServiceState::CapturedLocally,
+        0 => EvidenceKind::Relayed,
+        1 => EvidenceKind::OutcomeUnknown,
+        2 => EvidenceKind::ProviderReportedComplete,
+        _ => EvidenceKind::FarmerReported,
     };
     Event {
         event_id: format!("evt-{seed:05}-{index:02}"),
@@ -495,16 +494,7 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
                 reasons.push(format!("first-seen event was silently overwritten: {event_id}"));
             }
         }
-        if promotion_allowed(
-            ServiceState::RelayedWithAuthority,
-            ServiceState::BookingConfirmed,
-            &BTreeSet::from([
-                "explicit_farmer_quote_acceptance",
-                "unexpired_quote",
-                "scope_match",
-                "authoritative_booking_confirmation",
-            ]),
-        ) {
+        if evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::BookingConfirmed) {
             reasons.push("relay evidence was promoted to booking".to_owned());
         }
         if forwarding_allowed(true, false) || forwarding_allowed(false, true) {
@@ -683,21 +673,13 @@ mod tests {
     }
 
     #[test]
-    fn relay_unknown_and_completion_are_not_authority_to_promote() {
-        let booking_evidence = BTreeSet::from([
-            "explicit_farmer_quote_acceptance",
-            "unexpired_quote",
-            "scope_match",
-            "authoritative_booking_confirmation",
-        ]);
-        assert!(!promotion_allowed(ServiceState::RelayedWithAuthority, ServiceState::BookingConfirmed, &booking_evidence));
-        assert!(!promotion_allowed(ServiceState::ProviderReportedComplete, ServiceState::FarmerAccepted, &BTreeSet::new()));
-        assert!(!promotion_allowed(ServiceState::OutcomeUnknown, ServiceState::RequestReceived, &BTreeSet::new()));
-        assert!(promotion_allowed(
-            ServiceState::ProviderReportedComplete,
-            ServiceState::FarmerAccepted,
-            &BTreeSet::from(["explicit_farmer_acceptance_event"]),
-        ));
+    fn source_evidence_cannot_claim_a_higher_authority_class() {
+        assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::ProviderReceipt));
+        assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::BookingConfirmed));
+        assert!(!evidence_can_support_claim(EvidenceKind::ProviderReportedComplete, ClaimType::FarmerAccepted));
+        assert!(!evidence_can_support_claim(EvidenceKind::OutcomeUnknown, ClaimType::BookingConfirmed));
+        assert!(evidence_can_support_claim(EvidenceKind::ProviderReceipt, ClaimType::ProviderReceipt));
+        assert!(evidence_can_support_claim(EvidenceKind::FarmerAcceptance, ClaimType::FarmerAccepted));
     }
 
     #[test]
