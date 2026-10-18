@@ -460,8 +460,10 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     let required_invariants: BTreeSet<&str> = REQUIRED_INVARIANTS.iter().copied().collect();
     let corpus_invariants: BTreeSet<&str> = cases.get("shared_invariants").and_then(Value::as_array)
         .into_iter().flatten().filter_map(Value::as_str).collect();
-    for invariant in required_invariants.difference(&corpus_invariants) {
-        errors.push(format!("case corpus missing invariant {invariant}"));
+    for invariant in REQUIRED_INVARIANTS {
+        if !corpus_invariants.contains(invariant) {
+            errors.push(format!("case corpus missing invariant {invariant}"));
+        }
     }
 
     let known_status: BTreeSet<&str> = [
@@ -593,6 +595,10 @@ mod tests {
         assert_eq!(remote.calls,1);
         assert_eq!(remote.applied_effects,1);
         assert_eq!(journal.read("op-3").expect("record").remote_receipt_ref.as_deref(),Some("synthetic-receipt"));
+        assert_eq!(
+            journal.committed_statuses,
+            vec![AttemptStatus::Prepared, AttemptStatus::Submitted, AttemptStatus::Confirmed]
+        );
     }
 
     #[test]
@@ -673,6 +679,26 @@ mod tests {
         assert_eq!(remote.calls,1);
         assert!(!second.send_attempted);
         assert_eq!(second.status,AttemptStatus::Confirmed);
+    }
+
+    #[test]
+    fn ambiguous_operation_id_is_never_resent_automatically() {
+        let mut journal = FakeJournal::default();
+        let mut remote = FakeRemote::new(RemoteMode::AppliedThenResponseLost);
+        let first = submit_new(&mut journal, &mut remote, "op-9", "site-1");
+        assert_eq!(first.status, AttemptStatus::OutcomeUnknown);
+        let second = submit_new(&mut journal, &mut remote, "op-9", "site-1");
+        assert_eq!(second.status, AttemptStatus::OutcomeUnknown);
+        assert!(!second.send_attempted);
+        assert_eq!(remote.calls, 1);
+        assert_eq!(remote.applied_effects, 1);
+    }
+
+    #[test]
+    fn unknown_status_cannot_transition_back_to_submitted() {
+        assert!(!transition_allowed(AttemptStatus::OutcomeUnknown, AttemptStatus::Submitted));
+        assert!(!transition_allowed(AttemptStatus::Confirmed, AttemptStatus::Submitted));
+        assert!(transition_allowed(AttemptStatus::OutcomeUnknown, AttemptStatus::ReconciledApplied));
     }
 
     #[test]
