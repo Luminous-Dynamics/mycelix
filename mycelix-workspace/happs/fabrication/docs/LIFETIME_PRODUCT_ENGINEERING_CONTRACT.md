@@ -95,6 +95,13 @@ Every replaceable module must declare:
 
 Interface compatibility is not merely matching dimensions. It includes thermal performance, electrical ratings, ventilation, safety, control behaviour, stability, service access, and manufacturer's conditions of use.
 
+### Draft machine-readable artifacts
+
+- [LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json](./LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json) defines the proposed product record, component/supplier evidence, module interfaces, metrics, release gates, and lifecycle evidence.
+- [LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json](./LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json) is an illustrative LKI-01 record with three placeholder BOM entries, two provisional interfaces, and five unpassed release gates.
+
+Both artifacts are drafts for review, not canonical wire contracts or approved manufacturing data. The example intentionally has no supplier records or test evidence; its dimensions and target values are provisional. Schema adoption must include validator tests, migration/version policy, and ownership review against the existing Fabrication/BOM types.
+
 ## 5. Acceptance targets for the first design programme
 
 Targets below are proposed programme goals; they are not measured results or universal standards. Each target must have an owner, test method, sample count, conditions, acceptance rule, and retained evidence before it can become a release gate.
