@@ -24,12 +24,13 @@ The file `fixtures/johannesburg-adaptable-home-v1.json` defines a technology-neu
 
 The Rust integration tests in `tests/home_evolution_scenario.rs` exercise seven lifecycle properties:
 
-- a changed energy-rule revision invalidates the energy finding and submission package without invalidating unrelated structural and drawing outputs;
-- a floor-plan change invalidates its downstream energy, structure, drawing, export and submission artifacts;
-- missing mandatory evidence blocks readiness for professional review;
-- a proposed rule cannot silently replace an applicable current-rule assertion; and
-- key fixture identities are checked against the machine-readable brief; and
-- a 10,000-edge dependency chain returns the complete deterministic closure. This is a scale/correctness test, not yet a latency benchmark.
+- a changed energy-rule revision invalidates its dependent finding and submission package without unnecessarily invalidating unrelated structural evidence or drawings;
+- a floor-plan change invalidates downstream structure, energy, drawing, export, assessment and submission artifacts, but not the source rule pack;
+- a complete synthetic evidence package reaches only `ReadyForProfessionalReview`, never a compliance or approval status;
+- an unknown mandatory energy result blocks review readiness;
+- a proposed rule cannot silently replace an applicable current-rule assertion;
+- the key identifiers used by the tests are checked against the machine-readable brief; and
+- a 10,000-edge dependency chain returns the complete, deterministic closure. This is a scale/correctness test, not yet a latency benchmark.
 
 The core currently mirrors the relevant dependency edges in Rust and checks identity fragments in the JSON fixture; it does **not** parse the entire JSON document. Keep this limitation explicit until a proper, versioned schema validator is added. The only positive outcome remains `ReadyForProfessionalReview`, not compliance, certification, approval, or permission to build.
 
