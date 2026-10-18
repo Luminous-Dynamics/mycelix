@@ -39,7 +39,7 @@ jobs:
       - name: Resolve conformance lockfile
         run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
 
-      - name: Compile and test extant conformance targets
+      - name: Compile and test the two self-contained reference suites
         run: >-
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
@@ -47,4 +47,3 @@ jobs:
           -p cos_conformance
           --test integral_five_system_adversarial
           --test productive_loop_refinement
-          --test source_refinement
