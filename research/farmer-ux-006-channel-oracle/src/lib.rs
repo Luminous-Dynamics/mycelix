@@ -558,7 +558,7 @@ fn synthetic_event(seed: u64, index: usize) -> Event {
 
     Event {
         event_id: format!("evt-{seed:05}-{index:02}"),
-        request_ref: format!("req-{seed:05}-{index:02}"),
+        request_ref: format!("req-{seed:05}"),
         digest: format!("canonical-digest-{seed}-{index}"),
         asserting_role: if index % 2 == 0 { "farmer" } else { "provider" }.to_owned(),
         recording_role: if index % 3 == 0 {
@@ -634,9 +634,9 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
                 "expected 1 quarantined conflict, observed {conflicts}"
             ));
         }
-        if ledger.request_count() != 8 {
+        if ledger.request_count() != 1 {
             reasons.push(format!(
-                "expected 8 distinct requests, observed {}",
+                "expected one logical request across channels, observed {}",
                 ledger.request_count()
             ));
         }
@@ -699,7 +699,9 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             reasons.push("relay evidence was promoted to booking".to_owned());
         }
         if forwarding_allowed(true, false) || forwarding_allowed(false, true) {
-            reasons.push("forwarding allowed without both authority and current consent".to_owned());
+            reasons.push(
+                "forwarding allowed without both authority and current consent".to_owned(),
+            );
         }
         if !reasons.is_empty() && violations.len() < 100 {
             violations.push(format!("schedule {seed}: {}", reasons.join("; ")));
@@ -892,6 +894,21 @@ mod tests {
         assert_eq!(ledger.conflict_count(), 1);
         assert_eq!(ledger.conflicting_events(&event_id), &[altered]);
         assert_eq!(ledger.applied_effect_count(), 1);
+    }
+
+    #[test]
+    fn same_event_id_with_changed_request_reference_is_conflict() {
+        let mut ledger = EventLedger::default();
+        let original = synthetic_event(42, 2);
+        let event_id = original.event_id.clone();
+        let mut changed = original.clone();
+        changed.request_ref = "req-different-logical-request".to_owned();
+        assert_eq!(ledger.ingest(original.clone()), IngestResult::Applied);
+        assert_eq!(ledger.ingest(changed.clone()), IngestResult::Conflict);
+        assert_eq!(ledger.stored(&event_id).expect("first event remains"), &original);
+        assert_eq!(ledger.conflicting_events(&event_id), &[changed]);
+        assert_eq!(ledger.applied_effect_count(), 1);
+        assert_eq!(ledger.request_count(), 1);
     }
 
     #[test]
