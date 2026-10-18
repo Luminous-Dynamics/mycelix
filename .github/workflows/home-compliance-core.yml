@@ -42,6 +42,10 @@ jobs:
         working-directory: mycelix-workspace/standalone/home-compliance-core
         run: cargo test --offline
 
+      - name: Compile dependency-impact benchmark (do not enforce timing in CI)
+        working-directory: mycelix-workspace/standalone/home-compliance-core
+        run: cargo bench --offline --bench dependency_impact --no-run
+
       - name: Offline Clippy
         working-directory: mycelix-workspace/standalone/home-compliance-core
         run: cargo clippy --offline --all-targets -- -D warnings
