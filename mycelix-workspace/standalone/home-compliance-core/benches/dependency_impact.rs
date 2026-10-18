@@ -7,9 +7,7 @@
 //! proofs and not a CI pass/fail threshold. Record the machine and Rust version
 //! when comparing runs.
 
-use home_compliance_core::evolution::{
-    affected_cause_tree, affected_closure, DependencyEdge,
-};
+use home_compliance_core::evolution::{DependencyEdge, affected_cause_tree, affected_closure};
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -51,7 +49,10 @@ fn benchmark_size(edge_count: usize) {
         .iter()
         .find(|item| item.artifact_id == final_id)
         .expect("the last chain node must be reported");
-    assert_eq!(final_node.cause_parent_id.as_deref(), Some(expected_parent.as_str()));
+    assert_eq!(
+        final_node.cause_parent_id.as_deref(),
+        Some(expected_parent.as_str())
+    );
 
     println!(
         "graph=chain nodes={} edges={} closure_ms={:.3} cause_tree_ms={:.3}",
