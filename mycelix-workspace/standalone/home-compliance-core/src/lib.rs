@@ -62,6 +62,36 @@ pub struct EvidenceRef {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Result of checking a reference against the actual bytes in a trusted
+/// artifact store. A verifier must recompute SHA-256 over the retrieved bytes;
+/// comparing the declared digest string to itself is not verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EvidenceVerification {
+    Verified,
+    ArtifactNotFound,
+    DigestMismatch,
+    Unavailable,
+}
+
+/// Trust boundary between this dependency-free gate and an artifact store.
+///
+/// Implementations must resolve the stable artifact ID, read the exact immutable
+/// object, recompute its digest, and return `Verified` only when the bytes match.
+/// The gate cannot independently prove that an implementation is honest or
+/// correctly connected to the intended store; production must secure this adapter.
+pub trait EvidenceVerifier {
+    fn verify(&self, evidence: &EvidenceRef) -> EvidenceVerification;
+}
+
+impl<F> EvidenceVerifier for F
+where
+    F: Fn(&EvidenceRef) -> EvidenceVerification,
+{
+    fn verify(&self, evidence: &EvidenceRef) -> EvidenceVerification {
+        self(evidence)
+    }
+}
+
 pub enum CheckOutcome {
     Pass,
     Fail,
@@ -96,6 +126,11 @@ pub struct AssessmentInput {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GateStatus {
     Blocked,
+    /// Metadata and scope are coherent, but the referenced evidence bytes have
+    /// not yet been checked by an artifact-store verifier.
+    MetadataCompleteAwaitingEvidenceVerification,
+    /// The metadata gate passed and every referenced evidence artifact was
+    /// found and its actual bytes matched the declared SHA-256 digest.
     ReadyForProfessionalReview,
 }
 
@@ -122,6 +157,18 @@ pub enum Blocker {
     FindingRulePackMismatch(String),
     MissingRationale(String),
     MissingEvidence(String),
+    EvidenceArtifactNotFound {
+        check_id: String,
+        evidence_id: String,
+    },
+    EvidenceDigestMismatch {
+        check_id: String,
+        evidence_id: String,
+    },
+    EvidenceVerificationUnavailable {
+        check_id: String,
+        evidence_id: String,
+    },
     InvalidEvidenceDigest {
         check_id: String,
         evidence_id: String,
@@ -340,7 +387,7 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
         .count();
 
     let status = if blockers.is_empty() {
-        GateStatus::ReadyForProfessionalReview
+        GateStatus::MetadataCompleteAwaitingEvidenceVerification
     } else {
         GateStatus::Blocked
     };
@@ -353,6 +400,56 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
         unknown_count,
         not_applicable_count,
     }
+}
+
+/// Verify evidence bytes through a trusted artifact-store adapter before
+/// allowing the review-readiness status.
+///
+/// `evaluate_review_gate` is deliberately only a metadata/scope check; its
+/// positive result is `MetadataCompleteAwaitingEvidenceVerification`. This
+/// stronger entry point promotes the report to `ReadyForProfessionalReview`
+/// only if every referenced evidence object is found and its real bytes pass
+/// SHA-256 verification. It is still not legal compliance, engineering safety,
+/// certification, approval, or permission to build.
+pub fn evaluate_verified_review_gate<V: EvidenceVerifier + ?Sized>(
+    input: &AssessmentInput,
+    verifier: &V,
+) -> GateReport {
+    let mut report = evaluate_review_gate(input);
+
+    for finding in &input.findings {
+        for evidence in &finding.evidence {
+            let blocker = match verifier.verify(evidence) {
+                EvidenceVerification::Verified => None,
+                EvidenceVerification::ArtifactNotFound => {
+                    Some(Blocker::EvidenceArtifactNotFound {
+                        check_id: finding.check_id.clone(),
+                        evidence_id: evidence.artifact_id.clone(),
+                    })
+                }
+                EvidenceVerification::DigestMismatch => Some(Blocker::EvidenceDigestMismatch {
+                    check_id: finding.check_id.clone(),
+                    evidence_id: evidence.artifact_id.clone(),
+                }),
+                EvidenceVerification::Unavailable => {
+                    Some(Blocker::EvidenceVerificationUnavailable {
+                        check_id: finding.check_id.clone(),
+                        evidence_id: evidence.artifact_id.clone(),
+                    })
+                }
+            };
+            if let Some(blocker) = blocker {
+                report.blockers.push(blocker);
+            }
+        }
+    }
+
+    report.status = if report.blockers.is_empty() {
+        GateStatus::ReadyForProfessionalReview
+    } else {
+        GateStatus::Blocked
+    };
+    report
 }
 
 #[cfg(test)]
@@ -413,12 +510,15 @@ mod tests {
     }
 
     #[test]
-    fn complete_mandatory_pass_is_review_ready_not_certified() {
+    fn complete_mandatory_pass_requires_byte_verification_before_review_ready() {
         let report = evaluate_review_gate(&input(vec![finding(
             "structural-review",
             CheckOutcome::Pass,
         )]));
-        assert_eq!(report.status, GateStatus::ReadyForProfessionalReview);
+        assert_eq!(
+            report.status,
+            GateStatus::MetadataCompleteAwaitingEvidenceVerification
+        );
         assert!(report.blockers.is_empty());
     }
 
@@ -592,7 +692,10 @@ mod tests {
         item.not_applicable_justification = Some("Approved scope exclusion in this fixture".into());
         item.not_applicable_approved_by = Some("synthetic-reviewer-1".into());
         let report = evaluate_review_gate(&input(vec![item]));
-        assert_eq!(report.status, GateStatus::ReadyForProfessionalReview);
+        assert_eq!(
+            report.status,
+            GateStatus::MetadataCompleteAwaitingEvidenceVerification
+        );
     }
 
     #[test]
@@ -680,6 +783,55 @@ mod tests {
     }
 
     #[test]
+    fn verified_gate_promotes_only_after_artifact_bytes_are_verified() {
+        let assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        let report = evaluate_verified_review_gate(&assessment, &|_: &EvidenceRef| {
+            EvidenceVerification::Verified
+        });
+        assert_eq!(report.status, GateStatus::ReadyForProfessionalReview);
+        assert!(report.blockers.is_empty());
+    }
+
+    #[test]
+    fn missing_evidence_artifact_blocks_verified_gate() {
+        let assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        let report = evaluate_verified_review_gate(&assessment, &|_: &EvidenceRef| {
+            EvidenceVerification::ArtifactNotFound
+        });
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::EvidenceArtifactNotFound {
+            check_id: "structural-review".into(),
+            evidence_id: "drawing:A-101".into(),
+        }));
+    }
+
+    #[test]
+    fn mismatched_evidence_bytes_block_verified_gate() {
+        let assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        let report = evaluate_verified_review_gate(&assessment, &|_: &EvidenceRef| {
+            EvidenceVerification::DigestMismatch
+        });
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::EvidenceDigestMismatch {
+            check_id: "structural-review".into(),
+            evidence_id: "drawing:A-101".into(),
+        }));
+    }
+
+    #[test]
+    fn unavailable_evidence_store_never_counts_as_verified() {
+        let assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        let report = evaluate_verified_review_gate(&assessment, &|_: &EvidenceRef| {
+            EvidenceVerification::Unavailable
+        });
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::EvidenceVerificationUnavailable {
+            check_id: "structural-review".into(),
+            evidence_id: "drawing:A-101".into(),
+        }));
+    }
+
+    #[test]
     fn empty_scope_and_scope_without_mandatory_checks_block() {
         let mut empty = input(Vec::new());
         empty.required_checks.clear();
@@ -712,7 +864,10 @@ mod tests {
             .findings
             .push(finding("comfort-recommendation", CheckOutcome::Unknown));
         let report = evaluate_review_gate(&assessment);
-        assert_eq!(report.status, GateStatus::ReadyForProfessionalReview);
+        assert_eq!(
+            report.status,
+            GateStatus::MetadataCompleteAwaitingEvidenceVerification
+        );
         assert_eq!(report.unknown_count, 1);
     }
 }
