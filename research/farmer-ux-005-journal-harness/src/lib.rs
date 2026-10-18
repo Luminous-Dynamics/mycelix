@@ -44,7 +44,7 @@ pub enum AttemptStatus {
 }
 impl AttemptStatus {
     /// A new attempt may be started from Prepared; this does not itself authorize a network send.
-    pub fn can_start_attempt(self) -> bool {
+    pub fn can_advance_to_submitted(self) -> bool {
         matches!(self, Self::Prepared)
     }
     pub fn needs_reconciliation(self) -> bool {
@@ -511,11 +511,14 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
     for entry in &statuses {
         let name = entry.get("status").and_then(Value::as_str).unwrap_or("");
         if !names.insert(name) { errors.push(format!("duplicate attempt status {name:?}")); }
-        if name == "OutcomeUnknown" && (entry.get("can_start_attempt").and_then(Value::as_bool) != Some(false) || entry.get("needs_reconciliation").and_then(Value::as_bool) != Some(true)) {
+        if name == "OutcomeUnknown" && (entry.get("can_advance_to_submitted").and_then(Value::as_bool) != Some(false) || entry.get("needs_reconciliation").and_then(Value::as_bool) != Some(true)) {
             errors.push("mapping: OutcomeUnknown cannot start a new attempt and must require reconciliation".to_owned());
         }
-        if name == "Prepared" && entry.get("can_start_attempt").and_then(Value::as_bool) != Some(true) {
-            errors.push("mapping: Prepared may start an attempt but does not authorize network send".to_owned());
+        if name == "Prepared" && entry.get("can_advance_to_submitted").and_then(Value::as_bool) != Some(true) {
+            errors.push("mapping: Prepared must be able to advance to Submitted but cannot send directly".to_owned());
+        }
+        if name != "Prepared" && entry.get("can_advance_to_submitted").and_then(Value::as_bool) != Some(false) {
+            errors.push(format!("mapping: {name} cannot advance to Submitted"));
         }
     }
     if statuses.len() != 8 || names.len() != 8 { errors.push("mapping must define exactly eight attempt statuses".to_owned()); }
@@ -626,7 +629,7 @@ mod tests {
         let result=submit_new(&mut journal,&mut remote,"op-4","site-1");
         assert_eq!(result.status,AttemptStatus::OutcomeUnknown);
         assert_eq!(remote.calls,1);
-        assert!(!AttemptStatus::OutcomeUnknown.can_start_attempt());
+        assert!(!AttemptStatus::OutcomeUnknown.can_advance_to_submitted());
         assert!(AttemptStatus::OutcomeUnknown.needs_reconciliation());
     }
 
@@ -683,7 +686,7 @@ mod tests {
         r.set_status(AttemptStatus::Submitted).expect("transition");
         journal.commit(r).expect("commit submitted");
         assert_eq!(recover_after_restart(&mut journal,"synthetic-op-1"),AttemptStatus::OutcomeUnknown);
-        assert!(!recover_after_restart(&mut journal,"synthetic-op-1").can_start_attempt());
+        assert!(!recover_after_restart(&mut journal,"synthetic-op-1").can_advance_to_submitted());
     }
 
     #[test]
