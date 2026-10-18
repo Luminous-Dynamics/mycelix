@@ -1206,4 +1206,46 @@ mod tests {
             Err(ProvenanceError::DiagnosticPathUnknown)
         );
     }
+
+    #[test]
+    fn decoder_rejects_noncanonical_field_mapping_order() {
+        let manifest = clean_manifest();
+        let bytes = manifest.canonical_bytes().unwrap();
+        let mut reader = Reader::new(&bytes);
+        reader.take(MAGIC.len()).unwrap();
+        reader.u16().unwrap();
+        decode_source(&mut reader).unwrap();
+        reader.u8().unwrap();
+        reader.u8().unwrap();
+        reader.string().unwrap();
+        read_optional_string(&mut reader).unwrap();
+        assert_eq!(reader.u64().unwrap(), 2);
+
+        let first_start = reader.offset;
+        reader.string().unwrap();
+        assert_eq!(reader.u8().unwrap(), 1);
+        reader.string().unwrap();
+        reader.string().unwrap();
+        reader.string().unwrap();
+        let first_end = reader.offset;
+
+        let second_start = reader.offset;
+        reader.string().unwrap();
+        assert_eq!(reader.u8().unwrap(), 1);
+        reader.string().unwrap();
+        reader.string().unwrap();
+        reader.string().unwrap();
+        let second_end = reader.offset;
+
+        let mut reordered = Vec::with_capacity(bytes.len());
+        reordered.extend_from_slice(&bytes[..first_start]);
+        reordered.extend_from_slice(&bytes[second_start..second_end]);
+        reordered.extend_from_slice(&bytes[first_start..first_end]);
+        reordered.extend_from_slice(&bytes[second_end..]);
+
+        assert_eq!(
+            ImportProvenanceManifest::from_bytes(&reordered),
+            Err(ProvenanceError::NonCanonicalEncoding)
+        );
+    }
 }
