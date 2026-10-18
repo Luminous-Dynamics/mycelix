@@ -61,9 +61,12 @@ Do not show internal enum names/hashes to farmers. If no authoritative reconcili
 - 10,000 deterministic crash/reload schedules with zero blind replay or false success promotion.
 - At least 90% of tested users correctly distinguish local save, send, request receipt, booking, provider-reported completion and farmer acceptance. This is a proposed comprehension target, not a measured result.
 
-## Failure corpus and sequence
+## Machine-readable state mapping and failure corpus
 
-The accompanying machine-readable corpus freezes 16 fault schedules. Add an implementation against an independently authored expected-outcome oracle; do not derive expected state from production code. Tests should include storage failure, restart windows, lost response, typed rejection, duplicate receipts, site-scope changes, revoked consent, corrupt journal, no authoritative reconciliation, booking/completion distinctions, and export/log privacy.
+- [Local-attempt to farmer-service mapping](farmer-ux-004-state-mapping-v1.json) and [schema](farmer-ux-004-state-mapping-v1.schema.json) define eight reusable operation-attempt statuses separately from eleven farmer-service states, with nine guarded state promotions and explicit non-goals.
+- [Failure-injection corpus](farmer-ux-004-journal-cases-v1.json) and [schema](farmer-ux-004-journal-cases-v1.schema.json) freeze 16 crash, storage, scope, consent, response, duplicate, and service-mapping schedules.
+
+Add an implementation against an independently authored expected-outcome oracle; do not derive expected state from production code. The corpus is synthetic and is not a test result.
 
 Build sequence: (1) review/pin the reusable Hearth transition model, (2) deterministic fake durable store and crash injection, (3) browser/WASM persistence after schema/quota/privacy review, (4) Farmer Today outbox UI binding, (5) owning-service receipt/reconciliation adapters, (6) constrained-device tests and consenting user evaluation.
 
