@@ -231,98 +231,165 @@ pub fn FarmerPage() -> impl IntoView {
                         <p class="farmer-simulation-intro">"Every step below is simulated in this page only. It sends no request and creates no real booking or work receipt."</p>
 
                         <div class="farmer-simulation-status" role="status" aria-live="polite">
-                            <span class="farmer-status-label farmer-status-neutral">
-                                {move || match service_step.get() {
-                                    0 => "Not started",
-                                    1 => "Draft · demo only",
-                                    2 => "Request receipt · simulated",
-                                    3 => "Quote received · simulated",
-                                    4 => "Booking · simulated",
-                                    5 => "Provider reports completion",
-                                    6 => "Farmer accepts · simulated",
-                                    _ => "Dispute / rework · simulated",
-                                }}
-                            </span>
-                            <h4>{move || match service_step.get() {
-                                0 => "Nothing has been started",
-                                1 => "A draft is prepared",
-                                2 => "The request is acknowledged",
-                                3 => "A quote is available to review",
-                                4 => "The booking is confirmed",
-                                5 => "The provider reports the work is complete",
-                                6 => "The farmer accepts the work",
-                                _ => "The farmer disputes the result",
-                            }}</h4>
-                            <p>{move || match service_step.get() {
-                                0 => "Start the walkthrough to see how each commitment changes state.",
-                                1 => "The draft is only held in the current demo view; it is not saved or sent.",
-                                2 => "This acknowledgement is simulated. No provider actually received the request.",
-                                3 => "Review the full price, scope, expiry and travel terms before accepting. A quote is not a booking.",
-                                4 => "This demo booking does not authorize payment, dispatch, or physical action.",
-                                5 => "Provider-reported completion is not the same as farmer acceptance. Choose accept or dispute below.",
-                                6 => "Acceptance is shown as a distinct decision. No real repair or payment is recorded.",
-                                _ => "The demo dispute remains unresolved. It does not decide fault or guilt.",
-                            }}</p>
-                        </div>
+                        <span class="farmer-status-label farmer-status-neutral">
+                            {move || match service_step.get() {
+                                0 => "Not started",
+                                1 => "Draft · demo only",
+                                2 => "Submitted · no receipt yet",
+                                3 => "Outcome unknown · no automatic resend",
+                                4 => "Request receipt · simulated",
+                                5 => "Quote received · simulated",
+                                6 => "Booking · simulated",
+                                7 => "Provider reports completion",
+                                8 => "Farmer accepts · simulated",
+                                9 => "Dispute / rework · simulated",
+                                _ => "Human help selected · demo only",
+                            }}
+                        </span>
+                        <h4>{move || match service_step.get() {
+                            0 => "Nothing has been started",
+                            1 => "A draft is prepared",
+                            2 => "A send attempt is recorded in the simulation",
+                            3 => "The request outcome is unknown",
+                            4 => "The request is acknowledged",
+                            5 => "A quote is available to review",
+                            6 => "The booking is confirmed",
+                            7 => "The provider reports the work is complete",
+                            8 => "The farmer accepts the work",
+                            9 => "The farmer disputes the result",
+                            _ => "Continue with a person",
+                        }}</h4>
+                        <p>{move || match service_step.get() {
+                            0 => "Start the walkthrough to see how each commitment changes state.",
+                            1 => "The draft exists only in this page. Nothing has been saved or sent.",
+                            2 => "The demo marks a send attempt, but no provider receipt exists yet. In a real workflow, avoid claiming the request arrived.",
+                            3 => "A timeout or lost response does not prove success or failure. The safe state is unknown; do not automatically resend.",
+                            4 => "This acknowledgement is simulated. No provider actually received the request.",
+                            5 => "Review the full price, scope, expiry and travel terms before accepting. A quote is not a booking.",
+                            6 => "This demo booking does not authorize payment, dispatch, or physical action.",
+                            7 => "Provider-reported completion is not the same as farmer acceptance. Choose accept or dispute below.",
+                            8 => "Acceptance is shown as a distinct decision. No real repair or payment is recorded.",
+                            9 => "The demo dispute remains unresolved. It does not decide fault or guilt.",
+                            _ => "This only demonstrates the human-assisted option. No person was contacted and no request was sent.",
+                        }}</p>
+                    </div>
 
-                        {move || match service_step.get() {
-                            0..=4 => view! {
+                    {move || match service_step.get() {
+                        0 => view! {
+                            <button
+                                type="button"
+                                class="farmer-button farmer-button-primary"
+                                on:click=move |_| set_service_step.set(1)
+                            >
+                                "Start walkthrough"
+                            </button>
+                        }.into_any(),
+                        1 => view! {
+                            <button
+                                type="button"
+                                class="farmer-button farmer-button-primary"
+                                on:click=move |_| set_service_step.set(2)
+                            >
+                                "Simulate durable submission"
+                            </button>
+                        }.into_any(),
+                        2 => view! {
+                            <div class="farmer-form-actions">
                                 <button
                                     type="button"
                                     class="farmer-button farmer-button-primary"
-                                    on:click=move |_| {
-                                        let next = match service_step.get() {
-                                            0 => 1,
-                                            1 => 2,
-                                            2 => 3,
-                                            3 => 4,
-                                            4 => 5,
-                                            _ => 0,
-                                        };
-                                        set_service_step.set(next);
-                                    }
+                                    on:click=move |_| set_service_step.set(4)
                                 >
-                                    {move || match service_step.get() {
-                                        0 => "Start walkthrough",
-                                        1 => "Simulate request receipt",
-                                        2 => "Simulate quote received",
-                                        3 => "Simulate booking confirmation",
-                                        _ => "Simulate provider completion",
-                                    }}
+                                    "Simulate request receipt"
                                 </button>
-                            }.into_any(),
-                            5 => view! {
-                                <div class="farmer-walkthrough-choice">
-                                    <p class="farmer-choice-prompt">"What should happen after the provider reports completion?"</p>
-                                    <div class="farmer-form-actions">
-                                        <button
-                                            type="button"
-                                            class="farmer-button farmer-button-primary"
-                                            on:click=move |_| set_service_step.set(6)
-                                        >
-                                            "Simulate farmer accepts"
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="farmer-button farmer-button-secondary"
-                                            on:click=move |_| set_service_step.set(7)
-                                        >
-                                            "Simulate dispute / rework"
-                                        </button>
-                                    </div>
-                                </div>
-                            }.into_any(),
-                            _ => view! {
                                 <button
                                     type="button"
                                     class="farmer-button farmer-button-secondary"
-                                    on:click=move |_| set_service_step.set(0)
+                                    on:click=move |_| set_service_step.set(3)
                                 >
-                                    "Restart walkthrough"
+                                    "Simulate lost response"
                                 </button>
-                            }.into_any(),
-                        }}
-                    </div>
+                            </div>
+                        }.into_any(),
+                        3 => view! {
+                            <div class="farmer-walkthrough-choice">
+                                <p class="farmer-choice-prompt">"Which next step respects the unknown outcome?"</p>
+                                <div class="farmer-form-actions">
+                                    <button
+                                        type="button"
+                                        class="farmer-button farmer-button-primary"
+                                        on:click=move |_| set_service_step.set(4)
+                                    >
+                                        "Simulate reconciliation finds receipt"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="farmer-button farmer-button-secondary"
+                                        on:click=move |_| set_service_step.set(10)
+                                    >
+                                        "Choose phone / cooperative help"
+                                    </button>
+                                </div>
+                            </div>
+                        }.into_any(),
+                        4 => view! {
+                            <button
+                                type="button"
+                                class="farmer-button farmer-button-primary"
+                                on:click=move |_| set_service_step.set(5)
+                            >
+                                "Simulate quote received"
+                            </button>
+                        }.into_any(),
+                        5 => view! {
+                            <button
+                                type="button"
+                                class="farmer-button farmer-button-primary"
+                                on:click=move |_| set_service_step.set(6)
+                            >
+                                "Simulate booking confirmation"
+                            </button>
+                        }.into_any(),
+                        6 => view! {
+                            <button
+                                type="button"
+                                class="farmer-button farmer-button-primary"
+                                on:click=move |_| set_service_step.set(7)
+                            >
+                                "Simulate provider completion"
+                            </button>
+                        }.into_any(),
+                        7 => view! {
+                            <div class="farmer-walkthrough-choice">
+                                <p class="farmer-choice-prompt">"What should happen after the provider reports completion?"</p>
+                                <div class="farmer-form-actions">
+                                    <button
+                                        type="button"
+                                        class="farmer-button farmer-button-primary"
+                                        on:click=move |_| set_service_step.set(8)
+                                    >
+                                        "Simulate farmer accepts"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="farmer-button farmer-button-secondary"
+                                        on:click=move |_| set_service_step.set(9)
+                                    >
+                                        "Simulate dispute / rework"
+                                    </button>
+                                </div>
+                            </div>
+                        }.into_any(),
+                        _ => view! {
+                            <button
+                                type="button"
+                                class="farmer-button farmer-button-secondary"
+                                on:click=move |_| set_service_step.set(0)
+                            >
+                                "Restart walkthrough"
+                            </button>
+                        }.into_any(),
+                    }}
                 </section>
             </div>
 
