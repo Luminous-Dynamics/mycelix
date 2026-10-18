@@ -18,6 +18,20 @@ Early prototype and design slice. Unit tests are included but were not run in th
 
 The test rule pack uses example.invalid and synthetic digest strings. It is not a real South African or other jurisdiction pack.
 
+## Reference home scenario
+
+The file `fixtures/johannesburg-adaptable-home-v1.json` defines a technology-neutral, synthetic reference brief: several style families, several construction families, stable artifact identifiers, and change scenarios for an adaptable single-storey home. It is **not** a real site, municipal rule pack, architectural plan, IFC model, engineering calculation, or compliance claim. In particular, the fixture marks stabilized-earth construction as requiring additional local validation rather than treating every construction family as automatically admissible.
+
+The Rust integration tests in `tests/home_evolution_scenario.rs` exercise six lifecycle properties:
+
+- a changed energy-rule revision invalidates the energy finding and submission package without invalidating unrelated structural and drawing outputs;
+- a floor-plan change invalidates its downstream energy, structure, drawing, export and submission artifacts;
+- missing mandatory evidence blocks readiness for professional review;
+- a proposed rule cannot silently replace an applicable current-rule assertion; and
+- key fixture identities are checked against the machine-readable brief.
+
+The core currently mirrors the relevant dependency edges in Rust and checks identity fragments in the JSON fixture; it does **not** parse the entire JSON document. Keep this limitation explicit until a proper, versioned schema validator is added. The only positive outcome remains `ReadyForProfessionalReview`, not compliance, certification, approval, or permission to build.
+
 ## Run
 
 From this directory, with a Rust 2024-compatible toolchain:
