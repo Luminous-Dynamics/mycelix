@@ -41,8 +41,9 @@ From this directory, with a Rust 2024-compatible toolchain:
 
     cargo test --offline
     cargo clippy --all-targets -- -D warnings
+    cargo bench --offline --bench dependency_impact
 
-No third-party Rust dependencies are required.
+The dependency-impact benchmark measures sorted closure and compact cause-tree construction for 1,000, 10,000 and 100,000-edge chains. It checks the produced result counts and final cause link before printing timings. Results depend on hardware and toolchain; record both when comparing runs. CI compiles the benchmark but intentionally does not enforce a timing threshold. No third-party Rust dependencies are required.
 
 ## Non-goals and legal boundary
 
