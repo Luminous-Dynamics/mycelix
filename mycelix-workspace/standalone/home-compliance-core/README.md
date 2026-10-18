@@ -10,11 +10,11 @@ This crate is intentionally separate from Holochain WASM zomes. It does not run 
 - Each declared mandatory check has exactly one finding.
 - Findings bind to the exact rule-pack ID and edition used by the assessment.
 - Missing findings, duplicate or unexpected findings, mandatory Fail/Unknown results, invalid evidence-digest syntax, and unjustified NotApplicable results block readiness.
-- The only positive status is ReadyForProfessionalReview; there is no Compliant, Certified, Approved, or ReadyToBuild enum. The evolution module validates artifact revision lineage and plans bounded migrations only across edges declared verified-lossless.
+- The only positive status is ReadyForProfessionalReview; there is no Compliant, Certified, Approved, or ReadyToBuild enum. The evolution module validates artifact revision lineage and plans bounded migrations only across edges declared verified-lossless. The regulatory module distinguishes in-force law, adopted-but-not-yet-effective instruments, proposals, guidance, withdrawn sources and unknown status.
 
 ## Status
 
-Early prototype and design slice. Unit tests are included but were not run in the authoring environment because Rust tooling is unavailable there. The crate includes an evolution module for revision lineage and migration planning, but is not yet integrated with an IFC parser, a real rule-pack registry, identity verification, cryptographic artifact storage, migration executors, or a professional/municipal workflow.
+Early prototype and design slice. Unit tests are included but were not run in the authoring environment because Rust tooling is unavailable there. The crate includes revision-lineage, migration-planning and time-aware regulatory-source modules, but is not yet integrated with an IFC parser, a live source registry, identity verification, cryptographic artifact storage, migration executors, or a professional/municipal workflow.
 
 The test rule pack uses example.invalid and synthetic digest strings. It is not a real South African or other jurisdiction pack.
 
