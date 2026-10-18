@@ -94,6 +94,8 @@ The current compact Rust manifest does not claim PROV conformance. The sidecar h
 
 ## Import replay ledger v1
 
+This follow-on is tracked by [CSCP-REPLAY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5190); do not deploy a durable ingress workflow until the unique replay key and canonical mutation are committed atomically.
+
 The public Rust API is import_ledger::ImportReplayLedger. It is a small in-memory reference implementation for a production ingress rule: the same source payload processed by the same schema/parser/mapping version must not silently create a second canonical mutation.
 
 The replay key is a domain-separated BLAKE3 digest over:
