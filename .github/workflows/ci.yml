@@ -280,10 +280,14 @@ jobs:
         run: |
           set -o pipefail
           python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_portable_history.py --check 2>&1 | tee cscp-grant-history-vectors.log
-      - name: Verify independent full passport snapshot vector
+      - name: Verify independent full passport snapshot vectors
         run: |
           set -o pipefail
           python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_passport_snapshot.py --check 2>&1 | tee cscp-full-snapshot-vectors.log
+      - name: Verify independent import provenance manifest vector
+        run: |
+          set -o pipefail
+          python3 mycelix-workspace/research/creator-asset-passport-core/tests/reference_encode_import_provenance.py --check 2>&1 | tee cscp-import-provenance-vector.log
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: 1.96.0
@@ -328,6 +332,7 @@ jobs:
             if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex" ]; then echo "fixture_sha256_2=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-grant-history-v1-unicode-no-expiry.hex | cut -d' ' -f1)"; fi
             if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1.hex" ]; then echo "fixture_sha256_3=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1.hex | cut -d' ' -f1)"; fi
             if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex" ]; then echo "fixture_sha256_4=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex | cut -d' ' -f1)"; fi
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex" ]; then echo "fixture_sha256_5=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex | cut -d' ' -f1)"; fi
           } > cscp-qualification-receipt.txt
       - name: Upload qualification receipt and raw evidence
         if: always()
@@ -342,6 +347,7 @@ jobs:
             cscp-qualification-receipt.txt
             cscp-grant-history-vectors.log
             cscp-full-snapshot-vectors.log
+            cscp-import-provenance-vector.log
           if-no-files-found: warn
 
   test-cos-conformance:
