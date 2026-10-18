@@ -677,20 +677,56 @@ mod tests {
         }
     }
 
-    fn migration(
+    fn migration_candidate(
         id: &str,
         from: &str,
         to: &str,
-        assurance: MigrationAssurance,
-    ) -> MigrationDefinition {
-        MigrationDefinition {
+        disposition: MigrationDisposition,
+    ) -> MigrationCandidate {
+        MigrationCandidate {
             migration_id: id.into(),
             from: fmt(from),
             to: fmt(to),
             tool_version: "tool-1.0.0".into(),
-            assurance,
-            verification_evidence_sha256: "b".repeat(64),
+            disposition,
+            source_artifact_sha256: "c".repeat(64),
+            target_artifact_sha256: "d".repeat(64),
+            verification_evidence_sha256: "e".repeat(64),
+            required_invariants: vec![
+                "geometry:living-room-area".into(),
+                "assembly:roof-fire-rating".into(),
+            ],
+            source_invariants: vec![
+                SemanticInvariant {
+                    invariant_id: "geometry:living-room-area".into(),
+                    canonical_value_sha256: "a".repeat(64),
+                },
+                SemanticInvariant {
+                    invariant_id: "assembly:roof-fire-rating".into(),
+                    canonical_value_sha256: "b".repeat(64),
+                },
+            ],
+            target_invariants: vec![
+                SemanticInvariant {
+                    invariant_id: "geometry:living-room-area".into(),
+                    canonical_value_sha256: "a".repeat(64),
+                },
+                SemanticInvariant {
+                    invariant_id: "assembly:roof-fire-rating".into(),
+                    canonical_value_sha256: "b".repeat(64),
+                },
+            ],
         }
+    }
+
+    fn migration(id: &str, from: &str, to: &str) -> VerifiedMigration {
+        verify_migration_candidate(migration_candidate(
+            id,
+            from,
+            to,
+            MigrationDisposition::ApprovedForAutomaticUse,
+        ))
+        .expect("test fixture should satisfy migration invariants")
     }
 
     #[test]
@@ -756,38 +792,133 @@ mod tests {
     #[test]
     fn planner_finds_a_verified_lossless_path() {
         let paths = vec![
-            migration("m1", "1", "2", MigrationAssurance::VerifiedLossless),
-            migration("m2", "2", "3", MigrationAssurance::VerifiedLossless),
+            migration("m1", "1", "2"),
+            migration("m2", "2", "3"),
         ];
         let plan = plan_lossless_migration(&fmt("1"), &fmt("3"), &paths, 3);
         assert_eq!(plan.status, MigrationPlanStatus::Ready);
         assert_eq!(
-            plan.steps.iter().map(|step| step.migration_id.as_str()).collect::<Vec<_>>(),
+            plan.steps.iter().map(|step| step.migration_id()).collect::<Vec<_>>(),
             vec!["m1", "m2"]
         );
     }
 
     #[test]
-    fn lossy_or_review_required_edges_are_never_auto_selected() {
-        for assurance in [
-            MigrationAssurance::RequiresHumanReview,
-            MigrationAssurance::Lossy,
-            MigrationAssurance::Experimental,
-            MigrationAssurance::Retired,
+    fn unapproved_migration_dispositions_cannot_mint_verified_type() {
+        for disposition in [
+            MigrationDisposition::Pending,
+            MigrationDisposition::RequiresHumanReview,
+            MigrationDisposition::Lossy,
+            MigrationDisposition::Experimental,
+            MigrationDisposition::Retired,
         ] {
-            let paths = vec![migration("m1", "1", "2", assurance)];
-            let plan = plan_lossless_migration(&fmt("1"), &fmt("2"), &paths, 1);
-            assert_eq!(plan.status, MigrationPlanStatus::Blocked);
-            assert!(plan.steps.is_empty());
+            let candidate = migration_candidate("m1", "1", "2", disposition);
+            assert!(verify_migration_candidate(candidate).is_err());
         }
     }
 
     #[test]
+    fn changed_critical_invariant_cannot_mint_verified_type() {
+        let mut candidate = migration_candidate(
+            "m1",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        candidate.target_invariants[0].canonical_value_sha256 = "f".repeat(64);
+        let result = verify_migration_candidate(candidate);
+        assert!(result.as_ref().is_err_and(|issues| issues.contains(
+            &MigrationVerificationIssue::CriticalInvariantChanged(
+                "geometry:living-room-area".into()
+            )
+        )));
+    }
+
+    #[test]
+    fn missing_critical_invariant_on_either_side_is_rejected() {
+        let mut source_missing = migration_candidate(
+            "m1",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        source_missing.source_invariants.pop();
+        let issues = verify_migration_candidate(source_missing).unwrap_err();
+        assert!(issues.contains(
+            &MigrationVerificationIssue::MissingRequiredInvariant {
+                side: "source",
+                invariant_id: "assembly:roof-fire-rating".into(),
+            }
+        ));
+
+        let mut target_missing = migration_candidate(
+            "m2",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        target_missing.target_invariants.pop();
+        let issues = verify_migration_candidate(target_missing).unwrap_err();
+        assert!(issues.contains(
+            &MigrationVerificationIssue::MissingRequiredInvariant {
+                side: "target",
+                invariant_id: "assembly:roof-fire-rating".into(),
+            }
+        ));
+    }
+
+    #[test]
+    fn duplicate_or_empty_required_invariants_are_rejected() {
+        let mut duplicate = migration_candidate(
+            "m1",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        duplicate.required_invariants.push("geometry:living-room-area".into());
+        assert!(verify_migration_candidate(duplicate).is_err());
+
+        let mut empty = migration_candidate(
+            "m2",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        empty.required_invariants = vec![" ".into()];
+        assert!(verify_migration_candidate(empty).is_err());
+    }
+
+    #[test]
+    fn malformed_migration_or_invariant_digests_are_rejected_before_planning() {
+        let mut bad_evidence = migration_candidate(
+            "m1",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        bad_evidence.verification_evidence_sha256 = "bad".into();
+        assert!(verify_migration_candidate(bad_evidence).unwrap_err().contains(
+            &MigrationVerificationIssue::InvalidVerificationEvidenceDigest
+        ));
+
+        let mut bad_invariant = migration_candidate(
+            "m2",
+            "1",
+            "2",
+            MigrationDisposition::ApprovedForAutomaticUse,
+        );
+        bad_invariant.target_invariants[0].canonical_value_sha256 = "bad".into();
+        assert!(verify_migration_candidate(bad_invariant).unwrap_err().iter().any(
+            |issue| matches!(
+                issue,
+                MigrationVerificationIssue::InvalidInvariantDigest { side: "target", .. }
+            )
+        ));
+    }
+
+    #[test]
     fn migration_depth_is_bounded() {
-        let paths = vec![
-            migration("m1", "1", "2", MigrationAssurance::VerifiedLossless),
-            migration("m2", "2", "3", MigrationAssurance::VerifiedLossless),
-        ];
+        let paths = vec![migration("m1", "1", "2"), migration("m2", "2", "3")];
         let plan = plan_lossless_migration(&fmt("1"), &fmt("3"), &paths, 1);
         assert_eq!(plan.status, MigrationPlanStatus::Blocked);
         assert!(plan.steps.is_empty());
@@ -796,9 +927,9 @@ mod tests {
     #[test]
     fn cycle_does_not_make_migration_search_loop_forever() {
         let paths = vec![
-            migration("m1", "1", "2", MigrationAssurance::VerifiedLossless),
-            migration("m2", "2", "1", MigrationAssurance::VerifiedLossless),
-            migration("m3", "2", "3", MigrationAssurance::VerifiedLossless),
+            migration("m1", "1", "2"),
+            migration("m2", "2", "1"),
+            migration("m3", "2", "3"),
         ];
         let plan = plan_lossless_migration(&fmt("1"), &fmt("3"), &paths, 3);
         assert_eq!(plan.status, MigrationPlanStatus::Ready);
@@ -806,15 +937,19 @@ mod tests {
     }
 
     #[test]
-    fn malformed_migration_evidence_digest_blocks_that_path() {
-        let mut edge = migration("m1", "1", "2", MigrationAssurance::VerifiedLossless);
-        edge.verification_evidence_sha256 = "bad".into();
-        let plan = plan_lossless_migration(&fmt("1"), &fmt("2"), &[edge], 2);
+    fn duplicate_verified_migration_ids_block_the_catalog() {
+        let duplicate = migration("same-id", "1", "2");
+        let plan = plan_lossless_migration(
+            &fmt("1"),
+            &fmt("2"),
+            &[duplicate.clone(), duplicate],
+            2,
+        );
         assert_eq!(plan.status, MigrationPlanStatus::Blocked);
-        assert!(plan.blockers.iter().any(|blocker| matches!(
-            blocker,
-            MigrationBlocker::InvalidVerificationEvidenceDigest(id) if id == "m1"
-        )));
+        assert!(plan.blockers.contains(
+            &MigrationBlocker::DuplicateVerifiedMigrationId("same-id".into())
+        ));
+        assert!(plan.steps.is_empty());
     }
 
     #[test]
