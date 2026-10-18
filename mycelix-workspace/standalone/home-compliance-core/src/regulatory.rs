@@ -108,62 +108,42 @@ pub fn evaluate_source_applicability(
         ("source_uri", source.source_uri.as_str()),
     ] {
         if !nonblank(value) {
-            return SourceApplicability::Indeterminate(
-                IndeterminateReason::InvalidMetadata(field),
-            );
+            return SourceApplicability::Indeterminate(IndeterminateReason::InvalidMetadata(field));
         }
     }
     if !is_sha256_hex(&source.source_sha256) {
-        return SourceApplicability::Indeterminate(
-            IndeterminateReason::InvalidSourceDigest,
-        );
+        return SourceApplicability::Indeterminate(IndeterminateReason::InvalidSourceDigest);
     }
     if source.published_on_day > registry_as_of_day {
-        return SourceApplicability::Indeterminate(
-            IndeterminateReason::FuturePublicationDate,
-        );
+        return SourceApplicability::Indeterminate(IndeterminateReason::FuturePublicationDate);
     }
     if source.checked_on_day > registry_as_of_day {
-        return SourceApplicability::Indeterminate(
-            IndeterminateReason::FutureVerificationDate,
-        );
+        return SourceApplicability::Indeterminate(IndeterminateReason::FutureVerificationDate);
     }
     if registry_as_of_day.saturating_sub(source.checked_on_day) > max_verification_age_days {
-        return SourceApplicability::Indeterminate(
-            IndeterminateReason::StaleSourceVerification,
-        );
+        return SourceApplicability::Indeterminate(IndeterminateReason::StaleSourceVerification);
     }
     if let (Some(start), Some(end)) = (
         source.effective_from_day,
         source.effective_until_day_exclusive,
     ) {
         if end <= start {
-            return SourceApplicability::Indeterminate(
-                IndeterminateReason::InvalidValidityWindow,
-            );
+            return SourceApplicability::Indeterminate(IndeterminateReason::InvalidValidityWindow);
         }
     }
 
     if source.jurisdiction != requested_jurisdiction {
-        return SourceApplicability::OutOfScope(
-            ScopeExclusionReason::JurisdictionMismatch,
-        );
+        return SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch);
     }
 
     match source.legal_status {
-        LegalSourceStatus::Proposed => {
-            SourceApplicability::NonBinding(NonBindingReason::Proposal)
-        }
-        LegalSourceStatus::Guidance => {
-            SourceApplicability::NonBinding(NonBindingReason::Guidance)
-        }
+        LegalSourceStatus::Proposed => SourceApplicability::NonBinding(NonBindingReason::Proposal),
+        LegalSourceStatus::Guidance => SourceApplicability::NonBinding(NonBindingReason::Guidance),
         LegalSourceStatus::Withdrawn => {
             SourceApplicability::NotInEffect(NotInEffectReason::Withdrawn)
         }
         LegalSourceStatus::Unknown => {
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::UnknownLegalStatus,
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::UnknownLegalStatus)
         }
         LegalSourceStatus::AdoptedNotYetEffective => {
             let Some(effective_from) = source.effective_from_day else {
@@ -172,15 +152,11 @@ pub fn evaluate_source_applicability(
                 );
             };
             if law_as_of_day < effective_from {
-                SourceApplicability::NotInEffect(
-                    NotInEffectReason::NotYetEffective,
-                )
+                SourceApplicability::NotInEffect(NotInEffectReason::NotYetEffective)
             } else {
                 // The source registry claims the instrument is not yet effective
                 // after its asserted effective date: a maintainer must reconcile it.
-                SourceApplicability::Indeterminate(
-                    IndeterminateReason::ContradictoryStatusAndDates,
-                )
+                SourceApplicability::Indeterminate(IndeterminateReason::ContradictoryStatusAndDates)
             }
         }
         LegalSourceStatus::InForce => {
@@ -190,17 +166,13 @@ pub fn evaluate_source_applicability(
                 );
             };
             if law_as_of_day < effective_from {
-                return SourceApplicability::NotInEffect(
-                    NotInEffectReason::NotYetEffective,
-                );
+                return SourceApplicability::NotInEffect(NotInEffectReason::NotYetEffective);
             }
             if source
                 .effective_until_day_exclusive
                 .is_some_and(|end| law_as_of_day >= end)
             {
-                return SourceApplicability::NotInEffect(
-                    NotInEffectReason::Expired,
-                );
+                return SourceApplicability::NotInEffect(NotInEffectReason::Expired);
             }
             SourceApplicability::Applicable
         }
@@ -248,9 +220,17 @@ pub enum RequirementResolutionIssue {
     NoApplicableAssertions,
     InvalidAssertionMetadata,
     MixedRequirementIds,
-    DuplicateSourceClause { source_id: String, clause_ref: String },
-    SourceStatusIndeterminate { source_id: String, reason: IndeterminateReason },
-    MissingExplicitPrecedence { source_id: String },
+    DuplicateSourceClause {
+        source_id: String,
+        clause_ref: String,
+    },
+    SourceStatusIndeterminate {
+        source_id: String,
+        reason: IndeterminateReason,
+    },
+    MissingExplicitPrecedence {
+        source_id: String,
+    },
     NoPrecedenceRanks,
     ConflictingHighestPrecedenceValues,
     ConflictingValues,
@@ -378,8 +358,7 @@ pub fn resolve_requirement(
 
             let mut sources: Vec<_> = applicable.iter().map(|item| clause_ref(item)).collect();
             sources.sort_by(|left, right| {
-                (&left.source_id, &left.clause_ref)
-                    .cmp(&(&right.source_id, &right.clause_ref))
+                (&left.source_id, &left.clause_ref).cmp(&(&right.source_id, &right.clause_ref))
             });
             RequirementResolution::Resolved {
                 requirement_id: requirement_id.to_owned(),
@@ -439,7 +418,8 @@ pub fn resolve_requirement(
                 .iter()
                 .map(|assertion| (assertion.source_id.as_str(), assertion.clause_ref.as_str()))
                 .collect();
-            let mut contributing_sources: Vec<_> = top.iter().map(|item| clause_ref(item)).collect();
+            let mut contributing_sources: Vec<_> =
+                top.iter().map(|item| clause_ref(item)).collect();
             let mut superseded_sources: Vec<_> = applicable
                 .iter()
                 .filter(|item| {
@@ -448,12 +428,10 @@ pub fn resolve_requirement(
                 .map(|item| clause_ref(item))
                 .collect();
             contributing_sources.sort_by(|left, right| {
-                (&left.source_id, &left.clause_ref)
-                    .cmp(&(&right.source_id, &right.clause_ref))
+                (&left.source_id, &left.clause_ref).cmp(&(&right.source_id, &right.clause_ref))
             });
             superseded_sources.sort_by(|left, right| {
-                (&left.source_id, &left.clause_ref)
-                    .cmp(&(&right.source_id, &right.clause_ref))
+                (&left.source_id, &left.clause_ref).cmp(&(&right.source_id, &right.clause_ref))
             });
             RequirementResolution::Resolved {
                 requirement_id: requirement_id.to_owned(),
@@ -487,13 +465,7 @@ mod tests {
     }
 
     fn evaluate(source: &RegulatorySource, law_day: u32, registry_day: u32) -> SourceApplicability {
-        evaluate_source_applicability(
-            source,
-            "ZA/demo-municipality",
-            law_day,
-            registry_day,
-            30,
-        )
+        evaluate_source_applicability(source, "ZA/demo-municipality", law_day, registry_day, 30)
     }
 
     fn assertion(
@@ -564,9 +536,7 @@ mod tests {
     fn contradictory_future_status_is_indeterminate_after_effective_date() {
         assert_eq!(
             evaluate(&source(LegalSourceStatus::AdoptedNotYetEffective), 20, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::ContradictoryStatusAndDates
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::ContradictoryStatusAndDates)
         );
     }
 
@@ -574,9 +544,7 @@ mod tests {
     fn stale_source_check_is_indeterminate_not_current() {
         assert_eq!(
             evaluate(&source(LegalSourceStatus::InForce), 60, 100),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::StaleSourceVerification
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::StaleSourceVerification)
         );
     }
 
@@ -585,9 +553,7 @@ mod tests {
         let value = source(LegalSourceStatus::InForce);
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/other-municipality", 60, 60, 30),
-            SourceApplicability::OutOfScope(
-                ScopeExclusionReason::JurisdictionMismatch
-            )
+            SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
         );
     }
 
@@ -595,9 +561,7 @@ mod tests {
     fn expired_source_does_not_apply() {
         assert_eq!(
             evaluate(&source(LegalSourceStatus::InForce), 100, 100),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::StaleSourceVerification
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::StaleSourceVerification)
         );
         // Fresh source check isolates the legal effective-window result.
         let mut value = source(LegalSourceStatus::InForce);
@@ -614,16 +578,12 @@ mod tests {
         value.source_sha256 = "bad".into();
         assert_eq!(
             evaluate(&value, 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::InvalidSourceDigest
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::InvalidSourceDigest)
         );
 
         assert_eq!(
             evaluate(&source(LegalSourceStatus::Unknown), 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::UnknownLegalStatus
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::UnknownLegalStatus)
         );
     }
 
@@ -644,9 +604,7 @@ mod tests {
         value.effective_until_day_exclusive = Some(70);
         assert_eq!(
             evaluate(&value, 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::InvalidValidityWindow
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::InvalidValidityWindow)
         );
     }
 
@@ -656,18 +614,14 @@ mod tests {
         future_publication.published_on_day = 61;
         assert_eq!(
             evaluate(&future_publication, 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::FuturePublicationDate
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::FuturePublicationDate)
         );
 
         let mut future_check = source(LegalSourceStatus::InForce);
         future_check.checked_on_day = 61;
         assert_eq!(
             evaluate(&future_check, 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::FutureVerificationDate
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::FutureVerificationDate)
         );
     }
 
@@ -677,9 +631,7 @@ mod tests {
         value.source_id.clear();
         assert_eq!(
             evaluate(&value, 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::InvalidMetadata("source_id")
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::InvalidMetadata("source_id"))
         );
     }
 
@@ -766,7 +718,9 @@ mod tests {
 
     #[test]
     fn missing_precedence_cannot_be_invented_by_the_resolver() {
-        let assertions = vec![applicable_assertion("source-a", "clause-1", "value-a", None)];
+        let assertions = vec![applicable_assertion(
+            "source-a", "clause-1", "value-a", None,
+        )];
         assert_eq!(
             resolve_requirement(
                 &assertions,
@@ -789,9 +743,7 @@ mod tests {
                 "clause-2",
                 "value-a",
                 Some(20),
-                SourceApplicability::Indeterminate(
-                    IndeterminateReason::StaleSourceVerification
-                ),
+                SourceApplicability::Indeterminate(IndeterminateReason::StaleSourceVerification),
             ),
         ];
         assert!(matches!(
@@ -842,10 +794,11 @@ mod tests {
         let mut second = applicable_assertion("source-b", "clause-2", "value-a", Some(10));
         second.requirement_id = "fire:rating".into();
         assert_eq!(
-            resolve_requirement(&[first, second], RequirementResolutionPolicy::RequireAgreement),
-            RequirementResolution::Indeterminate(
-                RequirementResolutionIssue::MixedRequirementIds
-            )
+            resolve_requirement(
+                &[first, second],
+                RequirementResolutionPolicy::RequireAgreement
+            ),
+            RequirementResolution::Indeterminate(RequirementResolutionIssue::MixedRequirementIds)
         );
     }
 
@@ -855,9 +808,7 @@ mod tests {
         value.effective_from_day = None;
         assert_eq!(
             evaluate(&value, 60, 60),
-            SourceApplicability::Indeterminate(
-                IndeterminateReason::MissingEffectiveDate
-            )
+            SourceApplicability::Indeterminate(IndeterminateReason::MissingEffectiveDate)
         );
     }
 }
