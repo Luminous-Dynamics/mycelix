@@ -446,6 +446,7 @@ pub enum ReformWorkflowIssue {
     DossierIdMismatch,
     DossierSnapshotMismatch,
     ConsultationIdMismatch,
+    ConsultationCloseoutSnapshotMismatch,
     JurisdictionMismatch,
     InvalidConsultationDates,
     AdoptionPredatesConsultationClose,
@@ -521,6 +522,9 @@ fn validate_closeout(
     if !is_sha256_hex(&closeout.dossier_snapshot_sha256) {
         issues.push(ReformWorkflowIssue::InvalidDigest("dossier_snapshot_sha256"));
     }
+    if !is_sha256_hex(&closeout.closeout_snapshot_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("closeout_snapshot_sha256"));
+    }
     if !is_sha256_hex(&closeout.feedback_archive_sha256) {
         issues.push(ReformWorkflowIssue::InvalidDigest("feedback_archive_sha256"));
     }
@@ -564,6 +568,12 @@ pub fn validate_adoption_decision(
     }
     if decision.consultation_id != closeout.consultation_id {
         issues.push(ReformWorkflowIssue::ConsultationIdMismatch);
+    }
+    if decision.consultation_closeout_sha256 != closeout.closeout_snapshot_sha256 {
+        issues.push(ReformWorkflowIssue::ConsultationCloseoutSnapshotMismatch);
+    }
+    if !is_sha256_hex(&decision.consultation_closeout_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("consultation_closeout_sha256"));
     }
     if decision.jurisdiction_path != dossier.jurisdiction_path {
         issues.push(ReformWorkflowIssue::JurisdictionMismatch);
