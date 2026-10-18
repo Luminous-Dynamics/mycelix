@@ -658,9 +658,11 @@ mod tests {
 
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report.blockers.contains(&Blocker::DuplicateRulePackCheck(
-            "structural-review".into()
-        )));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::DuplicateRulePackCheck("structural-review".into()))
+        );
     }
 
     #[test]
@@ -670,7 +672,11 @@ mod tests {
 
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report.blockers.contains(&Blocker::EmptyRulePackCheckManifest));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::EmptyRulePackCheckManifest)
+        );
     }
 
     #[test]
