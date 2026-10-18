@@ -380,6 +380,234 @@ pub fn evaluate_reform_dossier(dossier: &CodeReformDossier) -> ReformDossierRepo
     }
 }
 
+/// Immutable summary of an actually completed public consultation. Readiness
+/// to *open* consultation is not proof that consultation happened. The archive
+/// adapter must later verify notice, feedback, and response bytes independently.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PublicConsultationCloseout {
+    pub consultation_id: String,
+    pub dossier_id: String,
+    pub dossier_snapshot_sha256: String,
+    pub jurisdiction_path: String,
+    pub opened_on_day: u32,
+    pub closed_on_day: u32,
+    pub public_notice_uri: String,
+    pub feedback_archive_uri: String,
+    pub feedback_archive_sha256: String,
+    pub feedback_count: u64,
+    /// Explain how comments were considered, including when no comments arrived.
+    pub response_summary: String,
+    pub response_record_uri: String,
+    pub response_record_sha256: String,
+}
+
+/// Formal decision disposition recorded by a legally empowered body.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdoptionDisposition {
+    Adopted,
+    Rejected,
+    ReturnedForRevision,
+    Deferred,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdoptionDecisionRecord {
+    pub decision_id: String,
+    pub dossier_id: String,
+    pub dossier_snapshot_sha256: String,
+    pub consultation_id: String,
+    pub jurisdiction_path: String,
+    pub authority_id: String,
+    pub decision_maker_id: String,
+    /// Exact legal/administrative instrument empowering the decision maker.
+    pub authority_basis_uri: String,
+    /// Publicly discoverable decision or adopting instrument.
+    pub public_decision_uri: String,
+    pub public_decision_sha256: String,
+    pub disposition: AdoptionDisposition,
+    pub decided_on_day: u32,
+    /// Exclusive legal effect is jurisdiction-specific; this field only records
+    /// the source-asserted effective date and never establishes current law.
+    pub effective_from_day: Option<u32>,
+}
+
+/// Errors in the transition from proposal to public consultation and legal
+/// adoption. These are record-consistency errors, not legal-authenticity proofs.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ReformWorkflowIssue {
+    DossierNotReadyForConsultation,
+    EmptyField(&'static str),
+    InvalidJurisdictionPath(&'static str),
+    InvalidDigest(&'static str),
+    DossierIdMismatch,
+    DossierSnapshotMismatch,
+    JurisdictionMismatch,
+    InvalidConsultationDates,
+    AdoptionPredatesConsultationClose,
+    AdoptedWithoutEffectiveDate,
+    EffectiveDateBeforeDecision,
+    NonAdoptionHasEffectiveDate,
+}
+
+/// Opaque result of checking cross-record consistency and required metadata.
+/// This does NOT authenticate an authority, signature, source bytes, or legal
+/// effect; those require a trusted jurisdictional registry adapter.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordedAdoptionMetadata {
+    record: AdoptionDecisionRecord,
+}
+
+impl RecordedAdoptionMetadata {
+    pub fn decision_id(&self) -> &str {
+        &self.record.decision_id
+    }
+
+    pub fn disposition(&self) -> AdoptionDisposition {
+        self.record.disposition
+    }
+
+    pub fn jurisdiction_path(&self) -> &str {
+        &self.record.jurisdiction_path
+    }
+
+    pub fn effective_from_day(&self) -> Option<u32> {
+        self.record.effective_from_day
+    }
+
+    pub fn public_decision_sha256(&self) -> &str {
+        &self.record.public_decision_sha256
+    }
+}
+
+fn validate_closeout(
+    dossier: &CodeReformDossier,
+    closeout: &PublicConsultationCloseout,
+) -> Result<(), Vec<ReformWorkflowIssue>> {
+    let mut issues = Vec::new();
+    if evaluate_reform_dossier(dossier).status != ReformDossierStatus::ReadyForPublicConsultation {
+        issues.push(ReformWorkflowIssue::DossierNotReadyForConsultation);
+    }
+    if closeout.dossier_id != dossier.dossier_id {
+        issues.push(ReformWorkflowIssue::DossierIdMismatch);
+    }
+    if closeout.dossier_snapshot_sha256 != dossier.snapshot_sha256 {
+        issues.push(ReformWorkflowIssue::DossierSnapshotMismatch);
+    }
+    if closeout.jurisdiction_path != dossier.jurisdiction_path {
+        issues.push(ReformWorkflowIssue::JurisdictionMismatch);
+    }
+    if closeout.closed_on_day < closeout.opened_on_day {
+        issues.push(ReformWorkflowIssue::InvalidConsultationDates);
+    }
+    if !valid_jurisdiction_path(&closeout.jurisdiction_path) {
+        issues.push(ReformWorkflowIssue::InvalidJurisdictionPath("consultation"));
+    }
+    for (field, value) in [
+        ("consultation_id", closeout.consultation_id.as_str()),
+        ("public_notice_uri", closeout.public_notice_uri.as_str()),
+        ("feedback_archive_uri", closeout.feedback_archive_uri.as_str()),
+        ("response_summary", closeout.response_summary.as_str()),
+        ("response_record_uri", closeout.response_record_uri.as_str()),
+    ] {
+        if !nonblank(value) {
+            issues.push(ReformWorkflowIssue::EmptyField(field));
+        }
+    }
+    if !is_sha256_hex(&closeout.dossier_snapshot_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("dossier_snapshot_sha256"));
+    }
+    if !is_sha256_hex(&closeout.feedback_archive_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("feedback_archive_sha256"));
+    }
+    if !is_sha256_hex(&closeout.response_record_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("response_record_sha256"));
+    }
+
+    if issues.is_empty() {
+        Ok(())
+    } else {
+        Err(issues)
+    }
+}
+
+/// Validate a public-consultation closeout against the immutable dossier it
+/// claims to close. A count of zero is allowed only with an explicit response
+/// record; the system never invents evidence that comments were received.
+pub fn validate_public_consultation_closeout(
+    dossier: &CodeReformDossier,
+    closeout: &PublicConsultationCloseout,
+) -> Result<(), Vec<ReformWorkflowIssue>> {
+    validate_closeout(dossier, closeout)
+}
+
+/// Validate an authority's adoption/rejection decision after consultation.
+/// This function checks typed metadata, jurisdiction, dates, and snapshot links.
+/// It cannot prove that the authority or its signatory is legitimate, that the
+/// referenced law authorizes this decision, or that the linked bytes are authentic.
+pub fn validate_adoption_decision(
+    dossier: &CodeReformDossier,
+    closeout: &PublicConsultationCloseout,
+    decision: AdoptionDecisionRecord,
+) -> Result<RecordedAdoptionMetadata, Vec<ReformWorkflowIssue>> {
+    let mut issues = validate_closeout(dossier, closeout).err().unwrap_or_default();
+
+    if decision.dossier_id != dossier.dossier_id {
+        issues.push(ReformWorkflowIssue::DossierIdMismatch);
+    }
+    if decision.dossier_snapshot_sha256 != dossier.snapshot_sha256 {
+        issues.push(ReformWorkflowIssue::DossierSnapshotMismatch);
+    }
+    if decision.consultation_id != closeout.consultation_id {
+        issues.push(ReformWorkflowIssue::DossierIdMismatch);
+    }
+    if decision.jurisdiction_path != dossier.jurisdiction_path {
+        issues.push(ReformWorkflowIssue::JurisdictionMismatch);
+    }
+    if decision.decided_on_day < closeout.closed_on_day {
+        issues.push(ReformWorkflowIssue::AdoptionPredatesConsultationClose);
+    }
+    if !valid_jurisdiction_path(&decision.jurisdiction_path) {
+        issues.push(ReformWorkflowIssue::InvalidJurisdictionPath("decision"));
+    }
+    for (field, value) in [
+        ("decision_id", decision.decision_id.as_str()),
+        ("authority_id", decision.authority_id.as_str()),
+        ("decision_maker_id", decision.decision_maker_id.as_str()),
+        ("authority_basis_uri", decision.authority_basis_uri.as_str()),
+        ("public_decision_uri", decision.public_decision_uri.as_str()),
+    ] {
+        if !nonblank(value) {
+            issues.push(ReformWorkflowIssue::EmptyField(field));
+        }
+    }
+    if !is_sha256_hex(&decision.dossier_snapshot_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("decision dossier_snapshot_sha256"));
+    }
+    if !is_sha256_hex(&decision.public_decision_sha256) {
+        issues.push(ReformWorkflowIssue::InvalidDigest("public_decision_sha256"));
+    }
+    match (decision.disposition, decision.effective_from_day) {
+        (AdoptionDisposition::Adopted, None) => {
+            issues.push(ReformWorkflowIssue::AdoptedWithoutEffectiveDate);
+        }
+        (AdoptionDisposition::Adopted, Some(day)) if day < decision.decided_on_day => {
+            issues.push(ReformWorkflowIssue::EffectiveDateBeforeDecision);
+        }
+        (AdoptionDisposition::Rejected, Some(_))
+        | (AdoptionDisposition::ReturnedForRevision, Some(_))
+        | (AdoptionDisposition::Deferred, Some(_)) => {
+            issues.push(ReformWorkflowIssue::NonAdoptionHasEffectiveDate);
+        }
+        _ => {}
+    }
+
+    if issues.is_empty() {
+        Ok(RecordedAdoptionMetadata { record: decision })
+    } else {
+        Err(issues)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
