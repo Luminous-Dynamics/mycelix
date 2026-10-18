@@ -630,7 +630,7 @@ mod tests {
         let corpus: MutationCorpus = serde_json::from_value(mutation_document)
             .expect("frozen mutation corpus must deserialize");
         assert_eq!(corpus.schema_version, "1.0.0");
-        assert_eq!(corpus.mutations.len(), 12);
+        assert_eq!(corpus.mutations.len(), 13);
         let mutation_ids: BTreeSet<&str> = corpus.mutations.iter().map(|mutation| mutation.id.as_str()).collect();
         assert_eq!(mutation_ids.len(), corpus.mutations.len(), "mutation IDs must be unique");
 
