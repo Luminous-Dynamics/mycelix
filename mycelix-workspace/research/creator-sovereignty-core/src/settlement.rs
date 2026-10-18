@@ -119,6 +119,11 @@ pub struct RoyaltyStatementLine {
     line_id: String,
     statement_id: String,
     reporting_source_id: String,
+    /// Versioned rule that established this line as a payable assertion.
+    semantic_mapping_rule_id: String,
+    semantic_mapping_version: String,
+    /// Reference to the source bytes or creator-reviewed evidence supporting the interpretation.
+    source_evidence_ref: String,
     period_start_utc_seconds: i64,
     period_end_utc_seconds: i64,
     currency: String,
@@ -133,6 +138,9 @@ impl RoyaltyStatementLine {
         line_id: impl AsRef<str>,
         statement_id: impl AsRef<str>,
         reporting_source_id: impl AsRef<str>,
+        semantic_mapping_rule_id: impl AsRef<str>,
+        semantic_mapping_version: impl AsRef<str>,
+        source_evidence_ref: impl AsRef<str>,
         period_start_utc_seconds: i64,
         period_end_utc_seconds: i64,
         currency: impl AsRef<str>,
@@ -156,6 +164,18 @@ impl RoyaltyStatementLine {
                 reporting_source_id.as_ref(),
                 "reporting_source_id",
             )?,
+            semantic_mapping_rule_id: validate_field(
+                semantic_mapping_rule_id.as_ref(),
+                "semantic_mapping_rule_id",
+            )?,
+            semantic_mapping_version: validate_field(
+                semantic_mapping_version.as_ref(),
+                "semantic_mapping_version",
+            )?,
+            source_evidence_ref: validate_field(
+                source_evidence_ref.as_ref(),
+                "source_evidence_ref",
+            )?,
             period_start_utc_seconds,
             period_end_utc_seconds,
             currency,
@@ -173,6 +193,18 @@ impl RoyaltyStatementLine {
 
     pub fn reporting_source_id(&self) -> &str {
         &self.reporting_source_id
+    }
+
+    pub fn semantic_mapping_rule_id(&self) -> &str {
+        &self.semantic_mapping_rule_id
+    }
+
+    pub fn semantic_mapping_version(&self) -> &str {
+        &self.semantic_mapping_version
+    }
+
+    pub fn source_evidence_ref(&self) -> &str {
+        &self.source_evidence_ref
     }
 
     pub fn period_start_utc_seconds(&self) -> i64 {
@@ -613,8 +645,19 @@ mod tests {
     use crate::{MoneyEvent, WorkSession};
 
     fn line(id: &str, amount: i64, currency: &str) -> RoyaltyStatementLine {
-        RoyaltyStatementLine::new(id, "statement-1", "distributor-1", 100, 200, currency, amount)
-            .unwrap()
+        RoyaltyStatementLine::new(
+            id,
+            "statement-1",
+            "distributor-1",
+            "fixture-payable-normalization",
+            "1",
+            "evidence://source/statement-line",
+            100,
+            200,
+            currency,
+            amount,
+        )
+        .unwrap()
     }
 
     fn receipt(id: &str, amount: i64, currency: &str, kind: MoneyKind) -> MoneyEvent {
