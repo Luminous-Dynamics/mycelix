@@ -1,0 +1,52 @@
+name: Farmer UX Leptos prototype
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-commons/apps/leptos/**"
+      - ".github/workflows/farmer-ux-prototype.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-commons/apps/leptos/**"
+      - ".github/workflows/farmer-ux-prototype.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: farmer-ux-prototype-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  leptos-wasm-check:
+    name: Leptos WASM compile and formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact tested subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact tested subject
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-commons/apps/leptos -> target
+      - name: Check formatting
+        run: >-
+          rustfmt --edition 2024 --check --config skip_children=true
+          mycelix-workspace/mycelix-commons/apps/leptos/src/pages/farmer.rs
+          mycelix-workspace/mycelix-commons/apps/leptos/src/app.rs
+          mycelix-workspace/mycelix-commons/apps/leptos/src/pages/mod.rs
+          mycelix-workspace/mycelix-commons/apps/leptos/src/components/nav.rs
+      - name: Compile the CSR application for WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-commons/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
