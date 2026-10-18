@@ -832,6 +832,23 @@ mod tests {
     }
 
     #[test]
+    fn verified_artifact_bytes_cannot_override_metadata_blockers() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.required_checks[0].mandatory = false;
+
+        let report = evaluate_verified_review_gate(&assessment, &|_: &EvidenceRef| {
+            EvidenceVerification::Verified
+        });
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::NoMandatoryChecks));
+        assert!(report
+            .blockers
+            .contains(&Blocker::RulePackCheckMandatoryFlagMismatch(
+                "structural-review".into()
+            )));
+    }
+
+    #[test]
     fn empty_scope_and_scope_without_mandatory_checks_block() {
         let mut empty = input(Vec::new());
         empty.required_checks.clear();
