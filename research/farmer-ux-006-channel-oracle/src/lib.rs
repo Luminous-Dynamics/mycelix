@@ -157,7 +157,6 @@ fn has_different_two_strings(case: &Value, field: &str) -> bool {
 }
 
 fn required_case_rule(
-    _document: &Value,
     errors: &mut Vec<String>,
     id: &str,
     description: &str,
@@ -202,110 +201,160 @@ pub fn semantic_errors(document: &Value) -> Vec<String> {
             continue;
         };
         match *id {
-            "FUXC-001" => {
-                required_case_rule(document, &mut errors, id, "one logical request survives app-to-cooperative handoff",
-                    has_string(case, "expected", "same_logical_request")
-                        && has_same_two_strings(case, "request_refs")
-                        && has_effect(case, "prohibited", "create_second_request"));
-            }
-            "FUXC-002" => {
-                required_case_rule(document, &mut errors, id, "same event ID and same digest are idempotent",
-                    has_string(case, "expected", "idempotent_duplicate")
-                        && has_same_two_strings(case, "event_ids")
-                        && has_same_two_strings(case, "request_refs")
-                        && case.get("digests_equal").and_then(Value::as_bool) == Some(true)
-                        && has_effect(case, "prohibited", "apply_effect_twice"));
-            }
-            "FUXC-003" => {
-                required_case_rule(document, &mut errors, id, "same event ID with a different digest is quarantined, not overwritten",
-                    has_string(case, "expected", "event_id_equivocation_conflict")
-                        && has_same_two_strings(case, "event_ids")
-                        && case.get("digests_equal").and_then(Value::as_bool) == Some(false)
-                        && has_effect(case, "prohibited", "overwrite_original")
-                        && has_effect(case, "allowed_effects", "quarantine_and_record_conflict"));
-            }
-            "FUXC-004" => {
-                required_case_rule(document, &mut errors, id, "unverified intermediary authority cannot cause onward payload disclosure",
-                    has_string(case, "authority", "unverified_relay")
-                        && case.get("actor").and_then(Value::as_str) != case.get("recorder").and_then(Value::as_str)
-                        && has_effect(case, "prohibited", "forward_sensitive_payload"));
-            }
-            "FUXC-005" => {
-                required_case_rule(document, &mut errors, id, "relay is not provider receipt, quote, or booking",
-                    has_string(case, "expected", "relayed_not_provider_acknowledged")
-                        && has_effect(case, "prohibited", "promote_to_provider_receipt")
-                        && has_effect(case, "prohibited", "promote_to_booking"));
-            }
-            "FUXC-006" => {
-                required_case_rule(document, &mut errors, id, "late provider receipt attaches to the same request",
-                    has_same_two_strings(case, "request_refs")
-                        && has_effect(case, "prohibited", "create_new_request")
-                        && has_effect(case, "prohibited", "book_without_quote_acceptance"));
-            }
-            "FUXC-007" => {
-                required_case_rule(document, &mut errors, id, "out-of-order events remain uncertain until reconciliation",
-                    has_string(case, "expected", "retain_order_uncertainty_and_block_illegal_promotion")
-                        && has_effect(case, "prohibited", "silently_reorder_into_valid_booking"));
-            }
-            "FUXC-008" => {
-                required_case_rule(document, &mut errors, id, "revoked consent blocks new disclosure and automatic forwarding retry",
-                    has_string(case, "authority", "consent_revoked_before_forward")
-                        && has_effect(case, "prohibited", "forward_payload")
-                        && has_effect(case, "prohibited", "automatic_retry"));
-            }
-            "FUXC-009" => {
-                required_case_rule(document, &mut errors, id, "a submitted request cannot be silently retargeted",
-                    has_string(case, "expected", "preserve_original_scope_and_block_retarget")
-                        && has_effect(case, "prohibited", "retarget_existing_request"));
-            }
-            "FUXC-010" => {
-                required_case_rule(document, &mut errors, id, "device timestamp alone cannot promote authoritative order",
-                    has_string(case, "time_source", "device_clock")
-                        && has_effect(case, "prohibited", "promote_by_client_timestamp_alone"));
-            }
-            "FUXC-011" => {
-                required_case_rule(document, &mut errors, id, "claimed paper time is not server receipt or verified time",
-                    has_string(case, "time_source", "paper_claim")
-                        && has_effect(case, "prohibited", "backdate_server_receipt")
-                        && has_effect(case, "prohibited", "present_claimed_time_as_verified"));
-            }
-            "FUXC-012" => {
-                required_case_rule(document, &mut errors, id, "no-provider outcomes remain in the denominator",
-                    has_string(case, "expected", "no_provider_outcome_remains_in_denominator")
-                        && has_effect(case, "prohibited", "drop_request_from_report"));
-            }
-            "FUXC-013" => {
-                required_case_rule(document, &mut errors, id, "provider-reported completion is not farmer acceptance",
-                    has_string(case, "expected", "provider_reported_not_farmer_accepted")
-                        && has_effect(case, "prohibited", "count_as_accepted_service"));
-            }
-            "FUXC-014" => {
-                required_case_rule(document, &mut errors, id, "farmer dispute remains visible and is never force-accepted",
-                    has_string(case, "expected", "dispute_remains_visible")
-                        && has_effect(case, "prohibited", "erase_provider_claim")
-                        && has_effect(case, "prohibited", "force_acceptance"));
-            }
-            "FUXC-015" => {
-                required_case_rule(document, &mut errors, id, "unknown remote outcome stays unknown and is not automatically resent",
-                    has_string(case, "expected", "preserve_unknown_without_auto_retry")
-                        && has_effect(case, "prohibited", "claim_failure")
-                        && has_effect(case, "prohibited", "claim_success")
-                        && has_effect(case, "prohibited", "resend_automatically"));
-            }
-            "FUXC-016" => {
-                required_case_rule(document, &mut errors, id, "correction appends and preserves history",
-                    has_string(case, "expected", "append_correction_preserve_history")
-                        && has_effect(case, "prohibited", "rewrite_original_event")
-                        && has_effect(case, "prohibited", "silently_promote_relay_to_authoritative_quote"));
-            }
-            "FUXC-017" => {
-                required_case_rule(document, &mut errors, id, "similar requests with distinct references are linked for review but never auto-merged or dropped",
-                    has_string(case, "expected", "suspected_duplicate_link_not_merge")
-                        && has_different_two_strings(case, "request_refs")
-                        && has_effect(case, "prohibited", "auto_merge_requests")
-                        && has_effect(case, "prohibited", "drop_one_request_from_denominator")
-                        && has_effect(case, "prohibited", "copy_remote_receipt_across_requests"));
-            }
+            "FUXC-001" => required_case_rule(
+                &mut errors,
+                id,
+                "one logical request survives app-to-cooperative handoff",
+                has_string(case, "expected", "same_logical_request")
+                    && has_same_two_strings(case, "request_refs")
+                    && has_effect(case, "prohibited", "create_second_request"),
+            ),
+            "FUXC-002" => required_case_rule(
+                &mut errors,
+                id,
+                "same event ID and same digest are idempotent",
+                has_string(case, "expected", "idempotent_duplicate")
+                    && has_same_two_strings(case, "event_ids")
+                    && has_same_two_strings(case, "request_refs")
+                    && case.get("digests_equal").and_then(Value::as_bool) == Some(true)
+                    && has_effect(case, "prohibited", "apply_effect_twice"),
+            ),
+            "FUXC-003" => required_case_rule(
+                &mut errors,
+                id,
+                "same event ID with a different digest is quarantined, not overwritten",
+                has_string(case, "expected", "event_id_equivocation_conflict")
+                    && has_same_two_strings(case, "event_ids")
+                    && case.get("digests_equal").and_then(Value::as_bool) == Some(false)
+                    && has_effect(case, "prohibited", "overwrite_original")
+                    && has_effect(
+                        case,
+                        "allowed_effects",
+                        "quarantine_and_record_conflict",
+                    ),
+            ),
+            "FUXC-004" => required_case_rule(
+                &mut errors,
+                id,
+                "unverified intermediary authority cannot cause onward payload disclosure",
+                has_string(case, "authority", "unverified_relay")
+                    && case.get("actor").and_then(Value::as_str)
+                        != case.get("recorder").and_then(Value::as_str)
+                    && has_effect(case, "prohibited", "forward_sensitive_payload"),
+            ),
+            "FUXC-005" => required_case_rule(
+                &mut errors,
+                id,
+                "relay is not provider receipt, quote, or booking",
+                has_string(case, "expected", "relayed_not_provider_acknowledged")
+                    && has_effect(case, "prohibited", "promote_to_provider_receipt")
+                    && has_effect(case, "prohibited", "promote_to_booking"),
+            ),
+            "FUXC-006" => required_case_rule(
+                &mut errors,
+                id,
+                "late provider receipt attaches to the same request",
+                has_same_two_strings(case, "request_refs")
+                    && has_effect(case, "prohibited", "create_new_request")
+                    && has_effect(case, "prohibited", "book_without_quote_acceptance"),
+            ),
+            "FUXC-007" => required_case_rule(
+                &mut errors,
+                id,
+                "out-of-order events remain uncertain until reconciliation",
+                has_string(
+                    case,
+                    "expected",
+                    "retain_order_uncertainty_and_block_illegal_promotion",
+                ) && has_effect(
+                    case,
+                    "prohibited",
+                    "silently_reorder_into_valid_booking",
+                ),
+            ),
+            "FUXC-008" => required_case_rule(
+                &mut errors,
+                id,
+                "revoked consent blocks new disclosure and automatic forwarding retry",
+                has_string(case, "authority", "consent_revoked_before_forward")
+                    && has_effect(case, "prohibited", "forward_payload")
+                    && has_effect(case, "prohibited", "automatic_retry"),
+            ),
+            "FUXC-009" => required_case_rule(
+                &mut errors,
+                id,
+                "a submitted request cannot be silently retargeted",
+                has_string(case, "expected", "preserve_original_scope_and_block_retarget")
+                    && has_effect(case, "prohibited", "retarget_existing_request"),
+            ),
+            "FUXC-010" => required_case_rule(
+                &mut errors,
+                id,
+                "device timestamp alone cannot promote authoritative order",
+                has_string(case, "time_source", "device_clock")
+                    && has_effect(case, "prohibited", "promote_by_client_timestamp_alone"),
+            ),
+            "FUXC-011" => required_case_rule(
+                &mut errors,
+                id,
+                "claimed paper time is not server receipt or verified time",
+                has_string(case, "time_source", "paper_claim")
+                    && has_effect(case, "prohibited", "backdate_server_receipt")
+                    && has_effect(case, "prohibited", "present_claimed_time_as_verified"),
+            ),
+            "FUXC-012" => required_case_rule(
+                &mut errors,
+                id,
+                "no-provider outcomes remain in the denominator",
+                has_string(case, "expected", "no_provider_outcome_remains_in_denominator")
+                    && has_effect(case, "prohibited", "drop_request_from_report"),
+            ),
+            "FUXC-013" => required_case_rule(
+                &mut errors,
+                id,
+                "provider-reported completion is not farmer acceptance",
+                has_string(case, "expected", "provider_reported_not_farmer_accepted")
+                    && has_effect(case, "prohibited", "count_as_accepted_service"),
+            ),
+            "FUXC-014" => required_case_rule(
+                &mut errors,
+                id,
+                "farmer dispute remains visible and is never force-accepted",
+                has_string(case, "expected", "dispute_remains_visible")
+                    && has_effect(case, "prohibited", "erase_provider_claim")
+                    && has_effect(case, "prohibited", "force_acceptance"),
+            ),
+            "FUXC-015" => required_case_rule(
+                &mut errors,
+                id,
+                "unknown remote outcome stays unknown and is not automatically resent",
+                has_string(case, "expected", "preserve_unknown_without_auto_retry")
+                    && has_effect(case, "prohibited", "claim_failure")
+                    && has_effect(case, "prohibited", "claim_success")
+                    && has_effect(case, "prohibited", "resend_automatically"),
+            ),
+            "FUXC-016" => required_case_rule(
+                &mut errors,
+                id,
+                "correction appends and preserves history",
+                has_string(case, "expected", "append_correction_preserve_history")
+                    && has_effect(case, "prohibited", "rewrite_original_event")
+                    && has_effect(
+                        case,
+                        "prohibited",
+                        "silently_promote_relay_to_authoritative_quote",
+                    ),
+            ),
+            "FUXC-017" => required_case_rule(
+                &mut errors,
+                id,
+                "similar requests with distinct references are linked for review but never auto-merged or dropped",
+                has_string(case, "expected", "suspected_duplicate_link_not_merge")
+                    && has_different_two_strings(case, "request_refs")
+                    && has_effect(case, "prohibited", "auto_merge_requests")
+                    && has_effect(case, "prohibited", "drop_one_request_from_denominator")
+                    && has_effect(case, "prohibited", "copy_remote_receipt_across_requests"),
+            ),
             _ => {}
         }
     }
@@ -506,10 +555,10 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             reasons.push(format!("expected 1 quarantined conflict, observed {conflicts}"));
         }
         if ledger.request_count() != 8 {
-            reasons.push(format!("expected 8 distinct requests, observed {}", ledger.request_count()));
+            reasons.push(format!(\n                "expected 8 distinct requests, observed {}",\n                ledger.request_count()\n            ));
         }
         for (event_id, expected_digest) in first_digest_by_id {
-            if ledger.stored(&event_id).map(|event| event.digest.as_str()) != Some(expected_digest.as_str()) {
+            if ledger.stored(&event_id).map(|event| event.digest.as_str())\n                != Some(expected_digest.as_str())\n            {
                 reasons.push(format!("first-seen event was silently overwritten: {event_id}"));
             }
         }
@@ -517,7 +566,7 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             reasons.push("relay evidence was promoted to booking".to_owned());
         }
         if forwarding_allowed(true, false) || forwarding_allowed(false, true) {
-            reasons.push("forwarding allowed without both authority and current consent".to_owned());
+            reasons.push(\n                "forwarding allowed without both authority and current consent".to_owned(),\n            );
         }
         if !reasons.is_empty() && violations.len() < 100 {
             violations.push(format!("schedule {seed}: {}", reasons.join("; ")));
@@ -574,7 +623,7 @@ pub fn verify_repository(root: &Path) -> Result<OracleReport, String> {
     let schema_failed = artifact_checks
         .iter()
         .any(|artifact| artifact.schema_status != "PASS");
-    let status = if schema_failed || !errors.is_empty() || !schedules.invariant_violations.is_empty() {
+    let status = if schema_failed\n        || !errors.is_empty()\n        || !schedules.invariant_violations.is_empty()\n    {
         "FAIL"
     } else {
         "PASS"
@@ -598,7 +647,7 @@ pub fn find_repository_root() -> Result<PathBuf, String> {
             return Ok(current);
         }
         if !current.pop() {
-            return Err(format!("could not find {CASES_PATH} walking up from the current directory"));
+            return Err(format!(\n                "could not find {CASES_PATH} walking up from the current directory"\n            ));
         }
     }
 }
@@ -617,7 +666,7 @@ mod tests {
     fn schemas_semantics_and_schedule_model_pass() {
         let root = find_repository_root().expect("repository root");
         let report = verify_repository(&root).expect("read conformance fixtures");
-        assert_eq!(report.status, "PASS", "report: {}", serde_json::to_string_pretty(&report).unwrap());
+        assert_eq!(\n            report.status,\n            "PASS",\n            "report: {}",\n            serde_json::to_string_pretty(&report).unwrap()\n        );
         assert_eq!(report.case_count, 17);
         assert_eq!(report.artifact_checks.len(), 2);
         assert!(report.artifact_checks.iter().all(|item| item.schema_status == "PASS"));
@@ -735,10 +784,10 @@ mod tests {
     fn source_evidence_cannot_claim_a_higher_authority_class() {
         assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::ProviderReceipt));
         assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::BookingConfirmed));
-        assert!(!evidence_can_support_claim(EvidenceKind::ProviderReportedComplete, ClaimType::FarmerAccepted));
-        assert!(!evidence_can_support_claim(EvidenceKind::OutcomeUnknown, ClaimType::BookingConfirmed));
-        assert!(evidence_can_support_claim(EvidenceKind::ProviderReceipt, ClaimType::ProviderReceipt));
-        assert!(evidence_can_support_claim(EvidenceKind::FarmerAcceptance, ClaimType::FarmerAccepted));
+        assert!(!evidence_can_support_claim(\n            EvidenceKind::ProviderReportedComplete,\n            ClaimType::FarmerAccepted\n        ));
+        assert!(!evidence_can_support_claim(\n            EvidenceKind::OutcomeUnknown,\n            ClaimType::BookingConfirmed\n        ));
+        assert!(evidence_can_support_claim(\n            EvidenceKind::ProviderReceipt,\n            ClaimType::ProviderReceipt\n        ));
+        assert!(evidence_can_support_claim(\n            EvidenceKind::FarmerAcceptance,\n            ClaimType::FarmerAccepted\n        ));
     }
 
     #[test]
