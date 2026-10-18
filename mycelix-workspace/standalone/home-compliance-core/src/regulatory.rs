@@ -207,6 +207,260 @@ pub fn evaluate_source_applicability(
     }
 }
 
+/// A candidate assertion for a single normalized requirement. The source's
+/// legal applicability must come from evaluate_source_applicability; this
+/// resolver never invents legal precedence or interprets clause text.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RequirementAssertion {
+    pub requirement_id: String,
+    pub source_id: String,
+    pub clause_ref: String,
+    /// Canonical, typed encoding such as a dimensioned bound or enum value.
+    /// This core compares values exactly; it does not infer which bound is safer.
+    pub normalized_value: String,
+    /// Jurisdiction-specific, reviewed precedence rank. Higher means higher
+    /// precedence in this configured profile; no universal hierarchy is assumed.
+    pub precedence_rank: Option<i32>,
+    pub applicability: SourceApplicability,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RequirementResolutionPolicy {
+    RequireAgreement,
+    UseExplicitPrecedence,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceClauseRef {
+    pub source_id: String,
+    pub clause_ref: String,
+    pub precedence_rank: Option<i32>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ResolutionBasis {
+    Agreement,
+    ExplicitJurisdictionPrecedence,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RequirementResolutionIssue {
+    NoApplicableAssertions,
+    InvalidAssertionMetadata,
+    MixedRequirementIds,
+    DuplicateSourceClause { source_id: String, clause_ref: String },
+    SourceStatusIndeterminate { source_id: String, reason: IndeterminateReason },
+    MissingExplicitPrecedence { source_id: String },
+    ConflictingHighestPrecedenceValues,
+    ConflictingValues,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RequirementResolution {
+    Resolved {
+        requirement_id: String,
+        normalized_value: String,
+        basis: ResolutionBasis,
+        contributing_sources: Vec<SourceClauseRef>,
+        superseded_sources: Vec<SourceClauseRef>,
+    },
+    Conflict {
+        requirement_id: String,
+        candidates: Vec<(String, Vec<SourceClauseRef>)>,
+    },
+    Indeterminate(RequirementResolutionIssue),
+}
+
+fn clause_ref(assertion: &RequirementAssertion) -> SourceClauseRef {
+    SourceClauseRef {
+        source_id: assertion.source_id.clone(),
+        clause_ref: assertion.clause_ref.clone(),
+        precedence_rank: assertion.precedence_rank,
+    }
+}
+
+/// Resolve assertions for one requirement without silently hiding legal
+/// conflicts. Non-binding and out-of-scope assertions do not determine a
+/// binding requirement. Any applicable-source status that is indeterminate
+/// blocks resolution because the authoritative source set may be incomplete.
+///
+/// RequireAgreement is the default, conservative policy. Explicit precedence
+/// is usable only when the jurisdiction profile supplies a rank for every
+/// applicable source and the highest-ranked sources agree. Rank assignment is
+/// itself a legal/profile governance responsibility, not inferred here.
+pub fn resolve_requirement(
+    assertions: &[RequirementAssertion],
+    policy: RequirementResolutionPolicy,
+) -> RequirementResolution {
+    let mut applicable = Vec::new();
+    for assertion in assertions {
+        if let SourceApplicability::Indeterminate(reason) = &assertion.applicability {
+            return RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::SourceStatusIndeterminate {
+                    source_id: assertion.source_id.clone(),
+                    reason: reason.clone(),
+                },
+            );
+        }
+        if assertion.applicability == SourceApplicability::Applicable {
+            applicable.push(assertion);
+        }
+    }
+
+    if applicable.is_empty() {
+        return RequirementResolution::Indeterminate(
+            RequirementResolutionIssue::NoApplicableAssertions,
+        );
+    }
+
+    if applicable.iter().any(|assertion| {
+        !nonblank(&assertion.requirement_id)
+            || !nonblank(&assertion.source_id)
+            || !nonblank(&assertion.clause_ref)
+            || !nonblank(&assertion.normalized_value)
+    }) {
+        return RequirementResolution::Indeterminate(
+            RequirementResolutionIssue::InvalidAssertionMetadata,
+        );
+    }
+
+    let requirement_id = applicable[0].requirement_id.as_str();
+    if applicable
+        .iter()
+        .any(|assertion| assertion.requirement_id != requirement_id)
+    {
+        return RequirementResolution::Indeterminate(
+            RequirementResolutionIssue::MixedRequirementIds,
+        );
+    }
+
+    let mut seen_clauses = std::collections::HashSet::new();
+    for assertion in &applicable {
+        let key = (assertion.source_id.as_str(), assertion.clause_ref.as_str());
+        if !seen_clauses.insert(key) {
+            return RequirementResolution::Indeterminate(
+                RequirementResolutionIssue::DuplicateSourceClause {
+                    source_id: assertion.source_id.clone(),
+                    clause_ref: assertion.clause_ref.clone(),
+                },
+            );
+        }
+    }
+
+    match policy {
+        RequirementResolutionPolicy::RequireAgreement => {
+            let first_value = applicable[0].normalized_value.as_str();
+            if applicable
+                .iter()
+                .any(|assertion| assertion.normalized_value != first_value)
+            {
+                let mut grouped: HashMap<String, Vec<SourceClauseRef>> = HashMap::new();
+                for assertion in applicable {
+                    grouped
+                        .entry(assertion.normalized_value.clone())
+                        .or_default()
+                        .push(clause_ref(assertion));
+                }
+                let mut candidates: Vec<_> = grouped.into_iter().collect();
+                candidates.sort_by(|left, right| left.0.cmp(&right.0));
+                for (_, sources) in &mut candidates {
+                    sources.sort_by(|left, right| {
+                        (&left.source_id, &left.clause_ref)
+                            .cmp(&(&right.source_id, &right.clause_ref))
+                    });
+                }
+                return RequirementResolution::Conflict {
+                    requirement_id: requirement_id.to_owned(),
+                    candidates,
+                };
+            }
+
+            let mut sources: Vec<_> = applicable.iter().map(|item| clause_ref(item)).collect();
+            sources.sort_by(|left, right| {
+                (&left.source_id, &left.clause_ref)
+                    .cmp(&(&right.source_id, &right.clause_ref))
+            });
+            RequirementResolution::Resolved {
+                requirement_id: requirement_id.to_owned(),
+                normalized_value: first_value.to_owned(),
+                basis: ResolutionBasis::Agreement,
+                contributing_sources: sources,
+                superseded_sources: Vec::new(),
+            }
+        }
+        RequirementResolutionPolicy::UseExplicitPrecedence => {
+            if let Some(assertion) = applicable
+                .iter()
+                .find(|assertion| assertion.precedence_rank.is_none())
+            {
+                return RequirementResolution::Indeterminate(
+                    RequirementResolutionIssue::MissingExplicitPrecedence {
+                        source_id: assertion.source_id.clone(),
+                    },
+                );
+            }
+
+            let highest = applicable
+                .iter()
+                .filter_map(|assertion| assertion.precedence_rank)
+                .max()
+                .expect("applicable is non-empty and missing ranks were rejected");
+            let top: Vec<_> = applicable
+                .iter()
+                .copied()
+                .filter(|assertion| assertion.precedence_rank == Some(highest))
+                .collect();
+            let first_value = top[0].normalized_value.as_str();
+            if top
+                .iter()
+                .any(|assertion| assertion.normalized_value != first_value)
+            {
+                let mut grouped: HashMap<String, Vec<SourceClauseRef>> = HashMap::new();
+                for assertion in top {
+                    grouped
+                        .entry(assertion.normalized_value.clone())
+                        .or_default()
+                        .push(clause_ref(assertion));
+                }
+                let mut candidates: Vec<_> = grouped.into_iter().collect();
+                candidates.sort_by(|left, right| left.0.cmp(&right.0));
+                return RequirementResolution::Conflict {
+                    requirement_id: requirement_id.to_owned(),
+                    candidates,
+                };
+            }
+
+            let top_ids: std::collections::HashSet<(&str, &str)> = top
+                .iter()
+                .map(|assertion| (assertion.source_id.as_str(), assertion.clause_ref.as_str()))
+                .collect();
+            let mut contributing_sources: Vec<_> = top.iter().map(|item| clause_ref(item)).collect();
+            let mut superseded_sources: Vec<_> = applicable
+                .iter()
+                .filter(|item| {
+                    !top_ids.contains(&(item.source_id.as_str(), item.clause_ref.as_str()))
+                })
+                .map(|item| clause_ref(item))
+                .collect();
+            contributing_sources.sort_by(|left, right| {
+                (&left.source_id, &left.clause_ref)
+                    .cmp(&(&right.source_id, &right.clause_ref))
+            });
+            superseded_sources.sort_by(|left, right| {
+                (&left.source_id, &left.clause_ref)
+                    .cmp(&(&right.source_id, &right.clause_ref))
+            });
+            RequirementResolution::Resolved {
+                requirement_id: requirement_id.to_owned(),
+                normalized_value: first_value.to_owned(),
+                basis: ResolutionBasis::ExplicitJurisdictionPrecedence,
+                contributing_sources,
+                superseded_sources,
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
