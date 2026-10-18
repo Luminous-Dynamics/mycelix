@@ -371,7 +371,13 @@ mod tests {
     #[test]
     fn same_key_with_different_after_digest_fails_without_mutation() {
         let first = manifest(b"<report id='42'/>", 10, "vault://source", "1.0", &"11".repeat(32));
-        let conflicting = manifest(b"<report id='42'/>", 99, "vault://archive", "1.0", &"22".repeat(32));
+        let conflicting = manifest(
+            b"<report id='42'/>",
+            99,
+            "vault://archive",
+            "1.0",
+            &"22".repeat(32),
+        );
         let mut ledger = ImportReplayLedger::new();
 
         ledger.record(&first).unwrap();
@@ -413,39 +419,44 @@ mod tests {
     }
 
     #[test]
-    fn warnings_are_part_of_the_import_result_fingerprint() {
-        let source = source(b"<report><extra/></report>", 1, "vault://source", "1.0");
+    fn conflicting_result_for_same_processing_key_fails_closed() {
+        let source = source(b"<report><id>42</id></report>", 1, "vault://source", "1.0");
+        let fields = vec![
+            FieldMapping::mapped("/Report/Id", "/statement/id", "report-id", "1").unwrap(),
+        ];
         let clean = ImportProvenanceManifest::new(
             source.clone(),
             InventoryStatus::CompleteAsReportedByParser,
             ImportOutcome::Imported,
             "00".repeat(32),
             Some("11".repeat(32).as_str()),
-            vec![FieldMapping::mapped("/Report/Id", "/statement/id", "report-id", "1").unwrap()],
+            fields.clone(),
             vec![],
         )
         .unwrap();
+        // Same source, parser, and mappings, but a warning/outcome discrepancy
+        // must not be accepted as an idempotent replay.
         let warned = ImportProvenanceManifest::new(
             source,
             InventoryStatus::CompleteAsReportedByParser,
             ImportOutcome::ImportedWithWarnings,
             "00".repeat(32),
             Some("11".repeat(32).as_str()),
-            vec![
-                FieldMapping::unsupported_retained("/Report/Extra", "unsupported_field").unwrap(),
-                FieldMapping::mapped("/Report/Id", "/statement/id", "report-id", "1").unwrap(),
-            ],
+            fields,
             vec![ImportDiagnostic::new(
-                "unsupported_field",
+                "source_warning",
                 DiagnosticSeverity::Warning,
-                Some("/Report/Extra"),
-                "Retained in original source payload",
-            ).unwrap()],
+                None,
+                "Source carried a warning not present in the first receipt",
+            )
+            .unwrap()],
         )
         .unwrap();
         let mut ledger = ImportReplayLedger::new();
-        let a = ledger.record(&clean).unwrap();
-        let b = ledger.record(&warned).unwrap();
-        assert_ne!(a.key_digest(), b.key_digest());
+        let first = ledger.record(&clean).unwrap();
+        assert_eq!(ledger.len(), 1);
+        assert_eq!(ledger.record(&warned), Err(ImportReplayError::ResultConflict));
+        assert_eq!(ledger.len(), 1);
+        assert_eq!(first.disposition(), ReplayDisposition::Recorded);
     }
 }
