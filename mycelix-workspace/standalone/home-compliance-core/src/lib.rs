@@ -1,8 +1,3 @@
-#![forbid(unsafe_code)]
-
-pub mod evolution;
-pub mod regulatory;
-
 //! A small, deterministic gate for evidence packages produced by a future
 //! home-design and compliance compiler.
 //!
@@ -10,6 +5,11 @@ pub mod regulatory;
 //! calculations, or professional credentials. It checks whether a scoped set
 //! of mandatory findings is complete enough for professional review. It
 //! intentionally never returns a legal "compliant" or "approved" verdict.
+
+#![forbid(unsafe_code)]
+
+pub mod evolution;
+pub mod regulatory;
 
 use std::collections::{HashMap, HashSet};
 
