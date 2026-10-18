@@ -6,13 +6,13 @@ A standard-library-only Rust prototype for deterministic creator career accounti
 
 - Exact minor-unit financial arithmetic without cross-currency aggregation.
 - Distinct receipts, refunds, fees, and operating costs.
-- Normalized payable assertions are kept outside observed cash totals until an explicit approved allocation links a statement line to an actual ledger receipt. Raw usage revenue is not automatically treated as payable or cash. Partial settlements, multi-line payouts, currency mismatches, overallocations, and append-only allocation reversals are represented deterministically.
+- Normalized payable assertions require a mapping-rule ID/version and source-evidence reference, stay outside observed cash totals, and need an explicit approved allocation to link to an actual ledger receipt. Raw usage revenue is not automatically treated as payable or cash. Partial settlements, multi-line payouts, currency mismatches, overallocations, and append-only allocation reversals are represented deterministically.
 - Creator-recorded work sessions with checked time arithmetic and overlap rejection, so one person's overlapping sessions cannot inflate the work-hour denominator.
 - Idempotent identical replays; fail-closed rejection when the same record ID is reused for different data.
 - Exact rational net-contribution-per-work-hour representation only when the ledger has one currency and recorded work time; missing time or multiple currencies returns an explicit unavailable reason.
 - Independent summary checker implemented with a separate aggregation path.
 - A deterministic revenue stress-scenario module for explicit user-entered source declines; it is labeled as a what-if, never a forecast, holds deductions constant visibly, marks data coverage, keeps currencies separate, and uses conservative minor-unit rounding.
-- Hostile/golden tests for arithmetic, tampering, higher gross receipts with worse economics, mixed-currency abstention, source shocks, incomplete evidence, input rejection, and statement-to-cash reconciliation. Source currently contains 30 unit-test functions across the ledger/scenario/settlement modules and 19 integration-test functions; these are authored tests until the exact-head CI receipt confirms their execution.
+- Hostile/golden tests for arithmetic, tampering, higher gross receipts with worse economics, mixed-currency abstention, source shocks, incomplete evidence, input rejection, and statement-to-cash reconciliation. Source currently contains 30 unit-test functions across the ledger/scenario/settlement modules and 21 integration-test functions; these are authored tests until the exact-head CI receipt confirms their execution.
 - No network, secrets, telemetry, database, serialization library, or third-party dependencies.
 
 ## Reconciliation contract and tracker
