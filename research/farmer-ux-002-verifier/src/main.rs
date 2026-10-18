@@ -78,7 +78,7 @@ const REQUIRED_FORBIDDEN_LABELS: &[(&str, &str)] = &[
     ("FUX-QUOTE-003", "booking_confirmed"),
     ("FUX-SYNC-004", "silent_last_write_wins"),
     ("FUX-ROUTE-005", "invented_travel_minutes"),
-    ("FUX-NOPROVIDER-006", "service_delivered"),
+    ("FUX-NOPROVIDER-006", "request_hidden_from_history"),
     ("FUX-COMPLETION-007", "farmer_accepted"),
     ("FUX-REWORK-008", "accepted_service"),
     ("FUX-CONSENT-010", "future_share_without_authority"),
