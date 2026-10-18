@@ -1,0 +1,774 @@
+/* Farmer-first Today prototype.
+   All visuals use existing Mycelix Commons design tokens. */
+
+.farmer-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    max-width: 1200px;
+}
+
+.farmer-prototype-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--warning);
+    border-radius: 10px;
+}
+
+.farmer-notice-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    min-height: 34px;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid var(--warning);
+    border-radius: 7px;
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.farmer-prototype-notice strong,
+.farmer-sync-card strong {
+    display: block;
+    font-size: 0.94rem;
+}
+
+.farmer-prototype-notice p,
+.farmer-sync-card p {
+    margin-top: 0.12rem;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.farmer-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(250px, 0.65fr);
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.7rem 0 0.2rem;
+}
+
+.farmer-eyebrow {
+    margin-bottom: 0.32rem;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.farmer-heading-copy h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 3.8vw, 2.65rem);
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+}
+
+.farmer-lead {
+    max-width: 640px;
+    margin-top: 0.6rem;
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.farmer-sync-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.farmer-state-symbol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 2rem;
+    border: 1px solid var(--warning);
+    border-radius: 50%;
+    color: var(--warning);
+    font-size: 1.25rem;
+}
+
+.farmer-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0.2rem 0 0.15rem;
+}
+
+.farmer-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 46px;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.farmer-button:hover {
+    transform: translateY(-1px);
+}
+
+.farmer-button-primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #052e16;
+}
+
+.farmer-button-primary:hover {
+    background: #166534;
+    border-color: #166534;
+    color: #ffffff;
+}
+
+.farmer-button-secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.farmer-button-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.farmer-primary-grid,
+.farmer-secondary-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    align-items: start;
+    gap: 1rem;
+}
+
+.farmer-secondary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.farmer-page section {
+    margin: 0;
+}
+
+.farmer-panel {
+    min-width: 0;
+    padding: 1.1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+}
+
+.farmer-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.farmer-section-heading .farmer-eyebrow {
+    margin-bottom: 0.15rem;
+}
+
+.farmer-section-heading h2 {
+    margin: 0;
+    font-size: 1.23rem;
+    line-height: 1.3;
+}
+
+.farmer-demo-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.farmer-attention-item {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.farmer-attention-item + .farmer-attention-item {
+    margin-top: 0.75rem;
+}
+
+.farmer-attention-muted {
+    background: var(--bg-secondary);
+}
+
+.farmer-item-topline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+    margin-bottom: 0.65rem;
+}
+
+.farmer-status-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    max-width: 100%;
+    padding: 0.25rem 0.58rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.farmer-status-check {
+    color: #fde68a;
+    background: #854d0e55;
+    border: 1px solid #a1620755;
+}
+
+.farmer-status-unknown {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+
+.farmer-status-neutral {
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+}
+
+.farmer-time-label {
+    color: var(--text-secondary);
+    font-size: 0.77rem;
+}
+
+.farmer-attention-item h3,
+.farmer-task-copy h3,
+.farmer-condition-copy h3 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.farmer-attention-item > p {
+    margin-top: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.farmer-evidence-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.45rem 0.9rem;
+    margin-top: 0.85rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.farmer-evidence-label {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.farmer-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem 1.2rem;
+    margin-top: 0.9rem;
+}
+
+.farmer-text-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.35rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.farmer-rule-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+    padding: 0.8rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.farmer-rule-note > span {
+    color: var(--accent);
+    font-weight: 900;
+}
+
+.farmer-rule-note p {
+    margin: 0;
+}
+
+.farmer-task-list,
+.farmer-service-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.farmer-task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 0.95rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.farmer-task-item:first-child {
+    padding-top: 0.2rem;
+}
+
+.farmer-task-item:last-child {
+    border-bottom: 0;
+}
+
+.farmer-task-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.3rem;
+    height: 2.3rem;
+    flex: 0 0 2.3rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.farmer-task-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.farmer-task-copy p {
+    margin: 0.25rem 0 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+}
+
+.farmer-bottom-note {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.farmer-condition-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.farmer-condition-item {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.farmer-condition-item:first-child {
+    padding-top: 0.15rem;
+}
+
+.farmer-condition-item:last-child {
+    border-bottom: 0;
+}
+
+.farmer-condition-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 1.2rem;
+}
+
+.farmer-condition-copy p {
+    margin-top: 0.15rem;
+    color: var(--text-secondary);
+    font-size: 0.79rem;
+}
+
+.farmer-source-footnote {
+    margin-top: 0.8rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.farmer-service-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding-bottom: 1rem;
+}
+
+.farmer-service-step:last-child {
+    padding-bottom: 0;
+}
+
+.farmer-step-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    flex: 0 0 1.9rem;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.farmer-step-current .farmer-step-marker {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.farmer-service-step strong {
+    display: block;
+    font-size: 0.9rem;
+}
+
+.farmer-service-step p {
+    margin-top: 0.15rem;
+    color: var(--text-secondary);
+    font-size: 0.81rem;
+}
+
+.farmer-capture-panel {
+    border-color: var(--accent);
+    scroll-margin-top: 1rem;
+}
+
+.farmer-form-intro {
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.farmer-close-button {
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.farmer-form-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+    gap: 1rem;
+}
+
+.farmer-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.farmer-field > span {
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.farmer-field select,
+.farmer-field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 0.7rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.farmer-field textarea {
+    min-height: 112px;
+    resize: vertical;
+}
+
+.farmer-field select:focus-visible,
+.farmer-field textarea:focus-visible,
+.farmer-button:focus-visible,
+.farmer-text-action:focus-visible,
+.farmer-close-button:focus-visible {
+    outline: 3px solid var(--md-signal);
+    outline-offset: 3px;
+}
+
+.farmer-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 1rem;
+}
+
+.farmer-draft-preview {
+    margin-top: 1.2rem;
+    padding: 1rem;
+    border: 1px dashed var(--warning);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.farmer-draft-preview h3 {
+    margin-bottom: 0.8rem;
+    font-size: 1.05rem;
+}
+
+.farmer-draft-preview dl {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.3fr) minmax(0, 0.7fr);
+    gap: 0.55rem 1rem;
+}
+
+.farmer-draft-preview dl > div {
+    display: contents;
+}
+
+.farmer-draft-preview dt {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.farmer-draft-preview dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.88rem;
+}
+
+.farmer-important-disclaimer {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+@media (prefers-color-scheme: light) {
+    .farmer-status-check {
+        color: #78350f;
+        background: #fef3c7;
+        border-color: #f59e0b;
+    }
+
+    .farmer-status-unknown {
+        color: #334155;
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+}
+
+@media (max-width: 900px) {
+    .farmer-page-header,
+    .farmer-primary-grid,
+    .farmer-secondary-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .farmer-sync-card {
+        max-width: none;
+    }
+}
+
+@media (max-width: 620px) {
+    .farmer-page {
+        gap: 0.85rem;
+    }
+
+    .farmer-prototype-notice {
+        gap: 0.6rem;
+        padding: 0.75rem;
+    }
+
+    .farmer-notice-mark {
+        min-width: 42px;
+    }
+
+    .farmer-heading-copy h1 {
+        font-size: 1.85rem;
+    }
+
+    .farmer-lead {
+        font-size: 0.92rem;
+    }
+
+    .farmer-quick-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .farmer-quick-actions .farmer-button {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .farmer-panel {
+        padding: 0.9rem;
+        border-radius: 10px;
+    }
+
+    .farmer-condition-item {
+        grid-template-columns: 2rem minmax(0, 1fr);
+        align-items: start;
+        gap: 0.5rem 0.65rem;
+    }
+
+    .farmer-condition-item .farmer-status-label {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .farmer-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .farmer-form-actions {
+        flex-direction: column;
+    }
+
+    .farmer-form-actions .farmer-button {
+        width: 100%;
+    }
+
+    .farmer-draft-preview dl {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.25rem;
+    }
+
+    .farmer-draft-preview dd {
+        margin-bottom: 0.4rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .farmer-button {
+        transition: none;
+    }
+
+    .farmer-button:hover {
+        transform: none;
+    }
+}
+
+.farmer-workflow-demo {
+    margin-top: 1rem;
+    padding: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.farmer-workflow-demo h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.farmer-simulation-intro {
+    margin-top: 0.3rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.farmer-simulation-status {
+    margin: 0.85rem 0;
+    padding: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+.farmer-simulation-status h4 {
+    margin-top: 0.55rem;
+    font-size: 0.98rem;
+    line-height: 1.4;
+}
+
+.farmer-simulation-status p {
+    margin-top: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.farmer-choice-prompt {
+    margin-bottom: 0.5rem;
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.farmer-walkthrough-choice .farmer-form-actions {
+    margin-top: 0;
+}
+
+@media (max-width: 620px) {
+    .farmer-workflow-demo .farmer-button {
+        width: 100%;
+    }
+}
+
