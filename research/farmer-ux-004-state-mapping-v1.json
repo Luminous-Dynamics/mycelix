@@ -12,50 +12,50 @@
     {
       "status": "Prepared",
       "needs_reconciliation": false,
-      "meaning": "May begin an attempt. This does not authorize a network send; dispatch requires a durably committed and verified Submitted record.",
-      "can_start_attempt": true
+      "meaning": "A validated operation attempt is prepared and may advance to Submitted. This does not authorize a network send; dispatch requires a durably committed and verified Submitted record.",
+      "can_advance_to_submitted": true
     },
     {
       "status": "Submitted",
       "needs_reconciliation": true,
       "meaning": "Durable pre-send marker exists; request may have been sent.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     },
     {
       "status": "Confirmed",
       "needs_reconciliation": false,
       "meaning": "A successful typed response was received; only its precise semantics are confirmed.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     },
     {
       "status": "ExplicitlyRejected",
       "needs_reconciliation": false,
       "meaning": "A typed authoritative rejection proves the mutation was not applied.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     },
     {
       "status": "OutcomeUnknown",
       "needs_reconciliation": true,
       "meaning": "Remote effect may or may not have occurred; never blindly replay.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     },
     {
       "status": "ReconciledApplied",
       "needs_reconciliation": false,
       "meaning": "Authoritative evidence confirms the operation effect exists.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     },
     {
       "status": "ReconciledNotApplied",
       "needs_reconciliation": false,
       "meaning": "Authoritative evidence confirms the operation effect does not exist.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     },
     {
       "status": "NotSent",
       "needs_reconciliation": false,
       "meaning": "A local gate blocked transmission.",
-      "can_start_attempt": false
+      "can_advance_to_submitted": false
     }
   ],
   "farmer_service_states": [
