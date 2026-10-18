@@ -27,17 +27,51 @@ fn edge(input_id: &str, dependent_id: &str) -> DependencyEdge {
 /// IDs describe derived-from relationships, not UI display labels. A changed
 /// input invalidates its downstream results but does not invalidate siblings.
 fn reference_home_dependencies() -> Vec<DependencyEdge> {
-    vec![
-        edge("rulepack:za-jhb:energy", "finding:energy-rule"),
-        edge("model:energy", "finding:energy-rule"),
-        edge("finding:energy-rule", "assessment:permit-package"),
-        edge("finding:structure-review", "assessment:permit-package"),
-        edge("assessment:permit-package", "permit:submission"),
-        edge("model:floorplan", "finding:structure-review"),
-        edge("model:floorplan", "model:energy"),
-        edge("model:floorplan", "drawing:floorplan"),
-        edge("drawing:floorplan", "export:ifc"),
-    ]
+    // Deliberately parse the fixture's simple, formatted edge tuples rather than
+    // keeping a second, hand-maintained dependency graph in the test. The CI
+    // validator parses the complete JSON and checks schema and graph semantics.
+    let fixture = include_str!("../fixtures/johannesburg-adaptable-home-v1.json");
+    let marker = "\"dependency_edges\": [";
+    let start = fixture
+        .find(marker)
+        .expect("reference fixture must define dependency_edges");
+    let section = &fixture[start + marker.len()..];
+    let end = section
+        .find("\n  ],")
+        .expect("dependency_edges array must close at the expected fixture boundary");
+    let section = &section[..end];
+
+    let mut ids = Vec::new();
+    for line in section.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('"') {
+            continue;
+        }
+        let rest = trimmed
+            .strip_prefix('"')
+            .expect("quoted edge identifier must start with a quote");
+        let quote_end = rest
+            .find('"')
+            .expect("quoted edge identifier must terminate");
+        let id = &rest[..quote_end];
+        let trailing = rest[quote_end + 1..].trim();
+        assert!(
+            trailing.is_empty() || trailing == ",",
+            "unexpected text after dependency identifier: {trailing}"
+        );
+        assert!(!id.trim().is_empty(), "dependency IDs must not be empty");
+        ids.push(id.to_owned());
+    }
+
+    assert!(!ids.is_empty(), "dependency graph must not be empty");
+    assert_eq!(
+        ids.len() % 2,
+        0,
+        "dependency graph must contain complete input/dependent pairs"
+    );
+    ids.chunks_exact(2)
+        .map(|pair| edge(&pair[0], &pair[1]))
+        .collect()
 }
 
 #[test]
