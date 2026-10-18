@@ -35,8 +35,8 @@ pub fn FarmerPage() -> impl IntoView {
                 <div class="farmer-sync-card" role="status" aria-live="polite">
                     <span class="farmer-state-symbol" aria-hidden="true">"○"</span>
                     <div>
-                        <strong>"Demo mode — not connected"</strong>
-                        <p>"No records have been synced. Provider receipt: not available."</p>
+                        <strong>"Sample workspace — no live farm data"</strong>
+                        <p>"Farmer requests and provider receipts are not connected here."</p>
                     </div>
                 </div>
             </header>
@@ -208,7 +208,7 @@ pub fn FarmerPage() -> impl IntoView {
                     <ol class="farmer-service-steps">
                         <li class="farmer-service-step farmer-step-current">
                             <span class="farmer-step-marker" aria-hidden="true">"1"</span>
-                            <div><strong>"Problem recorded"</strong><p>"A demo draft can be previewed below; nothing is stored."</p></div>
+                            <div><strong>"Problem draft (demo only)"</strong><p>"The form previews draft details; nothing is stored or sent."</p></div>
                         </li>
                         <li class="farmer-service-step">
                             <span class="farmer-step-marker" aria-hidden="true">"2"</span>
