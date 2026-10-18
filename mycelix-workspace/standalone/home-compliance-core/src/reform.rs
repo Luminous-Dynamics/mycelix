@@ -441,6 +441,7 @@ pub enum ReformWorkflowIssue {
     InvalidDigest(&'static str),
     DossierIdMismatch,
     DossierSnapshotMismatch,
+    ConsultationIdMismatch,
     JurisdictionMismatch,
     InvalidConsultationDates,
     AdoptionPredatesConsultationClose,
@@ -558,7 +559,7 @@ pub fn validate_adoption_decision(
         issues.push(ReformWorkflowIssue::DossierSnapshotMismatch);
     }
     if decision.consultation_id != closeout.consultation_id {
-        issues.push(ReformWorkflowIssue::DossierIdMismatch);
+        issues.push(ReformWorkflowIssue::ConsultationIdMismatch);
     }
     if decision.jurisdiction_path != dossier.jurisdiction_path {
         issues.push(ReformWorkflowIssue::JurisdictionMismatch);
@@ -671,6 +672,122 @@ mod tests {
             dossier_conflict_of_interest_disclosure: "Funding, interests, and relationships disclosed".into(),
             independent_reviews: Vec::new(),
         }
+    }
+
+    fn consultation_ready_dossier() -> CodeReformDossier {
+        let mut current = dossier();
+        current.independent_reviews = vec![
+            review("reviewer:a", IndependentReviewDisposition::SupportsPublicConsultation),
+            review("reviewer:b", IndependentReviewDisposition::ChallengesProposal),
+        ];
+        current
+    }
+
+    fn consultation_closeout(dossier: &CodeReformDossier) -> PublicConsultationCloseout {
+        PublicConsultationCloseout {
+            consultation_id: "consultation:ventilation:2026".into(),
+            dossier_id: dossier.dossier_id.clone(),
+            dossier_snapshot_sha256: dossier.snapshot_sha256.clone(),
+            jurisdiction_path: dossier.jurisdiction_path.clone(),
+            opened_on_day: 110,
+            closed_on_day: 120,
+            public_notice_uri: "https://example.invalid/consultation/notice".into(),
+            feedback_archive_uri: "https://example.invalid/consultation/feedback".into(),
+            feedback_archive_sha256: "d".repeat(64),
+            feedback_count: 17,
+            response_summary: "All comments were categorized and answered; dissent is preserved".into(),
+            response_record_uri: "https://example.invalid/consultation/responses".into(),
+            response_record_sha256: "e".repeat(64),
+        }
+    }
+
+    fn adoption_decision(
+        dossier: &CodeReformDossier,
+        closeout: &PublicConsultationCloseout,
+    ) -> AdoptionDecisionRecord {
+        AdoptionDecisionRecord {
+            decision_id: "decision:building-board:2026-01".into(),
+            dossier_id: dossier.dossier_id.clone(),
+            dossier_snapshot_sha256: dossier.snapshot_sha256.clone(),
+            consultation_id: closeout.consultation_id.clone(),
+            jurisdiction_path: dossier.jurisdiction_path.clone(),
+            authority_id: "authority:lawfully-designated-building-board".into(),
+            decision_maker_id: "decision-maker:recorded-signatory".into(),
+            authority_basis_uri: "https://example.invalid/legal-authority-basis".into(),
+            public_decision_uri: "https://example.invalid/official-decision".into(),
+            public_decision_sha256: "f".repeat(64),
+            disposition: AdoptionDisposition::Adopted,
+            decided_on_day: 125,
+            effective_from_day: Some(140),
+        }
+    }
+
+    #[test]
+    fn adoption_metadata_requires_consultation_closeout_and_preserves_dissent_snapshot() {
+        let dossier = consultation_ready_dossier();
+        assert_eq!(
+            evaluate_reform_dossier(&dossier).status,
+            ReformDossierStatus::ReadyForPublicConsultation
+        );
+        let closeout = consultation_closeout(&dossier);
+        assert_eq!(validate_public_consultation_closeout(&dossier, &closeout), Ok(()));
+        let recorded = validate_adoption_decision(
+            &dossier,
+            &closeout,
+            adoption_decision(&dossier, &closeout),
+        )
+        .expect("consistent adoption metadata should validate");
+        assert_eq!(recorded.disposition(), AdoptionDisposition::Adopted);
+        assert_eq!(recorded.effective_from_day(), Some(140));
+        assert_eq!(recorded.public_decision_sha256(), "f".repeat(64));
+        assert_eq!(
+            dossier.independent_reviews[1].disposition,
+            IndependentReviewDisposition::ChallengesProposal
+        );
+    }
+
+    #[test]
+    fn adoption_cannot_precede_closed_public_consultation() {
+        let dossier = consultation_ready_dossier();
+        let mut closeout = consultation_closeout(&dossier);
+        closeout.opened_on_day = 120;
+        closeout.closed_on_day = 110;
+        assert!(validate_public_consultation_closeout(&dossier, &closeout)
+            .unwrap_err()
+            .contains(&ReformWorkflowIssue::InvalidConsultationDates));
+        let mut decision = adoption_decision(&dossier, &closeout);
+        decision.decided_on_day = 109;
+        assert!(validate_adoption_decision(&dossier, &closeout, decision)
+            .unwrap_err()
+            .contains(&ReformWorkflowIssue::InvalidConsultationDates));
+    }
+
+    #[test]
+    fn adoption_must_pin_the_consulted_dossier_snapshot() {
+        let dossier = consultation_ready_dossier();
+        let closeout = consultation_closeout(&dossier);
+        let mut decision = adoption_decision(&dossier, &closeout);
+        decision.dossier_snapshot_sha256 = "1".repeat(64);
+        assert!(validate_adoption_decision(&dossier, &closeout, decision)
+            .unwrap_err()
+            .contains(&ReformWorkflowIssue::DossierSnapshotMismatch));
+    }
+
+    #[test]
+    fn only_adopted_dispositions_may_have_a_future_effective_date() {
+        let dossier = consultation_ready_dossier();
+        let closeout = consultation_closeout(&dossier);
+        let mut adopted_without_date = adoption_decision(&dossier, &closeout);
+        adopted_without_date.effective_from_day = None;
+        assert!(validate_adoption_decision(&dossier, &closeout, adopted_without_date)
+            .unwrap_err()
+            .contains(&ReformWorkflowIssue::AdoptedWithoutEffectiveDate));
+
+        let mut rejected_with_date = adoption_decision(&dossier, &closeout);
+        rejected_with_date.disposition = AdoptionDisposition::Rejected;
+        assert!(validate_adoption_decision(&dossier, &closeout, rejected_with_date)
+            .unwrap_err()
+            .contains(&ReformWorkflowIssue::NonAdoptionHasEffectiveDate));
     }
 
     #[test]
