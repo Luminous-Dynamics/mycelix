@@ -158,6 +158,7 @@ pub enum CapabilityCardIssue {
     InsufficientIndependentReviewers,
     NoIndependentReviewerSupportsClaim,
     IndependentReviewerChallengesClaim(String),
+    IndependentReviewerInconclusive(String),
     KnownGapUndisclosedOrBlank,
 }
 
@@ -330,12 +331,20 @@ pub fn validate_capability_card(
                 review.reviewer_id.clone(),
             ));
         }
-        if card.declared_status == JurisdictionSupportStatus::Supported
-            && review.disposition == CapabilityReviewDisposition::ChallengesSupportClaim
-        {
-            issues.push(CapabilityCardIssue::IndependentReviewerChallengesClaim(
-                review.reviewer_id.clone(),
-            ));
+        if card.declared_status == JurisdictionSupportStatus::Supported {
+            match review.disposition {
+                CapabilityReviewDisposition::SupportsBoundedSupportClaim => {}
+                CapabilityReviewDisposition::ChallengesSupportClaim => {
+                    issues.push(CapabilityCardIssue::IndependentReviewerChallengesClaim(
+                        review.reviewer_id.clone(),
+                    ));
+                }
+                CapabilityReviewDisposition::Inconclusive => {
+                    issues.push(CapabilityCardIssue::IndependentReviewerInconclusive(
+                        review.reviewer_id.clone(),
+                    ));
+                }
+            }
         }
     }
 
@@ -525,6 +534,17 @@ mod tests {
             value.independent_reviews[1].disposition,
             CapabilityReviewDisposition::ChallengesSupportClaim
         );
+    }
+
+    #[test]
+    fn inconclusive_independent_review_blocks_supported_claim() {
+        let mut value = card(JurisdictionSupportStatus::Supported);
+        value.independent_reviews[1].disposition = CapabilityReviewDisposition::Inconclusive;
+        let report = validate_capability_card(&value, 30);
+        assert!(report.issues.contains(
+            &CapabilityCardIssue::IndependentReviewerInconclusive("reviewer-b".into())
+        ));
+        assert!(!report.supported_claim_metadata_complete);
     }
 
     #[test]
