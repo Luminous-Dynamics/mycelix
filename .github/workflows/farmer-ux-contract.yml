@@ -1,0 +1,45 @@
+name: Farmer UX contract verifier
+
+on:
+  pull_request:
+    paths:
+      - "research/farmer-ux-001-*.json"
+      - "research/farmer-ux-002-verifier/**"
+      - ".github/workflows/farmer-ux-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/farmer-ux-001-*.json"
+      - "research/farmer-ux-002-verifier/**"
+      - ".github/workflows/farmer-ux-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: farmer-ux-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Schema, corpus, and mutation checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: research/farmer-ux-002-verifier -> target
+      - name: Test verifier and mutations
+        run: cargo test --manifest-path research/farmer-ux-002-verifier/Cargo.toml
+      - name: Verify committed corpus
+        run: cargo run --manifest-path research/farmer-ux-002-verifier/Cargo.toml -- --root . --report-json research/farmer-ux-002-verifier/target/farmer-ux-report.json
+      - name: Upload deterministic verifier report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: farmer-ux-contract-report
+          path: research/farmer-ux-002-verifier/target/farmer-ux-report.json
+          if-no-files-found: ignore

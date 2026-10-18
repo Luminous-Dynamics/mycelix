@@ -1,0 +1,144 @@
+{
+  "schema_version": "1.0.0",
+  "status": "frozen_semantic_mutation_cases",
+  "purpose": "Ensure critical corruption of the farmer UX corpus is rejected by the independent corpus checker. Mutations operate only on synthetic fixture values.",
+  "mutations": [
+    {
+      "id": "MUT-CASE-DUPLICATE-001",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-QUOTE-002",
+      "operation": "duplicate_entry",
+      "expected_error_contains": "duplicate id"
+    },
+    {
+      "id": "MUT-CASE-REMOVAL-002",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-DIGEST-017",
+      "operation": "remove_entry",
+      "expected_error_contains": "FUX-DIGEST-017"
+    },
+    {
+      "id": "MUT-VISIBILITY-CONFLICT-003",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-QUOTE-002",
+      "operation": "append_string",
+      "pointer": "/expected/must_not_show",
+      "value": "quote_expired",
+      "expected_error_contains": "contradictory visibility"
+    },
+    {
+      "id": "MUT-EXPIRED-QUOTE-004",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-QUOTE-002",
+      "operation": "set_value",
+      "pointer": "/expected/side_effect_counts/bookings",
+      "value": 1,
+      "expected_error_contains": "side_effect_counts.bookings=0"
+    },
+    {
+      "id": "MUT-DIGEST-AUTHORITY-005",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-DIGEST-017",
+      "operation": "set_value",
+      "pointer": "/expected/side_effect_counts/verified_source_claims",
+      "value": 1,
+      "expected_error_contains": "side_effect_counts.verified_source_claims=0"
+    },
+    {
+      "id": "MUT-DIGEST-LABEL-006",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-DIGEST-017",
+      "operation": "remove_string",
+      "pointer": "/expected/must_not_show",
+      "value": "source_authenticated",
+      "expected_error_contains": "must_not_show must retain"
+    },
+    {
+      "id": "MUT-STATE-DRIFT-007",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-QUOTE-002",
+      "operation": "set_value",
+      "pointer": "/expected/request_state",
+      "value": "booking_confirmed",
+      "expected_error_contains": "request_state"
+    },
+    {
+      "id": "MUT-RELAY-AUTHORITY-008",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-AUTH-013",
+      "operation": "set_value",
+      "pointer": "/expected/side_effect_counts/service_requests",
+      "value": 1,
+      "expected_error_contains": "side_effect_counts.service_requests=0"
+    },
+    {
+      "id": "MUT-NOSHOW-DENOMINATOR-009",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-NOSHOW-022",
+      "operation": "set_value",
+      "pointer": "/expected/side_effect_counts/request_denominator_entries",
+      "value": 0,
+      "expected_error_contains": "request_denominator_entries=1"
+    },
+    {
+      "id": "MUT-COPY-OVERCLAIM-010",
+      "target": "copy",
+      "collection": "states",
+      "id_field": "key",
+      "entry_id": "booking_confirmed",
+      "operation": "remove_string",
+      "pointer": "/must_not_imply",
+      "value": "payment_completed",
+      "expected_error_contains": "must_not_imply must retain"
+    },
+    {
+      "id": "MUT-COPY-KEY-DUPLICATE-011",
+      "target": "copy",
+      "collection": "states",
+      "id_field": "key",
+      "entry_id": "booking_confirmed",
+      "operation": "duplicate_entry",
+      "expected_error_contains": "duplicate key"
+    },
+    {
+      "id": "MUT-CAPACITY-STALE-012",
+      "target": "cases",
+      "collection": "cases",
+      "id_field": "id",
+      "entry_id": "FUX-CAPACITY-019",
+      "operation": "set_value",
+      "pointer": "/expected/side_effect_counts/bookings",
+      "value": 1,
+      "expected_error_contains": "side_effect_counts.bookings=0"
+    },
+    {
+      "id": "MUT-OUTCOME-UNKNOWN-013",
+      "target": "copy",
+      "collection": "states",
+      "id_field": "key",
+      "entry_id": "outcome_unknown",
+      "operation": "remove_string",
+      "pointer": "/must_not_imply",
+      "value": "automatic_retry_is_safe",
+      "expected_error_contains": "must_not_imply must retain"
+    }
+  ]
+}
