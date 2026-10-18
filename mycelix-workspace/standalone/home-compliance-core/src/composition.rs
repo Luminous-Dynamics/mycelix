@@ -62,6 +62,9 @@ pub struct RuleStatement {
     pub normalized_value: String,
     pub force: RuleForce,
     pub source_clause_ref: String,
+    /// Required for EvidenceBackedReformProposal; the dossier is non-binding
+    /// and cannot alter active law without a separate authority adoption record.
+    pub reform_dossier_id: Option<String>,
     pub overrides: Vec<OverrideDirective>,
 }
 
@@ -386,6 +389,14 @@ pub fn compose_rule_modules(
                     });
                 }
             }
+            if statement.force == RuleForce::EvidenceBackedReformProposal
+                && !statement.reform_dossier_id.as_deref().is_some_and(nonblank)
+            {
+                issues.push(CompositionIssue::InvalidStatementMetadata {
+                    statement_id: statement.statement_id.clone(),
+                    field: "reform_dossier_id",
+                });
+            }
             if statement.force == RuleForce::BindingRequirement {
                 if module.scope == RuleModuleScope::GlobalReference {
                     issues.push(CompositionIssue::BindingStatementInGlobalReference(
@@ -619,6 +630,7 @@ mod tests {
             normalized_value: value.into(),
             force,
             source_clause_ref: format!("clause:{id}"),
+            reform_dossier_id: None,
             overrides: Vec::new(),
         }
     }
