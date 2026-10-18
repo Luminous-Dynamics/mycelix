@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod evolution;
+pub mod regulatory;
 
 //! A small, deterministic gate for evidence packages produced by a future
 //! home-design and compliance compiler.
