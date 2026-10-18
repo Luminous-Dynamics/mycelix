@@ -288,14 +288,27 @@ def validate_semantics(fixture: dict[str, Any]) -> None:
     if len(scenarios) != len(fixture["change_scenarios"]):
         fail("$.change_scenarios", "scenario IDs must be unique")
     for scenario in fixture["change_scenarios"]:
-        changed = scenario.get("changed_id")
-        if changed is None:
+        single_root = scenario.get("changed_id")
+        multiple_roots = scenario.get("changed_ids")
+        if single_root is not None and multiple_roots is not None:
+            fail(f"scenario:{scenario['id']}", "use changed_id or changed_ids, not both")
+        if multiple_roots is not None:
+            roots = set(multiple_roots)
+        elif single_root is not None:
+            roots = {single_root}
+        else:
             continue
-        if changed not in known:
-            fail(f"scenario:{scenario['id']}", f"unknown changed_id {changed!r}")
-        closure = descendants(changed, adjacency)
+        if not roots:
+            fail(f"scenario:{scenario['id']}", "at least one changed root is required")
+        unknown_roots = roots - known
+        if unknown_roots:
+            fail(f"scenario:{scenario['id']}", f"unknown changed roots {sorted(unknown_roots)}")
+
+        closure: set[str] = set()
+        for root in roots:
+            closure.update(descendants(root, adjacency))
         expected = set(scenario.get("expected_to_invalidate", []))
-        actual_dependents = closure - {changed}
+        actual_dependents = closure - roots
         if expected != actual_dependents:
             fail(
                 f"scenario:{scenario['id']}.expected_to_invalidate",
@@ -397,7 +410,34 @@ def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> in
         ["finding:energy-rule", "rulepack:za-jhb:energy"]
     )
     expect_rejected("cyclic_dependency_graph", lambda: validate_semantics(cyclic_graph))
-    return 11
+
+    incomplete_multi_root = deepcopy(fixture)
+    combined = next(
+        item for item in incomplete_multi_root["change_scenarios"]
+        if item["id"] == "simultaneous-floorplan-and-energy-rule-revision"
+    )
+    combined["expected_to_invalidate"].remove("finding:energy-rule")
+    expect_rejected(
+        "incomplete_multi_root_invalidation",
+        lambda: validate_semantics(incomplete_multi_root),
+    )
+
+    ambiguous_roots = deepcopy(fixture)
+    combined = next(
+        item for item in ambiguous_roots["change_scenarios"]
+        if item["id"] == "simultaneous-floorplan-and-energy-rule-revision"
+    )
+    combined["changed_id"] = combined["changed_ids"][0]
+    expect_rejected("ambiguous_changed_root_fields", lambda: validate_semantics(ambiguous_roots))
+
+    duplicate_change_root = deepcopy(fixture)
+    combined = next(
+        item for item in duplicate_change_root["change_scenarios"]
+        if item["id"] == "simultaneous-floorplan-and-energy-rule-revision"
+    )
+    combined["changed_ids"].append(combined["changed_ids"][0])
+    expect_rejected("duplicate_changed_root", lambda: validate(duplicate_change_root, schema))
+    return 14
 
 
 def main() -> int:
