@@ -33,7 +33,7 @@ The verifier uses local schema documents and internal references only. External 
 
 ## Mutation tests
 
-The frozen `mutations-v1.json` file defines 12 data-driven semantic mutations and the expected failure reason. Unit tests apply that corpus to fresh in-memory fixture copies, ensuring the verifier rejects duplicate IDs, missing high-risk scenarios, contradictory visible states, an expired-quote booking, digest syntax treated as source authentication, critical state drift, unauthorized relay effects, no-show denominator loss, copy overclaims, and stale provider capacity. Additional unit tests cover schema meta-validation and a standard SHA-256 test vector. These are verifier mutation checks; they are not end-to-end production state-machine tests.
+The frozen `mutations-v1.json` file defines 13 data-driven semantic mutations and the expected failure reason. Unit tests apply that corpus to fresh in-memory fixture copies, ensuring the verifier rejects duplicate IDs, missing high-risk scenarios, contradictory visible states, an expired-quote booking, digest syntax treated as source authentication, critical state drift, unauthorized relay effects, no-show denominator loss, copy overclaims, and stale provider capacity. Additional unit tests cover schema meta-validation and a standard SHA-256 test vector. These are verifier mutation checks; they are not end-to-end production state-machine tests.
 
 ## Interpretation
 
