@@ -5,6 +5,8 @@
 //! unknown legal status from being silently treated as current binding rules.
 //! It does not interpret statutes or establish the law for any jurisdiction.
 
+use std::collections::HashMap;
+
 fn nonblank(value: &str) -> bool {
     !value.trim().is_empty()
 }
