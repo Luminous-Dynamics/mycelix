@@ -112,3 +112,104 @@ Once one municipal profile is reviewed and traceable, add other South African mu
 - W3C, Shapes Constraint Language (SHACL): https://www.w3.org/TR/shacl/
 
 Standards establish data exchange or constraint languages; they do not themselves certify a building design. This plan is engineering research, not legal advice, code certification, or a claim that Symthaea, Symtropy, Sol-Atlas or Mycelix already implements this complete workflow.
+
+
+## Century-scale adaptability: design for evolution, not timeless prediction
+
+A century-ready system cannot assume that the current architectural canon, materials catalogue, energy system, construction method, code edition, file format, software vendor, or hazard model will remain stable. It must make change safe, inspectable, reversible where possible, and explicit about information that cannot be translated.
+
+### Temporal separation
+
+Store four distinct truths rather than overloading one “current state”:
+
+1. **Historical intent and evidence:** what the owner requested, which design revision was assessed, the exact input files, which tool versions ran, and the results produced at that time.
+2. **Historical legal context:** which rule-pack editions were recorded as applicable, the source and effective-date assertions, and which professional/authority decisions were captured. Never retroactively rewrite a historic receipt.
+3. **Current reassessment:** a new assessment of the chosen current building revision against a separately pinned current rule pack. This can produce changed outcomes without falsifying the historical assessment.
+4. **Physical reality:** as-designed, as-permitted, as-built, as-maintained and as-observed states are different. A drawing must not silently stand in for an inspected as-built condition.
+
+A building may be legal when built yet require new controls for a later alteration or a changed use. The software must report the distinction rather than make a blanket legal conclusion.
+
+### Version everything that can change
+
+Give stable identities and independently versioned lifecycles to:
+- building objects and their assemblies;
+- model schemas, units and classification dictionaries;
+- construction methods, materials and supplier specifications;
+- engineering solvers, libraries, assumptions and reference fixtures;
+- regulatory packs, amendments, interpretations and jurisdiction boundaries;
+- device protocols, firmware, automation policies and safety envelopes;
+- migration tools, conformance suites, source datasets and signed review attestations.
+
+Do not treat every version number as semantic versioning. A legal edition, material standard, construction technique and file schema have different change meanings. Model explicit compatibility assertions and effective dates for each family.
+
+### Append-only provenance and conservation of meaning
+
+A revision should be a new immutable record with a parent link, stable artifact identity, exact-byte digest, format/version identifier, recorded time, author/source attribution and a clear reason for change. Corrections add a superseding record; they do not erase the old one. In real deployments, signed and externally anchored manifests are needed to protect against an administrator rewriting both data and the local hash chain.
+
+For long-term preservation, keep the original bitstream when lawful and feasible, a canonical open representation, a human-readable rendering, an interpretation guide, units and coordinate references, schemas, software/tool versions, dependencies, licensing metadata, and a known-good sample corpus. Periodically verify fixity, refresh media, duplicate across independent custodians, and test retrieval without the original vendor software. Use a preservation plan consistent with the OAIS concepts in ISO 14721:2025; do not assume keeping an IFC file alone preserves all design intent or semantics.
+
+### Explicit migration graph, never a magic “upgrade”
+
+Migrations are versioned, reviewable edges between exact format versions:
+- **Verified lossless:** eligible for automated planning only after independently reviewed conformance fixtures demonstrate preservation of required meaning and properties.
+- **Requires human review:** may be proposed, but must not be executed invisibly or receive a lossless claim.
+- **Lossy:** only with an explicit, recorded acceptance of identified losses; never choose automatically for safety-critical or legal evidence.
+- **Experimental or retired:** not eligible for automatic migration until the status is reviewed.
+
+Retain the source revision and migration report after every conversion. Compare semantic invariants and required object identities before and after. A syntactically valid digest is not proof that bytes match it, and a migration marked lossless by its author is not independent proof of fidelity. The new evolution module supplies basic parent-chain validation and a bounded path planner; it does not execute migrations, recompute file digests, or establish independent assurance.
+
+### Adaptation to future architectures and construction methods
+
+Make the domain model capable of expressing new materials, joinery, robotic assembly, additive manufacturing, prefabrication, bio-based materials, repair patches, reuse, modular extensions and construction approaches not yet invented. New method plugins should declare:
+- applicable object types and inputs;
+- geometry/units conventions and coordinate frame;
+- safety and quality assumptions;
+- required calculations, tests and specialist approvals;
+- resource and environmental impacts with uncertainty;
+- versioned output artifacts and explicit compatibility boundaries.
+
+Unknown materials or methods must be represented as unknown/unverified, not coerced into the closest known category. Core schemas should allow namespaced extensions, but unknown extensions must not silently satisfy mandatory checks. Safety-critical unknowns block the relevant gate while preserving the project and its unrelated work.
+
+### Revalidation based on dependency graphs
+
+Every result should record which model objects, rules, datasets, solver versions and assumptions it consumed. When any dependency changes, calculate the affected dependency closure and invalidate stale results. A changed roof material may affect fire, structural loads, thermal performance, maintenance and embodied-carbon analyses, but need not rerun unrelated identity records. Results not rerun must display as stale relative to the new input digest.
+
+### Benchmark targets by time horizon
+
+These are targets to implement and measure, not achieved claims.
+
+| Horizon | Required capability | Proposed acceptance test |
+|---|---|---|
+| 1 year | Reproducible revision and rule-pack lifecycle | 100% of assessed packages pin exact design and rule-pack revisions; changing a pack never mutates an existing historic receipt |
+| 10 years | Routine format/schema migration | A published fixture corpus round-trips all required semantic fields; every loss is surfaced, and unknown fields survive archival export in an extension-safe form |
+| 25 years | Vendor and maintainer independence | A clean-room team can recover, interpret and validate an archived project using only the published package, open specifications and documented tools, without original vendor accounts |
+| 50 years | Materials and systems obsolescence | Every critical maintainable component has an inspectable specification, replacement strategy or explicit end-of-support hazard; obsolete equipment does not make the whole record unreadable |
+| 100 years | Historical truth plus current reassessment | A historical assessment reproduces against its archived inputs/toolchain where feasible, while a separate assessment can run against a new schema, new hazard data and then-current rules |
+| 100+ years | Organizational continuity | At least two independent custodians can restore the information package and verify fixity; ownership, provenance, units, location context and unresolved uncertainty remain intelligible after a mock vendor/service shutdown |
+
+### Long-horizon acceptance criteria
+
+1. **Historical immutability:** zero in-place changes to accepted revision records; corrections create new linked revisions.
+2. **Migration honesty:** zero automatic migrations through edges that are lossy, experimental, retired or awaiting human review.
+3. **Semantic preservation:** 100% preservation of the declared critical invariants in the versioned test corpus; zero silent dropping of unknown required fields.
+4. **Rule-time correctness:** every finding identifies the exact rule pack and assessment date; no draft/proposed rule pack is silently treated as effective.
+5. **Reproducibility:** given preserved inputs and pinned software/toolchain, reruns reproduce byte-identical canonical reports where deterministic execution is claimed; where numerics or toolchains prevent this, publish tolerances and explain the gap.
+6. **Revalidation precision:** every dependency change invalidates all affected findings, and a mutation suite tests that no impacted result remains current.
+7. **Recoverability:** scheduled restore exercises verify at least two independent copies and the associated schemas, keys/credentials recovery procedures, dependency manifests and instructions.
+8. **Intergenerational comprehension:** a cold-read study asks professionals unfamiliar with the original project to identify the building's layout, materials, structural assumptions, system interfaces, inspection evidence, limitations and change history without oral help from the original designer.
+
+Century-scale preservation cannot be certified by a single benchmark today. We can test the invariants, run annual preservation drills, and make the organization capable of replacing formats, tools, custodians and funding sources without discarding the record.
+
+### Standards are inputs, not permanent foundations
+
+Track standards by publisher, identifier, version, status, publication/effective dates, amendment/errata links, local adoption status and licence. The buildingSMART standards registry visibly distinguishes final, draft, withdrawn and retired schemas. Its IDS page marks version 1.0 as final while future versions can evolve. For digital preservation, ISO 14721:2025 (OAIS, edition 3) is a current reference model for long-term digital information preservation. These are reasons to track status over time—not reasons to hardcode today’s standards as eternal truth.
+
+### New implementation included in this branch
+
+The standalone Rust crate now has an evolution module that:
+- validates supplied artifact-revision lineage for missing parents, cross-artifact parent links, duplicate revision IDs, invalid digest syntax, time inversions and cycles;
+- models migration edges with explicit assurance classes;
+- searches a bounded, deterministic path composed only of edges declared verified-lossless and carrying well-formed evidence-digest strings;
+- fails closed when the migration catalogue contains malformed metadata.
+
+It does not enforce append-only storage, recompute content digests, cryptographically validate signers, execute transformations, prove semantic equivalence, or constitute an archival service. Those remain subsequent work with dedicated fixtures and independent review.
