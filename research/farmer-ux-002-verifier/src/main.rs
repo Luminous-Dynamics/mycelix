@@ -1,5 +1,5 @@
 use jsonschema::validator_for;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -180,6 +180,25 @@ struct Artifact {
     schema_errors: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct MutationCorpus {
+    schema_version: String,
+    mutations: Vec<MutationSpec>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MutationSpec {
+    id: String,
+    target: String,
+    collection: String,
+    id_field: String,
+    entry_id: String,
+    operation: String,
+    pointer: Option<String>,
+    value: Option<Value>,
+    expected_error_contains: String,
+}
+
 fn sha256(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(64);
@@ -254,6 +273,76 @@ fn string_set(value: Option<&Value>) -> BTreeSet<String> {
 fn find<'a>(doc: &'a Value, collection: &str, key: &str, wanted: &str) -> Option<&'a Value> {
     array(doc, collection).iter().find(|v| v.get(key).and_then(Value::as_str) == Some(wanted))
 }
+fn apply_mutation(
+    cases: &mut Value,
+    roles: &mut Value,
+    copy: &mut Value,
+    mutation: &MutationSpec,
+) -> Result<(), String> {
+    let document = match mutation.target.as_str() {
+        "cases" => cases,
+        "roles" => roles,
+        "copy" => copy,
+        other => return Err(format!("unknown mutation target {other:?}")),
+    };
+    let collection = document
+        .get_mut(&mutation.collection)
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| format!("mutation {}: missing array {}", mutation.id, mutation.collection))?;
+    let matches_id = |item: &Value| {
+        item.get(&mutation.id_field).and_then(Value::as_str) == Some(mutation.entry_id.as_str())
+    };
+
+    match mutation.operation.as_str() {
+        "duplicate_entry" => {
+            let original = collection.iter().find(|item| matches_id(item)).cloned()
+                .ok_or_else(|| format!("mutation {}: source entry not found", mutation.id))?;
+            collection.push(original);
+        }
+        "remove_entry" => {
+            let original_len = collection.len();
+            collection.retain(|item| !matches_id(item));
+            if collection.len() == original_len {
+                return Err(format!("mutation {}: source entry not found", mutation.id));
+            }
+        }
+        "set_value" => {
+            let entry = collection.iter_mut().find(|item| matches_id(item))
+                .ok_or_else(|| format!("mutation {}: source entry not found", mutation.id))?;
+            let pointer = mutation.pointer.as_deref()
+                .ok_or_else(|| format!("mutation {}: set_value requires pointer", mutation.id))?;
+            let target = entry.pointer_mut(pointer)
+                .ok_or_else(|| format!("mutation {}: pointer {pointer:?} not found", mutation.id))?;
+            *target = mutation.value.clone()
+                .ok_or_else(|| format!("mutation {}: set_value requires value", mutation.id))?;
+        }
+        "append_string" => {
+            let entry = collection.iter_mut().find(|item| matches_id(item))
+                .ok_or_else(|| format!("mutation {}: source entry not found", mutation.id))?;
+            let pointer = mutation.pointer.as_deref()
+                .ok_or_else(|| format!("mutation {}: append_string requires pointer", mutation.id))?;
+            let target = entry.pointer_mut(pointer).and_then(Value::as_array_mut)
+                .ok_or_else(|| format!("mutation {}: pointer {pointer:?} is not an array", mutation.id))?;
+            let value = mutation.value.as_str()
+                .ok_or_else(|| format!("mutation {}: append_string requires string value", mutation.id))?;
+            target.push(Value::String(value.to_owned()));
+        }
+        "remove_string" => {
+            let entry = collection.iter_mut().find(|item| matches_id(item))
+                .ok_or_else(|| format!("mutation {}: source entry not found", mutation.id))?;
+            let pointer = mutation.pointer.as_deref()
+                .ok_or_else(|| format!("mutation {}: remove_string requires pointer", mutation.id))?;
+            let target = entry.pointer_mut(pointer).and_then(Value::as_array_mut)
+                .ok_or_else(|| format!("mutation {}: pointer {pointer:?} is not an array", mutation.id))?;
+            let value = mutation.value.as_str()
+                .ok_or_else(|| format!("mutation {}: remove_string requires string value", mutation.id))?;
+            target.retain(|item| item.as_str() != Some(value));
+        }
+        other => return Err(format!("mutation {}: unknown operation {other:?}", mutation.id)),
+    }
+    Ok(())
+}
+
 fn check_count(doc: &Value, case_id: &str, field: &str, wanted: i64, errors: &mut Vec<String>) {
     let path = format!("/expected/side_effect_counts/{field}");
     let found = find(doc, "cases", "id", case_id).and_then(|v| v.pointer(&path)).and_then(Value::as_i64);
@@ -525,6 +614,30 @@ mod tests {
         assert!(semantic_checks(&c, &roles(), &copy()).iter()
             .any(|e| e.contains("FUX-QUOTE-002") && e.contains("side_effect_counts.bookings=0")));
     }
+    #[test]
+    fn frozen_mutation_corpus_is_rejected_for_expected_reasons() {
+        let corpus: MutationCorpus = serde_json::from_str(include_str!("../mutations-v1.json"))
+            .expect("frozen mutation corpus must parse");
+        assert_eq!(corpus.schema_version, "1.0.0");
+        assert_eq!(corpus.mutations.len(), 12);
+
+        for mutation in &corpus.mutations {
+            let mut c = cases();
+            let mut r = roles();
+            let mut p = copy();
+            apply_mutation(&mut c, &mut r, &mut p, mutation)
+                .unwrap_or_else(|error| panic!("{}: {error}", mutation.id));
+            let errors = semantic_checks(&c, &r, &p);
+            assert!(
+                errors.iter().any(|error| error.contains(&mutation.expected_error_contains)),
+                "{}: expected error containing {:?}, got: {:?}",
+                mutation.id,
+                mutation.expected_error_contains,
+                errors
+            );
+        }
+    }
+
     #[test]
     fn sha256_matches_standard_test_vector() {
         assert_eq!(
