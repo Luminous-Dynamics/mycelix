@@ -310,6 +310,16 @@ pub fn plan_lossless_migration(
         };
     }
 
+    // Do not report Ready if the migration catalog contains malformed
+    // metadata: ambiguity in the catalog is itself a fail-closed condition.
+    if !blockers.is_empty() {
+        return MigrationPlan {
+            status: MigrationPlanStatus::Blocked,
+            steps: Vec::new(),
+            blockers,
+        };
+    }
+
     let mut steps = Vec::new();
     let mut cursor = to.clone();
     while cursor != *from {
