@@ -651,6 +651,29 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_rule_pack_manifest_entries_block() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        let duplicate = assessment.rule_pack.required_checks[0].clone();
+        assessment.rule_pack.required_checks.push(duplicate);
+
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::DuplicateRulePackCheck(
+            "structural-review".into()
+        )));
+    }
+
+    #[test]
+    fn empty_rule_pack_manifest_blocks() {
+        let mut assessment = input(vec![finding("structural-review", CheckOutcome::Pass)]);
+        assessment.rule_pack.required_checks.clear();
+
+        let report = evaluate_review_gate(&assessment);
+        assert_eq!(report.status, GateStatus::Blocked);
+        assert!(report.blockers.contains(&Blocker::EmptyRulePackCheckManifest));
+    }
+
+    #[test]
     fn empty_scope_and_scope_without_mandatory_checks_block() {
         let mut empty = input(Vec::new());
         empty.required_checks.clear();
