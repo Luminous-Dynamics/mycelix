@@ -17,7 +17,7 @@ The focused workflow runs both commands and uploads the JSON report.
 
 - Full JSON Schema Draft 2020-12 schema meta-validation and instance validation of the 17-case FUXC corpus and the synthetic relay-envelope example.
 - Semantic guards for every frozen case: continuity, event replay vs equivocation, actor/recorder attribution, consent revocation, source/time provenance, unknown outcomes, correction history, no-provider outcomes, farmer acceptance, disputes and denominator preservation.
-- A deliberately small reference ledger: exact same-event replay is idempotent; same event ID with a changed digest or request binding is a conflict and cannot overwrite the first-seen event; separate request references are not fuzzy-merged.
+- A deliberately small reference ledger: an exact same-event envelope replay is idempotent; any same-event-ID envelope mismatch—including a changed payload digest, request reference or asserting/recording role—is retained as a conflict and cannot overwrite the first-seen event; separate request references are not fuzzy-merged.
 - Fail-closed promotion rules for the high-risk transitions covered in the contract.
 - 10,000 deterministic schedules per verifier run. Each schedule reorders eight events and injects one exact replay plus one same-ID/different-digest conflict. The seed and shuffle algorithm are fixed; no randomness dependency is used.
 - Mutation tests that remove required conflict, relay, consent and unknown-outcome protections and require the semantic verifier to reject the mutated corpus.
