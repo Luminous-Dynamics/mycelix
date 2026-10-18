@@ -23,17 +23,18 @@ The test rule pack uses example.invalid and synthetic digest strings. It is not 
 
 The file `fixtures/johannesburg-adaptable-home-v1.json` defines a technology-neutral, synthetic reference brief: several style families, several construction families, stable artifact identifiers, and change scenarios for an adaptable single-storey home. It is **not** a real site, municipal rule pack, architectural plan, IFC model, engineering calculation, or compliance claim. In particular, the fixture marks stabilized-earth construction as requiring additional local validation rather than treating every construction family as automatically admissible.
 
-The Rust integration tests in `tests/home_evolution_scenario.rs` exercise seven lifecycle properties:
+The Rust integration tests in `tests/home_evolution_scenario.rs` exercise eight lifecycle properties:
 
 - a changed energy-rule revision invalidates its dependent finding and submission package without unnecessarily invalidating unrelated structural evidence or drawings;
 - a floor-plan change invalidates downstream structure, energy, drawing, export, assessment and submission artifacts, but not the source rule pack;
+- simultaneous floor-plan and energy-rule revisions produce the union of downstream invalidations once, with a deterministic shortest cause for shared outputs;
 - a complete synthetic evidence package reaches only `ReadyForProfessionalReview`, never a compliance or approval status;
 - an unknown mandatory energy result blocks review readiness;
 - a proposed rule cannot silently replace an applicable current-rule assertion;
 - the key identifiers used by the tests are checked against the machine-readable brief; and
 - a 10,000-edge dependency chain returns the complete, deterministic closure. This is a scale/correctness test, not yet a latency benchmark.
 
-The Rust integration tests read dependency-edge pairs from the shared JSON fixture instead of maintaining a second hand-coded graph. A standard-library-only CI verifier checks the fixture against the supported keyword subset of the published JSON Schema, validates that mutation expectations agree with dependency reachability, and runs eleven negative controls, including rejection of unsupported or malformed schema keywords, ineffective array constraints, and cyclic dependency graphs. This verifier is a test tool, not a generic JSON Schema implementation or a production runtime dependency. The production crate still does not load the fixture or generate building geometry. The metadata-only review gate cannot report readiness; the verified gate's sole positive status remains `ReadyForProfessionalReview`, not compliance, certification, approval, or permission to build.
+The Rust integration tests read dependency-edge pairs from the shared JSON fixture instead of maintaining a second hand-coded graph. A standard-library-only CI verifier checks the fixture against the supported keyword subset of the published JSON Schema, validates that mutation expectations agree with dependency reachability, and runs fourteen negative controls, including unsupported or malformed schema keywords, ineffective array constraints, cyclic graphs, incomplete multi-root invalidation, and ambiguous or duplicate changed-root declarations. This verifier is a test tool, not a generic JSON Schema implementation or a production runtime dependency. The production crate still does not load the fixture or generate building geometry. The metadata-only review gate cannot report readiness; the verified gate's sole positive status remains `ReadyForProfessionalReview`, not compliance, certification, approval, or permission to build.
 
 ## Run
 
