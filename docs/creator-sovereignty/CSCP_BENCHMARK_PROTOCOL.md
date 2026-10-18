@@ -339,6 +339,24 @@ Draft PR #5182 now adds a standalone import-provenance sidecar. It computes BLAK
 
 A parser's "complete inventory" is only a parser assertion, not independent proof that every source field was discovered. A digest is integrity evidence only; it does not prove authenticity, consent, or rights. The integration layer—not this manifest constructor—must enforce transaction boundaries and verify the post-import snapshot digest from the actual persisted state.
 
+## Gate 10 — idempotent import replay
+
+Draft PR #5182 adds a separate in-memory ImportReplayLedger. Its key binds source system/record identity, raw payload digest/length, schema/parser versions, and enumerated mapping/treatment versions. It omits import time and raw storage locator. A separate result fingerprint binds the inventory assertion, outcome, before/after snapshot digests and diagnostics. Exact retries are idempotent; the same processing key with a different result fails closed. A schema/parser/mapping upgrade creates a new key for explicit reprocessing.
+
+| Fixture family | Required outcome | Threshold |
+|---|---|---:|
+| Exact retry | Repeated source payload + schema/parser/mapping identity and same result returns AlreadyPresent without adding an entry | 100% |
+| Repeated upload at a different timestamp/storage locator | Same payload bytes and mapping identity remains an idempotent retry | 100% |
+| Changed source bytes | New raw-payload digest gives a distinct processing key | 100% |
+| Parser/schema/mapping upgrade | Version change produces a new key rather than being silently deduped as the previous interpretation | 100% |
+| Conflicting effect under same key | Different outcome, diagnostics, or before/after snapshot digest returns ResultConflict without ledger mutation | Zero silent overwrites |
+| Concurrent retries | All concurrent copies converge to one durable effect and one durable receipt | Zero duplicates under 1/10/100/1,000-client stress |
+| Crash after commit but before acknowledgement | Retry resolves the committed replay key and does not apply the mutation a second time | Zero duplicate rights/royalty/cash-link records |
+| Process restart | Previously recorded replay keys survive restart through durable storage | 100% for persisted receipt corpus |
+| Source truth boundary | Idempotency result is not presented as sender authentication, legal truth or proof of entitlement | Zero unsupported trust claims |
+
+The current ledger is in-memory and does not provide the concurrency, restart, or crash guarantees in the stress rows. Those rows are release targets for the future transaction-backed integration, tracked by [CSCP-REPLAY-001](https://github.com/Luminous-Dynamics/mycelix/issues/5190). Do not market this prototype as exactly-once processing.
+
 ## Research references
 
 - TikTok for Developers, [Data Portability API: Get Started](https://developers.tiktok.com/docs/en/data-portability-api-get-started). Documents access prerequisites, separate Login Kit approval, user consent, and the export lifecycle.
