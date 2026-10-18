@@ -329,5 +329,9 @@ fn ten_thousand_node_dependency_chain_has_complete_deterministic_closure() {
             .as_deref(),
         Some("artifact:9999")
     );
-    assert!(cause_tree.windows(2).all(|pair| pair[0].artifact_id < pair[1].artifact_id));
+    assert!(
+        cause_tree
+            .windows(2)
+            .all(|pair| pair[0].artifact_id < pair[1].artifact_id)
+    );
 }
