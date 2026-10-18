@@ -52,6 +52,10 @@ The first implementation should map fields to existing canonical types, not crea
 - Repetition number, sample denominator, uncertainty/confidence interval and known exclusions.
 - Missing context must remain missing; do not infer device properties from file names or prose.
 
+### Nanoimprint/grating-route evidence
+
+For AR waveguide manufacturing, compose with [Symthaea VIS-MFG-001 #8012](https://github.com/Luminous-Dynamics/symthaea/issues/8012) and preserve distinct IDs for master/template, resist/material lot, tool profile, each replicated optic and final assembly. Where NIL is used, record master revision/use-cycle and inspection, replica pattern digest, feature geometry/fidelity over the declared field, residual-layer thickness/uniformity, overlay/registration, fill/demolding defect map, calibration/inspection coverage and source/tool provenance. Downstream module acceptance must bind the replicated grating to its waveguide/light-engine pair and angle-/wavelength-resolved optical measurements. The process route is still a planning profile until local tool/process capability, raw metrology and final module behavior are evidenced. Literature-reported resolution or a master-template specification does not qualify the replica or module.
+
 ### Test-pattern/context robustness
 
 Compose with [Symthaea VIS-METRO-001 #7894](https://github.com/Luminous-Dynamics/symthaea/issues/7894) and its [pattern robustness and uncertainty protocol](https://github.com/Luminous-Dynamics/symthaea/blob/research/vis-tech-001-program-2026-10-17/docs/engineering/DISPLAY_PATTERN_ROBUSTNESS_AND_UNCERTAINTY.md). For optical/temporal measurements, retain exact stimulus bytes or generator parameters and digest, pattern-family/standard identifier and edition, patch geometry/size/APL, color distribution, spatial background, display mode, preceding stimulus and washout, dwell/cadence, ROI and instrument field of view. Record per-pattern results, repetitions, cross-pattern range, predeclared worst stratum, exclusions and uncertainty; never publish only the best pattern or a mean that hides context-dependent behavior.
