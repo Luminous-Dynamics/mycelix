@@ -24,6 +24,7 @@ These are intentionally independent. An identifier is not an ownership certifica
 - An append-only in-memory issue/revocation event log with event-ID idempotency, monotonic event-time checks, deterministic replay, and atomic rejection of invalid transitions.
 - A separately implemented event-stream reconstruction path for differential comparison against append-derived effective grant state; it does not call the append method.
 - A versioned binary portable envelope for grant/revocation history, plus a separate full passport snapshot envelope covering asset records, external identifiers, split claims, and the embedded grant-history envelope. Both have deterministic encoding, strict decoding and domain-separated BLAKE3-256 content digests.
+- A separate import-provenance sidecar records source system/record, schema and parser versions, import time, raw payload reference/length/BLAKE3 digest, per-field mapping/retention decisions, diagnostics, and before/after passport snapshot digests. It is linked by digest and is not yet embedded in the passport snapshot format.
 - No implicit rights inheritance between related assets.
 
 ## Important non-goals and limitations
@@ -70,6 +71,26 @@ The outer BLAKE3-256 digest is computed over domain prefix MYCELIX-CSCP-ASSET-PA
 
 The full snapshot format now has two frozen cross-language byte vectors checked by the Rust encoder and a test-only standard-library Python reference encoder: a simple work/ISWC/complete-split fixture and a Unicode recording with ISRC plus other identifiers, unknown split, and disputed claim. This is still a small corpus, not a broad separate-language implementation or cross-language BLAKE3 digest vector. The format remains experimental and must not be advertised as interoperable or standards-compliant until an independent implementation reproduces a diverse outer-envelope and digest corpus.
 
+## Import provenance manifest v1
+
+The public Rust API is provenance::ImportProvenanceManifest. It is a separate sidecar format; v1 does not change the outer passport snapshot format.
+
+A SourceDocument captures source system, optional source record ID, schema name/version, parser name/version, import timestamp, media type, raw-payload reference, raw byte length, and BLAKE3-256 of the actual byte slice passed to capture(). It does not accept a caller-supplied payload digest. verify_payload() checks retrieved bytes against the recorded length and digest. It does not fetch the locator or prove that the object remains available, that it came from an authenticated sender, or that its contents are truthful.
+
+Every enumerated source field has exactly one explicit treatment:
+- Mapped: target path plus mapping-rule identifier and version.
+- RetainedRaw: not mapped into the canonical model, but expected to remain in the original payload; a source-path diagnostic is required.
+- UnsupportedRetained: unsupported by the current canonical model, expected to remain in the original payload; a source-path diagnostic is required.
+
+There is deliberately no silent-drop treatment. Inventory status states whether the parser says its field inventory is complete, partial, or unknown. "Complete as reported by parser" is not independent proof that every source field was discovered; retain the original payload so the claim can be audited. Diagnostics use bounded codes/details and must link to a known source path when they describe a field.
+
+Each manifest binds the outcome to before/after snapshot digests:
+- Imported requires a parser-reported complete inventory, no diagnostics, and all declared fields mapped.
+- ImportedWithWarnings requires an after digest and explicit limitations, retained raw fields, or diagnostics.
+- Rejected requires at least one error diagnostic and an after digest identical to the before digest, making the no-canonical-mutation invariant explicit.
+
+The sidecar has canonical binary encoding and a domain-separated BLAKE3-256 digest. The digest proves equality to canonical bytes only. It does not authenticate a sender, prove consent, validate source authority, or verify legal rights. Continued availability of the raw-payload reference remains a storage-system responsibility.
+
 ## Benchmark contract — targets, not results
 
 The following are release gates to measure; they have **not** been demonstrated by this PR.
@@ -95,6 +116,12 @@ The following are release gates to measure; they have **not** been demonstrated 
 | Full snapshot round-trip | Assets, external IDs, split claims, grant history and revocation state survive encode/decode exactly | 100% fixed-fixture agreement |
 | Snapshot reference integrity | Every split claim and every grant/revocation history target resolves to a registered asset | Zero unresolved references accepted |
 | Snapshot canonical ordering | Asset/identifier/claim input ordering does not change canonical bytes; noncanonical wire order is rejected | 100% fixture agreement |
+| Source payload re-verification | Retrieved raw bytes match captured length and BLAKE3 digest | 100% valid fixtures; 100% mutated-byte fixtures rejected |
+| Field disposition coverage | Every parser-enumerated source path has one mapping/retained-raw/unsupported-retained treatment | 100%; zero duplicate paths accepted |
+| Silent field loss | No enumerated source field lacks a declared treatment; non-mapped fields are diagnosed | Zero silent drops |
+| Import rejection atomicity | Rejected import has an after snapshot digest identical to before digest | 100%; zero canonical mutations |
+| Provenance sidecar round-trip | Decode/encode returns byte-identical canonical manifest and the same digest | 100% fixed fixtures |
+| Inventory certainty | Partial/unknown parser inventory cannot be labeled clean Imported | Zero unqualified clean imports |
 | Full snapshot cross-language vectors | Independent implementation reproduces outer envelope bytes and digest for normal, disputed, Unicode, unknown-ID, and boundary cases | 100% golden-vector agreement before format freeze |
 | Conflicting immutable terms or revocation times under one grant ID | 100% conflict detection for implicated exact scopes; unrelated valid permissions remain evaluable | Integrity without catalogue-wide denial of service |
 | Performance target | p95 under 1 ms for 10,000 grants on a named reference machine | Keep policy checks cheap; benchmark only after correctness |
@@ -104,9 +131,9 @@ Do not market these targets as achieved. Before a release gate can be claimed, p
 
 ## Test inventory and current maturity
 
-The current source has 54 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, a frozen full-snapshot byte vector, identifier/claim canonical ordering, unresolved asset references, and digest mutation fixtures. These are **authored test cases, not passed tests**.
+The current source has 63 in-module unit-test functions and 27 integration-test functions across asset/identifier checks, split arithmetic, exact-scope grants, grant-history replay, grant-history binary vectors, full passport round trips, payload digest verification, field-disposition coverage, rejected-import atomicity, and provenance-manifest round trips. These are **authored test cases, not passed tests**.
 
-The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has two frozen Rust/Python byte vectors: a work with an ISWC and complete composition claim, plus a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. Neither format yet has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
+The grant-history envelope has two frozen Rust/Python reference byte vectors. The full passport snapshot envelope has two frozen Rust/Python byte vectors: a work with an ISWC and complete composition claim, plus a Unicode recording with ISRC/other identifiers and a disputed unknown-share claim. The import-provenance sidecar has one frozen Rust/Python byte vector for a clean import. These are small fixtures; no format has a cross-language BLAKE3 digest golden vector, broad fuzz campaign, or independent external implementation report.
 
 ## Dependency reproducibility boundary
 
