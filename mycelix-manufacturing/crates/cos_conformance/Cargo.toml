@@ -15,5 +15,6 @@ name = "cos-report"
 path = "src/bin/cos_report.rs"
 
 [dev-dependencies]
+hdi.workspace = true
 serde.workspace = true
 serde_json.workspace = true
