@@ -306,4 +306,17 @@ Reference design/standards context: buildingSMART's IFC and regulatory informati
 - https://www.oecd.org/en/publications/2020/02/regulatory-impact-assessment_0bf78a03.html
 - https://shop.iccsafe.org/2024-icc-performance-coder-for-buildings-and-facilities.html
 
+### Global composition and reform acceptance targets
+
+- **Zero implicit global-law imports:** a global reference module must never supply a binding requirement merely because a project imports it.
+- **100% conflict visibility:** every disagreeing applicable binding statement produces a conflict record with exact source/module provenance; zero hidden "winner" selection from module order, numeric magnitude, or geographic scope.
+- **100% override traceability:** every accepted override names the inherited statement, jurisdictional authority decision, reviewer, rationale, and evidence artifact. A production verifier must authenticate those items and the actual source bytes.
+- **Zero proposal leakage:** guidance, future-adopted instruments, proposals, engineering baselines, owner preferences, and evidence-backed reform recommendations must never silently modify active binding rules.
+- **100% reform snapshot pinning:** reviewers must be linked to the exact immutable dossier snapshot they reviewed; missing/mismatched digests, author-as-independent-reviewer, or blank uncertainty/counter-evidence sections block readiness.
+- **Dissent preservation:** no reviewer or counter-evidence record is dropped when reviewers disagree; a consultation-preparation state is not described as scientific conclusiveness or formal adoption.
+- **Freedom of design:** on a reviewed reference corpus, measure feasible design alternatives retained after hard constraints, false rejections of feasible alternatives, and whether every rejection names a verifiable applicable requirement rather than a style preference.
+- **Human-centered immersive review:** compare static plans, floating camera, guided route, and optional VR against pre-seeded spatial/accessibility issue detection, user pause/exit, motion discomfort, and perceived agency. VR routes must remain optional and are not a substitute for geometry or code checks.
+
+Related Symtropy route work is being developed separately in [draft PR #1993](https://github.com/Luminous-Dynamics/symtropy/pull/1993). Its current route playback and synthetic-room demo do not yet import real building models, implement XR, check camera collisions, or validate compliance.
+
 This remains a prototype and is not an authoritative global code registry, source-signature verification service, or legal advice.
