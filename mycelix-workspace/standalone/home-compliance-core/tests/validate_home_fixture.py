@@ -80,6 +80,45 @@ def validate_schema_supported(schema: Any, path: str = "$schema") -> None:
     if unsupported:
         fail(path, f"unsupported JSON Schema keywords {sorted(unsupported)}")
 
+    valid_types = {"array", "boolean", "integer", "null", "number", "object", "string"}
+    if "type" in schema:
+        types = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
+        if not types or any(not isinstance(item, str) or item not in valid_types for item in types):
+            fail(path, "type must name one or more supported JSON Schema primitive types")
+        if len(set(types)) != len(types):
+            fail(path, "type array must not repeat a type")
+    if "required" in schema and (
+        not isinstance(schema["required"], list)
+        or any(not isinstance(item, str) for item in schema["required"])
+    ):
+        fail(path, "required must be an array of property names")
+    if "enum" in schema and (
+        not isinstance(schema["enum"], list) or not schema["enum"]
+    ):
+        fail(path, "enum must be a non-empty array")
+    for keyword in ("minimum", "maximum", "exclusiveMinimum"):
+        if keyword in schema and (
+            not isinstance(schema[keyword], (int, float))
+            or isinstance(schema[keyword], bool)
+        ):
+            fail(path, f"{keyword} must be numeric")
+    for keyword in ("maxItems", "minItems", "minLength", "minProperties"):
+        if keyword in schema and (
+            not isinstance(schema[keyword], int)
+            or isinstance(schema[keyword], bool)
+            or schema[keyword] < 0
+        ):
+            fail(path, f"{keyword} must be a non-negative integer")
+    if "pattern" in schema:
+        if not isinstance(schema["pattern"], str):
+            fail(path, "pattern must be a string")
+        try:
+            re.compile(schema["pattern"])
+        except re.error as error:
+            fail(path, f"invalid schema regular expression: {error}")
+    if "uniqueItems" in schema and not isinstance(schema["uniqueItems"], bool):
+        fail(path, "uniqueItems must be boolean")
+
     properties = schema.get("properties", {})
     if "properties" in schema and not isinstance(properties, dict):
         fail(path, "properties must be an object")
@@ -87,10 +126,14 @@ def validate_schema_supported(schema: Any, path: str = "$schema") -> None:
         validate_schema_supported(child, f"{path}.properties.{key}")
 
     items = schema.get("items")
+    if "items" in schema and not isinstance(items, (dict, bool)):
+        fail(path, "items must be a schema object or boolean")
     if isinstance(items, dict):
         validate_schema_supported(items, f"{path}.items")
 
     extra = schema.get("additionalProperties")
+    if "additionalProperties" in schema and not isinstance(extra, (dict, bool)):
+        fail(path, "additionalProperties must be a schema object or boolean")
     if isinstance(extra, dict):
         validate_schema_supported(extra, f"{path}.additionalProperties")
 
@@ -332,12 +375,19 @@ def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> in
         lambda: validate_schema_supported(unsupported_keyword_schema),
     )
 
+    malformed_keyword_schema = deepcopy(schema)
+    malformed_keyword_schema["properties"]["label"]["items"] = "not-a-schema"
+    expect_rejected(
+        "malformed_schema_keyword_value",
+        lambda: validate_schema_supported(malformed_keyword_schema),
+    )
+
     cyclic_graph = deepcopy(fixture)
     cyclic_graph["dependency_edges"].append(
         ["finding:energy-rule", "rulepack:za-jhb:energy"]
     )
     expect_rejected("cyclic_dependency_graph", lambda: validate_semantics(cyclic_graph))
-    return 9
+    return 10
 
 
 def main() -> int:
