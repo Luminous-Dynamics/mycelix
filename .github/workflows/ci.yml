@@ -335,7 +335,6 @@ jobs:
             if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1.hex" ]; then echo "fixture_sha256_3=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1.hex | cut -d' ' -f1)"; fi
             if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex" ]; then echo "fixture_sha256_4=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-asset-passport-v1-unicode-disputed.hex | cut -d' ' -f1)"; fi
             if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex" ]; then echo "fixture_sha256_5=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex | cut -d' ' -f1)"; fi
-            if [ -f "mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex" ]; then echo "fixture_sha256_6=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/tests/fixtures/creator-import-provenance-v1.hex | cut -d' ' -f1)"; fi
           } > cscp-qualification-receipt.txt
       - name: Upload qualification receipt and raw evidence
         if: always()
