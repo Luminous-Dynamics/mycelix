@@ -322,8 +322,8 @@ pub fn verify_migration_candidate(
     let collect_observations = |side: &'static str,
                                observations: &[SemanticInvariant],
                                issues: &mut Vec<MigrationVerificationIssue>|
-     -> HashMap<&str, &str> {
-        let mut values = HashMap::new();
+     -> HashMap<String, String> {
+        let mut values: HashMap<String, String> = HashMap::new();
         for observation in observations {
             if !nonblank(&observation.invariant_id) {
                 issues.push(MigrationVerificationIssue::EmptyObservedInvariant { side });
@@ -338,8 +338,8 @@ pub fn verify_migration_candidate(
             }
             if values
                 .insert(
-                    observation.invariant_id.as_str(),
-                    observation.canonical_value_sha256.as_str(),
+                    observation.invariant_id.clone(),
+                    observation.canonical_value_sha256.clone(),
                 )
                 .is_some()
             {
