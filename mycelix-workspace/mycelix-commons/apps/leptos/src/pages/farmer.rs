@@ -390,6 +390,7 @@ pub fn FarmerPage() -> impl IntoView {
                             </button>
                         }.into_any(),
                     }}
+                    </div>
                 </section>
             </div>
 
