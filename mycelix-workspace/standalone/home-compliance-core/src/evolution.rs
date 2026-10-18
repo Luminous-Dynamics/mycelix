@@ -590,17 +590,33 @@ pub enum DependencyGraphIssue {
     CycleDetected,
 }
 
-/// Return a deterministic closure of changed nodes plus all transitively
-/// dependent outputs. Malformed edges and cyclic dependency graphs return an
-/// error instead of a partial closure that might leave stale safety findings
-/// current.
+/// One artifact that must be re-evaluated, with a cause path from a changed
+/// source to this artifact.
+///
+/// The first path element is a changed artifact. Each subsequent pair is a
+/// declared dependency edge; the final element is `artifact_id`. The path is
+/// a deterministic shortest path, useful for explaining invalidation to a
+/// homeowner or reviewer. It is not a proof that any downstream evaluator ran.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AffectedArtifact {
+    pub artifact_id: String,
+    pub cause_path: Vec<String>,
+}
+
+/// Return changed nodes and all transitively dependent outputs with the
+/// deterministic shortest cause path for each item.
+///
+/// Malformed edges and cyclic dependency graphs return an error instead of a
+/// partial closure that might leave stale safety findings current. Cycles
+/// anywhere in the declared graph block the report, even if disconnected from
+/// the changed nodes.
 ///
 /// This identifies what must be re-evaluated; it does not run the evaluators or
 /// mark real stored findings stale. The caller must persist the invalidation.
-pub fn affected_closure(
+pub fn affected_paths(
     changed_artifact_ids: &[String],
     dependencies: &[DependencyEdge],
-) -> Result<Vec<String>, Vec<DependencyGraphIssue>> {
+) -> Result<Vec<AffectedArtifact>, Vec<DependencyGraphIssue>> {
     let mut issues = Vec::new();
     for changed_id in changed_artifact_ids {
         if !nonblank(changed_id) {
@@ -678,30 +694,60 @@ pub fn affected_closure(
         return Err(vec![DependencyGraphIssue::CycleDetected]);
     }
 
-    let mut queue: VecDeque<String> = VecDeque::new();
-    let mut visited: HashSet<String> = HashSet::new();
+    // Seed every changed artifact first, then walk a sorted adjacency list with
+    // breadth-first search. First discovery therefore gives a shortest path;
+    // sorted roots and neighbors make equal-length choices reproducible.
     let mut changed = changed_artifact_ids.to_vec();
     changed.sort();
     changed.dedup();
+    let mut queue: VecDeque<String> = VecDeque::new();
+    let mut paths: HashMap<String, Vec<String>> = HashMap::new();
     for changed_id in changed {
-        if visited.insert(changed_id.clone()) {
-            queue.push_back(changed_id);
-        }
+        paths.insert(changed_id.clone(), vec![changed_id.clone()]);
+        queue.push_back(changed_id);
     }
 
     while let Some(current) = queue.pop_front() {
+        let current_path = paths
+            .get(&current)
+            .expect("queued nodes always have a cause path")
+            .clone();
         if let Some(dependents) = adjacency.get(&current) {
             for dependent in dependents {
-                if visited.insert(dependent.clone()) {
+                if !paths.contains_key(dependent) {
+                    let mut cause_path = current_path.clone();
+                    cause_path.push(dependent.clone());
+                    paths.insert(dependent.clone(), cause_path);
                     queue.push_back(dependent.clone());
                 }
             }
         }
     }
 
-    let mut affected: Vec<String> = visited.into_iter().collect();
-    affected.sort();
+    let mut affected: Vec<AffectedArtifact> = paths
+        .into_iter()
+        .map(|(artifact_id, cause_path)| AffectedArtifact {
+            artifact_id,
+            cause_path,
+        })
+        .collect();
+    affected.sort_by(|left, right| left.artifact_id.cmp(&right.artifact_id));
     Ok(affected)
+}
+
+/// Return a deterministic sorted closure of changed nodes and transitive
+/// dependents. Use `affected_paths` when callers also need a human-auditable
+/// explanation of why each artifact is stale.
+pub fn affected_closure(
+    changed_artifact_ids: &[String],
+    dependencies: &[DependencyEdge],
+) -> Result<Vec<String>, Vec<DependencyGraphIssue>> {
+    affected_paths(changed_artifact_ids, dependencies).map(|affected| {
+        affected
+            .into_iter()
+            .map(|item| item.artifact_id)
+            .collect()
+    })
 }
 
 #[cfg(test)]
@@ -1041,6 +1087,59 @@ mod tests {
             ]
         );
         assert!(!affected.contains(&"identity-receipt".to_owned()));
+    }
+
+    #[test]
+    fn affected_paths_explain_a_deterministic_shortest_cause_chain() {
+        let edges = vec![
+            dependency("a", "c"),
+            dependency("a", "b"),
+            dependency("b", "d"),
+            dependency("c", "d"),
+            dependency("d", "e"),
+        ];
+        let affected = affected_paths(&["a".into()], &edges).unwrap();
+        let path_for = |id: &str| {
+            affected
+                .iter()
+                .find(|item| item.artifact_id == id)
+                .unwrap()
+                .cause_path
+                .clone()
+        };
+
+        assert_eq!(path_for("a"), vec!["a"]);
+        assert_eq!(path_for("d"), vec!["a", "b", "d"]);
+        assert_eq!(path_for("e"), vec!["a", "b", "d", "e"]);
+        assert!(affected.windows(2).all(|pair| {
+            pair[0].artifact_id < pair[1].artifact_id
+        }));
+    }
+
+    #[test]
+    fn all_changed_roots_remain_roots_and_ties_are_deterministic() {
+        let edges = vec![dependency("b", "shared"), dependency("a", "shared")];
+        let affected = affected_paths(&["b".into(), "a".into(), "a".into()], &edges).unwrap();
+        let shared = affected
+            .iter()
+            .find(|item| item.artifact_id == "shared")
+            .unwrap();
+        assert_eq!(shared.cause_path, vec!["a", "shared"]);
+        assert_eq!(
+            affected
+                .iter()
+                .filter(|item| item.artifact_id == "a")
+                .count(),
+            1
+        );
+        assert_eq!(
+            affected
+                .iter()
+                .find(|item| item.artifact_id == "b")
+                .unwrap()
+                .cause_path,
+            vec!["b"]
+        );
     }
 
     #[test]
