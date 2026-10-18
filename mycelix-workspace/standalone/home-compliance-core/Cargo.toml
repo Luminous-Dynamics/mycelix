@@ -8,3 +8,7 @@ publish = false
 
 # Keep this prototype independently buildable and outside the Holochain WASM workspace.
 [workspace]
+
+[[bench]]
+name = "dependency_impact"
+harness = false
