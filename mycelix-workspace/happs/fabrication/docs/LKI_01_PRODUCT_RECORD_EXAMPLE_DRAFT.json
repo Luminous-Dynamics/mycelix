@@ -1,6 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Illustrative only. Dimensions, targets, materials, and interfaces below are provisional engineering placeholders, not a released design, a supplier quote, or a safety assessment.",
   "schema_version": "lifetime-product-v1-draft",
   "product_id": "LKI-01",
   "revision": "0.1.0-draft",
