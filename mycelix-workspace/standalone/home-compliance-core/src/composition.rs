@@ -878,17 +878,17 @@ mod tests {
             (
                 "ZA/GP/Johannesburg",
                 "value:za-profile",
-                vec!["de:ventilation", "us-ca:ventilation"],
+                vec!["EU/DE/Berlin", "US/CA/Los-Angeles"],
             ),
             (
                 "EU/DE/Berlin",
                 "value:de-profile",
-                vec!["za:ventilation", "us-ca:ventilation"],
+                vec!["ZA/GP/Johannesburg", "US/CA/Los-Angeles"],
             ),
             (
                 "US/CA/Los-Angeles",
                 "value:us-ca-profile",
-                vec!["za:ventilation", "de:ventilation"],
+                vec!["ZA/GP/Johannesburg", "EU/DE/Berlin"],
             ),
         ] {
             let result = compose_rule_modules(&[jurisdiction.into()], &modules).unwrap();
