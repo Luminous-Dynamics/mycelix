@@ -89,7 +89,7 @@ Once one municipal profile is reviewed and traceable, add other South African mu
 
 ## Suggested work sequence
 
-**P0 — evidence gate (this branch):** standalone, dependency-free Rust types and deterministic gate rules; adversarial unit tests; no Holochain or hardware side effects.
+**P0 — evidence gate (this branch):** standalone, dependency-free Rust types, deterministic review-gate semantics, temporal source applicability, conflict-aware normalized requirement resolution, revision lineage, invariant-gated migration planning, dependency invalidation, and adversarial unit tests; no Holochain or hardware side effects.
 
 **P1 — schema and fixtures:** versioned JSON schema for rule-pack metadata, check definitions and findings; synthetic South African-like fixtures clearly marked non-authoritative; canonical serialization and digest verification.
 
@@ -226,5 +226,14 @@ The new standalone Rust regulatory module keeps **law-as-of date** separate from
 This does not automatically discover amendments or prove legal status. A production source-maintenance service must poll or receive publisher/authority updates, retain each dated source snapshot, require independent confirmation for status transitions, and produce an append-only update event. Historical assessments read the registry snapshot pinned to that assessment; current reassessments use the latest verified snapshot. Source freshness thresholds must be configured per jurisdiction and risk class, not hardcoded as a universal legal requirement.
 
 The module currently checks metadata and digest shape only. It cannot validate the underlying document, legal authority, signatures or exact law without a source-verification adapter and professional/legal review.
+
+### Rule conflict resolution: no silent winner
+
+The regulatory module now has a conflict-aware resolver for overlapping assertions about the same normalized requirement. Its conservative default is RequireAgreement: divergent current, applicable assertions return an explicit Conflict with source/clause provenance. An optional UseExplicitPrecedence policy is allowed only when every applicable assertion has a jurisdiction-profile rank; only a unique highest-ranked value, or agreeing values at the highest rank, can resolve. Lower-ranked assertions remain recorded as superseded sources. Equal-rank disagreement remains a conflict.
+
+The resolver never derives legal hierarchy from recency, assumes that the numerically largest/smallest value is safest, or infers that one standard overrides another. The jurisdiction profile must supply the precedence model and human/legal review. Non-binding sources do not satisfy a binding requirement; an indeterminate source status blocks a partial resolution because the source set may be incomplete. If there are no applicable assertions, the outcome is indeterminate rather than “no rule applies.”
+
+This is exact-value resolution over normalized assertions, not a building-code interpreter. It cannot determine whether two clauses are semantically equivalent, whether numeric bounds can be safely combined, or whether the source set is complete. Those must be handled by rule-pack authoring and independently reviewed fixtures.
+
 
 Relevant reference: ISO 14721:2025 (OAIS), whose published description covers long-term preservation and information-model changes over time: https://www.iso.org/standard/87471.html .
