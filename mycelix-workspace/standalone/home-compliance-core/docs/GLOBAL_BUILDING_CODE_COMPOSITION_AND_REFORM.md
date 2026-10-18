@@ -98,6 +98,11 @@ This follows the logic of regulatory impact assessment: assess the problem, opti
 
 ## 4. Global rollout without pretending all codes are the same
 
+A machine-readable jurisdiction capability card is the rollout contract. It records bounded jurisdiction identity, status, domain-by-domain coverage, source registry snapshot, independent test corpus, last-checked date, update policy, accountable maintainer, known gaps and independent reviewers pinned to the same canonical subject digest. All eleven defined domains must be explicitly addressed before the system can accept a declared Supported label; a documented NotApplicable decision is different from an unknown/missing area.
+
+A support card is only metadata-complete when its source registry is fresh under the chosen policy, tests and source snapshots are digest-pinned, and at least two distinct independent reviewers support the exact declared scope. A challenging or inconclusive review blocks a Supported metadata claim. Actual source bytes, reviewer identities, authority and test-corpus adequacy still require external verification and professional/legal governance. The card gate does not turn a profile into a legal certification.
+
+
 Start with a small reviewed pilot in one municipality. Keep the registry global, but make each jurisdiction's support status explicit.
 
 For every jurisdiction, publish a capability card:
