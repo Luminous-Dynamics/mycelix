@@ -110,7 +110,10 @@ pub enum Blocker {
     FindingRulePackMismatch(String),
     MissingRationale(String),
     MissingEvidence(String),
-    InvalidEvidenceDigest { check_id: String, evidence_id: String },
+    InvalidEvidenceDigest {
+        check_id: String,
+        evidence_id: String,
+    },
     MandatoryCheckFailed(String),
     MandatoryCheckUnknown(String),
     UnjustifiedNotApplicable(String),
@@ -255,18 +258,14 @@ pub fn evaluate_review_gate(input: &AssessmentInput) -> GateReport {
                     .as_deref()
                     .is_some_and(nonblank);
                 if !justified || !approved {
-                    blockers.push(Blocker::UnjustifiedNotApplicable(
-                        finding.check_id.clone(),
-                    ));
+                    blockers.push(Blocker::UnjustifiedNotApplicable(finding.check_id.clone()));
                 }
             }
         }
     }
 
     for check in &input.required_checks {
-        if check.mandatory
-            && nonblank(&check.id)
-            && !findings_by_id.contains_key(check.id.as_str())
+        if check.mandatory && nonblank(&check.id) && !findings_by_id.contains_key(check.id.as_str())
         {
             blockers.push(Blocker::MissingMandatoryFinding(check.id.clone()));
         }
@@ -379,9 +378,11 @@ mod tests {
             CheckOutcome::Fail,
         )]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::MandatoryCheckFailed("structural-review".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::MandatoryCheckFailed("structural-review".into()))
+        );
     }
 
     #[test]
@@ -391,18 +392,20 @@ mod tests {
             CheckOutcome::Unknown,
         )]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::MandatoryCheckUnknown("structural-review".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::MandatoryCheckUnknown("structural-review".into()))
+        );
     }
 
     #[test]
     fn missing_mandatory_finding_blocks() {
         let report = evaluate_review_gate(&input(Vec::new()));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::MissingMandatoryFinding("structural-review".into())));
+        assert!(report.blockers.contains(&Blocker::MissingMandatoryFinding(
+            "structural-review".into()
+        )));
     }
 
     #[test]
@@ -411,9 +414,11 @@ mod tests {
         item.evidence.clear();
         let report = evaluate_review_gate(&input(vec![item]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::MissingEvidence("structural-review".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::MissingEvidence("structural-review".into()))
+        );
     }
 
     #[test]
@@ -447,9 +452,9 @@ mod tests {
         });
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::DuplicateCheckDefinition("structural-review".into())));
+        assert!(report.blockers.contains(&Blocker::DuplicateCheckDefinition(
+            "structural-review".into()
+        )));
     }
 
     #[test]
@@ -485,9 +490,9 @@ mod tests {
         item.rule_edition = "older-edition".into();
         let report = evaluate_review_gate(&input(vec![item]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::FindingRulePackMismatch("structural-review".into())));
+        assert!(report.blockers.contains(&Blocker::FindingRulePackMismatch(
+            "structural-review".into()
+        )));
     }
 
     #[test]
@@ -497,9 +502,11 @@ mod tests {
             finding("not-in-pack", CheckOutcome::Pass),
         ]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::UnknownFinding("not-in-pack".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::UnknownFinding("not-in-pack".into()))
+        );
     }
 
     #[test]
@@ -509,9 +516,11 @@ mod tests {
             finding("structural-review", CheckOutcome::Pass),
         ]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::DuplicateFinding("structural-review".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&Blocker::DuplicateFinding("structural-review".into()))
+        );
     }
 
     #[test]
@@ -521,9 +530,9 @@ mod tests {
             CheckOutcome::NotApplicable,
         )]));
         assert_eq!(report.status, GateStatus::Blocked);
-        assert!(report
-            .blockers
-            .contains(&Blocker::UnjustifiedNotApplicable("structural-review".into())));
+        assert!(report.blockers.contains(&Blocker::UnjustifiedNotApplicable(
+            "structural-review".into()
+        )));
     }
 
     #[test]
@@ -548,7 +557,11 @@ mod tests {
         optional_only.required_checks[0].mandatory = false;
         let optional_report = evaluate_review_gate(&optional_only);
         assert_eq!(optional_report.status, GateStatus::Blocked);
-        assert!(optional_report.blockers.contains(&Blocker::NoMandatoryChecks));
+        assert!(
+            optional_report
+                .blockers
+                .contains(&Blocker::NoMandatoryChecks)
+        );
     }
 
     #[test]
@@ -558,7 +571,9 @@ mod tests {
             id: "comfort-recommendation".into(),
             mandatory: false,
         });
-        assessment.findings.push(finding("comfort-recommendation", CheckOutcome::Unknown));
+        assessment
+            .findings
+            .push(finding("comfort-recommendation", CheckOutcome::Unknown));
         let report = evaluate_review_gate(&assessment);
         assert_eq!(report.status, GateStatus::ReadyForProfessionalReview);
         assert_eq!(report.unknown_count, 1);
