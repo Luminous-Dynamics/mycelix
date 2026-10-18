@@ -15,7 +15,8 @@
     "scope_change_never_retargets_existing_operation",
     "unknown_is_not_confirmed_or_rejected",
     "sensitive_payload_is_not_in_generic_journal_or_logs",
-    "human_mediated_fallback_preserves_request_reference_where_supported"
+    "human_mediated_fallback_preserves_request_reference_where_supported",
+    "corrupt_journal_does_not_prove_operation_was_never_sent"
   ],
   "cases": [
     {
@@ -26,7 +27,10 @@
       "send": "blocked",
       "recovery": "no_operation_to_replay",
       "expected_state": "NotSent",
-      "expected_ui": "No operation was saved; nothing was sent."
+      "expected_ui": "No operation was saved; nothing was sent.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-002",
@@ -36,7 +40,10 @@
       "send": "blocked",
       "recovery": "ask_user_to_retry_save",
       "expected_state": "NotSent",
-      "expected_ui": "We could not save this draft, so nothing was sent."
+      "expected_ui": "We could not save this draft, so nothing was sent.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-003",
@@ -46,7 +53,10 @@
       "send": "blocked",
       "recovery": "resume_draft_only",
       "expected_state": "Prepared",
-      "expected_ui": "Saved on this device. Not sent."
+      "expected_ui": "Saved on this device. Not sent.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-004",
@@ -56,7 +66,10 @@
       "send": "blocked",
       "recovery": "do_not_send_until_submitted_commit",
       "expected_state": "Prepared",
-      "expected_ui": "Could not record the send safely; request was not sent."
+      "expected_ui": "Could not record the send safely; request was not sent.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-005",
@@ -66,7 +79,10 @@
       "send": "possibly_not_called",
       "recovery": "unknown_no_auto_replay",
       "expected_state": "OutcomeUnknown",
-      "expected_ui": "We cannot confirm whether this request went through. It will not be sent again automatically."
+      "expected_ui": "We cannot confirm whether this request went through. It will not be sent again automatically.",
+      "remote_effect_state": "unknown",
+      "auto_replay_allowed": false,
+      "reconciliation_required": true
     },
     {
       "id": "FUXJ-006",
@@ -76,7 +92,10 @@
       "send": "attempted",
       "recovery": "authoritative_reconcile_or_remain_unknown",
       "expected_state": "OutcomeUnknown",
-      "expected_ui": "Request outcome unknown; check status only through an authoritative path."
+      "expected_ui": "Request outcome unknown; check status only through an authoritative path.",
+      "remote_effect_state": "unknown",
+      "auto_replay_allowed": false,
+      "reconciliation_required": true
     },
     {
       "id": "FUXJ-007",
@@ -86,7 +105,10 @@
       "send": "attempted",
       "recovery": "reconcile_authoritative_receipt",
       "expected_state": "OutcomeUnknown",
-      "expected_ui": "Do not resend until the old attempt is resolved."
+      "expected_ui": "Do not resend until the old attempt is resolved.",
+      "remote_effect_state": "unknown",
+      "auto_replay_allowed": false,
+      "reconciliation_required": true
     },
     {
       "id": "FUXJ-008",
@@ -96,7 +118,10 @@
       "send": "attempted",
       "recovery": "unknown_then_reconcile",
       "expected_state": "OutcomeUnknown",
-      "expected_ui": "A response may have arrived, but this device could not save the result."
+      "expected_ui": "A response may have arrived, but this device could not save the result.",
+      "remote_effect_state": "unknown",
+      "auto_replay_allowed": false,
+      "reconciliation_required": true
     },
     {
       "id": "FUXJ-009",
@@ -106,7 +131,10 @@
       "send": "attempted",
       "recovery": "unknown_unless_typed_rejection_proves_no_effect",
       "expected_state": "OutcomeUnknown",
-      "expected_ui": "We could not verify the outcome from the response."
+      "expected_ui": "We could not verify the outcome from the response.",
+      "remote_effect_state": "unknown",
+      "auto_replay_allowed": false,
+      "reconciliation_required": true
     },
     {
       "id": "FUXJ-010",
@@ -116,7 +144,10 @@
       "send": "attempted",
       "recovery": "record_typed_rejection",
       "expected_state": "ExplicitlyRejected",
-      "expected_ui": "The request was rejected; no booking was created."
+      "expected_ui": "The request was rejected; no booking was created.",
+      "remote_effect_state": "rejected",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-011",
@@ -126,7 +157,10 @@
       "send": "no_new_send",
       "recovery": "idempotent_receipt_application",
       "expected_state": "Confirmed",
-      "expected_ui": "Keep the same request receipt; do not create a second request."
+      "expected_ui": "Keep the same request receipt; do not create a second request.",
+      "remote_effect_state": "request_received",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-012",
@@ -136,7 +170,10 @@
       "send": "blocked_until_scope_confirmed",
       "recovery": "preserve_original_scope_or_create_new_operation",
       "expected_state": "Prepared",
-      "expected_ui": "This draft remains tied to its original site."
+      "expected_ui": "This draft remains tied to its original site.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-013",
@@ -146,7 +183,10 @@
       "send": "blocked",
       "recovery": "mark_not_sent_offer_edit_or_cancel",
       "expected_state": "NotSent",
-      "expected_ui": "Sharing permission changed, so this request was not sent."
+      "expected_ui": "Sharing permission changed, so this request was not sent.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-014",
@@ -156,7 +196,10 @@
       "send": "blocked",
       "recovery": "show_storage_recovery_path",
       "expected_state": "NotSent",
-      "expected_ui": "Your device could not safely save this operation. Nothing was sent."
+      "expected_ui": "Your device could not safely save this operation. Nothing was sent.",
+      "remote_effect_state": "not_sent",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     },
     {
       "id": "FUXJ-015",
@@ -165,8 +208,11 @@
       "durable_last": "untrusted",
       "send": "blocked",
       "recovery": "quarantine_preserve_or_export_no_silent_reset",
-      "expected_state": "NotSent",
-      "expected_ui": "The saved operation needs recovery. No request was sent from this record."
+      "expected_state": "OutcomeUnknown",
+      "expected_ui": "The saved operation needs recovery. No request was sent from this record.",
+      "remote_effect_state": "unknown",
+      "auto_replay_allowed": false,
+      "reconciliation_required": true
     },
     {
       "id": "FUXJ-016",
@@ -176,7 +222,10 @@
       "send": "attempted",
       "recovery": "map_receipt_to_request_received_only",
       "expected_state": "Confirmed",
-      "expected_ui": "Request received. This is not a quote or booking."
+      "expected_ui": "Request received. This is not a quote or booking.",
+      "remote_effect_state": "request_received",
+      "auto_replay_allowed": false,
+      "reconciliation_required": false
     }
   ]
 }
