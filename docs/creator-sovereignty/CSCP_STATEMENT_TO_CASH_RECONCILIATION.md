@@ -25,11 +25,16 @@ The standards landscape itself supports keeping layers distinct:
 
 ## Data model v1
 
+The normalization boundary is deliberate: preserving a source's semantics is a prerequisite to financial reconciliation, not optional metadata. A raw usage/revenue report must not be re-labelled as payable or cash without an explicit mapping contract.
+
+
 ### RoyaltyStatementLine
 
-A statement line represents a reporting source's positive amount said to be payable for the line and reporting period. It records a stable line ID, statement ID, reporting-source ID, reporting interval, currency, and integer minor-unit amount.
+A statement line in this prototype is a **normalized payable assertion**: the source has been interpreted, by an explicit versioned mapping, as saying a positive amount is payable for this line and reporting period. It records a stable line ID, statement ID, reporting-source ID, reporting interval, currency, and integer minor-unit amount.
 
-It does not update the cash ledger, establish legal entitlement, create an invoice, or prove payout. Missing statement identifiers are not fabricated. V1 models positive reported lines; signed adjustments, withholding/tax, and platform-fee treatment require explicit typed event kinds in a later schema rather than being encoded as ambiguous negative cash.
+Do not map every external field named revenue or royalty directly into this type. DDEX RDR-R and DSR can report revenue generated from usage or sales/usage data, which is not automatically the net amount payable to this specific creator. A future adapter must retain raw source semantics and declare whether a field is usage revenue, reported/accrued royalty, payable amount, or actual remittance; it may create this normalized payable line only when a versioned mapping and supporting evidence justify that interpretation. RDR-N recording/right/party metadata is yet another distinct class of source fact.
+
+A normalized payable line does not update the cash ledger, establish legal entitlement, create an invoice, or prove payout. Missing statement identifiers are not fabricated. V1 models positive payable assertions; signed adjustments, withholding/tax, and platform-fee treatment require explicit typed event kinds in a later schema rather than being encoded as ambiguous negative cash.
 
 ### Observed receipt
 
