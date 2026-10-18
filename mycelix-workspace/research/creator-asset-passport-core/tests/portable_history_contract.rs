@@ -1,10 +1,6 @@
 use creator_asset_passport_core::history::{GrantEvent, GrantHistory};
-use creator_asset_passport_core::portable::{
-    GrantHistoryEnvelope, PortableHistoryError,
-};
-use creator_asset_passport_core::{
-    AssetId, EventId, GrantId, PartyId, UsageGrant, UseAction,
-};
+use creator_asset_passport_core::portable::{GrantHistoryEnvelope, PortableHistoryError};
+use creator_asset_passport_core::{AssetId, EventId, GrantId, PartyId, UsageGrant, UseAction};
 
 fn party(value: &str) -> PartyId {
     PartyId::new(value).unwrap()
@@ -66,16 +62,18 @@ fn portable_envelope_round_trip_preserves_effective_revocation() {
 
 #[test]
 fn different_event_evidence_changes_the_content_digest() {
-    let original = GrantHistoryEnvelope::from_history(
-        &history_with_issue_evidence("evidence://issue"),
-    )
-    .unwrap();
-    let changed_source = GrantHistoryEnvelope::from_history(
-        &history_with_issue_evidence("evidence://changed-source"),
-    )
+    let original =
+        GrantHistoryEnvelope::from_history(&history_with_issue_evidence("evidence://issue"))
+            .unwrap();
+    let changed_source = GrantHistoryEnvelope::from_history(&history_with_issue_evidence(
+        "evidence://changed-source",
+    ))
     .unwrap();
 
-    assert_ne!(original.digest_hex().unwrap(), changed_source.digest_hex().unwrap());
+    assert_ne!(
+        original.digest_hex().unwrap(),
+        changed_source.digest_hex().unwrap()
+    );
 }
 
 #[test]
@@ -87,9 +85,7 @@ fn envelope_rejects_unknown_use_action_tag() {
     let magic_len = b"MYCELIX-CSCP-GRANT-HISTORY\0".len();
     let mut cursor = magic_len + 2 + 8;
     let advance_string = |cursor: &mut usize| {
-        let len = u32::from_be_bytes(
-            bytes[*cursor..*cursor + 4].try_into().unwrap(),
-        ) as usize;
+        let len = u32::from_be_bytes(bytes[*cursor..*cursor + 4].try_into().unwrap()) as usize;
         *cursor += 4 + len;
     };
     advance_string(&mut cursor); // event ID
