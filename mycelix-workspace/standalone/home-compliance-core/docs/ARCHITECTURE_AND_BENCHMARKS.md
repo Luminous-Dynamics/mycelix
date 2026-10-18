@@ -198,6 +198,7 @@ The new integration suite also verifies that an unknown mandatory energy result 
 | Benchmark | Acceptance target | Current evidence |
 |---|---|---|
 | Dependency precision | 100% of required transitive dependents returned; 0 unrelated sibling artifacts included in golden mutation fixtures | Two synthetic closure scenarios authored; execution must be confirmed by exact-head tests |
+| Graph scale and determinism | Complete, lexically deterministic closure for a 10,000-edge chain; no missing descendants | A 10,000-edge correctness stress test is authored; latency is deliberately not asserted by a flaky wall-clock unit test |
 | Gate fail-closed behavior | 0 review-ready outcomes when any mandatory check is Unknown, failed, missing, ambiguous or tied to the wrong rule edition | Unit and integration test cases authored; no engineering validator is implied |
 | Proposal/current-law separation | 100% of proposed-only assertions excluded from binding resolution; unresolved/unknown status remains indeterminate | Synthetic source-status integration case authored |
 | Fixture/schema integrity | JSON parsed against a published versioned schema; all identifiers and dependency edges loaded from fixture rather than duplicated in code | Not yet met; current test checks selected identity fragments only |
