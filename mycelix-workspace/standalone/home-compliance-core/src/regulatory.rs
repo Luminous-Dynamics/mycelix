@@ -251,6 +251,7 @@ pub enum RequirementResolutionIssue {
     DuplicateSourceClause { source_id: String, clause_ref: String },
     SourceStatusIndeterminate { source_id: String, reason: IndeterminateReason },
     MissingExplicitPrecedence { source_id: String },
+    NoPrecedenceRanks,
     ConflictingHighestPrecedenceValues,
     ConflictingValues,
 }
@@ -355,7 +356,7 @@ pub fn resolve_requirement(
                 .any(|assertion| assertion.normalized_value != first_value)
             {
                 let mut grouped: HashMap<String, Vec<SourceClauseRef>> = HashMap::new();
-                for assertion in applicable {
+                for assertion in &applicable {
                     grouped
                         .entry(assertion.normalized_value.clone())
                         .or_default()
@@ -400,11 +401,15 @@ pub fn resolve_requirement(
                 );
             }
 
-            let highest = applicable
+            let Some(highest) = applicable
                 .iter()
                 .filter_map(|assertion| assertion.precedence_rank)
                 .max()
-                .expect("applicable is non-empty and missing ranks were rejected");
+            else {
+                return RequirementResolution::Indeterminate(
+                    RequirementResolutionIssue::NoPrecedenceRanks,
+                );
+            };
             let top: Vec<_> = applicable
                 .iter()
                 .copied()
