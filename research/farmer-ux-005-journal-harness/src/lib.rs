@@ -303,11 +303,15 @@ pub fn submit_new<J: DurableJournal, R: RemoteService>(
 
     // A journal adapter must return only after Submitted is durably committed.
     // Read back before calling remote so an uncommitted transition cannot dispatch.
-    if journal.read(operation_id).map(|r| r.status) != Some(AttemptStatus::Submitted) {
+    let submitted_record = journal.read(operation_id);
+    let marker_verified = submitted_record
+        .as_ref()
+        .is_some_and(|record| record.status == AttemptStatus::Submitted);
+    if !network_send_authorized(submitted_record.as_ref(), marker_verified) {
         return ExecutionResult {
             status: AttemptStatus::OutcomeUnknown,
             send_attempted: false,
-            durable_status: journal.read(operation_id).map(|r| r.status),
+            durable_status: submitted_record.map(|r| r.status),
             note: "Submitted commit could not be verified; fail closed",
         };
     }
@@ -508,10 +512,10 @@ fn semantic_errors(cases: &Value, mapping: &Value) -> Vec<String> {
         let name = entry.get("status").and_then(Value::as_str).unwrap_or("");
         if !names.insert(name) { errors.push(format!("duplicate attempt status {name:?}")); }
         if name == "OutcomeUnknown" && (entry.get("can_start_attempt").and_then(Value::as_bool) != Some(false) || entry.get("needs_reconciliation").and_then(Value::as_bool) != Some(true)) {
-            errors.push("mapping: OutcomeUnknown must not dispatch and must require reconciliation".to_owned());
+            errors.push("mapping: OutcomeUnknown cannot start a new attempt and must require reconciliation".to_owned());
         }
-        if name == "Prepared" && entry.get("dispatch_eligible").and_then(Value::as_bool) != Some(true) {
-            errors.push("mapping: Prepared must be dispatch-eligible only after durable Submitted commit".to_owned());
+        if name == "Prepared" && entry.get("can_start_attempt").and_then(Value::as_bool) != Some(true) {
+            errors.push("mapping: Prepared may start an attempt but does not authorize network send".to_owned());
         }
     }
     if statuses.len() != 8 || names.len() != 8 { errors.push("mapping must define exactly eight attempt statuses".to_owned()); }
