@@ -23,7 +23,7 @@ The default repository root is derived from this crate's location. `--root` may 
 
 ## Checks
 
-1. Validate the three instances against their declared JSON Schema Draft 2020-12 schemas using the Rust `jsonschema` crate.
+1. Validate the three main instances against their declared JSON Schema Draft 2020-12 schemas using the Rust `jsonschema` crate, including schema documents against the crate's bundled meta-schema validator.
 2. Verify the draft dialect identifier before validating.
 3. Require the canonical v1 scenario IDs, role IDs, and state-copy keys so removing high-risk coverage fails closed.
 4. Check shared invariants, uniqueness, contradictory `must_show`/`must_not_show` labels, and critical side-effect expectations.
@@ -33,7 +33,7 @@ The verifier uses local schema documents and internal references only. External 
 
 ## Mutation tests
 
-Unit tests mutate the canonical corpus to ensure the verifier rejects duplicate IDs, contradictory visible states, removal of a critical scenario, an expired-quote booking side effect, and treating digest syntax as source authentication. These are verifier mutation checks; they are not end-to-end production state-machine tests.
+The frozen `mutations-v1.json` file defines 12 data-driven semantic mutations and the expected failure reason. Unit tests apply that corpus to fresh in-memory fixture copies, ensuring the verifier rejects duplicate IDs, missing high-risk scenarios, contradictory visible states, an expired-quote booking, digest syntax treated as source authentication, critical state drift, unauthorized relay effects, no-show denominator loss, copy overclaims, and stale provider capacity. Additional unit tests cover schema meta-validation and a standard SHA-256 test vector. These are verifier mutation checks; they are not end-to-end production state-machine tests.
 
 ## Interpretation
 
