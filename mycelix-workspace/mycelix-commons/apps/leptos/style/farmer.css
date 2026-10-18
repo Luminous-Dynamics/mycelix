@@ -716,3 +716,59 @@
         transform: none;
     }
 }
+
+.farmer-workflow-demo {
+    margin-top: 1rem;
+    padding: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.farmer-workflow-demo h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.farmer-simulation-intro {
+    margin-top: 0.3rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.farmer-simulation-status {
+    margin: 0.85rem 0;
+    padding: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+.farmer-simulation-status h4 {
+    margin-top: 0.55rem;
+    font-size: 0.98rem;
+    line-height: 1.4;
+}
+
+.farmer-simulation-status p {
+    margin-top: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.farmer-choice-prompt {
+    margin-bottom: 0.5rem;
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.farmer-walkthrough-choice .farmer-form-actions {
+    margin-top: 0;
+}
+
+@media (max-width: 620px) {
+    .farmer-workflow-demo .farmer-button {
+        width: 100%;
+    }
+}
+
