@@ -236,3 +236,21 @@ fn proposed_amendment_cannot_overwrite_current_binding_assertion() {
         other => panic!("proposal must not replace the binding fixture: {other:?}"),
     }
 }
+
+#[test]
+fn fixture_has_a_shared_machine_readable_identity_contract() {
+    let fixture = include_str!("../fixtures/johannesburg-adaptable-home-v1.json");
+    for required_fragment in [
+        "\"schema_version\": \"1.0.0\"",
+        "\"status\": \"software_fixture_only_not_regulatory_or_engineering_evidence\"",
+        "\"floorplan\": \"model:floorplan\"",
+        "\"energy_rule_pack_logical_id\": \"rulepack:za-jhb:energy\"",
+        "[\"rulepack:za-jhb:energy\", \"finding:energy-rule\"]",
+    ] {
+        assert!(
+            fixture.contains(required_fragment),
+            "fixture is missing expected contract fragment: {required_fragment}"
+        );
+    }
+}
+
