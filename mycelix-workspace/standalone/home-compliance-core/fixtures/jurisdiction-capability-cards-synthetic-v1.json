@@ -30,7 +30,8 @@
       "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
       "accountable_maintainer": "governance:unassigned",
       "source_registry_checked_on_day": 120,
-      "registry_as_of_day": 120
+      "registry_as_of_day": 120,
+      "card_author_id": "author:synthetic-fixture"
     },
     {
       "jurisdiction_id": "US/CA/SanFrancisco",
@@ -60,7 +61,8 @@
       "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
       "accountable_maintainer": "governance:unassigned",
       "source_registry_checked_on_day": 120,
-      "registry_as_of_day": 120
+      "registry_as_of_day": 120,
+      "card_author_id": "author:synthetic-fixture"
     },
     {
       "jurisdiction_id": "DE/BE/Berlin",
@@ -90,7 +92,8 @@
       "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
       "accountable_maintainer": "governance:unassigned",
       "source_registry_checked_on_day": 120,
-      "registry_as_of_day": 120
+      "registry_as_of_day": 120,
+      "card_author_id": "author:synthetic-fixture"
     }
   ]
 }
