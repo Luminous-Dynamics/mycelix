@@ -314,4 +314,20 @@ fn ten_thousand_node_dependency_chain_has_complete_deterministic_closure() {
     assert!(affected.contains(&"artifact:0".to_owned()));
     assert!(affected.contains(&format!("artifact:{edge_count}")));
     assert!(affected.windows(2).all(|pair| pair[0] <= pair[1]));
+
+    let cause_tree = affected_cause_tree(&changed, &dependencies)
+        .expect("the same well-formed chain must have a complete cause tree");
+    assert_eq!(cause_tree.len(), edge_count + 1);
+    assert_eq!(cause_tree[0].artifact_id, "artifact:0");
+    assert_eq!(cause_tree[0].cause_parent_id, None);
+    assert_eq!(
+        cause_tree
+            .iter()
+            .find(|item| item.artifact_id == "artifact:10000")
+            .unwrap()
+            .cause_parent_id
+            .as_deref(),
+        Some("artifact:9999")
+    );
+    assert!(cause_tree.windows(2).all(|pair| pair[0].artifact_id < pair[1].artifact_id));
 }
