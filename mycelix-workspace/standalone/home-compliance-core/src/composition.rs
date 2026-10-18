@@ -874,7 +874,7 @@ mod tests {
             ),
         ];
 
-        for (jurisdiction, expected_value, foreign_statement_ids) in [
+        for (jurisdiction, expected_value, foreign_module_ids) in [
             (
                 "ZA/GP/Johannesburg",
                 "value:za-profile",
@@ -898,10 +898,11 @@ mod tests {
             assert!(result
                 .module_lineage
                 .contains(&"global:ventilation-reference".to_owned()));
-            assert!(!result
-                .module_lineage
-                .iter()
-                .any(|module_id| foreign_statement_ids.iter().any(|foreign| module_id == foreign)));
+            assert!(!result.module_lineage.iter().any(|module_id| {
+                foreign_module_ids
+                    .iter()
+                    .any(|foreign| module_id.as_str() == *foreign)
+            }));
             assert!(result.non_binding_assertions.iter().any(|item| {
                 item.source.module_id == "global:ventilation-reference"
                     && item.force == RuleForce::EngineeringBaseline
