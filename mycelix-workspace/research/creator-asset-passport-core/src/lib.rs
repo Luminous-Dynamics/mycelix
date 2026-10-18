@@ -4,6 +4,7 @@
 //! identity provider, signature verifier, legal opinion, or proof of ownership.
 
 pub mod history;
+pub mod import_ledger;
 pub mod passport_envelope;
 pub mod portable;
 pub mod provenance;
