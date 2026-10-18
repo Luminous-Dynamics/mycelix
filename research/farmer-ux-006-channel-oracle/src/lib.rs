@@ -39,6 +39,12 @@ pub struct ScheduleReport {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DependencyLockEvidence {
+    pub path: String,
+    pub sha256: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct OracleReport {
     pub version: String,
     pub status: String,
@@ -46,6 +52,7 @@ pub struct OracleReport {
     pub artifact_checks: Vec<ArtifactCheck>,
     pub semantic_errors: Vec<String>,
     pub adversarial_schedules: ScheduleReport,
+    pub dependency_lock: Option<DependencyLockEvidence>,
     pub claim_ceiling: String,
 }
 
@@ -523,6 +530,20 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
 }
 
 pub fn verify_repository(root: &Path) -> Result<OracleReport, String> {
+    let dependency_lock_path = root.join("research/farmer-ux-006-channel-oracle/Cargo.lock");
+    let dependency_lock = match fs::read(&dependency_lock_path) {
+        Ok(bytes) => Some(DependencyLockEvidence {
+            path: "research/farmer-ux-006-channel-oracle/Cargo.lock".to_owned(),
+            sha256: sha256(&bytes),
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            return Err(format!(
+                "cannot read dependency lockfile {}: {error}",
+                dependency_lock_path.display()
+            ));
+        }
+    };
     let (case_bytes, cases) = read_json(root, CASES_PATH)?;
     let (case_schema_bytes, case_schema) = read_json(root, CASES_SCHEMA_PATH)?;
     let (envelope_bytes, envelope) = read_json(root, ENVELOPE_PATH)?;
@@ -565,6 +586,7 @@ pub fn verify_repository(root: &Path) -> Result<OracleReport, String> {
         artifact_checks,
         semantic_errors: errors,
         adversarial_schedules: schedules,
+        dependency_lock,
         claim_ceiling: CLAIM_CEILING.to_owned(),
     })
 }
@@ -601,6 +623,10 @@ mod tests {
         assert!(report.artifact_checks.iter().all(|item| item.schema_status == "PASS"));
         assert_eq!(report.adversarial_schedules.schedules_executed, SCHEDULE_COUNT);
         assert!(report.adversarial_schedules.invariant_violations.is_empty());
+        assert!(
+            report.dependency_lock.as_ref().is_some_and(|lock| lock.sha256.len() == 64),
+            "Cargo should resolve the standalone crate's lock before tests run"
+        );
     }
 
     #[test]
