@@ -259,11 +259,9 @@ impl FieldTreatment {
             Self::RetainedRaw { reason_code } => Ok(Self::RetainedRaw {
                 reason_code: validate_text(reason_code)?,
             }),
-            Self::UnsupportedRetained { reason_code } => {
-                Ok(Self::UnsupportedRetained {
-                    reason_code: validate_text(reason_code)?,
-                })
-            }
+            Self::UnsupportedRetained { reason_code } => Ok(Self::UnsupportedRetained {
+                reason_code: validate_text(reason_code)?,
+            }),
         }
     }
 
@@ -430,9 +428,7 @@ impl ImportProvenanceManifest {
         mut diagnostics: Vec<ImportDiagnostic>,
     ) -> Result<Self, ProvenanceError> {
         let before_snapshot_digest = validate_digest(before_snapshot_digest.as_ref())?;
-        let after_snapshot_digest = after_snapshot_digest
-            .map(validate_digest)
-            .transpose()?;
+        let after_snapshot_digest = after_snapshot_digest.map(validate_digest).transpose()?;
         field_mappings.sort();
         diagnostics.sort();
 
@@ -461,10 +457,7 @@ impl ImportProvenanceManifest {
             return Err(ProvenanceError::TooManyDiagnostics);
         }
 
-        if self
-            .field_mappings
-            .windows(2)
-            .any(|pair| pair[0] > pair[1])
+        if self.field_mappings.windows(2).any(|pair| pair[0] > pair[1])
             || self.diagnostics.windows(2).any(|pair| pair[0] > pair[1])
         {
             return Err(ProvenanceError::NonCanonicalEncoding);
@@ -495,9 +488,10 @@ impl ImportProvenanceManifest {
 
         for field in &self.field_mappings {
             if field.treatment.requires_diagnostic()
-                && !self.diagnostics.iter().any(|diagnostic| {
-                    diagnostic.source_path() == Some(field.source_path())
-                })
+                && !self
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.source_path() == Some(field.source_path()))
             {
                 return Err(ProvenanceError::MissingFieldDiagnostic);
             }
@@ -854,10 +848,7 @@ fn write_string(output: &mut Vec<u8>, value: &str) -> Result<(), ProvenanceError
     Ok(())
 }
 
-fn write_optional_string(
-    output: &mut Vec<u8>,
-    value: Option<&str>,
-) -> Result<(), ProvenanceError> {
+fn write_optional_string(output: &mut Vec<u8>, value: Option<&str>) -> Result<(), ProvenanceError> {
     match value {
         None => output.push(0),
         Some(value) => {
@@ -911,8 +902,7 @@ impl<'a> Reader<'a> {
     fn u64(&mut self) -> Result<u64, ProvenanceError> {
         let value = self.take(8)?;
         Ok(u64::from_be_bytes([
-            value[0], value[1], value[2], value[3],
-            value[4], value[5], value[6], value[7],
+            value[0], value[1], value[2], value[3], value[4], value[5], value[6], value[7],
         ]))
     }
 
@@ -1007,11 +997,8 @@ mod tests {
 
     #[test]
     fn unsupported_field_must_be_preserved_and_disclosed() {
-        let field = FieldMapping::unsupported_retained(
-            "/Report/NewElement",
-            "unknown_field",
-        )
-        .unwrap();
+        let field =
+            FieldMapping::unsupported_retained("/Report/NewElement", "unknown_field").unwrap();
         let diagnostic = ImportDiagnostic::new(
             "unsupported_source_field",
             DiagnosticSeverity::Warning,
@@ -1053,7 +1040,10 @@ mod tests {
             vec![error],
         )
         .unwrap();
-        assert_eq!(manifest.before_snapshot_digest(), manifest.after_snapshot_digest().unwrap());
+        assert_eq!(
+            manifest.before_snapshot_digest(),
+            manifest.after_snapshot_digest().unwrap()
+        );
     }
 
     #[test]
@@ -1132,20 +1122,9 @@ mod tests {
             "00".repeat(32),
             Some("11".repeat(32).as_str()),
             vec![
-                FieldMapping::mapped(
-                    "/Report/Id",
-                    "/statement/id",
-                    "id-map",
-                    "1",
-                )
-                .unwrap(),
-                FieldMapping::mapped(
-                    "/Report/Period",
-                    "/statement/period",
-                    "period-map",
-                    "1",
-                )
-                .unwrap(),
+                FieldMapping::mapped("/Report/Id", "/statement/id", "id-map", "1").unwrap(),
+                FieldMapping::mapped("/Report/Period", "/statement/period", "period-map", "1")
+                    .unwrap(),
             ],
             vec![],
         )
@@ -1156,8 +1135,7 @@ mod tests {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        let expected =
-            include_str!("../tests/fixtures/creator-import-provenance-v1.hex").trim();
+        let expected = include_str!("../tests/fixtures/creator-import-provenance-v1.hex").trim();
         assert_eq!(actual, expected);
     }
 
