@@ -10,6 +10,7 @@
 
 pub mod composition;
 pub mod evolution;
+pub mod reform;
 pub mod regulatory;
 
 use std::collections::{HashMap, HashSet};
