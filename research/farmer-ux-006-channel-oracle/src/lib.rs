@@ -555,10 +555,15 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             reasons.push(format!("expected 1 quarantined conflict, observed {conflicts}"));
         }
         if ledger.request_count() != 8 {
-            reasons.push(format!(\n                "expected 8 distinct requests, observed {}",\n                ledger.request_count()\n            ));
+            reasons.push(format!(
+                "expected 8 distinct requests, observed {}",
+                ledger.request_count()
+            ));
         }
         for (event_id, expected_digest) in first_digest_by_id {
-            if ledger.stored(&event_id).map(|event| event.digest.as_str())\n                != Some(expected_digest.as_str())\n            {
+            if ledger.stored(&event_id).map(|event| event.digest.as_str())
+                != Some(expected_digest.as_str())
+            {
                 reasons.push(format!("first-seen event was silently overwritten: {event_id}"));
             }
         }
@@ -566,7 +571,9 @@ pub fn run_deterministic_schedules() -> ScheduleReport {
             reasons.push("relay evidence was promoted to booking".to_owned());
         }
         if forwarding_allowed(true, false) || forwarding_allowed(false, true) {
-            reasons.push(\n                "forwarding allowed without both authority and current consent".to_owned(),\n            );
+            reasons.push(
+                "forwarding allowed without both authority and current consent".to_owned(),
+            );
         }
         if !reasons.is_empty() && violations.len() < 100 {
             violations.push(format!("schedule {seed}: {}", reasons.join("; ")));
@@ -623,7 +630,10 @@ pub fn verify_repository(root: &Path) -> Result<OracleReport, String> {
     let schema_failed = artifact_checks
         .iter()
         .any(|artifact| artifact.schema_status != "PASS");
-    let status = if schema_failed\n        || !errors.is_empty()\n        || !schedules.invariant_violations.is_empty()\n    {
+    let status = if schema_failed
+        || !errors.is_empty()
+        || !schedules.invariant_violations.is_empty()
+    {
         "FAIL"
     } else {
         "PASS"
@@ -647,7 +657,9 @@ pub fn find_repository_root() -> Result<PathBuf, String> {
             return Ok(current);
         }
         if !current.pop() {
-            return Err(format!(\n                "could not find {CASES_PATH} walking up from the current directory"\n            ));
+            return Err(format!(
+                "could not find {CASES_PATH} walking up from the current directory"
+            ));
         }
     }
 }
@@ -666,7 +678,12 @@ mod tests {
     fn schemas_semantics_and_schedule_model_pass() {
         let root = find_repository_root().expect("repository root");
         let report = verify_repository(&root).expect("read conformance fixtures");
-        assert_eq!(\n            report.status,\n            "PASS",\n            "report: {}",\n            serde_json::to_string_pretty(&report).unwrap()\n        );
+        assert_eq!(
+            report.status,
+            "PASS",
+            "report: {}",
+            serde_json::to_string_pretty(&report).unwrap()
+        );
         assert_eq!(report.case_count, 17);
         assert_eq!(report.artifact_checks.len(), 2);
         assert!(report.artifact_checks.iter().all(|item| item.schema_status == "PASS"));
@@ -784,10 +801,22 @@ mod tests {
     fn source_evidence_cannot_claim_a_higher_authority_class() {
         assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::ProviderReceipt));
         assert!(!evidence_can_support_claim(EvidenceKind::Relayed, ClaimType::BookingConfirmed));
-        assert!(!evidence_can_support_claim(\n            EvidenceKind::ProviderReportedComplete,\n            ClaimType::FarmerAccepted\n        ));
-        assert!(!evidence_can_support_claim(\n            EvidenceKind::OutcomeUnknown,\n            ClaimType::BookingConfirmed\n        ));
-        assert!(evidence_can_support_claim(\n            EvidenceKind::ProviderReceipt,\n            ClaimType::ProviderReceipt\n        ));
-        assert!(evidence_can_support_claim(\n            EvidenceKind::FarmerAcceptance,\n            ClaimType::FarmerAccepted\n        ));
+        assert!(!evidence_can_support_claim(
+            EvidenceKind::ProviderReportedComplete,
+            ClaimType::FarmerAccepted
+        ));
+        assert!(!evidence_can_support_claim(
+            EvidenceKind::OutcomeUnknown,
+            ClaimType::BookingConfirmed
+        ));
+        assert!(evidence_can_support_claim(
+            EvidenceKind::ProviderReceipt,
+            ClaimType::ProviderReceipt
+        ));
+        assert!(evidence_can_support_claim(
+            EvidenceKind::FarmerAcceptance,
+            ClaimType::FarmerAccepted
+        ));
     }
 
     #[test]
