@@ -5,6 +5,7 @@
 //! It deliberately has no network or third-party dependencies.
 
 pub mod scenario;
+pub mod settlement;
 
 use std::collections::BTreeMap;
 use std::error::Error;
