@@ -133,13 +133,22 @@ pub enum ReformDossierBlocker {
     NoEvidenceItems,
     EmptyEvidenceId,
     DuplicateEvidenceId(String),
-    InvalidEvidenceMetadata { evidence_id: String, field: &'static str },
+    InvalidEvidenceMetadata {
+        evidence_id: String,
+        field: &'static str,
+    },
     InvalidEvidenceDigest(String),
     DuplicateAffectedGroup(String),
-    InvalidAffectedGroupMetadata { group_id: String, field: &'static str },
+    InvalidAffectedGroupMetadata {
+        group_id: String,
+        field: &'static str,
+    },
     DuplicateReviewer(String),
     ReviewerIsAuthor(String),
-    InvalidReviewMetadata { reviewer_id: String, field: &'static str },
+    InvalidReviewMetadata {
+        reviewer_id: String,
+        field: &'static str,
+    },
     InvalidReviewedSnapshotDigest(String),
     ReviewerLookedAtDifferentSnapshot(String),
 }
@@ -185,8 +194,14 @@ pub fn evaluate_reform_dossier(dossier: &CodeReformDossier) -> ReformDossierRepo
             "proposed_performance_outcome",
             dossier.proposed_performance_outcome.as_str(),
         ),
-        ("proposed_rule_summary", dossier.proposed_rule_summary.as_str()),
-        ("alternatives_considered", dossier.alternatives_considered.as_str()),
+        (
+            "proposed_rule_summary",
+            dossier.proposed_rule_summary.as_str(),
+        ),
+        (
+            "alternatives_considered",
+            dossier.alternatives_considered.as_str(),
+        ),
         ("expected_benefits", dossier.expected_benefits.as_str()),
         (
             "foreseeable_harms_and_tradeoffs",
@@ -196,7 +211,10 @@ pub fn evaluate_reform_dossier(dossier: &CodeReformDossier) -> ReformDossierRepo
             "counterevidence_search_summary",
             dossier.counterevidence_search_summary.as_str(),
         ),
-        ("uncertainty_register", dossier.uncertainty_register.as_str()),
+        (
+            "uncertainty_register",
+            dossier.uncertainty_register.as_str(),
+        ),
         (
             "dossier_conflict_of_interest_disclosure",
             dossier.dossier_conflict_of_interest_disclosure.as_str(),
@@ -244,7 +262,10 @@ pub fn evaluate_reform_dossier(dossier: &CodeReformDossier) -> ReformDossierRepo
         for (field, value) in [
             ("source_uri", item.source_uri.as_str()),
             ("method_summary", item.method_summary.as_str()),
-            ("population_and_context", item.population_and_context.as_str()),
+            (
+                "population_and_context",
+                item.population_and_context.as_str(),
+            ),
             ("outcome_metrics", item.outcome_metrics.as_str()),
             ("findings_summary", item.findings_summary.as_str()),
             (
@@ -360,11 +381,9 @@ pub fn evaluate_reform_dossier(dossier: &CodeReformDossier) -> ReformDossierRepo
     if dossier.independent_reviews.len() < 2 {
         gaps.push(PublicConsultationGap::FewerThanTwoIndependentReviewers);
     }
-    if !dossier
-        .independent_reviews
-        .iter()
-        .any(|review| review.disposition == IndependentReviewDisposition::SupportsPublicConsultation)
-    {
+    if !dossier.independent_reviews.iter().any(|review| {
+        review.disposition == IndependentReviewDisposition::SupportsPublicConsultation
+    }) {
         gaps.push(PublicConsultationGap::NoReviewerSupportsPublicConsultation);
     }
     let status = if gaps.is_empty() {
@@ -511,7 +530,10 @@ fn validate_closeout(
     for (field, value) in [
         ("consultation_id", closeout.consultation_id.as_str()),
         ("public_notice_uri", closeout.public_notice_uri.as_str()),
-        ("feedback_archive_uri", closeout.feedback_archive_uri.as_str()),
+        (
+            "feedback_archive_uri",
+            closeout.feedback_archive_uri.as_str(),
+        ),
         ("response_summary", closeout.response_summary.as_str()),
         ("response_record_uri", closeout.response_record_uri.as_str()),
     ] {
@@ -520,13 +542,19 @@ fn validate_closeout(
         }
     }
     if !is_sha256_hex(&closeout.dossier_snapshot_sha256) {
-        issues.push(ReformWorkflowIssue::InvalidDigest("dossier_snapshot_sha256"));
+        issues.push(ReformWorkflowIssue::InvalidDigest(
+            "dossier_snapshot_sha256",
+        ));
     }
     if !is_sha256_hex(&closeout.closeout_snapshot_sha256) {
-        issues.push(ReformWorkflowIssue::InvalidDigest("closeout_snapshot_sha256"));
+        issues.push(ReformWorkflowIssue::InvalidDigest(
+            "closeout_snapshot_sha256",
+        ));
     }
     if !is_sha256_hex(&closeout.feedback_archive_sha256) {
-        issues.push(ReformWorkflowIssue::InvalidDigest("feedback_archive_sha256"));
+        issues.push(ReformWorkflowIssue::InvalidDigest(
+            "feedback_archive_sha256",
+        ));
     }
     if !is_sha256_hex(&closeout.response_record_sha256) {
         issues.push(ReformWorkflowIssue::InvalidDigest("response_record_sha256"));
@@ -558,7 +586,9 @@ pub fn validate_adoption_decision(
     closeout: &PublicConsultationCloseout,
     decision: AdoptionDecisionRecord,
 ) -> Result<RecordedAdoptionMetadata, Vec<ReformWorkflowIssue>> {
-    let mut issues = validate_closeout(dossier, closeout).err().unwrap_or_default();
+    let mut issues = validate_closeout(dossier, closeout)
+        .err()
+        .unwrap_or_default();
 
     if decision.dossier_id != dossier.dossier_id {
         issues.push(ReformWorkflowIssue::DossierIdMismatch);
@@ -573,7 +603,9 @@ pub fn validate_adoption_decision(
         issues.push(ReformWorkflowIssue::ConsultationCloseoutSnapshotMismatch);
     }
     if !is_sha256_hex(&decision.consultation_closeout_sha256) {
-        issues.push(ReformWorkflowIssue::InvalidDigest("consultation_closeout_sha256"));
+        issues.push(ReformWorkflowIssue::InvalidDigest(
+            "consultation_closeout_sha256",
+        ));
     }
     if decision.jurisdiction_path != dossier.jurisdiction_path {
         issues.push(ReformWorkflowIssue::JurisdictionMismatch);
@@ -596,7 +628,9 @@ pub fn validate_adoption_decision(
         }
     }
     if !is_sha256_hex(&decision.dossier_snapshot_sha256) {
-        issues.push(ReformWorkflowIssue::InvalidDigest("decision dossier_snapshot_sha256"));
+        issues.push(ReformWorkflowIssue::InvalidDigest(
+            "decision dossier_snapshot_sha256",
+        ));
     }
     if !is_sha256_hex(&decision.public_decision_sha256) {
         issues.push(ReformWorkflowIssue::InvalidDigest("public_decision_sha256"));
@@ -637,7 +671,8 @@ mod tests {
             population_and_context: "Declared reference cases and contextual limits".into(),
             outcome_metrics: "Predefined outcomes and uncertainty intervals".into(),
             findings_summary: "Result summary with effect and observed limitations".into(),
-            limitations_and_uncertainty: "Uncertainty, limitations, and unresolved questions".into(),
+            limitations_and_uncertainty: "Uncertainty, limitations, and unresolved questions"
+                .into(),
             direction,
             independent_replication_count: 1,
             conflict_of_interest_disclosure: "Funding and interests disclosed".into(),
@@ -668,22 +703,33 @@ mod tests {
             snapshot_sha256: "c".repeat(64),
             target_statement_ids: vec!["rule:ventilation:min-rate".into()],
             problem_statement: "Observed requirement may not fit all evaluated contexts".into(),
-            current_rule_and_intended_outcome: "Current rule text and intended public outcome".into(),
-            proposed_performance_outcome: "Equivalent or improved measurable outcome under declared conditions".into(),
+            current_rule_and_intended_outcome: "Current rule text and intended public outcome"
+                .into(),
+            proposed_performance_outcome:
+                "Equivalent or improved measurable outcome under declared conditions".into(),
             proposed_rule_summary: "Alternative performance path, not an active code change".into(),
-            alternatives_considered: "Options, no-change case, and less restrictive options assessed".into(),
-            expected_benefits: "Expected safety, affordability, accessibility, and usability effects".into(),
-            foreseeable_harms_and_tradeoffs: "Foreseeable harms, failure modes, and mitigations".into(),
+            alternatives_considered:
+                "Options, no-change case, and less restrictive options assessed".into(),
+            expected_benefits:
+                "Expected safety, affordability, accessibility, and usability effects".into(),
+            foreseeable_harms_and_tradeoffs: "Foreseeable harms, failure modes, and mitigations"
+                .into(),
             affected_groups: vec![AffectedGroupImpact {
                 group_id: "occupants:general".into(),
                 expected_benefits: "Potential benefit recorded".into(),
                 foreseeable_burdens_or_harms: "Potential burden recorded".into(),
-                accessibility_and_equity_considerations: "Access and distributional impacts considered".into(),
+                accessibility_and_equity_considerations:
+                    "Access and distributional impacts considered".into(),
             }],
-            evidence: vec![evidence("study:positive", EvidenceDirection::SupportsProposal)],
-            counterevidence_search_summary: "Search protocol, dates, and counter-evidence recorded".into(),
+            evidence: vec![evidence(
+                "study:positive",
+                EvidenceDirection::SupportsProposal,
+            )],
+            counterevidence_search_summary: "Search protocol, dates, and counter-evidence recorded"
+                .into(),
             uncertainty_register: "Uncertainty sources and open questions preserved".into(),
-            dossier_conflict_of_interest_disclosure: "Funding, interests, and relationships disclosed".into(),
+            dossier_conflict_of_interest_disclosure:
+                "Funding, interests, and relationships disclosed".into(),
             independent_reviews: Vec::new(),
         }
     }
@@ -691,8 +737,14 @@ mod tests {
     fn consultation_ready_dossier() -> CodeReformDossier {
         let mut current = dossier();
         current.independent_reviews = vec![
-            review("reviewer:a", IndependentReviewDisposition::SupportsPublicConsultation),
-            review("reviewer:b", IndependentReviewDisposition::ChallengesProposal),
+            review(
+                "reviewer:a",
+                IndependentReviewDisposition::SupportsPublicConsultation,
+            ),
+            review(
+                "reviewer:b",
+                IndependentReviewDisposition::ChallengesProposal,
+            ),
         ];
         current
     }
@@ -710,7 +762,8 @@ mod tests {
             feedback_archive_uri: "https://example.invalid/consultation/feedback".into(),
             feedback_archive_sha256: "d".repeat(64),
             feedback_count: 17,
-            response_summary: "All comments were categorized and answered; dissent is preserved".into(),
+            response_summary: "All comments were categorized and answered; dissent is preserved"
+                .into(),
             response_record_uri: "https://example.invalid/consultation/responses".into(),
             response_record_sha256: "e".repeat(64),
         }
@@ -746,13 +799,13 @@ mod tests {
             ReformDossierStatus::ReadyForPublicConsultation
         );
         let closeout = consultation_closeout(&dossier);
-        assert_eq!(validate_public_consultation_closeout(&dossier, &closeout), Ok(()));
-        let recorded = validate_adoption_decision(
-            &dossier,
-            &closeout,
-            adoption_decision(&dossier, &closeout),
-        )
-        .expect("consistent adoption metadata should validate");
+        assert_eq!(
+            validate_public_consultation_closeout(&dossier, &closeout),
+            Ok(())
+        );
+        let recorded =
+            validate_adoption_decision(&dossier, &closeout, adoption_decision(&dossier, &closeout))
+                .expect("consistent adoption metadata should validate");
         assert_eq!(recorded.disposition(), AdoptionDisposition::Adopted);
         assert_eq!(recorded.effective_from_day(), Some(140));
         assert_eq!(recorded.public_decision_sha256(), "f".repeat(64));
@@ -768,14 +821,18 @@ mod tests {
         let mut closeout = consultation_closeout(&dossier);
         closeout.opened_on_day = 120;
         closeout.closed_on_day = 110;
-        assert!(validate_public_consultation_closeout(&dossier, &closeout)
-            .unwrap_err()
-            .contains(&ReformWorkflowIssue::InvalidConsultationDates));
+        assert!(
+            validate_public_consultation_closeout(&dossier, &closeout)
+                .unwrap_err()
+                .contains(&ReformWorkflowIssue::InvalidConsultationDates)
+        );
         let mut decision = adoption_decision(&dossier, &closeout);
         decision.decided_on_day = 109;
-        assert!(validate_adoption_decision(&dossier, &closeout, decision)
-            .unwrap_err()
-            .contains(&ReformWorkflowIssue::InvalidConsultationDates));
+        assert!(
+            validate_adoption_decision(&dossier, &closeout, decision)
+                .unwrap_err()
+                .contains(&ReformWorkflowIssue::InvalidConsultationDates)
+        );
     }
 
     #[test]
@@ -784,9 +841,11 @@ mod tests {
         let closeout = consultation_closeout(&dossier);
         let mut decision = adoption_decision(&dossier, &closeout);
         decision.dossier_snapshot_sha256 = "1".repeat(64);
-        assert!(validate_adoption_decision(&dossier, &closeout, decision)
-            .unwrap_err()
-            .contains(&ReformWorkflowIssue::DossierSnapshotMismatch));
+        assert!(
+            validate_adoption_decision(&dossier, &closeout, decision)
+                .unwrap_err()
+                .contains(&ReformWorkflowIssue::DossierSnapshotMismatch)
+        );
     }
 
     #[test]
@@ -795,9 +854,11 @@ mod tests {
         let closeout = consultation_closeout(&dossier);
         let mut decision = adoption_decision(&dossier, &closeout);
         decision.consultation_closeout_sha256 = "8".repeat(64);
-        assert!(validate_adoption_decision(&dossier, &closeout, decision)
-            .unwrap_err()
-            .contains(&ReformWorkflowIssue::ConsultationCloseoutSnapshotMismatch));
+        assert!(
+            validate_adoption_decision(&dossier, &closeout, decision)
+                .unwrap_err()
+                .contains(&ReformWorkflowIssue::ConsultationCloseoutSnapshotMismatch)
+        );
     }
 
     #[test]
@@ -806,36 +867,54 @@ mod tests {
         let closeout = consultation_closeout(&dossier);
         let mut adopted_without_date = adoption_decision(&dossier, &closeout);
         adopted_without_date.effective_from_day = None;
-        assert!(validate_adoption_decision(&dossier, &closeout, adopted_without_date)
-            .unwrap_err()
-            .contains(&ReformWorkflowIssue::AdoptedWithoutEffectiveDate));
+        assert!(
+            validate_adoption_decision(&dossier, &closeout, adopted_without_date)
+                .unwrap_err()
+                .contains(&ReformWorkflowIssue::AdoptedWithoutEffectiveDate)
+        );
 
         let mut rejected_with_date = adoption_decision(&dossier, &closeout);
         rejected_with_date.disposition = AdoptionDisposition::Rejected;
-        assert!(validate_adoption_decision(&dossier, &closeout, rejected_with_date)
-            .unwrap_err()
-            .contains(&ReformWorkflowIssue::NonAdoptionHasEffectiveDate));
+        assert!(
+            validate_adoption_decision(&dossier, &closeout, rejected_with_date)
+                .unwrap_err()
+                .contains(&ReformWorkflowIssue::NonAdoptionHasEffectiveDate)
+        );
     }
 
     #[test]
     fn complete_dossier_waits_for_independent_review() {
         let report = evaluate_reform_dossier(&dossier());
-        assert_eq!(report.status, ReformDossierStatus::ReadyForIndependentReview);
+        assert_eq!(
+            report.status,
+            ReformDossierStatus::ReadyForIndependentReview
+        );
         assert!(report.blockers.is_empty());
-        assert!(report.public_consultation_gaps.contains(
-            &PublicConsultationGap::FewerThanTwoIndependentReviewers
-        ));
+        assert!(
+            report
+                .public_consultation_gaps
+                .contains(&PublicConsultationGap::FewerThanTwoIndependentReviewers)
+        );
     }
 
     #[test]
     fn public_consultation_requires_two_distinct_non_author_reviewers() {
         let mut dossier = dossier();
         dossier.independent_reviews = vec![
-            review("reviewer:a", IndependentReviewDisposition::SupportsPublicConsultation),
-            review("reviewer:b", IndependentReviewDisposition::ChallengesProposal),
+            review(
+                "reviewer:a",
+                IndependentReviewDisposition::SupportsPublicConsultation,
+            ),
+            review(
+                "reviewer:b",
+                IndependentReviewDisposition::ChallengesProposal,
+            ),
         ];
         let report = evaluate_reform_dossier(&dossier);
-        assert_eq!(report.status, ReformDossierStatus::ReadyForPublicConsultation);
+        assert_eq!(
+            report.status,
+            ReformDossierStatus::ReadyForPublicConsultation
+        );
         assert!(report.blockers.is_empty());
         assert!(report.public_consultation_gaps.is_empty());
         // A dissenting review is retained, not averaged away or silently dropped.
@@ -848,7 +927,10 @@ mod tests {
     #[test]
     fn reviewer_must_review_the_exact_dossier_snapshot() {
         let mut dossier = dossier();
-        let mut reviewer = review("reviewer:a", IndependentReviewDisposition::SupportsPublicConsultation);
+        let mut reviewer = review(
+            "reviewer:a",
+            IndependentReviewDisposition::SupportsPublicConsultation,
+        );
         reviewer.reviewed_snapshot_sha256 = "d".repeat(64);
         dossier.independent_reviews.push(reviewer);
         let report = evaluate_reform_dossier(&dossier);
@@ -867,9 +949,13 @@ mod tests {
         ));
         let report = evaluate_reform_dossier(&dossier);
         assert_eq!(report.status, ReformDossierStatus::Incomplete);
-        assert!(report.blockers.contains(
-            &ReformDossierBlocker::ReviewerIsAuthor("research-group:1".into())
-        ));
+        assert!(
+            report
+                .blockers
+                .contains(&ReformDossierBlocker::ReviewerIsAuthor(
+                    "research-group:1".into()
+                ))
+        );
     }
 
     #[test]
@@ -879,12 +965,14 @@ mod tests {
         dossier.uncertainty_register.clear();
         let report = evaluate_reform_dossier(&dossier);
         assert_eq!(report.status, ReformDossierStatus::Incomplete);
-        assert!(report.blockers.contains(
-            &ReformDossierBlocker::EmptyField("counterevidence_search_summary")
-        ));
-        assert!(report.blockers.contains(
-            &ReformDossierBlocker::EmptyField("uncertainty_register")
-        ));
+        assert!(report.blockers.contains(&ReformDossierBlocker::EmptyField(
+            "counterevidence_search_summary"
+        )));
+        assert!(
+            report
+                .blockers
+                .contains(&ReformDossierBlocker::EmptyField("uncertainty_register"))
+        );
     }
 
     #[test]
@@ -893,9 +981,13 @@ mod tests {
         dossier.evidence[0].source_sha256 = "not-a-digest".into();
         let report = evaluate_reform_dossier(&dossier);
         assert_eq!(report.status, ReformDossierStatus::Incomplete);
-        assert!(report.blockers.contains(
-            &ReformDossierBlocker::InvalidEvidenceDigest("study:positive".into())
-        ));
+        assert!(
+            report
+                .blockers
+                .contains(&ReformDossierBlocker::InvalidEvidenceDigest(
+                    "study:positive".into()
+                ))
+        );
     }
 
     #[test]
@@ -914,20 +1006,31 @@ mod tests {
             EvidenceDirection::ChallengesProposal
         );
         let report = evaluate_reform_dossier(&dossier);
-        assert_eq!(report.status, ReformDossierStatus::ReadyForIndependentReview);
+        assert_eq!(
+            report.status,
+            ReformDossierStatus::ReadyForIndependentReview
+        );
     }
 
     #[test]
     fn public_consultation_needs_an_explicit_supporting_review_without_erasing_dissent() {
         let mut dossier = dossier();
         dossier.independent_reviews = vec![
-            review("reviewer:a", IndependentReviewDisposition::ChallengesProposal),
+            review(
+                "reviewer:a",
+                IndependentReviewDisposition::ChallengesProposal,
+            ),
             review("reviewer:b", IndependentReviewDisposition::Inconclusive),
         ];
         let report = evaluate_reform_dossier(&dossier);
-        assert_eq!(report.status, ReformDossierStatus::ReadyForIndependentReview);
-        assert!(report.public_consultation_gaps.contains(
-            &PublicConsultationGap::NoReviewerSupportsPublicConsultation
-        ));
+        assert_eq!(
+            report.status,
+            ReformDossierStatus::ReadyForIndependentReview
+        );
+        assert!(
+            report
+                .public_consultation_gaps
+                .contains(&PublicConsultationGap::NoReviewerSupportsPublicConsultation)
+        );
     }
 }
