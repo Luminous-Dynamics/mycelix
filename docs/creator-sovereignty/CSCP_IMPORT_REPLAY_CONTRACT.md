@@ -48,7 +48,7 @@ A conflict is not a reason to overwrite the old receipt. Retain both source/prov
 
 ## Critical boundary: the current code is not durable
 
-Draft PR #5182 contains a small in-memory ImportReplayLedger plus source-level tests for retries, changed bytes, parser/mapping revisions and result conflicts. It has **not** been verified by a passing Rust test run at the exact current PR head.
+Draft PR #5182 contains a small in-memory ImportReplayLedger plus source tests for retries, changed bytes, parser/mapping revisions and result conflicts. Exact source head 137f7f1bd02dea380d304ab301b792175de4a63e passed Rust formatting and cargo test under Rust/Cargo 1.96.0: 71 in-module plus 34 integration tests passed, and all three independent reference encoders passed. The qualification receipt and raw logs are preserved in [artifact 12126982007](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39102068195/artifacts/12126982007). A later documentation-only README commit is now the current PR head and has a new exact-head CI run pending; the durable transactional requirements below are still unimplemented.
 
 The ledger is not integrated with the database import transaction and cannot guarantee exactly-once effects across process restarts or concurrent workers. In production, the durable key and canonical mutation must commit atomically under a unique constraint or equivalent transaction boundary. If a mutation commits but the acknowledgement is lost, a retry must read the committed receipt and must not apply the mutation again.
 
