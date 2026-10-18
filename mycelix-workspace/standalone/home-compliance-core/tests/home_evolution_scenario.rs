@@ -254,3 +254,20 @@ fn fixture_has_a_shared_machine_readable_identity_contract() {
     }
 }
 
+#[test]
+fn ten_thousand_node_dependency_chain_has_complete_deterministic_closure() {
+    let edge_count = 10_000;
+    let dependencies: Vec<_> = (0..edge_count)
+        .map(|index| edge(&format!("artifact:{index}"), &format!("artifact:{}", index + 1)))
+        .collect();
+    let changed = vec!["artifact:0".to_owned()];
+
+    let affected = affected_closure(&changed, &dependencies)
+        .expect("generated dependency chain must be well formed");
+
+    assert_eq!(affected.len(), edge_count + 1);
+    assert!(affected.contains(&"artifact:0".to_owned()));
+    assert!(affected.contains(&format!("artifact:{edge_count}")));
+    assert!(affected.windows(2).all(|pair| pair[0] <= pair[1]));
+}
+
