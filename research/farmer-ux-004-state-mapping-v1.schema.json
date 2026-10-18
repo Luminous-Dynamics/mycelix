@@ -64,7 +64,8 @@
           "status",
           "dispatch_eligible",
           "needs_reconciliation",
-          "meaning"
+          "meaning",
+          "can_advance_to_submitted"
         ],
         "properties": {
           "status": {
@@ -86,7 +87,7 @@
             "type": "string",
             "minLength": 1
           },
-          "can_start_attempt": {
+          "can_advance_to_submitted": {
             "type": "boolean"
           }
         },
