@@ -13,7 +13,8 @@
     "farmer_service_states",
     "allowed_promotions",
     "invariants",
-    "non_goals"
+    "non_goals",
+    "network_send_rule"
   ],
   "properties": {
     "schema_version": {
@@ -78,15 +79,15 @@
               "NotSent"
             ]
           },
-          "dispatch_eligible": {
-            "type": "boolean"
-          },
           "needs_reconciliation": {
             "type": "boolean"
           },
           "meaning": {
             "type": "string",
             "minLength": 1
+          },
+          "can_start_attempt": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -175,6 +176,10 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "network_send_rule": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "additionalProperties": false
