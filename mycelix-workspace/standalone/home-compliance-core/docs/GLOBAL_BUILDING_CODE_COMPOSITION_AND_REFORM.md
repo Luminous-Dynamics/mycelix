@@ -92,7 +92,7 @@ No universal numerical evidence score should declare a regulatory proposal scien
 7. **Submit through lawful authority:** the relevant regulator/standards body decides whether and how to adopt, amend, pilot, or reject a proposal.
 8. **Close consultation and record the decision:** preserve the public notice, raw feedback archive, responses to comments, and consultation dates. Adoption metadata must reference the exact immutable dossier snapshot and the exact consultation-closeout digest; adoption cannot predate consultation closure. The closeout record itself pins the notice, feedback archive, response record, and dates.
 9. **Version any adoption:** only after the authoritative act and effective date are authenticated should a new rule-module edition become binding in that jurisdiction. Preserve the prior rule and its historical use; do not rewrite old permit assessments.
-9. **Monitor outcomes:** compare the expected result with post-adoption measurements; re-open review when evidence, incident patterns, costs, or technology change.
+10. **Monitor outcomes:** compare the expected result with post-adoption measurements; re-open review when evidence, incident patterns, costs, or technology change.
 
 This follows the logic of regulatory impact assessment: assess the problem, options, positive and negative impacts, consultation, and evidence transparently rather than assuming every intervention is automatically beneficial. OECD guidance: https://www.oecd.org/en/publications/2020/02/regulatory-impact-assessment_0bf78a03.html
 
