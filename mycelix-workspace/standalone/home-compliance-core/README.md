@@ -10,7 +10,7 @@ This crate is intentionally separate from Holochain WASM zomes. It does not run 
 - Each declared mandatory check has exactly one finding.
 - Findings bind to the exact rule-pack ID and edition used by the assessment.
 - Missing findings, duplicate or unexpected findings, mandatory Fail/Unknown results, invalid evidence-digest syntax, and unjustified NotApplicable results block readiness.
-- The only positive status is ReadyForProfessionalReview; there is no Compliant, Certified, Approved, or ReadyToBuild enum. The evolution module validates artifact revision lineage and plans bounded migrations only across edges declared verified-lossless. The regulatory module distinguishes in-force law, adopted-but-not-yet-effective instruments, proposals, guidance, withdrawn sources and unknown status.
+- The only positive status is ReadyForProfessionalReview; there is no Compliant, Certified, Approved, or ReadyToBuild enum. The evolution module validates artifact revision lineage, plans bounded migrations only across edges declared verified-lossless, and computes deterministic downstream invalidation closure after a changed input. The regulatory module distinguishes in-force law, adopted-but-not-yet-effective instruments, proposals, guidance, withdrawn sources and unknown status.
 
 ## Status
 
