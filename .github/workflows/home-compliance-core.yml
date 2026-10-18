@@ -31,6 +31,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Validate the versioned reference-home fixture
+        run: python3 mycelix-workspace/standalone/home-compliance-core/tests/validate_home_fixture.py
+
       - name: Format check
         working-directory: mycelix-workspace/standalone/home-compliance-core
         run: cargo fmt --all --check
