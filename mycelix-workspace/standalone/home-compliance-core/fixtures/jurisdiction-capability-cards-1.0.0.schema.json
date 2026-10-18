@@ -83,7 +83,6 @@
             "type": "array",
             "items": {
               "type": "object",
-              "additionalProperties": false,
               "anyOf": [
                 {
                   "required": [
@@ -126,7 +125,9 @@
                       "pattern": "^[0-9a-fA-F]{64}$",
                       "minLength": 64
                     }
-                  }
+                  },
+                  "type": "object",
+                  "additionalProperties": false
                 },
                 {
                   "required": [
@@ -163,7 +164,9 @@
                       "type": "string",
                       "minLength": 1
                     }
-                  }
+                  },
+                  "type": "object",
+                  "additionalProperties": false
                 },
                 {
                   "required": [
@@ -195,7 +198,9 @@
                       "type": "string",
                       "minLength": 1
                     }
-                  }
+                  },
+                  "type": "object",
+                  "additionalProperties": false
                 }
               ]
             }
