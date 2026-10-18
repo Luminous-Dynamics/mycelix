@@ -178,6 +178,33 @@ Unknown materials or methods must be represented as unknown/unverified, not coer
 
 Every result should record which model objects, rules, datasets, solver versions and assumptions it consumed. When any dependency changes, calculate the affected dependency closure and invalidate stale results. A changed roof material may affect fire, structural loads, thermal performance, maintenance and embodied-carbon analyses, but need not rerun unrelated identity records. Results not rerun must display as stale relative to the new input digest.
 
+### Reference-home scenario and executable change propagation
+
+The synthetic input brief at `fixtures/johannesburg-adaptable-home-v1.json` supplies a shared project vocabulary for a hypothetical Johannesburg-area home. It intentionally separates owner goals from verified legal constraints and engineering evidence. Alternative styles (courtyard, contemporary, regional-vernacular interpretation, multigenerational flexibility) and construction families (masonry, light-gauge steel, engineered timber, stabilized earth, panelized/modular) are candidates to evaluate, not recommendations that they are all safe, approved, or locally code-compliant.
+
+The integration tests encode two golden dependency-closure cases:
+
+| Mutation | Expected invalidation | Must remain unaffected by this mutation alone |
+|---|---|---|
+| Energy rule-pack revision | energy finding, package-level assessment, permit submission | floor-plan geometry, structural review, floor-plan drawing, IFC export |
+| Floor-plan geometry revision | structural and energy findings, energy model, drawing/export, package assessment, submission | energy rule-pack source itself |
+
+The test graph is deliberately small and explicit. It tests an architectural invariant: **recompute the smallest complete downstream closure, and do not make unaffected evidence stale by association**. In a larger graph, a package-level submission can be invalidated even while a sibling calculation remains current. These tests verify the closure helper's returned set; they do not yet persist stale status or rerun evaluators.
+
+The new integration suite also verifies that an unknown mandatory energy result blocks professional-review readiness and that a proposed amendment with a conflicting value cannot displace a current binding assertion. The JSON brief is currently a fixture contract rather than an input consumed by a production parser; one test guards selected shared identifiers, not full schema validity. Full JSON schema validation, IFC parsing, and geometry/solver integration remain future work.
+
+#### Near-term executable benchmarks
+
+| Benchmark | Acceptance target | Current evidence |
+|---|---|---|
+| Dependency precision | 100% of required transitive dependents returned; 0 unrelated sibling artifacts included in golden mutation fixtures | Two synthetic closure scenarios authored; execution must be confirmed by exact-head tests |
+| Gate fail-closed behavior | 0 review-ready outcomes when any mandatory check is Unknown, failed, missing, ambiguous or tied to the wrong rule edition | Unit and integration test cases authored; no engineering validator is implied |
+| Proposal/current-law separation | 100% of proposed-only assertions excluded from binding resolution; unresolved/unknown status remains indeterminate | Synthetic source-status integration case authored |
+| Fixture/schema integrity | JSON parsed against a published versioned schema; all identifiers and dependency edges loaded from fixture rather than duplicated in code | Not yet met; current test checks selected identity fragments only |
+| Variant feasibility | For a curated suite of feasible briefs, generate at least 3 distinct, constraint-satisfying candidates in a measured latency budget; report infeasible briefs rather than relaxing constraints silently | Not implemented |
+| Engineering validity | 0 missed critical violations in a curated, independently reviewed reference corpus; tolerances and solver/model versions published | Not implemented; no structural/HVAC/fire/electrical solver integration |
+| Lifecycle migration | 100% preservation of declared critical invariants or explicit blocked/lossy disposition; 0 silent dropping of fields | Generic migration guards implemented, artifact hashing and real adapters not implemented |
+
 ### Benchmark targets by time horizon
 
 These are targets to implement and measure, not achieved claims.
