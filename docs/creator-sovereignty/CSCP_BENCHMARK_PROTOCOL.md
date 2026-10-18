@@ -377,6 +377,7 @@ Draft PR #5172 adds a standard-library-only in-memory Rust model that keeps roya
 | Currency precision | Before external display, validate code and minor-unit exponent against a dated/versioned ISO 4217 dataset | 100% |
 | DDEX separation | RDR-N rights metadata and RDR-R/DSR revenue reporting are not treated as recipient cash | Zero semantic conflation |
 | Source-field meaning | Usage/sales revenue, reported royalty, normalized payable, and observed receipt are distinct semantic types; only an explicit versioned mapping can turn raw source fields into a payable assertion | Zero automatic semantic promotion |
+| Payable normalization provenance | Every normalized payable line carries semantic mapping-rule ID/version and source-evidence reference | 100%; zero untraceable payable assertions |
 | Durable execution (future) | Receipt, replay key, allocation/reversal, provenance and canonical result commit atomically | Zero duplicates under fault injection |
 
 The prototype is an in-memory reference model and is not bank/DDEX connected, does not authenticate the approver/evidence, and does not provide durable transaction guarantees. Before release, add a versioned currency code/precision registry; signed/verified source evidence only where source trust is defined; and transactional replay keys with concurrency/crash tests. See [CSCP-RECON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5192) and the [Statement-to-Cash Reconciliation Contract](CSCP_STATEMENT_TO_CASH_RECONCILIATION.md).
