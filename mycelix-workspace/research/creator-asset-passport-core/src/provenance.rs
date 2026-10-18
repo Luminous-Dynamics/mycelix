@@ -461,6 +461,15 @@ impl ImportProvenanceManifest {
             return Err(ProvenanceError::TooManyDiagnostics);
         }
 
+        if self
+            .field_mappings
+            .windows(2)
+            .any(|pair| pair[0] > pair[1])
+            || self.diagnostics.windows(2).any(|pair| pair[0] > pair[1])
+        {
+            return Err(ProvenanceError::NonCanonicalEncoding);
+        }
+
         let mut prior_path: Option<&str> = None;
         for field in &self.field_mappings {
             validate_text(field.source_path())?;
