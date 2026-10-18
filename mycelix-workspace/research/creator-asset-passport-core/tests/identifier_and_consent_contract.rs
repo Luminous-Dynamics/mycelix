@@ -1,6 +1,6 @@
 use creator_asset_passport_core::{
-    AssetId, AssetKind, AssetRegistry, ExternalIdentifier, GrantId, PartyId,
-    PermissionDecision, PermissionDenial, UsageGrant, UseAction, UseRequest, evaluate_usage,
+    AssetId, AssetKind, AssetRegistry, ExternalIdentifier, GrantId, PartyId, PermissionDecision,
+    PermissionDenial, UsageGrant, UseAction, UseRequest, evaluate_usage,
 };
 
 fn asset(value: &str) -> AssetId {
@@ -15,7 +15,9 @@ fn party(value: &str) -> PartyId {
 fn iswc_rejects_malformed_separator_layout() {
     let work = asset("work-1");
     let mut registry = AssetRegistry::new();
-    registry.register_asset(work.clone(), AssetKind::MusicalWork, None).unwrap();
+    registry
+        .register_asset(work.clone(), AssetKind::MusicalWork, None)
+        .unwrap();
     assert_eq!(
         registry.attach_identifier(&work, ExternalIdentifier::Iswc("T--034.524.680-1".into())),
         Err(creator_asset_passport_core::PassportError::InvalidIswcSyntax)
@@ -26,9 +28,14 @@ fn iswc_rejects_malformed_separator_layout() {
 fn isrc_rejects_malformed_separator_layout() {
     let recording = asset("recording-1");
     let mut registry = AssetRegistry::new();
-    registry.register_asset(recording.clone(), AssetKind::SoundRecording, None).unwrap();
+    registry
+        .register_asset(recording.clone(), AssetKind::SoundRecording, None)
+        .unwrap();
     assert_eq!(
-        registry.attach_identifier(&recording, ExternalIdentifier::Isrc("US--ABC-23-00001".into())),
+        registry.attach_identifier(
+            &recording,
+            ExternalIdentifier::Isrc("US--ABC-23-00001".into())
+        ),
         Err(creator_asset_passport_core::PassportError::InvalidIsrcSyntax)
     );
 }
@@ -37,7 +44,9 @@ fn isrc_rejects_malformed_separator_layout() {
 fn explicit_training_consent_is_narrow_to_asset_party_action_and_purpose() {
     let recording = asset("recording-1");
     let mut registry = AssetRegistry::new();
-    registry.register_asset(recording.clone(), AssetKind::SoundRecording, None).unwrap();
+    registry
+        .register_asset(recording.clone(), AssetKind::SoundRecording, None)
+        .unwrap();
     let grant = UsageGrant::new(
         GrantId::new("training-consent-1").unwrap(),
         recording.clone(),
