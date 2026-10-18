@@ -64,7 +64,7 @@ An intermediary may record that a farmer verbally accepted only when authority/c
 
 ## Frozen scenario corpus
 
-The machine-readable [v1 cases](farmer-ux-006-channel-cases-v1.json) and [schema](farmer-ux-006-channel-cases-v1.schema.json) freeze sixteen synthetic scenarios. The [envelope schema](farmer-ux-006-channel-envelope-v1.schema.json) validates normalized metadata structure; it cannot prove actor identity, real consent, source authenticity, durable persistence, provider receipt, or truth.
+The machine-readable [v1 cases](farmer-ux-006-channel-cases-v1.json) and [schema](farmer-ux-006-channel-cases-v1.schema.json) freeze seventeen synthetic scenarios. The [envelope schema](farmer-ux-006-channel-envelope-v1.schema.json) validates normalized metadata structure; it cannot prove actor identity, real consent, source authenticity, durable persistence, provider receipt, or truth.
 
 ## Proposed benchmarks (targets, not results)
 
