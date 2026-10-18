@@ -58,6 +58,10 @@ Compose with [Symthaea VIS-METRO-001 #7894](https://github.com/Luminous-Dynamics
 
 A pattern-sensitivity envelope is not a confidence interval. When energy intervals are used to compute a conservative percent-saving interval, preserve the interval method, bounds and any dependency/covariance assumption. If the conservative lower bound does not meet the preregistered energy target, the energy gate is inconclusive even when the point estimate reaches the target.
 
+### Route-frontier comparisons and accounting compatibility
+
+When registering a comparison across manufacturing-route candidates, preserve the target-module profile digest, comparison-protocol digest, evidence class, currency code and cost-accounting-boundary identity. Candidate results are incomparable if any of these differ. The metric vector should preserve conservative upper bounds for cost, energy and cycle time, lower bounds for final calibrated-good yield, and the dispositions of optical, reliability, minimum-yield and evidence-completeness gates. A candidate that fails a mandatory floor is not admitted to the Pareto frontier just because it is cheap. Record whether the values are a synthetic scenario, simulation or bench-measured evidence; Pareto arithmetic does not upgrade evidence maturity.
+
 ### Manufacturing cost and inspection metrics
 
 Compose with the isolated [Symthaea display-manufacturing-economics reference](https://github.com/Luminous-Dynamics/symthaea/tree/research/vis-tech-001-program-2026-10-17/tools/display-manufacturing-economics). For a batch summary, bind one cost currency and accounting boundary, batch/lot identity, unique incoming-unit count, first-pass final-good count, final calibrated-good count, and cost ledger categories. Preserve materials, labor, equipment/facility allocation, energy/utilities, inspection/test, rework/retest, packaging/logistics and incremental scrap handling separately to prevent hidden double counting.
