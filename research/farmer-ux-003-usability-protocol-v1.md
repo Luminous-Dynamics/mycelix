@@ -81,11 +81,17 @@ For every task, record unaided completion (yes/no), elapsed time, incorrect assu
 
 **Success:** Participant correctly names reported flow, missing soil moisture, and unavailable weather/live data. No sample text is mistaken for a real observation or current forecast.
 
+### Task G — Recover safely after a lost response
+**Prompt:** “The app shows that a send was attempted, but the response was lost. You do not know whether the provider received it. What would you do next?”
+
+**Success:** Participant recognizes that the outcome is unknown—not confirmed success and not confirmed failure—and does not assume the app should automatically send a duplicate. They choose a status-reconciliation path or a human-assisted channel, and understand that the walkthrough is still a simulation.
+
 ## 6. Proposed acceptance gates
 
 These are release hypotheses, not current results:
 - At least 90% of participants in the validation round complete each critical task without facilitator intervention after brief orientation.
 - At least 90% distinguish a sample report, missing evidence, a simulated receipt and a confirmed agreement in the comprehension check.
+- At least 90% choose reconciliation or human help, rather than assuming automatic resend, after the simulated lost-response/OutcomeUnknown branch.
 - Routine problem-preview time has a target median under 30 seconds after brief orientation; also report P90, error rate and omitted information.
 - Zero participants leave a session believing the prototype sent a request, booked a provider, authorized payment or verified completed work because of misleading UI wording. Any such interpretation requires copy/interaction revision before a broader pilot.
 - Every critical task is keyboard-operable, focus is visible, interactive targets meet the designed size, zoom/reflow does not hide actions, and status is not conveyed by color alone.
