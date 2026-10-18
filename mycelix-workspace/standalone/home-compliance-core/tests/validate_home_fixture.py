@@ -204,17 +204,20 @@ def validate(value: Any, schema: dict[str, Any], path: str = "$") -> None:
             encoded = [json.dumps(item, sort_keys=True, separators=(",", ":")) for item in value]
             if len(set(encoded)) != len(encoded):
                 fail(path, "array items are not unique")
+
+        prefix = schema.get("prefixItems", [])
         if "prefixItems" in schema:
-            prefix = schema["prefixItems"]
             if len(value) < len(prefix):
                 fail(path, "array shorter than prefixItems")
-            if schema.get("items") is False and len(value) != len(prefix):
-                fail(path, "array has items beyond prefixItems")
             for index, child in enumerate(prefix):
                 validate(value[index], child, f"{path}[{index}]")
-        elif isinstance(schema.get("items"), dict):
-            for index, item in enumerate(value):
-                validate(item, schema["items"], f"{path}[{index}]")
+
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index in range(len(prefix), len(value)):
+                validate(value[index], item_schema, f"{path}[{index}]")
+        elif item_schema is False and len(value) > len(prefix):
+            fail(path, "array has items beyond its allowed item schemas")
 
     if "anyOf" in schema:
         errors = []
@@ -382,12 +385,19 @@ def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> in
         lambda: validate_schema_supported(malformed_keyword_schema),
     )
 
+    forbidden_array_items = deepcopy(schema)
+    forbidden_array_items["properties"]["owner_brief"]["properties"]["priorities"]["items"] = False
+    expect_rejected(
+        "array_item_constraint_is_enforced",
+        lambda: validate(fixture, forbidden_array_items),
+    )
+
     cyclic_graph = deepcopy(fixture)
     cyclic_graph["dependency_edges"].append(
         ["finding:energy-rule", "rulepack:za-jhb:energy"]
     )
     expect_rejected("cyclic_dependency_graph", lambda: validate_semantics(cyclic_graph))
-    return 10
+    return 11
 
 
 def main() -> int:
