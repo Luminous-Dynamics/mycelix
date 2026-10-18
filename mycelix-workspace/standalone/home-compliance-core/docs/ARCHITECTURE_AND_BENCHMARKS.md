@@ -293,3 +293,17 @@ This is exact-value resolution over normalized assertions, not a building-code i
 
 
 Relevant reference: ISO 14721:2025 (OAIS), whose published description covers long-term preservation and information-model changes over time: https://www.iso.org/standard/87471.html .
+
+## Global code composition and evidence-backed reform
+
+The new `composition` module makes rule-module ancestry explicit while refusing to infer legal precedence from geographic scope or numeric ordering. Global-reference modules cannot declare binding requirements. Binding statements from indeterminate/non-applicable sources are rejected; conflicts return multiple provenance-carrying candidates without a selected winner. Explicit overrides name the inherited statement, decision record, reviewer, rationale, and evidence digest. In production those identities, authority records, signatures, and artifact bytes must be authenticated; the prototype only validates metadata and digest syntax. Owner preferences, engineering baselines, proposals, and evidence-backed reform proposals remain separate from binding requirements.
+
+The new `reform` module prepares code-reform dossiers with study metadata, opposing evidence, methods, limitations, uncertainty, counter-evidence search, affected-group impacts, conflicts of interest, and independent reviews pinned to an immutable dossier snapshot. Its strongest state is `ReadyForPublicConsultation`, which is a preparation/workflow state—not a declaration that the evidence is conclusive or that a code changed. The authorized regulator or standards body remains responsible for adoption. No universal numerical evidence threshold is imposed across fundamentally different technical domains.
+
+Reference design/standards context: buildingSMART's IFC and regulatory information requirements work target vendor-independent information exchange for digital permitting; OECD's Regulatory Impact Assessment guidance recommends examining alternatives and likely positive/negative impacts; performance-based code paths are an established way to compare outcomes rather than enforce one prescriptive design. Relevant sources:
+- https://technical.buildingsmart.org/standards/IFC/
+- https://www.buildingsmart.org/standards/calls-for-participation/regulatory-information-requirements/
+- https://www.oecd.org/en/publications/2020/02/regulatory-impact-assessment_0bf78a03.html
+- https://shop.iccsafe.org/2024-icc-performance-coder-for-buildings-and-facilities.html
+
+This remains a prototype and is not an authoritative global code registry, source-signature verification service, or legal advice.
