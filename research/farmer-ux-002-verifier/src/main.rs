@@ -243,7 +243,7 @@ fn load(root: &Path, name: &'static str, instance_path: &'static str, schema_pat
     let schema_errors = validate_schema(name, &instance, &schema);
     Ok(Artifact { name, instance_path, schema_path, instance_bytes, schema_bytes, instance, schema, schema_errors })
 }
-fn array(doc: &Value, key: &str) -> &[Value] {
+fn array<'a>(doc: &'a Value, key: &str) -> &'a [Value] {
     doc.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
 }
 fn ids(doc: &Value, collection: &str, field: &str, label: &str, errors: &mut Vec<String>) -> BTreeSet<String> {
