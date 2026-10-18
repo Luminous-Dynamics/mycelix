@@ -633,6 +633,20 @@ mod tests {
     }
 
     #[test]
+    fn state_mapping_schema_does_not_require_obsolete_dispatch_field() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../farmer-ux-004-state-mapping-v1.schema.json"
+        )).expect("mapping schema");
+        let item = &schema["properties"]["operation_attempt_statuses"]["items"];
+        let required = item["required"].as_array().expect("required list");
+        assert!(required.iter().any(|v| v.as_str() == Some("can_advance_to_submitted")));
+        assert!(!required.iter().any(|v| v.as_str() == Some("dispatch_eligible")));
+        let properties = item["properties"].as_object().expect("item properties");
+        assert!(properties.contains_key("can_advance_to_submitted"));
+        assert!(!properties.contains_key("dispatch_eligible"));
+    }
+
+    #[test]
     fn fixture_schemas_and_semantics_pass() {
         let root=default_repository_root().expect("repo root");
         let report=verify_repository(&root).expect("fixtures load");
