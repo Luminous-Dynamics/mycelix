@@ -103,7 +103,7 @@ pub mod data_table {
                 return 0;
             }
             let size = u64::from(self.page_size);
-            let pages = self.total_items / size + u64::from(self.total_items % size != 0);
+            let pages = self.total_items / size + if self.total_items % size != 0 { 1 } else { 0 };
             u32::try_from(pages).unwrap_or(u32::MAX)
         }
 
@@ -157,8 +157,8 @@ pub mod data_table {
                     </tbody>
                 </table>
                 {current_pagination.map(|page| {
-                    let previous = on_page_change;
-                    let next = on_page_change;
+                    let previous = on_page_change.clone();
+                    let next = on_page_change.clone();
                     let page_count = page.page_count();
                     let current_page = page.normalized_page();
                     view! {
@@ -554,7 +554,7 @@ pub mod toasts {
         pub kind: ToastKind,
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone)]
     pub struct ToastState {
         toasts: RwSignal<Vec<Toast>>,
         next_id: RwSignal<u64>,
