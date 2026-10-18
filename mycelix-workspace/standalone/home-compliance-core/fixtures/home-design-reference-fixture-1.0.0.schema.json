@@ -310,6 +310,15 @@
           "expected_behavior": {
             "type": "string",
             "minLength": 1
+          },
+          "changed_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "anyOf": [
@@ -321,6 +330,11 @@
           {
             "required": [
               "expected_behavior"
+            ]
+          },
+          {
+            "required": [
+              "changed_ids"
             ]
           }
         ]
