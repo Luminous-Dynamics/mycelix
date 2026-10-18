@@ -24,7 +24,7 @@ The Rust `composition` module introduces `RuleModule`, `RuleStatement`, `RuleMod
 6. **Parcel/site modules:** verified geotechnical data, flood/fire exposure, easements, connection constraints, overlays, and site-specific decisions. Site facts do not themselves rewrite legislation.
 7. **Owner-intent modules:** preferences for style, spatial experience, materials, privacy, culture, accessibility, affordability, maintenance, resilience, and future change. These are design goals—not legal rules.
 
-Modules identify their parents explicitly. Composition validates the selected dependency closure, rejects missing modules and cycles, and uses stable, deterministic ordering. Scope ancestry checks that a module does not import an unrelated or narrower jurisdiction as though it were a parent; scope is **not** a precedence rule.
+Modules identify their parents explicitly. Composition validates the selected dependency closure, rejects missing modules and cycles, and uses stable, deterministic ordering. Scope ancestry checks that a module does not import an unrelated or narrower jurisdiction as though it were a parent; scope is **not** a precedence rule. Regulatory-source reach is separate from module ancestry. The applicability evaluator uses exact matching by default; ancestor/descendant reach or explicit target jurisdiction IDs require an explicit reviewed scope mode. It does not treat a national-looking ID as automatically applicable everywhere below it, and never lets a sibling jurisdiction inherit scope by string similarity.
 
 ### No silent winners
 
