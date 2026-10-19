@@ -17,6 +17,7 @@
 
 pub mod claims;
 pub mod error;
+pub mod evidence_semantics;
 pub mod storage;
 
 // Core claim types
@@ -38,6 +39,11 @@ pub use claims::MATLTrust;
 
 // Unified Fingerprint
 pub use claims::EpistemicFingerprint;
+
+// Outcome-neutral scientific evidence artifact semantics
+pub use evidence_semantics::{
+    EvidenceArtifactRole, EvidenceArtifactSemantics, MAX_EVIDENCE_ARTIFACT_ROLES,
+};
 
 pub use error::{Error, Result};
 pub use storage::{IpfsStorage, MemoryStorage, StorageBackend};
