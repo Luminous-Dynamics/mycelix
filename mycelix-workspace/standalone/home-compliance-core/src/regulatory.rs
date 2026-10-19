@@ -659,8 +659,7 @@ mod tests {
     fn descendant_scope_does_not_leak_to_sibling_jurisdictions() {
         let mut value = source(LegalSourceStatus::InForce);
         value.jurisdiction = "ZA/GP".into();
-        value.applicability_scope =
-            JurisdictionApplicabilityScope::JurisdictionAndDescendants;
+        value.applicability_scope = JurisdictionApplicabilityScope::JurisdictionAndDescendants;
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/EC/municipality-a", 60, 60, 30),
             SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
