@@ -262,6 +262,55 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
                     violation,
                 );
             }
+
+            for field in ["installation_evidence_refs", "compatibility_test_refs"] {
+                if let Some(refs) = interface.get(field).and_then(Value::as_array) {
+                    for (ref_index, reference) in refs.iter().enumerate() {
+                        let evidence_id = reference.as_str().unwrap_or("");
+                        if evidence_record(record, evidence_id).is_none() {
+                            push_issue(
+                                issues, "error", "INTERFACE_EVIDENCE_REF_UNRESOLVED",
+                                format!("{path}.{field}[{ref_index}]"),
+                                format!("Evidence reference '{evidence_id}' does not resolve to a top-level evidence record."),
+                            );
+                        }
+                    }
+                }
+            }
+
+            let verification_state = interface.get("verification_state")
+                .and_then(Value::as_str).unwrap_or("proposed");
+            let installation_refs = interface.get("installation_evidence_refs")
+                .and_then(Value::as_array).cloned().unwrap_or_default();
+            if matches!(verification_state, "engineering_reviewed" | "physically_verified" | "qualified")
+                && !installation_evidence_is_admissible(record, &installation_refs)
+            {
+                push_issue(
+                    issues, "error", "INTERFACE_INSTALLATION_EVIDENCE_MISSING",
+                    format!("{path}.installation_evidence_refs"),
+                    "An engineering-reviewed, physically verified, or qualified interface must resolve to a digest-bound installation datasheet or certification document that is not superseded/retracted.",
+                );
+            }
+
+            if matches!(verification_state, "physically_verified" | "qualified") {
+                let compatibility_refs = interface.get("compatibility_test_refs")
+                    .and_then(Value::as_array).cloned().unwrap_or_default();
+                if !compatibility_test_evidence_is_admissible(
+                    record,
+                    &compatibility_refs,
+                    verification_state == "qualified",
+                ) {
+                    push_issue(
+                        issues, "error", "INTERFACE_COMPATIBILITY_TEST_MISSING",
+                        format!("{path}.compatibility_test_refs"),
+                        if verification_state == "qualified" {
+                            "A qualified interface requires a digest-bound, independently verified test/inspection record for this configuration."
+                        } else {
+                            "A physically verified interface requires a digest-bound measured/independently verified test/inspection record for this configuration."
+                        },
+                    );
+                }
+            }
         }
     }
 
@@ -431,6 +480,58 @@ fn interface_fit_violation(interface: &Value) -> Option<String> {
         }
     }
     None
+}
+
+fn evidence_record<'a>(record: &'a Value, evidence_id: &str) -> Option<&'a Value> {
+    record.get("evidence")?.as_array()?.iter().find(|entry| {
+        entry.get("evidence_id").and_then(Value::as_str) == Some(evidence_id)
+    })
+}
+
+fn has_source_digest(evidence: &Value) -> bool {
+    evidence.get("source_sha256")
+        .and_then(Value::as_str)
+        .map(|digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .unwrap_or(false)
+}
+
+fn installation_evidence_is_admissible(record: &Value, references: &[Value]) -> bool {
+    references.iter().filter_map(Value::as_str).any(|evidence_id| {
+        let Some(evidence) = evidence_record(record, evidence_id) else { return false };
+        matches!(
+            evidence.get("kind").and_then(Value::as_str),
+            Some("supplier_datasheet") | Some("certification_document")
+        )
+            && !matches!(
+                evidence.get("status").and_then(Value::as_str),
+                Some("superseded") | Some("retracted")
+            )
+            && has_source_digest(evidence)
+    })
+}
+
+fn compatibility_test_evidence_is_admissible(
+    record: &Value,
+    references: &[Value],
+    require_independent_verification: bool,
+) -> bool {
+    references.iter().filter_map(Value::as_str).any(|evidence_id| {
+        let Some(evidence) = evidence_record(record, evidence_id) else { return false };
+        let acceptable_status = if require_independent_verification {
+            evidence.get("status").and_then(Value::as_str) == Some("independently_verified")
+        } else {
+            matches!(
+                evidence.get("status").and_then(Value::as_str),
+                Some("measured") | Some("independently_verified") | Some("field_observed")
+            )
+        };
+        acceptable_status
+            && matches!(
+                evidence.get("kind").and_then(Value::as_str),
+                Some("test_report") | Some("inspection")
+            )
+            && has_source_digest(evidence)
+    })
 }
 
 fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
@@ -770,6 +871,54 @@ mod tests {
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
         assert!(issues.iter().any(|issue| issue.code == "MODULE_ENVELOPE_EXCEEDS_BAY"));
+    }
+
+    #[test]
+    fn verified_interface_requires_resolved_installation_and_test_evidence() {
+        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        record["interfaces"][0]["verification_state"] = json!("physically_verified");
+        record["interfaces"][0]["installation_evidence_refs"] = json!(["INSTALL-001"]);
+        record["interfaces"][0]["compatibility_test_refs"] = json!(["TEST-001"]);
+        record["evidence"] = json!([
+            {
+                "evidence_id":"INSTALL-001",
+                "kind":"supplier_datasheet",
+                "status":"asserted",
+                "subject_ids":["COLD-MODULE-001"],
+                "recorded_at":"2026-10-19T06:00:00Z",
+                "source_uri":"https://example.invalid/installation-guide",
+                "source_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "method_and_limitations":"Synthetic unit-test evidence only."
+            },
+            {
+                "evidence_id":"TEST-001",
+                "kind":"test_report",
+                "status":"measured",
+                "subject_ids":["COLD-MODULE-001","IF-COOL-001"],
+                "recorded_at":"2026-10-19T06:05:00Z",
+                "source_uri":"https://example.invalid/compatibility-test",
+                "source_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "method_and_limitations":"Synthetic unit-test evidence only."
+            }
+        ]);
+        let mut issues = Vec::new();
+        validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
+        assert!(!issues.iter().any(|issue| issue.code == "INTERFACE_INSTALLATION_EVIDENCE_MISSING"));
+        assert!(!issues.iter().any(|issue| issue.code == "INTERFACE_COMPATIBILITY_TEST_MISSING"));
+        assert!(!issues.iter().any(|issue| issue.code == "INTERFACE_EVIDENCE_REF_UNRESOLVED"));
+    }
+
+    #[test]
+    fn qualified_interface_cannot_use_unresolved_or_unverified_evidence() {
+        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        record["interfaces"][0]["verification_state"] = json!("qualified");
+        record["interfaces"][0]["installation_evidence_refs"] = json!(["missing-install-doc"]);
+        record["interfaces"][0]["compatibility_test_refs"] = json!(["missing-test"]);
+        let mut issues = Vec::new();
+        validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
+        assert!(issues.iter().any(|issue| issue.code == "INTERFACE_EVIDENCE_REF_UNRESOLVED"));
+        assert!(issues.iter().any(|issue| issue.code == "INTERFACE_INSTALLATION_EVIDENCE_MISSING"));
+        assert!(issues.iter().any(|issue| issue.code == "INTERFACE_COMPATIBILITY_TEST_MISSING"));
     }
 
     #[test]
