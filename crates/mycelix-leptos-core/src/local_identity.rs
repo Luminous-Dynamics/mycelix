@@ -216,7 +216,12 @@ pub fn inspect_local_identity_posture() -> LocalIdentityStoragePosture {
 fn read_identity_storage_snapshot() -> Result<IdentityStorageSnapshot, ()> {
     let window = web_sys::window().ok_or(())?;
     let storage = window.local_storage().map_err(|_| ())?.ok_or(())?;
+    read_identity_storage_snapshot_from(&storage)
+}
 
+fn read_identity_storage_snapshot_from(
+    storage: &web_sys::Storage,
+) -> Result<IdentityStorageSnapshot, ()> {
     Ok(IdentityStorageSnapshot {
         storage_available: true,
         legacy_did: storage.get_item(LEGACY_DID_KEY).map_err(|_| ())?,
@@ -290,6 +295,13 @@ fn unlocked_cache_matches_public_key(public_b64: &str) -> bool {
             public_bytes.as_slice() == signing_key.verifying_key().as_bytes()
         })
     })
+}
+
+fn public_key_matches_signing_key(public_b64: &str, signing_key: &SigningKey) -> bool {
+    let Some(public_bytes) = base64_decode(public_b64) else {
+        return false;
+    };
+    public_bytes.as_slice() == signing_key.verifying_key().as_bytes()
 }
 
 fn public_key_matches_secret(secret_b64: &str, public_b64: &str) -> bool {
@@ -380,6 +392,90 @@ pub fn is_passphrase_protected() -> bool {
     load_string(IDENTITY_SECRET_ENCRYPTED_KEY).is_some()
 }
 
+/// Create a new identity directly into passphrase-protected storage.
+///
+/// Unlike `ensure_keypair` followed by `protect_with_passphrase`, this path
+/// never calls `store_signing_key` and never writes the plaintext secret to
+/// localStorage. It refuses to overwrite any recognized existing identity
+/// posture. Writes are checked by reading the encrypted envelope and public
+/// key back before the in-memory key is marked available.
+///
+/// This function still depends on browser storage semantics and cannot promise
+/// confidentiality from a compromised active page, malicious extensions, or
+/// a compromised browser profile.
+pub async fn create_protected_identity(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    if passphrase.is_empty() {
+        return Err("Passphrase must not be empty".into());
+    }
+
+    let window = web_sys::window().ok_or_else(|| {
+        "Browser window is unavailable; no identity was created.".to_string()
+    })?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser identity storage is unavailable.".to_string())?
+        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let snapshot = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
+    if classify_identity_storage_snapshot(&snapshot) != LocalIdentityStoragePosture::NoIdentity {
+        return Err(
+            "Identity storage is not empty. Inspect or recover the existing identity before creating another."
+                .into(),
+        );
+    }
+
+    let signing_key = try_generate_signing_key()?;
+    let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
+    let encrypted_wire = serde_json::to_string(&EncryptedBlobWire::from(&blob))
+        .map_err(|_| "Could not serialize the protected identity envelope.".to_string())?;
+    let public_b64 = base64_encode(signing_key.verifying_key().as_bytes());
+
+    if storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
+        .is_err()
+    {
+        return Err("Could not persist the protected identity envelope.".into());
+    }
+    if storage.set_item(IDENTITY_PUBLIC_KEY, &public_b64).is_err() {
+        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        if cleanup.is_err() {
+            return Err(
+                "Identity creation was interrupted and partial storage remains; inspect posture before retrying."
+                    .into(),
+            );
+        }
+        return Err("Could not persist the public-key metadata; no identity was activated.".into());
+    }
+
+    let persisted = read_identity_storage_snapshot_from(&storage);
+    let verified = persisted.as_ref().is_ok_and(|snapshot| {
+        snapshot.secret_b64.is_none()
+            && snapshot.public_b64.as_deref() == Some(public_b64.as_str())
+            && snapshot.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
+            && classify_identity_storage_snapshot(snapshot)
+                == LocalIdentityStoragePosture::ProtectedLocked
+    });
+    if !verified {
+        let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        if encrypted_cleanup.is_err() || public_cleanup.is_err() {
+            return Err(
+                "Identity storage verification failed and cleanup was incomplete; inspect posture before retrying."
+                    .into(),
+            );
+        }
+        return Err(
+            "Identity storage verification failed; the new identity was not activated.".into(),
+        );
+    }
+
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
+    Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
+}
+
 /// Encrypt the local identity's secret key with `passphrase` and switch
 /// storage over to the encrypted form.
 ///
@@ -426,6 +522,9 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
 /// passphrase and corrupt ciphertext are deliberately indistinguishable
 /// (see [`identity_crypto`] module docs).
 pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, String> {
+    // A failed unlock leaves the identity locked rather than reusing a prior
+    // in-memory key against storage whose integrity may have changed.
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
     let wire: EncryptedBlobWire = load_json(IDENTITY_SECRET_ENCRYPTED_KEY)
         .ok_or_else(|| "No passphrase-protected identity found".to_string())?;
     let blob = EncryptedBlob::try_from(&wire)?;
@@ -434,6 +533,11 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
         .try_into()
         .map_err(|_| "Corrupt key material (wrong length after decrypt)".to_string())?;
     let signing_key = SigningKey::from_bytes(&secret_array);
+    let public_b64 = load_string(IDENTITY_PUBLIC_KEY)
+        .ok_or_else(|| "Protected identity public-key metadata is missing.".to_string())?;
+    if !public_key_matches_signing_key(&public_b64, &signing_key) {
+        return Err("Protected identity key material is inconsistent.".into());
+    }
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
     Ok(signing_key)
 }
@@ -566,15 +670,21 @@ pub fn did_from_public_key(public_key: &VerifyingKey) -> String {
 /// Generate a fresh Ed25519 keypair, seeded from the Web Crypto CSPRNG
 /// (`crypto.getRandomValues`) — NOT `Math.random()`.
 fn generate_signing_key() -> SigningKey {
-    let mut seed = [0u8; 32];
-    let crypto = web_sys::window()
-        .expect("no global `window` (not running in a browser)")
+    try_generate_signing_key().expect("Web Crypto CSPRNG unavailable for local identity")
+}
+
+fn try_generate_signing_key() -> Result<SigningKey, String> {
+    let window = web_sys::window().ok_or_else(|| {
+        "Browser window is unavailable; identity key generation requires Web Crypto.".to_string()
+    })?;
+    let crypto = window
         .crypto()
-        .expect("Web Crypto API unavailable");
+        .map_err(|_| "Web Crypto API unavailable.".to_string())?;
+    let mut seed = [0u8; 32];
     crypto
         .get_random_values_with_u8_array(&mut seed)
-        .expect("crypto.getRandomValues failed");
-    SigningKey::from_bytes(&seed)
+        .map_err(|_| "crypto.getRandomValues failed.".to_string())?;
+    Ok(SigningKey::from_bytes(&seed))
 }
 
 // --- localStorage helpers (private key persistence) ---
@@ -691,6 +801,20 @@ mod tests {
         )));
 
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+    }
+
+    #[test]
+    fn unlocked_signing_key_must_match_stored_public_key() {
+        let expected = SigningKey::from_bytes(&[71u8; 32]);
+        let other = SigningKey::from_bytes(&[72u8; 32]);
+        assert!(public_key_matches_signing_key(
+            &base64_encode(expected.verifying_key().as_bytes()),
+            &expected
+        ));
+        assert!(!public_key_matches_signing_key(
+            &base64_encode(other.verifying_key().as_bytes()),
+            &expected
+        ));
     }
 
     #[test]
