@@ -1,0 +1,283 @@
+name: SYM-CIVIC-019 Receipt Proof Binding
+
+on:
+  push:
+    branches:
+      - staging/sym-civic-019-receipt-proof-binding-v1
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py'
+      - 'scripts/qualification/sym_civic_019_scitt_cose_interop_v1.py'
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json'
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json'
+      - 'mycelix-workspace/docs/civic-resilience/scitt-cose-v1/**'
+      - '.github/workflows/sym-civic-019-receipt-proof-binding.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sym-civic-019-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic:
+    name: SYM-CIVIC-019 synthetic exact-object qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      QUALIFICATION_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert repository and exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test "$GITHUB_REPOSITORY_ID" = "1176351975"
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT"
+
+      - name: Check Python syntax
+        run: python3 -m py_compile scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py
+
+      - name: Run synthetic exact-object qualification
+        run: |
+          python3 scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py \
+            --corpus mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json \
+            --report sym-civic-019-qualification-report.json
+
+      - name: Materialize pinned Go clean-room verifier
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: action-state-group/scitt-cose
+          ref: 41811d1e3d9b32d000b1e7f26cafdb116f572167
+          path: external/scitt-cose
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run guarded foreign-language synthetic oracle
+        shell: bash
+        working-directory: external/scitt-cose/scitt-cose-go-verify
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,os; from pathlib import Path; w=Path(os.environ["GITHUB_WORKSPACE"]); c=json.loads((w/"mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json").read_text()); o=w/"synthetic-go-guard"; o.mkdir(exist_ok=True); r=bytes.fromhex(c["receipt_a_hex"]); root=bytes.fromhex(c["tree"]["root_hash_hex"]); mutated_root=bytes([root[0]^1])+root[1:]; assert r.count(root)==1; (o/"receipt-a.cose").write_bytes(r); (o/"receipt-a-embedded-payload-mutated.cose").write_bytes(r.replace(root,mutated_root,1)); (o/"log-key.pub").write_text(c["ts_key_registry"][0]["public_key_pem"]); (o/"leaf-entry.hex").write_text(c["vds_entry_bytes_hex"]); (o/"expected-root.hex").write_text(c["tree"]["root_hash_hex"])'
+          leaf="$(cat "$GITHUB_WORKSPACE/synthetic-go-guard/leaf-entry.hex")"
+          go run . --receipt "$GITHUB_WORKSPACE/synthetic-go-guard/receipt-a.cose" --log-pubkey "$GITHUB_WORKSPACE/synthetic-go-guard/log-key.pub" --leaf-entry-hex "$leaf" | tee "$GITHUB_WORKSPACE/synthetic-go-guard/go-baseline.json"
+          set +e
+          go run . --receipt "$GITHUB_WORKSPACE/synthetic-go-guard/receipt-a-embedded-payload-mutated.cose" --log-pubkey "$GITHUB_WORKSPACE/synthetic-go-guard/log-key.pub" --leaf-entry-hex "$leaf" > "$GITHUB_WORKSPACE/synthetic-go-guard/go-mutated.json"
+          rc=$?
+          set -e
+          python3 -c 'import json,os; from pathlib import Path; w=Path(os.environ["GITHUB_WORKSPACE"])/"synthetic-go-guard"; b=json.loads((w/"go-baseline.json").read_text()); m=json.loads((w/"go-mutated.json").read_text()); root=(w/"expected-root.hex").read_text().strip(); assert b.get("valid") and b.get("receipt",{}).get("ok") and b.get("receipt",{}).get("root")==root; under=m.get("valid") is True and m.get("receipt",{}).get("ok") is True and m.get("receipt",{}).get("root")==root; obs="UNDERLYING_GO_ACCEPTS_EMBEDDED_PAYLOAD_MUTATION" if under and rc==0 else ("UNDERLYING_GO_REJECTS_EMBEDDED_PAYLOAD_MUTATION" if rc!=0 else "UNDERLYING_GO_UNRESOLVED"); (w/"go-guard-observation.txt").write_text("foreign_oracle_baseline=PASS\\n"+"foreign_oracle_scope=GENERIC_CRYPTOGRAPHIC_CORROBORATION\\n"+"foreign_oracle_profile_delegation=PROHIBITED\\n"+"foreign_oracle_effective_verdict=REJECT\\n"+f"foreign_oracle_underlying_observation={obs}\\n"+"foreign_oracle_effective_reject=true\\n")'
+
+
+      - name: Emit immutable synthetic qualification metadata
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SYM-CIVIC-019 SYNTHETIC RECEIPT PROOF BINDING"
+            echo "status=${{ job.status }}"
+            echo "claim_ceiling=SYNTHETIC_RESEARCH_ONLY"
+            echo "event_sha=$GITHUB_SHA"
+            echo "qualification_subject=$QUALIFICATION_SUBJECT"
+            echo "subject=$(git rev-parse HEAD)"
+            echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "workflow_file_sha256=$(sha256sum .github/workflows/sym-civic-019-receipt-proof-binding.yml | cut -d' ' -f1)"
+            echo "workflow_file_git_blob_sha=$(git hash-object .github/workflows/sym-civic-019-receipt-proof-binding.yml)"
+            echo "corpus_sha256=$(sha256sum mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json | cut -d' ' -f1)"
+            echo "corpus_git_blob_sha=$(git hash-object mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json)"
+            echo "verifier_sha256=$(sha256sum scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py | cut -d' ' -f1)"
+            echo "verifier_git_blob_sha=$(git hash-object scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py)"
+            echo "python=$(python3 --version)"
+            echo "openssl=$(openssl version)"
+            if test -f sym-civic-019-qualification-report.json; then
+              echo "report_sha256=$(sha256sum sym-civic-019-qualification-report.json | cut -d' ' -f1)"
+              echo "metamorphic_cases=$(python3 -c 'import json; print(json.load(open("sym-civic-019-qualification-report.json"))["metamorphic_case_count"])' )"
+              echo "report_qualification=$(python3 -c 'import json; print(json.load(open("sym-civic-019-qualification-report.json"))["qualification"])' )"
+            else
+              echo "metamorphic_cases=NOT_AVAILABLE"
+              echo "report_qualification=NOT_AVAILABLE"
+            fi
+            echo "foreign_oracle_scope=GO_CLEAN_ROOM_GENERIC_CRYPTOGRAPHIC_CORROBORATION"
+            echo "foreign_oracle_embedded_payload_guard=GUARDED_DIAGNOSTIC"
+            echo "production_authority=false"
+            echo "cryptographic_authority=false"
+            echo "scitt_authority=false"
+            echo "issuer_signature_verification=NOT_EVALUATED"
+            echo "exact_object_identity_scope=BYTE_EXACT_ONLY"
+          } | tee sym-civic-019-qualification.txt
+
+      - name: Upload synthetic qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sym-civic-019-synthetic-${{ env.QUALIFICATION_SUBJECT }}
+          path: |
+            sym-civic-019-qualification.txt
+            sym-civic-019-qualification-report.json
+            synthetic-go-guard/go-baseline.json
+            synthetic-go-guard/go-mutated.json
+            synthetic-go-guard/go-guard-observation.txt
+          if-no-files-found: warn
+          retention-days: 90
+
+  external:
+    name: SYM-CIVIC-019 external SCITT/COSE interoperability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QUALIFICATION_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert repository and exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
+          test "$GITHUB_REPOSITORY_ID" = "1176351975"
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT"
+
+      - name: Check Python syntax
+        run: python3 -m py_compile scripts/qualification/sym_civic_019_scitt_cose_interop_v1.py
+
+      - name: Materialize pinned external SCITT/COSE corpus
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: action-state-group/scitt-cose
+          ref: 41811d1e3d9b32d000b1e7f26cafdb116f572167
+          path: external/scitt-cose
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert pinned external source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C external/scitt-cose rev-parse HEAD)" = "41811d1e3d9b32d000b1e7f26cafdb116f572167"
+          test -f external/scitt-cose/test-vectors/manifest.json
+          test -f external/scitt-cose/test-vectors/SHA256SUMS
+
+      - name: Run external SCITT/COSE interoperability qualification
+        run: |
+          python3 scripts/qualification/sym_civic_019_scitt_cose_interop_v1.py \
+            --corpus-manifest mycelix-workspace/docs/civic-resilience/scitt-cose-v1/manifest.json \
+            --upstream-vectors-root external/scitt-cose/test-vectors \
+            --report sym-civic-019-scitt-cose-interop-report.json
+
+      - name: Run pinned clean-room Go corroboration
+        id: go_corroboration
+        if: always()
+        working-directory: external/scitt-cose/scitt-cose-go-verify
+        run: |
+          set -o pipefail
+          go test -v ./... | tee "$GITHUB_WORKSPACE/sym-civic-019-scitt-cose-go.txt"
+
+      - name: Emit immutable external interop metadata
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SYM-CIVIC-019 EXTERNAL SCITT/COSE INTEROP"
+            echo "status=${{ job.status }}"
+            echo "claim_ceiling=EXTERNAL_INTEROP_RESEARCH_ONLY"
+            echo "subject=$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
+            echo "external_source_commit=$(git -C external/scitt-cose rev-parse HEAD)"
+            echo "external_source_tree=$(git -C external/scitt-cose rev-parse HEAD^{tree})"
+            echo "external_manifest_sha256=$(sha256sum external/scitt-cose/test-vectors/manifest.json | cut -d' ' -f1)"
+            echo "external_sha256sums_sha256=$(sha256sum external/scitt-cose/test-vectors/SHA256SUMS | cut -d' ' -f1)"
+            if test -f sym-civic-019-scitt-cose-interop-report.json; then
+              echo "external_vector_count=$(python3 -c 'import json; print(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("vector_count", "NOT_AVAILABLE"))')"
+              echo "external_qualification=$(python3 -c 'import json; print(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("qualification", "NOT_AVAILABLE"))')"
+              echo "external_sha256sums=$(python3 -c 'import json; print(str(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("upstream_sha256sum_pinning", False)).lower())')"
+              echo "external_tree_reconstruction=$(python3 -c 'import json; print(str(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("independent_tree_reconstruction", False)).lower())')"
+              echo "external_audit_path_reconstruction=$(python3 -c 'import json; print(str(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("independent_audit_path_reconstruction", False)).lower())')"
+              echo "external_statement_signature_verification=$(python3 -c 'import json; print(str(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("statement_issuer_signature_verification", False)).lower())')"
+              echo "external_receipt_signature_verification=$(python3 -c 'import json; print(str(json.load(open("sym-civic-019-scitt-cose-interop-report.json")).get("receipt_log_signature_verification", False)).lower())')"
+            else
+              echo "external_vector_count=NOT_AVAILABLE"
+              echo "external_qualification=NOT_AVAILABLE"
+              echo "external_sha256sums=false"
+              echo "external_tree_reconstruction=false"
+              echo "external_audit_path_reconstruction=false"
+              echo "external_statement_signature_verification=false"
+              echo "external_receipt_signature_verification=false"
+            fi
+            echo "external_clean_room_go=${{ steps.go_corroboration.outcome == 'success' }}"
+            echo "synthetic_exact_object_binding=NOT_EVALUATED"
+            echo "production_authority=false"
+          } | tee sym-civic-019-external-qualification.txt
+
+      - name: Upload external interop evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sym-civic-019-external-${{ env.QUALIFICATION_SUBJECT }}
+          path: |
+            sym-civic-019-scitt-cose-interop-report.json
+            sym-civic-019-scitt-cose-go.txt
+            sym-civic-019-external-qualification.txt
+          if-no-files-found: warn
+          retention-days: 90
+
+  qualification_conjunction:
+    name: SYM-CIVIC-019 current-head qualification conjunction
+    needs: [synthetic, external]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      QUALIFICATION_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Require both independent hosted qualifications
+        id: conjunction
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ needs.synthetic.result }}" = "success"
+          test "${{ needs.external.result }}" = "success"
+
+      - name: Emit current-head conjunction evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SYM-CIVIC-019 CURRENT-HEAD QUALIFICATION CONJUNCTION"
+            echo "event_sha=$GITHUB_SHA"
+            echo "subject=$QUALIFICATION_SUBJECT"
+            echo "qualification=${{ steps.conjunction.outcome == 'success' && 'PASS' || 'NOT_QUALIFIED' }}"
+            echo "synthetic_result=${{ needs.synthetic.result }}"
+            echo "external_result=${{ needs.external.result }}"
+            echo "claim_ceiling=SYNTHETIC_RESEARCH_ONLY+EXTERNAL_INTEROP_RESEARCH_ONLY"
+            echo "foreign_oracle_scope=GO_CLEAN_ROOM_GENERIC_CRYPTOGRAPHIC_CORROBORATION"
+            echo "foreign_oracle_profile_delegation=PROHIBITED"
+            echo "production_authority=false"
+            echo "issuer_signature_verification=NOT_EVALUATED"
+          } | tee sym-civic-019-qualification-conjunction.txt
+
+      - name: Upload current-head conjunction evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sym-civic-019-conjunction-${{ env.QUALIFICATION_SUBJECT }}
+          path: sym-civic-019-qualification-conjunction.txt
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,125 @@
+{
+  "claim_ceiling": "SYNTHETIC_RESEARCH_ONLY",
+  "files": {
+    "corpus": "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json",
+    "verifier": "scripts/qualification/sym_civic_019_receipt_proof_binding_v1.py",
+    "workflow": ".github/workflows/sym-civic-019-receipt-proof-binding.yml"
+  },
+  "fixture_identities": {
+    "receipt_a_sha256": "1f2a5388f1040ebf57eaf4c6dc6eb8795865a585faa2f2d5d199cf3a11afcf4d",
+    "receipt_b_sha256": "383e7c482a7d7c07fef72a4d5953b293e61fe1d661a0dd627a16307e4ff893bc",
+    "registered_object_sha256": "5d3f9f28472378d5da390171d4ab99405a7efb9d78d3ee50cd6fec0c5daa6c26",
+    "root_hash": "015038320762a26532a00cd545ed2260cd856cd648e4490ccc7c3f3593730462"
+  },
+  "mutation_case_count": 25,
+  "nonclaims": [
+    "production COSE/CBOR conformance",
+    "real Transparency Service interaction",
+    "Web-PKI trust",
+    "SCITT production authority",
+    "operational authority",
+    "legal authority",
+    "issuer signature authentication"
+  ],
+  "profile": "RFC9162_SHA256_SYNTHETIC_V1",
+  "required_predicate_order": [
+    "ReceiptStructureValid",
+    "ProtectedClaimsValid",
+    "ReceiptIssuerBoundToSelectedTS",
+    "ReceiptSubjectBoundToSignedStatement",
+    "TrustedTSIdentityResolved",
+    "RegisteredVDSSelected",
+    "RegisteredVDPSelected",
+    "ProofStructureValid",
+    "StatementToEntryBinding",
+    "ProofValidAgainstExactVDSEntry",
+    "ReceiptSignatureValid",
+    "ExactARPBinding",
+    "ReceiptSequenceBinding",
+    "FinalObjectIdentity"
+  ],
+  "schema": "SYM-CIVIC-019-RECEIPT-PROOF-BINDING-MANIFEST-V1",
+  "vdp_proof_type": -1,
+  "vds_id": 1,
+  "files_git_blob_sha": {
+    "verifier": "cc79feffc9026386795e9320d5f1c426e97c1ce5",
+    "corpus": "d27dfabddecea44aa8e3a0fc233ccdd43d4db571",
+    "workflow": "461ec23a4cc3192f1989dfd828394611d97941a2",
+    "external_interop_verifier": "235cbb7d9811d350bc1028a358a86abe2f23e842",
+    "external_interop_manifest": "6b5017a8677b6e3028a8a6209b79771194726cb7"
+  },
+  "proof_model_version": "exact-entry-v2",
+  "issuer_signature_verification": "NOT_EVALUATED",
+  "exact_object_identity_scope": "BYTE_EXACT_ONLY",
+  "external_interop_provenance": {
+    "source_repo": "action-state-group/scitt-cose",
+    "source_version": "v0.1.1",
+    "source_commit": "41811d1e3d9b32d000b1e7f26cafdb116f572167",
+    "ietf_examples_repo": "ietf-wg-scitt/examples",
+    "ietf_examples_vector_path": "test-vectors/scitt-cose",
+    "vector_set": "2 positive + 3 negative SCITT/COSE RFC9162_SHA256 vectors",
+    "reference_runner": "python -m scitt_cose.vectors",
+    "cross_language_checks": [
+      "Go clean-room verifier",
+      "Rust clean-room verifier"
+    ],
+    "provenance_status": "RESEARCH_REFERENCE_ONLY",
+    "authority_status": "NOT_A_TRUST_ROOT",
+    "materialization": "IMMUTABLE_GIT_CHECKOUT_AT_PINNED_COMMIT",
+    "local_manifest": "mycelix-workspace/docs/civic-resilience/scitt-cose-v1/manifest.json",
+    "upstream_sha256sums_path": "external/scitt-cose/test-vectors/SHA256SUMS",
+    "upstream_sha256sums_enforced": true,
+    "vector_count": 5,
+    "binary_vectors_not_vendored": true,
+    "expected_values_embedded": true,
+    "reason_binary_vectors_not_vendored": "Hosted qualification materializes the exact pinned upstream commit and verifies its upstream SHA256SUMS before execution.",
+    "signature_algorithms_covered": [
+      "EdDSA (-8)",
+      "ES256 (-7)"
+    ],
+    "clean_room_go_corroboration": "EXECUTED_IN_WORKFLOW",
+    "exact_object_binding": "NOT_EVALUATED",
+    "final_rfc_9942_status": "PUBLISHED_PROPOSED_STANDARD_2026-06",
+    "final_rfc_9942_reference": "RFC9942_SECTION_5_RFC9162_SHA256",
+    "current_ietf_examples_observation": {
+      "repository": "ietf-wg-scitt/examples",
+      "commit": "7796e7ef82955e28646195fe439be1a6fe0ad092",
+      "checked_at_utc": "2026-10-08T07:35:00Z",
+      "public_sha256sum_subset_match": true,
+      "public_file_count": 30,
+      "authority": "RESEARCH_REFERENCE_ONLY"
+    },
+    "rfc9942_final_vdp_shape": "unprotected vdp=396 map; inclusion key -1 is array of bstr",
+    "clean_room_go_vdp_shape": "array-of-bstr",
+    "rfc9942_final_receipt_payload": "bstr-or-nil; pinned vectors use detached nil and signature verification substitutes the reconstructed root",
+    "clean_room_go_payload_binding": "msg.Payload := reconstructed_root before Verify",
+    "tree_size_ceiling": "2^62",
+    "exact_inclusion_path_length_enforced": true,
+    "tampered_path_independence_checked": true,
+    "failure_artifact_upload": "ALWAYS_ATTEMPTED",
+    "receipt_header_metadata_crosscheck": true,
+    "detached_payload_valid_vectors_enforced": true,
+    "receipt_vds_label_395_enforced": true,
+    "receipt_critical_header_enforcement": true,
+    "receipt_proof_count_cap": 16,
+    "pinned_v1_exactly_one_proof": true,
+    "crit_must_be_protected": true,
+    "synthetic_crit_understood_labels": [
+      1,
+      2,
+      4,
+      15,
+      395,
+      396
+    ]
+  },
+  "semantic_duplicate_key_rejection": true,
+  "non_minimal_cbor_rejection": true,
+  "external_oracle": {
+    "scope": "GO_CLEAN_ROOM_GENERIC_CRYPTOGRAPHIC_CORROBORATION",
+    "source_repo": "action-state-group/scitt-cose",
+    "source_commit": "41811d1e3d9b32d000b1e7f26cafdb116f572167",
+    "embedded_payload_binding": "GUARDED_DIAGNOSTIC_NOT_AUTHORITY",
+    "profile_predicates_delegated": false
+  }
+}

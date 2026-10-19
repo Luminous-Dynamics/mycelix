@@ -1,0 +1,282 @@
+{
+  "schema": "SYM-CIVIC-019-SCITT-COSE-INTEROP-V1",
+  "claim_ceiling": "EXTERNAL_INTEROP_RESEARCH_ONLY",
+  "source": {
+    "repository": "action-state-group/scitt-cose",
+    "commit": "41811d1e3d9b32d000b1e7f26cafdb116f572167",
+    "upstream_manifest_path": "test-vectors/manifest.json",
+    "upstream_checksums_path": "test-vectors/SHA256SUMS",
+    "stability": "append-only",
+    "private_keys_vendored": false,
+    "vendored_scope": "none",
+    "materialization": "IMMUTABLE_GIT_CHECKOUT_AT_PINNED_COMMIT",
+    "binary_vectors_vendored": false,
+    "expected_values_embedded": true,
+    "upstream_sha256sum_enforced": true,
+    "upstream_sha256sum_file": "test-vectors/SHA256SUMS",
+    "upstream_manifest_file": "test-vectors/manifest.json",
+    "note": "The hosted verifier materializes the exact pinned upstream commit, verifies the upstream SHA256SUMS, cross-checks the upstream manifest and expected.json, and independently verifies the same bytes. The Receipt inclusion proof is read with the RFC9942 array-of-bstr VDP shape. No binary vector bytes or private keys are copied into Mycelix.",
+    "final_rfc_9942_status": "PUBLISHED_PROPOSED_STANDARD_2026-06",
+    "final_rfc_9942_reference": "RFC9942_SECTION_5_RFC9162_SHA256",
+    "current_ietf_examples_observation": {
+      "repository": "ietf-wg-scitt/examples",
+      "commit": "7796e7ef82955e28646195fe439be1a6fe0ad092",
+      "checked_at_utc": "2026-10-08T07:35:00Z",
+      "public_sha256sum_subset_match": true,
+      "public_file_count": 30,
+      "upstream_source_private_entries_omitted": 10,
+      "authority": "RESEARCH_REFERENCE_ONLY"
+    },
+    "final_rfc_9942_inclusion_shape": "protected vds=395; unprotected vdp=396 map; vdp[-1]=array of one-or-more proof bstrs",
+    "clean_room_go_vdp_shape": "array-of-bstr",
+    "final_rfc_9942_receipt_payload_scope": "COSE_Sign1 payload is bstr or nil; pinned v1 receipt vectors use detached nil and the verifier supplies the reconstructed root for signature verification",
+    "clean_room_go_payload_binding": "msg.Payload := reconstructed_root before COSE signature verification",
+    "tree_size_ceiling": "2^62",
+    "exact_inclusion_path_length_enforced": true,
+    "tampered_path_independence_checked": true,
+    "failure_artifact_upload": "ALWAYS_ATTEMPTED",
+    "failure_artifact_upload_note": "The workflow uploads generated qualification evidence even when an earlier qualification step fails; this preserves rejection evidence without changing the job's pass/fail semantics.",
+    "receipt_header_metadata_crosscheck": true,
+    "detached_payload_valid_vectors_enforced": true,
+    "receipt_vds_label_395_enforced": true,
+    "semantic_duplicate_key_rejection": true,
+    "non_minimal_cbor_rejection": true,
+    "receipt_critical_header_enforcement": true,
+    "receipt_proof_count_cap": 16,
+    "pinned_v1_exactly_one_proof": true,
+    "crit_must_be_protected": true,
+    "synthetic_crit_understood_labels": [
+      1,
+      2,
+      4,
+      15,
+      395,
+      396
+    ]
+  },
+  "vectors": [
+    {
+      "id": "valid-eddsa",
+      "dir": "v1/valid-eddsa",
+      "expected": {
+        "description": "Happy path: EdDSA Signed Statement + RFC9162_SHA256 receipt; everything verifies.",
+        "payload_sha256": "08b6e9ec3bd002da4e21976b6dc1411567d30acb30d671161583b3d8351e7692",
+        "protected_header": {
+          "statement": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "content_type": "application/json",
+            "cwt_claims_label": 15,
+            "issuer": "https://test-vectors.scitt-cose.invalid",
+            "subject": "urn:scitt-cose:test-vectors:v1:valid-eddsa"
+          },
+          "receipt": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "vds_label": 395,
+            "vds": 1
+          }
+        },
+        "leaf_entry": "a6dd4523ffdda1754c234acf209bdde758db7d30438468700a7bf6c01e800e3a",
+        "leaf_index": 2,
+        "tree_size": 8,
+        "inclusion_path": [
+          "d5790c062bb617c193f8dbedf90469ccf49525739238b6d1102df4d3424fbd44",
+          "fb85d1461099612b0a34168f8f207bc9a761a91cd1173f39c5dd7ca4d1d92a6c",
+          "b8e2ffb9ad6e45622e44393e6f58a747c4c5b3900d9676e3ecf50aab2ba266e4"
+        ],
+        "reconstructed_root": "5c834b80c0b40ca993f0b4a3ef9d2e77a8a3e8113358e4f318866c02cd448362",
+        "statement_signature_valid": true,
+        "receipt_valid": true,
+        "result": "VALID"
+      },
+      "sha256": {
+        "expected.json": "88e94cbbd162fc1712c1df51ec5b869f8dc71c1669b6d9390c226bc2bd80bd0b",
+        "issuer-key.pub": "705cc28884908057d1f28cb29885b26fa5998f33cac24c88b14cda71fe884547",
+        "log-key.pub": "1b4894577db7df7180ac28883219971fae4444a0bf840f0845edfcafd5551d51",
+        "payload.bin": "08b6e9ec3bd002da4e21976b6dc1411567d30acb30d671161583b3d8351e7692",
+        "receipt.cose": "d36b8a547cab2cd5ad6a3cbda47fbf94d5a531af304a2e011c49ff3a977324ff",
+        "statement.cose": "a6dd4523ffdda1754c234acf209bdde758db7d30438468700a7bf6c01e800e3a"
+      }
+    },
+    {
+      "id": "valid-es256",
+      "dir": "v1/valid-es256",
+      "expected": {
+        "description": "Happy path: ES256 Signed Statement + RFC9162_SHA256 receipt; everything verifies.",
+        "payload_sha256": "a55649d4e0674a1f2d043bc83945381dfd29d60e9ce63e4d86e945357451ff76",
+        "protected_header": {
+          "statement": {
+            "alg": "ES256",
+            "alg_code": -7,
+            "content_type": "application/json",
+            "cwt_claims_label": 15,
+            "issuer": "https://test-vectors.scitt-cose.invalid",
+            "subject": "urn:scitt-cose:test-vectors:v1:valid-es256"
+          },
+          "receipt": {
+            "alg": "ES256",
+            "alg_code": -7,
+            "vds_label": 395,
+            "vds": 1
+          }
+        },
+        "leaf_entry": "3ffa392b06d19b1532464da32e36aa7e2c8b555e0dda3e18154a481bfa2679c7",
+        "leaf_index": 2,
+        "tree_size": 8,
+        "inclusion_path": [
+          "ab76fae876146e6972f525923510e61f1b5f419061da443f3fc47da71d44997e",
+          "d8c99f69cd3e0d89d584dc860de6fd226fda244899ad1a9ca12ded9c6e62855b",
+          "7c0f09411a02969993feaad44b1e7414f8a30cee1a9583e6a31a2eea1122d11b"
+        ],
+        "reconstructed_root": "e1dba63622c67f39bc40bbbcfd62c22a4f3355aa72dff1044d6c5dba52448e61",
+        "statement_signature_valid": true,
+        "receipt_valid": true,
+        "result": "VALID"
+      },
+      "sha256": {
+        "expected.json": "3539e5f8e15f1b9127a24bee1f672fb13db632d98a82631f2a9e1b4274aa2dd4",
+        "issuer-key.pub": "83bed86a8668e1bfb9e8196454e32b7097118429b49190bfceb9ef5b12c5ba72",
+        "log-key.pub": "ec7f30fff175a19956ac74c86624d0f394cf7d8cbc06d5d083c26d9f99bd43e6",
+        "payload.bin": "a55649d4e0674a1f2d043bc83945381dfd29d60e9ce63e4d86e945357451ff76",
+        "receipt.cose": "d4b7d3ad1c6c486bc8550e937699637ea6c4586e215833fd0d874c6fa814c486",
+        "statement.cose": "3ffa392b06d19b1532464da32e36aa7e2c8b555e0dda3e18154a481bfa2679c7"
+      }
+    },
+    {
+      "id": "fail-tampered-path",
+      "dir": "v1/fail-tampered-path",
+      "expected": {
+        "description": "Inclusion path with one flipped byte (first audit-path node). The reconstructed root no longer matches what the log signed; a verifier MUST reject. Statement is honest — the failure is receipt-only.",
+        "payload_sha256": "374497661bfe6024e8acdbaead642cda20a60b5fd50586a6d5654a6a2c9aa5cd",
+        "protected_header": {
+          "statement": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "content_type": "application/json",
+            "cwt_claims_label": 15,
+            "issuer": "https://test-vectors.scitt-cose.invalid",
+            "subject": "urn:scitt-cose:test-vectors:v1:fail-tampered-path"
+          },
+          "receipt": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "vds_label": 395,
+            "vds": 1
+          }
+        },
+        "leaf_entry": "341df0ce74c5d59c84a122a646008caa1a27c709e350c817e98c16237145003a",
+        "leaf_index": 2,
+        "tree_size": 8,
+        "inclusion_path": [
+          "b6167b48a8130f79fbb8709f332945d387cdc7ad25713953f4cf3e08f5993e39",
+          "64d89f54777d5c2acd4ee10ed11e8759f2e5fc77eb8c02b356051dd9bff2c613",
+          "4ccdae78b9b9af9803ac82b2b442c9990c01d28b1af924a7de4368881169367d"
+        ],
+        "reconstructed_root": null,
+        "statement_signature_valid": true,
+        "receipt_valid": false,
+        "result": "INVALID",
+        "failure_code": "TAMPERED_INCLUSION_PATH"
+      },
+      "sha256": {
+        "expected.json": "a0974b16af8213a3709d243b7687de8dd435dea8089bb3fa9d43554a0acc990a",
+        "issuer-key.pub": "b27e09499b9637a9f37a3a7328c71ebcb4493f4de586d28db4f2fa0b7e1127d5",
+        "log-key.pub": "582b48b4c5efc94b02f063193e5df5d70f2ce1e7b08645495e1f9826f20bb42a",
+        "payload.bin": "374497661bfe6024e8acdbaead642cda20a60b5fd50586a6d5654a6a2c9aa5cd",
+        "receipt.cose": "86cf14037b459454dfe0655ad9a460e8aab9099f77c8b9aaf612ca7724743e1f",
+        "statement.cose": "341df0ce74c5d59c84a122a646008caa1a27c709e350c817e98c16237145003a"
+      }
+    },
+    {
+      "id": "fail-unsupported-vds",
+      "dir": "v1/fail-unsupported-vds",
+      "expected": {
+        "description": "Receipt whose protected vds (label 395) is 2, not 1 (RFC9162_SHA256). Proof and signature are otherwise honest, so the ONLY conformant rejection reason is the unsupported verifiable data structure — read from the protected header, never the unprotected one.",
+        "payload_sha256": "b5b997112c8aff9ede41fc9f3074276d7ebe7c9dc35c2af2b4127f0ec7c186ee",
+        "protected_header": {
+          "statement": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "content_type": "application/json",
+            "cwt_claims_label": 15,
+            "issuer": "https://test-vectors.scitt-cose.invalid",
+            "subject": "urn:scitt-cose:test-vectors:v1:fail-unsupported-vds"
+          },
+          "receipt": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "vds_label": 395,
+            "vds": 2
+          }
+        },
+        "leaf_entry": "ee728ba89fc45b23888702bb61e43d753eca60f6c38c145ad32f3b45d7930ad2",
+        "leaf_index": 2,
+        "tree_size": 8,
+        "inclusion_path": [
+          "0c294b4f6b48c04d904362bec9a7ce4e35b81dfe5ad374a312970fc9a760b8ac",
+          "af1b8a36645aaa3d9c0c8cf6e2a55538006a74d0ff7d8b691e6ee7a620da72fa",
+          "0e0ce47ce7debfadf8380c055109ce0991919a7135b05f973c6bf9e5afd07af1"
+        ],
+        "reconstructed_root": null,
+        "statement_signature_valid": true,
+        "receipt_valid": false,
+        "result": "INVALID",
+        "failure_code": "UNSUPPORTED_VDS"
+      },
+      "sha256": {
+        "expected.json": "53a5a94f526063ca65c6d53fe14b67bdb1bb540234f29ccfe24c3b5af42a5c85",
+        "issuer-key.pub": "f6eee167b10f053564a2d33e28d6c14711ac466cb912fd3a14ae3375684a7aa3",
+        "log-key.pub": "3012e5e6dc076d23bc7e9d8036e5da14a8c315bb145de2a23561041c83e70a23",
+        "payload.bin": "b5b997112c8aff9ede41fc9f3074276d7ebe7c9dc35c2af2b4127f0ec7c186ee",
+        "receipt.cose": "8e54dfab9d5c805185a9a3f3236e1af0fb81b17a2bcecef24cd950a127b89279",
+        "statement.cose": "ee728ba89fc45b23888702bb61e43d753eca60f6c38c145ad32f3b45d7930ad2"
+      }
+    },
+    {
+      "id": "fail-bad-statement-sig",
+      "dir": "v1/fail-bad-statement-sig",
+      "expected": {
+        "description": "Signed Statement whose signature byte was flipped. The receipt is minted over the digest of the TAMPERED bytes and verifies — isolating the failure to the statement signature alone.",
+        "payload_sha256": "17591d8abea5cad14242167727aee7130d104b211b6779b2ce6c1196aac5460b",
+        "protected_header": {
+          "statement": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "content_type": "application/json",
+            "cwt_claims_label": 15,
+            "issuer": "https://test-vectors.scitt-cose.invalid",
+            "subject": "urn:scitt-cose:test-vectors:v1:fail-bad-statement-sig"
+          },
+          "receipt": {
+            "alg": "EdDSA",
+            "alg_code": -8,
+            "vds_label": 395,
+            "vds": 1
+          }
+        },
+        "leaf_entry": "0dea38958b8f83f3fb0a4e7626ca0919e6814fdb3c34ec1c1a301622aa1c99d6",
+        "leaf_index": 2,
+        "tree_size": 8,
+        "inclusion_path": [
+          "26446cb4dead0680b3394c81bbe42e7afedbc1b064c015a5d6cb2a33e55d2a61",
+          "e2d5b5aa93e16ee2721cbd06758f04925d251e143f013f651313957492ffa2b5",
+          "776d67c33424280e99e16a7213cdcc6f0281a4f098e46f1d24a0f78769d516d3"
+        ],
+        "reconstructed_root": "e5b5647171f5b9b35072b62e8243fbb13e43845d9374ca08c7272cc27ac41f88",
+        "statement_signature_valid": false,
+        "receipt_valid": true,
+        "result": "INVALID",
+        "failure_code": "BAD_STATEMENT_SIGNATURE"
+      },
+      "sha256": {
+        "expected.json": "7af69b3418752c3c601814c82a3f979d79e26c39bf510ef9388c2909c08f57c1",
+        "issuer-key.pub": "49977cac377a387b7ca695a28c3111ab034b4f9ee9b20de933155e1630cdbcc8",
+        "log-key.pub": "8f711042a88741e01a4b44242b3d69657123dad28da15bc267ba6755a918523f",
+        "payload.bin": "17591d8abea5cad14242167727aee7130d104b211b6779b2ce6c1196aac5460b",
+        "receipt.cose": "3679438bd3ff552476cdff20a7ac1932919fb4f5c9a5f0079ffb9ca2dcdae08b",
+        "statement.cose": "0dea38958b8f83f3fb0a4e7626ca0919e6814fdb3c34ec1c1a301622aa1c99d6"
+      }
+    }
+  ]
+}
