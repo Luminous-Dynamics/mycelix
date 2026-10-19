@@ -577,4 +577,130 @@ mod tests {
         assert_eq!(TrustTier::Observer.css_class(), "tier-observer");
         assert_eq!(TrustTier::Guardian.css_class(), "tier-guardian");
     }
+
+    fn synthetic_claim_evidence() -> ClaimEvidenceView {
+        ClaimEvidenceView {
+            origin: EvidenceOrigin::ProviderReported,
+            authority: EvidenceAuthorityClass::ServiceProvider,
+            cryptographic_integrity: CryptographicIntegrity::Valid,
+            lifecycle_status: ClaimLifecycleStatus::Disputed,
+            freshness: EvidenceFreshness::Stale,
+            source_label: "Synthetic service source".into(),
+            source_ref: Some("opaque-demo-source-01".into()),
+            observed_at: Some(1_750_000_000_000_000),
+            checked_at: Some(1_760_000_000_000_000),
+            valid_until: None,
+        }
+    }
+
+    #[test]
+    fn confirmed_empty_is_distinct_from_unavailable_and_demo() {
+        let empty = SourceReadState::LiveConfirmedEmpty { checked_at: 123 };
+        let unavailable = SourceReadState::Unavailable {
+            reason: SourceUnavailableReason::Network,
+        };
+        let demo = SourceReadState::Demo;
+
+        assert_ne!(empty, unavailable);
+        assert_ne!(empty, demo);
+        assert_ne!(unavailable, demo);
+
+        let empty_json = serde_json::to_value(&empty).unwrap();
+        let unavailable_json = serde_json::to_value(&unavailable).unwrap();
+        assert_eq!(empty_json["state"], "live_confirmed_empty");
+        assert_eq!(unavailable_json["state"], "unavailable");
+        assert_eq!(unavailable_json["details"]["reason"], "network");
+    }
+
+    #[test]
+    fn source_state_roundtrips_without_collapsing_unknowns() {
+        let states = [
+            SourceReadState::NotChecked,
+            SourceReadState::Loading,
+            SourceReadState::LiveWithRecords { checked_at: 456 },
+            SourceReadState::LiveConfirmedEmpty { checked_at: 789 },
+            SourceReadState::Unavailable {
+                reason: SourceUnavailableReason::MalformedResponse,
+            },
+            SourceReadState::Stale {
+                last_successful_read_at: Some(321),
+            },
+            SourceReadState::Demo,
+            SourceReadState::Conflict,
+            SourceReadState::Unsupported,
+        ];
+
+        for state in states {
+            let json = serde_json::to_string(&state).unwrap();
+            let restored: SourceReadState = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, state);
+        }
+    }
+
+    #[test]
+    fn valid_signature_does_not_imply_current_or_undisputed_claim() {
+        let evidence = synthetic_claim_evidence();
+        assert_eq!(evidence.cryptographic_integrity, CryptographicIntegrity::Valid);
+        assert_eq!(evidence.lifecycle_status, ClaimLifecycleStatus::Disputed);
+        assert_eq!(evidence.freshness, EvidenceFreshness::Stale);
+
+        let json = serde_json::to_string(&evidence).unwrap();
+        let restored: ClaimEvidenceView = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, evidence);
+    }
+
+    #[test]
+    fn asset_passport_keeps_ownership_separate_from_service_evidence() {
+        let view = LifeAssetPassportSummaryView {
+            local_asset_ref: "opaque-synthetic-asset-01".into(),
+            kind: LifeAssetKind::Vehicle,
+            display_name: "Synthetic vehicle".into(),
+            claims: vec![
+                LifeAssetClaimView {
+                    category: LifeAssetClaimCategory::Ownership,
+                    summary: "Title-holder status is disputed".into(),
+                    evidence: synthetic_claim_evidence(),
+                },
+                LifeAssetClaimView {
+                    category: LifeAssetClaimCategory::Maintenance,
+                    summary: "Synthetic service entry recorded".into(),
+                    evidence: ClaimEvidenceView {
+                        origin: EvidenceOrigin::ProviderReported,
+                        authority: EvidenceAuthorityClass::ServiceProvider,
+                        cryptographic_integrity: CryptographicIntegrity::NotChecked,
+                        lifecycle_status: ClaimLifecycleStatus::Active,
+                        freshness: EvidenceFreshness::FreshAtRead,
+                        source_label: "Synthetic workshop".into(),
+                        source_ref: None,
+                        observed_at: Some(1_760_000_000_000_000),
+                        checked_at: Some(1_760_000_000_000_001),
+                        valid_until: None,
+                    },
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&view).unwrap();
+        let restored: LifeAssetPassportSummaryView = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, view);
+        assert_eq!(
+            restored.claims[0].evidence.lifecycle_status,
+            ClaimLifecycleStatus::Disputed
+        );
+        assert_eq!(
+            restored.claims[1].category,
+            LifeAssetClaimCategory::Maintenance
+        );
+    }
+
+    #[test]
+    fn unavailable_source_reason_is_a_sanitized_enum_not_raw_error_text() {
+        let state = SourceReadState::Unavailable {
+            reason: SourceUnavailableReason::Unauthorized,
+        };
+        let json = serde_json::to_string(&state).unwrap();
+        assert!(!json.contains("Bearer "));
+        assert!(json.contains("unauthorized"));
+    }
+
 }
