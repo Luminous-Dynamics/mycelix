@@ -1,0 +1,83 @@
+{
+  "schema": "MYCELIX-REPOSITORY-GOVERNANCE-POLICY-V1",
+  "version": 1,
+  "repository": "Luminous-Dynamics/mycelix",
+  "repository_id": 1176351975,
+  "target_ref": "refs/heads/main",
+  "claim_scope": "trusted_verifier_control_plane",
+  "required_controls": {
+    "pull_request_required": true,
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews_on_push": true,
+    "require_last_push_approval": true,
+    "required_review_thread_resolution": true,
+    "block_force_push": true,
+    "block_deletion": true,
+    "bypass_actors_must_be_enumerated": true,
+    "bypass_set_must_be_minimized": true
+  },
+  "acceptable_control_planes": [
+    "github_repository_ruleset",
+    "github_branch_protection"
+  ],
+  "observation_contract": {
+    "live_control_plane_required": true,
+    "raw_payloads_required": true,
+    "raw_payload_sha256_required": true,
+    "admin_observation_required_for_verified": true,
+    "admin_capability_probe_required_when_branch_protection_unavailable": true,
+    "public_observation_may_establish": [
+      "target_ref_identity",
+      "branch_protected_boolean",
+      "repository_ruleset_identity",
+      "repository_ruleset_enforcement"
+    ],
+    "public_observation_must_not_establish": [
+      "complete_bypass_actor_set",
+      "administrator_bypass_prevention",
+      "complete_branch_protection_configuration"
+    ],
+    "admin_api_403_state": "secondary_observation_unavailable",
+    "unknown_or_unobservable_state": "UNVERIFIED",
+    "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": true,
+    "applicable_rulesets_must_be_aggregated": true,
+    "ruleset_repository_targeting_must_be_evaluated": true,
+    "repository_subject_identity_must_be_bound": true,
+    "ruleset_source_scope_must_be_validated": true,
+    "ruleset_condition_schema_must_match_source_type": true,
+    "ruleset_source_identity_must_match_source_type": true,
+    "github_ref_pattern_pathname_semantics_must_be_bound": true,
+    "github_unsupported_ref_pattern_syntax_must_fail_closed": true,
+    "github_unsupported_fnmatch_syntax_must_fail_closed": true,
+    "raw_json_must_reject_duplicate_keys_and_nonstandard_constants": true,
+    "github_special_targeting_token_semantics_must_be_bound": true,
+    "unobserved_repository_selector_properties_must_fail_closed": true,
+    "repository_owner_identity_must_be_rechecked": true,
+    "live_main_tip_must_be_rechecked": true,
+    "authoritative_admin_observation_requires_verified_admin_status": true,
+    "enterprise_ruleset_source_identity_must_be_observed": true,
+    "effective_rule_provenance_must_be_bound": true,
+    "effective_rule_definition_must_match_observed_ruleset": true,
+    "github_unsupported_extglob_syntax_must_fail_closed": true
+  },
+  "result_states": [
+    "VERIFIED",
+    "MISMATCH",
+    "UNVERIFIED",
+    "NOT_RUN"
+  ],
+  "fail_closed": {
+    "verified_requires_all_required_controls": true,
+    "verified_requires_authoritative_admin_observation": true,
+    "mismatch_must_not_be_upgraded_by_missing_fields": true,
+    "unverified_must_not_be_treated_as_verified": true,
+    "contradiction_dominates_secondary_observation_unavailability": true
+  },
+  "nonclaims": [
+    "The policy file is an expectation, not proof that GitHub currently enforces it.",
+    "A SHA-256 commitment proves policy or payload identity, not the truth of an administrator attestation.",
+    "This contract does not mutate branch protection or rulesets.",
+    "This contract does not establish semantic independence of the verifier."
+  ],
+  "organization_id": 216969177
+}

@@ -1,0 +1,2525 @@
+#!/usr/bin/env python3
+"""Fail-closed evaluator for live GitHub repository-governance observations."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import copy
+from functools import lru_cache
+import hashlib
+import json
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+EVALUATOR_ID = "mycelix-repository-governance-evaluator-v1"
+SCHEMA = "MYCELIX-REPOSITORY-GOVERNANCE-OBSERVATION-V1"
+POLICY_SCHEMA = "MYCELIX-REPOSITORY-GOVERNANCE-POLICY-V1"
+REPOSITORY = "Luminous-Dynamics/mycelix"
+REPOSITORY_ID = 1176351975
+REPOSITORY_NAME = "mycelix"
+ORGANIZATION_NAME = "Luminous-Dynamics"
+ORGANIZATION_ID = 216969177
+TARGET_REF = "refs/heads/main"
+
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+class EvidenceError(ValueError):
+    pass
+
+
+def require(ok: bool, message: str) -> None:
+    if not ok:
+        raise EvidenceError(message)
+
+
+def parse_ts(value: Any) -> datetime:
+    require(isinstance(value, str), "observed_at_utc must be a string")
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise EvidenceError(f"invalid observed_at_utc: {exc}") from exc
+    require(dt.tzinfo is not None, "observed_at_utc must be timezone-aware")
+    return dt.astimezone(timezone.utc)
+
+
+def sha256(value: Any, label: str) -> str:
+    require(isinstance(value, str) and SHA256.fullmatch(value) is not None,
+            f"{label} must be lowercase sha256")
+    return value
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in parsed:
+            raise EvidenceError(f"duplicate JSON object key: {key!r}")
+        parsed[key] = value
+    return parsed
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise EvidenceError(f"non-standard JSON constant: {value!r}")
+
+
+def _strict_json_loads(text: str, label: str) -> Any:
+    try:
+        return json.loads(
+            text,
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=_reject_nonstandard_json_constant,
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise EvidenceError(f"{label} is not valid strict JSON") from exc
+
+
+def validate_bound_raw_payload(observation: Any, name: str) -> Any:
+    raw_field = f"{name}_payload_base64"
+    digest_field = f"{name}_payload_sha256"
+    encoded = observation.get(raw_field)
+    expected_digest = sha256(observation.get(digest_field), digest_field)
+    require(isinstance(encoded, str) and encoded != "", f"{raw_field} missing")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+        parsed = _strict_json_loads(raw.decode("utf-8"), raw_field)
+    except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise EvidenceError(f"{raw_field} is not valid UTF-8 JSON") from exc
+    actual_digest = hashlib.sha256(raw).hexdigest()
+    require(actual_digest == expected_digest, f"{digest_field} does not match {raw_field}")
+    return parsed
+
+
+def validate_policy(policy: Any) -> None:
+    require(isinstance(policy, dict), "policy must be an object")
+    require(policy.get("claim_scope") == "trusted_verifier_control_plane",
+            "policy claim scope drift")
+    require(
+        policy.get("acceptable_control_planes") == [
+            "github_repository_ruleset",
+            "github_branch_protection",
+        ],
+        "acceptable control planes drift",
+    )
+    require(
+        policy.get("result_states") == [
+            "VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"
+        ],
+        "result state contract drift",
+    )
+    require(policy.get("schema") == POLICY_SCHEMA, "policy schema drift")
+    require(policy.get("version") == 1, "policy version drift")
+    require(policy.get("repository") == REPOSITORY, "policy repository drift")
+    require(policy.get("repository_id") == REPOSITORY_ID, "policy repository id drift")
+    require(policy.get("organization_id") == ORGANIZATION_ID, "policy organization id drift")
+    require(policy.get("target_ref") == TARGET_REF, "policy target ref drift")
+    required = policy.get("required_controls")
+    require(isinstance(required, dict), "required_controls missing")
+    for key in (
+        "pull_request_required",
+        "dismiss_stale_reviews_on_push",
+        "require_last_push_approval",
+        "required_review_thread_resolution",
+        "block_force_push",
+        "block_deletion",
+        "bypass_actors_must_be_enumerated",
+        "bypass_set_must_be_minimized",
+    ):
+        require(required.get(key) is True, f"required control drift: {key}")
+    require(required.get("required_approving_review_count") == 1,
+            "required review count drift")
+
+    observation_contract = policy.get("observation_contract")
+    require(isinstance(observation_contract, dict), "observation_contract missing")
+    require(
+        observation_contract.get("live_control_plane_required") is True,
+        "live control-plane requirement drift",
+    )
+    require(
+        observation_contract.get("raw_payloads_required") is True,
+        "raw payload requirement drift",
+    )
+    require(
+        observation_contract.get("raw_payload_sha256_required") is True,
+        "raw payload hash requirement drift",
+    )
+    require(
+        observation_contract.get("admin_observation_required_for_verified") is True,
+        "admin observation requirement drift",
+    )
+    require(
+        observation_contract.get("admin_capability_probe_required_when_branch_protection_unavailable") is True,
+        "admin capability probe requirement drift",
+    )
+    require(
+        observation_contract.get("secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists") is True,
+        "secondary observation precedence drift",
+    )
+    require(
+        observation_contract.get("applicable_rulesets_must_be_aggregated") is True,
+        "ruleset aggregation contract drift",
+    )
+    require(
+        observation_contract.get("ruleset_repository_targeting_must_be_evaluated") is True,
+        "ruleset repository-targeting contract drift",
+    )
+    require(
+        observation_contract.get("repository_subject_identity_must_be_bound") is True,
+        "repository subject identity contract drift",
+    )
+    require(
+        observation_contract.get("ruleset_source_scope_must_be_validated") is True,
+        "ruleset source scope contract drift",
+    )
+    require(
+        observation_contract.get("effective_rule_provenance_must_be_bound") is True,
+        "effective rule provenance contract drift",
+    )
+    require(
+        observation_contract.get("effective_rule_definition_must_match_observed_ruleset") is True,
+        "effective rule definition contract drift",
+    )
+    require(
+        observation_contract.get("ruleset_condition_schema_must_match_source_type") is True,
+        "ruleset condition schema contract drift",
+    )
+    require(
+        observation_contract.get("ruleset_source_identity_must_match_source_type") is True,
+        "ruleset source identity contract drift",
+    )
+    require(
+        observation_contract.get("github_ref_pattern_pathname_semantics_must_be_bound") is True,
+        "GitHub ref pathname semantics contract drift",
+    )
+    require(
+        observation_contract.get("github_unsupported_ref_pattern_syntax_must_fail_closed") is True,
+        "GitHub unsupported ref pattern syntax contract drift",
+    )
+    require(
+        observation_contract.get("github_unsupported_fnmatch_syntax_must_fail_closed") is True,
+        "GitHub unsupported fnmatch syntax contract drift",
+    )
+    require(
+        observation_contract.get("github_unsupported_extglob_syntax_must_fail_closed") is True,
+        "GitHub unsupported extglob syntax contract drift",
+    )
+    require(
+        observation_contract.get("raw_json_must_reject_duplicate_keys_and_nonstandard_constants") is True,
+        "strict raw JSON contract drift",
+    )
+    require(
+        observation_contract.get("github_special_targeting_token_semantics_must_be_bound") is True,
+        "GitHub special targeting token contract drift",
+    )
+    require(
+        observation_contract.get("live_main_tip_must_be_rechecked") is True,
+        "live main freshness contract drift",
+    )
+    require(
+        observation_contract.get("authoritative_admin_observation_requires_verified_admin_status") is True,
+        "authoritative admin observation contract drift",
+    )
+
+    fail_closed = policy.get("fail_closed")
+    require(isinstance(fail_closed, dict), "fail_closed missing")
+    for key in (
+        "verified_requires_all_required_controls",
+        "verified_requires_authoritative_admin_observation",
+        "mismatch_must_not_be_upgraded_by_missing_fields",
+        "unverified_must_not_be_treated_as_verified",
+        "contradiction_dominates_secondary_observation_unavailability",
+    ):
+        require(fail_closed.get(key) is True, f"fail-closed contract drift: {key}")
+
+
+def validate_observation_shape(observation: Any) -> None:
+    require(isinstance(observation, dict), "observation must be an object")
+    require(observation.get("schema") == SCHEMA, "observation schema drift")
+    require(observation.get("version") == 1, "observation version drift")
+    require(observation.get("repository") == REPOSITORY, "observation repository drift")
+    require(observation.get("repository_id") == REPOSITORY_ID, "observation repository id drift")
+    require(observation.get("target_ref") == TARGET_REF, "observation target ref drift")
+    parse_ts(observation.get("observed_at_utc"))
+    sha256(observation.get("policy_sha256"), "policy_sha256")
+    repository_raw = validate_bound_raw_payload(observation, "repository")
+    branch_raw = validate_bound_raw_payload(observation, "branch")
+    rulesets_index_raw = validate_bound_raw_payload(observation, "rulesets_index")
+    rulesets_raw = validate_bound_raw_payload(observation, "rulesets")
+    effective_rules_raw = validate_bound_raw_payload(observation, "effective_rules")
+    protection_raw = validate_bound_raw_payload(observation, "branch_protection")
+    require(isinstance(repository_raw, dict), "repository raw payload must be an object")
+    require(repository_raw.get("id") == REPOSITORY_ID, "repository raw id drift")
+    require(repository_raw.get("full_name") == REPOSITORY, "repository raw full_name drift")
+    owner = repository_raw.get("owner")
+    require(isinstance(owner, dict), "repository raw owner missing")
+    require(owner.get("login") == ORGANIZATION_NAME, "repository raw owner drift")
+    require(owner.get("id") == ORGANIZATION_ID, "repository raw owner id drift")
+    require(owner.get("type") == "Organization", "repository raw owner type drift")
+    require(isinstance(repository_raw.get("default_branch"), str), "repository raw default_branch missing")
+    require(
+        observation.get("default_branch") == repository_raw.get("default_branch"),
+        "normalized default_branch observation does not match raw repository payload",
+    )
+    require(isinstance(branch_raw, dict), "branch raw payload must be an object")
+    require(branch_raw.get("name") == "main", "branch raw name drift")
+    require(isinstance(branch_raw.get("protected"), bool), "branch raw protected must be boolean")
+    branch_commit = branch_raw.get("commit")
+    require(isinstance(branch_commit, dict), "branch raw commit missing")
+    live_main_sha = branch_commit.get("sha")
+    require(isinstance(live_main_sha, str) and re.fullmatch(r"[0-9a-f]{40}", live_main_sha), "branch raw commit sha invalid")
+    require(
+        observation.get("live_main_sha") == live_main_sha,
+        "normalized live_main_sha observation does not match raw branch payload",
+    )
+    require(isinstance(rulesets_index_raw, list), "rulesets index raw payload must be a list")
+    require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
+    require(isinstance(effective_rules_raw, list), "effective rules raw payload must be a list")
+    index_ids = [entry.get("id") for entry in rulesets_index_raw if isinstance(entry, dict)]
+    full_ids = [entry.get("id") for entry in rulesets_raw if isinstance(entry, dict)]
+    require(len(index_ids) == len(rulesets_index_raw), "rulesets index entry is not an object")
+    require(len(full_ids) == len(rulesets_raw), "full ruleset entry is not an object")
+    require(
+        all(isinstance(value, int) and not isinstance(value, bool) for value in index_ids),
+        "rulesets index id missing",
+    )
+    require(
+        all(isinstance(value, int) and not isinstance(value, bool) for value in full_ids),
+        "full ruleset id missing",
+    )
+
+    identity_keys = ("id", "name", "source_type", "source", "enforcement", "updated_at")
+    allowed_enforcement = {"active", "disabled", "evaluate"}
+    for label, entries in (("rulesets index", rulesets_index_raw), ("full rulesets", rulesets_raw)):
+        for index, entry in enumerate(entries):
+            require(isinstance(entry, dict), f"{label}[{index}] entry is not an object")
+            for key in identity_keys:
+                value = entry.get(key)
+                require(
+                    isinstance(value, str) and value.strip() if key != "id" else
+                    isinstance(value, int) and not isinstance(value, bool),
+                    f"{label}[{index}] {key} is missing or invalid",
+                )
+            require(
+                entry["enforcement"] in allowed_enforcement,
+                f"{label}[{index}] enforcement is invalid",
+            )
+    for index, entry in enumerate(rulesets_raw):
+        require(entry.get("target") == "branch", f"full ruleset[{index}] target is not branch")
+        require(isinstance(entry.get("conditions"), dict), f"full ruleset[{index}] conditions missing")
+        require(isinstance(entry.get("rules"), list), f"full ruleset[{index}] rules missing")
+        require(isinstance(entry.get("bypass_actors"), list), f"full ruleset[{index}] bypass_actors missing")
+    require(len(index_ids) == len(set(index_ids)), "duplicate ruleset ids in index")
+    require(len(full_ids) == len(set(full_ids)), "duplicate ruleset ids in full rulesets")
+    require(set(index_ids) == set(full_ids), "ruleset index/full object id sets differ")
+    index_by_id = {entry["id"]: entry for entry in rulesets_index_raw}
+    for entry in rulesets_raw:
+        summary = index_by_id[entry["id"]]
+        for key in ("id", "name", "source_type", "source", "enforcement", "updated_at"):
+            require(
+                entry.get(key) == summary.get(key),
+                f"ruleset full object diverges from index summary: {entry['id']}:{key}",
+            )
+    require(
+        observation.get("branch", {}).get("name") == branch_raw.get("name")
+        and observation.get("branch", {}).get("protected") == branch_raw.get("protected"),
+        "normalized branch observation does not match raw branch payload",
+    )
+    require(
+        observation.get("live_main_sha") == branch_raw["commit"]["sha"],
+        "normalized live_main_sha does not match raw branch commit",
+    )
+    require(
+        observation.get("rulesets", {}).get("entries") == rulesets_raw,
+        "normalized ruleset observation does not match raw rulesets payload",
+    )
+    require(
+        observation.get("effective_rules", {}).get("entries") == effective_rules_raw,
+        "normalized effective rules observation does not match raw effective rules payload",
+    )
+    capability_probe = observation.get("admin_capability_probe")
+    require(isinstance(capability_probe, dict), "admin capability probe observation missing")
+    capability_status = capability_probe.get("http_status")
+    require(isinstance(capability_status, int), "admin capability probe http_status must be integer")
+    capability_raw = validate_bound_raw_payload(observation, "admin_capability")
+    if capability_status == 200:
+        require(isinstance(capability_raw, list), "successful admin capability probe raw payload must be a list")
+    else:
+        require(
+            isinstance(capability_raw, (dict, list)),
+            "admin capability probe raw payload must be valid JSON",
+        )
+    require(
+        observation.get("admin_capability_probe", {}).get("http_status") == capability_status,
+        "normalized admin capability probe status is inconsistent",
+    )
+
+    protection_api = observation.get("branch_protection_api")
+    require(isinstance(protection_api, dict), "branch protection API observation missing")
+    protection_status = protection_api.get("http_status")
+    require(isinstance(protection_status, int), "branch protection http_status must be integer")
+    if protection_status == 200:
+        require(branch_raw.get("protected") is True, "classic branch protection 200 conflicts with unprotected branch observation")
+        normalized_protection = _normalize_branch_protection(protection_raw)
+        require(
+            observation.get("admin_observation", {}).get("protection") == normalized_protection,
+            "normalized admin protection does not match raw branch protection payload",
+        )
+
+
+def _github_character_class_end(
+    pattern: str,
+    start: int,
+    *,
+    pathname: bool,
+) -> int | None:
+    """Return the index after a Ruby-compatible bracket expression."""
+    index = start + 1
+    if index >= len(pattern):
+        return None
+    negated = pattern[index] == "!"
+    if negated:
+        index += 1
+    if index >= len(pattern):
+        return None
+    # Ruby's matcher treats [!] as a negated empty set, which matches any
+    # single character. A non-negated empty set is outside our accepted
+    # fail-closed syntax language.
+    if pattern[index] == "]":
+        return index + 1 if negated else None
+
+    while index < len(pattern):
+        current = pattern[index]
+        if current == "]":
+            return index + 1
+        if pathname and current == "/":
+            return None
+        if current == "\\":
+            return None
+        index += 1
+        if index >= len(pattern):
+            return None
+        # A hyphen immediately before the closing bracket is literal;
+        # otherwise Ruby consumes a range endpoint as one class atom.
+        if (
+            pattern[index] == "-"
+            and index + 1 < len(pattern)
+            and pattern[index + 1] != "]"
+        ):
+            if pathname and pattern[index + 1] == "/":
+                return None
+            if pattern[index + 1] == "\\":
+                return None
+            index += 2
+    return None
+
+
+def _github_fnmatch_pattern_supported(
+    pattern: str,
+    *,
+    pathname: bool = False,
+) -> bool:
+    if not isinstance(pattern, str) or not pattern:
+        return False
+    if "\\" in pattern:
+        return False
+    if re.search(r"\[\^", pattern):
+        return False
+    # GitHub does not support Ruby File::FNM_EXTGLOB syntax. Refuse the
+    # extglob operators instead of inheriting a different glob dialect.
+    if re.search(r"[!?+*@]\(", pattern):
+        return False
+
+    index = 0
+    while index < len(pattern):
+        if pattern[index] != "[":
+            index += 1
+            continue
+        end = _github_character_class_end(pattern, index, pathname=pathname)
+        if end is None:
+            return False
+        index = end
+    return True
+
+
+def _github_character_class_matches(
+    pattern: str,
+    start: int,
+    candidate: str,
+    *,
+    pathname: bool,
+) -> int | None:
+    """Return the index after a matching Ruby-style bracket expression."""
+    index = _github_character_class_end(pattern, start, pathname=pathname)
+    if index is None:
+        return None
+
+    scan = start + 1
+    negated = scan < len(pattern) and pattern[scan] == "!"
+    if negated:
+        scan += 1
+
+    matched = False
+    if scan < len(pattern) and pattern[scan] == "]":
+        matched = False
+    else:
+        while scan < index - 1:
+            first = pattern[scan]
+            scan += 1
+            if scan >= index - 1:
+                return None
+            if (
+                pattern[scan] == "-"
+                and scan + 1 < index
+                and pattern[scan + 1] != "]"
+            ):
+                second = pattern[scan + 1]
+                scan += 2
+                if first <= candidate <= second:
+                    matched = True
+                continue
+            if first == candidate:
+                matched = True
+
+    return index if matched != negated else None
+
+
+def _github_fnmatch_matches(
+    value: str,
+    pattern: str,
+    *,
+    pathname: bool,
+) -> bool:
+    if not isinstance(value, str) or not isinstance(pattern, str) or not pattern:
+        return False
+    if not _github_fnmatch_pattern_supported(pattern, pathname=pathname):
+        return False
+
+    value_len = len(value)
+    pattern_len = len(pattern)
+
+    @lru_cache(maxsize=None)
+    def match(pattern_index: int, value_index: int) -> bool:
+        if pattern_index == pattern_len:
+            return value_index == value_len
+
+        # Ruby handles **/ outside its component matcher. It can consume zero
+        # or more complete path components, but without FNM_DOTMATCH it cannot
+        # recurse through a leading-dot component.
+        if (
+            pathname
+            and pattern_index + 2 < pattern_len
+            and (
+                pattern_index == 0
+                or pattern[pattern_index - 1] == "/"
+            )
+            and pattern[pattern_index : pattern_index + 3] == "**/"
+        ):
+            next_index = pattern_index
+            while (
+                next_index + 2 < pattern_len
+                and pattern[next_index : next_index + 3] == "**/"
+            ):
+                next_index += 3
+
+            if match(next_index, value_index):
+                return True
+
+            scan = value_index
+            while scan < value_len:
+                separator = value.find("/", scan)
+                if separator < 0:
+                    break
+                if value[scan] == ".":
+                    break
+                if match(next_index, separator + 1):
+                    return True
+                scan = separator + 1
+            return False
+
+        component_start = value_index == 0 or (
+            pathname
+            and value_index > 0
+            and value[value_index - 1] == "/"
+        )
+        if (
+            component_start
+            and value_index < value_len
+            and value[value_index] == "."
+            and pattern[pattern_index] != "."
+        ):
+            return False
+
+        token = pattern[pattern_index]
+        if token == "*":
+            next_index = pattern_index
+            while next_index < pattern_len and pattern[next_index] == "*":
+                next_index += 1
+            if match(next_index, value_index):
+                return True
+            scan = value_index
+            while scan < value_len and (not pathname or value[scan] != "/"):
+                scan += 1
+                if match(next_index, scan):
+                    return True
+            return False
+
+        if token == "?":
+            if value_index >= value_len or (
+                pathname and value[value_index] == "/"
+            ):
+                return False
+            return match(pattern_index + 1, value_index + 1)
+
+        if token == "[":
+            if value_index >= value_len or (
+                pathname and value[value_index] == "/"
+            ):
+                return False
+            end = _github_character_class_matches(
+                pattern,
+                pattern_index,
+                value[value_index],
+                pathname=pathname,
+            )
+            return end is not None and match(end, value_index + 1)
+
+        if value_index >= value_len or token != value[value_index]:
+            return False
+        return match(pattern_index + 1, value_index + 1)
+
+    return match(0, 0)
+
+
+def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
+    """Match GitHub ruleset ref patterns with Ruby FNM_PATHNAME semantics."""
+    return _github_fnmatch_matches(value, pattern, pathname=True)
+
+def _validate_ref_pattern_lists(includes: list[str], excludes: list[str]) -> bool:
+    if any(not _github_fnmatch_pattern_supported(pattern, pathname=True)
+           for pattern in includes + excludes
+           if pattern not in {"~ALL", "~DEFAULT_BRANCH", "~EMUS"}):
+        return False
+    if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes or "~EMUS" in excludes:
+        return False
+    if "~EMUS" in includes:
+        return False
+    return not ("~ALL" in includes and includes != ["~ALL"])
+
+
+def _ref_pattern_matches_main(pattern: Any, default_branch: str) -> bool:
+    if not isinstance(pattern, str) or pattern == "":
+        return False
+    if pattern == "~ALL":
+        return True
+    if pattern == "~DEFAULT_BRANCH":
+        return default_branch == "main"
+    return (
+        _github_ref_pattern_matches(TARGET_REF, pattern)
+        or _github_ref_pattern_matches("main", pattern)
+    )
+
+
+def _scope_pattern_matches(value: str, pattern: str) -> bool:
+    # GitHub account/repository names are case-insensitive; preserve Ruby
+    # fnmatch semantics while normalizing only the compared name operands.
+    return pattern == "~ALL" or _github_fnmatch_matches(
+        value.casefold(),
+        pattern.casefold(),
+        pathname=False,
+    )
+
+
+def _validate_special_selector_patterns(
+    includes: list[str],
+    excludes: list[str],
+    *,
+    allow_emus: bool = False,
+) -> bool:
+    if any(not _github_fnmatch_pattern_supported(pattern)
+           for pattern in includes + excludes
+           if pattern not in {"~ALL", "~DEFAULT_BRANCH", "~EMUS"}):
+        return False
+    if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes:
+        return False
+    if allow_emus and "~EMUS" in excludes:
+        return False
+    if "~ALL" in includes and includes != ["~ALL"]:
+        return False
+    if "~DEFAULT_BRANCH" in includes:
+        return False
+    if "~EMUS" in includes and (not allow_emus or includes != ["~EMUS"]):
+        return False
+    if not allow_emus and "~EMUS" in includes:
+        return False
+    return True
+
+
+def _selector_state(
+    selector: Any,
+    *,
+    patterns: tuple[str, str],
+    value: str,
+    ids_key: str | None = None,
+    value_id: int | None = None,
+    allow_emus: bool = False,
+) -> str:
+    if not isinstance(selector, dict):
+        return "UNVERIFIED"
+    includes = selector.get(patterns[0])
+    excludes = selector.get(patterns[1])
+    if not isinstance(includes, list) or not isinstance(excludes, list):
+        return "UNVERIFIED"
+    if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+        return "UNVERIFIED"
+    if not _validate_special_selector_patterns(includes, excludes, allow_emus=allow_emus):
+        return "UNVERIFIED"
+    if ids_key is not None:
+        ids = selector.get(ids_key)
+        if ids is None:
+            return (
+                "MATCH"
+                if any(_scope_pattern_matches(value, pattern) for pattern in includes)
+                and not any(_scope_pattern_matches(value, pattern) for pattern in excludes)
+                else "NOT_MATCH"
+            )
+        if not isinstance(ids, list):
+            return "UNVERIFIED"
+        if not all(isinstance(identifier, int) and not isinstance(identifier, bool) for identifier in ids):
+            return "UNVERIFIED"
+        return "MATCH" if value_id in ids else "NOT_MATCH"
+    return (
+        "MATCH"
+        if any(_scope_pattern_matches(value, pattern) for pattern in includes)
+        and not any(_scope_pattern_matches(value, pattern) for pattern in excludes)
+        else "NOT_MATCH"
+    )
+
+
+def _repository_condition_state(
+    conditions: dict[str, Any],
+    source_type: str,
+) -> str:
+    repository_selectors = {
+        key: conditions.get(key)
+        for key in ("repository_name", "repository_id", "repository_property")
+        if key in conditions
+    }
+    if len(repository_selectors) > 1:
+        return "UNVERIFIED"
+
+    if source_type in {"Organization", "Enterprise"} and not repository_selectors:
+        return "UNVERIFIED"
+    if source_type == "Repository" and repository_selectors:
+        return "UNVERIFIED"
+
+    if repository_selectors:
+        key, selector = next(iter(repository_selectors.items()))
+        if key == "repository_name":
+            if not isinstance(selector, dict):
+                return "UNVERIFIED"
+            # GitHub's organization repository-name condition has an
+            # additional "protected" property controlling whether repository
+            # renaming is prevented. We do not retain a trusted observation of
+            # that repository property, so never treat such a selector as
+            # applicable by ignoring it.
+            if "protected" in selector:
+                return "UNVERIFIED"
+            return _selector_state(
+                selector,
+                patterns=("include", "exclude"),
+                value=REPOSITORY_NAME,
+            )
+        if key == "repository_id":
+            if not isinstance(selector, dict):
+                return "UNVERIFIED"
+            ids = selector.get("repository_ids")
+            if not isinstance(ids, list):
+                return "UNVERIFIED"
+            if not all(isinstance(value, int) and not isinstance(value, bool) for value in ids):
+                return "UNVERIFIED"
+            return "MATCH" if REPOSITORY_ID in ids else "NOT_MATCH"
+        return "UNVERIFIED"
+
+    return "MATCH"
+
+
+def _organization_condition_state(conditions: dict[str, Any]) -> str:
+    organization_selectors = {
+        key: conditions.get(key)
+        for key in ("organization_name", "organization_id", "organization_property")
+        if key in conditions
+    }
+    if len(organization_selectors) > 1:
+        return "UNVERIFIED"
+
+    if not organization_selectors:
+        return "MATCH"
+
+    key, selector = next(iter(organization_selectors.items()))
+    if key == "organization_name":
+        return _selector_state(
+            selector,
+            patterns=("include", "exclude"),
+            value=ORGANIZATION_NAME,
+            allow_emus=True,
+        )
+    if key == "organization_id":
+        if not isinstance(selector, dict):
+            return "UNVERIFIED"
+        ids = selector.get("organization_ids")
+        if not isinstance(ids, list):
+            return "UNVERIFIED"
+        if not all(isinstance(value, int) and not isinstance(value, bool) for value in ids):
+            return "UNVERIFIED"
+        return "MATCH" if ORGANIZATION_ID in ids else "NOT_MATCH"
+    return "UNVERIFIED"
+
+def _ruleset_target_state(entry: Any, default_branch: str) -> str:
+    if not isinstance(entry, dict):
+        return "UNVERIFIED"
+    if entry.get("target") != "branch" or entry.get("enforcement") != "active":
+        return "NOT_APPLICABLE"
+    source_type = entry.get("source_type")
+    if source_type not in {"Repository", "Organization", "Enterprise"}:
+        return "UNVERIFIED"
+    if source_type == "Enterprise":
+        # The repository observation currently has no authoritative enterprise
+        # identity to bind the ruleset source against. Never qualify an
+        # enterprise-sourced rule merely because its source string is present.
+        return "UNVERIFIED"
+
+    source = entry.get("source")
+    if not isinstance(source, str) or not source:
+        return "UNVERIFIED"
+    if source_type == "Repository" and source.casefold() != REPOSITORY.casefold():
+        return "UNVERIFIED"
+    if source_type == "Organization" and source.casefold() != ORGANIZATION_NAME.casefold():
+        return "UNVERIFIED"
+
+    conditions = entry.get("conditions")
+    if not isinstance(conditions, dict):
+        return "UNVERIFIED"
+
+    selector_keys = {"repository_name", "repository_id", "repository_property"}
+    organization_selector_keys = {"organization_name", "organization_id", "organization_property"}
+    present_repo = selector_keys.intersection(conditions)
+    present_org = organization_selector_keys.intersection(conditions)
+
+    # GitHub repository branch rulesets use only ref_name. Organization branch
+    # rulesets use one repository selector plus ref_name. Enterprise branch
+    # rulesets use one organization selector plus one repository selector plus
+    # ref_name. Reject any shape outside those documented combinations.
+    if source_type == "Repository":
+        if set(conditions) != {"ref_name"}:
+            return "UNVERIFIED"
+    elif source_type == "Organization":
+        if len(present_repo) != 1 or present_org or set(conditions) != present_repo | {"ref_name"}:
+            return "UNVERIFIED"
+    else:
+        if len(present_repo) != 1 or len(present_org) != 1 or set(conditions) != present_repo | present_org | {"ref_name"}:
+            return "UNVERIFIED"
+
+    repo_state = _repository_condition_state(conditions, source_type)
+    if repo_state == "UNVERIFIED":
+        return "UNVERIFIED"
+    if repo_state == "NOT_MATCH":
+        return "NOT_APPLICABLE"
+
+    organization_state = _organization_condition_state(conditions)
+    if organization_state == "UNVERIFIED":
+        return "UNVERIFIED"
+    if organization_state == "NOT_MATCH":
+        return "NOT_APPLICABLE"
+
+    ref_name = conditions.get("ref_name")
+    if not isinstance(ref_name, dict):
+        return "UNVERIFIED"
+    includes = ref_name.get("include")
+    excludes = ref_name.get("exclude")
+    if not isinstance(includes, list) or not isinstance(excludes, list):
+        return "UNVERIFIED"
+    if not all(isinstance(pattern, str) and pattern for pattern in includes + excludes):
+        return "UNVERIFIED"
+    if not _validate_ref_pattern_lists(includes, excludes):
+        return "UNVERIFIED"
+
+    return (
+        "MATCH"
+        if any(_ref_pattern_matches_main(pattern, default_branch) for pattern in includes)
+        and not any(_ref_pattern_matches_main(pattern, default_branch) for pattern in excludes)
+        else "NOT_APPLICABLE"
+    )
+
+
+def _ruleset_targets_main(entry: Any, default_branch: str) -> bool:
+    return _ruleset_target_state(entry, default_branch) == "MATCH"
+
+
+def _validate_ruleset_bypass_actors(entry: dict[str, Any], prefix: str) -> str | None:
+    bypass = entry.get("bypass_actors")
+    if not isinstance(bypass, list):
+        return f"{prefix}_bypass_actors_not_enumerated"
+    allowed_types = {
+        "Integration",
+        "OrganizationAdmin",
+        "RepositoryRole",
+        "Team",
+        "DeployKey",
+        "EnterpriseOwner",
+        "EnterpriseRole",
+        "User",
+    }
+    allowed_modes = {"always", "pull_request", "exempt"}
+    for actor in bypass:
+        if not isinstance(actor, dict):
+            return f"{prefix}_bypass_actor_not_enumerated"
+        actor_type = actor.get("actor_type")
+        if actor_type not in allowed_types:
+            return f"{prefix}_bypass_actor_type_invalid"
+        mode = actor.get("bypass_mode")
+        if mode not in allowed_modes:
+            return f"{prefix}_bypass_mode_invalid_or_missing"
+        if actor_type == "DeployKey" and mode == "pull_request":
+            return f"{prefix}_deploy_key_pull_request_bypass_mode_invalid"
+        actor_id = actor.get("actor_id")
+        if actor_type in {"Integration", "RepositoryRole", "Team", "User"}:
+            if not isinstance(actor_id, int) or isinstance(actor_id, bool):
+                return f"{prefix}_bypass_actor_id_invalid"
+        elif actor_type == "DeployKey":
+            if actor_id is not None:
+                return f"{prefix}_deploy_key_actor_id_invalid"
+        elif actor_id is not None and (
+            not isinstance(actor_id, int) or isinstance(actor_id, bool)
+        ):
+            return f"{prefix}_administrative_actor_id_invalid"
+    return None
+
+
+def _evaluate_rulesets(
+    ruleset_entries: list[Any], default_branch: str
+) -> tuple[str, list[str]]:
+    for index, entry in enumerate(ruleset_entries):
+        if not isinstance(entry, dict):
+            return "UNVERIFIED", [f"ruleset[{index}]_entry_not_enumerated"]
+        if entry.get("target") != "branch" or entry.get("enforcement") != "active":
+            continue
+        conditions = entry.get("conditions")
+        target_state = _ruleset_target_state(entry, default_branch)
+        if target_state == "UNVERIFIED":
+            return "UNVERIFIED", [f"ruleset[{index}]_target_conditions_not_enumerated"]
+        if target_state == "NOT_APPLICABLE":
+            continue
+        # ~DEFAULT_BRANCH is resolved only against the observed repository
+        # default branch; evaluation itself refuses any default branch other
+        # than the policy target, so this remains fail-closed.
+
+    targeted: list[dict[str, Any]] = []
+    for index, entry in enumerate(ruleset_entries):
+        target_state = _ruleset_target_state(entry, default_branch)
+        if target_state == "UNVERIFIED":
+            return "UNVERIFIED", [f"ruleset[{index}]_target_conditions_not_enumerated"]
+        if target_state == "MATCH":
+            targeted.append(entry)
+
+    if not targeted:
+        return "ABSENT", []
+
+    failures: list[str] = []
+    all_rule_types: set[Any] = set()
+    approval_counts: list[int] = []
+    merged_parameters: dict[str, bool] = {}
+
+    for index, entry in enumerate(targeted):
+        prefix = f"ruleset[{index}]"
+        rules = entry.get("rules")
+        if not isinstance(rules, list):
+            return "UNVERIFIED", [f"{prefix}_rules_not_enumerated"]
+
+        bypass_error = _validate_ruleset_bypass_actors(entry, prefix)
+        if bypass_error is not None:
+            return "UNVERIFIED", [bypass_error]
+        bypass = entry["bypass_actors"]
+        if bypass:
+            failures.append(f"{prefix}_bypass_set_not_minimized")
+
+        for rule in rules:
+            if not isinstance(rule, dict):
+                return "UNVERIFIED", [f"{prefix}_rule_not_enumerated"]
+            rule_type = rule.get("type")
+            if not isinstance(rule_type, str) or not rule_type:
+                return "UNVERIFIED", [f"{prefix}_rule_type_missing"]
+            all_rule_types.add(rule_type)
+            if rule.get("type") != "pull_request":
+                continue
+            parameters = rule.get("parameters")
+            if not isinstance(parameters, dict):
+                return "UNVERIFIED", [f"{prefix}_pull_request_parameters_not_enumerated"]
+            count = parameters.get("required_approving_review_count")
+            if isinstance(count, int) and not isinstance(count, bool):
+                approval_counts.append(count)
+            for key in (
+                "dismiss_stale_reviews_on_push",
+                "require_last_push_approval",
+                "required_review_thread_resolution",
+            ):
+                if parameters.get(key) is True:
+                    merged_parameters[key] = True
+
+    if not approval_counts:
+        failures.append("required_approving_review_count_not_observed")
+    elif max(approval_counts) != 1:
+        failures.append("required_approving_review_count")
+
+    for key in (
+        "dismiss_stale_reviews_on_push",
+        "require_last_push_approval",
+        "required_review_thread_resolution",
+    ):
+        if merged_parameters.get(key) is not True:
+            failures.append(key)
+
+    if "pull_request" not in all_rule_types:
+        failures.append("pull_request_required")
+    if "non_fast_forward" not in all_rule_types:
+        failures.append("block_force_push")
+    if "deletion" not in all_rule_types:
+        failures.append("block_deletion")
+
+    return ("MISMATCH" if failures else "VERIFIED"), failures
+
+
+def _validate_effective_rule_provenance(
+    effective_rules: list[Any],
+    applicable_rulesets: list[Any],
+) -> tuple[str, list[str]]:
+    by_identity: dict[tuple[int, str, str], dict[str, Any]] = {}
+    for index, ruleset in enumerate(applicable_rulesets):
+        if not isinstance(ruleset, dict):
+            return "UNVERIFIED", [f"ruleset[{index}]_not_enumerated"]
+        source = ruleset.get("source")
+        identity = (
+            ruleset.get("id"),
+            ruleset.get("source_type"),
+            source.casefold() if isinstance(source, str) else source,
+        )
+        if (
+            not isinstance(identity[0], int)
+            or isinstance(identity[0], bool)
+            or not isinstance(identity[1], str)
+            or not identity[1]
+            or not isinstance(identity[2], str)
+            or not identity[2]
+        ):
+            return "UNVERIFIED", [f"ruleset[{index}]_provenance_identity_invalid"]
+        by_identity[identity] = ruleset
+
+    failures: list[str] = []
+    for index, rule in enumerate(effective_rules):
+        if not isinstance(rule, dict):
+            return "UNVERIFIED", [f"effective_rule[{index}]_not_enumerated"]
+        ruleset_id = rule.get("ruleset_id")
+        source_type = rule.get("ruleset_source_type")
+        source = rule.get("ruleset_source")
+        if (
+            not isinstance(ruleset_id, int)
+            or isinstance(ruleset_id, bool)
+            or not isinstance(source_type, str)
+            or not source_type
+            or not isinstance(source, str)
+            or not source
+        ):
+            return "UNVERIFIED", [f"effective_rule[{index}]_ruleset_provenance_missing"]
+        identity = (ruleset_id, source_type, source.casefold())
+        ruleset = by_identity.get(identity)
+        if ruleset is None:
+            failures.append(f"effective_rule[{index}]_ruleset_provenance_not_applicable")
+            continue
+        observed_rule_type = rule.get("type")
+        observed_parameters = rule.get("parameters")
+        matching_definition = False
+        for definition in ruleset.get("rules", []):
+            if not isinstance(definition, dict):
+                continue
+            if definition.get("type") != observed_rule_type:
+                continue
+            definition_parameters = definition.get("parameters")
+            if definition_parameters == observed_parameters:
+                matching_definition = True
+                break
+            if definition_parameters is None and "parameters" not in rule:
+                matching_definition = True
+                break
+        if not matching_definition:
+            failures.append(f"effective_rule[{index}]_definition_not_present_in_ruleset")
+    return ("MISMATCH" if failures else "VERIFIED"), failures
+
+
+def _evaluate_effective_rules(
+    effective_rules: list[Any],
+) -> tuple[str, list[str]]:
+    required_types = {
+        "pull_request",
+        "non_fast_forward",
+        "deletion",
+    }
+    failures: list[str] = []
+    observed_types: set[Any] = set()
+    approval_counts: list[int] = []
+    merged_parameters: dict[str, bool] = {}
+
+    for index, rule in enumerate(effective_rules):
+        if not isinstance(rule, dict):
+            return "UNVERIFIED", [f"effective_rule[{index}]_not_enumerated"]
+        rule_type = rule.get("type")
+        if not isinstance(rule_type, str) or not rule_type:
+            return "UNVERIFIED", [f"effective_rule[{index}]_type_missing"]
+        observed_types.add(rule_type)
+        if rule_type != "pull_request":
+            continue
+        parameters = rule.get("parameters")
+        if not isinstance(parameters, dict):
+            return "UNVERIFIED", [f"effective_rule[{index}]_pull_request_parameters_not_enumerated"]
+        count = parameters.get("required_approving_review_count")
+        if isinstance(count, int) and not isinstance(count, bool):
+            approval_counts.append(count)
+        for key in (
+            "dismiss_stale_reviews_on_push",
+            "require_last_push_approval",
+            "required_review_thread_resolution",
+        ):
+            if parameters.get(key) is True:
+                merged_parameters[key] = True
+
+    missing_types = sorted(required_types - observed_types)
+    failures.extend(f"effective_rule_missing:{rule_type}" for rule_type in missing_types)
+    if not approval_counts:
+        failures.append("effective_rule_required_approving_review_count_not_observed")
+    elif max(approval_counts) != 1:
+        failures.append("effective_rule_required_approving_review_count")
+    for key in (
+        "dismiss_stale_reviews_on_push",
+        "require_last_push_approval",
+        "required_review_thread_resolution",
+    ):
+        if merged_parameters.get(key) is not True:
+            failures.append(f"effective_rule_missing:{key}")
+
+    return ("MISMATCH" if failures else "VERIFIED"), failures
+
+
+def _normalize_branch_protection(source: Any) -> dict[str, Any]:
+    require(isinstance(source, dict), "branch protection raw payload must be an object")
+    review = source.get("required_pull_request_reviews")
+    enforce_admins = source.get("enforce_admins") or {}
+    allow_force_pushes = source.get("allow_force_pushes")
+    allow_deletions = source.get("allow_deletions")
+    bypass: list[dict[str, Any]] = []
+
+    if isinstance(review, dict):
+        allowances = review.get("bypass_pull_request_allowances")
+        require(
+            isinstance(allowances, dict),
+            "branch protection bypass allowances are not enumerated",
+        )
+        for actor_kind, actor_type in (
+            ("users", "User"),
+            ("teams", "Team"),
+            ("apps", "Integration"),
+        ):
+            actors = allowances.get(actor_kind)
+            require(
+                isinstance(actors, list),
+                f"branch protection bypass {actor_kind} are not enumerated",
+            )
+            for actor in actors:
+                require(
+                    isinstance(actor, str) and bool(actor),
+                    f"branch protection bypass {actor_kind} contain invalid actor identity",
+                )
+                bypass.append({"actor_type": actor_type, "actor_id": actor})
+    if enforce_admins.get("enabled") is not True:
+        bypass.append({"actor_type": "RepositoryAdministrator"})
+
+    return {
+        "pull_request_required": isinstance(review, dict),
+        "required_approving_review_count": (
+            review.get("required_approving_review_count")
+            if isinstance(review, dict)
+            else 0
+        ),
+        "dismiss_stale_reviews_on_push": (
+            review.get("dismiss_stale_reviews") is True
+            if isinstance(review, dict)
+            else False
+        ),
+        "require_last_push_approval": (
+            review.get("require_last_push_approval") is True
+            if isinstance(review, dict)
+            else False
+        ),
+        "required_conversation_resolution": (
+            source.get("required_conversation_resolution") is True
+        ),
+        "block_force_push": (
+            isinstance(allow_force_pushes, dict)
+            and allow_force_pushes.get("enabled") is False
+        ),
+        "block_deletion": (
+            isinstance(allow_deletions, dict)
+            and allow_deletions.get("enabled") is False
+        ),
+        "bypass_actors": bypass,
+        "administrator_bypass_prevented": (
+            enforce_admins.get("enabled") is True
+        ),
+    }
+
+
+def evaluate(policy: Any, observation: Any) -> dict[str, Any]:
+    validate_policy(policy)
+    validate_observation_shape(observation)
+    expected_policy_digest = hashlib.sha256(
+        json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    require(
+        observation.get("policy_sha256") == expected_policy_digest,
+        "policy_sha256 does not match the evaluator policy",
+    )
+
+    branch = observation.get("branch")
+    require(isinstance(branch, dict), "branch observation missing")
+    require(branch.get("name") == "main", "branch name drift")
+    require(branch.get("target_ref") == TARGET_REF, "branch target drift")
+    branch_protected = branch.get("protected")
+    require(isinstance(branch_protected, bool), "branch protected must be boolean")
+
+    rulesets = observation.get("rulesets")
+    require(isinstance(rulesets, dict), "rulesets observation missing")
+    ruleset_entries = rulesets.get("entries")
+    require(isinstance(ruleset_entries, list), "rulesets entries must be list")
+
+    protection_api = observation.get("branch_protection_api")
+    require(isinstance(protection_api, dict), "branch protection API observation missing")
+    protection_status = protection_api.get("http_status")
+    require(isinstance(protection_status, int), "branch protection http_status must be integer")
+
+    admin = observation.get("admin_observation")
+    require(isinstance(admin, dict), "admin_observation missing")
+    admin_visibility = admin.get("status")
+    require(admin_visibility in {"verified", "unverified", "not_run"},
+            "admin_observation status invalid")
+    admin_source = admin.get("source")
+    require(
+        admin_source in {"repository_administration_secret", "github_token"},
+        "admin_observation source invalid",
+    )
+    if admin_visibility == "verified":
+        require(
+            admin_source == "repository_administration_secret",
+            "verified administration observation requires an external administration credential",
+        )
+        capability_probe = observation.get("admin_capability_probe")
+        require(
+            isinstance(capability_probe, dict)
+            and (
+                capability_probe.get("http_status") == 200
+                or observation.get("branch_protection_api", {}).get("http_status") == 200
+            ),
+            "verified administration observation requires explicit admin capability evidence",
+        )
+
+    default_branch = observation.get("default_branch")
+    require(
+        default_branch == "main",
+        f"repository default branch is not main: {default_branch!r}",
+    )
+    ruleset_state, ruleset_mismatches = _evaluate_rulesets(
+        ruleset_entries, default_branch
+    )
+    effective_rules = observation.get("effective_rules", {}).get("entries")
+    require(isinstance(effective_rules, list), "effective rules observation missing")
+    applicable_rulesets = [
+        entry for entry in ruleset_entries
+        if _ruleset_target_state(entry, default_branch) == "MATCH"
+    ]
+    effective_provenance_state, effective_provenance_mismatches = _validate_effective_rule_provenance(
+        effective_rules, applicable_rulesets
+    )
+    if effective_provenance_state == "UNVERIFIED":
+        ruleset_mismatches.extend(effective_provenance_mismatches)
+        ruleset_state = "UNVERIFIED"
+    elif effective_provenance_state == "MISMATCH":
+        ruleset_mismatches.extend(effective_provenance_mismatches)
+        ruleset_state = "MISMATCH" if ruleset_state != "UNVERIFIED" else ruleset_state
+    effective_state, effective_mismatches = _evaluate_effective_rules(effective_rules)
+    if ruleset_state == "VERIFIED" and branch_protected is not True:
+        ruleset_mismatches.append("branch_protected_false_despite_verified_ruleset")
+        ruleset_state = "MISMATCH"
+    if ruleset_state == "VERIFIED" and effective_state == "UNVERIFIED":
+        ruleset_mismatches.extend(effective_mismatches)
+        ruleset_state = "UNVERIFIED"
+    elif ruleset_state == "VERIFIED" and effective_state == "MISMATCH":
+        ruleset_mismatches.extend(effective_mismatches)
+        ruleset_state = "MISMATCH"
+
+    if admin_visibility != "verified":
+        if branch_protected is False and ruleset_state in {"ABSENT", "MISMATCH"}:
+            reason = (
+                "target_branch_is_unprotected_and_no_rule_set_is_observed"
+                if ruleset_state == "ABSENT"
+                else "publicly_observed_ruleset_controls_mismatch"
+            )
+            return {
+                "evaluator_id": EVALUATOR_ID,
+                "valid": False,
+                "governance_state": "MISMATCH",
+                "reason": reason,
+                "mismatches": ruleset_mismatches,
+                "claim_ceiling": "RepositoryGovernanceObservationOnly",
+                "authoritative_admin_observation": False,
+                "grants_trusted_verifier_root": False,
+            }
+
+        return {
+            "evaluator_id": EVALUATOR_ID,
+            "valid": False,
+            "governance_state": "UNVERIFIED",
+            "reason": "github_branch_protection_admin_observation_unavailable",
+            "mismatches": ruleset_mismatches,
+            "claim_ceiling": "RepositoryGovernanceObservationOnly",
+            "authoritative_admin_observation": False,
+            "grants_trusted_verifier_root": False,
+        }
+
+    branch_state = "ABSENT"
+    branch_mismatches: list[str] = []
+    if protection_status == 200:
+        protection = admin.get("protection")
+        if not isinstance(protection, dict):
+            branch_state = "UNVERIFIED"
+            branch_mismatches = ["verified_admin_protection_missing"]
+        else:
+            expected = policy["required_controls"]
+            if protection.get("pull_request_required") is not True:
+                branch_mismatches.append("pull_request_required")
+            observed_review_count = protection.get("required_approving_review_count")
+            if (
+                not isinstance(observed_review_count, int)
+                or isinstance(observed_review_count, bool)
+                or observed_review_count != expected["required_approving_review_count"]
+            ):
+                branch_mismatches.append("required_approving_review_count")
+            for key in (
+                "dismiss_stale_reviews_on_push",
+                "require_last_push_approval",
+                "required_conversation_resolution",
+                "block_force_push",
+                "block_deletion",
+            ):
+                if protection.get(key) is not True:
+                    branch_mismatches.append(key)
+
+            bypass = protection.get("bypass_actors")
+            if not isinstance(bypass, list):
+                branch_state = "UNVERIFIED"
+                branch_mismatches.append("bypass_actors_not_enumerated")
+            else:
+                if expected["bypass_set_must_be_minimized"] and len(bypass) != 0:
+                    branch_mismatches.append("bypass_set_not_minimized")
+                if len(bypass) != len({json.dumps(x, sort_keys=True) for x in bypass}):
+                    branch_mismatches.append("duplicate_bypass_identity")
+            if branch_state != "UNVERIFIED":
+                branch_state = "MISMATCH" if branch_mismatches else "VERIFIED"
+    elif protection_status == 404:
+        branch_state = "ABSENT"
+    elif protection_status in {401, 403}:
+        branch_state = "UNVERIFIED"
+        branch_mismatches = [f"branch_protection_admin_unavailable:{protection_status}"]
+    else:
+        # An unavailable secondary control plane must not defeat an independently
+        # verified ruleset witness, but the status remains visible in the result.
+        branch_state = "UNVERIFIED"
+        branch_mismatches = [f"branch_protection_observation_unavailable:{protection_status}"]
+
+    mismatches = branch_mismatches + ruleset_mismatches
+
+    # An observed contradiction is stronger than an unavailable secondary
+    # control-plane view, but a complete verified control-plane witness can
+    # qualify on its own.
+    if "MISMATCH" in {branch_state, ruleset_state}:
+        reason = (
+            "observable_governance_control_mismatch"
+            if mismatches
+            else "observable_governance_control_mismatch_without_detail"
+        )
+        return {
+            "evaluator_id": EVALUATOR_ID,
+            "valid": False,
+            "governance_state": "MISMATCH",
+            "reason": reason,
+            "mismatches": mismatches,
+            "claim_ceiling": "RepositoryGovernanceObservationOnly",
+            "authoritative_admin_observation": admin_visibility == "verified",
+            "grants_trusted_verifier_root": False,
+        }
+
+    if "VERIFIED" in {branch_state, ruleset_state}:
+        return {
+            "evaluator_id": EVALUATOR_ID,
+            "valid": True,
+            "governance_state": "VERIFIED",
+            "reason": "all_required_controls_observed_in_an_acceptable_control_plane",
+            "mismatches": [],
+            "observation_warnings": [
+                finding for finding in branch_mismatches
+                if finding.startswith("branch_protection_")
+            ],
+            "claim_ceiling": "RepositoryGovernanceVerified",
+            "authoritative_admin_observation": True,
+            "grants_trusted_verifier_root": True,
+        }
+
+    return {
+        "evaluator_id": EVALUATOR_ID,
+        "valid": False,
+        "governance_state": "MISMATCH",
+        "reason": "no_acceptable_control_plane_observed",
+        "mismatches": ["no_acceptable_control_plane_observed"],
+        "claim_ceiling": "RepositoryGovernanceObservationOnly",
+        "authoritative_admin_observation": True,
+        "grants_trusted_verifier_root": False,
+    }
+
+
+def fixture_policy() -> dict[str, Any]:
+    return {
+        "schema": POLICY_SCHEMA,
+        "version": 1,
+        "repository": REPOSITORY,
+        "claim_scope": "trusted_verifier_control_plane",
+        "acceptable_control_planes": [
+            "github_repository_ruleset",
+            "github_branch_protection",
+        ],
+        "result_states": [
+            "VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"
+        ],
+        "repository_id": REPOSITORY_ID,
+        "organization_id": ORGANIZATION_ID,
+        "target_ref": TARGET_REF,
+        "observation_contract": {
+            "live_control_plane_required": True,
+            "raw_payloads_required": True,
+            "raw_payload_sha256_required": True,
+            "admin_observation_required_for_verified": True,
+            "admin_capability_probe_required_when_branch_protection_unavailable": True,
+            "secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists": True,
+            "applicable_rulesets_must_be_aggregated": True,
+            "ruleset_repository_targeting_must_be_evaluated": True,
+            "repository_subject_identity_must_be_bound": True,
+            "ruleset_source_scope_must_be_validated": True,
+            "ruleset_condition_schema_must_match_source_type": True,
+            "ruleset_source_identity_must_match_source_type": True,
+            "github_ref_pattern_pathname_semantics_must_be_bound": True,
+            "github_unsupported_ref_pattern_syntax_must_fail_closed": True,
+            "github_unsupported_fnmatch_syntax_must_fail_closed": True,
+            "github_unsupported_extglob_syntax_must_fail_closed": True,
+            "raw_json_must_reject_duplicate_keys_and_nonstandard_constants": True,
+            "github_special_targeting_token_semantics_must_be_bound": True,
+            "unobserved_repository_selector_properties_must_fail_closed": True,
+            "repository_owner_identity_must_be_rechecked": True,
+            "live_main_tip_must_be_rechecked": True,
+            "enterprise_ruleset_source_identity_must_be_observed": True,
+            "effective_rule_provenance_must_be_bound": True,
+            "effective_rule_definition_must_match_observed_ruleset": True,
+        },
+        "fail_closed": {
+            "verified_requires_all_required_controls": True,
+            "verified_requires_authoritative_admin_observation": True,
+            "mismatch_must_not_be_upgraded_by_missing_fields": True,
+            "unverified_must_not_be_treated_as_verified": True,
+            "contradiction_dominates_secondary_observation_unavailability": True,
+        },
+        "required_controls": {
+            "pull_request_required": True,
+            "required_approving_review_count": 1,
+            "dismiss_stale_reviews_on_push": True,
+            "require_last_push_approval": True,
+            "required_review_thread_resolution": True,
+            "block_force_push": True,
+            "block_deletion": True,
+            "bypass_actors_must_be_enumerated": True,
+            "bypass_set_must_be_minimized": True,
+        },
+    }
+
+
+def fixture_observation(
+    policy: dict[str, Any],
+    protection_status: int = 200,
+    admin_status: str = "verified",
+) -> dict[str, Any]:
+    ruleset_entry = {
+        "id": 1,
+        "name": "fixture-main-protection",
+        "source_type": "Repository",
+        "source": REPOSITORY,
+        "target": "branch",
+        "updated_at": "2026-10-07T00:00:00Z",
+        "enforcement": "active",
+        "conditions": {"ref_name": {"include": [TARGET_REF], "exclude": []}},
+        "bypass_actors": [],
+        "rules": [
+            {
+                "type": "pull_request",
+                "parameters": {
+                    "dismiss_stale_reviews_on_push": True,
+                    "require_last_push_approval": True,
+                    "required_approving_review_count": 1,
+                    "required_review_thread_resolution": True,
+                },
+            },
+            {"type": "non_fast_forward"},
+            {"type": "deletion"},
+        ],
+    }
+    branch_payload = {"name": "main", "protected": True, "commit": {"sha": "a" * 40}}
+    rulesets_payload = [ruleset_entry]
+    effective_rules_payload = [
+        {
+            "type": rule["type"],
+            "ruleset_id": ruleset_entry["id"],
+            "ruleset_source_type": ruleset_entry["source_type"],
+            "ruleset_source": ruleset_entry["source"],
+            **({"parameters": rule["parameters"]} if "parameters" in rule else {}),
+        }
+        for rule in ruleset_entry["rules"]
+    ]
+    effective_rules_raw = json.dumps(
+        effective_rules_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+
+    rulesets_index_payload = [
+        {
+            key: ruleset_entry[key]
+            for key in ("id", "name", "source_type", "source", "enforcement", "updated_at")
+        }
+    ]
+    protection_payload = {
+        "required_pull_request_reviews": {
+            "dismiss_stale_reviews": True,
+            "require_last_push_approval": True,
+            "required_approving_review_count": 1,
+            "bypass_pull_request_allowances": {"users": [], "teams": [], "apps": []},
+        },
+        "enforce_admins": {"enabled": True},
+        "required_conversation_resolution": True,
+        "allow_force_pushes": {"enabled": False},
+        "allow_deletions": {"enabled": False},
+    }
+    branch_raw = json.dumps(branch_payload, separators=(",", ":"), sort_keys=True).encode()
+    rulesets_raw = json.dumps(rulesets_payload, separators=(",", ":"), sort_keys=True).encode()
+    effective_rules_raw = json.dumps(
+        effective_rules_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+    rulesets_index_raw = json.dumps(
+        rulesets_index_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+    protection_raw = json.dumps(protection_payload, separators=(",", ":"), sort_keys=True).encode()
+    repository_raw = json.dumps(
+        {
+            "id": REPOSITORY_ID,
+            "full_name": REPOSITORY,
+            "owner": {"id": ORGANIZATION_ID, "login": ORGANIZATION_NAME, "type": "Organization"},
+            "default_branch": "main",
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    capability_raw = json.dumps([], separators=(",", ":"), sort_keys=True).encode()
+    return {
+        "schema": SCHEMA,
+        "version": 1,
+        "repository": REPOSITORY,
+        "repository_id": REPOSITORY_ID,
+        "target_ref": TARGET_REF,
+        "observed_at_utc": "2026-10-07T00:00:00Z",
+        "default_branch": "main",
+        "live_main_sha": branch_payload["commit"]["sha"],
+        "admin_capability_probe": {"http_status": 200},
+        "admin_capability_payload_base64": base64.b64encode(capability_raw).decode(),
+        "admin_capability_payload_sha256": hashlib.sha256(capability_raw).hexdigest(),
+        "repository_payload_base64": base64.b64encode(repository_raw).decode(),
+        "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
+        "policy_sha256": hashlib.sha256(
+            json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "branch_payload_base64": base64.b64encode(branch_raw).decode(),
+        "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
+        "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
+        "rulesets_index_payload_sha256": hashlib.sha256(rulesets_index_raw).hexdigest(),
+        "effective_rules_payload_base64": base64.b64encode(effective_rules_raw).decode(),
+        "effective_rules_payload_sha256": hashlib.sha256(effective_rules_raw).hexdigest(),
+        "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
+        "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+        "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
+        "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
+        "branch": branch_payload,
+        "rulesets": {"entries": rulesets_payload},
+        "effective_rules": {"entries": effective_rules_payload},
+        "branch_protection_api": {"http_status": protection_status},
+        "admin_observation": {
+            "status": admin_status,
+            "source": (
+                "repository_administration_secret"
+                if admin_status == "verified"
+                else "github_token"
+            ),
+            "protection": {
+                "pull_request_required": True,
+                "required_approving_review_count": 1,
+                "dismiss_stale_reviews_on_push": True,
+                "require_last_push_approval": True,
+                "required_conversation_resolution": True,
+                "block_force_push": True,
+                "block_deletion": True,
+                "bypass_actors": [],
+            },
+        },
+    }
+
+
+def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
+    repository_raw = json.dumps(
+        {
+            "id": REPOSITORY_ID,
+            "full_name": REPOSITORY,
+            "owner": {"id": ORGANIZATION_ID, "login": ORGANIZATION_NAME, "type": "Organization"},
+            "default_branch": observation["default_branch"],
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    observation["repository_payload_base64"] = base64.b64encode(repository_raw).decode()
+    observation["repository_payload_sha256"] = hashlib.sha256(repository_raw).hexdigest()
+
+    branch_raw = json.dumps(
+        {
+            "name": observation["branch"]["name"],
+            "protected": observation["branch"]["protected"],
+            "commit": {"sha": observation["live_main_sha"]},
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    rulesets_payload = observation["rulesets"]["entries"]
+    effective_rules_payload = []
+    for ruleset in rulesets_payload:
+        for rule in ruleset.get("rules", []):
+            effective_rules_payload.append(
+                {
+                    "type": rule.get("type"),
+                    "ruleset_id": ruleset.get("id"),
+                    "ruleset_source_type": ruleset.get("source_type"),
+                    "ruleset_source": ruleset.get("source"),
+                    **({"parameters": rule["parameters"]} if "parameters" in rule else {}),
+                }
+            )
+    rulesets_raw = json.dumps(
+        rulesets_payload,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    rulesets_index_payload = [
+        {
+            key: entry[key]
+            for key in ("id", "name", "source_type", "source", "enforcement", "updated_at")
+        }
+        for entry in rulesets_payload
+    ]
+    rulesets_index_raw = json.dumps(
+        rulesets_index_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+    effective_rules_raw = json.dumps(
+        effective_rules_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+    observation["branch_payload_base64"] = base64.b64encode(branch_raw).decode()
+    observation["branch_payload_sha256"] = hashlib.sha256(branch_raw).hexdigest()
+    observation["rulesets_index_payload_base64"] = base64.b64encode(rulesets_index_raw).decode()
+    observation["rulesets_index_payload_sha256"] = hashlib.sha256(rulesets_index_raw).hexdigest()
+    observation["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    observation["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    observation["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
+    observation["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
+
+    normalized = observation["admin_observation"]["protection"]
+    require(isinstance(normalized, dict), "fixture normalized protection missing")
+    users: list[Any] = []
+    teams: list[Any] = []
+    apps: list[Any] = []
+    for actor in normalized.get("bypass_actors", []):
+        actor_type = actor.get("actor_type")
+        if actor_type == "User":
+            users.append(actor.get("actor_id"))
+        elif actor_type == "Team":
+            teams.append(actor.get("actor_id"))
+        elif actor_type == "Integration":
+            apps.append(actor.get("actor_id"))
+        elif actor_type == "RepositoryAdministrator":
+            pass
+        else:
+            raise EvidenceError(f"unsupported fixture bypass actor type: {actor_type}")
+
+    protection_raw = {
+        "required_pull_request_reviews": (
+            {
+                "dismiss_stale_reviews": normalized["dismiss_stale_reviews_on_push"],
+                "require_last_push_approval": normalized["require_last_push_approval"],
+                "required_approving_review_count": normalized["required_approving_review_count"],
+                "bypass_pull_request_allowances": {
+                    "users": users,
+                    "teams": teams,
+                    "apps": apps,
+                },
+            }
+            if normalized["pull_request_required"]
+            else None
+        ),
+        "enforce_admins": {
+            "enabled": normalized["administrator_bypass_prevented"]
+        },
+        "required_conversation_resolution": normalized["required_conversation_resolution"],
+        "allow_force_pushes": {
+            "enabled": not normalized["block_force_push"]
+        },
+        "allow_deletions": {
+            "enabled": not normalized["block_deletion"]
+        },
+    }
+    protection_bytes = json.dumps(
+        protection_raw, separators=(",", ":"), sort_keys=True
+    ).encode()
+    observation["branch_protection_payload_base64"] = base64.b64encode(protection_bytes).decode()
+    observation["branch_protection_payload_sha256"] = hashlib.sha256(protection_bytes).hexdigest()
+
+
+def self_test(policy: dict[str, Any]) -> None:
+    # Ruby/FNM_PATHNAME character-class, globstar, leading-dot, and malformed
+    # syntax regressions are executable evaluator invariants.
+    assert _github_ref_pattern_matches("refs/heads/main", "refs/heads/[!a]ain")
+    assert not _github_ref_pattern_matches("refs/heads/main", "refs/heads/[!m]ain")
+    assert _github_ref_pattern_matches("refs/heads/main", "refs/heads/[!]ain")
+    assert _github_ref_pattern_matches("refs/heads/[ain", "refs/heads/[[]ain")
+    assert not _github_ref_pattern_matches("refs/heads/.main", "refs/heads/*")
+    assert _github_ref_pattern_matches("refs/heads/.main", "refs/heads/.main")
+    assert not _github_ref_pattern_matches("refs/.hidden/main", "refs/**/main")
+    assert not _github_ref_pattern_matches(
+        "refs/heads/qafoo",
+        "refs/heads/qa**/**",
+    )
+    assert _scope_pattern_matches("mycelix", "my[!]elix")
+    for malformed_ref_pattern in (
+        "refs/heads/a[",
+        "refs/heads/[",
+        "refs/heads/[]",
+        "refs/heads/[]a]",
+        "refs/heads/[a/b]",
+    ):
+        assert not _github_fnmatch_pattern_supported(
+            malformed_ref_pattern,
+            pathname=True,
+        )
+        assert not _github_ref_pattern_matches(
+            "refs/heads/main",
+            malformed_ref_pattern,
+        )
+
+    fixture = fixture_policy()
+    require(
+        policy.get("repository") == fixture["repository"]
+        and policy.get("repository_id") == fixture["repository_id"]
+        and policy.get("target_ref") == fixture["target_ref"]
+        and policy.get("required_controls") == fixture["required_controls"],
+        "committed policy controls drift from evaluator self-test fixture",
+    )
+    positive = evaluate(policy, fixture_observation(policy))
+    assert positive["governance_state"] == "VERIFIED"
+    assert positive["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["branch"]["protected"] = False
+    x["rulesets"]["entries"] = []
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+    assert result["observation_warnings"] == ["branch_protection_admin_unavailable:403"]
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=401))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+    assert result["observation_warnings"] == ["branch_protection_admin_unavailable:401"]
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=500))
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+    assert result["observation_warnings"] == ["branch_protection_observation_unavailable:500"]
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~DEFAULT_BRANCH"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~ALL"]
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["~DEFAULT_BRANCH"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    second = copy.deepcopy(x["rulesets"]["entries"][0])
+    x["rulesets"]["entries"][0]["rules"] = [
+        {
+            "type": "pull_request",
+            "parameters": {
+                "dismiss_stale_reviews_on_push": True,
+                "required_approving_review_count": 1,
+            },
+        },
+    ]
+    second["id"] = 2
+    second["rules"] = [
+        {
+            "type": "pull_request",
+            "parameters": {
+                "require_last_push_approval": True,
+                "required_review_thread_resolution": True,
+            },
+        },
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    x["rulesets"]["entries"].append(second)
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/*"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/[^m]ain"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~ALL", "refs/heads/main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["~ALL"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs*main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/**/main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    for supported_ref_pattern, supported_ref_value in (
+        ("refs/heads/[!a]ain", "refs/heads/main"),
+        ("refs/heads/[!]ain", "refs/heads/main"),
+        ("refs/heads/[[]ain", "refs/heads/[ain"),
+    ):
+        assert _github_fnmatch_pattern_supported(
+            supported_ref_pattern,
+            pathname=True,
+        )
+        assert _github_ref_pattern_matches(
+            supported_ref_value,
+            supported_ref_pattern,
+        )
+
+    for unsupported_ref_pattern in (
+        "refs/heads/@(main|develop)",
+        "refs/heads/+(main|develop)",
+        "refs/heads/?(main|develop)",
+        "refs/heads/!(develop)",
+        "refs/heads/main@(develop|main)",
+        "refs/heads/a[",
+        "refs/heads/[",
+        "refs/heads/[]",
+        "refs/heads/[]a]",
+        "refs/heads/[a/b]",
+    ):
+        x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+        x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = [unsupported_ref_pattern]
+        _refresh_bound_fixture_payloads(x)
+        result = evaluate(policy, x)
+        assert result["governance_state"] == "UNVERIFIED"
+        assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/**"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = [
+        "refs/heads/" + chr(92) + "main"
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["branch_payload_base64"] = base64.b64encode(
+        b'{"name":"main","name":"attacker","protected":true,"commit":{"sha":"a"*40}}'
+    ).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(
+        base64.b64decode(x["branch_payload_base64"])
+    ).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("duplicate JSON object keys must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    raw_branch = b'{"name":"main","protected":true,"commit":{"sha":"' + b"a" * 40 + b'"},"nonstandard":NaN}'
+    x["branch_payload_base64"] = base64.b64encode(raw_branch).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(raw_branch).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("non-standard JSON constants must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"] = [
+        {"type": "pull_request", "parameters": {
+            "dismiss_stale_reviews_on_push": True,
+            "require_last_push_approval": True,
+            "required_approving_review_count": 1,
+            "required_review_thread_resolution": True,
+        }},
+        {"type": "non_fast_forward"},
+    ]
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"][0]["parameters"]["required_approving_review_count"] = 2
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"][0]["ruleset_id"] = 999
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["effective_rules"]["entries"][0]["ruleset_source"] = "other/repository"
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["default_branch"] = "develop"
+    repository_raw = json.loads(
+        base64.b64decode(x["repository_payload_base64"]).decode("utf-8")
+    )
+    repository_raw["default_branch"] = "develop"
+    repository_bytes = json.dumps(
+        repository_raw, separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["repository_payload_base64"] = base64.b64encode(repository_bytes).decode()
+    x["repository_payload_sha256"] = hashlib.sha256(repository_bytes).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["~ALL"]
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["~DEFAULT_BRANCH"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/heads/*"]
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["exclude"] = ["refs/heads/main"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["bypass_actors"] = [{
+        "actor_type": "DeployKey",
+        "actor_id": None,
+        "bypass_mode": "pull_request",
+    }]
+    rulesets_raw = json.dumps(
+        x["rulesets"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["rulesets_payload_base64"] = base64.b64encode(rulesets_raw).decode()
+    x["rulesets_payload_sha256"] = hashlib.sha256(rulesets_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["bypass_actors"] = [{"actor_type": "User", "actor_id": 7}]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    protection_raw = json.loads(
+        base64.b64decode(x["branch_protection_payload_base64"]).decode("utf-8")
+    )
+    del protection_raw["required_pull_request_reviews"]["bypass_pull_request_allowances"]
+    protection_bytes = json.dumps(
+        protection_raw, separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["branch_protection_payload_base64"] = base64.b64encode(protection_bytes).decode()
+    x["branch_protection_payload_sha256"] = hashlib.sha256(protection_bytes).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("missing bypass enumeration must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["rules"][0]["parameters"]["required_approving_review_count"] = True
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    protection = x["admin_observation"]["protection"]
+    protection["required_approving_review_count"] = True
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["branch"]["protected"] = False
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404))
+    x["admin_capability_probe"]["http_status"] = 403
+    x["admin_observation"]["status"] = "verified"
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("verified administration must require a successful capability probe")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["policy_sha256"] = "f" * 64
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("policy digest substitution must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["branch_payload_base64"] = base64.b64encode(
+        b'{"name":"attacker","protected":true}'
+    ).decode()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("raw branch payload substitution must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    raw_branch = json.dumps(
+        {"name": "main", "protected": True, "commit": {"sha": "b" * 40}},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    x["branch_payload_base64"] = base64.b64encode(raw_branch).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(raw_branch).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("rehashed main commit substitution must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    raw_branch = json.dumps(
+        {"name": "attacker", "protected": True},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    x["branch_payload_base64"] = base64.b64encode(raw_branch).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(raw_branch).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("rehashed raw branch substitution must be rejected at normalization binding")
+
+    for malformed in (
+        '{"name":"main","name":"attacker"}',
+        '{"value":NaN}',
+    ):
+        try:
+            _strict_json_loads(malformed, "self-test")
+        except EvidenceError:
+            pass
+        else:
+            raise AssertionError("top-level strict JSON parser must reject ambiguous JSON")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["admin_observation"]["source"] = "github_token"
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("a non-administration observation source must not qualify for VERIFIED")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["live_main_sha"] = "c" * 40
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("live main observation must bind to branch API commit")
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+    assert result["authoritative_admin_observation"] is False
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["branch"]["protected"] = False
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    x["admin_observation"]["status"] = "unverified"
+    x["admin_observation"]["source"] = "github_token"
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source"] = "other-owner/other-repository"
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["organization_name"] = {
+        "include": ["Luminous-Dynamics"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    for unsupported_repository_pattern in (
+        "m" + chr(92) + "ycelix",
+        "[^m]ycelix",
+        "@(mycelix|other)",
+        "+(mycelix|other)",
+        "?(mycelix|other)",
+        "!(other)",
+        "mycelix@(other|main)",
+    ):
+        x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+        x["rulesets"]["entries"][0]["source_type"] = "Organization"
+        x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
+        x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+            "include": [unsupported_repository_pattern],
+            "exclude": [],
+        }
+        _refresh_bound_fixture_payloads(x)
+        result = evaluate(policy, x)
+        assert result["governance_state"] == "UNVERIFIED"
+        assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["MYCELIX"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    x["rulesets"]["entries"][0]["source"] = "luminous-dynamics"
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+    assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["MYCELIX"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["~ALL"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["~ALL", "mycelix"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Organization"
+    x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+        "protected": True,
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["conditions"]["organization_name"] = {
+        "include": ["Luminous-Dynamics"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["source_type"] = "Enterprise"
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+    }
+    x["rulesets"]["entries"][0]["conditions"]["organization_name"] = {
+        "include": ["other-org"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["mycelix"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+        "include": ["other-repository"],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["conditions"]["repository_id"] = {
+        "repository_ids": [REPOSITORY_ID],
+    }
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "VERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=403, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["repository_property"] = {
+        "include": [{"name": "governance", "value": "enabled"}],
+        "exclude": [],
+    }
+    _refresh_bound_fixture_payloads(x)
+    # The property-targeted copy is deliberately evaluated with the secondary
+    # classic witness unavailable so it cannot be masked by that control plane.
+    try:
+        result = evaluate(policy, x)
+    except EvidenceError:
+        raise AssertionError("unsupported repository property targeting must be represented as UNVERIFIED")
+    assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    repository_raw = json.loads(
+        base64.b64decode(x["repository_payload_base64"]).decode("utf-8")
+    )
+    repository_raw["owner"]["id"] = ORGANIZATION_ID + 1
+    repository_bytes = json.dumps(repository_raw, separators=(",", ":"), sort_keys=True).encode()
+    x["repository_payload_base64"] = base64.b64encode(repository_bytes).decode()
+    x["repository_payload_sha256"] = hashlib.sha256(repository_bytes).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("repository owner identity drift must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    del x["rulesets"]["entries"][0]["name"]
+    _refresh_bound_fixture_payloads(x)
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("missing ruleset identity must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["target"] = "tag"
+    _refresh_bound_fixture_payloads(x)
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("non-branch ruleset target must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    x["admin_observation"]["status"] = "unverified"
+    x["admin_observation"]["source"] = "github_token"
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["bypass_actors"] = [{
+        "actor_type": "User",
+        "actor_id": 7,
+    }]
+    x["rulesets"]["entries"][0]["bypass_actors"][0].pop("bypass_mode", None)
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["rulesets"]["entries"][0]["rules"] = [
+        {
+            "type": "pull_request",
+            "parameters": {
+                "dismiss_stale_reviews_on_push": True,
+                "require_last_push_approval": True,
+                "required_approving_review_count": 1,
+                "required_review_thread_resolution": True,
+            },
+        },
+        {},
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["effective_rules"]["entries"] = [
+        {"type": "pull_request", "parameters": {
+            "dismiss_stale_reviews_on_push": True,
+            "require_last_push_approval": True,
+            "required_approving_review_count": 1,
+            "required_review_thread_resolution": True,
+        }},
+        {},
+        {"type": "non_fast_forward"},
+        {"type": "deletion"},
+    ]
+    effective_rules_raw = json.dumps(
+        x["effective_rules"]["entries"], separators=(",", ":"), sort_keys=True
+    ).encode()
+    x["effective_rules_payload_base64"] = base64.b64encode(effective_rules_raw).decode()
+    x["effective_rules_payload_sha256"] = hashlib.sha256(effective_rules_raw).hexdigest()
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["admin_observation"]["protection"]["block_force_push"] = False
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["admin_observation"]["protection"]["bypass_actors"] = [{"actor_type": "User", "actor_id": 123}]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "MISMATCH"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--policy", default="docs/ci/repository_governance_policy_v1.json")
+    parser.add_argument("--observation")
+    parser.add_argument("--self-test", action="store_true")
+    args = parser.parse_args()
+
+    try:
+        policy = _strict_json_loads(
+            Path(args.policy).read_text(encoding="utf-8"), args.policy
+        )
+        if args.self_test:
+            self_test(policy)
+            print(json.dumps({
+                "evaluator_id": EVALUATOR_ID,
+                "self_test": "PASS",
+                "governance_state": "NOT_RUN",
+                "synthetic_positive_case": "VERIFIED",
+                "grants_trusted_verifier_root": False,
+            }, sort_keys=True))
+            return 0
+
+        require(args.observation is not None, "--observation is required unless --self-test")
+        observation = _strict_json_loads(
+            Path(args.observation).read_text(encoding="utf-8"), args.observation
+        )
+        result = evaluate(policy, observation)
+        print(json.dumps(result, sort_keys=True))
+        return 0 if result["valid"] else 2
+    except (OSError, json.JSONDecodeError, EvidenceError, AssertionError) as exc:
+        print(json.dumps({
+            "evaluator_id": EVALUATOR_ID,
+            "valid": False,
+            "governance_state": "UNVERIFIED",
+            "reason": f"evidence_evaluation_error:{exc}",
+            "claim_ceiling": "RepositoryGovernanceObservationOnly",
+            "authoritative_admin_observation": False,
+            "grants_trusted_verifier_root": False,
+        }, sort_keys=True))
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

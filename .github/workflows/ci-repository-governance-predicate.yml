@@ -1,0 +1,428 @@
+name: Repository Governance Predicate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/ci/repository_governance_policy_v1.json"
+      - "scripts/validate_repository_governance_observation_v1.py"
+      - ".github/workflows/ci-repository-governance-predicate.yml"
+      - ".github/workflows/cos-conformance-independent-verify.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/ci/repository_governance_policy_v1.json"
+      - "scripts/validate_repository_governance_observation_v1.py"
+      - ".github/workflows/ci-repository-governance-predicate.yml"
+      - ".github/workflows/cos-conformance-independent-verify.yml"
+
+
+concurrency:
+  group: repository-governance-predicate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  self-test:
+    name: Governance predicate self-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          clean: true
+          persist-credentials: false
+
+      - name: Assert exact workflow revision
+        env:
+          EXPECTED_WORKFLOW_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test -n "$EXPECTED_WORKFLOW_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_WORKFLOW_SHA"
+
+      - name: Validate immutable action pins
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path(".github/workflows/ci-repository-governance-predicate.yml").read_text()
+          refs = {}
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          for line in text.splitlines():
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
+                  continue
+              match = pattern.fullmatch(line)
+              assert match, f"workflow action is not pinned to a full SHA: {line!r}"
+              action, ref = match.groups()
+              if action in refs:
+                  assert refs[action] == ref
+              refs[action] = ref
+          assert refs == {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+          }
+          assert "permissions: {}" in text
+          assert "concurrency:" in text
+          assert "cancel-in-progress: true" in text
+          assert "repository-governance-predicate-${{ github.event.pull_request.number || github.ref }}" in text
+          assert "persist-credentials: false" in text
+          assert "ref: ${{ github.event.pull_request.head.sha || github.sha }}" in text
+          assert "git rev-parse HEAD" in text
+          assert "EXPECTED_WORKFLOW_SHA" in text
+          assert "Differential-test GitHub ref matcher" in text
+          assert "File::FNM_PATHNAME" in text
+          assert "character class" in text
+          assert "Deterministic Ruby differential corpus" in text
+          assert "25000" in text
+          PY
+
+      - name: Validate governance policy JSON
+        run: python -m json.tool docs/ci/repository_governance_policy_v1.json >/dev/null
+
+
+      - name: Validate governance policy contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON object key: {key!r}")
+                  result[key] = value
+              return result
+
+          def reject_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value!r}")
+
+          policy = json.loads(
+              Path("docs/ci/repository_governance_policy_v1.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_constant,
+          )
+          required = policy["required_controls"]
+          assert policy["claim_scope"] == "trusted_verifier_control_plane"
+          assert policy["acceptable_control_planes"] == ["github_repository_ruleset", "github_branch_protection"]
+          assert policy["result_states"] == ["VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"]
+          required = policy["required_controls"]
+          assert required["bypass_actors_must_be_enumerated"] is True
+          assert required["bypass_set_must_be_minimized"] is True
+          fail_closed = policy["fail_closed"]
+          for key in (
+              "verified_requires_all_required_controls",
+              "verified_requires_authoritative_admin_observation",
+              "mismatch_must_not_be_upgraded_by_missing_fields",
+              "unverified_must_not_be_treated_as_verified",
+              "contradiction_dominates_secondary_observation_unavailability",
+          ):
+              assert fail_closed[key] is True
+          contract = policy["observation_contract"]
+          assert contract["live_control_plane_required"] is True
+          assert contract["raw_payloads_required"] is True
+          assert contract["raw_payload_sha256_required"] is True
+          assert contract["admin_observation_required_for_verified"] is True
+          assert contract["admin_capability_probe_required_when_branch_protection_unavailable"] is True
+          assert contract["secondary_observation_unavailability_is_non_fatal_when_independent_verified_control_plane_exists"] is True
+          assert contract["applicable_rulesets_must_be_aggregated"] is True
+          assert contract["ruleset_repository_targeting_must_be_evaluated"] is True
+          assert contract["ruleset_source_scope_must_be_validated"] is True
+          assert contract["ruleset_condition_schema_must_match_source_type"] is True
+          assert contract["ruleset_source_identity_must_match_source_type"] is True
+          assert contract["github_ref_pattern_pathname_semantics_must_be_bound"] is True
+          assert contract["github_unsupported_ref_pattern_syntax_must_fail_closed"] is True
+          assert contract["github_unsupported_fnmatch_syntax_must_fail_closed"] is True
+          assert contract["github_unsupported_extglob_syntax_must_fail_closed"] is True
+          assert contract["raw_json_must_reject_duplicate_keys_and_nonstandard_constants"] is True
+          assert contract["github_special_targeting_token_semantics_must_be_bound"] is True
+          assert contract["unobserved_repository_selector_properties_must_fail_closed"] is True
+          assert contract["repository_owner_identity_must_be_rechecked"] is True
+          assert contract["live_main_tip_must_be_rechecked"] is True
+          assert contract["authoritative_admin_observation_requires_verified_admin_status"] is True
+          assert contract["enterprise_ruleset_source_identity_must_be_observed"] is True
+          assert contract["effective_rule_provenance_must_be_bound"] is True
+          assert contract["effective_rule_definition_must_match_observed_ruleset"] is True
+          assert contract["repository_subject_identity_must_be_bound"] is True
+          assert policy["organization_id"] == 216969177
+          assert '"ruleset_source_scope_must_be_validated": true' in Path("docs/ci/repository_governance_policy_v1.json").read_text()
+          assert policy["fail_closed"]["contradiction_dominates_secondary_observation_unavailability"] is True
+          PY
+
+      - name: Validate independent verifier YAML
+        run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/cos-conformance-independent-verify.yml")'
+
+      - name: Audit independent verifier control plane
+        run: |
+          python - <<'PY'
+          import re
+          import textwrap
+          from pathlib import Path
+
+          text = Path(".github/workflows/cos-conformance-independent-verify.yml").read_text()
+
+          python_blocks = re.findall(r"python - <<'PY'\n([\s\S]*?)\n\s*PY\b", text)
+          assert len(python_blocks) >= 13, f"expected embedded Python heredocs, found {len(python_blocks)}"
+          for index, block in enumerate(python_blocks):
+              compile(textwrap.dedent(block), f"<verifier-python-heredoc-{index}>", "exec")
+          pattern = re.compile(
+              r"^\s*(?:-\s+)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-f]{40})(?:\s+#.*)?$"
+          )
+          refs = {}
+          scanned = []
+          audit_block = False
+          for line in text.splitlines():
+              if line.startswith("      - name: Validate immutable verifier action pins"):
+                  audit_block = True
+              if audit_block:
+                  if line == "          PY":
+                      audit_block = False
+                  continue
+              stripped = line.lstrip()
+              if stripped.startswith("- uses:") or stripped.startswith("uses:"):
+                  match = pattern.fullmatch(line)
+                  assert match, f"independent verifier action is not pinned: {line!r}"
+                  action, ref = match.groups()
+                  if action in refs:
+                      assert refs[action] == ref
+                  refs[action] = ref
+              scanned.append(line)
+
+          assert refs == {
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+              "dtolnay/rust-toolchain": "7e38f4b43b4db5c8dd498af069a4f6196df1d067",
+              "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          }
+          scanned_text = "\n".join(scanned)
+          assert "permissions: {}" in scanned_text
+          assert "allow-unsafe-pr-checkout: true" not in scanned_text
+          assert "actions/cache@" not in scanned_text
+          assert "secrets." in scanned_text
+          assert scanned_text.count("secrets.GOVERNANCE_ADMIN_TOKEN") == 1
+          assert scanned_text.count("actions/checkout@") == 3
+          assert scanned_text.count("actions/download-artifact@") == 2
+          assert scanned_text.count("actions/upload-artifact@") == 4
+          assert "gh api --paginate --slurp" in scanned_text
+          assert "repository-payload.json" in scanned_text
+          assert "default_branch" in scanned_text
+          assert "effective-rules-payload.json" in scanned_text
+          assert "rules/branches/main?per_page=100" in scanned_text
+          assert "effective_rules_payload_base64" in scanned_text
+          assert "effective_rules_payload_sha256" in scanned_text
+          assert "branch_protection_payload_base64" in scanned_text
+          assert "branch_protection_payload_sha256" in scanned_text
+          assert "observer_workflow_sha" in scanned_text
+          assert "observer_workflow_file_blob_sha" in scanned_text
+          assert "observer_run_id" in scanned_text
+          assert "admin-capability-probe-payload.json" in scanned_text
+          assert "admin-capability-probe-http-status.txt" in scanned_text
+          assert "admin_capability_probe" in scanned_text
+          assert "rulesets/rule-suites?per_page=1" in scanned_text
+          assert "orgs/Luminous-Dynamics/rulesets?per_page=1" not in scanned_text
+          assert "admin-capability-probe-payload-after.json" in scanned_text
+          assert "admin-capability-probe-http-status-after.txt" in scanned_text
+          assert "admin capability observation status changed during governance observation" in scanned_text
+          assert "capability_status == 200" in scanned_text
+          assert "base_sha" in scanned_text
+          assert "live_main_sha" in scanned_text
+          assert "actual_live_main_sha" in scanned_text
+          assert "needs.prepare.outputs.live_main_sha" in scanned_text
+          assert "base_ref" in scanned_text
+          assert 'test "${base_ref}" = "main"' in scanned_text
+          assert "base_repository_id" in scanned_text
+          assert "head_repository_id" in scanned_text
+          assert "trigger_repository_id_live" in scanned_text
+          assert "trigger_head_repository_id_live" in scanned_text
+          assert "trigger_repository_id" in scanned_text
+          assert "trigger_head_repository_id" in scanned_text
+          assert "base_repository" in scanned_text
+          assert "rulesets-index-payload.json" in scanned_text
+          assert "rulesets-index-after-payload.json" in scanned_text
+          assert "effective-rules-payload-after.json" in scanned_text
+          assert "repository-payload-after.json" in scanned_text
+          assert "owner_before = repository_before.get(\"owner\")" in scanned_text
+          assert "owner_after = repository_after.get(\"owner\")" in scanned_text
+          assert "repository owner governance drift during observation" in scanned_text
+          assert "branch-payload-after.json" in scanned_text
+          assert "branch_commit_before = branch_before.get(\"commit\")" in scanned_text
+          assert "branch_commit_after = branch_after.get(\"commit\")" in scanned_text
+          assert "main branch commit changed during governance observation" in scanned_text
+          assert "main branch commit SHA is invalid" in scanned_text
+          assert "live_main_sha = branch.get(\"commit\", {}).get(\"sha\")" in scanned_text
+          # Audit semantic bindings of the current independent verifier rather
+          # than asserting implementation details from a historical inlined matcher.
+          assert "python scripts/validate_repository_governance_observation_v1.py" in scanned_text
+          assert scanned_text.count("python scripts/validate_repository_governance_observation_v1.py") >= 2
+          assert "--observation evidence/governance/observation.json" in scanned_text
+          assert "governance evaluator structural failure" in scanned_text
+          assert 'result["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}' in scanned_text
+          assert 'result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")' in scanned_text
+          assert 'if result["governance_state"] == "NOT_RUN":' in scanned_text
+          assert "EXPECTED_GOVERNANCE_STATE" in scanned_text
+          assert "EXPECTED_GOVERNANCE_GRANT" in scanned_text
+          assert "claim_ceiling" in scanned_text
+          assert "EXPECTED_LIVE_MAIN_SHA" in scanned_text
+          assert "rulesets-payload-after.json" in scanned_text
+          assert "rulesets-after/${ruleset_id}.json" in scanned_text
+          assert "branch-protection-payload-after.json" in scanned_text
+          assert "branch-protection-http-status-after.txt" in scanned_text
+          assert "rulesets/${ruleset_id}.json" in scanned_text
+          assert "ruleset_id" in scanned_text
+          # Effective-rule provenance is bound through the captured ruleset
+          # artifacts and the evaluator invocation, not duplicated field-name
+          # assertions that can drift when the evaluator implementation changes.
+          assert "set(index_ids) == set(full_ids)" in scanned_text
+          assert "1176351975" in scanned_text
+          assert "Reject unsupported verifier trigger" in scanned_text
+          assert "unsupported verifier trigger" in scanned_text
+          PY
+
+      - name: Differential-test GitHub ref matcher
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import subprocess
+          import json
+          from pathlib import Path
+
+          module_path = Path("scripts/validate_repository_governance_observation_v1.py")
+          spec = importlib.util.spec_from_file_location("governance_evaluator", module_path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          ruby_script = """
+          pattern = ARGV.fetch(0)
+          value = ARGV.fetch(1)
+          puts(File.fnmatch(pattern, value, File::FNM_PATHNAME) ? "true" : "false")
+          """.strip()
+
+          corpus = [
+              ("refs/heads/main", "refs/heads/main"),
+              ("refs/heads/*", "refs/heads/main"),
+              ("refs/heads/*", "refs/heads/feature/main"),
+              ("refs/heads/?ain", "refs/heads/main"),
+              ("refs/heads/[a-m]ain", "refs/heads/main"),
+              ("refs/heads/**", "refs/heads/main"),
+              ("refs/heads/**", "refs/heads/feature/main"),
+              ("refs/**/main", "refs/heads/main"),
+              ("refs/**/main", "refs/heads/feature/main"),
+              ("refs/heads/feature/*", "refs/heads/feature/main"),
+              ("refs/heads/qa/**/*", "refs/heads/qa/foo/bar/hello-world"),
+              ("refs/heads/qa**/**/*", "refs/heads/qafoo/bar/hello-world"),
+              ("refs/*/*", "refs/main"),
+              ("refs/*/*", "refs/heads/main"),
+              # Ruby-compatible character class and leading-dot regressions.
+              ("refs/heads/[!a]ain", "refs/heads/main"),
+              ("refs/heads/[!m]ain", "refs/heads/main"),
+              ("refs/heads/[!]ain", "refs/heads/main"),
+              ("refs/heads/[[]ain", "refs/heads/[ain"),
+              ("refs/heads/*", "refs/heads/.hidden"),
+              ("refs/heads/.hidden", "refs/heads/.hidden"),
+              ("refs/**/main", "refs/.hidden/main"),
+              ("refs/heads/qa**/**", "refs/heads/qafoo"),
+          ]
+
+          for pattern, value in corpus:
+              expected = subprocess.run(
+                  ["ruby", "-e", ruby_script, pattern, value],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout.strip() == "true"
+              actual = module._github_ref_pattern_matches(value, pattern)
+              assert actual == expected, (
+                  f"GitHub FNM_PATHNAME parity mismatch: "
+                  f"pattern={pattern!r} value={value!r} expected={expected} actual={actual}"
+              )
+
+          unsupported = [
+              "refs/heads/" + chr(92) + "main",
+              "refs/heads/[^m]ain",
+              "refs/heads/@(main|develop)",
+              "refs/heads/+(main|develop)",
+              "refs/heads/?(main|develop)",
+              "refs/heads/!(develop)",
+              "refs/heads/a[",
+              "refs/heads/[",
+              "refs/heads/[]",
+              "refs/heads/[]a]",
+              "refs/heads/[a/b]",
+          ]
+          for pattern in unsupported:
+              assert module._github_fnmatch_pattern_supported(pattern, pathname=True) is False
+              assert module._github_ref_pattern_matches("refs/heads/main", pattern) is False
+
+          # Deterministic generated coverage keeps the reference-model
+          # comparison broad without relying on nondeterministic fixtures.
+          tokens = [
+              "a", "b", "m", "n", "0", "1", "-", "_", "*", "?", "**",
+              "[a]", "[!a]", "[!]", "[a-c]", "[a-]", "[-a]", "[[]", "/",
+          ]
+          values = [
+              "a", "b", "m", "n", "0", "1", "-", "_", ".", "[", "]", "/",
+              "!", "?", "*",
+          ]
+          state = 0x00C0FFEE
+
+          def next_index(size):
+              global state
+              state = (1664525 * state + 1013904223) & 0xffffffff
+              return state % size
+
+          generated = [
+              ("refs/heads/qa**/**", "refs/heads/qafoo"),
+              ("refs/heads/qa**/**", "refs/heads/qafoo/bar"),
+          ]
+          for _ in range(25000):
+              pattern = "".join(
+                  tokens[next_index(len(tokens))]
+                  for _ in range(1 + next_index(8))
+              )
+              value = "".join(
+                  values[next_index(len(values))]
+                  for _ in range(1 + next_index(20))
+              )
+              generated.append((pattern, value))
+
+          generated_input = "".join(
+              json.dumps([pattern, value]) + "\n"
+              for pattern, value in generated
+          )
+          generated_ruby = """
+          require "json"
+          STDIN.each_line do |line|
+            pattern, value = JSON.parse(line)
+            puts(File.fnmatch(pattern, value, File::FNM_PATHNAME) ? "true" : "false")
+          end
+          """.strip()
+          generated_expected = subprocess.run(
+              ["ruby", "-e", generated_ruby],
+              input=generated_input,
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.splitlines()
+          assert len(generated_expected) == len(generated)
+          for (pattern, value), expected_raw in zip(generated, generated_expected):
+              expected = expected_raw == "true"
+              actual = module._github_ref_pattern_matches(value, pattern)
+              assert actual == expected, (
+                  f"Generated GitHub FNM_PATHNAME mismatch: "
+                  f"pattern={pattern!r} value={value!r} expected={expected} actual={actual}"
+              )
+
+          print(f"GitHub FNM_PATHNAME parity PASS: {len(corpus)} supported cases")
+          print(f"Unsupported-pattern fail-closed PASS: {len(unsupported)} cases")
+          PY
+
+      - name: Run fail-closed evaluator self-tests
+        run: python scripts/validate_repository_governance_observation_v1.py --self-test
