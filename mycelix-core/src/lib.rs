@@ -12,6 +12,9 @@
 //! - **federated_learning**: Byzantine-resistant federated learning
 //! - **agents**: Agent management and discovery
 
+/// Constitutional protocol-profile identity and semantic negotiation.
+pub mod protocol;
+
 /// Version of the Mycelix Core library
 pub const VERSION: &str = "0.1.0";
 
