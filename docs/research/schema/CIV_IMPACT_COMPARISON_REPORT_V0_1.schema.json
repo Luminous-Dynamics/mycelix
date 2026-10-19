@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_COMPARISON_REPORT_V0_1.schema.json",
+  "title": "CIV-IMPACT-001 Descriptive Paired Comparison Report",
+  "description": "Shape contract for descriptive incumbent-versus-full-stack analysis. A valid report does not establish statistical significance, causal attribution, or economic benefit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report",
+    "schedule_artifact_sha256",
+    "results_artifact_sha256",
+    "notice"
+  ],
+  "properties": {
+    "report": {
+      "$ref": "#/$defs/comparisonReport"
+    },
+    "schedule_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "results_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "notice": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "nullableNumber": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "comparisonReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_id",
+        "evidence_class",
+        "baseline_arm",
+        "candidate_arm",
+        "expected_pairs",
+        "complete_pairs",
+        "incomplete_pairs",
+        "zero_service_pairs",
+        "baseline_mean_cost_per_demand_unit_microcredits",
+        "candidate_mean_cost_per_demand_unit_microcredits",
+        "candidate_minus_baseline_cost_per_demand_unit_microcredits",
+        "relative_cost_per_demand_change_percent",
+        "baseline_mean_service_rate",
+        "candidate_mean_service_rate",
+        "candidate_minus_baseline_service_rate_percentage_points",
+        "baseline_mean_cost_per_served_unit_microcredits",
+        "candidate_mean_cost_per_served_unit_microcredits",
+        "candidate_minus_baseline_cost_per_served_unit_microcredits",
+        "relative_cost_per_served_unit_change_percent",
+        "baseline_pooled_cost_per_served_unit_microcredits",
+        "candidate_pooled_cost_per_served_unit_microcredits",
+        "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits",
+        "relative_pooled_cost_per_served_unit_change_percent",
+        "cost_per_served_unit_defined_for_all_pairs",
+        "stratified_scenario_cluster_bootstrap_95",
+        "descriptive_only",
+        "economic_benefit_established",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "benchmark_id": {
+          "const": "CIV-IMPACT-SYNTH-001"
+        },
+        "evidence_class": {
+          "const": "synthetic_only"
+        },
+        "baseline_arm": {
+          "const": "incumbent_baseline"
+        },
+        "candidate_arm": {
+          "const": "full_stack"
+        },
+        "expected_pairs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "complete_pairs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete_pairs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "zero_service_pairs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseline_mean_cost_per_demand_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "candidate_mean_cost_per_demand_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "candidate_minus_baseline_cost_per_demand_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "relative_cost_per_demand_change_percent": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "baseline_mean_service_rate": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "candidate_mean_service_rate": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "candidate_minus_baseline_service_rate_percentage_points": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "baseline_mean_cost_per_served_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "candidate_mean_cost_per_served_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "cost_per_served_unit_defined_for_all_pairs": {
+          "type": "boolean"
+        },
+        "descriptive_only": {
+          "const": true
+        },
+        "economic_benefit_established": {
+          "const": false
+        },
+        "claim_ceiling": {
+          "const": "descriptive_only; bootstrap_uncertainty_does_not_establish_causal_or_economic_benefit"
+        },
+        "candidate_minus_baseline_cost_per_served_unit_microcredits": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "relative_cost_per_served_unit_change_percent": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "baseline_pooled_cost_per_served_unit_microcredits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "candidate_pooled_cost_per_served_unit_microcredits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "relative_pooled_cost_per_served_unit_change_percent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "stratified_scenario_cluster_bootstrap_95": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "method",
+                "resamples",
+                "central_interval_level",
+                "resampling_unit",
+                "stratification",
+                "bootstrap_seed_sha256",
+                "relative_pooled_cost_per_served_unit_change_percent",
+                "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits",
+                "candidate_minus_baseline_service_rate_percentage_points",
+                "claim_ceiling"
+              ],
+              "properties": {
+                "method": {
+                  "const": "stratified scenario-cluster percentile bootstrap"
+                },
+                "resamples": {
+                  "const": 10000
+                },
+                "resampling_unit": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "stratification": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bootstrap_seed_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "relative_pooled_cost_per_served_unit_change_percent": {
+                  "$ref": "#/$defs/interval"
+                },
+                "candidate_minus_baseline_pooled_cost_per_served_unit_microcredits": {
+                  "$ref": "#/$defs/interval"
+                },
+                "candidate_minus_baseline_service_rate_percentage_points": {
+                  "$ref": "#/$defs/interval"
+                },
+                "claim_ceiling": {
+                  "const": "descriptive_uncertainty_for_this_synthetic_corpus; not causal or economic qualification"
+                },
+                "central_interval_level": {
+                  "const": 0.95
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower_2_5_percentile",
+        "upper_97_5_percentile"
+      ],
+      "properties": {
+        "lower_2_5_percentile": {
+          "type": "number"
+        },
+        "upper_97_5_percentile": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

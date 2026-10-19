@@ -1,0 +1,518 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_BENCHMARK_V0_1.schema.json",
+  "title": "CIV-IMPACT-001 Benchmark Preregistration Manifest",
+  "description": "Version 0.1 protocol identity and preregistration contract. This schema does not validate results, establish empirical truth, or certify economic benefit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "benchmark_id",
+    "protocol_state",
+    "claim_ceiling",
+    "use_case",
+    "causal_question",
+    "treatment",
+    "arms",
+    "primary_endpoint",
+    "guardrails",
+    "scenario_set",
+    "resource_budget",
+    "evaluation",
+    "provenance"
+  ],
+  "properties": {
+    "manifest_version": {
+      "const": "0.1"
+    },
+    "benchmark_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*$",
+      "minLength": 1
+    },
+    "protocol_state": {
+      "type": "string",
+      "enum": ["draft", "preregistered", "running", "completed", "withdrawn"]
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "enum": [
+        "contract_only",
+        "synthetic_only",
+        "source_replay",
+        "held_out_simulation",
+        "shadow_operation",
+        "prospective_pilot",
+        "independent_replication"
+      ]
+    },
+    "use_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "description", "decision_horizon"],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "enum": [
+            "transport_logistics",
+            "energy_resilience",
+            "food_networks",
+            "housing_access",
+            "infrastructure_investment",
+            "other"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_horizon": {
+          "type": "string",
+          "minLength": 1
+        },
+        "population_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "geographic_scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "causal_question": {
+      "type": "string",
+      "minLength": 20
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "enabled_components", "implementation_ref"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled_components": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["symthaea", "symtropy", "sol_atlas", "mycelix"]
+          },
+          "uniqueItems": true,
+          "minItems": 1,
+          "maxItems": 4
+        },
+        "implementation_ref": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "authority_profile_ref": {
+          "$ref": "#/$defs/immutableReference"
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["arm_id", "kind", "description", "implementation_ref", "enabled_components"],
+        "properties": {
+          "arm_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "incumbent",
+              "human_only",
+              "rule_based",
+              "single_component",
+              "partial_stack",
+              "full_stack",
+              "leave_one_out_ablation",
+              "stress_control",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "implementation_ref": {
+            "$ref": "#/$defs/immutableReference"
+          },
+          "policy_ref": {
+            "$ref": "#/$defs/immutableReference"
+          },
+          "enabled_components": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["symthaea", "symtropy", "sol_atlas", "mycelix"]
+            },
+            "uniqueItems": true,
+            "maxItems": 4
+          },
+          "resource_budget_ref": {
+            "$ref": "#/$defs/immutableReference"
+          }
+        }
+      }
+    },
+    "primary_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_id",
+        "definition",
+        "direction",
+        "unit",
+        "practical_effect",
+        "registered_at"
+      ],
+      "properties": {
+        "metric_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["higher_is_better", "lower_is_better"]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "practical_effect": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operator", "value", "scale"],
+          "properties": {
+            "operator": {
+              "type": "string",
+              "enum": ["at_least", "at_most", "improvement_at_least", "degradation_at_most"]
+            },
+            "value": {
+              "type": "number"
+            },
+            "scale": {
+              "type": "string",
+              "enum": ["absolute", "relative", "percentage_points", "currency_per_unit", "domain_specific"]
+            },
+            "interpretation": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "registered_by": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "guardrails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["guardrail_id", "metric_id", "operator", "threshold", "unit", "severity", "pre_registered"],
+        "properties": {
+          "guardrail_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metric_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operator": {
+            "type": "string",
+            "enum": ["equal", "at_least", "at_most", "must_be_false", "must_be_true"]
+          },
+          "threshold": {
+            "type": ["number", "string", "boolean"]
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["non_compensable", "warning"]
+          },
+          "pre_registered": {
+            "const": true
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "scenario_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_set_id",
+        "sha256",
+        "scenario_count",
+        "regimes",
+        "rights_status",
+        "frozen_at",
+        "source_manifest_ref"
+      ],
+      "properties": {
+        "scenario_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "scenario_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "regimes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "rights_status": {
+          "type": "string",
+          "enum": ["permitted", "pending", "restricted", "unknown", "synthetic_only"]
+        },
+        "frozen_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_manifest_ref": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "holdout_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "holdout_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "retrieval_cutoff": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "transformation_ref": {
+          "$ref": "#/$defs/immutableReference"
+        }
+      }
+    },
+    "resource_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget_id", "currency", "equalized", "cost_items", "measurement_horizon"],
+      "properties": {
+        "budget_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "equalized": {
+          "type": "boolean"
+        },
+        "measurement_horizon": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cost_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "unit", "measurement_method", "included"],
+            "properties": {
+              "category": {
+                "type": "string",
+                "enum": [
+                  "compute",
+                  "hosting",
+                  "data_acquisition",
+                  "data_licensing",
+                  "integration",
+                  "human_review",
+                  "coordination",
+                  "failure_recovery",
+                  "physical_infrastructure",
+                  "externality",
+                  "other"
+                ]
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "measurement_method": {
+                "type": "string",
+                "minLength": 1
+              },
+              "included": {
+                "type": "boolean"
+              },
+              "allocation_rule": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "per_arm_budget_ref": {
+          "$ref": "#/$defs/immutableReference"
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_ref",
+        "independence_basis",
+        "statistical_unit",
+        "statistical_method",
+        "uncertainty_method",
+        "paired_design",
+        "seed_count",
+        "heldout_policy",
+        "complete_run_census_required"
+      ],
+      "properties": {
+        "evaluator_ref": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "independence_basis": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "separate_code",
+              "separate_data_lineage",
+              "separate_operator",
+              "separate_authority",
+              "separate_scenario_generation",
+              "conflict_disclosed",
+              "not_independent"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "statistical_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statistical_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uncertainty_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence_level": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "paired_design": {
+          "type": "boolean"
+        },
+        "seed_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "heldout_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "complete_run_census_required": {
+          "const": true
+        },
+        "independent_verifier_ref": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "stopping_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "multiplicity_control": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_revision",
+        "created_at",
+        "source_manifest_ref"
+      ],
+      "properties": {
+        "protocol_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_manifest_ref": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "protocol_commit": {
+          "$ref": "#/$defs/immutableReference"
+        },
+        "author_or_owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "immutableReference": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Immutable commit, versioned artifact identifier, or content-addressed reference. Floating refs should be resolved and recorded before confirmatory evaluation."
+    }
+  }
+}
