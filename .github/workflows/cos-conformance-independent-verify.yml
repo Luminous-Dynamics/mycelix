@@ -1,7 +1,10 @@
 name: COS Conformance Independent Verify
 
 on:
-  workflow_run:
+  # This narrow exception is intentional: only the trusted default-branch workflow handles the run event;
+  # it binds the exact same-repository PR head and upstream workflow identity. PR code runs in a separate
+  # read-only job without persisted checkout credentials; a fresh validator checks run-scoped artifact digests.
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- trusted receiver with exact-head and artifact-digest boundaries
     workflows: ["COS Conformance Evidence"]
     types: [completed]
   workflow_dispatch:
@@ -35,10 +38,10 @@ jobs:
     name: Prepare trusted verification target
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Prepare binds a same-repository PR target using read-only metadata; it cannot mutate code or statuses.
     permissions:
       contents: read
       pull-requests: read
-    cache-mode: none
     outputs:
       pr_number: ${{ steps.target_binding.outputs.pr_number }}
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
@@ -73,16 +76,19 @@ jobs:
 
       - name: Capture trusted verifier identity
         id: trusted_identity
+        env:
+          EXPECTED_TRUSTED_SHA: ${{ github.workflow_sha }}
+          TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           actual_trusted_sha="$(git rev-parse HEAD)"
           trusted_file_blob="$(git rev-parse HEAD:.github/workflows/cos-conformance-independent-verify.yml)"
-          test "${actual_trusted_sha}" = "${{ github.workflow_sha }}" || {
-            echo "trusted verifier checkout drift: expected ${{ github.workflow_sha }}, got ${actual_trusted_sha}" >&2
+          test "${actual_trusted_sha}" = "$EXPECTED_TRUSTED_SHA" || {
+            echo "trusted verifier checkout drift: expected $EXPECTED_TRUSTED_SHA, got ${actual_trusted_sha}" >&2
             exit 1
           }
           {
-            printf 'trusted_workflow_sha=%s\n' "${{ github.workflow_sha }}"
-            printf 'trusted_workflow_ref=%s\n' "${{ github.workflow_ref }}"
+            printf 'trusted_workflow_sha=%s\n' "$EXPECTED_TRUSTED_SHA"
+            printf 'trusted_workflow_ref=%s\n' "$TRUSTED_WORKFLOW_REF"
             printf 'trusted_workflow_checked_out_sha=%s\n' "${actual_trusted_sha}"
             printf 'trusted_workflow_file_blob_sha=%s\n' "${trusted_file_blob}"
           } >> "${GITHUB_OUTPUT}"
@@ -101,14 +107,15 @@ jobs:
           scanned_lines = scanned_text.splitlines()
 
           assert "permissions: {}" in scanned_text
-          assert scanned_text.count("\n    cache-mode: none\n") == 3
+          assert "\n    cache-mode: none\n" not in scanned_text
           assert ("actions" + "/cache@") not in scanned_text
           assert ("secrets" + ".") not in scanned_text
           assert ("allow-unsafe-pr-checkout" + ": true") not in scanned_text
           assert scanned_text.count("actions/checkout@") == 2
           assert scanned_text.count("persist-credentials: false") == 2
           assert scanned_text.count("digest-mismatch: error") == 1
-          assert scanned_text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
+          expected_artifact_expression = "$" + "{{ needs.execute.outputs.execution_artifact_id }}"
+          assert scanned_text.count("artifact-ids: " + expected_artifact_expression) == 1
           assert "actions/artifacts/${EXPECTED_ARTIFACT_ID}" in scanned_text
 
           expected = {
@@ -234,9 +241,9 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # This job executes the candidate PR tree, so it receives contents:read only and no persisted checkout credential.
     permissions:
       contents: read
-    cache-mode: none
     outputs:
       target_checkout_outcome: ${{ steps.target_checkout.outcome }}
       tested_commit_sha: ${{ steps.target_checkout.outputs.tested_commit_sha }}
@@ -255,10 +262,13 @@ jobs:
 
       - name: Assert exact PR-head checkout
         id: target_checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
         run: |
+          set -euo pipefail
           actual_head_sha="$(git rev-parse HEAD)"
-          test "${actual_head_sha}" = "${{ needs.prepare.outputs.expected_head_sha }}" || {
-            echo "PR-head checkout drift: expected ${{ needs.prepare.outputs.expected_head_sha }}, got ${actual_head_sha}" >&2
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
+            echo "PR-head checkout drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
             exit 1
           }
           printf 'tested_commit_sha=%s\n' "${actual_head_sha}" >> "${GITHUB_OUTPUT}"
@@ -302,15 +312,25 @@ jobs:
 
       - name: Record execution outcomes
         if: always()
+        env:
+          TESTED_COMMIT_SHA: ${{ steps.target_checkout.outputs.tested_commit_sha || '' }}
+          TARGET_CHECKOUT_OUTCOME: ${{ steps.target_checkout.outcome || 'skipped' }}
+          CONFORMANCE_TEST_OUTCOME: ${{ steps.conformance_test.outcome || 'skipped' }}
+          REPORT_GENERATION_OUTCOME: ${{ steps.generate_report.outcome || 'skipped' }}
         run: |
-          cat > evidence/execution-outcomes.json <<JSON
-          {
-            "tested_commit_sha": "${{ steps.target_checkout.outputs.tested_commit_sha || '' }}",
-            "target_checkout_outcome": "${{ steps.target_checkout.outcome || 'skipped' }}",
-            "conformance_test_outcome": "${{ steps.conformance_test.outcome || 'skipped' }}",
-            "report_generation_outcome": "${{ steps.generate_report.outcome || 'skipped' }}"
-          }
-          JSON
+          set -euo pipefail
+          mkdir -p evidence
+          jq -n \
+            --arg tested_commit_sha "$TESTED_COMMIT_SHA" \
+            --arg target_checkout_outcome "$TARGET_CHECKOUT_OUTCOME" \
+            --arg conformance_test_outcome "$CONFORMANCE_TEST_OUTCOME" \
+            --arg report_generation_outcome "$REPORT_GENERATION_OUTCOME" \
+            '{
+              tested_commit_sha: $tested_commit_sha,
+              target_checkout_outcome: $target_checkout_outcome,
+              conformance_test_outcome: $conformance_test_outcome,
+              report_generation_outcome: $report_generation_outcome
+            }' > evidence/execution-outcomes.json
 
       - name: Preserve raw PR execution evidence
         if: always()
@@ -325,14 +345,16 @@ jobs:
   validate:
     name: Validate execution from fresh trusted runner
     needs: [prepare, execute]
-    if: always()
+    # Preserve validation after execution failure, but don't turn unrelated
+    # push/schedule workflow_run events into malformed PR evidence attempts.
+    if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Fresh-runner validation reads PR metadata and run-scoped artifacts; it does not write statuses or repository data.
     permissions:
       contents: read
       pull-requests: read
       actions: read
-    cache-mode: none
     steps:
       - name: Download raw execution evidence
         id: download_execution
@@ -353,6 +375,9 @@ jobs:
           EXPECTED_ARTIFACT_ID: ${{ needs.execute.outputs.execution_artifact_id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ needs.execute.outputs.execution_artifact_digest }}
           EXPECTED_ARTIFACT_NAME: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          EXECUTE_JOB_RESULT: ${{ needs.execute.result }}
+          TARGET_CHECKOUT_OUTCOME: ${{ needs.execute.outputs.target_checkout_outcome }}
+          TESTED_COMMIT_SHA: ${{ needs.execute.outputs.tested_commit_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -392,9 +417,9 @@ jobs:
           test "${head_repository}" = "${GITHUB_REPOSITORY}"
           test "${pull_request_state}" = "open"
 
-          test "${{ needs.execute.result }}" = "success"
-          test "${{ needs.execute.outputs.target_checkout_outcome }}" = "success"
-          test "${{ needs.execute.outputs.tested_commit_sha }}" = "${EXPECTED_HEAD_SHA}"
+          test "${EXECUTE_JOB_RESULT}" = "success"
+          test "${TARGET_CHECKOUT_OUTCOME}" = "success"
+          test "${TESTED_COMMIT_SHA}" = "${EXPECTED_HEAD_SHA}"
 
           test -s evidence/tested-commit-sha.txt
           test "$(cat evidence/tested-commit-sha.txt)" = "${EXPECTED_HEAD_SHA}"
@@ -467,24 +492,58 @@ jobs:
 
       - name: Write independent verification envelope
         if: always()
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
+          TESTED_COMMIT_SHA: ${{ needs.execute.outputs.tested_commit_sha || '' }}
+          HEAD_REPOSITORY: ${{ needs.prepare.outputs.head_repository }}
+          TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          TRUSTED_WORKFLOW_REF: ${{ needs.prepare.outputs.trusted_workflow_ref }}
+          TRUSTED_WORKFLOW_CHECKED_OUT_SHA: ${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}
+          TRUSTED_WORKFLOW_FILE_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
+          TRIGGER_RUN_ID: ${{ needs.prepare.outputs.trigger_run_id }}
+          TRIGGER_WORKFLOW_ID: ${{ needs.prepare.outputs.trigger_workflow_id }}
+          TRIGGER_WORKFLOW_PATH: ${{ needs.prepare.outputs.trigger_workflow_path }}
+          TRIGGER_REPOSITORY: ${{ needs.prepare.outputs.trigger_repository }}
+          TRIGGER_EVENT: ${{ needs.prepare.outputs.trigger_event }}
+          TRIGGER_CONCLUSION: ${{ needs.prepare.outputs.trigger_conclusion }}
+          EXECUTE_JOB_RESULT: ${{ needs.execute.result }}
+          TARGET_CHECKOUT_OUTCOME: ${{ needs.execute.outputs.target_checkout_outcome }}
+          CONFORMANCE_TEST_OUTCOME: ${{ needs.execute.outputs.conformance_test_outcome }}
+          REPORT_GENERATION_OUTCOME: ${{ needs.execute.outputs.report_generation_outcome }}
+          RAW_EXECUTION_ARTIFACT_ID: ${{ needs.execute.outputs.execution_artifact_id }}
+          RAW_EXECUTION_ARTIFACT_DIGEST: ${{ needs.execute.outputs.execution_artifact_digest }}
+          RAW_EVIDENCE_DOWNLOAD_OUTCOME: ${{ steps.download_execution.outcome }}
+          RAW_EVIDENCE_VALIDATION_OUTCOME: ${{ steps.validate_raw.outcome }}
+          REPORT_VALIDATION_OUTCOME: ${{ steps.validate_report.outcome }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUNNER_OS: ${{ runner.os }}
         run: |
+          set -euo pipefail
           mkdir -p evidence
           qualification_result="failed"
-          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
+          if [[ "$EXECUTE_JOB_RESULT" == "success" \
+              && "$TARGET_CHECKOUT_OUTCOME" == "success" \
+              && "$CONFORMANCE_TEST_OUTCOME" == "success" \
+              && "$REPORT_GENERATION_OUTCOME" == "success" \
+              && "$RAW_EVIDENCE_DOWNLOAD_OUTCOME" == "success" \
+              && "$RAW_EVIDENCE_VALIDATION_OUTCOME" == "success" \
+              && "$REPORT_VALIDATION_OUTCOME" == "success" ]]; then
             qualification_result="passed"
-          elif [[ "${{ needs.execute.result }}" == "cancelled"                || "${{ needs.execute.result }}" == "skipped" ]]; then
+          elif [[ "$EXECUTE_JOB_RESULT" == "cancelled" || "$EXECUTE_JOB_RESULT" == "skipped" ]]; then
             qualification_result="not_run"
           fi
 
           test_exit_code="null"
-          if [[ -f evidence/cargo-test.exit-code ]] && [[ "${{ steps.validate_raw.outcome }}" == "success" ]]; then
+          if [[ -f evidence/cargo-test.exit-code && "$RAW_EVIDENCE_VALIDATION_OUTCOME" == "success" ]]; then
             candidate_exit="$(cat evidence/cargo-test.exit-code)"
-            if [[ "${candidate_exit}" =~ ^[0-9]+$ ]]; then
-              test_exit_code="${candidate_exit}"
+            if [[ "$candidate_exit" =~ ^[0-9]+$ ]]; then
+              test_exit_code="$candidate_exit"
             fi
           fi
-          tested_commit_sha="${{ needs.execute.outputs.tested_commit_sha || '' }}"
-          if [[ -z "${tested_commit_sha}" && -f evidence/tested-commit-sha.txt ]]; then
+          tested_commit_sha="$TESTED_COMMIT_SHA"
+          if [[ -z "$tested_commit_sha" && -f evidence/tested-commit-sha.txt ]]; then
             tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
           fi
           tested_lock_sha256=""
@@ -492,42 +551,73 @@ jobs:
             tested_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
           fi
 
-          cat > evidence/independent-run-envelope.json <<JSON
-          {
-            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2",
-            "claim_ceiling": "ReferenceModelOnly",
-            "repository": "${GITHUB_REPOSITORY}",
-            "pr_number": "${{ needs.prepare.outputs.pr_number }}",
-            "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
-            "tested_commit_sha": "${tested_commit_sha}",
-            "head_repository": "${{ needs.prepare.outputs.head_repository }}",
-            "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
-            "trusted_workflow_ref": "${{ needs.prepare.outputs.trusted_workflow_ref }}",
-            "trusted_workflow_checked_out_sha": "${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}",
-            "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
-            "tested_lock_sha256": "${tested_lock_sha256}",
-            "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
-            "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
-            "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
-            "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
-            "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
-            "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
-            "executor_job_result": "${{ needs.execute.result }}",
-            "target_checkout_outcome": "${{ needs.execute.outputs.target_checkout_outcome }}",
-            "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
-            "conformance_test_exit_code": ${test_exit_code},
-            "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
-            "raw_execution_artifact_id": "${{ needs.execute.outputs.execution_artifact_id }}",
-            "raw_execution_artifact_digest": "${{ needs.execute.outputs.execution_artifact_digest }}",
-            "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
-            "raw_evidence_validation_outcome": "${{ steps.validate_raw.outcome }}",
-            "report_validation_outcome": "${{ steps.validate_report.outcome }}",
-            "run_id": ${{ github.run_id }},
-            "run_attempt": ${{ github.run_attempt }},
-            "qualification_result": "${qualification_result}",
-            "runner_os": "${{ runner.os }}"
-          }
-          JSON
+          jq -n \
+            --arg schema "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2" \
+            --arg claim_ceiling "ReferenceModelOnly" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg expected_head_sha "$EXPECTED_HEAD_SHA" \
+            --arg tested_commit_sha "$tested_commit_sha" \
+            --arg head_repository "$HEAD_REPOSITORY" \
+            --arg trusted_workflow_sha "$TRUSTED_WORKFLOW_SHA" \
+            --arg trusted_workflow_ref "$TRUSTED_WORKFLOW_REF" \
+            --arg trusted_workflow_checked_out_sha "$TRUSTED_WORKFLOW_CHECKED_OUT_SHA" \
+            --arg trusted_workflow_file_blob_sha "$TRUSTED_WORKFLOW_FILE_BLOB_SHA" \
+            --arg tested_lock_sha256 "$tested_lock_sha256" \
+            --argjson trigger_run_id "$TRIGGER_RUN_ID" \
+            --argjson trigger_workflow_id "$TRIGGER_WORKFLOW_ID" \
+            --arg trigger_workflow_path "$TRIGGER_WORKFLOW_PATH" \
+            --arg trigger_repository "$TRIGGER_REPOSITORY" \
+            --arg trigger_event "$TRIGGER_EVENT" \
+            --arg trigger_conclusion "$TRIGGER_CONCLUSION" \
+            --arg executor_job_result "$EXECUTE_JOB_RESULT" \
+            --arg target_checkout_outcome "$TARGET_CHECKOUT_OUTCOME" \
+            --arg conformance_test_outcome "$CONFORMANCE_TEST_OUTCOME" \
+            --argjson conformance_test_exit_code "$test_exit_code" \
+            --arg report_generation_outcome "$REPORT_GENERATION_OUTCOME" \
+            --arg raw_execution_artifact_id "$RAW_EXECUTION_ARTIFACT_ID" \
+            --arg raw_execution_artifact_digest "$RAW_EXECUTION_ARTIFACT_DIGEST" \
+            --arg raw_evidence_download_outcome "$RAW_EVIDENCE_DOWNLOAD_OUTCOME" \
+            --arg raw_evidence_validation_outcome "$RAW_EVIDENCE_VALIDATION_OUTCOME" \
+            --arg report_validation_outcome "$REPORT_VALIDATION_OUTCOME" \
+            --argjson run_id "$WORKFLOW_RUN_ID" \
+            --argjson run_attempt "$WORKFLOW_RUN_ATTEMPT" \
+            --arg qualification_result "$qualification_result" \
+            --arg runner_os "$RUNNER_OS" \
+            '{
+              schema: $schema,
+              claim_ceiling: $claim_ceiling,
+              repository: $repository,
+              pr_number: $pr_number,
+              expected_head_sha: $expected_head_sha,
+              tested_commit_sha: $tested_commit_sha,
+              head_repository: $head_repository,
+              trusted_workflow_sha: $trusted_workflow_sha,
+              trusted_workflow_ref: $trusted_workflow_ref,
+              trusted_workflow_checked_out_sha: $trusted_workflow_checked_out_sha,
+              trusted_workflow_file_blob_sha: $trusted_workflow_file_blob_sha,
+              tested_lock_sha256: $tested_lock_sha256,
+              trigger_run_id: $trigger_run_id,
+              trigger_workflow_id: $trigger_workflow_id,
+              trigger_workflow_path: $trigger_workflow_path,
+              trigger_repository: $trigger_repository,
+              trigger_event: $trigger_event,
+              trigger_conclusion: $trigger_conclusion,
+              executor_job_result: $executor_job_result,
+              target_checkout_outcome: $target_checkout_outcome,
+              conformance_test_outcome: $conformance_test_outcome,
+              conformance_test_exit_code: $conformance_test_exit_code,
+              report_generation_outcome: $report_generation_outcome,
+              raw_execution_artifact_id: $raw_execution_artifact_id,
+              raw_execution_artifact_digest: $raw_execution_artifact_digest,
+              raw_evidence_download_outcome: $raw_evidence_download_outcome,
+              raw_evidence_validation_outcome: $raw_evidence_validation_outcome,
+              report_validation_outcome: $report_validation_outcome,
+              run_id: $run_id,
+              run_attempt: $run_attempt,
+              qualification_result: $qualification_result,
+              runner_os: $runner_os
+            }' > evidence/independent-run-envelope.json
 
       - name: Validate and seal independent evidence
         if: always()
