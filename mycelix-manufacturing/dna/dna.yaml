@@ -17,6 +17,8 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/planning_integrity.wasm
     - name: manufacturing_bridge_integrity
       path: ../target/wasm32-unknown-unknown/release/manufacturing_bridge_integrity.wasm
+    - name: manufacturing_execution_integrity
+      path: ../target/wasm32-unknown-unknown/release/manufacturing_execution_integrity.wasm
 coordinator:
   zomes:
     - name: workorders
@@ -47,3 +49,7 @@ coordinator:
       dependencies:
         - name: manufacturing_bridge_integrity
         - name: workorders_integrity
+    - name: execution
+      path: ../target/wasm32-unknown-unknown/release/manufacturing_execution.wasm
+      dependencies:
+        - name: manufacturing_execution_integrity
