@@ -111,6 +111,7 @@ pub struct ProcessRunReceipt {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReceiptValidationError {
     UnsupportedSchemaVersion(u8),
+    InvalidSerializedReceipt,
     MissingOrOversizeField(&'static str),
     InvalidDigest(&'static str),
     InvalidGitCommit,
@@ -128,6 +129,9 @@ impl std::fmt::Display for ReceiptValidationError {
         match self {
             Self::UnsupportedSchemaVersion(v) => {
                 write!(f, "unsupported process-run receipt schema version {v}")
+            }
+            Self::InvalidSerializedReceipt => {
+                write!(f, "serialized receipt is malformed or violates strict JSON field rules")
             }
             Self::MissingOrOversizeField(field) => {
                 write!(f, "required field {field} is missing, blank, or oversized")
@@ -159,6 +163,19 @@ impl std::fmt::Display for ReceiptValidationError {
     }
 }
 impl std::error::Error for ReceiptValidationError {}
+
+/// Decode exact JSON bytes into the strict receipt structure and validate it.
+/// Struct decoding rejects unknown fields and duplicate struct fields. This
+/// function does not canonicalize or hash the input bytes; callers that require
+/// content identity must compute and retain a digest over their chosen exact bytes.
+pub fn decode_and_validate_process_run_receipt_json(
+    raw_json: &str,
+) -> Result<ProcessRunReceipt, ReceiptValidationError> {
+    let receipt: ProcessRunReceipt = serde_json::from_str(raw_json)
+        .map_err(|_| ReceiptValidationError::InvalidSerializedReceipt)?;
+    validate_process_run_receipt(&receipt)?;
+    Ok(receipt)
+}
 
 /// Validate structure and declared evidence-state consistency only.
 ///
@@ -720,10 +737,37 @@ mod tests {
     }
 
     #[test]
+    fn raw_json_decoder_rejects_duplicate_keys_and_unknown_fields() {
+        let receipt = valid_simulation();
+        let json = serde_json::to_string(&receipt).unwrap();
+        assert_eq!(
+            decode_and_validate_process_run_receipt_json(&json).unwrap(),
+            receipt
+        );
+
+        let duplicate = json.replacen(
+            "\"schema_version\":1,",
+            "\"schema_version\":1,\"schema_version\":1,",
+            1,
+        );
+        assert_ne!(duplicate, json);
+        assert_eq!(
+            decode_and_validate_process_run_receipt_json(&duplicate),
+            Err(ReceiptValidationError::InvalidSerializedReceipt)
+        );
+
+        let unknown = json.replacen('}', ",\"unexpected\":true}", 1);
+        assert_eq!(
+            decode_and_validate_process_run_receipt_json(&unknown),
+            Err(ReceiptValidationError::InvalidSerializedReceipt)
+        );
+    }
+
+    #[test]
     fn serialized_receipt_round_trips_deterministically() {
         let receipt = valid_simulation();
         let json1 = serde_json::to_string(&receipt).unwrap();
-        let decoded: ProcessRunReceipt = serde_json::from_str(&json1).unwrap();
+        let decoded = decode_and_validate_process_run_receipt_json(&json1).unwrap();
         let json2 = serde_json::to_string(&decoded).unwrap();
         assert_eq!(json1, json2);
         assert_eq!(validate_process_run_receipt(&decoded), Ok(()));
