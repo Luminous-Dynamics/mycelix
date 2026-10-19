@@ -13,6 +13,7 @@
     "sources",
     "envelopes",
     "fit_checks",
+    "obstacle_inventory_state",
     "collision_policy",
     "assumptions_and_limits"
   ],
@@ -216,6 +217,12 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "obstacle_inventory_state": {
+      "enum": [
+        "incomplete",
+        "reviewed"
+      ]
     }
   },
   "$defs": {
