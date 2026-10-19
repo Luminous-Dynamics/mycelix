@@ -28,7 +28,6 @@ cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lif
   --bin repair_trial_record_audit -- \
   --schema mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_SCHEMA_V0_1_DRAFT.json \
   --record mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_EXAMPLE_V0_1_DRAFT.json
-```
 
 # Conservative service-envelope screening and frozen known-answer corpus.
 cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
@@ -36,6 +35,7 @@ cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lif
   --schema mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_SCHEMA_V0_1_DRAFT.json \
   --record mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_EXAMPLE_V0_1_DRAFT.json \
   --benchmark mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_BENCHMARK_V0_1_DRAFT.json
+```
 
 Pass an explicit `--as-of YYYY-MM-DD` to the v0.3 audit so supplier-evidence freshness checks are reproducible. Its `--freshness-days` defaults to `30`.
 
