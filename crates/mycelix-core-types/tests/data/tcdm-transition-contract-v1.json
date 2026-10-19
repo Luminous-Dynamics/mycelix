@@ -1,0 +1,743 @@
+{
+  "schema": "mycelix-tcdm-transition-contract-v1",
+  "profile": "FailClosedTCDMTransitionCandidateV1",
+  "status": "research-only candidate transition semantics; not production behavior",
+  "decision_rules": [
+    "All input trust_level and confidence values must be finite and in [0,1]; decay_rate must be finite and in [0,1]; interaction_count must fit u32.",
+    "The existing last_update == 0 sentinel is reserved for uninitialized state; current_time == 0 is rejected because the legacy scalar field cannot distinguish an initialized epoch-zero timestamp from the sentinel.",
+    "For an initialized state, timestamps must be monotone nondecreasing; backwards time, a transition to reserved timestamp zero, or checked i64 subtraction overflow rejects without mutation.",
+    "For a valid positive elapsed duration, trust decays by decay_rate^(elapsed_seconds/86400), confidence by the square root of that factor; equal timestamps produce no decay.",
+    "Decay rate zero means immediate zero after positive elapsed time; decay rate one means no decay.",
+    "Interaction weight must be finite and nonnegative. Positive weights are capped at 0.3; confidence grows by 0.05*(effective_weight/0.3), clamped to [0,1]. Accepted positive-weight interactions increment the u32 count with checked arithmetic.",
+    "Zero interaction weight means no evidence: state and count are unchanged and confidence must not increase.",
+    "Any invalid state or input rejects without committing a partial state update."
+  ],
+  "case_count": 32,
+  "cases": [
+    {
+      "id": "TC-001-first-timestamp",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "0",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "100"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.80000000000000004",
+          "confidence": "0.59999999999999998",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-002-same-timestamp",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "100"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.80000000000000004",
+          "confidence": "0.59999999999999998",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-003-one-day-decay",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.79200000000000004",
+          "confidence": "0.59699246226397196",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "86500",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-004-thirty-day-decay",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "2592100"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.59176029871062419",
+          "confidence": "0.51603501278477304",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "2592100",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-005-zero-rate-after-elapsed",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.0000000000000000",
+          "confidence": "0.0000000000000000",
+          "decay_rate": "0.0000000000000000",
+          "last_update": "86500",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-006-unit-rate-no-decay",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "1",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.80000000000000004",
+          "confidence": "0.59999999999999998",
+          "decay_rate": "1.0000000000000000",
+          "last_update": "86500",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-007-backwards-time",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "99"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-008-delta-overflow",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "-9223372036854775808",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "9223372036854775807"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-009-negative-decay-rate",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "-0.01",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-010-decay-rate-above-one",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "1.01",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-011-nan-decay-rate",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "NaN",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-012-infinite-trust",
+      "state": {
+        "trust_level": "Infinity",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-013-trust-out-of-range",
+      "state": {
+        "trust_level": "1.01",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-014-confidence-negative",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "-0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86500"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-015-success-weight-point-two",
+      "state": {
+        "trust_level": "0.5",
+        "confidence": "0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 0
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0.2"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.60000000000000009",
+          "confidence": "0.13333333333333336",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 1
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-016-failure-weight-point-two",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.4",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 8
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": false,
+        "weight": "0.2"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.64000000000000012",
+          "confidence": "0.43333333333333335",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 9
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-017-success-weight-cap",
+      "state": {
+        "trust_level": "0.5",
+        "confidence": "0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 0
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0.3"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.64999999999999991",
+          "confidence": "0.15000000000000002",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 1
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-018-success-weight-above-cap",
+      "state": {
+        "trust_level": "0.5",
+        "confidence": "0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 0
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0.8"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.64999999999999991",
+          "confidence": "0.15000000000000002",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 1
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-019-zero-weight-is-no-op",
+      "state": {
+        "trust_level": "0.5",
+        "confidence": "0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 0
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.50000000000000000",
+          "confidence": "0.10000000000000001",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 0
+        },
+        "no_op": true
+      }
+    },
+    {
+      "id": "TC-020-subnormal-positive-weight",
+      "state": {
+        "trust_level": "0.5",
+        "confidence": "0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 3
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "1.401298464324817e-45"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.50000000000000000",
+          "confidence": "0.10000000000000001",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 4
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-021-maximum-finite-f32-weight-capped",
+      "state": {
+        "trust_level": "0.5",
+        "confidence": "0.1",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 0
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "3.4028234663852886e38"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.64999999999999991",
+          "confidence": "0.15000000000000002",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 1
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-022-negative-interaction-weight",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "-0.01"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-023-nan-interaction-weight",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "NaN"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-024-positive-infinity-interaction-weight",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "Infinity"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-025-interaction-count-overflow",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 4294967295
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0.2"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-026-interaction-confidence-saturates",
+      "state": {
+        "trust_level": "0.9",
+        "confidence": "0.99",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 10
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0.3"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.92999999999999994",
+          "confidence": "1.0000000000000000",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "100",
+          "interaction_count": 11
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-027-decay-zero-elapsed-rate-zero",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0",
+        "last_update": "100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "100"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.80000000000000004",
+          "confidence": "0.59999999999999998",
+          "decay_rate": "0.0000000000000000",
+          "last_update": "100",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-028-timestamp-max-with-small-prior",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "9223372036854775806",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "9223372036854775807"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.79999990694134016",
+          "confidence": "0.59999996510300146",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "9223372036854775807",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-029-valid-negative-time-progress",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "-100",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "86300"
+      },
+      "expected": {
+        "valid": true,
+        "state": {
+          "trust_level": "0.79200000000000004",
+          "confidence": "0.59699246226397196",
+          "decay_rate": "0.98999999999999999",
+          "last_update": "86300",
+          "interaction_count": 5
+        },
+        "no_op": false
+      }
+    },
+    {
+      "id": "TC-030-invalid-interaction-count-too-large",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "100",
+        "interaction_count": 4294967296
+      },
+      "operation": {
+        "kind": "interaction",
+        "success": true,
+        "weight": "0.2"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-031-zero-timestamp-sentinel-collision",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "0",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "0"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-032-transition-to-zero-sentinel-rejected",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "-1",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "0"
+      },
+      "expected": {
+        "valid": false
+      }
+    }
+  ],
+  "mutation_controls": [
+    {
+      "id": "TC-MUT-001",
+      "description": "Permit backward timestamps, causing a decay factor above one.",
+      "must_be_detected_by": "TC-007-backwards-time"
+    },
+    {
+      "id": "TC-MUT-002",
+      "description": "Clamp negative weights to an effective learning rate and accept them.",
+      "must_be_detected_by": "TC-022-negative-interaction-weight"
+    },
+    {
+      "id": "TC-MUT-003",
+      "description": "Increase confidence by a fixed constant even when weight is zero.",
+      "must_be_detected_by": "TC-019-zero-weight-is-no-op"
+    },
+    {
+      "id": "TC-MUT-004",
+      "description": "Use unchecked time subtraction or interaction-count increment.",
+      "must_be_detected_by": "TC-008-delta-overflow"
+    },
+    {
+      "id": "TC-MUT-005",
+      "description": "Allow non-finite or out-of-range state to propagate.",
+      "must_be_detected_by": "TC-011-nan-decay-rate"
+    },
+    {
+      "id": "TC-MUT-006",
+      "description": "Accept timestamp zero as initialized state and later mistake it for the uninitialized sentinel, silently skipping elapsed-time decay.",
+      "must_be_detected_by": "TC-031-zero-timestamp-sentinel-collision;TC-032-transition-to-zero-sentinel-rejected"
+    }
+  ]
+}
