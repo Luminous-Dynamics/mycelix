@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/schemas/life-civic/standard-instrument.schema.json",
+  "title": "Mycelix Life and Civic Instrument Record",
+  "description": "Reference-only metadata for a law, standard, protocol, dataset, policy, registry, or guidance artifact. This record does not establish applicability, compliance, issuer trust, or action authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "instrument_id",
+    "title",
+    "artifact_kind",
+    "issuer",
+    "version",
+    "publication_status",
+    "normative_status",
+    "jurisdiction_scope",
+    "source_evidence",
+    "checked_at",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "instrument_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable, scheme-qualified identifier; never identify an instrument by title alone."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_kind": {
+      "enum": [
+        "law",
+        "regulation",
+        "court_decision",
+        "standard",
+        "technical_specification",
+        "model_law",
+        "guidance",
+        "dataset",
+        "registry",
+        "policy",
+        "certification_scheme",
+        "other"
+      ]
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "role"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "legislature",
+            "court",
+            "regulator",
+            "government_agency",
+            "national_standards_body",
+            "international_standards_body",
+            "technical_community",
+            "industry_consortium",
+            "civil_society",
+            "private_publisher",
+            "unknown"
+          ]
+        },
+        "canonical_uri": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact edition, release, revision, or an explicit value such as 'unversioned'."
+    },
+    "publication_status": {
+      "enum": [
+        "working_draft",
+        "draft",
+        "published",
+        "withdrawn",
+        "superseded",
+        "unknown"
+      ]
+    },
+    "normative_status": {
+      "enum": [
+        "binding_law",
+        "incorporated_standard",
+        "mandatory_contractual",
+        "voluntary_standard",
+        "advisory",
+        "informational",
+        "under_development",
+        "unknown"
+      ]
+    },
+    "jurisdiction_scope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Explicit scope identifiers; use a documented scheme or an explicit label such as 'global'. This is scope metadata, not proof of applicability."
+    },
+    "published_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "effective_from": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "effective_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "supersedes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "source_class",
+          "retrieved_at",
+          "integrity_status"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_class": {
+            "enum": [
+              "official_primary",
+              "official_metadata",
+              "official_secondary",
+              "independent_secondary",
+              "user_supplied",
+              "unknown"
+            ]
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "integrity_status": {
+            "enum": [
+              "signature_verified",
+              "content_digest_recorded",
+              "transport_only",
+              "unverified",
+              "unknown"
+            ]
+          },
+          "content_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$"
+          },
+          "digest_algorithm": {
+            "const": "sha-256"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "content_digest"
+              ]
+            },
+            "then": {
+              "required": [
+                "digest_algorithm"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "license_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metadata_reuse",
+        "full_text_retention"
+      ],
+      "properties": {
+        "metadata_reuse": {
+          "enum": [
+            "permitted",
+            "restricted",
+            "unknown"
+          ]
+        },
+        "full_text_retention": {
+          "enum": [
+            "permitted",
+            "licensed_copy_only",
+            "not_permitted",
+            "unknown"
+          ]
+        },
+        "license_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    },
+    "mapping_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "mapping_status",
+        "known_gaps"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mapping_status": {
+          "enum": [
+            "not_mapped",
+            "partial",
+            "reviewed",
+            "superseded"
+          ]
+        },
+        "known_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requires_domain_review": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "currentness_horizon": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "claim_ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permitted_claims",
+        "prohibited_inferences"
+      ],
+      "properties": {
+        "permitted_claims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prohibited_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "formal_status_label": {
+      "type": "string",
+      "description": "Exact status wording from the issuer's source (for example, 'Standards Track — Proposed Standard' or a committee lifecycle stage). Keep it separate from this schema's coarse status enums."
+    }
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/schemas/life-civic/applicability-assessment.schema.json",
+  "title": "Mycelix Life and Civic Applicability Assessment",
+  "description": "Context-bound evaluation of whether a particular instrument applies to a specific described use. A valid record is not legal advice, compliance certification, identity assurance, or action authorization.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assessment_id",
+    "instrument_ref",
+    "context",
+    "result",
+    "evidence",
+    "assessed_at",
+    "profile_version",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "assessment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instrument_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_id",
+        "version"
+      ],
+      "properties": {
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_case",
+        "jurisdiction",
+        "evaluated_at"
+      ],
+      "properties": {
+        "use_case": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "territorial_scope_notes": {
+          "type": "string"
+        },
+        "evaluated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "facts_assumed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason_codes"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "applicable",
+            "not_applicable",
+            "unknown",
+            "indeterminate",
+            "stale",
+            "conflicted",
+            "requires_human_review",
+            "not_assessed"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "sufficient_scope_evidence",
+              "missing_local_adoption",
+              "jurisdiction_mismatch",
+              "effective_date_unknown",
+              "source_stale",
+              "conflicting_sources",
+              "draft_not_published",
+              "context_insufficient",
+              "model_law_not_enacted",
+              "human_legal_review_needed",
+              "other"
+            ]
+          }
+        },
+        "explanation": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "evidence_kind",
+          "source_uri",
+          "retrieved_at"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_kind": {
+            "enum": [
+              "primary_legal_text",
+              "official_status_record",
+              "local_adoption_record",
+              "official_standard_metadata",
+              "contract",
+              "provider_statement",
+              "observation",
+              "secondary_reference",
+              "user_supplied",
+              "unknown"
+            ]
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "supports": {
+            "type": "string"
+          },
+          "limitations": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unresolved_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "review_role": {
+          "type": "string"
+        },
+        "review_status": {
+          "enum": [
+            "not_started",
+            "requested",
+            "completed",
+            "not_required"
+          ]
+        }
+      }
+    },
+    "assessed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "profile_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permitted_claims",
+        "prohibited_inferences"
+      ],
+      "properties": {
+        "permitted_claims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prohibited_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "properties": {
+              "status": {
+                "const": "applicable"
+              }
+            }
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "minItems": 1
+          },
+          "human_review": {
+            "required": [
+              "required",
+              "review_status"
+            ],
+            "properties": {
+              "required": {
+                "const": true
+              },
+              "review_status": {
+                "const": "completed"
+              }
+            }
+          }
+        },
+        "required": [
+          "human_review"
+        ]
+      }
+    }
+  ]
+}

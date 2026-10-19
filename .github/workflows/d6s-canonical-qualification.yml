@@ -6,6 +6,11 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-manufacturing/crates/cos_conformance/src/**"
+      - "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_*.rs"
+      - "docs/integral/d6s-canon-*"
+      - "scripts/integral/verify_d6s_canon*"
   workflow_dispatch:
 
 permissions:

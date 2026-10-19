@@ -1,0 +1,645 @@
+{
+  "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
+  "version": "0.5.0",
+  "source_snapshots": [
+    {
+      "snapshot_id": "ISO-WD-37120-2026-10",
+      "source_uri": "https://www.iso.org/standard/90316.html",
+      "observed_status": "working draft; under development",
+      "as_of_date": "2026-10-14",
+      "notes": "ISO's catalogue says ISO/WD 37120 is Edition 3, under development, and intended to replace ISO 37120:2018. This is a catalog observation, not a claim that the draft is a published standard."
+    },
+    {
+      "snapshot_id": "ISO-37101-2016-2026-10",
+      "source_uri": "https://www.iso.org/standard/61885.html",
+      "observed_status": "published Edition 1; amendment 1:2024 exists; replacement working draft under development",
+      "as_of_date": "2026-10-14",
+      "notes": "Do not confuse the published edition and amendment with the separately identified draft replacement."
+    },
+    {
+      "snapshot_id": "WCAG-OVERVIEW-2026-10",
+      "source_uri": "https://www.w3.org/WAI/standards-guidelines/wcag/",
+      "observed_status": "W3C overview identifies WCAG 2.2 as a published W3C Recommendation",
+      "as_of_date": "2026-10-14",
+      "notes": "Publication status does not determine whether a particular legal regime incorporates WCAG."
+    },
+    {
+      "snapshot_id": "RFC-9943-2026-10",
+      "source_uri": "https://datatracker.ietf.org/doc/rfc9943/",
+      "observed_status": "RFC 9943; Standards Track / Proposed Standard; June 2026",
+      "as_of_date": "2026-10-14",
+      "notes": "RFC status and scope must be represented precisely; publication does not establish legal authority or supply-chain trust by itself."
+    },
+    {
+      "snapshot_id": "NIST-SP-800-82R4-IPD-2026-09",
+      "source_uri": "https://csrc.nist.gov/pubs/sp/800/82/r4/ipd",
+      "observed_status": "initial public draft; published 2026-09-21; comments due 2026-11-30",
+      "as_of_date": "2026-10-14",
+      "notes": "NIST describes Rev. 4 as an initial public draft concerning operational technology security, including systems that sense or affect the physical environment. Treat the lifecycle state as draft; this source snapshot is not a final publication, robot-specific safety case, legal applicability decision, or proof that a particular system is secure."
+    },
+    {
+      "snapshot_id": "UNODC-E4J-CRIME-PREVENTION-MODULE-2-2019",
+      "source_uri": "https://www.unodc.org/e4j/en/crime-prevention-criminal-justice/module-2/key-issues/summary.html",
+      "observed_status": "published educational summary on crime-prevention approaches",
+      "as_of_date": "2026-10-14",
+      "notes": "The summary spans social-development, environmental-design, policy, research, and justice measures. It is educational guidance; it does not determine a local legal duty or establish the causal effect of a proposed robotics intervention."
+    },
+    {
+      "snapshot_id": "NIJ-LABOR-MARKETS-CRIME-NCJ-214515-2006",
+      "source_uri": "https://nij.ojp.gov/library/publications/labor-force-participation-labor-markets-and-crime-final-report",
+      "observed_status": "research report; reported employment relationship was modest and context-dependent",
+      "as_of_date": "2026-10-14",
+      "notes": "The NIJ summary reports a modest employment–crime relationship in urban young adults in this study, but not in rural young adults. This is a bounded U.S. study summary, not a universal causal coefficient, local South African effect estimate, or robot deployment validation."
+    },
+    {
+      "snapshot_id": "ISO-10218-2-2025-ROBOT-CELL-SCOPE",
+      "source_uri": "https://www.iso.org/standard/73934.html",
+      "observed_status": "published International Standard; second edition; publication date 2025-02",
+      "as_of_date": "2026-10-14",
+      "notes": "ISO catalogue describes safety requirements for industrial robot applications and robot cells. It lists service robots accessible to the public and law-enforcement uses among exclusions. A published industrial-robot standard cannot be treated as universal coverage for all public-facing or security robots."
+    },
+    {
+      "snapshot_id": "STATSSA-QLFS-Q2-2026",
+      "source_uri": "https://www.statssa.gov.za/?PPN=P0211&SCH=74512&page_id=1856",
+      "observed_status": "published official labour-market statistics; Q2 2026; publication date 2026-08-11; official unemployment rate 33.6%",
+      "as_of_date": "2026-10-14",
+      "notes": "Descriptive national labour-market statistics with published definitions, metadata, and downloadable QLFS series. Not a causal crime estimate, local Johannesburg service-area baseline, or predictor of individual behavior."
+    },
+    {
+      "snapshot_id": "ILO-DECENT-WORK-INDICATORS-2013",
+      "source_uri": "https://www.ilo.org/publications/decent-work-indicators-concepts-and-definitions",
+      "observed_status": "published measurement framework; publication date 2013-12-18",
+      "as_of_date": "2026-10-14",
+      "notes": "Supports multidimensional measurement of decent work, including earnings, work safety, stability/security, and social protection. Does not set the viability fixture's numeric gates, create local legal requirements, or establish an effect on crime."
+    },
+    {
+      "snapshot_id": "STATSSA-GPSJS-2024-25-2025-08",
+      "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74041&page_id=1856",
+      "observed_status": "Governance, Public Safety and Justice Survey 2024/25 published on 2025-08-26; descriptive national victimization and reporting evidence",
+      "as_of_date": "2026-10-15",
+      "notes": "Victimization-survey reports and SAPS administrative reports are different observation processes. Offense-specific national reporting proportions help identify an observability problem but are not a local pilot rate or causal model coefficient."
+    },
+    {
+      "snapshot_id": "STATSSA-GPSJS-2025-26-2026-09",
+      "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856",
+      "observed_status": "Latest Victims of Crime Release in the GPSJS series; published 2026-09-01; reference period 2025/26",
+      "as_of_date": "2026-10-15",
+      "notes": "For housebreaking, estimated incidents rose from 1.493 million (2024/25) to 1.549 million (2025/26), while households experiencing it fell from 1.123 million to 1.078 million, and the share reporting some/all incidents rose from 43.4% to 48.2%. The technical notes report an 85.57% national response rate, a 76.97% Gauteng response rate (the lowest), and four geographic areas below the cited 80% minimum-acceptable response rate. Keep indicator denominators separate and use the estimate-specific precision/quality tables before significance claims; all reported trends remain descriptive national survey evidence, not causal effects or local pilot values."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "MYC-LCA-001",
+      "title": "SANS reference found without context-specific incorporation evidence",
+      "input_projection": {
+        "instrument_id": "SABS:SANS-CATALOGUE-EXAMPLE",
+        "artifact_kind": "standard",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard"
+      },
+      "context": {
+        "use_case": "generic building repair",
+        "jurisdiction": "ZA-GP",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "this SANS is legally mandatory here",
+          "the repair is compliant"
+        ]
+      },
+      "rationale": "Publication and national-standard status do not themselves establish legal incorporation or application to a particular project.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-002",
+      "title": "ISO 37120 working draft must not be represented as a published edition",
+      "input_projection": {
+        "instrument_id": "ISO:WD-37120",
+        "artifact_kind": "standard",
+        "version": "Edition 3 working draft",
+        "publication_status": "working_draft",
+        "normative_status": "under_development",
+        "source_uri": "https://www.iso.org/standard/90316.html"
+      },
+      "context": {
+        "use_case": "compare municipal service indicators",
+        "jurisdiction": "global",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "indeterminate",
+        "required_reason_codes": [
+          "draft_not_published"
+        ],
+        "forbidden_claims": [
+          "ISO 37120 Edition 3 is a published International Standard",
+          "conformance to Edition 3 can be certified"
+        ]
+      },
+      "rationale": "ISO's catalogue lists ISO/WD 37120 as under development and intended to replace ISO 37120:2018; working drafts must remain distinct from published editions.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-003",
+      "title": "Published ISO 37101 edition and draft replacement must coexist without silent supersession",
+      "input_projection": {
+        "instrument_id": "ISO:37101:2016",
+        "artifact_kind": "standard",
+        "version": "2016, with Amendment 1:2024",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://www.iso.org/standard/61885.html",
+        "related_draft_uri": "https://committee.iso.org/standard/91450.html"
+      },
+      "context": {
+        "use_case": "community sustainability management",
+        "jurisdiction": "global",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the draft has already replaced the published edition",
+          "the older edition is withdrawn solely because a replacement is being drafted"
+        ]
+      },
+      "rationale": "ISO's catalogue lists the 2016 edition and its 2024 amendment separately from the working draft intended to replace it. The record must preserve both instruments and their distinct lifecycle states.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-004",
+      "title": "WCAG 2.2 publication does not prove local legal applicability",
+      "input_projection": {
+        "instrument_id": "W3C:WCAG:2.2",
+        "artifact_kind": "technical_specification",
+        "version": "WCAG 2.2",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://www.w3.org/WAI/standards-guidelines/wcag/"
+      },
+      "context": {
+        "use_case": "assess public-facing website obligations",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "missing_local_adoption"
+        ],
+        "forbidden_claims": [
+          "WCAG 2.2 automatically applies as binding law in South Africa",
+          "a checklist alone proves conformance"
+        ]
+      },
+      "rationale": "W3C publication establishes the guideline/version and success-criteria framework; applicability as a legal duty requires a separate locally grounded analysis.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-005",
+      "title": "Model law published internationally but local enactment not evidenced",
+      "input_projection": {
+        "instrument_id": "UNCITRAL:MODEL-LAW:EXAMPLE",
+        "artifact_kind": "model_law",
+        "version": "example",
+        "publication_status": "published",
+        "normative_status": "informational"
+      },
+      "context": {
+        "use_case": "determine a domestic legal obligation",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "model_law_not_enacted"
+        ],
+        "forbidden_claims": [
+          "publication of the model law proves domestic enactment"
+        ]
+      },
+      "rationale": "A model law is not domestic legislation merely because an international body publishes it.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-006",
+      "title": "Stale official snapshot cannot support a current applicability conclusion",
+      "input_projection": {
+        "instrument_id": "ZA:EXAMPLE-MUNICIPAL-BYLAW",
+        "artifact_kind": "law",
+        "publication_status": "published",
+        "normative_status": "binding_law",
+        "source_checked_at": "2022-01-01T00:00:00Z"
+      },
+      "context": {
+        "use_case": "current application deadline",
+        "jurisdiction": "ZA-GP",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "stale",
+        "required_reason_codes": [
+          "source_stale"
+        ],
+        "forbidden_claims": [
+          "this is the current deadline"
+        ]
+      },
+      "rationale": "Old capture time is not a substitute for currentness verification, amendment history, and effective-date evidence.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-007",
+      "title": "Directory listing does not prove provider competence or action authority",
+      "input_projection": {
+        "instrument_id": "EXAMPLE:PROVIDER-REGISTER",
+        "artifact_kind": "registry",
+        "publication_status": "published",
+        "normative_status": "informational"
+      },
+      "context": {
+        "use_case": "authorize a consequential service action",
+        "jurisdiction": "ZA-GP",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "registry membership authorizes the action",
+          "registry membership proves competence"
+        ]
+      },
+      "rationale": "Discovery and registry membership are evidence about the register's contents, not a blanket authorization grant.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-008",
+      "title": "IETF RFC 9943 is a versioned technical reference, not a universal authority",
+      "input_projection": {
+        "instrument_id": "IETF:RFC:9943",
+        "artifact_kind": "technical_specification",
+        "version": "RFC 9943 (June 2026)",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://datatracker.ietf.org/doc/rfc9943/"
+      },
+      "context": {
+        "use_case": "evaluate signed-statement transparency receipts",
+        "jurisdiction": "global",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "a valid transparency receipt proves the signed statement is true",
+          "RFC conformance grants legal authority"
+        ]
+      },
+      "rationale": "RFC 9943 describes a transparency architecture; transparency can make signed statements auditable but does not prevent dishonest or compromised issuers.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-009",
+      "title": "NIST SP 800-82 Revision 4 initial public draft must not be called final or robot-certified",
+      "input_projection": {
+        "instrument_id": "NIST:SP-800-82r4:IPD",
+        "artifact_kind": "guidance",
+        "version": "Revision 4 Initial Public Draft; 2026-09-21",
+        "publication_status": "draft",
+        "normative_status": "advisory",
+        "source_uri": "https://csrc.nist.gov/pubs/sp/800/82/r4/ipd"
+      },
+      "context": {
+        "use_case": "review OT cybersecurity controls for a proposed autonomous inspection robot at an essential-service facility",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "indeterminate",
+        "required_reason_codes": [
+          "draft_not_published"
+        ],
+        "forbidden_claims": [
+          "NIST SP 800-82 Revision 4 is a final publication",
+          "the draft automatically creates a binding South African legal obligation",
+          "catalogue or framework mapping proves the robot is secure or safe to operate",
+          "the reference satisfies a deployment-specific safety case"
+        ]
+      },
+      "rationale": "The source is a point-in-time initial public draft. OT guidance can inform a risk review, but publication state, local legal applicability, technical conformance, and a deployment-specific robot safety case are distinct.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-010",
+      "title": "UNODC crime-prevention guidance does not establish local legality or a robotics causal effect",
+      "input_projection": {
+        "instrument_id": "UNODC:E4J:CRIME-PREVENTION-MODULE-2",
+        "artifact_kind": "guidance",
+        "version": "Module 2 summary; 2019",
+        "publication_status": "published",
+        "normative_status": "advisory",
+        "source_uri": "https://www.unodc.org/e4j/en/crime-prevention-criminal-justice/module-2/key-issues/summary.html"
+      },
+      "context": {
+        "use_case": "choose a municipal intervention combining housing support, legitimate work pathways, and property-protection robots",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the educational guidance is itself binding law for this municipality",
+          "a general crime-prevention typology proves that security robots reduce crime",
+          "the source authorizes person-level risk scoring or automated enforcement"
+        ]
+      },
+      "rationale": "The source describes multiple prevention approaches. Local legal authority, intervention suitability, and causal efficacy require separate evidence and review.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-011",
+      "title": "NIJ employment–crime findings must not be generalized into a universal robot-economy effect",
+      "input_projection": {
+        "instrument_id": "NIJ:NCJ-214515-2006",
+        "artifact_kind": "other",
+        "version": "Final report; 2006",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://nij.ojp.gov/library/publications/labor-force-participation-labor-markets-and-crime-final-report"
+      },
+      "context": {
+        "use_case": "estimate crime outcomes for an automation and employment program in a South African municipality",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the historical U.S. study proves the local program will reduce crime",
+          "employment count alone establishes a causal effect",
+          "an urban-context finding necessarily generalizes to rural settings",
+          "the study qualifies autonomous robotics or Mycelix economic policy"
+        ]
+      },
+      "rationale": "This research source can motivate a hypothesis, but the reported association is context-dependent. Local evaluation needs a defined intervention, outcomes, baseline, and credible counterfactual.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-012",
+      "title": "Published industrial robot-cell standard must not be overgeneralized to a public-facing service or security robot",
+      "input_projection": {
+        "instrument_id": "ISO:10218-2:2025",
+        "artifact_kind": "standard",
+        "version": "Edition 2; 2025-02",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://www.iso.org/standard/73934.html"
+      },
+      "context": {
+        "use_case": "assess safety evidence for a public-facing municipal property-protection service robot",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "ISO 10218-2:2025 fully covers a public-access service robot",
+          "conformance to an industrial robot-cell standard proves this public-facing deployment is safe",
+          "the published standard establishes local legal permission for autonomous security intervention",
+          "industrial robot requirements apply universally to all service robots"
+        ]
+      },
+      "rationale": "The official ISO catalogue describes ISO 10218-2:2025 as covering industrial robot applications and robot cells and lists public-access service robots and law-enforcement applications among exclusions. The publication status and industrial scope must be preserved; a different robot category requires separate hazard, standards-applicability, legal, and operational review.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-013",
+      "title": "Stats SA national unemployment statistics must not be used as a local crime coefficient or individual propensity signal",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0211:QLFS:2026Q2",
+        "artifact_kind": "other",
+        "version": "QLFS Q2 2026; published 2026-08-11",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0211&SCH=74512&page_id=1856"
+      },
+      "context": {
+        "use_case": "decide whether the South African national unemployment statistic should calibrate a crime-prevention model or stand in for a Johannesburg service-area baseline",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the national unemployment statistic is a causal crime coefficient",
+          "the QLFS national estimate is a Johannesburg service-area baseline without local evidence",
+          "national unemployment statistics predict an individual's criminal propensity",
+          "the QLFS statistic validates the simulator's synthetic crime parameters"
+        ]
+      },
+      "rationale": "The QLFS is authoritative descriptive labour-market evidence for its target population and period. A model-specific causal estimate, local service-area baseline, and any individual inference are separate claims requiring different evidence and must not be fabricated from the national rate.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-014",
+      "title": "The ILO decent-work measurement framework does not establish universal numeric viability thresholds or crime effects",
+      "input_projection": {
+        "instrument_id": "ILO:DECENT-WORK-INDICATORS:2013",
+        "artifact_kind": "guidance",
+        "version": "Decent Work Indicators — Concepts and Definitions; published 2013-12-18",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.ilo.org/publications/decent-work-indicators-concepts-and-definitions"
+      },
+      "context": {
+        "use_case": "choose measures and thresholds for an aggregate lawful-alternative viability contract in South Africa",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the ILO framework establishes the prototype's universal 0.80 fair-pay adequacy threshold",
+          "the measurement framework is itself binding law for this service",
+          "decent-work indicators prove a causal reduction in crime",
+          "aggregate decent-work indicators authorize individual criminal-risk scoring"
+        ]
+      },
+      "rationale": "The ILO source helps structure a multidimensional measurement plan. Local legal duties, community-approved adequacy benchmarks, data operationalization, and causal claims require separate evidence and review.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-015",
+      "title": "Stats SA victimization and police-reporting measures must not be conflated with underlying harm",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0341:GPSJS:2024-25",
+        "artifact_kind": "other",
+        "version": "Governance, Public Safety and Justice Survey 2024/25; published 2025-08-26",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74041&page_id=1856"
+      },
+      "context": {
+        "use_case": "evaluate whether a decline in police-recorded incidents establishes a decline in victimization or a causal effect for an economic or robotics intervention",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-15T09:45:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "police-recorded incident counts measure all victimization",
+          "lower police-report counts alone prove fewer harmful incidents or a causal intervention effect",
+          "national offense-specific reporting proportions are a local service-area reporting rate without validation",
+          "the survey supplies a universal crime-effect coefficient or an individual risk signal"
+        ]
+      },
+      "rationale": "Stats SA's 2024/25 publication reports offense-specific reporting patterns: 43.4% of households that experienced housebreaking reported some or all incidents, while 31% of people experiencing personal theft reported some or all incidents. These differing proportions show why police counts and victimization are not interchangeable. The survey is national context; local measurement, reporting dynamics, denominator compatibility, and a credible counterfactual remain necessary for evaluation.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-016",
+      "title": "Latest GPSJS estimates require separating incident counts, affected households, and police reporting",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0341:GPSJS:2025-26",
+        "artifact_kind": "other",
+        "version": "GPSJS 2025/26 Victims of Crime Release; published 2026-09-01",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856"
+      },
+      "context": {
+        "use_case": "interpret year-over-year changes in household victimization and police reports without mixing counts, populations, and reporting processes",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-15T10:20:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the rise in reported-housebreaking proportion from 43.4% to 48.2% proves housebreaking incidents fell",
+          "fewer households experiencing housebreaking necessarily means fewer incidents when estimated incidents rose from 1.493 million to 1.549 million",
+          "national 2025/26 reporting proportions are Johannesburg intervention outcomes or local reporting rates without local validation",
+          "the descriptive survey trend is a causal crime-effect coefficient or an individual risk signal"
+        ]
+      },
+      "rationale": "Stats SA's latest 2025/26 release reports an estimated 1.549 million housebreaking incidents versus 1.493 million in 2024/25; households experiencing housebreaking fell from 1.123 million to 1.078 million; and households reporting some or all housebreaking incidents rose from 43.4% to 48.2%. These are distinct indicators with different denominators. Survey estimates need their definitions, sample design and precision limits preserved, and they do not establish an intervention effect or a Johannesburg baseline.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-017",
+      "title": "Survey response-rate and precision limits must gate year-over-year significance claims",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0341:GPSJS:2025-26:precision",
+        "artifact_kind": "dataset",
+        "version": "GPSJS 2025/26 Victims of Crime Release technical notes; published 2026-09-01",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856"
+      },
+      "context": {
+        "use_case": "interpret national and provincial year-over-year victimization estimates without overstating precision, significance, or local relevance",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-15T11:24:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the rise from 43.4% to 48.2% is statistically significant because rounded point estimates differ",
+          "Gauteng estimates are invalid solely because the province response rate was 76.97%",
+          "the 85.57% national response rate guarantees precision for every province or subgroup",
+          "the cited 80% minimum-acceptable response rate is a statistical-significance threshold or substitutes for estimate-specific confidence intervals",
+          "year-over-year survey point estimates prove that a local robotics or economic intervention caused a crime outcome",
+          "the 3% coefficient of variation for Table 41 household housebreaking experience is the precision estimate for the distinct 43.4% to 48.2% police-reporting proportion",
+          "the Table 41 prevalence estimates of 43.1% in 2024/25 and 46.0% in 2025/26, each with a 3% coefficient of variation, by themselves establish statistical significance",
+          "a 4.8 percentage-point difference between rounded police-reporting proportions is statistically significant without precision estimates for those reporting proportions"
+        ]
+      },
+      "rationale": "Stats SA's 2025/26 GPSJS technical notes report an 85.57% national household response rate, 76.97% for Gauteng, 73.72% for the City of Johannesburg, and 67.54% for the City of Tshwane; four geographic areas fell below the cited 80% minimum-acceptable level in Stats SA 019:2017 V2.00. These response rates are quality diagnostics, not significance tests and not proof that every estimate from a lower-response area is invalid. Before stating that a difference is statistically meaningful, preserve the indicator's definition and denominator, survey design and weighting, time comparability, geographic scope, and the published estimate-specific standard error, confidence interval, coefficient of variation, or other precision information where available. A city-level response rate is not itself an estimate-precision statistic. National descriptive survey changes do not establish a local baseline or causal intervention effect. Table 41's published precision figures are explicitly tracked as a different indicator: household housebreaking experience in the past 12 months was 43.1% (CV 3%) in 2024/25 and 46.0% (CV 3%) in 2025/26. Those CVs are not the precision estimate for the distinct share reporting housebreaking incidents to police (43.4% to 48.2%), and the CVs alone are not a test of the difference.",
+      "synthetic": false,
+      "survey_quality": {
+        "response_rate_percent": {
+          "national": 85.57,
+          "gauteng": 76.97,
+          "city_of_johannesburg": 73.72,
+          "city_of_tshwane": 67.54
+        },
+        "geographic_areas_below_80_percent_minimum_acceptable": 4,
+        "threshold_interpretation": "response_rate_quality_diagnostic_not_significance_test",
+        "requires_estimate_specific_precision_for_significance": true,
+        "requires_denominator_and_indicator_compatibility": true,
+        "requires_geographic_and_time_scope_match": true,
+        "requires_local_validation_for_intervention_transfer": true,
+        "accepted_precision_evidence": [
+          "standard_error",
+          "confidence_interval",
+          "coefficient_of_variation",
+          "design_effect_or_official_precision_note"
+        ],
+        "published_precision_examples": [
+          {
+            "release": "GPSJS 2024/25",
+            "table": "Table 41",
+            "indicator": "household_housebreaking_experience_past_12_months",
+            "estimate_percent": 43.1,
+            "coefficient_of_variation_percent": 3,
+            "source_uri": "https://www.statssa.gov.za/publications/P0341/P03412025.pdf"
+          },
+          {
+            "release": "GPSJS 2025/26",
+            "table": "Table 41",
+            "indicator": "household_housebreaking_experience_past_12_months",
+            "estimate_percent": 46,
+            "coefficient_of_variation_percent": 3,
+            "source_uri": "https://www.statssa.gov.za/publications/P0341/P03412026.pdf"
+          }
+        ],
+        "precision_scope_limits": {
+          "published_precision_indicator": "household_housebreaking_experience_past_12_months",
+          "distinct_reporting_indicator": "households_reporting_some_or_all_housebreaking_incidents_to_police",
+          "reporting_rate_change_percent_points": 4.8,
+          "table_41_prevalence_cv_is_precision_for_reporting_rate_change": false,
+          "coefficient_of_variation_alone_is_a_significance_test": false,
+          "year_over_year_significance_established": false
+        }
+      }
+    }
+  ]
+}
