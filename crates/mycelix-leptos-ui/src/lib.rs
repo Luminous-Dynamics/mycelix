@@ -84,7 +84,10 @@ pub mod data_table {
 
     impl Column {
         pub fn new(key: impl Into<String>, label: impl Into<String>) -> Self {
-            Self { key: key.into(), label: label.into() }
+            Self {
+                key: key.into(),
+                label: label.into(),
+            }
         }
     }
 
@@ -205,7 +208,11 @@ pub mod empty_state {
         #[prop(optional, into)] description: String,
         #[prop(optional)] action: Option<AnyView>,
     ) -> impl IntoView {
-        let icon = if icon.trim().is_empty() { "∅".to_owned() } else { icon };
+        let icon = if icon.trim().is_empty() {
+            "∅".to_owned()
+        } else {
+            icon
+        };
         view! {
             <section class="mycelix-empty-state" aria-live="polite">
                 <div class="mycelix-empty-state-icon" aria-hidden="true">{icon}</div>
@@ -224,10 +231,12 @@ pub mod loading {
 
     /// A small animated loading indicator with a non-color status label.
     #[component]
-    pub fn Spinner(
-        #[prop(optional, into)] label: String,
-    ) -> impl IntoView {
-        let label = if label.trim().is_empty() { "Loading".to_owned() } else { label };
+    pub fn Spinner(#[prop(optional, into)] label: String) -> impl IntoView {
+        let label = if label.trim().is_empty() {
+            "Loading".to_owned()
+        } else {
+            label
+        };
         view! {
             <span class="mycelix-spinner-wrap" role="status">
                 <span class="mycelix-spinner" aria-hidden="true"></span>
@@ -244,7 +253,11 @@ pub mod loading {
         #[prop(optional, into)] label: String,
     ) -> impl IntoView {
         let count = lines.unwrap_or(3).clamp(1, 12);
-        let label = if label.trim().is_empty() { "Loading content".to_owned() } else { label };
+        let label = if label.trim().is_empty() {
+            "Loading content".to_owned()
+        } else {
+            label
+        };
         view! {
             <div class="mycelix-skeleton-group" role="status" aria-label=label>
                 {(0..count).map(|index| {
@@ -282,7 +295,11 @@ pub mod progress_bar {
     ) -> impl IntoView {
         let maximum = max.unwrap_or(100.0);
         let percent = clamp_progress(value, maximum);
-        let text = if label.trim().is_empty() { "Progress".to_owned() } else { label };
+        let text = if label.trim().is_empty() {
+            "Progress".to_owned()
+        } else {
+            label
+        };
         view! {
             <div class="mycelix-progress-group">
                 <div class="mycelix-progress-label">
@@ -331,14 +348,21 @@ pub mod sovereign_radar {
         }
         let centre = 100.0_f64;
         let radius = 72.0_f64;
-        Some(scores.iter().enumerate().map(|(index, score)| {
-            let angle = -std::f64::consts::FRAC_PI_2
-                + index as f64 * std::f64::consts::TAU / 8.0;
-            let magnitude = score.clamp(0.0, 1.0) * radius;
-            let x = centre + angle.cos() * magnitude;
-            let y = centre + angle.sin() * magnitude;
-            format!("{x:.2},{y:.2}")
-        }).collect::<Vec<_>>().join(" "))
+        Some(
+            scores
+                .iter()
+                .enumerate()
+                .map(|(index, score)| {
+                    let angle =
+                        -std::f64::consts::FRAC_PI_2 + index as f64 * std::f64::consts::TAU / 8.0;
+                    let magnitude = score.clamp(0.0, 1.0) * radius;
+                    let x = centre + angle.cos() * magnitude;
+                    let y = centre + angle.sin() * magnitude;
+                    format!("{x:.2},{y:.2}")
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        )
     }
 
     /// Eight-axis profile radar. No scores are fabricated: without exactly
@@ -459,7 +483,10 @@ pub mod tabs {
 
     impl TabDefinition {
         pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
-            Self { id: id.into(), label: label.into() }
+            Self {
+                id: id.into(),
+                label: label.into(),
+            }
         }
     }
 
@@ -470,7 +497,11 @@ pub mod tabs {
         active: RwSignal<String>,
         #[prop(optional, into)] label: String,
     ) -> impl IntoView {
-        let aria_label = if label.trim().is_empty() { "Section tabs".to_owned() } else { label };
+        let aria_label = if label.trim().is_empty() {
+            "Section tabs".to_owned()
+        } else {
+            label
+        };
         view! {
             <div class="mycelix-tabs">
                 <div class="mycelix-tab-list" role="tablist" aria-label=aria_label>
@@ -496,11 +527,7 @@ pub mod tabs {
 
     /// A panel belongs to a selected-tab signal supplied by the parent.
     #[component]
-    pub fn TabPanel(
-        id: String,
-        active: RwSignal<String>,
-        children: Children,
-    ) -> impl IntoView {
+    pub fn TabPanel(id: String, active: RwSignal<String>, children: Children) -> impl IntoView {
         let content = children();
         view! {
             <section
@@ -574,7 +601,11 @@ pub mod toasts {
             let id = self.next_id.get_untracked();
             self.next_id.set(id.saturating_add(1));
             self.toasts.update(|items| {
-                items.push(Toast { id, message: message.into(), kind });
+                items.push(Toast {
+                    id,
+                    message: message.into(),
+                    kind,
+                });
                 if items.len() > 8 {
                     let overflow = items.len() - 8;
                     items.drain(0..overflow);
@@ -599,7 +630,8 @@ pub mod toasts {
         }
 
         pub fn dismiss(&self, id: u64) {
-            self.toasts.update(|items| items.retain(|toast| toast.id != id));
+            self.toasts
+                .update(|items| items.retain(|toast| toast.id != id));
         }
 
         pub fn clear(&self) {
@@ -759,10 +791,42 @@ mod tests {
 
     #[test]
     fn pagination_page_count_is_integer_and_bounded() {
-        assert_eq!(Pagination { page: 1, page_size: 10, total_items: 0 }.page_count(), 0);
-        assert_eq!(Pagination { page: 1, page_size: 10, total_items: 11 }.page_count(), 2);
-        assert_eq!(Pagination { page: 40, page_size: 10, total_items: 11 }.normalized_page(), 2);
-        assert_eq!(Pagination { page: 1, page_size: 0, total_items: 11 }.page_count(), 0);
+        assert_eq!(
+            Pagination {
+                page: 1,
+                page_size: 10,
+                total_items: 0
+            }
+            .page_count(),
+            0
+        );
+        assert_eq!(
+            Pagination {
+                page: 1,
+                page_size: 10,
+                total_items: 11
+            }
+            .page_count(),
+            2
+        );
+        assert_eq!(
+            Pagination {
+                page: 40,
+                page_size: 10,
+                total_items: 11
+            }
+            .normalized_page(),
+            2
+        );
+        assert_eq!(
+            Pagination {
+                page: 1,
+                page_size: 0,
+                total_items: 11
+            }
+            .page_count(),
+            0
+        );
     }
 
     #[test]
