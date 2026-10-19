@@ -152,6 +152,155 @@ impl TryFrom<&EncryptedBlobWire> for EncryptedBlob {
     }
 }
 
+/// Read-only summary of identity storage posture.
+///
+/// This type intentionally carries no key material, passphrase, mnemonic, or
+/// raw storage values. A posture is not a claim that the identity has been
+/// recovered, that its backup works, or that browser storage is tamper-proof.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalIdentityStoragePosture {
+    /// Browser storage could not be inspected. This is not the same as no identity.
+    StorageUnavailable,
+    /// No legacy, plaintext, public-key, or encrypted-key value was found.
+    NoIdentity,
+    /// Only a pre-cryptographic legacy DID label is present and needs migration.
+    LegacyIdentityNeedsMigration,
+    /// A structurally consistent plaintext Ed25519 keypair is stored at rest.
+    UnprotectedIdentity,
+    /// An encrypted key container and public key exist; this session has not unlocked it.
+    ProtectedLocked,
+    /// An encrypted key is present and its key is unlocked in this WASM session.
+    ProtectedUnlocked,
+    /// Stored key fields are malformed, incomplete, or contradictory.
+    CorruptOrInconsistent,
+}
+
+#[derive(Default)]
+struct IdentityStorageSnapshot {
+    storage_available: bool,
+    legacy_did: Option<String>,
+    secret_b64: Option<String>,
+    public_b64: Option<String>,
+    encrypted_wire: Option<String>,
+}
+
+/// Inspect browser identity storage without generating, unlocking, replacing,
+/// or writing any key material.
+///
+/// This must run before UI bootstrap code invokes provide_local_identity,
+/// local_did or ensure_keypair. Storage access errors fail closed as
+/// StorageUnavailable, never as no identity. For an encrypted identity, this
+/// checks the persisted envelope shape only; the ciphertext's authenticated
+/// integrity is verified when the user unlocks.
+pub fn inspect_local_identity_posture() -> LocalIdentityStoragePosture {
+    let snapshot = match read_identity_storage_snapshot() {
+        Ok(snapshot) => snapshot,
+        Err(()) => {
+            return LocalIdentityStoragePosture::StorageUnavailable;
+        }
+    };
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    if posture == LocalIdentityStoragePosture::ProtectedLocked
+        && UNLOCKED_KEY.with(|cell| cell.borrow().is_some())
+    {
+        LocalIdentityStoragePosture::ProtectedUnlocked
+    } else {
+        posture
+    }
+}
+
+fn read_identity_storage_snapshot() -> Result<IdentityStorageSnapshot, ()> {
+    let window = web_sys::window().ok_or(())?;
+    let storage = window.local_storage().map_err(|_| ())?.ok_or(())?;
+
+    Ok(IdentityStorageSnapshot {
+        storage_available: true,
+        legacy_did: storage.get_item(LEGACY_DID_KEY).map_err(|_| ())?,
+        secret_b64: storage.get_item(IDENTITY_SECRET_KEY).map_err(|_| ())?,
+        public_b64: storage.get_item(IDENTITY_PUBLIC_KEY).map_err(|_| ())?,
+        encrypted_wire: storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).map_err(|_| ())?,
+    })
+}
+
+fn classify_identity_storage_snapshot(
+    snapshot: &IdentityStorageSnapshot,
+) -> LocalIdentityStoragePosture {
+    if !snapshot.storage_available {
+        return LocalIdentityStoragePosture::StorageUnavailable;
+    }
+
+    if let Some(encrypted_wire) = snapshot.encrypted_wire.as_deref() {
+        // Protected storage must not leave a second plaintext copy of the key.
+        if snapshot.secret_b64.is_some() {
+            return LocalIdentityStoragePosture::CorruptOrInconsistent;
+        }
+        let public_key_is_well_formed = snapshot
+            .public_b64
+            .as_deref()
+            .and_then(base64_decode)
+            .is_some_and(|bytes| bytes.len() == 32);
+        if public_key_is_well_formed && encrypted_blob_is_structurally_valid(encrypted_wire) {
+            return LocalIdentityStoragePosture::ProtectedLocked;
+        }
+        return LocalIdentityStoragePosture::CorruptOrInconsistent;
+    }
+
+    match (
+        snapshot.secret_b64.as_deref(),
+        snapshot.public_b64.as_deref(),
+    ) {
+        (Some(secret_b64), Some(public_b64)) => {
+            if public_key_matches_secret(secret_b64, public_b64) {
+                LocalIdentityStoragePosture::UnprotectedIdentity
+            } else {
+                LocalIdentityStoragePosture::CorruptOrInconsistent
+            }
+        }
+        (None, None) => {
+            if snapshot
+                .legacy_did
+                .as_deref()
+                .is_some_and(|did| !did.trim().is_empty())
+            {
+                LocalIdentityStoragePosture::LegacyIdentityNeedsMigration
+            } else {
+                LocalIdentityStoragePosture::NoIdentity
+            }
+        }
+        // A lone public key or plaintext secret is not a usable identity.
+        _ => LocalIdentityStoragePosture::CorruptOrInconsistent,
+    }
+}
+
+fn public_key_matches_secret(secret_b64: &str, public_b64: &str) -> bool {
+    let Some(secret_bytes) = base64_decode(secret_b64) else {
+        return false;
+    };
+    let Ok(secret_array): Result<[u8; 32], _> = secret_bytes.try_into() else {
+        return false;
+    };
+    let Some(public_bytes) = base64_decode(public_b64) else {
+        return false;
+    };
+    if public_bytes.len() != 32 {
+        return false;
+    }
+    let signing_key = SigningKey::from_bytes(&secret_array);
+    public_bytes.as_slice() == signing_key.verifying_key().as_bytes()
+}
+
+fn encrypted_blob_is_structurally_valid(encoded: &str) -> bool {
+    let Ok(wire) = serde_json::from_str::<EncryptedBlobWire>(encoded) else {
+        return false;
+    };
+    let Ok(blob) = EncryptedBlob::try_from(&wire) else {
+        return false;
+    };
+    blob.salt.len() == identity_crypto::SALT_LEN
+        && blob.iv.len() == identity_crypto::IV_LEN
+        && blob.ciphertext.len() >= 16
+}
+
 /// Generate or retrieve the local agent DID.
 ///
 /// Backed by a real Ed25519 keypair (see module docs) — no longer a random
@@ -483,6 +632,121 @@ mod tests {
 
     /// `did_from_public_key` is pure and needs no browser: it should work
     /// identically on native and wasm32 targets.
+
+    fn snapshot(
+        legacy_did: Option<String>,
+        secret_b64: Option<String>,
+        public_b64: Option<String>,
+        encrypted_wire: Option<String>,
+    ) -> IdentityStorageSnapshot {
+        IdentityStorageSnapshot {
+            storage_available: true,
+            legacy_did,
+            secret_b64,
+            public_b64,
+            encrypted_wire,
+        }
+    }
+
+    fn valid_encrypted_wire() -> String {
+        let wire = EncryptedBlobWire {
+            salt_b64: base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            iv_b64: base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            ciphertext_b64: base64_encode(&[3u8; 48]),
+        };
+        serde_json::to_string(&wire).unwrap()
+    }
+
+    #[test]
+    fn unavailable_storage_is_not_classified_as_no_identity() {
+        let snapshot = IdentityStorageSnapshot::default();
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot),
+            LocalIdentityStoragePosture::StorageUnavailable
+        );
+    }
+
+    #[test]
+    fn empty_storage_and_legacy_identity_have_distinct_postures() {
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(None, None, None, None)),
+            LocalIdentityStoragePosture::NoIdentity
+        );
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(
+                Some("did:mycelix:legacy-demo".into()),
+                None,
+                None,
+                None,
+            )),
+            LocalIdentityStoragePosture::LegacyIdentityNeedsMigration
+        );
+    }
+
+    #[test]
+    fn consistent_plaintext_keypair_is_reported_as_unprotected() {
+        let key = SigningKey::from_bytes(&[7u8; 32]);
+        let posture = classify_identity_storage_snapshot(&snapshot(
+            None,
+            Some(base64_encode(key.as_bytes())),
+            Some(base64_encode(key.verifying_key().as_bytes())),
+            None,
+        ));
+        assert_eq!(posture, LocalIdentityStoragePosture::UnprotectedIdentity);
+    }
+
+    #[test]
+    fn mismatched_or_partial_plaintext_key_material_is_corrupt() {
+        let first = SigningKey::from_bytes(&[7u8; 32]);
+        let second = SigningKey::from_bytes(&[8u8; 32]);
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(
+                None,
+                Some(base64_encode(first.as_bytes())),
+                Some(base64_encode(second.verifying_key().as_bytes())),
+                None,
+            )),
+            LocalIdentityStoragePosture::CorruptOrInconsistent
+        );
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(
+                None,
+                Some(base64_encode(first.as_bytes())),
+                None,
+                None,
+            )),
+            LocalIdentityStoragePosture::CorruptOrInconsistent
+        );
+    }
+
+    #[test]
+    fn well_formed_encrypted_container_is_protected_but_not_yet_authenticated() {
+        let public_key = SigningKey::from_bytes(&[9u8; 32]).verifying_key();
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(
+                None,
+                None,
+                Some(base64_encode(public_key.as_bytes())),
+                Some(valid_encrypted_wire()),
+            )),
+            LocalIdentityStoragePosture::ProtectedLocked
+        );
+    }
+
+    #[test]
+    fn plaintext_secret_next_to_encrypted_container_is_inconsistent() {
+        let key = SigningKey::from_bytes(&[10u8; 32]);
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(
+                None,
+                Some(base64_encode(key.as_bytes())),
+                Some(base64_encode(key.verifying_key().as_bytes())),
+                Some(valid_encrypted_wire()),
+            )),
+            LocalIdentityStoragePosture::CorruptOrInconsistent
+        );
+    }
+
     #[test]
     fn did_derivation_matches_pubkey_hex() {
         let seed = [7u8; 32];
