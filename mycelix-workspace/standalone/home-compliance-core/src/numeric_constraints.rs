@@ -718,6 +718,89 @@ mod tests {
     }
 
     #[test]
+    fn interval_boundary_truth_table_matches_inclusive_exclusive_semantics() {
+        for lower_value in -2_i64..=2 {
+            for lower_operator in [
+                NumericConstraintOperator::AtLeast,
+                NumericConstraintOperator::GreaterThan,
+            ] {
+                for upper_value in -2_i64..=2 {
+                    for upper_operator in [
+                        NumericConstraintOperator::AtMost,
+                        NumericConstraintOperator::LessThan,
+                    ] {
+                        let assertions = vec![
+                            assertion(
+                                "lower",
+                                "lower:bound",
+                                "clearance",
+                                CanonicalQuantityKind::LengthMetres,
+                                lower_operator,
+                                lower_value,
+                            ),
+                            assertion(
+                                "upper",
+                                "upper:bound",
+                                "clearance",
+                                CanonicalQuantityKind::LengthMetres,
+                                upper_operator,
+                                upper_value,
+                            ),
+                        ];
+                        let expected_conflict = lower_value > upper_value
+                            || (lower_value == upper_value
+                                && (lower_operator == NumericConstraintOperator::GreaterThan
+                                    || upper_operator == NumericConstraintOperator::LessThan));
+                        let result =
+                            compose_conjunctive_numeric_constraints(&assertions).unwrap();
+                        assert_eq!(
+                            !result.conflicts.is_empty(),
+                            expected_conflict,
+                            "lower=({lower_operator:?}, {lower_value}), upper=({upper_operator:?}, {upper_value})"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn assertion_order_does_not_change_intersection_or_provenance() {
+        let assertions = vec![
+            assertion(
+                "national",
+                "national:min",
+                "door.clear_width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                800_000,
+            ),
+            assertion(
+                "municipal",
+                "municipal:min",
+                "door.clear_width",
+                CanonicalQuantityKind::GreaterThan,
+                NumericConstraintOperator::AtLeast,
+                900_000,
+            ),
+            assertion(
+                "accessibility",
+                "accessibility:max",
+                "door.clear_width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtMost,
+                1_200_000,
+            ),
+        ];
+        let forward = compose_conjunctive_numeric_constraints(&assertions).unwrap();
+        let reverse = compose_conjunctive_numeric_constraints(
+            &assertions.iter().cloned().rev().collect::<Vec<_>>(),
+        )
+        .unwrap();
+        assert_eq!(forward, reverse);
+    }
+
+    #[test]
     fn non_applicable_sources_block_numeric_composition() {
         let mut item = assertion(
             "a",
