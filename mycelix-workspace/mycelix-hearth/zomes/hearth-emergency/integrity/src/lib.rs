@@ -8,7 +8,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -123,26 +123,46 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
+        FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::EmergencyPlan(plan) => validate_plan(&plan),
-            EntryTypes::EmergencyAlert(alert) => validate_alert(&alert),
-            EntryTypes::SafetyCheckIn(checkin) => validate_checkin(&checkin),
+            EntryTypes::EmergencyAlert(alert) => {
+                let result = check_claimed_agent_match(
+                    &alert.reporter,
+                    action.author(),
+                    "EmergencyAlert.reporter",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_alert(&alert)
+            }
+            EntryTypes::SafetyCheckIn(checkin) => {
+                let result = check_claimed_agent_match(
+                    &checkin.member,
+                    action.author(),
+                    "SafetyCheckIn.member",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_checkin(&checkin)
+            },
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+        FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
-            original_action_hash,
+            action,
             ..
         }) => match app_entry {
             EntryTypes::EmergencyPlan(plan) => {
                 validate_plan(&plan)?;
-                validate_plan_immutable_fields(&plan, &original_action_hash)
+                validate_plan_immutable_fields(&plan, &action.original_action_address)
             }
             EntryTypes::EmergencyAlert(alert) => {
                 validate_alert(&alert)?;
-                validate_alert_immutable_fields(&alert, &original_action_hash)
+                validate_alert_immutable_fields(&alert, &action.original_action_address)
             }
             EntryTypes::SafetyCheckIn(_) => {
                 // INVARIANT: SafetyCheckIn immutability — check-ins are point-in-time
@@ -152,52 +172,43 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ))
             }
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
-            if tag.0.len() > 512 {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
+            if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { tag, action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::Link(link @ OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+            let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            if tag.0.len() > 512 {
+            if link.tag().0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Emergency entries cannot be deleted once created".into(),
         )),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }

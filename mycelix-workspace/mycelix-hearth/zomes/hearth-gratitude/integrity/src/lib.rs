@@ -7,7 +7,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -111,18 +111,27 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::GratitudeExpression(expr) => validate_gratitude(action, expr),
-                EntryTypes::AppreciationCircle(circle) => validate_circle(action, circle),
-                EntryTypes::GratitudeAnchor(anchor) => validate_anchor(action, anchor),
+                EntryTypes::GratitudeExpression(expr) => {
+                    let result = check_claimed_agent_match(
+                        &expr.from_agent,
+                        action.author(),
+                        "GratitudeExpression.from_agent",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_gratitude(expr)
+                },
+                EntryTypes::AppreciationCircle(circle) => validate_circle(circle),
+                EntryTypes::GratitudeAnchor(anchor) => validate_anchor(anchor),
             },
             OpEntry::UpdateEntry {
-                app_entry,
-                action: _,
-                original_action_hash: _,
-                original_entry_hash: _,
-            } => match app_entry {
+            app_entry,
+            action: _,
+            ..
+        } => match app_entry {
                 EntryTypes::GratitudeExpression(_) => {
                     // Gratitude expressions are immutable once created.
                     Ok(ValidateCallbackResult::Invalid(
@@ -134,51 +143,40 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(link_type, &action.data.tag)
+        }
+        FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => validate_create_link(link_type, &tag),
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            tag,
             action,
+            original_action,
             ..
-        } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        }) => {
+            let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            validate_delete_link(link_type, &tag)
+            validate_delete_link(link_type, &link.tag())
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Gratitude expressions cannot be deleted once created".into(),
         )),
     }
 }
 
 fn validate_gratitude(
-    _action: Create,
+
     expr: GratitudeExpression,
 ) -> ExternResult<ValidateCallbackResult> {
     if expr.message.is_empty() {
@@ -200,7 +198,7 @@ fn validate_gratitude(
 }
 
 fn validate_circle(
-    _action: Create,
+
     circle: AppreciationCircle,
 ) -> ExternResult<ValidateCallbackResult> {
     if circle.theme.is_empty() {
@@ -251,7 +249,7 @@ fn validate_circle_update(circle: AppreciationCircle) -> ExternResult<ValidateCa
 }
 
 fn validate_anchor(
-    _action: Create,
+
     anchor: GratitudeAnchor,
 ) -> ExternResult<ValidateCallbackResult> {
     // Check that total counts don't overflow when summed.
@@ -345,22 +343,6 @@ mod tests {
         Timestamp::from_micros(1_000_000)
     }
 
-    fn valid_create_action() -> Create {
-        Create {
-            author: agent_a(),
-            timestamp: valid_timestamp(),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0xAC; 36]),
-            entry_type: EntryType::App(AppEntryDef {
-                entry_index: 0.into(),
-                zome_index: 0.into(),
-                visibility: EntryVisibility::Public,
-            }),
-            entry_hash: EntryHash::from_raw_36(vec![0xAD; 36]),
-            weight: Default::default(),
-        }
-    }
-
     fn valid_gratitude() -> GratitudeExpression {
         GratitudeExpression {
             hearth_hash: valid_action_hash(),
@@ -399,8 +381,7 @@ mod tests {
     #[test]
     fn test_valid_gratitude_expression() {
         let expr = valid_gratitude();
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -408,8 +389,7 @@ mod tests {
     fn test_gratitude_empty_message_rejected() {
         let mut expr = valid_gratitude();
         expr.message = "".to_string();
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Gratitude message cannot be empty");
@@ -422,8 +402,7 @@ mod tests {
     fn test_gratitude_message_one_char() {
         let mut expr = valid_gratitude();
         expr.message = "T".to_string();
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -431,8 +410,7 @@ mod tests {
     fn test_gratitude_message_at_max() {
         let mut expr = valid_gratitude();
         expr.message = "a".repeat(2048);
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -440,8 +418,7 @@ mod tests {
     fn test_gratitude_message_exceeds_max_rejected() {
         let mut expr = valid_gratitude();
         expr.message = "a".repeat(2049);
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Gratitude message must be <= 2048 characters");
@@ -454,8 +431,7 @@ mod tests {
     fn test_gratitude_self_expression_rejected() {
         let mut expr = valid_gratitude();
         expr.to_agent = expr.from_agent.clone();
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Cannot express gratitude to yourself");
@@ -476,8 +452,7 @@ mod tests {
         for gt in types {
             let mut expr = valid_gratitude();
             expr.gratitude_type = gt;
-            let action = valid_create_action();
-            let result = validate_gratitude(action, expr).unwrap();
+                let result = validate_gratitude(expr).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -486,8 +461,7 @@ mod tests {
     fn test_gratitude_unicode_message() {
         let mut expr = valid_gratitude();
         expr.message = "Merci beaucoup pour votre aide!".to_string();
-        let action = valid_create_action();
-        let result = validate_gratitude(action, expr).unwrap();
+        let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -496,8 +470,7 @@ mod tests {
     #[test]
     fn test_valid_circle() {
         let circle = valid_circle();
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -505,8 +478,7 @@ mod tests {
     fn test_circle_empty_theme_rejected() {
         let mut circle = valid_circle();
         circle.theme = "".to_string();
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Circle theme cannot be empty");
@@ -519,8 +491,7 @@ mod tests {
     fn test_circle_theme_one_char() {
         let mut circle = valid_circle();
         circle.theme = "G".to_string();
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -528,8 +499,7 @@ mod tests {
     fn test_circle_theme_at_max() {
         let mut circle = valid_circle();
         circle.theme = "a".repeat(256);
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -537,8 +507,7 @@ mod tests {
     fn test_circle_theme_exceeds_max_rejected() {
         let mut circle = valid_circle();
         circle.theme = "a".repeat(257);
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Circle theme must be <= 256 characters");
@@ -551,8 +520,7 @@ mod tests {
     fn test_circle_too_few_participants_rejected() {
         let mut circle = valid_circle();
         circle.participants = vec![agent_a()];
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Circle must have at least 2 participants");
@@ -565,8 +533,7 @@ mod tests {
     fn test_circle_zero_participants_rejected() {
         let mut circle = valid_circle();
         circle.participants = vec![];
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Circle must have at least 2 participants");
@@ -581,8 +548,7 @@ mod tests {
         circle.participants = (0..51)
             .map(|i| AgentPubKey::from_raw_36(vec![i as u8; 36]))
             .collect();
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Circle cannot have more than 50 participants");
@@ -597,8 +563,7 @@ mod tests {
         circle.participants = (0..50)
             .map(|i| AgentPubKey::from_raw_36(vec![i as u8; 36]))
             .collect();
-        let action = valid_create_action();
-        let result = validate_circle(action, circle).unwrap();
+        let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -612,8 +577,7 @@ mod tests {
         for status in statuses {
             let mut circle = valid_circle();
             circle.status = status;
-            let action = valid_create_action();
-            let result = validate_circle(action, circle).unwrap();
+                let result = validate_circle(circle).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -623,8 +587,7 @@ mod tests {
     #[test]
     fn test_valid_anchor() {
         let anchor = valid_anchor();
-        let action = valid_create_action();
-        let result = validate_anchor(action, anchor).unwrap();
+        let result = validate_anchor(anchor).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -634,8 +597,7 @@ mod tests {
         anchor.total_given = 0;
         anchor.total_received = 0;
         anchor.current_streak_days = 0;
-        let action = valid_create_action();
-        let result = validate_anchor(action, anchor).unwrap();
+        let result = validate_anchor(anchor).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -644,8 +606,7 @@ mod tests {
         let mut anchor = valid_anchor();
         anchor.total_given = u32::MAX;
         anchor.total_received = 1;
-        let action = valid_create_action();
-        let result = validate_anchor(action, anchor).unwrap();
+        let result = validate_anchor(anchor).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Gratitude anchor total counts would overflow");
@@ -659,8 +620,7 @@ mod tests {
         let mut anchor = valid_anchor();
         anchor.total_given = u32::MAX;
         anchor.total_received = 0;
-        let action = valid_create_action();
-        let result = validate_anchor(action, anchor).unwrap();
+        let result = validate_anchor(anchor).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
