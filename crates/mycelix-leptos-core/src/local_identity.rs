@@ -318,7 +318,7 @@ fn encrypted_blob_is_structurally_valid(encoded: &str) -> bool {
     };
     blob.salt.len() == identity_crypto::SALT_LEN
         && blob.iv.len() == identity_crypto::IV_LEN
-        && blob.ciphertext.len() >= 16
+        && blob.ciphertext.len() == 48
 }
 
 /// Generate or retrieve the local agent DID.
@@ -766,6 +766,26 @@ mod tests {
                 Some(valid_encrypted_wire()),
             )),
             LocalIdentityStoragePosture::ProtectedLocked
+        );
+    }
+
+    #[test]
+    fn encrypted_container_with_wrong_ciphertext_length_is_corrupt() {
+        let key = SigningKey::from_bytes(&[11u8; 32]);
+        let malformed_wire = serde_json::to_string(&EncryptedBlobWire {
+            salt_b64: base64_encode(&[1u8; identity_crypto::SALT_LEN]),
+            iv_b64: base64_encode(&[2u8; identity_crypto::IV_LEN]),
+            ciphertext_b64: base64_encode(&[3u8; 47]),
+        })
+        .unwrap();
+        assert_eq!(
+            classify_identity_storage_snapshot(&snapshot(
+                None,
+                None,
+                Some(base64_encode(key.verifying_key().as_bytes())),
+                Some(malformed_wire),
+            )),
+            LocalIdentityStoragePosture::CorruptOrInconsistent
         );
     }
 
