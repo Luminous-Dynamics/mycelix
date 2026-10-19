@@ -39,6 +39,7 @@ pub fn FormField(
     #[prop(optional)] required: bool,
     children: Children,
 ) -> impl IntoView {
+    let error = error.filter(|message| !message.trim().is_empty());
     let invalid = error.is_some();
     let error_id = if invalid {
         id.as_ref().map(|field_id| format!("{field_id}-error"))
