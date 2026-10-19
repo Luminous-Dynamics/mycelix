@@ -1293,4 +1293,3 @@ mod source_empty_message_tests {
         assert!(!unsupported.contains("returned no records"));
     }
 }
-
