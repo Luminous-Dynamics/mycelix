@@ -361,6 +361,7 @@ fn VaultPage() -> impl IntoView {
                 <VaultStat label="Credentials" value=move || ctx.credentials.get().len().to_string() />
                 <VaultStat label=move || format!("Active {} consents", symbols.get().hearth_alias.to_lowercase()) value=move || active_consents.get().to_string() />
                 <VaultStat label="Health records" value=move || ctx.health_record_count.get().to_string() />
+                <VaultStat label="Revoked credentials" value=move || revoked_credentials.get().to_string() />
                 <VaultStat label=move || format!("{} status", symbols.get().mycel_alias) value=move || "Resonant".to_string() />
             </div>
 
@@ -789,7 +790,7 @@ fn SectionTitle(title: &'static str) -> impl IntoView {
 #[component]
 fn VaultStat<F>(#[prop(into)] label: TextProp, value: F) -> impl IntoView
 where
-    F: Fn() -> String + 'static,
+    F: Fn() -> String + Send + Sync + 'static,
 {
     view! {
         <div class="vault-stat">
