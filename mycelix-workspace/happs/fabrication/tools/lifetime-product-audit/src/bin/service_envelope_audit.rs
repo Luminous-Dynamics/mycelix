@@ -176,6 +176,20 @@ fn audit_record_semantics(record: &Value) -> Vec<String> {
                 issues.push(format!("SOURCE_ID_DUPLICATE:{id}"));
             }
             let state = source.get("evidence_state").and_then(Value::as_str).unwrap_or("unknown");
+            let source_type = source.get("source_type").and_then(Value::as_str).unwrap_or("unknown");
+            let source_type_matches_state = match state {
+                "assumption" => source_type == "assumption",
+                "synthetic" => source_type == "synthetic_fixture",
+                "measured" => source_type == "measurement_report",
+                "approved" => matches!(
+                    source_type,
+                    "supplier_cad" | "controlled_drawing" | "measurement_report"
+                ),
+                _ => false,
+            };
+            if !source_type_matches_state {
+                issues.push(format!("SOURCE_TYPE_STATE_MISMATCH:{id}"));
+            }
             let digest_valid = source
                 .get("digest_sha256")
                 .and_then(Value::as_str)
@@ -191,6 +205,28 @@ fn audit_record_semantics(record: &Value) -> Vec<String> {
         }
     } else {
         issues.push("SOURCES_MISSING".to_string());
+    }
+
+    let obstacle_inventory_state = record
+        .get("obstacle_inventory_state")
+        .and_then(Value::as_str)
+        .unwrap_or("incomplete");
+    if matches!(record_state, "screening" | "measured")
+        && obstacle_inventory_state != "reviewed"
+    {
+        issues.push("OBSTACLE_INVENTORY_NOT_REVIEWED".to_string());
+    }
+    if obstacle_inventory_state == "reviewed"
+        && !sources.values().any(|source| {
+            let state = source.get("evidence_state").and_then(Value::as_str).unwrap_or("");
+            let digest_valid = source
+                .get("digest_sha256")
+                .and_then(Value::as_str)
+                .is_some_and(is_sha256_hex);
+            matches!(state, "measured" | "approved") && digest_valid
+        })
+    {
+        issues.push("OBSTACLE_INVENTORY_REVIEW_EVIDENCE_MISSING".to_string());
     }
 
     let reference_frame = record
@@ -629,5 +665,35 @@ mod tests {
             }
         });
         assert!(evaluate_scenario(&malformed).is_none());
+    }
+
+    #[test]
+    fn source_type_cannot_claim_a_stronger_evidence_state() {
+        let mut record = example_record();
+        record["sources"][0]["evidence_state"] = json!("approved");
+        record["sources"][0]["digest_sha256"] = json!(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
+        assert!(audit_record_semantics(&record)
+            .iter()
+            .any(|issue| issue == "SOURCE_TYPE_STATE_MISMATCH:SRC-CONCEPT-001"));
+    }
+
+    #[test]
+    fn screening_requires_a_reviewed_obstacle_inventory() {
+        let mut record = example_record();
+        record["record_state"] = json!("screening");
+        assert!(audit_record_semantics(&record)
+            .iter()
+            .any(|issue| issue == "OBSTACLE_INVENTORY_NOT_REVIEWED"));
+    }
+
+    #[test]
+    fn reviewed_obstacle_inventory_requires_digest_bound_evidence() {
+        let mut record = example_record();
+        record["obstacle_inventory_state"] = json!("reviewed");
+        assert!(audit_record_semantics(&record)
+            .iter()
+            .any(|issue| issue == "OBSTACLE_INVENTORY_REVIEW_EVIDENCE_MISSING"));
     }
 }
