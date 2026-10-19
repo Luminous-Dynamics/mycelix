@@ -474,7 +474,7 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
         let expected = scenario.get("expected_outcome").and_then(Value::as_str).unwrap_or("");
         if !title_ok || !category_ok || !setup_ok || !assertions_ok || !VALID_OUTCOMES.contains(&expected) {
             push_issue(
-                issues, "error", "BENCHMARK_SCENARIO_SHAPE_INVALID", &path,
+                issues, "error", "BENCHMARK_SCENARIO_SHAPE_INVALID", path.clone(),
                 "Scenario must include a title, category, object setup, valid expected outcome, and non-empty string required_assertions.",
             );
             continue;
