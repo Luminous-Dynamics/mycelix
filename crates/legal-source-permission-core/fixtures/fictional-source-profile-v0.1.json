@@ -12,7 +12,7 @@
   "terms": {
     "terms_ref": "urn:fictional:publisher-terms:v1",
     "terms_version": "v1",
-    "terms_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "terms_sha256": "cea449e48f0d450c6f64ca4c7f6f6da5c8d5bbe4d7f51e566255c02215ea677e",
     "review_status": "verified",
     "verified_at_utc": "2026-10-18T10:00:00Z",
     "valid_from_utc": "2026-01-01T00:00:00Z",
