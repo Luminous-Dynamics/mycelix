@@ -801,9 +801,9 @@ fn source_state_summary(state: SourceReadState) -> String {
             "Live read confirmed no records at {}.",
             format_relative_micros(checked_at)
         ),
-        SourceReadState::Unavailable { reason } => format!(
-            "Unavailable ({reason:?}); this does not confirm that records are absent."
-        ),
+        SourceReadState::Unavailable { reason } => {
+            format!("Unavailable ({reason:?}); this does not confirm that records are absent.")
+        }
         SourceReadState::Stale {
             last_successful_read_at: Some(checked_at),
         } => format!(
