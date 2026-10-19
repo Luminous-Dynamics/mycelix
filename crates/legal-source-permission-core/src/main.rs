@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use std::{env, fs, process};
 
 const PROFILE_FIXTURE: &str = include_str!("../fixtures/fictional-source-profile-v0.1.json");
+const FICTIONAL_TERMS: &str = include_str!("../fixtures/fictional-publisher-terms-v1.txt");
 const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -752,6 +753,15 @@ mod tests {
 
     fn admission(request: &SourceUseRequest) -> DecisionResult {
         evaluate(&profile(), request)
+    }
+
+    #[test]
+    fn approved_terms_digest_matches_exact_fictional_terms_bytes() {
+        let profile = profile();
+        assert_eq!(
+            profile.terms.terms_sha256.as_deref(),
+            Some(sha256_hex(FICTIONAL_TERMS.as_bytes()).as_str())
+        );
     }
 
     #[test]
