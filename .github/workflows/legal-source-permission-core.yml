@@ -1,0 +1,69 @@
+name: Legal Source Permission Core
+
+on:
+  pull_request:
+    paths:
+      - "crates/legal-source-permission-core/**"
+      - ".github/workflows/legal-source-permission-core.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/legal-source-permission-core/**"
+      - ".github/workflows/legal-source-permission-core.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legal-source-permission-core-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Operation-Scoped Permission Admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/legal-source-permission-core/Cargo.toml -- --check
+
+      - name: Unit tests
+        run: cargo test --manifest-path crates/legal-source-permission-core/Cargo.toml
+
+      - name: Validate fictional permission profile
+        run: cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- validate crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json
+
+      - name: Explicit permission admits matching evaluation request
+        run: |
+          cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- check crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json crates/legal-source-permission-core/fixtures/benchmark-evaluation-allowed-v0.1.json > "$RUNNER_TEMP/allowed.json"
+          jq -e '.admission_decision == "admitted" and .reason_code == "operation_explicitly_permitted_within_scope" and .expected_terms_sha256 == .observed_terms_sha256 and .expected_source_sha256 == .observed_source_sha256 and (.profile_sha256 | test("^[a-f0-9]{64}$")) and (.request_sha256 | test("^[a-f0-9]{64}$"))' "$RUNNER_TEMP/allowed.json"
+
+      - name: Explicit cache denial blocks request
+        run: |
+          cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- check crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json crates/legal-source-permission-core/fixtures/cache-denied-v0.1.json > "$RUNNER_TEMP/denied.json"
+          jq -e '.admission_decision == "denied" and .reason_code == "operation_explicitly_denied"' "$RUNNER_TEMP/denied.json"
+
+      - name: Unknown indexing permission remains unknown
+        run: |
+          cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- check crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json crates/legal-source-permission-core/fixtures/indexing-unknown-v0.1.json > "$RUNNER_TEMP/unknown.json"
+          jq -e '.admission_decision == "unknown"' "$RUNNER_TEMP/unknown.json"
+
+      - name: Retention limit blocks extended storage
+        run: |
+          cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- check crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json crates/legal-source-permission-core/fixtures/retrieval-retention-exceeded-v0.1.json > "$RUNNER_TEMP/retention.json"
+          jq -e '.admission_decision == "denied" and .reason_code == "requested_retention_exceeds_grant_limit"' "$RUNNER_TEMP/retention.json"
+
+      - name: Terms digest mismatch requires review
+        run: |
+          cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- check crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json crates/legal-source-permission-core/fixtures/benchmark-terms-mismatch-v0.1.json > "$RUNNER_TEMP/terms.json"
+          jq -e '.admission_decision == "unknown" and .reason_code == "terms_digest_mismatch_requires_rereview"' "$RUNNER_TEMP/terms.json"

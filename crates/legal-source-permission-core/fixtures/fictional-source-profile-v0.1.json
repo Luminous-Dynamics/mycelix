@@ -1,0 +1,315 @@
+{
+  "schema_version": "0.1.0",
+  "profile_id": "fictional-source-profile-001",
+  "profile_status": "approved",
+  "source": {
+    "publisher_id": "fictional-publisher",
+    "canonical_ref": "urn:fictional:law-corpus:collection-1",
+    "component_id": "fictional-case-law-collection",
+    "version_id": "snapshot-2026-10",
+    "content_sha256": "9c1f088251bc0d9e796a3ff5e190df6d9f5b062c1868170df94a1f26981c1724"
+  },
+  "terms": {
+    "terms_ref": "urn:fictional:publisher-terms:v1",
+    "terms_version": "v1",
+    "terms_sha256": "cea449e48f0d450c6f64ca4c7f6f6da5c8d5bbe4d7f51e566255c02215ea677e",
+    "review_status": "verified",
+    "verified_at_utc": "2026-10-18T10:00:00Z",
+    "valid_from_utc": "2026-01-01T00:00:00Z",
+    "valid_until_utc": "2027-01-01T00:00:00Z"
+  },
+  "reviewer": {
+    "reviewer_ref": "synthetic-reviewer:contract-fixture",
+    "reviewer_basis": "Original fictional benchmark fixture only; not a real-world legal opinion.",
+    "decision": "approved",
+    "reviewed_at_utc": "2026-10-18T10:30:00Z"
+  },
+  "operations": [
+    {
+      "grant_id": "grant-manual-access",
+      "operation": "manual_access",
+      "decision": "allowed",
+      "purposes": [
+        "manual_legal_research"
+      ],
+      "actor_classes": [
+        "human_researcher"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:manual-access",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Synthetic-only manual access grant."
+    },
+    {
+      "grant_id": "grant-automated-retrieval",
+      "operation": "automated_retrieval",
+      "decision": "allowed",
+      "purposes": [
+        "automated_legal_research"
+      ],
+      "actor_classes": [
+        "automated_service"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 30,
+      "evidence_refs": [
+        "urn:fictional:review-record:retrieval",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Synthetic-only retrieval with a 30-second retention cap."
+    },
+    {
+      "grant_id": "grant-temporary-processing",
+      "operation": "temporary_processing",
+      "decision": "allowed",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "internal_reviewer"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:temporary-processing",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Ephemeral processing for the fictional benchmark only."
+    },
+    {
+      "grant_id": "grant-cache",
+      "operation": "cache",
+      "decision": "denied",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "automated_service"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:cache-denial",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Caching is explicitly denied in this synthetic profile."
+    },
+    {
+      "grant_id": "grant-full-text-indexing",
+      "operation": "full_text_indexing",
+      "decision": "unknown",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "internal_reviewer"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:indexing-unknown",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Permission for full-text indexing has not been established."
+    },
+    {
+      "grant_id": "grant-embedding-generation",
+      "operation": "embedding_generation",
+      "decision": "denied",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "automated_service"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:embeddings-denied",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Embedding generation is explicitly denied in this synthetic profile."
+    },
+    {
+      "grant_id": "grant-summarization",
+      "operation": "summarization",
+      "decision": "allowed",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "internal_reviewer"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:summarization",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Ephemeral summarization for the fictional benchmark only."
+    },
+    {
+      "grant_id": "grant-model-training",
+      "operation": "model_training",
+      "decision": "denied",
+      "purposes": [
+        "model_training"
+      ],
+      "actor_classes": [
+        "automated_service"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:training-denied",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Model training is explicitly denied in this synthetic profile."
+    },
+    {
+      "grant_id": "grant-model-fine-tuning",
+      "operation": "model_fine_tuning",
+      "decision": "denied",
+      "purposes": [
+        "model_training"
+      ],
+      "actor_classes": [
+        "automated_service"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:fine-tuning-denied",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Model fine-tuning is explicitly denied in this synthetic profile."
+    },
+    {
+      "grant_id": "grant-benchmark-evaluation",
+      "operation": "benchmark_evaluation",
+      "decision": "allowed",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "internal_reviewer"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:benchmark-evaluation",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Evaluation is allowed only for the fictional benchmark and listed actor/territory."
+    },
+    {
+      "grant_id": "grant-quote-display",
+      "operation": "quote_display",
+      "decision": "allowed",
+      "purposes": [
+        "internal_audit"
+      ],
+      "actor_classes": [
+        "internal_reviewer"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:quote-display",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Quote display is limited to internal audit in the synthetic fixture."
+    },
+    {
+      "grant_id": "grant-redistribution",
+      "operation": "redistribution",
+      "decision": "denied",
+      "purposes": [
+        "redistribution"
+      ],
+      "actor_classes": [
+        "public_user"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:redistribution-denied",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Redistribution is explicitly denied in this synthetic profile."
+    },
+    {
+      "grant_id": "grant-metadata-processing",
+      "operation": "metadata_processing",
+      "decision": "unknown",
+      "purposes": [
+        "benchmark_evaluation"
+      ],
+      "actor_classes": [
+        "internal_reviewer"
+      ],
+      "territories": [
+        "ZA"
+      ],
+      "valid_from_utc": "2026-01-01T00:00:00Z",
+      "valid_until_utc": "2027-01-01T00:00:00Z",
+      "max_retention_seconds": 0,
+      "evidence_refs": [
+        "urn:fictional:review-record:metadata-unknown",
+        "urn:fictional:publisher-terms:v1"
+      ],
+      "rationale": "Metadata processing has not been independently permitted."
+    }
+  ]
+}
