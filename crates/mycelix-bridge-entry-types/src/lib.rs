@@ -663,8 +663,7 @@ pub fn validate_query_fields(
     if query.params.len() > 8192 {
         return Err("Parameters must be 8192 characters or fewer".into());
     }
-    if !query.params.is_empty()
-        && serde_json::from_str::<serde_json::Value>(&query.params).is_err()
+    if !query.params.is_empty() && serde_json::from_str::<serde_json::Value>(&query.params).is_err()
     {
         return Err("Parameters must be valid JSON".into());
     }
