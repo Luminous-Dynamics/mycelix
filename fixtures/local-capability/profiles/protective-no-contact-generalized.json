@@ -1,0 +1,97 @@
+{
+  "schema_version": "local-capability-profile/0.1",
+  "profile_id": "protective-no-contact-generalized",
+  "version": 1,
+  "status": "illustrative",
+  "place": {
+    "label": "Non-geographic protective-policy sentinel",
+    "scope": "generalized_context",
+    "location_precision": "not_collected",
+    "basis": "illustrative"
+  },
+  "context": {
+    "settlement_type": "generalized_context",
+    "climate_profile": {
+      "classification": "unknown",
+      "basis": "unknown",
+      "evidence_refs": [],
+      "hazards_to_investigate": []
+    }
+  },
+  "resource_envelope": {
+    "electricity": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "digital_comms": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "cash_access": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "manufacturing": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "supply_chain": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "water_service": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "health_access": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "transport_access": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    },
+    "knowledge_exchange": {
+      "value": "unknown",
+      "basis": "unknown",
+      "evidence_refs": []
+    }
+  },
+  "capabilities": [],
+  "priorities": [],
+  "engagement": {
+    "mode": "protective_no_contact",
+    "authorization_status": "not_sought",
+    "location_handling": "not_collected",
+    "restricted_knowledge_present": false,
+    "intervention_policy": "no_intervention_without_authorized_request"
+  },
+  "safety_gates": {
+    "water_safety": "not_assessed",
+    "clinical_safety": "not_assessed",
+    "structural_safety": "not_assessed",
+    "ecological_impact": "not_assessed",
+    "legal_authority": "not_assessed",
+    "community_consent": "not_assessed",
+    "maintenance_owner": "not_assessed",
+    "rights_and_attribution": "not_assessed",
+    "accessibility": "not_assessed",
+    "privacy": "not_assessed",
+    "anti_displacement": "not_assessed",
+    "repairability": "not_assessed"
+  },
+  "sources": [],
+  "limitations": [
+    "Synthetic, non-geographic policy test only; it contains no information about real peoples or places.",
+    "This state cannot authorize contact, targeting, data collection, or intervention.",
+    "Protection and self-determination override this software profile."
+  ]
+}

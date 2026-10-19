@@ -1,0 +1,115 @@
+{
+  "schema_version": "local-capability-profile/0.1",
+  "profile_id": "measured-outcome-without-source",
+  "version": 1,
+  "status": "measured_outcomes",
+  "place": {
+    "label": "Illustrative dense-city context",
+    "scope": "generalized_context",
+    "location_precision": "generalized",
+    "basis": "illustrative"
+  },
+  "context": {
+    "settlement_type": "dense_urban",
+    "climate_profile": {
+      "classification": "mixed_or_variable",
+      "basis": "illustrative",
+      "evidence_refs": [],
+      "hazards_to_investigate": [
+        "extreme heat",
+        "service interruptions",
+        "flood exposure"
+      ]
+    }
+  },
+  "resource_envelope": {
+    "electricity": {
+      "value": "reliable_grid",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "digital_comms": {
+      "value": "reliable_connectivity",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "cash_access": {
+      "value": "local_markets",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "manufacturing": {
+      "value": "local_machine_shop",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "supply_chain": {
+      "value": "diverse_network",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "water_service": {
+      "value": "network_service",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "health_access": {
+      "value": "referral_network",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "transport_access": {
+      "value": "multimodal_network",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "knowledge_exchange": {
+      "value": "connected_network",
+      "basis": "illustrative",
+      "evidence_refs": []
+    }
+  },
+  "capabilities": [],
+  "priorities": [
+    {
+      "priority_id": "heat-safe-access",
+      "area": "public_space",
+      "rank": 1,
+      "basis": "co_designed",
+      "evidence_refs": []
+    }
+  ],
+  "engagement": {
+    "mode": "community_co_designed",
+    "authorization_status": "granted",
+    "location_handling": "generalized",
+    "restricted_knowledge_present": false,
+    "intervention_policy": "community_authorized"
+  },
+  "safety_gates": {
+    "water_safety": "not_assessed",
+    "clinical_safety": "not_assessed",
+    "structural_safety": "not_assessed",
+    "ecological_impact": "not_assessed",
+    "legal_authority": "not_assessed",
+    "community_consent": "passed",
+    "maintenance_owner": "not_assessed",
+    "rights_and_attribution": "not_assessed",
+    "accessibility": "not_assessed",
+    "privacy": "not_assessed",
+    "anti_displacement": "not_assessed",
+    "repairability": "not_assessed"
+  },
+  "sources": [
+    {
+      "source_id": "who-small-water-guidelines",
+      "title": "WHO Guidelines for drinking-water quality: small water supplies",
+      "url": "https://www.who.int/publications/i/item/9789240088740",
+      "use": "methodology",
+      "rights_status": "link_only"
+    }
+  ],
+  "limitations": [
+    "Illustrative profile only; no actual place baseline, community consent, deployment authorization, safety approval, or outcome is established."
+  ]
+}
