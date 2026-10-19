@@ -131,6 +131,19 @@ impl PlayerState {
     }
 }
 
+/// Browser-local media gateway choice. None means use the deployment's
+/// explicit default pool; Some("") means the listener has disabled media
+/// delivery; Some(list) means use only that validated origin pool.
+#[derive(Clone, Debug)]
+pub struct DeliveryPreferences {
+    pub gateway_origins: RwSignal<Option<String>>,
+    /// False until browser-local preferences have been loaded. The player must
+    /// not select a deployment gateway before that privacy choice is known.
+    pub loaded: RwSignal<bool>,
+}
+
+pub const MEDIA_GATEWAY_PREFERENCE_KEY: &str = "mycelix-media-gateway-origins";
+
 #[derive(Clone, Debug)]
 pub struct ThemeState {
     pub valence: RwSignal<f64>,
@@ -157,6 +170,31 @@ pub fn App() -> impl IntoView {
     provide_context(player.clone());
     let theme = ThemeState::new();
     provide_context(theme.clone());
+
+    let delivery_preferences = DeliveryPreferences {
+        gateway_origins: RwSignal::new(None),
+        loaded: RwSignal::new(false),
+    };
+    provide_context(delivery_preferences.clone());
+
+    // Load per-listener preferences only from this browser's local storage.
+    // Missing/unavailable storage keeps the explicit deployment default.
+    Effect::new(move |_| {
+        let saved = web_sys::window()
+            .and_then(|window| window.local_storage().ok().flatten())
+            .and_then(|storage| {
+                storage
+                    .get_item(MEDIA_GATEWAY_PREFERENCE_KEY)
+                    .ok()
+                    .flatten()
+            });
+        if let Some(saved) = saved {
+            delivery_preferences.gateway_origins.set(Some(saved));
+        }
+        // Publish readiness only after storage is read (or known unavailable),
+        // so the player never emits an initial request before honoring opt-out.
+        delivery_preferences.loaded.set(true);
+    });
 
     Effect::new(move |_| {
         let v = theme.valence.get();
@@ -204,6 +242,7 @@ pub fn App() -> impl IntoView {
                         <Route path=path!("/dashboard") view=DashboardPage />
                         <Route path=path!("/upload") view=UploadPage />
                         <Route path=path!("/gallery") view=GalleryPage />
+                        <Route path=path!("/settings") view=DeliverySettingsPage />
                         <Route path=path!("/about") view=HomePage />
                     </Routes>
                 </main>

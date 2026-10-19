@@ -17,6 +17,7 @@ pub fn Nav() -> impl IntoView {
                 <A href="/dashboard">"Dashboard"</A>
                 <A href="/upload">"Contribute"</A>
                 <A href="/artist">"For Artists"</A>
+                <A href="/settings">"Delivery Settings"</A>
             </div>
         </nav>
     }

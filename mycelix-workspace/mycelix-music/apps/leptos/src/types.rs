@@ -5,6 +5,10 @@
 //! Mirror types from the music DNA zomes.
 //! These must be serde-compatible with the Holochain entry types.
 
+use crate::delivery::{
+    delivery_candidates_for_preference, DeliveryCandidate, DeliveryPlanError,
+    MediaAssetManifestV1,
+};
 use serde::{Deserialize, Serialize};
 
 mod binary_bytes {
@@ -88,16 +92,81 @@ pub struct Song {
 }
 
 impl Song {
-    /// Construct an IPFS gateway URL for the audio file.
-    pub fn audio_url(&self) -> String {
-        format!("https://ipfs.io/ipfs/{}", self.ipfs_cid)
+    /// Build the local delivery manifest adapter used by the browser resolver.
+    ///
+    /// The current catalog stores one IPFS CID; signed multi-rendition
+    /// manifests and native content verification remain future work.
+    fn audio_manifest(&self) -> MediaAssetManifestV1 {
+        MediaAssetManifestV1::for_ipfs(self.song_hash.clone(), self.ipfs_cid.clone())
     }
 
-    /// Construct an IPFS gateway URL for the cover art.
+    /// Return routes from the deployment configuration. Public gateways are
+    /// included only if the operator explicitly configured them.
+    pub fn audio_delivery_candidates(&self) -> Vec<DeliveryCandidate> {
+        self.audio_delivery_candidates_with_preference(None)
+            .unwrap_or_default()
+    }
+
+    /// Resolve using an optional browser-local preference. None uses the
+    /// deployment pool; Some("") explicitly disables media routes; a
+    /// non-empty value must be a valid comma-separated origin list.
+    pub fn audio_delivery_candidates_with_preference(
+        &self,
+        preference: Option<&str>,
+    ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
+        delivery_candidates_for_preference(&self.audio_manifest(), preference)
+    }
+
+    /// Construct the audio URL for a specific fallback attempt using the
+    /// deployment default.
+    pub fn audio_url_at(&self, source_index: usize) -> Option<String> {
+        self.audio_url_at_with_preference(source_index, None)
+    }
+
+    /// Construct a URL for a specific user-selected gateway attempt.
+    pub fn audio_url_at_with_preference(
+        &self,
+        source_index: usize,
+        preference: Option<&str>,
+    ) -> Option<String> {
+        self.audio_delivery_candidates_with_preference(preference)
+            .ok()?
+            .get(source_index)
+            .map(|candidate| candidate.url.clone())
+    }
+
+    /// Number of candidate routes using the deployment default.
+    pub fn audio_source_count(&self) -> usize {
+        self.audio_source_count_with_preference(None)
+    }
+
+    pub fn audio_source_count_with_preference(&self, preference: Option<&str>) -> usize {
+        self.audio_delivery_candidates_with_preference(preference)
+            .map_or(0, |candidates| candidates.len())
+    }
+
+    /// Backwards-compatible first-choice audio URL.
+    pub fn audio_url(&self) -> String {
+        self.audio_url_at(0).unwrap_or_default()
+    }
+
+    /// Construct the first deployment-configured gateway URL for cover art.
     pub fn cover_url(&self) -> Option<String> {
-        self.cover_cid
-            .as_ref()
-            .map(|cid| format!("https://ipfs.io/ipfs/{}", cid))
+        self.cover_url_with_preference(None)
+    }
+
+    /// Construct cover art URL using this browser's selected gateway pool.
+    pub fn cover_url_with_preference(&self, preference: Option<&str>) -> Option<String> {
+        let cid = self.cover_cid.as_ref()?;
+        let manifest = MediaAssetManifestV1::for_ipfs(
+            format!("{}:cover", self.song_hash),
+            cid.clone(),
+        );
+        delivery_candidates_for_preference(&manifest, preference)
+            .ok()?
+            .into_iter()
+            .next()
+            .map(|candidate| candidate.url)
     }
 
     /// Format duration as mm:ss.
