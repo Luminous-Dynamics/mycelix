@@ -1,0 +1,1 @@
+{"schema_version":1,"site_id":"fixture-microgrid-01","battery":{"capacity_kwh":6.0,"initial_soc_kwh":3.0,"minimum_soc_kwh":1.0,"max_charge_power_kw":2.0,"max_discharge_power_kw":2.0,"charge_efficiency":0.92,"discharge_efficiency":0.92},"renewable_asset":{"rated_power_kw":4.0}}

@@ -1,0 +1,1 @@
+{"model":"sol-atlas-microgrid","model_version":"1","timestep_seconds":900,"accounting":"interval_energy_kwh","dispatch_order":"renewable_load_battery_grid_export","loss_model":"fixed_charge_and_discharge_efficiency"}
