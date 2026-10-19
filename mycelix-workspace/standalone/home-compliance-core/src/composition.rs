@@ -983,9 +983,7 @@ mod tests {
                     .contains(&"global:ventilation-reference".to_owned())
             );
             assert!(!result.module_lineage.iter().any(|module_id| {
-                foreign_module_ids
-                    .iter()
-                    .any(|foreign| module_id.as_str() == *foreign)
+                foreign_module_ids.contains(&module_id.as_str())
             }));
             assert!(result.non_binding_assertions.iter().any(|item| {
                 item.source.module_id == "global:ventilation-reference"
