@@ -17,7 +17,9 @@ use mycelix_leptos_core::{
     provide_consciousness_context, provide_homeostasis_context, provide_local_identity,
     provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
 };
-use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
+use personal_leptos_types::{
+    ClaimLifecycleStatus, ConsentGrantView, CredentialType, SourceReadState, StoredCredentialView,
+};
 
 use crate::context::{
     SymbolRegistry, provide_cultural_context, provide_personal_context, refresh_health_state,
@@ -461,7 +463,12 @@ fn IdentityPage() -> impl IntoView {
                 }
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![
+                    SourceStatusItem { label: "Profile", state: ctx.profile_source_state },
+                    SourceStatusItem { label: "Identity keys", state: ctx.keys_source_state },
+                ]
+            />
 
             <div class="two-up">
                 <section class="vault-card">
@@ -525,7 +532,12 @@ fn WalletPage() -> impl IntoView {
                 summary="Stored credentials, proof posture, and trust-bearing materials live here.".to_string()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![SourceStatusItem {
+                    label: "Credentials",
+                    state: ctx.credentials_source_state,
+                }]
+            />
 
             <section class="vault-card">
                 <SectionTitle title="Credentials" />
@@ -601,7 +613,13 @@ fn HealthPage() -> impl IntoView {
                 summary="Personal owns posture and disclosure. Health owns deeper medical workflows.".to_string()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![
+                    SourceStatusItem { label: "Biometrics", state: ctx.biometrics_source_state },
+                    SourceStatusItem { label: "Consent grants", state: ctx.consents_source_state },
+                    SourceStatusItem { label: "Health records", state: ctx.health_records_source_state },
+                ]
+            />
 
             <div class="two-up">
                 <section class="vault-card">
@@ -668,7 +686,12 @@ fn PreferencesPage() -> impl IntoView {
                 summary=ctx.status_note.get_untracked()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![
+                    SourceStatusItem { label: "Sharing preferences", state: ctx.preferences_source_state },
+                    SourceStatusItem { label: "Preference history", state: ctx.preference_log_source_state },
+                ]
+            />
 
             <div class="two-up">
                 <section class="vault-card">
@@ -721,7 +744,12 @@ fn ActivityPage() -> impl IntoView {
                 summary="This page will eventually reflect bridge queries, events, and disclosures directly.".to_string()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![SourceStatusItem {
+                    label: "Activity history",
+                    state: ctx.activity_source_state,
+                }]
+            />
             <section class="vault-card">
                 <SectionTitle title="Disclosure and handoff log" />
                 <ul class="activity-list">
@@ -755,14 +783,64 @@ fn UnlockPage() -> impl IntoView {
     }
 }
 
+#[derive(Clone)]
+struct SourceStatusItem {
+    label: &'static str,
+    state: RwSignal<SourceReadState>,
+}
+
+fn source_state_summary(state: SourceReadState) -> String {
+    match state {
+        SourceReadState::NotChecked => "Not checked; absence is unknown.".into(),
+        SourceReadState::Loading => "Checking source; absence is unknown.".into(),
+        SourceReadState::LiveWithRecords { checked_at } => format!(
+            "Live read returned records; checked {}.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::LiveConfirmedEmpty { checked_at } => format!(
+            "Live read confirmed no records at {}.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::Unavailable { reason } => format!(
+            "Unavailable ({reason:?}); this does not confirm that records are absent."
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: Some(checked_at),
+        } => format!(
+            "Stale; last successful read {}. Recheck before relying on this data.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: None,
+        } => "Stale; no successful-read timestamp is available.".into(),
+        SourceReadState::Demo => "Demo data; synthetic examples, not live records.".into(),
+        SourceReadState::Conflict => "Conflicting evidence; no automatic resolution.".into(),
+        SourceReadState::Unsupported => "Not integrated; no source adapter is connected.".into(),
+    }
+}
+
 #[component]
-fn PersonalSourceNotice() -> impl IntoView {
-    let ctx = use_personal();
+fn PersonalSourceNotice(sources: Vec<SourceStatusItem>) -> impl IntoView {
     view! {
-        <section class="vault-card source-status-card">
-            <p class="supporting-copy" role="status" aria-live="polite">
-                {move || ctx.status_note.get()}
-            </p>
+        <section class="vault-card source-status-card" aria-label="Source status">
+            <div class="source-status-list">
+                <For
+                    each=move || sources.clone()
+                    key=|source| source.label
+                    children=move |source| {
+                        let label = source.label;
+                        let state = source.state;
+                        view! {
+                            <div class="source-status-row">
+                                <strong>{label}</strong>
+                                <span role="status" aria-live="polite">
+                                    {move || source_state_summary(state.get())}
+                                </span>
+                            </div>
+                        }
+                    }
+                />
+            </div>
         </section>
     }
 }
