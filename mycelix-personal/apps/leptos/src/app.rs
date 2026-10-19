@@ -23,6 +23,7 @@ use crate::context::{
     SymbolRegistry, provide_cultural_context, provide_personal_context, refresh_health_state,
     refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
 };
+use crate::continuity::ContinuityPage;
 use crate::telemetry::ConstellationTelemetry;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -119,6 +120,11 @@ fn AppInner() -> impl IntoView {
             icon: Some("AX"),
         },
         NavLink {
+            href: "/continuity",
+            label: "Life",
+            icon: Some("↻"),
+        },
+        NavLink {
             href: "/profile",
             label: "Profile",
             icon: Some("ME"),
@@ -142,6 +148,11 @@ fn AppInner() -> impl IntoView {
     ];
 
     let mobile_tabs = vec![
+        NavTab {
+            href: "/continuity",
+            icon: "↻",
+            label: "Life",
+        },
         NavTab {
             href: "/",
             icon: "◉",
@@ -181,6 +192,7 @@ fn AppInner() -> impl IntoView {
                     <Route path=path!("/health") view=HealthPage />
                     <Route path=path!("/preferences") view=PreferencesPage />
                     <Route path=path!("/activity") view=ActivityPage />
+                    <Route path=path!("/continuity") view=ContinuityPage />
                     <Route path=path!("/profile") view=IdentityPage />
                     <Route path=path!("/unlock") view=UnlockPage />
                     // Constellation Satellite Routes

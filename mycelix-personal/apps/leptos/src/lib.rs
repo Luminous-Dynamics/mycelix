@@ -3,5 +3,6 @@
 
 pub mod app;
 pub mod context;
+pub mod continuity;
 pub mod mock_data;
 pub mod telemetry;
