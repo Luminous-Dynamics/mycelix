@@ -1,0 +1,412 @@
+{
+  "schema": "mycelix-beta-trust-posterior-reference-v1",
+  "profile": "IndependentBernoulliEvidencePosteriorV1",
+  "status": "research-only mathematical reference; not a production trust decision rule",
+  "assumptions": [
+    "Each observation is a correctly specified binary outcome from a distinct, conditionally independent trial.",
+    "The Bernoulli success probability is stationary over the observation window.",
+    "Prior alpha and beta are finite and strictly positive.",
+    "Duplicate events, correlated sources, identity linkage, evidence authenticity, time decay and adversarial dependence are outside this posterior primitive and must be handled by a higher layer.",
+    "The lower bound is a conservative posterior-distribution bound derived from Cantelli's one-sided inequality; it is not a frequentist confidence interval or an empirical calibration guarantee."
+  ],
+  "math": {
+    "posterior_alpha": "alpha0 + successes",
+    "posterior_beta": "beta0 + failures",
+    "mean": "alpha / (alpha + beta)",
+    "variance": "alpha * beta / ((alpha + beta)^2 * (alpha + beta + 1))",
+    "lower_bound": "max(0, mean - sqrt(variance * (1 - epsilon) / epsilon))",
+    "lower_bound_semantics": "For posterior random variable theta and 0 < epsilon < 1, Cantelli implies posterior mass below this bound is at most epsilon (trivial if the bound is clamped to zero)."
+  },
+  "default_prior": {
+    "alpha": "1",
+    "beta": "1",
+    "interpretation": "Uniform Beta(1,1); no historical evidence. Jeffreys Beta(0.5,0.5) appears as a separate sensitivity case."
+  },
+  "default_tail_probability": "0.05",
+  "case_count": 20,
+  "cases": [
+    {
+      "id": "BTP-001-uniform-prior-no-evidence",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "1.0000000000000000",
+        "beta": "1.0000000000000000",
+        "mean": "0.50000000000000000",
+        "variance": "0.083333333333333329",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-002-jeffreys-prior-no-evidence",
+      "prior_alpha": "0.5",
+      "prior_beta": "0.5",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "0.50000000000000000",
+        "beta": "0.50000000000000000",
+        "mean": "0.50000000000000000",
+        "variance": "0.12500000000000000",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-003-one-success",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "2.0000000000000000",
+        "beta": "1.0000000000000000",
+        "mean": "0.66666666666666663",
+        "variance": "0.055555555555555552",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-004-one-failure",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        false
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "1.0000000000000000",
+        "beta": "2.0000000000000000",
+        "mean": "0.33333333333333331",
+        "variance": "0.055555555555555552",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-005-five-successes",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "6.0000000000000000",
+        "beta": "1.0000000000000000",
+        "mean": "0.85714285714285710",
+        "variance": "0.015306122448979591",
+        "lower_bound": "0.31786896890923222"
+      }
+    },
+    {
+      "id": "BTP-006-ten-successes",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "11.000000000000000",
+        "beta": "1.0000000000000000",
+        "mean": "0.91666666666666663",
+        "variance": "0.0058760683760683760",
+        "lower_bound": "0.58253301205327823"
+      }
+    },
+    {
+      "id": "BTP-007-twenty-successes",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "21.000000000000000",
+        "beta": "1.0000000000000000",
+        "mean": "0.95454545454545459",
+        "variance": "0.0018864534674811354",
+        "lower_bound": "0.76522399278757158"
+      }
+    },
+    {
+      "id": "BTP-008-balanced-evidence",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "11.000000000000000",
+        "beta": "11.000000000000000",
+        "mean": "0.50000000000000000",
+        "variance": "0.010869565217391304",
+        "lower_bound": "0.045553370426807183"
+      }
+    },
+    {
+      "id": "BTP-009-ten-success-one-failure",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "11.000000000000000",
+        "beta": "2.0000000000000000",
+        "mean": "0.84615384615384615",
+        "variance": "0.0092983939137785288",
+        "lower_bound": "0.42583315387021375"
+      }
+    },
+    {
+      "id": "BTP-010-asymmetric-prior-success-biased",
+      "prior_alpha": "2",
+      "prior_beta": "3",
+      "observations": [
+        true,
+        true
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "4.0000000000000000",
+        "beta": "3.0000000000000000",
+        "mean": "0.57142857142857140",
+        "variance": "0.030612244897959183",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-011-mirrored-prior-failure-biased",
+      "prior_alpha": "3",
+      "prior_beta": "2",
+      "observations": [
+        false,
+        false
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "3.0000000000000000",
+        "beta": "4.0000000000000000",
+        "mean": "0.42857142857142855",
+        "variance": "0.030612244897959183",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-012-ordering-a",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        true,
+        false,
+        true,
+        false
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "3.0000000000000000",
+        "beta": "3.0000000000000000",
+        "mean": "0.50000000000000000",
+        "variance": "0.035714285714285712",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-013-ordering-b",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        false,
+        true,
+        false,
+        true
+      ],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": true,
+        "alpha": "3.0000000000000000",
+        "beta": "3.0000000000000000",
+        "mean": "0.50000000000000000",
+        "variance": "0.035714285714285712",
+        "lower_bound": "0.0000000000000000"
+      }
+    },
+    {
+      "id": "BTP-101-zero-alpha",
+      "prior_alpha": "0",
+      "prior_beta": "1",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-102-negative-beta",
+      "prior_alpha": "1",
+      "prior_beta": "-1",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-103-nan-alpha",
+      "prior_alpha": "NaN",
+      "prior_beta": "1",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-104-infinite-beta",
+      "prior_alpha": "1",
+      "prior_beta": "inf",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-105-zero-tail-probability",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [],
+      "tail_probability": "0",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-106-unit-tail-probability",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [],
+      "tail_probability": "1",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-107-nan-tail-probability",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [],
+      "tail_probability": "NaN",
+      "expected": {
+        "valid": false
+      }
+    }
+  ],
+  "mutation_controls": [
+    {
+      "id": "BTP-MUT-001",
+      "description": "Ignore observations and return the prior mean.",
+      "must_be_detected_by": "BTP-006-ten-successes"
+    },
+    {
+      "id": "BTP-MUT-002",
+      "description": "Swap success and failure counts.",
+      "must_be_detected_by": "BTP-009-ten-success-one-failure"
+    },
+    {
+      "id": "BTP-MUT-003",
+      "description": "Omit the +1 term in the Beta variance denominator.",
+      "must_be_detected_by": "BTP-002-jeffreys-prior-no-evidence"
+    },
+    {
+      "id": "BTP-MUT-004",
+      "description": "Use epsilon/(1-epsilon) instead of (1-epsilon)/epsilon in the Cantelli safety margin.",
+      "must_be_detected_by": "BTP-006-ten-successes"
+    },
+    {
+      "id": "BTP-MUT-005",
+      "description": "Replace the uncertainty-adjusted lower bound with the posterior mean.",
+      "must_be_detected_by": "BTP-008-balanced-evidence"
+    }
+  ]
+}
