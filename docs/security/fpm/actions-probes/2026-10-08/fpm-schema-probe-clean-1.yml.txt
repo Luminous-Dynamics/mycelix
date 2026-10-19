@@ -1,0 +1,63 @@
+name: FPM trusted schema probe clean 1
+
+on:
+  push:
+
+# This workflow is intended to live on the protected default branch.
+# The candidate workflow is only an execution-request signal. The fixed
+# qualification procedure is sourced from this workflow on main.
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: fpm-trusted-qualification-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt || 1 }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+  FPM_SYSTEM_CLOSURE_PROFILE: fpm-ubuntu24.04-amd64-rust-1.96.1-v1
+
+jobs:
+  qualify:
+    if: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Snapshot immutable Rust toolchain
+        if: false
+        id: toolchain
+        run: echo syntax-probe
+      - name: Generate run-local locked dependency snapshot
+        if: false
+        id: lock
+        working-directory: candidate
+        env:
+          GIT_CONFIG_NOSYSTEM: "true"
+        run: echo syntax-probe
+      - name: Materialize dependency cache before hostile execution
+        if: false
+        # The dependency phase is networked, so it receives a smaller, explicit
+        # environment than the later hostile sandbox.
+        id: dependencies
+        working-directory: candidate
+        env:
+          GIT_CONFIG_NOSYSTEM: "true"
+        run: echo syntax-probe
+      - name: Prepare pinned hostile-code sandbox image
+        if: false
+        id: sandbox_image
+        run: echo syntax-probe
+      - name: Create non-privileged candidate identity and freeze source
+        if: false
+        id: sandbox
+        run: echo syntax-probe
+      - name: Assert frozen candidate source
+        if: false
+        working-directory: candidate
+        run: echo syntax-probe      - name: Probe sentinel
+        run: echo ok

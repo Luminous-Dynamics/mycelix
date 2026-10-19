@@ -1,0 +1,123 @@
+name: FPM reference verifier self-test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/integral/verify_fpm_trusted_qualification.py"
+      - "scripts/integral/test_verify_fpm_trusted_qualification.py"
+      - ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
+      - ".github/workflows/fpm-trusted-qualification.yml"
+      - ".github/workflows/fpm-reference-verifier-selftest.yml"
+      - ".github/workflows/fpm-wasm-artifact-identity.yml"
+      - ".github/workflows/d6u-exact-head-runtime-executor.yml"
+      - ".github/workflows/d6s-canonical-qualification.yml"
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# Keep only the newest PR-head self-test in this workflow's concurrency group.
+# An older commit's result cannot qualify the current candidate head.
+concurrency:
+  group: fpm-reference-verifier-selftest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Candidate-owned validation only. This is not an independent trust root and
+# must never be interpreted as promotion evidence.
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Assert candidate workflow remains a non-authoritative beacon
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path(".github/workflows/fpm-wasm-artifact-identity.yml").read_text(encoding="utf-8")
+          assert "permissions: {}" in text
+          assert "pull_request_target" not in text
+          assert "actions/checkout@" not in text
+          assert "cargo " not in text
+          assert "FPM candidate execution request accepted" in text
+          assert "types: [opened, synchronize, reopened, ready_for_review]" in text
+          PY
+
+      - name: Validate qualification workflows with checksum-pinned actionlint
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' \
+            "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8" \
+            "$archive" | sha256sum --check --status
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          "$RUNNER_TEMP/actionlint" \
+            .github/workflows/fpm-wasm-artifact-identity.yml \
+            .github/workflows/fpm-trusted-qualification.yml \
+            .github/workflows/fpm-trusted-qualification-independent-verify.yml \
+            .github/workflows/fpm-reference-verifier-selftest.yml \
+            .github/workflows/d6u-exact-head-runtime-executor.yml \
+            .github/workflows/d6s-canonical-qualification.yml
+
+      - name: Parse every embedded sandbox program
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import textwrap
+          from pathlib import Path
+
+          source = Path(".github/workflows/fpm-trusted-qualification.yml").read_text(encoding="utf-8")
+          lines = source.splitlines()
+          starts = [i for i, line in enumerate(lines) if '-ceu "$(cat <<\'FPM_SANDBOX_SCRIPT\'' in line]
+          if len(starts) != 4:
+              raise SystemExit(f"expected exactly four embedded sandbox programs, found {len(starts)}")
+
+          out = Path(os.environ["RUNNER_TEMP"]) / "fpm-sandbox-programs"
+          out.mkdir(mode=0o700)
+          for index, start in enumerate(starts):
+              try:
+                  end = next(i for i in range(start + 1, len(lines)) if lines[i] == "          FPM_SANDBOX_SCRIPT")
+              except StopIteration as exc:
+                  raise SystemExit(f"sandbox program {index} has no terminator") from exc
+              body = textwrap.dedent("\n".join(lines[start + 1:end])) + "\n"
+              if not body.strip():
+                  raise SystemExit(f"sandbox program {index} is empty")
+              (out / f"program-{index}.sh").write_text(body, encoding="utf-8")
+          PY
+          for script in "$RUNNER_TEMP"/fpm-sandbox-programs/program-*.sh; do
+            bash -n "$script"
+            shellcheck --severity=error "$script"
+          done
+
+      - name: Python syntax check
+        run: |
+          set -euo pipefail
+          python3 -m py_compile             scripts/integral/verify_fpm_trusted_qualification.py             scripts/integral/test_verify_fpm_trusted_qualification.py
+
+      - name: Run adversarial reference-verifier corpus
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/test_verify_fpm_trusted_qualification.py
