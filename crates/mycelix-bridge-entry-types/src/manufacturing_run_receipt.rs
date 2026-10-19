@@ -187,6 +187,12 @@ pub fn validate_process_run_receipt(
         return Err(ReceiptValidationError::InvalidGitCommit);
     }
 
+    if receipt.input_artifact_sha256.is_empty() {
+        return Err(ReceiptValidationError::MissingOrOversizeField("input_artifact_sha256"));
+    }
+    if receipt.assumption_ids.is_empty() {
+        return Err(ReceiptValidationError::MissingOrOversizeField("assumption_ids"));
+    }
     validate_digest_list("input_artifact_sha256", &receipt.input_artifact_sha256, MAX_INPUT_ARTIFACTS)?;
     validate_string_list("assumption_ids", &receipt.assumption_ids, MAX_ASSUMPTIONS)?;
     validate_string_list("observation_ids", &receipt.observation_ids, MAX_OBSERVATIONS)?;
@@ -217,8 +223,16 @@ pub fn validate_process_run_receipt(
             }
         }
         EvidenceOrigin::InstrumentObserved => {
-            require_nonempty_option("measurement_system_id", &receipt.measurement_system_id)?;
-            require_nonempty_option("instrument_id", &receipt.instrument_id)?;
+            validate_required_option_string(
+                "measurement_system_id",
+                &receipt.measurement_system_id,
+                MAX_ID_BYTES,
+            )?;
+            validate_required_option_string(
+                "instrument_id",
+                &receipt.instrument_id,
+                MAX_ID_BYTES,
+            )?;
             if receipt.observed_at_unix_ms.is_none() {
                 return Err(ReceiptValidationError::MissingInstrumentObservation("observed_at_unix_ms"));
             }
@@ -288,9 +302,13 @@ fn validate_review_state(receipt: &ProcessRunReceipt) -> Result<(), ReceiptValid
         ReviewDisposition::Pass | ReviewDisposition::Fail | ReviewDisposition::Indeterminate => {
             let reviewer = receipt.reviewer_id.as_deref().unwrap_or_default();
             let version = receipt.reviewer_version.as_deref().unwrap_or_default();
-            if reviewer.trim().is_empty() || version.trim().is_empty() {
+            if reviewer.trim().is_empty()
+                || reviewer.len() > MAX_ID_BYTES
+                || version.trim().is_empty()
+                || version.len() > MAX_VERSION_BYTES
+            {
                 return Err(ReceiptValidationError::InvalidReviewState(
-                    "reviewer identity and version are required for a completed review",
+                    "reviewer identity and version must be present and bounded",
                 ));
             }
             if reviewer == receipt.producer_id {
@@ -313,12 +331,13 @@ fn validate_review_state(receipt: &ProcessRunReceipt) -> Result<(), ReceiptValid
     Ok(())
 }
 
-fn require_nonempty_option(
+fn validate_required_option_string(
     field: &'static str,
     value: &Option<String>,
+    max_bytes: usize,
 ) -> Result<(), ReceiptValidationError> {
     match value {
-        Some(v) if !v.trim().is_empty() => Ok(()),
+        Some(v) if !v.trim().is_empty() && v.len() <= max_bytes => Ok(()),
         _ => Err(ReceiptValidationError::MissingInstrumentObservation(field)),
     }
 }
@@ -441,6 +460,33 @@ mod tests {
         r.observation_artifact_sha256 = vec![digest('9')];
         r.observed_at_unix_ms = Some(1_800_000_000_500);
         r
+    }
+
+    #[test]
+    fn required_inputs_and_assumptions_cannot_be_omitted() {
+        let mut r = valid_simulation();
+        r.input_artifact_sha256.clear();
+        assert_eq!(
+            validate_process_run_receipt(&r),
+            Err(ReceiptValidationError::MissingOrOversizeField("input_artifact_sha256"))
+        );
+
+        let mut r = valid_simulation();
+        r.assumption_ids.clear();
+        assert_eq!(
+            validate_process_run_receipt(&r),
+            Err(ReceiptValidationError::MissingOrOversizeField("assumption_ids"))
+        );
+    }
+
+    #[test]
+    fn instrument_identity_fields_are_bounded() {
+        let mut r = valid_instrument_observation();
+        r.instrument_id = Some("x".repeat(MAX_ID_BYTES + 1));
+        assert!(matches!(
+            validate_process_run_receipt(&r),
+            Err(ReceiptValidationError::MissingInstrumentObservation("instrument_id"))
+        ));
     }
 
     #[test]
