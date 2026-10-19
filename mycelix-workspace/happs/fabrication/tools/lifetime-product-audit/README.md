@@ -11,7 +11,8 @@ These tools are **draft engineering aids**. Software passes establish only that 
 cargo test --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml --all-targets
 
 # Frozen v0.3 record/schema baseline.
-cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml -- \
+cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
+  --bin lifetime-product-audit -- \
   --schema mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json \
   --record mycelix-workspace/happs/fabrication/docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json \
   --benchmark mycelix-workspace/happs/fabrication/docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json \
