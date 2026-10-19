@@ -358,7 +358,7 @@ where
             }
             if evidence_digests
                 .insert(evidence.artifact_id.as_str(), evidence.artifact_sha256.as_str())
-                .is_some_and(|existing_digest| existing_digest != evidence.artifact_sha256)
+                .is_some_and(|existing_digest| existing_digest != evidence.artifact_sha256.as_str())
             {
                 blockers.push(AlternativeCaseBlocker::DuplicateEvidenceId(
                     evidence.artifact_id.clone(),
@@ -476,7 +476,7 @@ where
         blockers.push(AlternativeCaseBlocker::NoReviewerSupportsSubmission);
     }
 
-    blockers.sort_by(|left, right| format!("{left:?}").cmp(&format!("{right:?}")));
+    blockers.sort_by_key(|blocker| format!("{blocker:?}"));
     dissent.sort();
 
     failed_criteria.sort();
