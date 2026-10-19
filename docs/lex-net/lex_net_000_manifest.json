@@ -1,0 +1,66 @@
+{
+  "profile": "mycelix-lex-net-constitution-v1",
+  "status": "normative-research-architecture",
+  "governing_theorem": "shared protocol convention != law != treaty != jurisdiction != adjudicative authority",
+  "invariants": [
+    {"id":"LN-001","name":"protocol-convention-is-not-law"},
+    {"id":"LN-002","name":"foreign-evidence-is-not-local-authority"},
+    {"id":"LN-003","name":"recognition-is-explicit-and-local"},
+    {"id":"LN-004","name":"legal-metadata-is-evidence-not-verdict"},
+    {"id":"LN-005","name":"external-legal-process-remains-external"},
+    {"id":"LN-006","name":"identity-and-trust-equivalence-is-profile-bound"},
+    {"id":"LN-007","name":"transferable-record-integrity-is-not-legal-title"},
+    {"id":"LN-008","name":"assurance-is-plural-and-locally-recognized"},
+    {"id":"LN-009","name":"external-standards-remain-externally-owned"},
+    {"id":"LN-010","name":"conformance-is-not-authority"},
+    {"id":"LN-011","name":"convention-governance-is-scope-limited"},
+    {"id":"LN-012","name":"ai-remains-advisory-in-legal-interpretation"}
+  ],
+  "threats": [
+    "foreign-authentication-promoted-to-local-authority",
+    "technical-conformance-promoted-to-legal-validity",
+    "caller-selected-law-forum-treated-as-dispositive",
+    "stale-or-superseded-external-profile-reused-as-current",
+    "assurance-provider-self-recognition",
+    "cross-border-identity-equivalence-by-string-match",
+    "treaty-or-convention-status-inferred-from-software-configuration",
+    "external-decision-evidence-treated-as-self-executing-enforcement",
+    "ai-legal-interpretation-treated-as-binding-decision",
+    "private-mycelix-governance-overrides-mandatory-law",
+    "translation-drops-reservations-exclusions-uncertainty-or-nonclaims",
+    "validator-majority-or-reputation-becomes-universal-recognition-authority"
+  ],
+  "reference_families": [
+    {"authority":"UNCITRAL","instrument":"Model Law on Electronic Commerce","year":1996,"mapping_status":"reference-only"},
+    {"authority":"United Nations / UNCITRAL","instrument":"Convention on the Use of Electronic Communications in International Contracts","year":2005,"mapping_status":"reference-only"},
+    {"authority":"UNCITRAL","instrument":"Model Law on Electronic Transferable Records","year":2017,"mapping_status":"reference-only"},
+    {"authority":"UNCITRAL","instrument":"Model Law on the Use and Cross-border Recognition of Identity Management and Trust Services","year":2022,"mapping_status":"reference-only"},
+    {"authority":"UNCITRAL","instrument":"Model Law on Automated Contracting","year":2024,"mapping_status":"reference-only"},
+    {"authority":"HCCH","instrument":"Choice of Court / Judgments instruments","mapping_status":"reference-only"},
+    {"authority":"UNCITRAL / United Nations","instrument":"New York Convention / Singapore Convention","mapping_status":"reference-only"},
+    {"authority":"IETF","instrument":"SCITT / RFC 9943","year":2026,"mapping_status":"reference-only"}
+  ],
+  "continuation": [
+    "LEX-NET-001",
+    "LEX-NET-002",
+    "LEX-NET-003",
+    "LEX-NET-004",
+    "LEX-NET-005",
+    "LEX-NET-006",
+    "LEX-NET-007",
+    "LEX-NET-008",
+    "LEX-NET-Q1"
+  ],
+  "mandatory_nonclaims": [
+    "legal validity",
+    "treaty status or treaty compliance",
+    "statutory or regulatory compliance",
+    "applicable law",
+    "jurisdiction",
+    "recognition or enforcement by a court/state",
+    "official endorsement by UNCITRAL, HCCH, IETF, IMO, ICANN, or any other external body",
+    "production security or readiness",
+    "international adoption",
+    "authority for any external effect"
+  ]
+}
