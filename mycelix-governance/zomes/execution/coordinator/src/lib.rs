@@ -8,8 +8,17 @@
 
 use execution_integrity::*;
 use hdk::prelude::*;
+use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
+
+/// Domain separator for governance execution authorization digests.
+///
+/// The exact proposal ID and exact action JSON bytes are hashed. Reformatting or
+/// changing even one byte intentionally produces a different authorization
+/// target; canonical action serialization belongs in the follow-on typed action
+/// protocol, not in this security boundary.
+const EXECUTION_AUTHORITY_DOMAIN: &[u8] = b"mycelix-governance-execution-authority-v1\0";
 
 /// Mirror type for ThresholdSignature from threshold-signing integrity zome.
 /// Avoids linking the integrity crate (which causes duplicate HDI symbols in WASM).
@@ -28,23 +37,60 @@ struct ThresholdSignature {
     pub signed_at: Timestamp,
 }
 
-/// Mirror type for SigningCommittee — extracts only the scope field.
-/// Avoids full dependency on threshold-signing integrity crate (which
-/// causes duplicate HDI symbols in WASM).
+/// Mirror of the committee fields required for execution authorization.
+/// Unknown additional fields in the source entry are ignored by serde.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
-struct CommitteeScopeMirror {
+struct CommitteeAuthorizationMirror {
+    pub threshold: u32,
+    pub public_key: Option<Vec<u8>>,
     #[serde(default)]
     pub scope: serde_json::Value,
+    pub active: bool,
+    #[serde(default)]
+    pub pq_required: bool,
 }
 
-/// Extract the scope variant name from a CommitteeScopeMirror.
-/// Handles both simple variants ("All") and tagged variants ({"Custom": [...]}).
+/// Human-readable scope name for diagnostics only.
 fn extract_scope_name(scope: &serde_json::Value) -> &str {
     match scope {
         serde_json::Value::String(s) => s.as_str(),
-        serde_json::Value::Object(map) => map.keys().next().map(|k| k.as_str()).unwrap_or("All"),
-        _ => "All",
+        serde_json::Value::Object(map) if map.len() == 1 => {
+            map.keys().next().map(|k| k.as_str()).unwrap_or("Invalid")
+        }
+        _ => "Invalid",
     }
+}
+
+/// Fail-closed committee scope evaluation.
+fn committee_scope_allows(scope: &serde_json::Value, proposal_type: &str) -> bool {
+    match scope {
+        serde_json::Value::String(name) => match name.as_str() {
+            "All" => true,
+            "Constitutional" => proposal_type == "constitutional",
+            "Treasury" => proposal_type == "treasury",
+            "Protocol" => proposal_type == "protocol",
+            _ => false,
+        },
+        serde_json::Value::Object(map) if map.len() == 1 => match map.get("Custom") {
+            Some(serde_json::Value::Array(values)) => values
+                .iter()
+                .filter_map(|value| value.as_str())
+                .any(|allowed| allowed == proposal_type),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// Exact bytes that a threshold committee must authorize for execution.
+fn execution_authority_digest(timelock: &Timelock) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(EXECUTION_AUTHORITY_DOMAIN);
+    hasher.update(&(timelock.proposal_id.len() as u64).to_le_bytes());
+    hasher.update(timelock.proposal_id.as_bytes());
+    hasher.update(&(timelock.actions.len() as u64).to_le_bytes());
+    hasher.update(timelock.actions.as_bytes());
+    *hasher.finalize().as_bytes()
 }
 
 /// Helper to get an anchor entry hash
@@ -101,9 +147,202 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
     )))
 }
 
+/// Verify the complete threshold authorization needed to promote or execute a
+/// timelock. Every dependency failure is a denial; there is no graceful
+/// degradation path for governance side effects.
+fn verify_threshold_authorization(timelock: &Timelock) -> ExternResult<ThresholdSignature> {
+    let expected_digest = execution_authority_digest(timelock);
+
+    let signature_response = call(
+        CallTargetCell::Local,
+        ZomeName::from("threshold_signing"),
+        FunctionName::from("get_proposal_signature"),
+        None,
+        ExternIO::encode(timelock.proposal_id.clone())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
+    )?;
+
+    let signature_io = match signature_response {
+        ZomeCallResponse::Ok(io) => io,
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority unavailable: threshold signature lookup failed closed: {:?}",
+                other
+            ))));
+        }
+    };
+
+    let signature_record: Record = signature_io
+        .decode::<Option<Record>>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority unavailable: invalid threshold signature response: {}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: no threshold signature for proposal '{}'",
+            timelock.proposal_id
+        ))))?;
+
+    let signature: ThresholdSignature = signature_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority unavailable: malformed threshold signature: {}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority unavailable: threshold signature record has no entry".into()
+        )))?;
+
+    if !signature.verified {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: threshold signature '{}' is not marked verified",
+            signature.id
+        ))));
+    }
+    if signature.signer_count == 0 || signature.signer_count as usize != signature.signers.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority unavailable: invalid signer count".into()
+        )));
+    }
+    if signature.signed_content_hash.as_slice() != expected_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority digest mismatch for proposal '{}'",
+            timelock.proposal_id
+        ))));
+    }
+
+    let (proposal_type, signed_proposal_id) = signature
+        .signed_content_description
+        .split_once(':')
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority description must be '<proposal_type>:<proposal_id>'".into()
+        )))?;
+    if proposal_type.is_empty() || signed_proposal_id != timelock.proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority description does not exactly bind proposal '{}'",
+            timelock.proposal_id
+        ))));
+    }
+
+    let now = sys_time()?;
+    if signature.signed_at < timelock.started || signature.signed_at > now {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority signature timestamp is outside the accepted timelock window".into()
+        )));
+    }
+
+    let committee_response = call(
+        CallTargetCell::Local,
+        ZomeName::from("threshold_signing"),
+        FunctionName::from("get_committee"),
+        None,
+        ExternIO::encode(signature.committee_id.clone())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
+    )?;
+
+    let committee_io = match committee_response {
+        ZomeCallResponse::Ok(io) => io,
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority unavailable: committee lookup failed closed: {:?}",
+                other
+            ))));
+        }
+    };
+
+    let committee_record: Record = committee_io
+        .decode::<Option<Record>>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority unavailable: invalid committee response: {}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: committee '{}' not found",
+            signature.committee_id
+        ))))?;
+
+    let committee: CommitteeAuthorizationMirror = committee_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority unavailable: malformed committee: {}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority unavailable: committee record has no entry".into()
+        )))?;
+
+    if !committee.active {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority unavailable: signing committee is inactive".into()
+        )));
+    }
+    if committee.threshold == 0 || signature.signer_count < committee.threshold {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: {} signer(s) do not meet committee threshold {}",
+            signature.signer_count, committee.threshold
+        ))));
+    }
+    if !committee_scope_allows(&committee.scope, proposal_type) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Committee '{}' scope '{}' does not authorize '{}' proposals",
+            signature.committee_id,
+            extract_scope_name(&committee.scope),
+            proposal_type
+        ))));
+    }
+    if committee.pq_required {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution authority requires post-quantum verification, but the execution boundary does not yet have an ML-DSA verifier; refusing classical-only degradation".into()
+        )));
+    }
+
+    let public_key = committee.public_key.as_deref().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Execution authority unavailable: committee has no verification public key".into()
+        )
+    ))?;
+    let verifying_key = VerifyingKey::from_sec1_bytes(public_key).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: invalid committee ECDSA public key: {}",
+            e
+        )))
+    })?;
+    if signature.signature.len() != 64 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: expected 64-byte ECDSA signature, got {} bytes",
+            signature.signature.len()
+        ))));
+    }
+    let ecdsa_signature = Signature::from_slice(&signature.signature).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution authority unavailable: invalid ECDSA signature encoding: {}",
+            e
+        )))
+    })?;
+    verifying_key
+        .verify_prehash(&expected_digest, &ecdsa_signature)
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Execution authority cryptographic verification failed: {}",
+                e
+            )))
+        })?;
+
+    Ok(signature)
+}
+
 #[hdk_extern]
 pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
-    // Pre-create the pending_timelocks anchor so queries never fail on empty DNA
     let anchor = Anchor("pending_timelocks".to_string());
     create_entry(&EntryTypes::Anchor(anchor))?;
     Ok(InitCallbackResult::Pass)
@@ -112,7 +351,6 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
 /// Create a timelock for an approved proposal
 #[hdk_extern]
 pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
-    // Input validation
     if input.proposal_id.is_empty() || input.proposal_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Proposal ID must be 1-256 characters".into()
@@ -152,7 +390,6 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
     let tl_id = timelock.id.clone();
     let action_hash = create_entry(&EntryTypes::Timelock(timelock))?;
 
-    // Create anchor and link proposal to timelock
     let proposal_anchor = format!("proposal_timelock:{}", input.proposal_id);
     create_entry(&EntryTypes::Anchor(Anchor(proposal_anchor.clone())))?;
     create_link(
@@ -162,7 +399,6 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Create anchor and link for O(1) lookup by timelock ID
     let tl_anchor = format!("tl:{}", tl_id);
     create_entry(&EntryTypes::Anchor(Anchor(tl_anchor.clone())))?;
     create_link(
@@ -172,7 +408,6 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Create anchor and link to pending timelocks
     create_entry(&EntryTypes::Anchor(Anchor("pending_timelocks".to_string())))?;
     create_link(
         anchor_hash("pending_timelocks")?,
@@ -186,7 +421,6 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for creating a timelock
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateTimelockInput {
     pub proposal_id: String,
@@ -194,7 +428,6 @@ pub struct CreateTimelockInput {
     pub duration_hours: u32,
 }
 
-/// Get timelock for a proposal
 #[hdk_extern]
 pub fn get_proposal_timelock(proposal_id: String) -> ExternResult<Option<Record>> {
     let links = get_links(
@@ -219,10 +452,8 @@ pub fn get_proposal_timelock(proposal_id: String) -> ExternResult<Option<Record>
     Ok(None)
 }
 
-/// Mark a timelock as ready for execution (after signature verification)
-///
-/// Transitions a timelock from Pending to Ready once pre-conditions are met
-/// (e.g., threshold signature obtained, waiting period elapsed).
+/// Promote a timelock only after the exact action plan has a cryptographically
+/// verified threshold authorization. Creator identity alone is never enough.
 #[hdk_extern]
 pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record> {
     if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
@@ -231,15 +462,13 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         )));
     }
 
-    // Find the timelock via O(1) link-based lookup
     let current_record = find_timelock_by_id(&input.timelock_id)?;
 
-    // Authorization: only the timelock creator can mark it ready
     let caller = agent_info()?.agent_initial_pubkey;
     let author = current_record.action().author().clone();
     if caller != author {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the timelock creator can mark it as ready".into()
+            "Only the timelock creator can request Ready promotion".into()
         )));
     }
 
@@ -258,6 +487,8 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         ))));
     }
 
+    let signature = verify_threshold_authorization(&current_timelock)?;
+
     let ready_timelock = Timelock {
         status: TimelockStatus::Ready,
         ..current_timelock
@@ -268,21 +499,29 @@ pub fn mark_timelock_ready(input: MarkTimelockReadyInput) -> ExternResult<Record
         &EntryTypes::Timelock(ready_timelock),
     )?;
 
+    let _ = emit_signal(serde_json::json!({
+        "type": "TimelockAuthorityVerified",
+        "timelock_id": input.timelock_id,
+        "signature_id": signature.id,
+        "committee_id": signature.committee_id,
+        "signer_count": signature.signer_count,
+    }));
+
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find updated timelock".into()
     )))
 }
 
-/// Input for marking a timelock as ready
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MarkTimelockReadyInput {
     pub timelock_id: String,
 }
 
-/// Execute a ready timelock
+/// Execute a ready timelock. Authorization is re-verified immediately before
+/// side effects so stale, revoked, malformed, or historically unsafe Ready
+/// records cannot bypass the execution boundary.
 #[hdk_extern]
 pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
-    // Input validation
     if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Timelock ID must be 1-256 characters".into()
@@ -294,7 +533,6 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // Verify the executor DID matches the calling agent
     let agent = agent_info()?;
     let expected_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
     if input.executor_did != expected_did {
@@ -303,7 +541,6 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // Find the timelock via O(1) link-based lookup
     let current_record = find_timelock_by_id(&input.timelock_id)?;
 
     let current_timelock: Timelock = current_record
@@ -314,7 +551,6 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
             "Invalid timelock entry".into()
         )))?;
 
-    // Verify timelock is ready
     let now = sys_time()?;
     if now < current_timelock.expires {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -322,169 +558,23 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // Timelock must be in Ready status (transitioned via mark_timelock_ready after
-    // signature verification). Fall back to accepting Pending if threshold-signing
-    // zome is not installed (graceful degradation).
-    match current_timelock.status {
-        TimelockStatus::Ready => {
-            // Normal path — timelock was marked ready after signature verification
-        }
-        TimelockStatus::Pending => {
-            // Check if threshold-signing zome is installed
-            let sig_check = call(
-                CallTargetCell::Local,
-                ZomeName::from("threshold_signing"),
-                FunctionName::from("get_proposal_signature"),
-                None,
-                ExternIO::encode(current_timelock.proposal_id.clone())
-                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?,
-            );
-
-            match sig_check {
-                Ok(ZomeCallResponse::Ok(extern_io)) => {
-                    // Threshold-signing zome is installed — decode and validate
-                    let maybe_record: Option<Record> = extern_io.decode().map_err(|e| {
-                        wasm_error!(WasmErrorInner::Guest(format!(
-                            "Failed to decode threshold signature response: {}",
-                            e
-                        )))
-                    })?;
-
-                    match maybe_record {
-                        None => {
-                            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                "No verified threshold signature found for proposal '{}'. \
-                                     Call mark_timelock_ready after obtaining a signature.",
-                                current_timelock.proposal_id
-                            ))));
-                        }
-                        Some(sig_record) => {
-                            // Decode the ThresholdSignature entry for validation
-                            let sig: ThresholdSignature = sig_record
-                                .entry()
-                                .to_app_option()
-                                .map_err(|e| {
-                                    wasm_error!(WasmErrorInner::Guest(format!(
-                                        "Failed to decode ThresholdSignature entry: {}",
-                                        e
-                                    )))
-                                })?
-                                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                                    "Threshold signature record has no entry".into()
-                                )))?;
-
-                            // Defense-in-depth: verify signature is marked verified
-                            if !sig.verified {
-                                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                    "Threshold signature '{}' for proposal '{}' is not verified",
-                                    sig.id, current_timelock.proposal_id
-                                ))));
-                            }
-
-                            // Defense-in-depth: verify signature description references this proposal
-                            if !sig
-                                .signed_content_description
-                                .contains(&current_timelock.proposal_id)
-                            {
-                                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                    "Threshold signature '{}' content description does not reference proposal '{}' (was: '{}')",
-                                    sig.id,
-                                    current_timelock.proposal_id,
-                                    sig.signed_content_description
-                                ))));
-                            }
-
-                            // Defense-in-depth: verify committee scope covers this proposal type.
-                            // Fetch the committee to check its scope against the proposal.
-                            if let Ok(ZomeCallResponse::Ok(committee_io)) = call(
-                                CallTargetCell::Local,
-                                ZomeName::from("threshold_signing"),
-                                FunctionName::from("get_committee"),
-                                None,
-                                ExternIO::encode(sig.committee_id.clone()).map_err(|e| {
-                                    wasm_error!(WasmErrorInner::Guest(e.to_string()))
-                                })?,
-                            ) {
-                                if let Ok(Some(committee_record)) =
-                                    committee_io.decode::<Option<Record>>()
-                                {
-                                    // Decode scope from committee via mirror struct
-                                    if let Ok(Some(committee_mirror)) = committee_record
-                                        .entry()
-                                        .to_app_option::<CommitteeScopeMirror>(
-                                    ) {
-                                        // Infer proposal type from signed_content_description
-                                        // Format: "proposal:MIP-001" or "constitutional:CA-001" etc.
-                                        let proposal_type = sig
-                                            .signed_content_description
-                                            .split(':')
-                                            .next()
-                                            .unwrap_or("unknown");
-
-                                        let scope_name =
-                                            extract_scope_name(&committee_mirror.scope);
-
-                                        let scope_allows = match scope_name {
-                                            "All" => true,
-                                            "Constitutional" => proposal_type == "constitutional",
-                                            "Treasury" => proposal_type == "treasury",
-                                            "Protocol" => proposal_type == "protocol",
-                                            _ => true, // Custom or unknown — permissive
-                                        };
-
-                                        if !scope_allows {
-                                            return Err(wasm_error!(WasmErrorInner::Guest(
-                                                format!(
-                                                    "Committee '{}' scope '{}' does not authorize signing '{}' proposals",
-                                                    sig.committee_id, scope_name, proposal_type
-                                                )
-                                            )));
-                                        }
-                                    }
-                                }
-                            }
-                            // If committee fetch fails, proceed (signature itself is already verified)
-
-                            // Emit audit signal with signature details
-                            let _ = emit_signal(serde_json::json!({
-                                "type": "ThresholdSignatureVerified",
-                                "proposal_id": current_timelock.proposal_id,
-                                "signature_id": sig.id,
-                                "committee_id": sig.committee_id,
-                                "signer_count": sig.signer_count,
-                                "signers": sig.signers,
-                            }));
-                        }
-                    }
-                }
-                Ok(ZomeCallResponse::NetworkError(e)) => {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Network error checking threshold signature: {}",
-                        e
-                    ))));
-                }
-                _ => {
-                    // Threshold-signing zome not installed — graceful degradation
-                    let _ = emit_signal(serde_json::json!({
-                        "type": "GovernanceWarning",
-                        "warning": "threshold_signing_unavailable",
-                        "message": format!(
-                            "Threshold-signing zome not installed. Executing proposal '{}' without signature verification.",
-                            current_timelock.proposal_id
-                        ),
-                    }));
-                }
-            }
-        }
-        other => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Timelock must be in Ready or Pending status, current: {:?}",
-                other
-            ))));
-        }
+    if current_timelock.status != TimelockStatus::Ready {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Timelock must be Ready before execution; fail-closed status is {:?}",
+            current_timelock.status
+        ))));
     }
 
-    // Execute the actions via cross-zome dispatch
+    let signature = verify_threshold_authorization(&current_timelock)?;
+    let _ = emit_signal(serde_json::json!({
+        "type": "ExecutionAuthorityVerified",
+        "proposal_id": current_timelock.proposal_id,
+        "timelock_id": current_timelock.id,
+        "signature_id": signature.id,
+        "committee_id": signature.committee_id,
+        "signer_count": signature.signer_count,
+    }));
+
     let execution_result = execute_actions(&current_timelock.actions)?;
 
     let execution_id = format!("execution:{}:{}", input.timelock_id, now.as_micros());
@@ -506,7 +596,6 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::Execution(execution))?;
 
-    // Update timelock status
     let updated_timelock = Timelock {
         id: current_timelock.id.clone(),
         proposal_id: current_timelock.proposal_id.clone(),
@@ -526,7 +615,6 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         &EntryTypes::Timelock(updated_timelock),
     )?;
 
-    // Clean up pending_timelocks link (timelock is no longer pending)
     if let Ok(pending_links) = get_links(
         LinkQuery::try_new(
             anchor_hash("pending_timelocks")?,
@@ -552,21 +640,18 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for executing a timelock
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ExecuteTimelockInput {
     pub timelock_id: String,
     pub executor_did: String,
 }
 
-/// Result of executing actions
 struct ActionExecutionResult {
     success: bool,
     result: Option<String>,
     error: Option<String>,
 }
 
-/// Typed governance action — deserialized from the actions JSON string
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 enum GovernanceAction {
@@ -587,7 +672,6 @@ enum GovernanceAction {
 }
 
 impl GovernanceAction {
-    /// Validate action parameters
     fn validate(&self) -> Result<(), String> {
         match self {
             GovernanceAction::TransferCredits { from, to, amount } => {
@@ -618,12 +702,9 @@ impl GovernanceAction {
         }
     }
 
-    /// Execute the action via cross-zome dispatch
     fn execute(&self) -> ExternResult<String> {
         match self {
             GovernanceAction::TransferCredits { from, to, amount } => {
-                // SECURITY: Fail-closed — credit transfers MUST execute or fail explicitly.
-                // Returning Ok without actual transfer creates phantom transactions.
                 let transfer_input = serde_json::json!({"from": from, "to": to, "amount": amount});
                 governance_utils::call_local(
                     "governance_bridge",
@@ -639,8 +720,6 @@ impl GovernanceAction {
                 ))
             }
             GovernanceAction::UpdateParameter { parameter, value } => {
-                // SECURITY: Fail-closed — parameter updates MUST persist or fail explicitly.
-                // Returning Ok without actual update creates phantom governance changes.
                 let update_input = serde_json::json!({"parameter": parameter, "value": value});
                 governance_utils::call_local("constitution", "update_parameter", update_input)
                     .map_err(|e| {
@@ -655,7 +734,6 @@ impl GovernanceAction {
                 ))
             }
             GovernanceAction::EmitEvent { event, payload } => {
-                // Emit as a governance signal to connected clients
                 let _ = emit_signal(serde_json::json!({
                     "type": "GovernanceActionExecuted",
                     "event": event,
@@ -667,9 +745,7 @@ impl GovernanceAction {
     }
 }
 
-/// Execute actions parsed from JSON via cross-zome dispatch
 fn execute_actions(actions_json: &str) -> ExternResult<ActionExecutionResult> {
-    // Parse as typed enum array (or single action)
     let actions: Vec<GovernanceAction> = match serde_json::from_str(actions_json) {
         Ok(a) => a,
         Err(_) => match serde_json::from_str::<GovernanceAction>(actions_json) {
@@ -724,10 +800,8 @@ fn execute_actions(actions_json: &str) -> ExternResult<ActionExecutionResult> {
     })
 }
 
-/// Cancel a timelock (guardian veto)
 #[hdk_extern]
 pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
-    // Input validation
     if input.timelock_id.is_empty() || input.timelock_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Timelock ID must be 1-256 characters".into()
@@ -744,7 +818,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // Verify the guardian DID matches the calling agent
     let agent = agent_info()?;
     let expected_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
     if input.guardian_did != expected_did {
@@ -753,9 +826,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         )));
     }
 
-    // ── VETO RATE LIMITING ──
-    // Max 1 veto per Guardian per 7 days. Prevents serial veto DoS where
-    // a Guardian freezes governance by vetoing every proposal in sequence.
     const VETO_COOLDOWN_US: i64 = 7 * 24 * 3600 * 1_000_000;
     let guardian_anchor = format!("guardian:{}", input.guardian_did);
     if let Ok(eh) = anchor_hash(&guardian_anchor) {
@@ -784,8 +854,7 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
                                     "days_remaining": days_remaining,
                                 }));
                                 return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                                    "Veto rate limit: max 1 veto per 7 days per Guardian. \
-                                     Next veto available in {} day(s).",
+                                    "Veto rate limit: max 1 veto per 7 days per Guardian. Next veto available in {} day(s).",
                                     days_remaining + 1
                                 ))));
                             }
@@ -796,9 +865,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         }
     }
 
-    // ── YEARLY VETO LIMIT (Art. III, Sec. 5.4) ──
-    // Max 3 vetoes per Guardian per rolling 12-month window.
-    // Exceeding triggers probation signal.
     if let Ok(eh) = anchor_hash(&guardian_anchor) {
         if let Ok(links) = get_links(
             LinkQuery::try_new(eh, LinkTypes::GuardianToVeto)?,
@@ -831,8 +897,7 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
                     "limit": execution_integrity::VETO_YEARLY_LIMIT,
                 }));
                 return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Yearly veto limit exceeded: {} vetoes in the past 12 months \
-                     (max {}). Guardian enters probation (Art. III, Sec. 5.4).",
+                    "Yearly veto limit exceeded: {} vetoes in the past 12 months (max {}). Guardian enters probation (Art. III, Sec. 5.4).",
                     vetoes_in_window,
                     execution_integrity::VETO_YEARLY_LIMIT
                 ))));
@@ -840,7 +905,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         }
     }
 
-    // Verify guardian role: caller must be a member of at least one council
     let guardian_io = governance_utils::call_local(
         "councils",
         "get_member_councils",
@@ -854,8 +918,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         }
     }
 
-    // If the timelock is already in Ready state, require Guardian-tier Φ (0.8)
-    // since cancelling a signed, ready-to-execute proposal is a high-impact action.
     let tl_pre = find_timelock_by_id(&input.timelock_id)?;
     let tl_pre_entry: Timelock = tl_pre
         .entry()
@@ -866,7 +928,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         )))?;
 
     if tl_pre_entry.status == TimelockStatus::Ready {
-        // Require elevated consciousness for Ready-state vetoes
         const GUARDIAN_PHI_THRESHOLD: f64 = 0.8;
         match governance_utils::call_local_best_effort(
             "governance_bridge",
@@ -905,18 +966,11 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         affected_proposal_id: input.affected_proposal_id.clone(),
         justification_hash: input.justification_hash.clone(),
         threat_category: input.threat_category.clone(),
-        // `haptic_proof` was added to the integrity struct without updating this,
-        // its only construction site — so the execution zome, and therefore the
-        // whole governance cluster, did not compile (E0063). `None` preserves
-        // prior behaviour: the field is `Option` with `#[serde(default)]`, has no
-        // corresponding input, and is read nowhere yet. Populating it from real
-        // robotic-sensor input is a feature, not part of this build fix.
         haptic_proof: None,
     };
 
     let action_hash = create_entry(&EntryTypes::GuardianVeto(veto))?;
 
-    // Update timelock status to cancelled via O(1) link-based lookup
     let tl_record = find_timelock_by_id(&input.timelock_id)?;
     let tl: Timelock = tl_record
         .entry()
@@ -926,7 +980,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
             "Invalid timelock entry".into()
         )))?;
     if matches!(tl.status, TimelockStatus::Pending | TimelockStatus::Ready) {
-        // Transition to Vetoed (not Cancelled) — allows supermajority override
         let vetoed = Timelock {
             status: TimelockStatus::Vetoed,
             cancellation_reason: Some(input.reason.clone()),
@@ -938,7 +991,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         )?;
     }
 
-    // Clean up pending_timelocks link (timelock was vetoed/cancelled)
     if let Ok(pending_links) = get_links(
         LinkQuery::try_new(
             anchor_hash("pending_timelocks")?,
@@ -959,7 +1011,6 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         }
     }
 
-    // Create anchor and link guardian to veto
     let guardian_anchor = format!("guardian:{}", input.guardian_did);
     create_entry(&EntryTypes::Anchor(Anchor(guardian_anchor.clone())))?;
     create_link(
@@ -974,31 +1025,19 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for vetoing a timelock
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VetoTimelockInput {
     pub timelock_id: String,
     pub guardian_did: String,
     pub reason: String,
-    /// Proposal ID affected by this veto (constitutional registry, Art. III Sec. 5.5).
     #[serde(default)]
     pub affected_proposal_id: Option<String>,
-    /// SHA-256 hash of the full justification document.
     #[serde(default)]
     pub justification_hash: Option<String>,
-    /// Threat category for the veto (required post-sunset for Charter Guardian Authority).
     #[serde(default)]
     pub threat_category: Option<String>,
 }
 
-// ============================================================================
-// VETO OVERRIDE MECHANISM
-// Thermodynamic counterbalance: No Maxwell's Demon — collective energy (67%
-// supermajority, Art. III Sec. 5.3) can overcome any individual barrier.
-// ============================================================================
-
-/// Challenge a guardian veto — initiates the 48-hour override window.
-/// Any Citizen-tier (Φ ≥ 0.4) agent can challenge.
 #[hdk_extern]
 pub fn challenge_veto(input: ChallengeVetoInput) -> ExternResult<()> {
     if input.veto_id.is_empty() || input.veto_id.len() > 256 {
@@ -1012,7 +1051,6 @@ pub fn challenge_veto(input: ChallengeVetoInput) -> ExternResult<()> {
         )));
     }
 
-    // Verify challenger DID matches calling agent
     let agent = agent_info()?;
     let expected_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
     if input.challenger_did != expected_did {
@@ -1021,7 +1059,6 @@ pub fn challenge_veto(input: ChallengeVetoInput) -> ExternResult<()> {
         )));
     }
 
-    // Verify challenger meets Citizen-tier Φ (0.4)
     const CITIZEN_PHI: f64 = 0.4;
     match governance_utils::call_local_best_effort(
         "governance_bridge",
@@ -1046,7 +1083,6 @@ pub fn challenge_veto(input: ChallengeVetoInput) -> ExternResult<()> {
         }
     }
 
-    // Emit signal to notify participants
     let _ = emit_signal(serde_json::json!({
         "type": "VetoChallenged",
         "veto_id": input.veto_id,
@@ -1058,15 +1094,12 @@ pub fn challenge_veto(input: ChallengeVetoInput) -> ExternResult<()> {
     Ok(())
 }
 
-/// Input for challenging a veto
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChallengeVetoInput {
     pub veto_id: String,
     pub challenger_did: String,
 }
 
-/// Cast a vote to override (or sustain) a guardian veto.
-/// Requires Citizen-tier Φ (0.4).
 #[hdk_extern]
 pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record> {
     if input.veto_id.is_empty() || input.veto_id.len() > 256 {
@@ -1080,7 +1113,6 @@ pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record> 
         )));
     }
 
-    // Verify voter DID matches calling agent
     let agent = agent_info()?;
     let expected_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
     if input.voter_did != expected_did {
@@ -1089,7 +1121,6 @@ pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record> 
         )));
     }
 
-    // Get voter's Φ score (must be Citizen-tier ≥ 0.4)
     let phi_score = match governance_utils::call_local_best_effort(
         "governance_bridge",
         "verify_consciousness_gate",
@@ -1118,7 +1149,6 @@ pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record> 
         }
     };
 
-    // Check for duplicate vote by this agent on this veto
     let veto_anchor = format!("veto_override:{}", input.veto_id);
     create_entry(&EntryTypes::Anchor(Anchor(veto_anchor.clone())))?;
     let existing_votes = get_links(
@@ -1163,7 +1193,6 @@ pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record> 
 
     let action_hash = create_entry(&EntryTypes::VetoOverrideVote(vote))?;
 
-    // Link vote to veto
     create_link(
         anchor_hash(&veto_anchor)?,
         action_hash.clone(),
@@ -1176,7 +1205,6 @@ pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record> 
     )))
 }
 
-/// Input for casting an override vote
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CastOverrideVoteInput {
     pub veto_id: String,
@@ -1184,9 +1212,6 @@ pub struct CastOverrideVoteInput {
     pub supports_override: bool,
 }
 
-/// Resolve a veto override — tallies votes and transitions the timelock.
-/// Can be called by any agent after the 48-hour override window closes.
-/// This is permission-less enforcement — no special role required.
 #[hdk_extern]
 pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
     if input.veto_id.is_empty() || input.veto_id.len() > 256 {
@@ -1200,7 +1225,6 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
         )));
     }
 
-    // Verify the timelock is in Vetoed state
     let tl_record = find_timelock_by_id(&input.timelock_id)?;
     let tl: Timelock = tl_record
         .entry()
@@ -1217,7 +1241,6 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
         ))));
     }
 
-    // Collect all override votes
     let veto_anchor = format!("veto_override:{}", input.veto_id);
     let vote_links = get_links(
         LinkQuery::try_new(anchor_hash(&veto_anchor)?, LinkTypes::VetoToOverrideVotes)?,
@@ -1239,7 +1262,6 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
                     .flatten()
                 {
                     voter_count += 1;
-                    // Weight by phi score for consciousness-integrated override
                     let weight = vote.phi_score.max(0.0).min(1.0);
                     if vote.supports_override {
                         votes_for += weight;
@@ -1276,7 +1298,6 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
 
     let result_hash = create_entry(&EntryTypes::VetoOverrideResult(result))?;
 
-    // Link result to veto
     create_entry(&EntryTypes::Anchor(Anchor(veto_anchor.clone())))?;
     create_link(
         anchor_hash(&veto_anchor)?,
@@ -1285,9 +1306,7 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Transition timelock based on outcome
     if override_succeeded {
-        // Override succeeded — restore timelock to Ready
         let restored = Timelock {
             status: TimelockStatus::Ready,
             cancellation_reason: None,
@@ -1306,7 +1325,6 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
             "voter_count": voter_count,
         }));
     } else {
-        // Override failed — finalize cancellation
         let cancelled = Timelock {
             status: TimelockStatus::Cancelled,
             ..tl
@@ -1316,7 +1334,6 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
             &EntryTypes::Timelock(cancelled),
         )?;
 
-        // Clean up pending_timelocks link
         if let Ok(pending_links) = get_links(
             LinkQuery::try_new(
                 anchor_hash("pending_timelocks")?,
@@ -1352,14 +1369,12 @@ pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for resolving a veto override
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ResolveOverrideInput {
     pub veto_id: String,
     pub timelock_id: String,
 }
 
-/// Query a guardian's veto history for accountability and transparency.
 #[hdk_extern]
 pub fn get_guardian_vetoes(guardian_did: String) -> ExternResult<Vec<Record>> {
     if guardian_did.is_empty() || guardian_did.len() > 256 {
@@ -1384,11 +1399,6 @@ pub fn get_guardian_vetoes(guardian_did: String) -> ExternResult<Vec<Record>> {
     Ok(vetoes)
 }
 
-/// Lock funds in escrow for a proposal's execution.
-///
-/// Called after a proposal is approved and before a timelock is created.
-/// Creates a `FundAllocation` entry with status `Locked` and links it
-/// to the proposal.
 #[hdk_extern]
 pub fn lock_proposal_funds(input: LockFundsInput) -> ExternResult<Record> {
     if input.proposal_id.is_empty() || input.proposal_id.len() > 256 {
@@ -1421,7 +1431,6 @@ pub fn lock_proposal_funds(input: LockFundsInput) -> ExternResult<Record> {
         )));
     }
 
-    // Check for existing locked allocation for this proposal
     if let Some(_existing) = find_fund_allocation_for_proposal(&input.proposal_id)? {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Funds already locked for proposal '{}'",
@@ -1446,7 +1455,6 @@ pub fn lock_proposal_funds(input: LockFundsInput) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::FundAllocation(alloc))?;
 
-    // Link proposal to fund allocation
     let alloc_anchor = format!("fund_alloc:{}", input.proposal_id);
     create_entry(&EntryTypes::Anchor(Anchor(alloc_anchor.clone())))?;
     create_link(
@@ -1461,7 +1469,6 @@ pub fn lock_proposal_funds(input: LockFundsInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for locking funds
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LockFundsInput {
     pub proposal_id: String,
@@ -1471,7 +1478,6 @@ pub struct LockFundsInput {
     pub currency: Option<String>,
 }
 
-/// Release locked funds after successful execution
 #[hdk_extern]
 pub fn release_locked_funds(input: ReleaseFundsInput) -> ExternResult<Record> {
     if input.proposal_id.is_empty() || input.proposal_id.len() > 256 {
@@ -1494,7 +1500,6 @@ pub fn release_locked_funds(input: ReleaseFundsInput) -> ExternResult<Record> {
         ))),
     )?;
 
-    // Authorization: only the fund allocation creator can release
     let caller = agent_info()?.agent_initial_pubkey;
     if caller != *record.action().author() {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1529,14 +1534,12 @@ pub fn release_locked_funds(input: ReleaseFundsInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for releasing funds
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ReleaseFundsInput {
     pub proposal_id: String,
     pub reason: Option<String>,
 }
 
-/// Refund locked funds (e.g., after veto or expiration)
 #[hdk_extern]
 pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
     if input.proposal_id.is_empty() || input.proposal_id.len() > 256 {
@@ -1557,7 +1560,6 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
         ))),
     )?;
 
-    // Authorization: only the fund allocation creator or a guardian can refund
     let caller = agent_info()?.agent_initial_pubkey;
     if caller != *record.action().author() {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1588,20 +1590,17 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
     )))
 }
 
-/// Input for refunding funds
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RefundFundsInput {
     pub proposal_id: String,
     pub reason: String,
 }
 
-/// Query fund allocation status for a proposal
 #[hdk_extern]
 pub fn get_fund_allocation(proposal_id: String) -> ExternResult<Option<Record>> {
     Ok(find_fund_allocation_for_proposal(&proposal_id)?.map(|(r, _)| r))
 }
 
-/// Internal helper: find the active fund allocation for a proposal
 fn find_fund_allocation_for_proposal(
     proposal_id: &str,
 ) -> ExternResult<Option<(Record, FundAllocation)>> {
@@ -1614,7 +1613,6 @@ fn find_fund_allocation_for_proposal(
         GetStrategy::default(),
     )?;
 
-    // Find the most recent allocation
     let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
     if let Some(link) = latest_link {
         let action_hash = ActionHash::try_from(link.target)
@@ -1633,7 +1631,6 @@ fn find_fund_allocation_for_proposal(
     Ok(None)
 }
 
-/// Get pending timelocks
 #[hdk_extern]
 pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
     let links = get_links(
@@ -1649,7 +1646,6 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get_latest_record(action_hash)? {
-            // Filter to only actually pending timelocks
             if let Some(tl) = record
                 .entry()
                 .to_app_option::<Timelock>()
@@ -1669,11 +1665,56 @@ pub fn get_pending_timelocks(_: ()) -> ExternResult<Vec<Record>> {
 mod tests {
     use super::*;
 
-    // =========================================================================
-    // GovernanceAction::validate() — pure method tests
-    // =========================================================================
+    fn test_timelock(actions: &str) -> Timelock {
+        Timelock {
+            id: "tl-1".into(),
+            proposal_id: "MIP-001".into(),
+            actions: actions.into(),
+            started: Timestamp::from_micros(1_000_000),
+            expires: Timestamp::from_micros(2_000_000),
+            status: TimelockStatus::Pending,
+            cancellation_reason: None,
+        }
+    }
 
-    // --- TransferCredits ---
+    #[test]
+    fn execution_authority_digest_is_deterministic_and_payload_bound() {
+        let a = test_timelock(r#"{"type":"TransferCredits","from":"a","to":"b","amount":10}"#);
+        let same = test_timelock(r#"{"type":"TransferCredits","from":"a","to":"b","amount":10}"#);
+        let changed = test_timelock(r#"{"type":"TransferCredits","from":"a","to":"b","amount":11}"#);
+        assert_eq!(execution_authority_digest(&a), execution_authority_digest(&same));
+        assert_ne!(execution_authority_digest(&a), execution_authority_digest(&changed));
+    }
+
+    #[test]
+    fn execution_authority_digest_binds_proposal_id() {
+        let a = test_timelock(r#"{"type":"EmitEvent","event":"x"}"#);
+        let mut b = a.clone();
+        b.proposal_id = "MIP-002".into();
+        assert_ne!(execution_authority_digest(&a), execution_authority_digest(&b));
+    }
+
+    #[test]
+    fn committee_scope_is_fail_closed() {
+        assert!(committee_scope_allows(&serde_json::json!("All"), "proposal"));
+        assert!(committee_scope_allows(
+            &serde_json::json!("Constitutional"),
+            "constitutional"
+        ));
+        assert!(!committee_scope_allows(
+            &serde_json::json!("Constitutional"),
+            "treasury"
+        ));
+        assert!(!committee_scope_allows(&serde_json::Value::Null, "proposal"));
+        assert!(!committee_scope_allows(&serde_json::json!("Unknown"), "proposal"));
+    }
+
+    #[test]
+    fn custom_scope_requires_explicit_type() {
+        let custom = serde_json::json!({"Custom": ["emergency", "treasury_ops"]});
+        assert!(committee_scope_allows(&custom, "emergency"));
+        assert!(!committee_scope_allows(&custom, "constitutional"));
+    }
 
     #[test]
     fn test_transfer_credits_valid() {
@@ -1747,11 +1788,8 @@ mod tests {
             to: "project".into(),
             amount: f64::NAN,
         };
-        // NaN is neither positive nor finite — hits the <= 0.0 check
         assert!(action.validate().is_err());
     }
-
-    // --- UpdateParameter ---
 
     #[test]
     fn test_update_parameter_valid() {
@@ -1772,8 +1810,6 @@ mod tests {
         assert!(err.contains("'parameter' name is required"));
     }
 
-    // --- EmitEvent ---
-
     #[test]
     fn test_emit_event_always_valid() {
         let action = GovernanceAction::EmitEvent {
@@ -1782,17 +1818,12 @@ mod tests {
         };
         assert!(action.validate().is_ok());
 
-        // Even empty event is valid (no validation on event name)
         let empty = GovernanceAction::EmitEvent {
             event: "".into(),
             payload: serde_json::Value::Null,
         };
         assert!(empty.validate().is_ok());
     }
-
-    // =========================================================================
-    // GovernanceAction serde — JSON round-trip and tagged enum format
-    // =========================================================================
 
     #[test]
     fn test_governance_action_serde_transfer() {
@@ -1828,7 +1859,7 @@ mod tests {
         match action {
             GovernanceAction::EmitEvent { event, payload } => {
                 assert_eq!(event, "proposal_executed");
-                assert_eq!(payload, serde_json::Value::Null); // default
+                assert_eq!(payload, serde_json::Value::Null);
             }
             _ => panic!("Expected EmitEvent"),
         }
@@ -1852,106 +1883,6 @@ mod tests {
         assert!(serde_json::from_str::<GovernanceAction>(json).is_err());
     }
 
-    // =========================================================================
-    // ThresholdSignature mirror type serde
-    // =========================================================================
-
-    // =========================================================================
-    // Committee scope enforcement — proposal type inference
-    // =========================================================================
-
-    // --- extract_scope_name ---
-
-    #[test]
-    fn test_extract_scope_simple_variants() {
-        assert_eq!(extract_scope_name(&serde_json::json!("All")), "All");
-        assert_eq!(
-            extract_scope_name(&serde_json::json!("Constitutional")),
-            "Constitutional"
-        );
-        assert_eq!(
-            extract_scope_name(&serde_json::json!("Treasury")),
-            "Treasury"
-        );
-        assert_eq!(
-            extract_scope_name(&serde_json::json!("Protocol")),
-            "Protocol"
-        );
-    }
-
-    #[test]
-    fn test_extract_scope_custom_variant() {
-        // Custom(Vec<String>) serializes as {"Custom": ["type1", "type2"]}
-        let custom = serde_json::json!({"Custom": ["treasury_ops", "emergency"]});
-        assert_eq!(extract_scope_name(&custom), "Custom");
-    }
-
-    #[test]
-    fn test_extract_scope_null_defaults_to_all() {
-        assert_eq!(extract_scope_name(&serde_json::Value::Null), "All");
-    }
-
-    // --- scope enforcement logic ---
-
-    fn scope_allows(scope_name: &str, proposal_type: &str) -> bool {
-        match scope_name {
-            "All" => true,
-            "Constitutional" => proposal_type == "constitutional",
-            "Treasury" => proposal_type == "treasury",
-            "Protocol" => proposal_type == "protocol",
-            _ => true,
-        }
-    }
-
-    #[test]
-    fn test_scope_all_allows_everything() {
-        assert!(scope_allows("All", "constitutional"));
-        assert!(scope_allows("All", "treasury"));
-        assert!(scope_allows("All", "protocol"));
-        assert!(scope_allows("All", "proposal"));
-        assert!(scope_allows("All", "unknown"));
-    }
-
-    #[test]
-    fn test_scope_constitutional_restricts() {
-        assert!(scope_allows("Constitutional", "constitutional"));
-        assert!(!scope_allows("Constitutional", "treasury"));
-        assert!(!scope_allows("Constitutional", "protocol"));
-        assert!(!scope_allows("Constitutional", "proposal"));
-    }
-
-    #[test]
-    fn test_scope_treasury_restricts() {
-        assert!(scope_allows("Treasury", "treasury"));
-        assert!(!scope_allows("Treasury", "constitutional"));
-        assert!(!scope_allows("Treasury", "protocol"));
-    }
-
-    #[test]
-    fn test_scope_protocol_restricts() {
-        assert!(scope_allows("Protocol", "protocol"));
-        assert!(!scope_allows("Protocol", "treasury"));
-        assert!(!scope_allows("Protocol", "constitutional"));
-    }
-
-    #[test]
-    fn test_scope_custom_permissive() {
-        assert!(scope_allows("Custom", "anything"));
-    }
-
-    #[test]
-    fn test_infer_proposal_type_from_description() {
-        fn infer(desc: &str) -> &str {
-            desc.split(':').next().unwrap_or("unknown")
-        }
-        assert_eq!(infer("proposal:MIP-001"), "proposal");
-        assert_eq!(infer("constitutional:CA-001"), "constitutional");
-        assert_eq!(infer("treasury:TB-042"), "treasury");
-        assert_eq!(infer("protocol:PU-007"), "protocol");
-        assert_eq!(infer("no-colon-here"), "no-colon-here");
-        assert_eq!(infer(""), "");
-    }
-
     #[test]
     fn test_veto_cooldown_is_7_days() {
         const VETO_COOLDOWN_US: i64 = 7 * 24 * 3600 * 1_000_000;
@@ -1960,37 +1891,28 @@ mod tests {
 
     #[test]
     fn test_guardian_phi_threshold_constant() {
-        // Verify the Guardian-tier threshold used in veto_timelock
-        // matches the actual Guardian Φ requirement (0.8)
         const GUARDIAN_PHI_THRESHOLD: f64 = 0.8;
-        assert!(
-            GUARDIAN_PHI_THRESHOLD >= 0.8,
-            "Guardian veto must require actual Guardian-tier Φ (0.8)"
-        );
-        assert!(GUARDIAN_PHI_THRESHOLD <= 1.0, "Must be a valid Φ score");
+        assert!(GUARDIAN_PHI_THRESHOLD >= 0.8);
+        assert!(GUARDIAN_PHI_THRESHOLD <= 1.0);
     }
-
-    // =========================================================================
-    // ThresholdSignature mirror type serde
-    // =========================================================================
 
     #[test]
     fn test_threshold_signature_serde_roundtrip() {
         let sig = ThresholdSignature {
             id: "sig-1".into(),
             committee_id: "committee-1".into(),
-            signed_content_hash: vec![1, 2, 3],
+            signed_content_hash: vec![1; 32],
             signed_content_description: "proposal:MIP-001".into(),
             signature: vec![0u8; 64],
             signer_count: 2,
             signers: vec![1, 2],
             verified: true,
-            signed_at: Timestamp::from_micros(1000000),
+            signed_at: Timestamp::from_micros(1_500_000),
         };
         let json = serde_json::to_string(&sig).unwrap();
         let decoded: ThresholdSignature = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.id, "sig-1");
         assert!(decoded.verified);
-        assert!(decoded.signed_content_description.contains("MIP-001"));
+        assert_eq!(decoded.signed_content_hash.len(), 32);
     }
 }
