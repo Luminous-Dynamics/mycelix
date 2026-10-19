@@ -5,6 +5,10 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Personal — Leptos CSR frontend for the Mycelix sovereign vault"
 
+[features]
+default = []
+hydrate = []
+
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8" }
@@ -19,8 +23,8 @@ console_error_panic_hook = "0.1"
 js-sys = "0.3"
 serde-wasm-bindgen = "0.6"
 
-mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
+mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
 personal-leptos-types = { path = "../../crates/personal-leptos-types" }
 
 [workspace]
