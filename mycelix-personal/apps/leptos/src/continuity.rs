@@ -7,10 +7,18 @@ use leptos::prelude::*;
 /// workspace. This page has no source adapters and never persists or shares data.
 fn disclosure_scope_summary(scope: &str) -> &'static str {
     match scope {
-        "none" => "No fields selected. A real relying service would receive no vehicle details from this preview.",
-        "existence" => "Preview: disclose only that a vehicle-service record exists. No owner, identifier, date, location, or service detail is included.",
-        "selected" => "Preview: disclose selected service categories and their evidence state only. Identifier, owner, location, and full notes stay private.",
-        "full" => "High exposure: a full record could reveal detailed history. This prototype still sends nothing; a real flow must show every exact field and recipient before consent.",
+        "none" => {
+            "No fields selected. A real relying service would receive no vehicle details from this preview."
+        },
+        "existence" => {
+            "Preview: disclose only that a vehicle-service record exists. No owner, identifier, date, location, or service detail is included."
+        },
+        "selected" => {
+            "Preview: disclose selected service categories and their evidence state only. Identifier, owner, location, and full notes stay private."
+        },
+        "full" => {
+            "High exposure: a full record could reveal detailed history. This prototype still sends nothing; a real flow must show every exact field and recipient before consent."
+        },
         _ => "No disclosure scope selected.",
     }
 }
