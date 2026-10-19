@@ -1,0 +1,74 @@
+name: SOV-DPI-000 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/sovereign-dpi/SOV_DPI_ADOPTION_CONSTITUTION_V1.md'
+      - 'docs/sovereign-dpi/sov_dpi_000_manifest.json'
+      - 'scripts/validate_sov_dpi_000.py'
+      - '.github/workflows/sov-dpi-000.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sov-dpi-000-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Record immutable checkout
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git status --porcelain=v1
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Validate SOV-DPI-000 corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate_sov_dpi_000.py
+
+      - name: Audit exact PR review surface
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            '.github/workflows/sov-dpi-000.yml'
+            'docs/sovereign-dpi/SOV_DPI_ADOPTION_CONSTITUTION_V1.md'
+            'docs/sovereign-dpi/sov_dpi_000_manifest.json'
+            'scripts/validate_sov_dpi_000.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Verify checkout immutability
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ steps.preflight.outputs.head }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1)"
