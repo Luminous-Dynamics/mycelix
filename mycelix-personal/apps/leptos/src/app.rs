@@ -411,6 +411,8 @@ fn format_relative_micros(timestamp_micros: i64) -> String {
 #[component]
 fn IdentityPage() -> impl IntoView {
     let ctx = use_personal();
+    let keys = ctx.keys;
+    let keys_source_state = ctx.keys_source_state;
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
@@ -509,9 +511,14 @@ fn IdentityPage() -> impl IntoView {
                     <SectionTitle title="Key posture" />
                     <div class="key-list">
                         <For
-                            each=move || ctx.keys.get()
+                            each=move || keys.get()
                             key=|key| format!("{}-{}", key.label, key.purpose)
                             children=move |key| view! { <KeyCard key_data=key /> }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Identity keys"
+                            state=keys_source_state
+                            has_records=move || !keys.get().is_empty()
                         />
                     </div>
                 </section>
@@ -523,6 +530,8 @@ fn IdentityPage() -> impl IntoView {
 #[component]
 fn WalletPage() -> impl IntoView {
     let ctx = use_personal();
+    let credentials = ctx.credentials;
+    let credentials_source_state = ctx.credentials_source_state;
 
     view! {
         <div class="stack-page">
@@ -543,9 +552,14 @@ fn WalletPage() -> impl IntoView {
                 <SectionTitle title="Credentials" />
                 <div class="credential-grid">
                     <For
-                        each=move || ctx.credentials.get()
+                        each=move || credentials.get()
                         key=|cred| cred.hash.clone()
                         children=move |cred| view! { <CredentialCard credential=cred /> }
+                    />
+                    <SourceCollectionEmptyState
+                        label="Credentials"
+                        state=credentials_source_state
+                        has_records=move || !credentials.get().is_empty()
                     />
                 </div>
             </section>
@@ -556,6 +570,12 @@ fn WalletPage() -> impl IntoView {
 #[component]
 fn HealthPage() -> impl IntoView {
     let ctx = use_personal();
+    let biometrics = ctx.biometrics;
+    let biometrics_source_state = ctx.biometrics_source_state;
+    let consents = ctx.consents;
+    let consents_source_state = ctx.consents_source_state;
+    let health_record_count = ctx.health_record_count;
+    let health_records_source_state = ctx.health_records_source_state;
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
@@ -621,12 +641,24 @@ fn HealthPage() -> impl IntoView {
                 ]
             />
 
+            <section class="vault-card health-record-summary">
+                <SectionTitle title="Health record inventory" />
+                <p class="supporting-copy">
+                    "Record count: " {move || health_record_count.get().to_string()}
+                </p>
+                <SourceCollectionEmptyState
+                    label="Health records"
+                    state=health_records_source_state
+                    has_records=move || health_record_count.get() > 0
+                />
+            </section>
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Recent biometrics" />
                     <div class="biometric-list">
                         <For
-                            each=move || ctx.biometrics.get()
+                            each=move || biometrics.get()
                             key=|item| item.hash.clone()
                             children=move |item| view! {
                                 <div class="metric-row">
@@ -634,6 +666,11 @@ fn HealthPage() -> impl IntoView {
                                     <span class="metric-value">{format!("{} {}", item.value, item.unit)}</span>
                                 </div>
                             }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Biometrics"
+                            state=biometrics_source_state
+                            has_records=move || !biometrics.get().is_empty()
                         />
                     </div>
                 </section>
@@ -663,9 +700,14 @@ fn HealthPage() -> impl IntoView {
                     </form>
                     <div class="consent-list">
                         <For
-                            each=move || ctx.consents.get()
+                            each=move || consents.get()
                             key=|grant| grant.hash.clone()
                             children=move |grant| view! { <ConsentCard grant=grant /> }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Consent grants"
+                            state=consents_source_state
+                            has_records=move || !consents.get().is_empty()
                         />
                     </div>
                 </section>
@@ -677,6 +719,10 @@ fn HealthPage() -> impl IntoView {
 #[component]
 fn PreferencesPage() -> impl IntoView {
     let ctx = use_personal();
+    let preferences = ctx.preferences;
+    let preferences_source_state = ctx.preferences_source_state;
+    let preference_log = ctx.preference_log;
+    let preference_log_source_state = ctx.preference_log_source_state;
 
     view! {
         <div class="stack-page">
@@ -698,9 +744,14 @@ fn PreferencesPage() -> impl IntoView {
                     <SectionTitle title="Domain posture" />
                     <div class="preference-list">
                         <For
-                            each=move || ctx.preferences.get()
+                            each=move || preferences.get()
                             key=|pref| format!("{}-{}", pref.source_cluster, pref.target_cluster)
                             children=move |pref| view! { <PreferenceCard pref=pref /> }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Sharing preferences"
+                            state=preferences_source_state
+                            has_records=move || !preferences.get().is_empty()
                         />
                     </div>
                 </section>
@@ -709,7 +760,7 @@ fn PreferencesPage() -> impl IntoView {
                     <SectionTitle title="Change log" />
                     <div class="preference-list">
                         <For
-                            each=move || ctx.preference_log.get()
+                            each=move || preference_log.get()
                             key=|log| format!("{}-{}-{}", log.source_cluster, log.target_cluster, log.changed_at)
                             children=move |log| view! {
                                 <div class="mini-card">
@@ -725,6 +776,11 @@ fn PreferencesPage() -> impl IntoView {
                                 </div>
                             }
                         />
+                        <SourceCollectionEmptyState
+                            label="Preference history"
+                            state=preference_log_source_state
+                            has_records=move || !preference_log.get().is_empty()
+                        />
                     </div>
                 </section>
             </div>
@@ -735,6 +791,8 @@ fn PreferencesPage() -> impl IntoView {
 #[component]
 fn ActivityPage() -> impl IntoView {
     let ctx = use_personal();
+    let activity = ctx.activity;
+    let activity_source_state = ctx.activity_source_state;
 
     view! {
         <div class="stack-page">
@@ -754,11 +812,16 @@ fn ActivityPage() -> impl IntoView {
                 <SectionTitle title="Disclosure and handoff log" />
                 <ul class="activity-list">
                     <For
-                        each=move || ctx.activity.get()
+                        each=move || activity.get()
                         key=|entry| entry.id.clone()
                         children=move |entry| view! { <ActivityItemCard item=entry wide=true /> }
                     />
                 </ul>
+                <SourceCollectionEmptyState
+                    label="Activity history"
+                    state=activity_source_state
+                    has_records=move || !activity.get().is_empty()
+                />
             </section>
         </div>
     }
@@ -787,6 +850,70 @@ fn UnlockPage() -> impl IntoView {
 struct SourceStatusItem {
     label: &'static str,
     state: RwSignal<SourceReadState>,
+}
+
+fn source_empty_message(label: &str, state: SourceReadState) -> String {
+    match state {
+        SourceReadState::NotChecked => format!(
+            "{label}: this source has not been checked, so record absence is unknown."
+        ),
+        SourceReadState::Loading => format!("{label}: checking the source."),
+        SourceReadState::LiveWithRecords { .. } => format!(
+            "{label}: the source reported records, but this view contains none. Recheck the adapter."
+        ),
+        SourceReadState::LiveConfirmedEmpty { .. } => format!(
+            "{label}: the source returned no records at the last successful check. This does not establish what other systems may hold."
+        ),
+        SourceReadState::Unavailable { reason } => format!(
+            "{label}: source unavailable ({reason:?}); no conclusion about record absence can be drawn."
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: Some(checked_at),
+        } => format!(
+            "{label}: no current read is available; previous successful read {}. Recheck before relying on this data.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: None,
+        } => format!(
+            "{label}: source state is stale and no successful-read timestamp is available."
+        ),
+        SourceReadState::Demo => format!(
+            "{label}: this demo view has no synthetic examples; no live source was queried."
+        ),
+        SourceReadState::Conflict => format!(
+            "{label}: evidence conflicts; no automatic resolution is safe."
+        ),
+        SourceReadState::Unsupported => format!(
+            "{label}: no source adapter is integrated."
+        ),
+    }
+}
+
+#[component]
+fn SourceCollectionEmptyState<F>(
+    label: &'static str,
+    state: RwSignal<SourceReadState>,
+    has_records: F,
+) -> impl IntoView
+where
+    F: Fn() -> bool + Send + Sync + 'static,
+{
+    view! {
+        {move || {
+            if has_records() {
+                ().into_any()
+            } else {
+                let message = source_empty_message(label, state.get());
+                view! {
+                    <p class="source-empty-copy" role="status" aria-live="polite">
+                        {message}
+                    </p>
+                }
+                .into_any()
+            }
+        }}
+    }
 }
 
 fn source_state_summary(state: SourceReadState) -> String {
