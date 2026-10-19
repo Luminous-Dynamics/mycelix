@@ -757,9 +757,10 @@ fn try_generate_signing_key() -> Result<SigningKey, String> {
         .crypto()
         .map_err(|_| "Web Crypto API unavailable.".to_string())?;
     let mut seed = [0u8; 32];
-    crypto
-        .get_random_values_with_u8_array(&mut seed)
-        .map_err(|_| "crypto.getRandomValues failed.".to_string())?;
+    if crypto.get_random_values_with_u8_array(&mut seed).is_err() {
+        seed.zeroize();
+        return Err("crypto.getRandomValues failed.".to_string());
+    }
     let signing_key = SigningKey::from_bytes(&seed);
     seed.zeroize();
     Ok(signing_key)
