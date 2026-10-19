@@ -794,7 +794,7 @@ where
     view! {
         <div class="vault-stat">
             <span class="vault-stat-label">{move || label.get()}</span>
-            <strong class="vault-stat-value">{value()}</strong>
+            <strong class="vault-stat-value">{move || value()}</strong>
         </div>
     }
 }
