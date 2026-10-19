@@ -490,8 +490,7 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
         if territory_set.len() != grant.territories.len() {
             errors.push(format!("{context} repeats a territory"));
         }
-        let evidence_set: BTreeSet<&str> =
-            grant.evidence_refs.iter().map(String::as_str).collect();
+        let evidence_set: BTreeSet<&str> = grant.evidence_refs.iter().map(String::as_str).collect();
         if evidence_set.len() != grant.evidence_refs.len()
             || grant
                 .evidence_refs
@@ -871,7 +870,10 @@ mod tests {
             Purpose::BenchmarkEvaluation,
             ActorClass::PublicUser,
         );
-        assert_eq!(admission(&wrong_purpose).admission_decision, AdmissionDecision::Denied);
+        assert_eq!(
+            admission(&wrong_purpose).admission_decision,
+            AdmissionDecision::Denied
+        );
         wrong_purpose = request(
             Operation::BenchmarkEvaluation,
             Purpose::BenchmarkEvaluation,
