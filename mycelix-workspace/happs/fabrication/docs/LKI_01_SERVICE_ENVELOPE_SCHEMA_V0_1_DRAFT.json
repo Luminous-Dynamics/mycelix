@@ -14,6 +14,7 @@
     "envelopes",
     "fit_checks",
     "obstacle_inventory_state",
+    "obstacle_inventory_evidence_source_ids",
     "collision_policy",
     "assumptions_and_limits"
   ],
@@ -223,6 +224,14 @@
         "incomplete",
         "reviewed"
       ]
+    },
+    "obstacle_inventory_evidence_source_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "$defs": {
