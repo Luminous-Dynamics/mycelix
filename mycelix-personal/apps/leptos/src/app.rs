@@ -854,9 +854,9 @@ struct SourceStatusItem {
 
 fn source_empty_message(label: &str, state: SourceReadState) -> String {
     match state {
-        SourceReadState::NotChecked => format!(
-            "{label}: this source has not been checked, so record absence is unknown."
-        ),
+        SourceReadState::NotChecked => {
+            format!("{label}: this source has not been checked, so record absence is unknown.")
+        }
         SourceReadState::Loading => format!("{label}: checking the source."),
         SourceReadState::LiveWithRecords { .. } => format!(
             "{label}: the source reported records, but this view contains none. Recheck the adapter."
@@ -875,18 +875,16 @@ fn source_empty_message(label: &str, state: SourceReadState) -> String {
         ),
         SourceReadState::Stale {
             last_successful_read_at: None,
-        } => format!(
-            "{label}: source state is stale and no successful-read timestamp is available."
-        ),
+        } => {
+            format!("{label}: source state is stale and no successful-read timestamp is available.")
+        }
         SourceReadState::Demo => format!(
             "{label}: this demo view has no synthetic examples; no live source was queried."
         ),
-        SourceReadState::Conflict => format!(
-            "{label}: evidence conflicts; no automatic resolution is safe."
-        ),
-        SourceReadState::Unsupported => format!(
-            "{label}: no source adapter is integrated."
-        ),
+        SourceReadState::Conflict => {
+            format!("{label}: evidence conflicts; no automatic resolution is safe.")
+        }
+        SourceReadState::Unsupported => format!("{label}: no source adapter is integrated."),
     }
 }
 
@@ -1289,8 +1287,7 @@ mod source_empty_message_tests {
 
     #[test]
     fn unsupported_source_is_not_displayed_as_empty() {
-        let unsupported =
-            source_empty_message("Vehicle recalls", SourceReadState::Unsupported);
+        let unsupported = source_empty_message("Vehicle recalls", SourceReadState::Unsupported);
 
         assert!(unsupported.contains("no source adapter is integrated"));
         assert!(!unsupported.contains("returned no records"));
