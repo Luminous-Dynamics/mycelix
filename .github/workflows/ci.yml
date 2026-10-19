@@ -291,6 +291,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -298,8 +299,36 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-identity
+      - name: Validate South African Digital ID research contract
+        run: |
+          python3 --version
+          cd mycelix-identity
+          python3 validate_sa_did_profile.py
+          python3 validate_africa_dpi_contract.py
+          python3 validate_africa_country_research_matrix.py
+          python3 validate_portable_adapter_profile.py
+          python3 synthetic_service_journey.py --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" --report synthetic-service-journey-report.json
+          python3 appeal_case_engine.py --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" --report appeal-case-report.json
+          python3 sa_did_policy_engine.py --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" --report sa-did-policy-report.json
+          python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v
+          python3 -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_africa_country_research_matrix.py' -v
+          python3 -m unittest discover -s tests -p 'test_portable_adapter_profile.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetic_service_journey.py' -v
+          python3 -m unittest discover -s tests -p 'test_appeal_case_engine.py' -v
       - name: Test identity
         run: cd mycelix-identity && cargo test --workspace
+      - name: Upload synthetic SA-DID policy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-synthetic-contract-reports
+          path: |
+            mycelix-identity/sa-did-policy-report.json
+            mycelix-identity/synthetic-service-journey-report.json
+            mycelix-identity/appeal-case-report.json
+          if-no-files-found: warn
+          retention-days: 14
 
   test-personal:
     needs: changes

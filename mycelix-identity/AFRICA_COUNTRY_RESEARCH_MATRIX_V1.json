@@ -1,0 +1,271 @@
+{
+  "schema_id": "org.luminousdynamics.africa-country-interoperability-research-matrix",
+  "schema_version": 1,
+  "snapshot_date": "2026-10-14",
+  "maturity": "research_only",
+  "production_enabled": false,
+  "qualified_integrations": [],
+  "common_status_values": [
+    "not_assessed",
+    "research_only",
+    "partner_review",
+    "sandbox_authorized",
+    "production_authorized"
+  ],
+  "common_gate_keys": [
+    "domestic_legal_basis_reviewed",
+    "written_authority_or_partner_authorization",
+    "official_external_verifier_protocol_reviewed",
+    "issuer_trust_metadata_and_key_rotation_verified",
+    "credential_validity_status_and_revocation_reviewed",
+    "purpose_minimization_and_data_protection_review_approved",
+    "non_digital_or_assisted_fallback_tested",
+    "accessibility_and_local_language_review_complete",
+    "independent_security_review_complete",
+    "authorized_sandbox_conformance_passed",
+    "incident_correction_and_appeal_process_agreed",
+    "human_release_approval_for_exact_commit"
+  ],
+  "route_records": [
+    {
+      "route_key": "ZA-DHA-OVS",
+      "country_code": "ZA",
+      "country_name": "South Africa",
+      "authority": "Department of Home Affairs",
+      "route_name": "Online Verification Service (OVS)",
+      "status": "research_only",
+      "production_enabled": false,
+      "external_verifier_protocol_reviewed": false,
+      "written_authorization_obtained": false,
+      "official_sources": [
+        {
+          "url": "https://www.gov.za/news/media-statements/home-affairs-corrects-unsustainable-under-pricing-national-population",
+          "retrieved_on": "2026-10-14",
+          "supports": "DHA's published OVS onboarding channel and public-sector/private-sector verification service context."
+        },
+        {
+          "url": "https://www.gov.za/news/media-statements/minister-leon-schreiber-welcomes-withdrawal-act-court-application-against",
+          "retrieved_on": "2026-10-14",
+          "supports": "Later official statement concerning OVS access and fees."
+        }
+      ],
+      "established_facts": [
+        "OVS is a server-side register-verification route for authorized/registered third parties.",
+        "Publicly published onboarding contact is Verifications@dha.gov.za.",
+        "Access is not granted by the existence of a public contact address."
+      ],
+      "unresolved_questions": [
+        "Eligibility and legal basis for the specific Luminous Dynamics use case.",
+        "Current approved technical contract, authentication, schemas, error codes, limits and test environment.",
+        "Permitted fields, purposes, retention, onward-use restrictions, fees and incident procedures."
+      ],
+      "release_gates": {
+        "domestic_legal_basis_reviewed": false,
+        "written_authority_or_partner_authorization": false,
+        "official_external_verifier_protocol_reviewed": false,
+        "issuer_trust_metadata_and_key_rotation_verified": false,
+        "credential_validity_status_and_revocation_reviewed": false,
+        "purpose_minimization_and_data_protection_review_approved": false,
+        "non_digital_or_assisted_fallback_tested": false,
+        "accessibility_and_local_language_review_complete": false,
+        "independent_security_review_complete": false,
+        "authorized_sandbox_conformance_passed": false,
+        "incident_correction_and_appeal_process_agreed": false,
+        "human_release_approval_for_exact_commit": false
+      }
+    },
+    {
+      "route_key": "ZA-DHA-SMARTPHONE-DIGITAL-ID",
+      "country_code": "ZA",
+      "country_name": "South Africa",
+      "authority": "Department of Home Affairs",
+      "route_name": "Smartphone-based Digital ID",
+      "status": "research_only",
+      "production_enabled": false,
+      "external_verifier_protocol_reviewed": false,
+      "written_authorization_obtained": false,
+      "official_sources": [
+        {
+          "url": "https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct",
+          "retrieved_on": "2026-10-14",
+          "supports": "Official announcement and live demonstration of a working smartphone-bound Digital ID prototype on 1 October 2026."
+        },
+        {
+          "url": "https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity",
+          "retrieved_on": "2026-10-14",
+          "supports": "Draft Digital Identity regulations and public-comment process."
+        },
+        {
+          "url": "https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf",
+          "retrieved_on": "2026-10-14",
+          "supports": "Published Digital Identity/PKI programme targets and medium-term planning context."
+        }
+      ],
+      "established_facts": [
+        "DHA publicly announced a working prototype credential issued through the Population Register and bound to a smartphone chip.",
+        "The reviewed public material does not establish a Mycelix-ready external relying-party protocol."
+      ],
+      "unresolved_questions": [
+        "Official credential format, verification protocol and exact supported version.",
+        "Issuer trust metadata, key rotation, holder binding, expiry and status/revocation methods.",
+        "Verifier eligibility, authorization, sandbox, conformance programme, fees and operational support.",
+        "Final applicable regulations and exact privacy/consent boundaries."
+      ],
+      "release_gates": {
+        "domestic_legal_basis_reviewed": false,
+        "written_authority_or_partner_authorization": false,
+        "official_external_verifier_protocol_reviewed": false,
+        "issuer_trust_metadata_and_key_rotation_verified": false,
+        "credential_validity_status_and_revocation_reviewed": false,
+        "purpose_minimization_and_data_protection_review_approved": false,
+        "non_digital_or_assisted_fallback_tested": false,
+        "accessibility_and_local_language_review_complete": false,
+        "independent_security_review_complete": false,
+        "authorized_sandbox_conformance_passed": false,
+        "incident_correction_and_appeal_process_agreed": false,
+        "human_release_approval_for_exact_commit": false
+      }
+    },
+    {
+      "route_key": "GH-NIA-GHANA-CARD",
+      "country_code": "GH",
+      "country_name": "Ghana",
+      "authority": "National Identification Authority",
+      "route_name": "Ghana Card identity-verification service",
+      "status": "research_only",
+      "production_enabled": false,
+      "external_verifier_protocol_reviewed": false,
+      "written_authorization_obtained": false,
+      "official_sources": [
+        {
+          "url": "https://nia.gov.gh/service/verification-services/",
+          "retrieved_on": "2026-10-14",
+          "supports": "Institutional onboarding steps, required documentation and contract requirement for access to NIA's Identity Verification System Platform."
+        },
+        {
+          "url": "https://nia.gov.gh/government-makes-biometric-verification-mandatory-for-ghana-card-verification-under-new-l-i-2523/",
+          "retrieved_on": "2026-10-14",
+          "supports": "NIA notice stating L.I. 2523 took effect on 9 June 2026 and explains biometric-verification and card-copy restrictions."
+        }
+      ],
+      "established_facts": [
+        "NIA describes an institutional identity-verification service with formal onboarding and a signed contract required before access.",
+        "The published onboarding checklist includes legal authority for data collection, data-protection certification and requested data needs.",
+        "NIA's 2026 notice restricts visual-only verification and copying/retention of Ghana Card copies except where legally permitted."
+      ],
+      "unresolved_questions": [
+        "Whether this proposed applicant and specific use case qualify for NIA onboarding.",
+        "Current official protocol/API schema, sandbox and conformance procedure for an eligible relying party.",
+        "Applicable lawful purpose, permitted fields, biometric handling, retention and redress requirements for the proposed service."
+      ],
+      "release_gates": {
+        "domestic_legal_basis_reviewed": false,
+        "written_authority_or_partner_authorization": false,
+        "official_external_verifier_protocol_reviewed": false,
+        "issuer_trust_metadata_and_key_rotation_verified": false,
+        "credential_validity_status_and_revocation_reviewed": false,
+        "purpose_minimization_and_data_protection_review_approved": false,
+        "non_digital_or_assisted_fallback_tested": false,
+        "accessibility_and_local_language_review_complete": false,
+        "independent_security_review_complete": false,
+        "authorized_sandbox_conformance_passed": false,
+        "incident_correction_and_appeal_process_agreed": false,
+        "human_release_approval_for_exact_commit": false
+      }
+    },
+    {
+      "route_key": "RW-NIDA-EID",
+      "country_code": "RW",
+      "country_name": "Rwanda",
+      "authority": "National Identification Agency (NIDA)",
+      "route_name": "Digital ID / e-ID",
+      "status": "research_only",
+      "production_enabled": false,
+      "external_verifier_protocol_reviewed": false,
+      "written_authorization_obtained": false,
+      "official_sources": [
+        {
+          "url": "https://www.nida.gov.rw/news-details/nida-launched-the-digital-id",
+          "retrieved_on": "2026-10-14",
+          "supports": "NIDA's official announcement of its new Digital ID programme."
+        },
+        {
+          "url": "https://support.new.irembo.gov.rw/en/support/solutions/articles/47001285585-faqs-about-new-digital-id-e-id-or-e-ndangamuntu-and-digital-id-pre-enrollment",
+          "retrieved_on": "2026-10-14",
+          "supports": "Official service guidance describing digital/physical ID forms and biometric collection."
+        }
+      ],
+      "established_facts": [
+        "NIDA publicly announced a national e-ID programme.",
+        "Official service guidance describes digital and physical credential forms and collection of sensitive biometric data."
+      ],
+      "unresolved_questions": [
+        "External relying-party authorization, API/protocol documentation and sandbox access.",
+        "Issuer trust metadata, status lifecycle, key management and permitted claim scopes.",
+        "Cross-border data transfer rules, controller responsibilities, correction/appeal procedures and non-biometric alternatives."
+      ],
+      "release_gates": {
+        "domestic_legal_basis_reviewed": false,
+        "written_authority_or_partner_authorization": false,
+        "official_external_verifier_protocol_reviewed": false,
+        "issuer_trust_metadata_and_key_rotation_verified": false,
+        "credential_validity_status_and_revocation_reviewed": false,
+        "purpose_minimization_and_data_protection_review_approved": false,
+        "non_digital_or_assisted_fallback_tested": false,
+        "accessibility_and_local_language_review_complete": false,
+        "independent_security_review_complete": false,
+        "authorized_sandbox_conformance_passed": false,
+        "incident_correction_and_appeal_process_agreed": false,
+        "human_release_approval_for_exact_commit": false
+      }
+    },
+    {
+      "route_key": "NG-NIMC-NIN",
+      "country_code": "NG",
+      "country_name": "Nigeria",
+      "authority": "National Identity Management Commission (NIMC)",
+      "route_name": "National Identification Number (NIN) / digital trust ecosystem",
+      "status": "research_only",
+      "production_enabled": false,
+      "external_verifier_protocol_reviewed": false,
+      "written_authorization_obtained": false,
+      "official_sources": [
+        {
+          "url": "https://nimc.gov.ng/press-releases/president-tinubu-signs-nimc-act-2026-into-law",
+          "retrieved_on": "2026-10-14",
+          "supports": "NIMC's 26 June 2026 announcement about the NIMC Act 2026, including the Commission's reported PKI/DPI role."
+        }
+      ],
+      "established_facts": [
+        "NIMC announced the signing of the NIMC Act 2026 and described new roles in national PKI/DPI and interoperable data exchange."
+      ],
+      "unresolved_questions": [
+        "Independent legal review of the enacted Act, regulations and implementing instruments.",
+        "Official external-verifier protocol, trust metadata, sandbox, eligibility and written authorization.",
+        "Scope limits, purpose/legal basis, retention, appeal, breach response and country-specific conformance criteria."
+      ],
+      "release_gates": {
+        "domestic_legal_basis_reviewed": false,
+        "written_authority_or_partner_authorization": false,
+        "official_external_verifier_protocol_reviewed": false,
+        "issuer_trust_metadata_and_key_rotation_verified": false,
+        "credential_validity_status_and_revocation_reviewed": false,
+        "purpose_minimization_and_data_protection_review_approved": false,
+        "non_digital_or_assisted_fallback_tested": false,
+        "accessibility_and_local_language_review_complete": false,
+        "independent_security_review_complete": false,
+        "authorized_sandbox_conformance_passed": false,
+        "incident_correction_and_appeal_process_agreed": false,
+        "human_release_approval_for_exact_commit": false
+      }
+    }
+  ],
+  "notes": [
+    "This is a research matrix, not an integration registry. Every route is research_only and production_enabled=false.",
+    "Official programme announcements and national service portals establish only the claims explicitly listed; they do not demonstrate that Mycelix has access or permission.",
+    "The matrix deliberately separates the South African OVS and smartphone Digital ID routes.",
+    "Protocol, authorization, trust metadata and release review remain unconfirmed for all listed routes as of the snapshot date.",
+    "A route may advance only with evidence tied to an exact source/version and written authorization from the responsible authority.",
+    "No real identity data was processed, and no government endpoint was contacted as part of this research."
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "schema_id": "org.luminousdynamics.portable-sovereign-adapter-profile",
+  "schema_version": 1,
+  "profile_id": "TEMPLATE-UNQUALIFIED",
+  "title": "Portable sovereign adapter profile template (unqualified synthetic example)",
+  "maturity": "research_only",
+  "production_enabled": false,
+  "jurisdiction": {
+    "scope_type": "service",
+    "code": "UNASSIGNED",
+    "name": "Unassigned jurisdiction; synthetic template only"
+  },
+  "authority": {
+    "authority_name": null,
+    "authority_id": null,
+    "official_sources": [],
+    "written_authorization_ref": null
+  },
+  "protocol": {
+    "route_kind": "synthetic_only",
+    "name": null,
+    "version": null,
+    "verifier_endpoint": null,
+    "official_specification_url": null,
+    "official_spec_sha256": null,
+    "reviewed": false,
+    "externally_authorized": false
+  },
+  "trust": {
+    "issuer_ids": [],
+    "metadata_url": null,
+    "key_rotation_policy_reviewed": false,
+    "status_method": null,
+    "revocation_method": null
+  },
+  "service": {
+    "service_id": "synthetic-service-example",
+    "purpose": "Demonstrate purpose-bound proof handling using synthetic inputs only; never decide an entitlement.",
+    "lawful_basis_status": "not_assessed",
+    "purpose_grant_id": null,
+    "permitted_claims": [
+      "synthetic_subject_reference"
+    ],
+    "prohibited_decisions": [
+      "citizenship",
+      "residency_or_migration_permission",
+      "benefit_or_service_eligibility",
+      "entitlement_or_legal_rights",
+      "mycelix_membership",
+      "governance_or_execution_authority"
+    ],
+    "identity_is_not_entitlement_evidence": true
+  },
+  "privacy": {
+    "data_minimization_reviewed": false,
+    "raw_credentials_storage": "prohibited",
+    "national_identifier_storage": "prohibited",
+    "biometrics_storage": "prohibited",
+    "replayable_presentation_storage": "prohibited",
+    "public_dht_identity_material": "prohibited",
+    "purpose_bound_receipts_required": true,
+    "receipt_retention_days": 0,
+    "deletion_policy_reviewed": false
+  },
+  "accessibility": {
+    "non_digital_fallback_available": true,
+    "fallback_tested": false,
+    "assisted_path_available": true,
+    "languages": [],
+    "accessibility_reviewed": false
+  },
+  "evidence": {
+    "source_commit": null,
+    "conformance_suite_id": null,
+    "positive_control_count": 0,
+    "negative_control_count": 0,
+    "independent_review_ref": null,
+    "release_approval_ref": null,
+    "release_approval_commit": null
+  },
+  "release_gates": {
+    "legal_basis_reviewed": false,
+    "written_authority_or_partner_approval": false,
+    "official_protocol_and_trust_metadata_verified": false,
+    "status_lifecycle_and_key_rotation_reviewed": false,
+    "purpose_minimization_and_data_protection_approved": false,
+    "retention_and_erasure_verified": false,
+    "offline_assisted_and_non_digital_fallback_tested": false,
+    "accessibility_and_localization_reviewed": false,
+    "independent_security_review_complete": false,
+    "positive_and_negative_conformance_passed": false,
+    "incident_correction_and_appeal_agreed": false,
+    "human_approval_for_exact_release_commit": false
+  },
+  "nonclaims": [
+    "This profile is not a legal determination and does not itself grant identity, eligibility, entitlement, or execution authority.",
+    "A profile does not imply external permission or certify that referenced endpoints, issuers, or protocols are live.",
+    "Test results and hashes are reproducibility evidence, not a digital signature or proof of trusted execution."
+  ]
+}
