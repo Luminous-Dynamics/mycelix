@@ -185,6 +185,48 @@ Own sourcing and service-network views: candidate suppliers, manufacturing/repai
 
 Own engineering approval, choice of applicable standards, safety analysis, supplier qualification, physical test design, interpretation of test results, conformity assessment, and release decisions. Automation supports these responsibilities but does not replace them.
 
+## 8A. Repairability qualification protocol
+
+Repairability is a measured workflow outcome, not a design adjective or a single score. Use the existing Symtropy repair-task graph owner (including [symtropy#1773](https://github.com/Luminous-Dynamics/symtropy/issues/1773) and its draft parent work) for procedure/task authority, and Mycelix's existing [ProductiveLoop repair/restoration owner #3313](https://github.com/Luminous-Dynamics/mycelix/issues/3313) and [validator #3318](https://github.com/Luminous-Dynamics/mycelix/issues/3318) for the repair-outcome evidence composition. This section owns only the benchmark protocol; it does not define a competing repair ledger or task-graph schema.
+
+### Endpoints that must remain separate
+
+For each pre-registered task, record with a monotonic clock where appropriate:
+- **Diagnosis time:** task start until a supported fault class and next action are recorded; keep initial wrong hypotheses and additional diagnostic loops.
+- **Hands-on labour:** active person-minutes, including tool setup and repeated assembly/disassembly.
+- **Bay elapsed time:** arrival/acceptance through post-repair verification and release, including diagnosis and repair.
+- **Parts/tool wait:** time blocked on unavailable tools, consumables, approved replacement parts or documentation.
+- **Verification time:** time to execute the required post-repair test and document its exact profile, instrument/calibration, result and residual limitations.
+- **Rework and failed attempts:** repeat work, damage, rejected parts, unsuccessful repairs and follow-up visits.
+- **Total capability downtime:** from loss of the specified capability to verified restoration, including queueing/transport/parts delays whenever observable.
+- **Restoration correctness:** whether the exact required function was restored under the declared test conditions.
+- **Recurrence:** a separate, bounded follow-up outcome whose observation duration and operating exposure are specified before the trial.
+
+Do not collapse these endpoints into one “repair time.” A quicker hands-on intervention can still produce worse outcomes if parts wait, post-checks or rework increase. Do not infer restored capability from a closed work order, a control command, a replacement part having been planned, or a single nominal reading.
+
+### Baseline and candidate comparison
+
+Freeze the exact physical unit/configuration, BOM revision, service-procedure/task-graph revision, known fault profile, tool and parts availability, technician qualification criteria, safety prerequisites, test instruments/calibration, and pass/fail oracle before collecting confirmatory observations. Compare the baseline and candidate at matched tasks and starting conditions. A change in procedure, geometry, substitute part or required safety check is a new configuration or declared deviation, not invisible test noise.
+
+Begin with a feasibility pilot of **at least 3 qualified technicians × 3 repetitions per task where practical**, consistent with the existing Symtropy repairability protocol. Treat that pilot as instrumentation/protocol calibration, not proof of superiority. Plan confirmatory trials using **5 qualified technicians × 6 repetitions per baseline/candidate/task cell (30 observations per cell)** as an initial planning default, then refine sample size and analysis via a pre-registered power/precision analysis appropriate to technician, unit and task effects. These are research design defaults, not a claim that every task needs the same fixed number of trials or that 30 samples automatically provide statistical power.
+
+Report per-task median and P90 for diagnosis time, hands-on labour, bay time and total downtime, plus spread/uncertainty, technician/unit effects, missing observations, exclusions, failures, rework, residual defects and recurrence status. Preserve raw observations and procedure/source rights. Never exclude a failed attempt from the denominator without a visible, justified rule. Never credit faster service if isolation, safety checks, compatibility, performance verification or workmanship requirements were skipped.
+
+### Human-facing repairability
+
+Technical disassembly scores alone are not enough. A 2025 observational study of 26 participants found misalignment between calculated repairability scores and user-perceived repairability for two small appliances; difficulty opening the product and identifying faults were salient barriers. This is evidence that user-facing access, instructions and fault legibility should be measured alongside professional service performance—not evidence for a universal numerical correction factor. See [The need for incorporating user perception into the repairability indices (2025)](https://doi.org/10.1016/j.spc.2025.05.024).
+
+For consumer-facing tasks, test documentation comprehension, correct identification of user-serviceable parts, safe stop/escalation behaviour and task completion with representative users. Keep user tasks separate from qualified-service tasks. Do not ask participants to perform mains, refrigerant, high-temperature or otherwise hazardous work simply to score usability; use simulations, de-energized specimens or qualified technicians as appropriate. The design research should also include physical disassembly on real specimens where safe and relevant; a 2025 household-appliance study applied EN 45554 alongside manual disassembly tests across five appliance categories. See [Design for repair: insights to develop functional modules in household appliances (2025)](https://doi.org/10.1016/j.procir.2024.12.004).
+
+### Proposed repairability release gates
+
+- Exact product unit, BOM, module, service-procedure and test-profile revisions are bound to every observation.
+- Required safety isolation and post-repair tests are completed; missing prerequisites block the task.
+- Parts planned and parts actually consumed/replaced remain distinct.
+- The repair result is “restored,” “not restored,” “partially restored,” or “inconclusive” under the declared profile; it cannot mint certification, governance standing, compensation, or authority.
+- Recurrence-free status cannot be asserted until the predeclared follow-up window and operating exposure have been completed.
+- Baseline and candidate performance claims are withheld until the pre-registered analysis, exclusions and uncertainty have been reviewed.
+
 ## 9. Product changes and compatibility
 
 Every design change must identify:
