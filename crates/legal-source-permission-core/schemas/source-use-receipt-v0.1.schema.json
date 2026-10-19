@@ -17,7 +17,9 @@
     "expected_terms_sha256",
     "observed_terms_sha256",
     "request",
-    "claim_ceiling"
+    "claim_ceiling",
+    "expected_source_sha256",
+    "observed_source_sha256"
   ],
   "properties": {
     "receipt_version": {
@@ -105,6 +107,28 @@
     "claim_ceiling": {
       "type": "string",
       "minLength": 1
+    },
+    "expected_source_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observed_source_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "$defs": {
@@ -121,7 +145,8 @@
         "territory",
         "as_of_utc",
         "requested_retention_seconds",
-        "observed_terms_sha256"
+        "observed_terms_sha256",
+        "observed_source_sha256"
       ],
       "properties": {
         "schema_version": {
@@ -190,6 +215,17 @@
           "minimum": 0
         },
         "observed_terms_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_source_sha256": {
           "anyOf": [
             {
               "type": "string",
