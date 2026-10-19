@@ -153,22 +153,28 @@ pub fn verify_signature(message: &[u8], signature: &[u8], public_key: &[u8]) -> 
 
 /// Verify an AuthenticatedProof's Dilithium signature.
 ///
-/// Checks:
-/// 1. client_id matches SHA-256(public_key)
-/// 2. Signature is valid for the constructed message
+/// Checks independently of higher-level envelope validation:
+/// 1. exact canonical authenticated-proof protocol version;
+/// 2. client_id matches SHA-256(public_key);
+/// 3. signature is valid for the canonical constructed message.
 ///
-/// Does NOT verify the ZK proof itself — that's backend-specific.
+/// Does NOT verify the ZK proof itself — that's backend/circuit-specific.
 pub fn verify_authenticated_signature(
     proof: &AuthenticatedProof,
     client_public_key: &[u8],
 ) -> ZkpResult<bool> {
-    // Check client_id matches public key
+    if proof.metadata.protocol_version != AUTHENTICATED_PROOF_PROTOCOL_VERSION {
+        return Err(ZkpError::InvalidProofFormat(format!(
+            "cannot verify authenticated-proof protocol version {}; expected {}",
+            proof.metadata.protocol_version, AUTHENTICATED_PROOF_PROTOCOL_VERSION
+        )));
+    }
+
     let expected_id = Sha256::digest(client_public_key);
     if proof.metadata.client_id != expected_id.as_slice() {
         return Err(ZkpError::ClientIdMismatch);
     }
 
-    // Verify signature
     let message = proof.construct_signed_message();
     verify_signature(&message, &proof.signature, client_public_key)
 }
@@ -233,29 +239,31 @@ mod tests {
         assert!(!valid, "signature must fail with tampered message");
     }
 
+    fn canonical_proof(kp: &DilithiumKeypair) -> AuthenticatedProof {
+        AuthenticatedProof {
+            proof: vec![0xDE, 0xAD, 0xBE, 0xEF],
+            signature: vec![],
+            metadata: ProofMetadata {
+                domain_tag: DomainTag::new("Test", "SignProof", 1),
+                protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
+                client_id: *kp.client_id(),
+                timestamp: 1700000000,
+                nonce: [0x42; 32],
+                backend: BackendId::Winterfell,
+            },
+            public_inputs_hash: [0xCC; 32],
+            energy_millijoules: 0,
+        }
+    }
+
     #[test]
     fn test_sign_authenticated_proof() {
         let kp = DilithiumKeypair::generate();
-        let meta = ProofMetadata {
-            domain_tag: DomainTag::new("Test", "SignProof", 1),
-            protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
-            client_id: *kp.client_id(),
-            timestamp: 1700000000,
-            nonce: [0x42; 32],
-            backend: BackendId::Winterfell,
-        };
-        let mut proof = AuthenticatedProof {
-            proof: vec![0xDE, 0xAD, 0xBE, 0xEF],
-            signature: vec![],
-            metadata: meta,
-            public_inputs_hash: [0xCC; 32],
-            energy_millijoules: 0,
-        };
+        let mut proof = canonical_proof(&kp);
 
         kp.sign_proof(&mut proof).unwrap();
         assert!(!proof.signature.is_empty());
-        // pqcrypto sign() returns message + signature concatenated
-        // Signature size = message_len + SIGNATURE_SIZE
+        // pqcrypto sign() returns message + signature concatenated.
         assert!(
             proof.signature.len() > SIGNATURE_SIZE,
             "signature bytes ({}) must be > SIGNATURE_SIZE ({})",
@@ -268,12 +276,30 @@ mod tests {
     }
 
     #[test]
+    fn verifier_rejects_noncanonical_protocol_even_if_externally_signed() {
+        let kp = DilithiumKeypair::generate();
+        let mut proof = canonical_proof(&kp);
+        proof.metadata.protocol_version = AUTHENTICATED_PROOF_PROTOCOL_VERSION - 1;
+
+        // Simulate an external/legacy signer that bypasses sign_proof's version
+        // admission but signs exactly the digest this envelope constructs.
+        let message = proof.construct_signed_message();
+        proof.signature = kp.sign(&message).unwrap();
+        assert!(verify_signature(&message, &proof.signature, kp.public_key()).unwrap());
+
+        assert!(matches!(
+            verify_authenticated_signature(&proof, kp.public_key()),
+            Err(ZkpError::InvalidProofFormat(_))
+        ));
+    }
+
+    #[test]
     fn test_client_id_mismatch() {
         let kp = DilithiumKeypair::generate();
         let meta = ProofMetadata {
             domain_tag: DomainTag::new("Test", "Mismatch", 1),
             protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
-            client_id: [0xFF; 32], // Wrong client ID
+            client_id: [0xFF; 32],
             timestamp: 1700000000,
             nonce: [0x42; 32],
             backend: BackendId::Risc0,
@@ -306,6 +332,7 @@ mod tests {
         assert_eq!(parsed.client_id, pk.client_id);
         assert_eq!(parsed.bytes.len(), PUBLIC_KEY_SIZE);
     }
+
     #[test]
     fn test_sign_proof_rejects_identity_and_protocol_mismatch() {
         let kp = DilithiumKeypair::generate();
@@ -363,5 +390,4 @@ mod tests {
         proof.metadata.backend = BackendId::Winterfell;
         assert!(!verify_authenticated_signature(&proof, kp.public_key()).unwrap());
     }
-
 }
