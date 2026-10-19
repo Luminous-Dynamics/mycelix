@@ -429,25 +429,39 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
         .await
     {
         Ok(profile) => {
+            ctx.profile_source_state
+                .set(live_collection_state(profile.is_none()));
             let profile = profile.unwrap_or_else(empty_profile);
             ctx.profile.set(profile.clone());
             ctx.draft_profile.set(profile);
         }
-        Err(_) => ctx.status_note.set(
-            "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
-                .into(),
-        ),
+        Err(_) => {
+            let previous = ctx.profile_source_state.get_untracked();
+            ctx.profile_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: the profile source could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<MasterKeyView>>("identity_vault", "get_my_keys_view", &())
         .await
     {
-        Ok(keys) => ctx.keys.set(keys),
-        Err(_) => ctx.status_note.set(
-            "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
-                .into(),
-        ),
+        Ok(keys) => {
+            ctx.keys_source_state
+                .set(live_collection_state(keys.is_empty()));
+            ctx.keys.set(keys);
+        }
+        Err(_) => {
+            let previous = ctx.keys_source_state.get_untracked();
+            ctx.keys_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: identity keys could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 }
 
@@ -460,11 +474,19 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        Ok(preferences) => ctx.preferences.set(preferences),
-        Err(_) => ctx.status_note.set(
-            "Live mode: sharing preferences could not be refreshed; the displayed policy may be stale."
-                .into(),
-        ),
+        Ok(preferences) => {
+            ctx.preferences_source_state
+                .set(live_collection_state(preferences.is_empty()));
+            ctx.preferences.set(preferences);
+        }
+        Err(_) => {
+            let previous = ctx.preferences_source_state.get_untracked();
+            ctx.preferences_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: sharing preferences could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
@@ -475,11 +497,20 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        Ok(log) => ctx.preference_log.set(log),
-        Err(_) => ctx.status_note.set(
-            "Live mode: preference history could not be refreshed; the displayed history may be stale."
-                .into(),
-        ),
+        Ok(log) => {
+            ctx.preference_log_source_state
+                .set(live_collection_state(log.is_empty()));
+            ctx.preference_log.set(log);
+        }
+        Err(_) => {
+            let previous = ctx.preference_log_source_state.get_untracked();
+            ctx.preference_log_source_state
+                .set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: preference history could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 }
 
@@ -488,39 +519,65 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
         .call_zome_default::<(), Vec<BiometricView>>("health_vault", "get_my_biometrics_view", &())
         .await
     {
-        Ok(biometrics) => ctx.biometrics.set(biometrics),
-        Err(_) => ctx.status_note.set(
-            "Live mode: biometric records could not be refreshed; the displayed list may be stale."
-                .into(),
-        ),
+        Ok(biometrics) => {
+            ctx.biometrics_source_state
+                .set(live_collection_state(biometrics.is_empty()));
+            ctx.biometrics.set(biometrics);
+        }
+        Err(_) => {
+            let previous = ctx.biometrics_source_state.get_untracked();
+            ctx.biometrics_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: biometric records could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<ConsentGrantView>>("health_vault", "get_my_consents_view", &())
         .await
     {
-        Ok(consents) => ctx.consents.set(consents),
-        Err(_) => ctx.status_note.set(
-            "Live mode: consent grants could not be refreshed; the displayed list may be stale."
-                .into(),
-        ),
+        Ok(consents) => {
+            ctx.consents_source_state
+                .set(live_collection_state(consents.is_empty()));
+            ctx.consents.set(consents);
+        }
+        Err(_) => {
+            let previous = ctx.consents_source_state.get_untracked();
+            ctx.consents_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: consent grants could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<HealthRecordView>>("health_vault", "get_my_records_view", &())
         .await
     {
-        Ok(records) => ctx.health_record_count.set(records.len()),
-        Err(_) => ctx.status_note.set(
-            "Live mode: health records could not be refreshed; the displayed count may be stale."
-                .into(),
-        ),
+        Ok(records) => {
+            ctx.health_records_source_state
+                .set(live_collection_state(records.is_empty()));
+            ctx.health_record_count.set(records.len());
+        }
+        Err(_) => {
+            let previous = ctx.health_records_source_state.get_untracked();
+            ctx.health_records_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: health records could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 }
 
 #[cfg(test)]
 mod source_status_tests {
-    use super::{empty_profile, live_source_status};
+    use super::{
+        empty_profile, failed_refresh_state, live_collection_state, live_source_status,
+    };
 
     #[test]
     fn live_empty_results_are_not_reported_as_missing_sources() {
@@ -551,5 +608,35 @@ mod source_status_tests {
         assert!(profile.bio.is_none());
         assert!(profile.metadata.is_empty());
         assert_eq!(profile.updated_at, 0);
+    }
+
+    #[test]
+    fn live_empty_and_live_with_records_are_distinct() {
+        let empty = live_collection_state(true);
+        let records = live_collection_state(false);
+        assert!(matches!(empty, SourceReadState::LiveConfirmedEmpty { .. }));
+        assert!(matches!(records, SourceReadState::LiveWithRecords { .. }));
+    }
+
+    #[test]
+    fn failed_refresh_marks_previous_live_state_stale() {
+        let previous = SourceReadState::LiveWithRecords { checked_at: 123 };
+        let next = failed_refresh_state(previous);
+        assert_eq!(
+            next,
+            SourceReadState::Stale {
+                last_successful_read_at: Some(123)
+            }
+        );
+    }
+
+    #[test]
+    fn failed_refresh_without_prior_success_is_unavailable() {
+        assert_eq!(
+            failed_refresh_state(SourceReadState::NotChecked),
+            SourceReadState::Unavailable {
+                reason: SourceUnavailableReason::Unknown
+            }
+        );
     }
 }
