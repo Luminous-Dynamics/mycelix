@@ -1,0 +1,72 @@
+name: Local identity posture qualification
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-leptos-core/src/local_identity.rs"
+      - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-leptos-core/Cargo.toml"
+      - "mycelix-personal/apps/leptos/**"
+      - ".github/workflows/local-identity-posture.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-leptos-core/src/local_identity.rs"
+      - "crates/mycelix-leptos-core/src/identity_crypto.rs"
+      - "crates/mycelix-leptos-core/Cargo.toml"
+      - "mycelix-personal/apps/leptos/**"
+      - ".github/workflows/local-identity-posture.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-identity-posture-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head identity posture tests and WASM compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-leptos-core -> target
+            crates/mycelix-leptos-client -> target
+            mycelix-personal/apps/leptos -> target
+      - name: Assert exact source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
+            exit 1
+          fi
+      - name: Generate and fingerprint identity/app locks
+        run: |
+          cargo generate-lockfile --manifest-path crates/mycelix-leptos-core/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
+          sha256sum crates/mycelix-leptos-core/Cargo.lock mycelix-personal/apps/leptos/Cargo.lock
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
+      - name: Run native identity-storage posture tests
+        run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
+      - name: Compile shared identity core for WASM
+        run: cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown
+      - name: Run strict Personal app Clippy
+        run: cargo clippy --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compile Personal app for WASM
+        run: cargo check --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
