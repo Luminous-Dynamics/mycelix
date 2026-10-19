@@ -576,6 +576,7 @@ fn HealthPage() -> impl IntoView {
     let consents_source_state = ctx.consents_source_state;
     let health_record_count = ctx.health_record_count;
     let health_records_source_state = ctx.health_records_source_state;
+    let has_health_records = move || health_record_count.get() > 0;
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
@@ -649,7 +650,7 @@ fn HealthPage() -> impl IntoView {
                 <SourceCollectionEmptyState
                     label="Health records"
                     state=health_records_source_state
-                    has_records=move || (health_record_count.get() > 0)
+                    has_records=has_health_records
                 />
             </section>
 
