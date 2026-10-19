@@ -15,12 +15,15 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = ROOT / "fixtures" / "johannesburg-adaptable-home-v1.json"
 SCHEMA_PATH = ROOT / "fixtures" / "home-design-reference-fixture-1.0.0.schema.json"
 CAPABILITY_REGISTRY_PATH = ROOT / "fixtures" / "jurisdiction-capability-cards-synthetic-v1.json"
 CAPABILITY_SCHEMA_PATH = ROOT / "fixtures" / "jurisdiction-capability-cards-1.0.0.schema.json"
+SOURCE_WATCH_PATH = ROOT / "fixtures" / "jurisdiction-source-watch-za-johannesburg-2026-v1.json"
+SOURCE_WATCH_SCHEMA_PATH = ROOT / "fixtures" / "jurisdiction-source-watch-1.0.0.schema.json"
 REQUIRED_CAPABILITY_DOMAINS = {
     "residential_building",
     "planning_and_land_use",
@@ -401,6 +404,15 @@ def validate_capability_registry(registry: dict[str, Any]) -> None:
                 if not record["gap_description"].strip():
                     fail(path, f"{domain}: missing coverage needs an explicit gap")
 
+        if card["declared_status"] in {"researching", "pilot", "supported"}:
+            missing_domains = REQUIRED_CAPABILITY_DOMAINS - set(coverage_by_domain)
+            if missing_domains:
+                fail(
+                    path,
+                    "research/pilot/support profiles must explicitly classify every regulatory "
+                    f"domain; omitted={sorted(missing_domains)}",
+                )
+
         reviewer_ids: set[str] = set()
         for review in card["independent_reviews"]:
             reviewer = review["reviewer_id"]
@@ -509,7 +521,14 @@ def run_capability_negative_controls(
         "capability_author_claimed_as_independent",
         lambda: validate_capability_registry(author_as_reviewer),
     )
-    return 5
+
+    incomplete_research_coverage = deepcopy(registry)
+    incomplete_research_coverage["capability_cards"][0]["coverage"].pop()
+    expect_rejected(
+        "research_profile_omits_a_regulatory_domain",
+        lambda: validate_capability_registry(incomplete_research_coverage),
+    )
+    return 6
 
 
 def expect_rejected(name: str, operation: Any) -> None:
@@ -617,6 +636,101 @@ def run_negative_controls(fixture: dict[str, Any], schema: dict[str, Any]) -> in
     return 14
 
 
+
+def validate_source_watch(watch: dict[str, Any]) -> None:
+    """Keep an official-locator inventory separate from verified legal rules."""
+    if watch["declared_support_status"] != "researching":
+        fail("$.declared_support_status", "source-watch fixture must remain research-only")
+    if watch["source_bytes_verified"] is not False:
+        fail("$.source_bytes_verified", "unmaterialized source bytes cannot be declared verified")
+    if watch["legal_applicability_evaluated"] is not False:
+        fail("$.legal_applicability_evaluated", "this source-watch fixture has no legal-applicability review")
+    if watch["binding_rules_emitted"] is not False:
+        fail("$.binding_rules_emitted", "locator-only source watch must not emit binding rule modules")
+
+    allowed_hosts = {"www.gov.za", "www.thedtic.gov.za"}
+    seen: set[str] = set()
+    roles: dict[str, list[dict[str, Any]]] = {}
+    for record in watch["source_records"]:
+        path = f"source_watch:{record['source_id']}"
+        source_id = record["source_id"]
+        if source_id in seen:
+            fail(path, "source IDs must be unique")
+        seen.add(source_id)
+
+        parsed = urlparse(record["official_locator"])
+        if parsed.scheme != "https" or parsed.hostname not in allowed_hosts or not parsed.path:
+            fail(path, "source locator must use an allowlisted official government HTTPS host")
+        if record["legal_effect_assessment"] != "not_evaluated":
+            fail(path, "source locator does not establish legal effect or applicability")
+        if record["source_bytes_verified"] is not False or record["binding_claim_emitted"] is not False:
+            fail(path, "unverified locator must not become verified bytes or a binding rule")
+        digest = record["source_sha256"]
+        if digest and not SHA256_PATTERN.fullmatch(digest):
+            fail(path, "source digest must be empty until bytes are preserved, or a SHA-256 hex digest")
+        if not digest and record["source_bytes_verified"]:
+            fail(path, "source cannot be verified without a recorded digest")
+        if record["registry_status"] == "proposal_for_public_comment":
+            if record["source_role"] != "draft_bill_public_comment":
+                fail(path, "proposal status requires the draft-bill source role")
+            if record["binding_claim_emitted"]:
+                fail(path, "proposal cannot be emitted as a binding rule")
+        roles.setdefault(record["source_role"], []).append(record)
+
+    if not roles.get("existing_act_locator"):
+        fail("$.source_records", "preserve an official locator for the existing Act")
+    if not roles.get("draft_bill_public_comment"):
+        fail("$.source_records", "proposed amendment must be separately recorded")
+    extensions = roles.get("comment_deadline_extension_notice", [])
+    if len(extensions) != 1:
+        fail("$.source_records", "exactly one current consultation extension notice is expected in this fixture")
+    if extensions[0]["consultation_deadline"] != "2026-11-12":
+        fail("$.source_records", "consultation deadline must match the recorded official extension notice")
+    if roles["draft_bill_public_comment"][0]["consultation_deadline"] != "2026-11-12":
+        fail("$.source_records", "proposal card should point to the separately recorded deadline extension")
+
+
+def run_source_watch_negative_controls(
+    watch: dict[str, Any], schema: dict[str, Any]
+) -> int:
+    promoted_proposal = deepcopy(watch)
+    bill = next(
+        item for item in promoted_proposal["source_records"]
+        if item["source_role"] == "draft_bill_public_comment"
+    )
+    bill["binding_claim_emitted"] = True
+    expect_rejected(
+        "proposal_silently_promoted_to_binding",
+        lambda: (validate(promoted_proposal, schema), validate_source_watch(promoted_proposal)),
+    )
+
+    unapproved_host = deepcopy(watch)
+    unapproved_host["source_records"][0]["official_locator"] = "https://example.com/act.pdf"
+    expect_rejected(
+        "untrusted_source_host",
+        lambda: (validate(unapproved_host, schema), validate_source_watch(unapproved_host)),
+    )
+
+    false_verified_bytes = deepcopy(watch)
+    false_verified_bytes["source_records"][0]["source_bytes_verified"] = True
+    expect_rejected(
+        "unverified_bytes_claimed_verified",
+        lambda: (validate(false_verified_bytes, schema), validate_source_watch(false_verified_bytes)),
+    )
+
+    missing_deadline = deepcopy(watch)
+    extension = next(
+        item for item in missing_deadline["source_records"]
+        if item["source_role"] == "comment_deadline_extension_notice"
+    )
+    extension["consultation_deadline"] = ""
+    expect_rejected(
+        "consultation_extension_without_deadline",
+        lambda: validate_source_watch(missing_deadline),
+    )
+    return 4
+
+
 def main() -> int:
     fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -642,6 +756,19 @@ def main() -> int:
         capability_registry, capability_schema
     )
 
+    source_watch = json.loads(SOURCE_WATCH_PATH.read_text(encoding="utf-8"))
+    source_watch_schema = json.loads(SOURCE_WATCH_SCHEMA_PATH.read_text(encoding="utf-8"))
+    if source_watch_schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        fail("$source_watch_schema", "unexpected JSON Schema dialect")
+    if source_watch_schema.get("$id") != "urn:luminous-dynamics:schema:jurisdiction-source-watch:1.0.0":
+        fail("$source_watch_schema.$id", "unexpected source-watch schema identity")
+    validate_schema_supported(source_watch_schema)
+    validate(source_watch, source_watch_schema)
+    validate_source_watch(source_watch)
+    source_watch_negative_controls = run_source_watch_negative_controls(
+        source_watch, source_watch_schema
+    )
+
     print(
         "HOME_FIXTURE_VALIDATION=PASS "
         f"scenario={fixture['scenario_id']} "
@@ -652,7 +779,9 @@ def main() -> int:
         f"home_negative_controls={home_negative_controls} "
         f"jurisdictions={len(capability_registry['capability_cards'])} "
         f"capability_negative_controls={capability_negative_controls} "
-        f"negative_controls={home_negative_controls + capability_negative_controls}"
+        f"source_watch_records={len(source_watch['source_records'])} "
+        f"source_watch_negative_controls={source_watch_negative_controls} "
+        f"negative_controls={home_negative_controls + capability_negative_controls + source_watch_negative_controls}"
     )
     return 0
 
