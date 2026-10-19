@@ -1,0 +1,161 @@
+name: continual-adaptation-ledger-fixtures
+
+on:
+  push:
+    paths:
+      - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json"
+      - "docs/research/generate_continual_adaptation_ledger.py"
+      - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json"
+      - "docs/research/verify_continual_adaptation_ledger_properties.py"
+      - "docs/research/verify_continual_adaptation_ledger_properties.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_RAW_INPUT_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CLAIM_LOCAL_PROJECTION_SCOPE_FIXTURES.json"
+      - "docs/research/verify_claim_local_projection_scope.py"
+      - "docs/research/verify_claim_local_projection_scope.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_POLICY_LIVENESS_FIXTURES.json"
+      - "docs/research/verify_continual_adaptation_policy_liveness.py"
+      - "docs/research/verify_continual_adaptation_ledger.py"
+      - "docs/research/verify_continual_adaptation_ledger.mjs"
+      - "docs/research/verify_continual_adaptation_raw.py"
+      - "docs/research/verify_continual_adaptation_raw.mjs"
+      - ".github/workflows/continual-adaptation-ledger-fixtures.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-regression:
+    name: Research fixture regression (non-authoritative)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch exact event commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Run Python ledger verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          python3 docs/research/verify_continual_adaptation_ledger.py \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+
+      - name: Verify policy substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          tmp_policy="$(mktemp)"
+          trap 'rm -f "$tmp_policy"' EXIT
+          cp docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json "$tmp_policy"
+          printf '\n' >> "$tmp_policy"
+          ! python3 docs/research/verify_continual_adaptation_ledger.py \
+            "$POLICY_BLOB_SHA" \
+            "$tmp_policy" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+          ! node docs/research/verify_continual_adaptation_ledger.mjs \
+            "$POLICY_BLOB_SHA" \
+            "$tmp_policy" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+
+      - name: Run Node ledger verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          node docs/research/verify_continual_adaptation_ledger.mjs \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json
+
+      - name: Regenerate generated property corpus and verify determinism
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          trap 'rm -f "$tmp"' EXIT
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          python3 docs/research/generate_continual_adaptation_ledger.py \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json \
+            "$tmp"
+          cmp -s "$tmp" docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json
+
+      - name: Run Python generated property evaluator
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          python3 docs/research/verify_continual_adaptation_ledger_properties.py \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json \
+            python-generated-properties.json
+
+      - name: Run Node generated property evaluator
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          node docs/research/verify_continual_adaptation_ledger_properties.mjs \
+            "$POLICY_BLOB_SHA" \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
+            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json \
+            node-generated-properties.json
+
+      - name: Differential-compare generated reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u python-generated-properties.json node-generated-properties.json
+
+      - name: Run declarative policy-rule liveness campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          python3 docs/research/verify_continual_adaptation_policy_liveness.py             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_POLICY_LIVENESS_FIXTURES.json             docs/research/verify_continual_adaptation_ledger.py             docs/research/verify_continual_adaptation_ledger.mjs
+
+      - name: Run Python claim-local projection scope verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          python3 docs/research/verify_claim_local_projection_scope.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CLAIM_LOCAL_PROJECTION_SCOPE_FIXTURES.json
+
+      - name: Run Node claim-local projection scope verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
+          node docs/research/verify_claim_local_projection_scope.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CLAIM_LOCAL_PROJECTION_SCOPE_FIXTURES.json
+
+      - name: Run Python raw-input verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_continual_adaptation_raw.py             docs/research/CONTINUAL_ADAPTATION_RAW_INPUT_FIXTURES.json
+
+      - name: Run Node raw-input verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          node docs/research/verify_continual_adaptation_raw.mjs             docs/research/CONTINUAL_ADAPTATION_RAW_INPUT_FIXTURES.json
+
+      - name: State non-authoritative boundary
+        run: |
+          echo "Fixture regression is research evidence only."
+          echo "This workflow is not the qualification authority."
