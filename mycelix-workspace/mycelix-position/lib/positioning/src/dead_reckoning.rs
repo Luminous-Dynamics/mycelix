@@ -274,7 +274,7 @@ mod tests {
     fn walk_straight_north() {
         let mut pdr = PedestrianDeadReckoning::new(PdrConfig::default());
         pdr.set_heading(0.0); // North
-                              // Walk 10 steps
+        // Walk 10 steps
         for _ in 0..10 {
             pdr.step(10.5, 0.0, 0.0, 1, 0.5);
         }

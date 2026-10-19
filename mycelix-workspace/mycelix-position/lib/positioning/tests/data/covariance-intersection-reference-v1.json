@@ -1,0 +1,881 @@
+{
+  "schema": "mycelix-position-covariance-intersection-reference-v1",
+  "profile": "DiagonalCovarianceIntersectionReferenceV1",
+  "status": "research-only independent equation reference; does not call PeerFusion3D or covariance_intersection_3d",
+  "scope": "Pairwise 3D estimates with diagonal covariance only. This is not a full 3x3 covariance CI, a multi-source optimizer, or a measurement/provenance validation.",
+  "equation": {
+    "precision_i": "J_i = 1 / P_i",
+    "fused_precision_i": "J_f = omega * J_a + (1 - omega) * J_b",
+    "fused_variance_i": "P_f = 1 / J_f",
+    "fused_mean_i": "x_f = P_f * (omega * J_a * x_a + (1 - omega) * J_b * x_b)"
+  },
+  "decision_rules": [
+    "Each mean and diagonal covariance vector has exactly three finite elements.",
+    "Each covariance diagonal value must be strictly positive and finite. Singular or zero-variance inputs require a separately qualified model and are rejected by this reference.",
+    "omega must be finite and in [0,1]; it is rejected rather than silently clamped.",
+    "Every reciprocal, weighted precision, numerator, output covariance and output mean must remain finite, and output covariance must be strictly positive.",
+    "Trust, reputation, confidence and source count do not appear in the CI numerical equations; they belong to admission policy and provenance.",
+    "The CI covariance is an information-weighted convex combination, so each positive diagonal output variance lies between the corresponding input variances."
+  ],
+  "case_count": 22,
+  "valid_case_count": 12,
+  "invalid_case_count": 10,
+  "cases": [
+    {
+      "id": "CI3D-001-equal-unit-covariance",
+      "a": {
+        "mean": [
+          1,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          3,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "interpretation": "Equal covariance remains unchanged despite separated means.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "2.0000000000000000",
+          "0.0000000000000000",
+          "0.0000000000000000"
+        ],
+        "covariance_diag": [
+          "1.0000000000000000",
+          "1.0000000000000000",
+          "1.0000000000000000"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-002-large-disagreement-no-spurious-precision",
+      "a": {
+        "mean": [
+          0,
+          5,
+          -5
+        ],
+        "covariance_diag": [
+          10,
+          4,
+          2
+        ]
+      },
+      "b": {
+        "mean": [
+          100,
+          -5,
+          5
+        ],
+        "covariance_diag": [
+          10,
+          4,
+          2
+        ]
+      },
+      "omega": 0.5,
+      "interpretation": "The fused mean reflects disagreement while each diagonal covariance remains unchanged.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "50.000000000000000",
+          "0.0000000000000000",
+          "0.0000000000000000"
+        ],
+        "covariance_diag": [
+          "10.000000000000000",
+          "4.0000000000000000",
+          "2.0000000000000000"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-003-unequal-diagonal-covariance",
+      "a": {
+        "mean": [
+          1,
+          2,
+          3
+        ],
+        "covariance_diag": [
+          1,
+          4,
+          9
+        ]
+      },
+      "b": {
+        "mean": [
+          5,
+          0,
+          -3
+        ],
+        "covariance_diag": [
+          4,
+          1,
+          16
+        ]
+      },
+      "omega": 0.5,
+      "interpretation": "Componentwise information-form CI for unequal positive diagonal covariance.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "1.8000000000000000",
+          "0.40000000000000002",
+          "0.83999999999999986"
+        ],
+        "covariance_diag": [
+          "1.6000000000000001",
+          "1.6000000000000001",
+          "11.520000000000000"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-004-omega-one-selects-a",
+      "a": {
+        "mean": [
+          1,
+          2,
+          3
+        ],
+        "covariance_diag": [
+          2,
+          3,
+          4
+        ]
+      },
+      "b": {
+        "mean": [
+          9,
+          8,
+          7
+        ],
+        "covariance_diag": [
+          5,
+          6,
+          7
+        ]
+      },
+      "omega": 1,
+      "interpretation": "Weight endpoint omega=1 returns estimate a.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "1.0000000000000000",
+          "2.0000000000000000",
+          "3.0000000000000000"
+        ],
+        "covariance_diag": [
+          "2.0000000000000000",
+          "3.0000000000000000",
+          "4.0000000000000000"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-005-omega-zero-selects-b",
+      "a": {
+        "mean": [
+          1,
+          2,
+          3
+        ],
+        "covariance_diag": [
+          2,
+          3,
+          4
+        ]
+      },
+      "b": {
+        "mean": [
+          9,
+          8,
+          7
+        ],
+        "covariance_diag": [
+          5,
+          6,
+          7
+        ]
+      },
+      "omega": 0,
+      "interpretation": "Weight endpoint omega=0 returns estimate b.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "9.0000000000000000",
+          "8.0000000000000000",
+          "7.0000000000000000"
+        ],
+        "covariance_diag": [
+          "5.0000000000000000",
+          "6.0000000000000000",
+          "7.0000000000000000"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-006-asymmetric-weight",
+      "a": {
+        "mean": [
+          1,
+          -2,
+          3
+        ],
+        "covariance_diag": [
+          1,
+          2,
+          4
+        ]
+      },
+      "b": {
+        "mean": [
+          5,
+          4,
+          -1
+        ],
+        "covariance_diag": [
+          4,
+          8,
+          16
+        ]
+      },
+      "omega": 0.25,
+      "interpretation": "Unequal CI weight changes the information-weighted mean and covariance.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "2.7142857142857140",
+          "0.57142857142857140",
+          "1.2857142857142856"
+        ],
+        "covariance_diag": [
+          "2.2857142857142856",
+          "4.5714285714285712",
+          "9.1428571428571423"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-007-swapped-input-complement",
+      "a": {
+        "mean": [
+          5,
+          4,
+          -1
+        ],
+        "covariance_diag": [
+          4,
+          8,
+          16
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          -2,
+          3
+        ],
+        "covariance_diag": [
+          1,
+          2,
+          4
+        ]
+      },
+      "omega": 0.75,
+      "interpretation": "Swapping input estimates and complementing omega preserves result.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "2.7142857142857140",
+          "0.57142857142857140",
+          "1.2857142857142856"
+        ],
+        "covariance_diag": [
+          "2.2857142857142856",
+          "4.5714285714285712",
+          "9.1428571428571423"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-008-small-covariance-scale",
+      "a": {
+        "mean": [
+          0.001,
+          0.002,
+          0.003
+        ],
+        "covariance_diag": [
+          0.000001,
+          0.000002,
+          0.000004
+        ]
+      },
+      "b": {
+        "mean": [
+          0.004,
+          0.001,
+          -0.003
+        ],
+        "covariance_diag": [
+          0.000004,
+          0.000008,
+          0.000016
+        ]
+      },
+      "omega": 0.5,
+      "interpretation": "Small but finite positive covariance stays within numeric range.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "0.0015999999999999999",
+          "0.0018000000000000000",
+          "0.0018000000000000000"
+        ],
+        "covariance_diag": [
+          "0.0000015999999999999999",
+          "0.0000031999999999999999",
+          "0.0000063999999999999997"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-009-large-covariance-scale",
+      "a": {
+        "mean": [
+          1e+140,
+          2e+140,
+          3e+140
+        ],
+        "covariance_diag": [
+          1e+150,
+          2e+150,
+          4e+150
+        ]
+      },
+      "b": {
+        "mean": [
+          5e+140,
+          4e+140,
+          -1e+140
+        ],
+        "covariance_diag": [
+          4e+150,
+          8e+150,
+          1.6e+151
+        ]
+      },
+      "omega": 0.5,
+      "interpretation": "Large finite values remain stable when intermediate arithmetic is finite.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "1.8000000000000000e+140",
+          "2.4000000000000000e+140",
+          "2.1999999999999998e+140"
+        ],
+        "covariance_diag": [
+          "1.6000000000000001e+150",
+          "3.2000000000000002e+150",
+          "6.4000000000000003e+150"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-010-axis-specific-information",
+      "a": {
+        "mean": [
+          -10,
+          0,
+          10
+        ],
+        "covariance_diag": [
+          0.5,
+          2,
+          8
+        ]
+      },
+      "b": {
+        "mean": [
+          10,
+          20,
+          -10
+        ],
+        "covariance_diag": [
+          8,
+          2,
+          0.5
+        ]
+      },
+      "omega": 0.2,
+      "interpretation": "Each axis uses its own variance rather than one pooled scalar.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "-6.0000000000000000",
+          "16.000000000000000",
+          "-9.6923076923076934"
+        ],
+        "covariance_diag": [
+          "2.0000000000000000",
+          "2.0000000000000000",
+          "0.61538461538461542"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-011-near-endpoint-weight",
+      "a": {
+        "mean": [
+          1,
+          2,
+          3
+        ],
+        "covariance_diag": [
+          2,
+          4,
+          8
+        ]
+      },
+      "b": {
+        "mean": [
+          9,
+          8,
+          7
+        ],
+        "covariance_diag": [
+          6,
+          5,
+          4
+        ]
+      },
+      "omega": 1e-12,
+      "interpretation": "Strictly valid near-endpoint weight is handled without clamping.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "8.9999999999760014",
+          "7.9999999999925011",
+          "6.9999999999980007"
+        ],
+        "covariance_diag": [
+          "5.9999999999880007",
+          "4.9999999999987503",
+          "4.0000000000020002"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-012-covariance-bounds",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          10,
+          100
+        ]
+      },
+      "b": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          4,
+          40,
+          400
+        ]
+      },
+      "omega": 0.3,
+      "interpretation": "Each fused diagonal variance stays between the corresponding input variances.",
+      "expected": {
+        "valid": true,
+        "mean": [
+          "0.0000000000000000",
+          "0.0000000000000000",
+          "0.0000000000000000"
+        ],
+        "covariance_diag": [
+          "2.1052631578947367",
+          "21.052631578947370",
+          "210.52631578947370"
+        ]
+      }
+    },
+    {
+      "id": "CI3D-X01-negative-omega",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": -0.01,
+      "reason": "omega outside [0,1]",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X02-omega-above-one",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 1.01,
+      "reason": "omega outside [0,1]",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X03-nan-omega",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": "NaN",
+      "reason": "non-finite omega",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X04-infinite-mean",
+      "a": {
+        "mean": [
+          "Infinity",
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "non-finite mean",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X05-nan-mean",
+      "a": {
+        "mean": [
+          "NaN",
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "non-finite mean",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X06-negative-covariance",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          -1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "covariance must be strictly positive",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X07-zero-covariance",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          0,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "singular covariance requires a separately qualified model",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X08-nan-covariance",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1,
+          "NaN",
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "non-finite covariance",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X09-inverse-overflow",
+      "a": {
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1e-320,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          1,
+          1,
+          1
+        ],
+        "covariance_diag": [
+          1,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "inverse covariance overflows",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "CI3D-X10-weighted-mean-overflow",
+      "a": {
+        "mean": [
+          1e+308,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1e-308,
+          1,
+          1
+        ]
+      },
+      "b": {
+        "mean": [
+          -1e+308,
+          0,
+          0
+        ],
+        "covariance_diag": [
+          1e-308,
+          1,
+          1
+        ]
+      },
+      "omega": 0.5,
+      "reason": "information-weighted mean intermediate overflows",
+      "expected": {
+        "valid": false
+      }
+    }
+  ],
+  "mutation_controls": [
+    {
+      "id": "CI3D-MUT-001",
+      "description": "Multiply precision from two equal unit covariance estimates as if inputs were independent, incorrectly halving covariance.",
+      "must_be_detected_by": "CI3D-001-equal-unit-covariance;CI3D-002-large-disagreement-no-spurious-precision"
+    },
+    {
+      "id": "CI3D-MUT-002",
+      "description": "Compute mean as a trust-weighted average while claiming it is information-form CI.",
+      "must_be_detected_by": "CI3D-003-unequal-diagonal-covariance;CI3D-006-asymmetric-weight"
+    },
+    {
+      "id": "CI3D-MUT-003",
+      "description": "Silently clamp invalid omega instead of rejecting it.",
+      "must_be_detected_by": "CI3D-X01-negative-omega;CI3D-X02-omega-above-one;CI3D-X03-nan-omega"
+    },
+    {
+      "id": "CI3D-MUT-004",
+      "description": "Replace zero/negative/non-finite covariance with a fabricated high-precision surrogate.",
+      "must_be_detected_by": "CI3D-X06-negative-covariance;CI3D-X07-zero-covariance;CI3D-X08-nan-covariance"
+    },
+    {
+      "id": "CI3D-MUT-005",
+      "description": "Ignore non-finite reciprocal, weighted-information or output-mean arithmetic.",
+      "must_be_detected_by": "CI3D-X09-inverse-overflow;CI3D-X10-weighted-mean-overflow"
+    },
+    {
+      "id": "CI3D-MUT-006",
+      "description": "Use trust/reputation weight as a covariance precision multiplier.",
+      "must_be_detected_by": "CI3D-001-equal-unit-covariance;CI3D-004-omega-one-selects-a"
+    }
+  ]
+}
