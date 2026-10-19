@@ -337,9 +337,7 @@ fn valid_utc_timestamp(value: &str) -> bool {
     let hour = value.get(11..13).and_then(|v| v.parse::<u32>().ok());
     let minute = value.get(14..16).and_then(|v| v.parse::<u32>().ok());
     let second = value.get(17..19).and_then(|v| v.parse::<u32>().ok());
-    matches!(hour, Some(0..=23))
-        && matches!(minute, Some(0..=59))
-        && matches!(second, Some(0..=59))
+    matches!(hour, Some(0..=23)) && matches!(minute, Some(0..=59)) && matches!(second, Some(0..=59))
 }
 
 fn validate_interval(
@@ -350,17 +348,23 @@ fn validate_interval(
 ) {
     if let Some(value) = from {
         if !valid_utc_timestamp(value) {
-            errors.push(format!("{context} has invalid valid_from_utc timestamp {value}"));
+            errors.push(format!(
+                "{context} has invalid valid_from_utc timestamp {value}"
+            ));
         }
     }
     if let Some(value) = until {
         if !valid_utc_timestamp(value) {
-            errors.push(format!("{context} has invalid valid_until_utc timestamp {value}"));
+            errors.push(format!(
+                "{context} has invalid valid_until_utc timestamp {value}"
+            ));
         }
     }
     if let (Some(from), Some(until)) = (from, until) {
         if valid_utc_timestamp(from) && valid_utc_timestamp(until) && from >= until {
-            errors.push(format!("{context} must use a non-empty half-open validity interval"));
+            errors.push(format!(
+                "{context} must use a non-empty half-open validity interval"
+            ));
         }
     }
 }
@@ -378,7 +382,10 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
     }
     for (name, value) in [
         ("source.publisher_id", profile.source.publisher_id.as_str()),
-        ("source.canonical_ref", profile.source.canonical_ref.as_str()),
+        (
+            "source.canonical_ref",
+            profile.source.canonical_ref.as_str(),
+        ),
         ("source.component_id", profile.source.component_id.as_str()),
         ("source.version_id", profile.source.version_id.as_str()),
         ("terms.terms_ref", profile.terms.terms_ref.as_str()),
@@ -390,12 +397,15 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
     }
     if let Some(digest) = profile.source.content_sha256.as_deref() {
         if !is_sha256(digest) {
-            errors.push("source.content_sha256 must be a lowercase SHA-256 digest or null".to_string());
+            errors.push(
+                "source.content_sha256 must be a lowercase SHA-256 digest or null".to_string(),
+            );
         }
     }
     if let Some(digest) = profile.terms.terms_sha256.as_deref() {
         if !is_sha256(digest) {
-            errors.push("terms.terms_sha256 must be a lowercase SHA-256 digest or null".to_string());
+            errors
+                .push("terms.terms_sha256 must be a lowercase SHA-256 digest or null".to_string());
         }
     }
     validate_interval(
@@ -406,7 +416,9 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
     );
     if let Some(verified_at) = profile.terms.verified_at_utc.as_deref() {
         if !valid_utc_timestamp(verified_at) {
-            errors.push(format!("invalid terms.verified_at_utc timestamp {verified_at}"));
+            errors.push(format!(
+                "invalid terms.verified_at_utc timestamp {verified_at}"
+            ));
         }
     }
     if let Some(reviewer) = &profile.reviewer {
@@ -420,7 +432,9 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
     if profile.profile_status == ProfileStatus::Approved {
         match &profile.reviewer {
             Some(reviewer) if reviewer.decision == ReviewDecision::Approved => {}
-            _ => errors.push("an approved profile requires an approved reviewer record".to_string()),
+            _ => {
+                errors.push("an approved profile requires an approved reviewer record".to_string())
+            }
         }
         if profile.terms.review_status != TermsReviewStatus::Verified {
             errors.push("an approved profile requires verified terms".to_string());
@@ -460,7 +474,9 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
         if grant.territories.iter().any(|territory| {
             territory.len() != 2 || !territory.bytes().all(|b| b.is_ascii_uppercase())
         }) {
-            errors.push(format!("{context} territories must be two uppercase ASCII letters"));
+            errors.push(format!(
+                "{context} territories must be two uppercase ASCII letters"
+            ));
         }
         let purpose_set: BTreeSet<Purpose> = grant.purposes.iter().copied().collect();
         if purpose_set.len() != grant.purposes.len() {
@@ -474,11 +490,17 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
         if territory_set.len() != grant.territories.len() {
             errors.push(format!("{context} repeats a territory"));
         }
-        let evidence_set: BTreeSet<&str> = grant.evidence_refs.iter().map(String::as_str).collect();
+        let evidence_set: BTreeSet<&str> =
+            grant.evidence_refs.iter().map(String::as_str).collect();
         if evidence_set.len() != grant.evidence_refs.len()
-            || grant.evidence_refs.iter().any(|item| item.trim().is_empty())
+            || grant
+                .evidence_refs
+                .iter()
+                .any(|item| item.trim().is_empty())
         {
-            errors.push(format!("{context} has duplicate or empty evidence references"));
+            errors.push(format!(
+                "{context} has duplicate or empty evidence references"
+            ));
         }
         validate_interval(
             grant.valid_from_utc.as_deref(),
@@ -486,10 +508,13 @@ fn validate_profile(profile: &SourceUseProfile) -> Result<(), String> {
             &context,
             &mut errors,
         );
-        if profile.profile_status == ProfileStatus::Approved && grant.decision == PermissionDecision::Allowed
+        if profile.profile_status == ProfileStatus::Approved
+            && grant.decision == PermissionDecision::Allowed
         {
             if grant.evidence_refs.is_empty() {
-                errors.push(format!("{context} cannot allow an operation without evidence references"));
+                errors.push(format!(
+                    "{context} cannot allow an operation without evidence references"
+                ));
             }
         }
     }
@@ -521,7 +546,10 @@ fn validate_request(request: &SourceUseRequest) -> Result<(), String> {
         }
     }
     if request.territory.len() != 2
-        || !request.territory.bytes().all(|byte| byte.is_ascii_uppercase())
+        || !request
+            .territory
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase())
     {
         errors.push("territory must be two uppercase ASCII letters".to_string());
     }
@@ -530,7 +558,9 @@ fn validate_request(request: &SourceUseRequest) -> Result<(), String> {
     }
     if let Some(digest) = request.observed_terms_sha256.as_deref() {
         if !is_sha256(digest) {
-            errors.push("observed_terms_sha256 must be a lowercase SHA-256 digest or null".to_string());
+            errors.push(
+                "observed_terms_sha256 must be a lowercase SHA-256 digest or null".to_string(),
+            );
         }
     }
     if errors.is_empty() {
@@ -618,7 +648,10 @@ fn evaluate(profile: &SourceUseProfile, request: &SourceUseRequest) -> DecisionR
         .filter(|grant| {
             grant.purposes.contains(&request.purpose)
                 && grant.actor_classes.contains(&request.actor_class)
-                && grant.territories.iter().any(|territory| territory == &request.territory)
+                && grant
+                    .territories
+                    .iter()
+                    .any(|territory| territory == &request.territory)
         })
         .collect();
     if scope_grants.is_empty() {
@@ -647,7 +680,10 @@ fn evaluate(profile: &SourceUseProfile, request: &SourceUseRequest) -> DecisionR
     {
         return denied("operation_explicitly_denied", Some(grant.grant_id.clone()));
     }
-    if time_grants.iter().any(|grant| grant.decision == PermissionDecision::Unknown) {
+    if time_grants
+        .iter()
+        .any(|grant| grant.decision == PermissionDecision::Unknown)
+    {
         return unknown("overlapping_grants_include_unknown_permission");
     }
 
@@ -695,7 +731,11 @@ mod tests {
         profile
     }
 
-    fn request(operation: Operation, purpose: Purpose, actor_class: ActorClass) -> SourceUseRequest {
+    fn request(
+        operation: Operation,
+        purpose: Purpose,
+        actor_class: ActorClass,
+    ) -> SourceUseRequest {
         let profile = profile();
         SourceUseRequest {
             schema_version: "0.1.0".to_string(),
@@ -730,14 +770,24 @@ mod tests {
             ActorClass::InternalReviewer,
         );
         let result = admission(&request);
-        assert_eq!(result.permission_decision, Some(PermissionDecision::Allowed));
+        assert_eq!(
+            result.permission_decision,
+            Some(PermissionDecision::Allowed)
+        );
         assert_eq!(result.admission_decision, AdmissionDecision::Admitted);
-        assert_eq!(result.reason_code, "operation_explicitly_permitted_within_scope");
+        assert_eq!(
+            result.reason_code,
+            "operation_explicitly_permitted_within_scope"
+        );
     }
 
     #[test]
     fn explicitly_denied_cache_is_not_admitted() {
-        let request = request(Operation::Cache, Purpose::BenchmarkEvaluation, ActorClass::AutomatedService);
+        let request = request(
+            Operation::Cache,
+            Purpose::BenchmarkEvaluation,
+            ActorClass::AutomatedService,
+        );
         let result = admission(&request);
         assert_eq!(result.admission_decision, AdmissionDecision::Denied);
         assert_eq!(result.reason_code, "operation_explicitly_denied");
@@ -751,7 +801,10 @@ mod tests {
             ActorClass::InternalReviewer,
         );
         let result = admission(&request);
-        assert_eq!(result.permission_decision, Some(PermissionDecision::Unknown));
+        assert_eq!(
+            result.permission_decision,
+            Some(PermissionDecision::Unknown)
+        );
         assert_eq!(result.admission_decision, AdmissionDecision::Unknown);
     }
 
@@ -762,8 +815,12 @@ mod tests {
             Purpose::BenchmarkEvaluation,
             ActorClass::InternalReviewer,
         );
-        request.observed_terms_sha256 = Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string());
-        assert_eq!(admission(&request).reason_code, "terms_digest_mismatch_requires_rereview");
+        request.observed_terms_sha256 =
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string());
+        assert_eq!(
+            admission(&request).reason_code,
+            "terms_digest_mismatch_requires_rereview"
+        );
     }
 
     #[test]
@@ -774,7 +831,10 @@ mod tests {
             ActorClass::InternalReviewer,
         );
         request.observed_terms_sha256 = None;
-        assert_eq!(admission(&request).admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(
+            admission(&request).admission_decision,
+            AdmissionDecision::Unknown
+        );
     }
 
     #[test]
@@ -785,8 +845,14 @@ mod tests {
             ActorClass::InternalReviewer,
         );
         request.source_version_id = "snapshot-2027-10".to_string();
-        assert_eq!(admission(&request).reason_code, "source_component_or_version_mismatch");
-        assert_eq!(admission(&request).admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(
+            admission(&request).reason_code,
+            "source_component_or_version_mismatch"
+        );
+        assert_eq!(
+            admission(&request).admission_decision,
+            AdmissionDecision::Unknown
+        );
     }
 
     #[test]
@@ -796,7 +862,10 @@ mod tests {
             Purpose::PublicDisplay,
             ActorClass::InternalReviewer,
         );
-        assert_eq!(admission(&wrong_purpose).admission_decision, AdmissionDecision::Denied);
+        assert_eq!(
+            admission(&wrong_purpose).admission_decision,
+            AdmissionDecision::Denied
+        );
         wrong_purpose = request(
             Operation::BenchmarkEvaluation,
             Purpose::BenchmarkEvaluation,
@@ -821,9 +890,15 @@ mod tests {
         );
         request.requested_retention_seconds = 31;
         let result = admission(&request);
-        assert_eq!(result.permission_decision, Some(PermissionDecision::Allowed));
+        assert_eq!(
+            result.permission_decision,
+            Some(PermissionDecision::Allowed)
+        );
         assert_eq!(result.admission_decision, AdmissionDecision::Denied);
-        assert_eq!(result.reason_code, "requested_retention_exceeds_grant_limit");
+        assert_eq!(
+            result.reason_code,
+            "requested_retention_exceeds_grant_limit"
+        );
     }
 
     #[test]
@@ -835,13 +910,22 @@ mod tests {
         );
         let mut draft = profile();
         draft.profile_status = ProfileStatus::Draft;
-        assert_eq!(evaluate(&draft, &request).admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(
+            evaluate(&draft, &request).admission_decision,
+            AdmissionDecision::Unknown
+        );
         let mut expired = profile();
         expired.profile_status = ProfileStatus::Expired;
-        assert_eq!(evaluate(&expired, &request).admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(
+            evaluate(&expired, &request).admission_decision,
+            AdmissionDecision::Unknown
+        );
         let mut revoked = profile();
         revoked.profile_status = ProfileStatus::Revoked;
-        assert_eq!(evaluate(&revoked, &request).admission_decision, AdmissionDecision::Denied);
+        assert_eq!(
+            evaluate(&revoked, &request).admission_decision,
+            AdmissionDecision::Denied
+        );
     }
 
     #[test]
@@ -853,7 +937,10 @@ mod tests {
             Purpose::BenchmarkEvaluation,
             ActorClass::InternalReviewer,
         );
-        assert_eq!(evaluate(&profile, &request).admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(
+            evaluate(&profile, &request).admission_decision,
+            AdmissionDecision::Unknown
+        );
         assert_eq!(
             evaluate(&profile, &request).reason_code,
             "terms_not_effective_at_request_time"
@@ -896,7 +983,10 @@ mod tests {
         );
         let result = evaluate(&profile, &request);
         assert_eq!(result.admission_decision, AdmissionDecision::Unknown);
-        assert_eq!(result.reason_code, "overlapping_grants_include_unknown_permission");
+        assert_eq!(
+            result.reason_code,
+            "overlapping_grants_include_unknown_permission"
+        );
     }
 
     #[test]
