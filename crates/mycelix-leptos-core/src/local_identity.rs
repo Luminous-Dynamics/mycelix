@@ -410,9 +410,8 @@ pub async fn create_protected_identity(
         return Err("Passphrase must not be empty".into());
     }
 
-    let window = web_sys::window().ok_or_else(|| {
-        "Browser window is unavailable; no identity was created.".to_string()
-    })?;
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser window is unavailable; no identity was created.".to_string())?;
     let storage = window
         .local_storage()
         .map_err(|_| "Browser identity storage is unavailable.".to_string())?
@@ -1118,7 +1117,9 @@ mod browser_storage_tests {
                 IDENTITY_PUBLIC_KEY,
                 IDENTITY_SECRET_ENCRYPTED_KEY,
             ] {
-                self.storage.remove_item(key).expect("test storage cleanup succeeds");
+                self.storage
+                    .remove_item(key)
+                    .expect("test storage cleanup succeeds");
             }
         }
     }
@@ -1146,7 +1147,10 @@ mod browser_storage_tests {
         let posture = create_protected_identity("synthetic browser test passphrase")
             .await
             .expect("protected identity creation succeeds in isolated browser storage");
-        assert_eq!(posture, LocalIdentityStoragePosture::ProtectedUnlockedInSession);
+        assert_eq!(
+            posture,
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession
+        );
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
@@ -1154,10 +1158,12 @@ mod browser_storage_tests {
             .get_item(IDENTITY_PUBLIC_KEY)
             .unwrap()
             .expect("public-key metadata was persisted");
-        assert!(storage
-            .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
-            .unwrap()
-            .is_some());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_some()
+        );
 
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
         let signing_key = unlock_with_passphrase("synthetic browser test passphrase")
@@ -1184,9 +1190,11 @@ mod browser_storage_tests {
             .expect("test can tamper with the isolated public-key metadata");
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
 
-        assert!(unlock_with_passphrase("synthetic browser test passphrase")
-            .await
-            .is_err());
+        assert!(
+            unlock_with_passphrase("synthetic browser test passphrase")
+                .await
+                .is_err()
+        );
         assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
     }
