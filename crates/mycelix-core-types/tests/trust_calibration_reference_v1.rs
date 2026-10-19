@@ -128,9 +128,7 @@ fn corpus() -> Value {
 }
 
 fn cases(corpus: &Value) -> &[Value] {
-    corpus["cases"]
-        .as_array()
-        .expect("cases must be an array")
+    corpus["cases"].as_array().expect("cases must be an array")
 }
 
 fn case_by_id<'a>(all_cases: &'a [Value], id: &str) -> &'a Value {
@@ -191,11 +189,15 @@ fn frozen_probability_score_corpus_matches_reference_and_rejects_invalid_inputs(
         let result = evaluate_case(case);
         if expected_valid {
             valid_count += 1;
-            let actual = result.unwrap_or_else(|error| panic!("{id}: valid case rejected: {error}"));
+            let actual =
+                result.unwrap_or_else(|error| panic!("{id}: valid case rejected: {error}"));
             assert_scores(id, actual, &case["expected"]);
         } else {
             invalid_count += 1;
-            assert!(result.is_err(), "{id}: invalid probability batch was accepted");
+            assert!(
+                result.is_err(),
+                "{id}: invalid probability batch was accepted"
+            );
         }
     }
     assert_eq!(valid_count, 9, "unexpected valid-case count");
@@ -211,14 +213,18 @@ fn discrimination_and_proper_scores_are_not_replaced_by_aggregate_calibration() 
         "TCAL-004-constant-base-rate-not-informative",
     ))
     .expect("constant base-rate forecast is a valid probability batch");
-    let discriminative = evaluate_case(case_by_id(
-        all_cases,
-        "TCAL-005-discriminative-and-correct",
-    ))
-    .expect("discriminative forecast is valid");
+    let discriminative =
+        evaluate_case(case_by_id(all_cases, "TCAL-005-discriminative-and-correct"))
+            .expect("discriminative forecast is valid");
 
-    assert!(close(constant.mean_probability, constant.observed_positive_rate));
-    assert!(close(discriminative.mean_probability, discriminative.observed_positive_rate));
+    assert!(close(
+        constant.mean_probability,
+        constant.observed_positive_rate
+    ));
+    assert!(close(
+        discriminative.mean_probability,
+        discriminative.observed_positive_rate
+    ));
     assert!(
         discriminative.brier_score < constant.brier_score,
         "equal aggregate calibration does not imply equal predictive usefulness"
@@ -233,13 +239,18 @@ fn discrimination_and_proper_scores_are_not_replaced_by_aggregate_calibration() 
 fn base_rate_shift_requires_reassessment() {
     let corpus = corpus();
     let all_cases = cases(&corpus);
-    let stale = evaluate_case(case_by_id(all_cases, "TCAL-006-base-rate-shift-underpredict"))
-        .expect("stale forecast uses valid probabilities");
-    let adjusted =
-        evaluate_case(case_by_id(all_cases, "TCAL-007-base-rate-shift-adjusted"))
-            .expect("adjusted forecast uses valid probabilities");
+    let stale = evaluate_case(case_by_id(
+        all_cases,
+        "TCAL-006-base-rate-shift-underpredict",
+    ))
+    .expect("stale forecast uses valid probabilities");
+    let adjusted = evaluate_case(case_by_id(all_cases, "TCAL-007-base-rate-shift-adjusted"))
+        .expect("adjusted forecast uses valid probabilities");
 
-    assert!(close(adjusted.mean_probability, adjusted.observed_positive_rate));
+    assert!(close(
+        adjusted.mean_probability,
+        adjusted.observed_positive_rate
+    ));
     assert!(adjusted.brier_score < stale.brier_score);
     assert!(adjusted.log_loss < stale.log_loss);
 }
