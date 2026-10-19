@@ -771,4 +771,46 @@ mod tests {
             .iter()
             .any(|issue| issue == "OBSTACLE_INVENTORY_REVIEW_EVIDENCE_MISSING"));
     }
+
+    #[test]
+    fn screened_record_cannot_reuse_concept_only_geometry_sources() {
+        let mut record = example_record();
+        record["record_state"] = json!("screening");
+        record["obstacle_inventory_state"] = json!("reviewed");
+        record["obstacle_inventory_evidence_source_ids"] = json!(["SRC-CONCEPT-001"]);
+        let issues = audit_record_semantics(&record);
+        assert!(issues
+            .iter()
+            .any(|issue| issue.starts_with("NON_CONCEPT_ENVELOPE_SOURCE_UNQUALIFIED:")));
+        assert!(issues
+            .iter()
+            .any(|issue| issue == "OBSTACLE_INVENTORY_REVIEW_EVIDENCE_UNQUALIFIED:SRC-CONCEPT-001"));
+    }
+
+    #[test]
+    fn keep_out_geometry_must_bind_to_the_review_manifest() {
+        let mut record = example_record();
+        let digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let mut source_a = record["sources"][0].clone();
+        source_a["source_id"] = json!("SRC-CONTROLLED-001");
+        source_a["source_type"] = json!("controlled_drawing");
+        source_a["evidence_state"] = json!("approved");
+        source_a["digest_sha256"] = json!(digest);
+        source_a["source_ref"] = json!("synthetic unit-test controlled drawing");
+        let mut source_b = source_a.clone();
+        source_b["source_id"] = json!("SRC-OBSTACLE-002");
+        source_b["source_ref"] = json!("synthetic unit-test obstruction drawing");
+        record["sources"] = json!([source_a, source_b]);
+        for envelope in record["envelopes"].as_array_mut().unwrap() {
+            envelope["source_id"] = json!("SRC-CONTROLLED-001");
+        }
+        record["envelopes"][5]["source_id"] = json!("SRC-OBSTACLE-002");
+        record["obstacle_inventory_state"] = json!("reviewed");
+        record["obstacle_inventory_evidence_source_ids"] = json!(["SRC-CONTROLLED-001"]);
+        record["record_state"] = json!("screening");
+        assert!(audit_record_semantics(&record)
+            .iter()
+            .any(|issue| issue
+                == "OBSTACLE_SOURCE_NOT_IN_REVIEW_MANIFEST:SIDE-KEEP-OUT-001:SRC-OBSTACLE-002"));
+    }
 }
