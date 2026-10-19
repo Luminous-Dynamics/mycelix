@@ -176,7 +176,10 @@ fn audit_record_semantics(record: &Value) -> Vec<String> {
                 issues.push(format!("SOURCE_ID_DUPLICATE:{id}"));
             }
             let state = source.get("evidence_state").and_then(Value::as_str).unwrap_or("unknown");
-            let source_type = source.get("source_type").and_then(Value::as_str).unwrap_or("unknown");
+            let source_type = source
+                .get("source_type")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
             let source_type_matches_state = match state {
                 "assumption" => source_type == "assumption",
                 "synthetic" => source_type == "synthetic_fixture",
