@@ -1075,11 +1075,12 @@ mod browser_storage_tests {
     use super::*;
     use wasm_bindgen_test::*;
 
-    wasm_bindgen_test_configure!(run_in_browser);
+    // identity_crypto's browser test module configures the crate's runner mode.
 
     struct IdentityStorageBackup {
         storage: web_sys::Storage,
         values: Vec<(&'static str, Option<String>)>,
+        unlocked_key: Option<SigningKey>,
     }
 
     impl IdentityStorageBackup {
@@ -1099,7 +1100,12 @@ mod browser_storage_tests {
                 .into_iter()
                 .map(|key| (key, storage.get_item(key).expect("storage read succeeds")))
                 .collect();
-            let backup = Self { storage, values };
+            let unlocked_key = UNLOCKED_KEY.with(|cell| cell.borrow().clone());
+            let backup = Self {
+                storage,
+                values,
+                unlocked_key,
+            };
             backup.clear_identity_keys();
             UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
             backup
@@ -1130,7 +1136,7 @@ mod browser_storage_tests {
                     }
                 }
             }
-            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = self.unlocked_key.clone());
         }
     }
 
