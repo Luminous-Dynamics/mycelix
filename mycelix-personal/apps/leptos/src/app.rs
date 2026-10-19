@@ -321,8 +321,8 @@ fn VaultPage() -> impl IntoView {
                     view! {
                         <AvailabilityState
                             kind=AvailabilityStateKind::Empty
-                            title="Live Vault, Empty Summary"
-                            description="Connected to a live conductor, but Personal view endpoints have not returned records yet."
+                            title="Live Personal sources unavailable"
+                            description="No Personal source view was successfully read. This is not confirmation that the vault is empty; check the source-status notice and retry when the relevant source is reachable."
                             action={Some(view! {
                                 <A href="/identity" attr:class="btn btn-primary">"Review Identity"</A>
                             }.into_any())}
@@ -459,6 +459,8 @@ fn IdentityPage() -> impl IntoView {
                 }
             />
 
+            <PersonalSourceNotice />
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Profile" />
@@ -520,6 +522,8 @@ fn WalletPage() -> impl IntoView {
                 title="Portable proof inventory"
                 summary="Stored credentials, proof posture, and trust-bearing materials live here.".to_string()
             />
+
+            <PersonalSourceNotice />
 
             <section class="vault-card">
                 <SectionTitle title="Credentials" />
@@ -595,6 +599,8 @@ fn HealthPage() -> impl IntoView {
                 summary="Personal owns posture and disclosure. Health owns deeper medical workflows.".to_string()
             />
 
+            <PersonalSourceNotice />
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Recent biometrics" />
@@ -660,6 +666,8 @@ fn PreferencesPage() -> impl IntoView {
                 summary=ctx.status_note.get_untracked()
             />
 
+            <PersonalSourceNotice />
+
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Domain posture" />
@@ -710,6 +718,8 @@ fn ActivityPage() -> impl IntoView {
                 title="What left the vault, and why"
                 summary="This page will eventually reflect bridge queries, events, and disclosures directly.".to_string()
             />
+
+            <PersonalSourceNotice />
             <section class="vault-card">
                 <SectionTitle title="Disclosure and handoff log" />
                 <ul class="activity-list">
@@ -740,6 +750,18 @@ fn UnlockPage() -> impl IntoView {
                 </p>
             </section>
         </div>
+    }
+}
+
+#[component]
+fn PersonalSourceNotice() -> impl IntoView {
+    let ctx = use_personal();
+    view! {
+        <section class="vault-card source-status-card">
+            <p class="supporting-copy" role="status" aria-live="polite">
+                {move || ctx.status_note.get()}
+            </p>
+        </section>
     }
 }
 
