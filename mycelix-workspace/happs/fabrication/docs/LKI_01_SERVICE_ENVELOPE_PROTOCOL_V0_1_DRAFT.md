@@ -39,7 +39,9 @@ The frozen v0.1 corpus contains ten known-answer cases:
 | ENV-009 | Block the unsupported claim that a software screen establishes physical qualification |
 | ENV-010 | Pass when the inflated moving envelope remains strictly separated from the obstacle |
 
-The corpus is frozen once accepted; future scenarios should be added in a versioned extension, not edited to make a new implementation pass. This is a small synthetic regression suite, not an industry-standard benchmark or statistical evidence about product performance.\n\nIn addition to those ten frozen examples, the Rust test suite checks metamorphic properties that a fixed oracle list can miss: translating the module and bay together does not alter fit; increasing required clearance cannot turn failure into success; increasing a moving envelope's declared clearance cannot remove an existing collision; envelope input order cannot change the semantic result; and missing required scenario geometry fails closed.
+The corpus is frozen once accepted; future scenarios should be added in a versioned extension, not edited to make a new implementation pass. This is a small synthetic regression suite, not an industry-standard benchmark or statistical evidence about product performance.
+
+In addition to those ten frozen examples, the Rust test suite checks metamorphic properties that a fixed oracle list can miss: translating the module and bay together does not alter fit; increasing required clearance cannot turn failure into success; increasing a moving envelope's declared clearance cannot remove an existing collision; envelope input order cannot change the semantic result; and missing required scenario geometry fails closed.
 
 ## Proposed gates and targets
 
