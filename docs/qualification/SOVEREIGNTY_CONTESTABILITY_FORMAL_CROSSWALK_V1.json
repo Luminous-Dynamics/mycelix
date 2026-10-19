@@ -1,0 +1,124 @@
+{
+  "schema": "mycelix.effective-contestability-formal-crosswalk.v1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "subject_head": "45dbaf293265034a32af26fc8f3176e9517c80a8",
+  "subject_tree": "4b18aa716b239d2bf3311e9356a31c2e4ac809a4",
+  "relationship": "semantic-alignment map only; not a refinement proof",
+  "mappings": [
+    {
+      "id": "nominal-exit-eligibility",
+      "boundary": "effective exit requires prior nominal exit",
+      "tla": [
+        "NoEffectiveExitWithoutNominalExit"
+      ],
+      "alloy": [
+        "EffectiveExitRequiresNominal",
+        "EffectiveExitWithoutNominalWitness"
+      ],
+      "reference": [
+        "missing-nominal -> NoEffectiveExitWithoutNominalExit"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "nominal-vs-effective",
+      "boundary": "nominal exit != effective exit",
+      "tla": [
+        "NoEffectiveExitWithoutNominalExit"
+      ],
+      "alloy": [
+        "EffectiveExitRequiresNominal",
+        "EffectiveExitWithoutNominalWitness"
+      ],
+      "reference": [
+        "missing-nominal -> NoEffectiveExitWithoutNominalExit"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "root-independence",
+      "boundary": "multiple providers != independent alternatives",
+      "tla": [
+        "EffectiveExitIsIndependent",
+        "SharedRootsCannotBecomeEffectiveExit"
+      ],
+      "alloy": [
+        "EffectiveExitRequiresIndependentRoots"
+      ],
+      "reference": [
+        "shared-root -> SharedRootsCannotBecomeEffectiveExit:control"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "provider-failure",
+      "boundary": "provider failure != authority expansion",
+      "tla": [
+        "ProviderFailureDoesNotExpandAuthority"
+      ],
+      "alloy": [
+        "ProviderFailuresPreserveAuthority"
+      ],
+      "reference": [
+        "failure-authority -> ProviderFailureDoesNotExpandAuthority"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "migration-continuity",
+      "boundary": "portability != obligation/history erasure",
+      "tla": [
+        "MigrationPreservesObligationsAndHistory",
+        "ProviderSwitchDoesNotTransferAuthority",
+        "ProviderSwitchDoesNotTransferJurisdiction"
+      ],
+      "alloy": [
+        "MigrationPreservesContinuity",
+        "MigrationPreservesAuthority",
+        "MigrationPreservesJurisdiction"
+      ],
+      "reference": [
+        "switch-obligation -> MigrationPreservesObligationsAndHistory",
+        "switch-authority -> ProviderSwitchDoesNotTransferAuthority",
+        "switch-jurisdiction -> ProviderSwitchDoesNotTransferJurisdiction"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "switch-review",
+      "boundary": "high switching cost -> bounded review",
+      "tla": [
+        "HighSwitchingCostTriggersReview"
+      ],
+      "alloy": [
+        "ReviewIsRequiredAtHighSwitchingCost"
+      ],
+      "reference": [
+        "switch-review -> HighSwitchingCostTriggersReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "effective-exit-context-freshness",
+      "boundary": "provider switch invalidates stale effective-exit state",
+      "tla": [
+        "EffectiveExitContextIsFresh"
+      ],
+      "alloy": [
+        "EffectiveExitExcludesCurrentProvider",
+        "CurrentProviderAlsoEffectiveWitness"
+      ],
+      "reference": [
+        "switch-stale-exit -> EffectiveExitContextIsFresh"
+      ],
+      "coverage": "aligned"
+    }
+  ],
+  "nonclaims": [
+    "Finite model evidence is not proof of real-world market contestability.",
+    "No legal recognition or sovereignty is established.",
+    "No scalar contestability or power score is created.",
+    "No production equivalence is established."
+  ]
+}

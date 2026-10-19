@@ -1,0 +1,94 @@
+{
+  "schema": "mycelix.effective-contestability-control-matrix.v1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "purpose": "Cross-model negative-control contract; semantic alignment, not a refinement proof.",
+  "controls": [
+    {
+      "id": "switch-stale-exit",
+      "boundary": "provider switch invalidates stale effective-exit state",
+      "tla_invariant": "EffectiveExitContextIsFresh",
+      "tla_control": "switch-stale-exit",
+      "alloy_witness": "CurrentProviderAlsoEffectiveWitness",
+      "alloy_mutant_fact": "EffectiveExitExcludesCurrentProvider",
+      "reference_marker": "switch-stale-exit -> EffectiveExitContextIsFresh"
+    },
+    {
+      "id": "missing-nominal",
+      "boundary": "effective exit requires prior nominal exit",
+      "tla_invariant": "NoEffectiveExitWithoutNominalExit",
+      "tla_control": "missing-nominal",
+      "alloy_witness": "EffectiveExitWithoutNominalWitness",
+      "alloy_mutant_fact": "EffectiveExitRequiresNominal",
+      "reference_marker": "missing-nominal -> NoEffectiveExitWithoutNominalExit"
+    },
+    {
+      "id": "nonportable-effective",
+      "boundary": "effective exit requires practical portability",
+      "tla_invariant": "EffectiveExitRequiresPortability",
+      "tla_control": "nonportable-effective",
+      "alloy_witness": "NonPortableEffectiveExitWitness",
+      "alloy_mutant_fact": "EffectiveExitRequiresPortability",
+      "reference_marker": "nonportable-effective -> EffectiveExitRequiresPortability"
+    },
+    {
+      "id": "shared-root",
+      "boundary": "effective alternatives require independent immediate roots",
+      "tla_invariant": "SharedRootsCannotBecomeEffectiveExit",
+      "tla_control": "shared-root",
+      "alloy_witness": "SharedControlRootEffectiveWitness",
+      "alloy_mutant_fact": "EffectiveExitRequiresIndependentRoots",
+      "reference_marker": "shared-root -> SharedRootsCannotBecomeEffectiveExit:control"
+    },
+    {
+      "id": "failure-authority",
+      "boundary": "provider failure must not mint authority",
+      "tla_invariant": "ProviderFailureDoesNotExpandAuthority",
+      "tla_control": "failure-authority",
+      "alloy_witness": "ProviderFailureAuthorityTransferWitness",
+      "alloy_mutant_fact": "ProviderFailureDoesNotTransferAuthority",
+      "reference_marker": "failure-authority -> ProviderFailureDoesNotExpandAuthority"
+    },
+    {
+      "id": "switch-obligation",
+      "boundary": "provider switch preserves obligations and history",
+      "tla_invariant": "MigrationPreservesObligationsAndHistory",
+      "tla_control": "switch-obligation",
+      "alloy_witness": "MigrationContinuityBreakWitness",
+      "alloy_mutant_fact": "MigrationPreservesContinuity",
+      "reference_marker": "switch-obligation -> MigrationPreservesObligationsAndHistory"
+    },
+    {
+      "id": "switch-authority",
+      "boundary": "provider switch does not transfer authority",
+      "tla_invariant": "ProviderSwitchDoesNotTransferAuthority",
+      "tla_control": "switch-authority",
+      "alloy_witness": "MigrationAuthorityTransferWitness",
+      "alloy_mutant_fact": "MigrationPreservesAuthority",
+      "reference_marker": "switch-authority -> ProviderSwitchDoesNotTransferAuthority"
+    },
+    {
+      "id": "switch-jurisdiction",
+      "boundary": "provider switch does not transfer jurisdiction",
+      "tla_invariant": "ProviderSwitchDoesNotTransferJurisdiction",
+      "tla_control": "switch-jurisdiction",
+      "alloy_witness": "MigrationJurisdictionTransferWitness",
+      "alloy_mutant_fact": "MigrationPreservesJurisdiction",
+      "reference_marker": "switch-jurisdiction -> ProviderSwitchDoesNotTransferJurisdiction"
+    },
+    {
+      "id": "switch-review",
+      "boundary": "high switching cost triggers bounded review",
+      "tla_invariant": "HighSwitchingCostTriggersReview",
+      "tla_control": "switch-review",
+      "alloy_witness": "HighSwitchingCostWithoutReviewWitness",
+      "alloy_mutant_fact": "ReviewAtThreshold",
+      "reference_marker": "switch-review -> HighSwitchingCostTriggersReview"
+    }
+  ],
+  "nonclaims": [
+    "Cross-model alignment does not establish a refinement proof.",
+    "Finite execution is not an unbounded proof.",
+    "No legal, competition-law, sovereignty, or market finding is made."
+  ]
+}
