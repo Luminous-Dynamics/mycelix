@@ -1250,3 +1250,50 @@ fn ActivityItemCard(item: personal_leptos_types::ActivityItemView, wide: bool) -
         </li>
     }
 }
+
+#[cfg(test)]
+mod source_empty_message_tests {
+    use super::source_empty_message;
+    use personal_leptos_types::{SourceReadState, SourceUnavailableReason};
+
+    #[test]
+    fn live_empty_and_unavailable_messages_are_not_conflated() {
+        let empty = source_empty_message(
+            "Credentials",
+            SourceReadState::LiveConfirmedEmpty { checked_at: 123 },
+        );
+        let unavailable = source_empty_message(
+            "Credentials",
+            SourceReadState::Unavailable {
+                reason: SourceUnavailableReason::Network,
+            },
+        );
+
+        assert!(empty.contains("returned no records"));
+        assert!(empty.contains("Credentials"));
+        assert!(unavailable.contains("unavailable"));
+        assert!(unavailable.contains("no conclusion"));
+        assert!(!unavailable.contains("returned no records"));
+    }
+
+    #[test]
+    fn demo_and_conflict_messages_do_not_assert_live_truth() {
+        let demo = source_empty_message("Identity keys", SourceReadState::Demo);
+        let conflict = source_empty_message("Property", SourceReadState::Conflict);
+
+        assert!(demo.contains("synthetic examples"));
+        assert!(demo.contains("no live source"));
+        assert!(conflict.contains("evidence conflicts"));
+        assert!(conflict.contains("no automatic resolution"));
+    }
+
+    #[test]
+    fn unsupported_source_is_not_displayed_as_empty() {
+        let unsupported =
+            source_empty_message("Vehicle recalls", SourceReadState::Unsupported);
+
+        assert!(unsupported.contains("no source adapter is integrated"));
+        assert!(!unsupported.contains("returned no records"));
+    }
+}
+
