@@ -1,0 +1,451 @@
+name: Constitutional Qualification Receipt Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-qualification-receipt/**'
+      - 'mycelix-governance/docs/QUALIFICATION_RECEIPT_V1.md'
+      - 'mycelix-governance/specs/qualification-receipt.v1.schema.json'
+      - '.github/workflows/constitutional-qualification-receipt-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-qualification-receipt-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 2579257a03d502c4dd5319b1c6b1c0768309e59d
+  EXPECTED_PARENT: a85369699099d4c7524e502e531735eed4ab36f4
+
+jobs:
+  qualify:
+    name: Exact presented-vs-verified qualification receipt contract
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 3
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact semantic lineage and surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-qualification-receipt-qualification.yml"
+
+          expected_semantic_files=$'mycelix-governance/Cargo.toml\nmycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml\nmycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs\nmycelix-governance/docs/QUALIFICATION_RECEIPT_V1.md\nmycelix-governance/specs/qualification-receipt.v1.schema.json'
+          test "$(git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SEMANTIC_HEAD")" = "$expected_semantic_files"
+
+          if git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SEMANTIC_HEAD" | grep -E '(^|/)(zomes|dnas|happs|apps)/' >/dev/null; then
+            echo "QREC-001 unexpectedly changes runtime/Holochain surface" >&2
+            exit 1
+          fi
+
+          rm -rf qualification-receipt-evidence
+          mkdir -p qualification-receipt-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > qualification-receipt-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > qualification-receipt-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT" > qualification-receipt-evidence/expected-parent.txt
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml \
+            mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs \
+            mycelix-governance/docs/QUALIFICATION_RECEIPT_V1.md \
+            mycelix-governance/specs/qualification-receipt.v1.schema.json \
+            > qualification-receipt-evidence/source-hashes-before.txt
+
+      - name: Validate closed schema and trust-layer API ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          schema = json.loads(Path('mycelix-governance/specs/qualification-receipt.v1.schema.json').read_text())
+          assert schema['type'] == 'object'
+          assert schema['additionalProperties'] is False
+          assert schema['required'] == [
+              'schema_version', 'dependency_id', 'issuer_id', 'semantic_head',
+              'verifier_head', 'run_id', 'run_attempt', 'artifact_digest',
+              'receipt_commitment', 'navigation'
+          ]
+          assert schema['properties']['schema_version']['const'] == 1
+          assert schema['properties']['issuer_id']['maxLength'] == 256
+          assert schema['properties']['semantic_head']['pattern'] == '^[0-9a-f]{40}$'
+          assert schema['properties']['verifier_head']['pattern'] == '^[0-9a-f]{40}$'
+          assert schema['properties']['run_id']['minimum'] == 1
+          assert schema['properties']['run_attempt']['minimum'] == 1
+          assert schema['properties']['artifact_digest']['pattern'] == '^sha256:[0-9a-f]{64}$'
+          assert schema['properties']['receipt_commitment']['pattern'] == '^blake3-256:[0-9a-f]{64}$'
+          assert schema['$defs']['navigation']['additionalProperties'] is False
+
+          source = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs').read_text()
+          assert 'pub fn validate_exact_presented_census(' in source
+          assert 'pub fn validate_exact_verified_census(' in source
+          verified_fn = source[source.index('pub fn validate_exact_verified_census('):]
+          verified_fn = verified_fn[:verified_fn.index('\n}\n\n#[cfg(test)]') + 2]
+          assert 'receipts: &[VerifiedQualificationReceiptV1]' in verified_fn
+          assert 'receipts: &[QualificationReceiptV1]' not in verified_fn
+
+          assert '#[derive(Debug)]\npub struct VerifiedQualificationReceiptV1' in source
+          impl_start = source.index('impl VerifiedQualificationReceiptV1 {')
+          impl_end = source.index('\n}', impl_start) + 2
+          impl_block = source[impl_start:impl_end]
+          public_methods = re.findall(r'pub fn ([A-Za-z0-9_]+)', impl_block)
+          assert public_methods == ['receipt'], public_methods
+          derive_start = source.rfind('#[derive', 0, source.index('pub struct VerifiedQualificationReceiptV1'))
+          derive_block = source[derive_start:source.index('pub struct VerifiedQualificationReceiptV1')]
+          for forbidden in ('Serialize', 'Deserialize', 'Clone', 'Copy'):
+              assert forbidden not in derive_block
+
+          docs = Path('mycelix-governance/docs/QUALIFICATION_RECEIPT_V1.md').read_text()
+          assert 'Presented evidence is not activation authority' in docs
+          assert 'validate_exact_verified_census()' in docs
+          print('closed schema + presented/verified trust ceiling: PASS')
+          PY
+
+      - name: Install pinned Rust toolchain components
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Format, compile, test, and lint exact semantic subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee qualification-receipt-evidence/rustc-version.txt
+              cargo --version | tee qualification-receipt-evidence/cargo-version.txt
+              rustfmt --version | tee qualification-receipt-evidence/rustfmt-version.txt
+              cargo clippy --version | tee qualification-receipt-evidence/clippy-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml --package constitutional-qualification-receipt -- --check \
+                2>&1 | tee qualification-receipt-evidence/cargo-fmt.log
+              cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets \
+                2>&1 | tee qualification-receipt-evidence/cargo-check.log
+              cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets \
+                2>&1 | tee qualification-receipt-evidence/cargo-test.log
+              cargo clippy --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets -- -D warnings \
+                2>&1 | tee qualification-receipt-evidence/cargo-clippy.log
+
+              cp mycelix-governance/Cargo.lock qualification-receipt-evidence/derived-Cargo.lock
+              sha256sum qualification-receipt-evidence/derived-Cargo.lock > qualification-receipt-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Mutation control — issuer remains authority-bearing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        push_str(&mut hasher, &self.issuer_id);\n'; assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-issuer-commitment-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml every_authority_tuple_field_changes_the_commitment > qualification-receipt-evidence/mutant-issuer-commitment-test.log 2>&1; then echo "issuer omission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-issuer-commitment.txt
+
+      - name: Mutation control — semantic head remains authority-bearing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        push_str(&mut hasher, &self.semantic_head);\n'; assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-semantic-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml every_authority_tuple_field_changes_the_commitment > qualification-receipt-evidence/mutant-semantic-test.log 2>&1; then echo "semantic-head omission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-semantic.txt
+
+      - name: Mutation control — verifier head remains authority-bearing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        push_str(&mut hasher, &self.verifier_head);\n'; assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-verifier-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml every_authority_tuple_field_changes_the_commitment > qualification-receipt-evidence/mutant-verifier-test.log 2>&1; then echo "verifier-head omission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-verifier.txt
+
+      - name: Mutation control — hosted run ID remains authority-bearing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        hasher.update(&self.run_id.to_be_bytes());\n'; assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-run-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml every_authority_tuple_field_changes_the_commitment > qualification-receipt-evidence/mutant-run-test.log 2>&1; then echo "run-ID omission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-run.txt
+
+      - name: Mutation control — run attempt remains authority-bearing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        hasher.update(&self.run_attempt.to_be_bytes());\n'; assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-attempt-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml every_authority_tuple_field_changes_the_commitment > qualification-receipt-evidence/mutant-attempt-test.log 2>&1; then echo "run-attempt omission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-attempt.txt
+
+      - name: Mutation control — artifact digest remains authority-bearing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        push_str(&mut hasher, &self.artifact_digest);\n'; assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-artifact-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml every_authority_tuple_field_changes_the_commitment > qualification-receipt-evidence/mutant-artifact-test.log 2>&1; then echo "artifact-digest omission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-artifact.txt
+
+      - name: Mutation control — navigation metadata cannot become authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        push_str(&mut hasher, &self.artifact_digest);\n'
+          new = old + '        if let Some(workflow_name) = &self.navigation.workflow_name { push_str(&mut hasher, workflow_name); }\n'
+          assert old in s; p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-navigation-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml navigation_metadata_is_not_qualification_authority > qualification-receipt-evidence/mutant-navigation-test.log 2>&1; then echo "navigation-authority mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-navigation.txt
+
+      - name: Mutation control — pending presented evidence cannot satisfy census
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '                return Err(ReceiptError::DependencyPending(dependency_id.to_string()));\n'; assert old in s
+          p.write_text(s.replace(old, '                return Ok(());\n', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-pending-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml presented_census_rejects_pending_and_failed_dependencies > qualification-receipt-evidence/mutant-pending-test.log 2>&1; then echo "pending-admission mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-pending.txt
+
+      - name: Mutation control — wrong issuer cannot satisfy a requirement
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        if issuer_id != self.issuer_id {\n'; assert old in s
+          p.write_text(s.replace(old, '        if false && issuer_id != self.issuer_id {\n', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-issuer-match-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml requirement_rejects_wrong_issuer_semantic_and_verifier_heads > qualification-receipt-evidence/mutant-issuer-match-test.log 2>&1; then echo "wrong-issuer mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-issuer-match.txt
+
+      - name: Mutation control — verifier mismatch cannot be ignored
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text(); old = '        if verifier_head != self.verifier_head {\n'; assert old in s
+          p.write_text(s.replace(old, '        if false && verifier_head != self.verifier_head {\n', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-verifier-match-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml requirement_rejects_wrong_issuer_semantic_and_verifier_heads > qualification-receipt-evidence/mutant-verifier-match-test.log 2>&1; then echo "wrong-verifier mutant survived" >&2; exit 1; fi
+          '
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-verifier-match.txt
+
+      - name: Mutation control — verified wrapper cannot gain unverified public constructor
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text()
+          old = 'impl VerifiedQualificationReceiptV1 {\n    pub fn receipt(&self) -> &QualificationReceiptV1 {\n'
+          new = '''impl VerifiedQualificationReceiptV1 {\n    pub fn unsafe_from_unverified(receipt: QualificationReceiptV1) -> Self {\n        Self { receipt, _authenticated_ingestion: VerifiedIngestionSeal }\n    }\n\n    pub fn receipt(&self) -> &QualificationReceiptV1 {\n'''
+          assert old in s; p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --all-targets > qualification-receipt-evidence/mutant-verified-constructor-check.log 2>&1
+          '
+          if python3 - <<'PY'
+          import re
+          from pathlib import Path
+          source = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs').read_text()
+          start = source.index('impl VerifiedQualificationReceiptV1 {'); end = source.index('\n}', start) + 2
+          assert re.findall(r'pub fn ([A-Za-z0-9_]+)', source[start:end]) == ['receipt']
+          PY
+          then echo "public-unverified-constructor mutant survived" >&2; exit 1; fi
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-verified-constructor.txt
+
+      - name: Mutation control — verified census cannot accept ordinary receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs
+          cp "$SRC" /tmp/qrec-lib.rs
+          trap 'cp /tmp/qrec-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs')
+          s = p.read_text()
+          old_sig = '    receipts: &[VerifiedQualificationReceiptV1],\n'
+          old_extract = '        let receipt = verified.receipt();\n'
+          assert old_sig in s and old_extract in s
+          s = s.replace(old_sig, '    receipts: &[QualificationReceiptV1],\n', 1)
+          s = s.replace(old_extract, '        let receipt = verified;\n', 1)
+          p.write_text(s)
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml --lib > qualification-receipt-evidence/mutant-verified-type-check.log 2>&1
+          '
+          if python3 - <<'PY'
+          from pathlib import Path
+          source = Path('mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs').read_text()
+          block = source[source.index('pub fn validate_exact_verified_census('):]
+          block = block[:block.index('\n}\n\n#[cfg(test)]') + 2]
+          assert 'receipts: &[VerifiedQualificationReceiptV1]' in block
+          assert 'receipts: &[QualificationReceiptV1]' not in block
+          PY
+          then echo "ordinary-receipt verified-census mutant survived" >&2; exit 1; fi
+          cp /tmp/qrec-lib.rs "$SRC"; trap - EXIT
+          echo PASS > qualification-receipt-evidence/mutant-verified-type.txt
+
+      - name: Verify semantic source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml \
+            mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs \
+            mycelix-governance/docs/QUALIFICATION_RECEIPT_V1.md \
+            mycelix-governance/specs/qualification-receipt.v1.schema.json \
+            > qualification-receipt-evidence/source-hashes-after.txt
+          cmp qualification-receipt-evidence/source-hashes-before.txt qualification-receipt-evidence/source-hashes-after.txt
+          git diff --exit-code -- \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-qualification-receipt/Cargo.toml \
+            mycelix-governance/crates/constitutional-qualification-receipt/src/lib.rs \
+            mycelix-governance/docs/QUALIFICATION_RECEIPT_V1.md \
+            mycelix-governance/specs/qualification-receipt.v1.schema.json
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-qualification-receipt-${{ env.EXPECTED_HEAD }}
+          path: qualification-receipt-evidence
+          if-no-files-found: error
+          retention-days: 30
