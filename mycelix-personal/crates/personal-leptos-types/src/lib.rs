@@ -303,6 +303,208 @@ pub struct TrustCredentialView {
 }
 
 // ============================================================================
+// Source-aware Life Continuity / Asset Evidence Types
+// ============================================================================
+
+/// State of a read from one source adapter.
+///
+/// These variants are intentionally not interchangeable:
+/// - `LiveConfirmedEmpty` means the source read succeeded and returned no
+///   records at the stated time.
+/// - `Unavailable` means the source could not be read; absence is unknown.
+/// - `Stale` means a previous successful result exists but needs revalidation.
+/// - `Demo` marks synthetic fixture data.
+/// - `Conflict` means evidence disagrees and must not be silently resolved.
+/// - `Unsupported` means no source adapter exists for this domain.
+///
+/// Adapters should emit this state alongside records, rather than manufacture
+/// empty lists when requests fail.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", content = "details", rename_all = "snake_case")]
+pub enum SourceReadState {
+    NotChecked,
+    Loading,
+    LiveWithRecords {
+        checked_at: i64,
+    },
+    LiveConfirmedEmpty {
+        checked_at: i64,
+    },
+    Unavailable {
+        reason: SourceUnavailableReason,
+    },
+    Stale {
+        last_successful_read_at: Option<i64>,
+    },
+    Demo,
+    Conflict,
+    Unsupported,
+}
+
+/// Sanitized reason code for a failed source read.
+///
+/// Keep raw error bodies, provider responses and credentials out of this type:
+/// they can contain identifiers or sensitive implementation details.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceUnavailableReason {
+    Network,
+    Timeout,
+    Unauthorized,
+    MalformedResponse,
+    Storage,
+    Unknown,
+}
+
+/// How an evidence item entered the system. Origin does not, by itself,
+/// establish truth or legal authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceOrigin {
+    HolderReported,
+    IssuerAttested,
+    ProviderReported,
+    InstrumentObserved,
+    Derived,
+    Unknown,
+}
+
+/// The kind of authority represented by a source.
+///
+/// This is descriptive metadata, not an authorization decision. For example,
+/// a government registry may be authoritative for registration status but not
+/// necessarily for insurance, maintenance quality or every ownership dispute.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceAuthorityClass {
+    HolderAssertion,
+    CredentialIssuer,
+    ServiceProvider,
+    Instrument,
+    GovernmentRegistry,
+    CourtOrAdjudicator,
+    LicensedProfessional,
+    DerivedSystem,
+    Unknown,
+}
+
+/// Cryptographic integrity is kept separate from source trust and claim status.
+///
+/// `Valid` means only that the checked cryptographic proof passed. It does
+/// not mean that the issuer is trusted or the claim is legally authoritative.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CryptographicIntegrity {
+    NotApplicable,
+    NotChecked,
+    Valid,
+    Invalid,
+    Unknown,
+}
+
+/// Current lifecycle assessment of a particular claim, independent of whether
+/// a signature was valid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimLifecycleStatus {
+    Unassessed,
+    Active,
+    Expired,
+    Revoked,
+    Superseded,
+    Disputed,
+    Unknown,
+}
+
+/// Freshness assessment under the source adapter's declared policy.
+/// Timestamps should be preserved so consumers can inspect the basis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceFreshness {
+    FreshAtRead,
+    Stale,
+    Unknown,
+    NotApplicable,
+}
+
+/// Evidence metadata for one claim in a private Personal view.
+///
+/// `source_ref` may itself be sensitive or correlatable. It must not be
+/// copied into public DHT entries or external disclosure payloads by default.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimEvidenceView {
+    pub origin: EvidenceOrigin,
+    pub authority: EvidenceAuthorityClass,
+    pub cryptographic_integrity: CryptographicIntegrity,
+    pub lifecycle_status: ClaimLifecycleStatus,
+    pub freshness: EvidenceFreshness,
+    pub source_label: String,
+    pub source_ref: Option<String>,
+    /// Time the underlying event/assertion occurred, in microseconds when known.
+    pub observed_at: Option<i64>,
+    /// Time this source was last checked successfully, in microseconds.
+    pub checked_at: Option<i64>,
+    /// Source-claimed expiration time, in microseconds.
+    pub valid_until: Option<i64>,
+}
+
+/// Broad category of real-world asset represented in a personal workspace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LifeAssetKind {
+    Vehicle,
+    Property,
+    Equipment,
+    Appliance,
+    Electronics,
+    EnergySystem,
+    Other(String),
+}
+
+/// A claim category is deliberately more granular than a generic
+/// "verified/unverified" asset status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LifeAssetClaimCategory {
+    Identity,
+    Provenance,
+    Ownership,
+    Registration,
+    Custody,
+    LienOrEncumbrance,
+    Insurance,
+    Condition,
+    Maintenance,
+    Recall,
+    Inspection,
+    Warranty,
+    Other(String),
+}
+
+/// One display-safe claim projection with its evidence metadata.
+///
+/// The summary belongs to the private UI model; it is not a portable credential
+/// or a statement that Mycelix has independently established legal truth.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LifeAssetClaimView {
+    pub category: LifeAssetClaimCategory,
+    pub summary: String,
+    pub evidence: ClaimEvidenceView,
+}
+
+/// Read-model for an asset passport. It composes sourced claims; it is not a
+/// replacement for a title registry, registration certificate, insurer record,
+/// inspection authority or manufacturer record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LifeAssetPassportSummaryView {
+    /// Opaque reference scoped to the local/private Personal app.
+    pub local_asset_ref: String,
+    pub kind: LifeAssetKind,
+    pub display_name: String,
+    pub claims: Vec<LifeAssetClaimView>,
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -382,5 +584,133 @@ mod tests {
     fn trust_tier_css_classes() {
         assert_eq!(TrustTier::Observer.css_class(), "tier-observer");
         assert_eq!(TrustTier::Guardian.css_class(), "tier-guardian");
+    }
+
+    fn synthetic_claim_evidence() -> ClaimEvidenceView {
+        ClaimEvidenceView {
+            origin: EvidenceOrigin::ProviderReported,
+            authority: EvidenceAuthorityClass::ServiceProvider,
+            cryptographic_integrity: CryptographicIntegrity::Valid,
+            lifecycle_status: ClaimLifecycleStatus::Disputed,
+            freshness: EvidenceFreshness::Stale,
+            source_label: "Synthetic service source".into(),
+            source_ref: Some("opaque-demo-source-01".into()),
+            observed_at: Some(1_750_000_000_000_000),
+            checked_at: Some(1_760_000_000_000_000),
+            valid_until: None,
+        }
+    }
+
+    #[test]
+    fn confirmed_empty_is_distinct_from_unavailable_and_demo() {
+        let empty = SourceReadState::LiveConfirmedEmpty { checked_at: 123 };
+        let unavailable = SourceReadState::Unavailable {
+            reason: SourceUnavailableReason::Network,
+        };
+        let demo = SourceReadState::Demo;
+
+        assert_ne!(empty, unavailable);
+        assert_ne!(empty, demo);
+        assert_ne!(unavailable, demo);
+
+        let empty_json = serde_json::to_value(&empty).unwrap();
+        let unavailable_json = serde_json::to_value(&unavailable).unwrap();
+        assert_eq!(empty_json["state"], "live_confirmed_empty");
+        assert_eq!(unavailable_json["state"], "unavailable");
+        assert_eq!(unavailable_json["details"]["reason"], "network");
+    }
+
+    #[test]
+    fn source_state_roundtrips_without_collapsing_unknowns() {
+        let states = [
+            SourceReadState::NotChecked,
+            SourceReadState::Loading,
+            SourceReadState::LiveWithRecords { checked_at: 456 },
+            SourceReadState::LiveConfirmedEmpty { checked_at: 789 },
+            SourceReadState::Unavailable {
+                reason: SourceUnavailableReason::MalformedResponse,
+            },
+            SourceReadState::Stale {
+                last_successful_read_at: Some(321),
+            },
+            SourceReadState::Demo,
+            SourceReadState::Conflict,
+            SourceReadState::Unsupported,
+        ];
+
+        for state in states {
+            let json = serde_json::to_string(&state).unwrap();
+            let restored: SourceReadState = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, state);
+        }
+    }
+
+    #[test]
+    fn valid_signature_does_not_imply_current_or_undisputed_claim() {
+        let evidence = synthetic_claim_evidence();
+        assert_eq!(
+            evidence.cryptographic_integrity,
+            CryptographicIntegrity::Valid
+        );
+        assert_eq!(evidence.lifecycle_status, ClaimLifecycleStatus::Disputed);
+        assert_eq!(evidence.freshness, EvidenceFreshness::Stale);
+
+        let json = serde_json::to_string(&evidence).unwrap();
+        let restored: ClaimEvidenceView = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, evidence);
+    }
+
+    #[test]
+    fn asset_passport_keeps_ownership_separate_from_service_evidence() {
+        let view = LifeAssetPassportSummaryView {
+            local_asset_ref: "opaque-synthetic-asset-01".into(),
+            kind: LifeAssetKind::Vehicle,
+            display_name: "Synthetic vehicle".into(),
+            claims: vec![
+                LifeAssetClaimView {
+                    category: LifeAssetClaimCategory::Ownership,
+                    summary: "Title-holder status is disputed".into(),
+                    evidence: synthetic_claim_evidence(),
+                },
+                LifeAssetClaimView {
+                    category: LifeAssetClaimCategory::Maintenance,
+                    summary: "Synthetic service entry recorded".into(),
+                    evidence: ClaimEvidenceView {
+                        origin: EvidenceOrigin::ProviderReported,
+                        authority: EvidenceAuthorityClass::ServiceProvider,
+                        cryptographic_integrity: CryptographicIntegrity::NotChecked,
+                        lifecycle_status: ClaimLifecycleStatus::Active,
+                        freshness: EvidenceFreshness::FreshAtRead,
+                        source_label: "Synthetic workshop".into(),
+                        source_ref: None,
+                        observed_at: Some(1_760_000_000_000_000),
+                        checked_at: Some(1_760_000_000_000_001),
+                        valid_until: None,
+                    },
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&view).unwrap();
+        let restored: LifeAssetPassportSummaryView = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, view);
+        assert_eq!(
+            restored.claims[0].evidence.lifecycle_status,
+            ClaimLifecycleStatus::Disputed
+        );
+        assert_eq!(
+            restored.claims[1].category,
+            LifeAssetClaimCategory::Maintenance
+        );
+    }
+
+    #[test]
+    fn unavailable_source_reason_is_a_sanitized_enum_not_raw_error_text() {
+        let state = SourceReadState::Unavailable {
+            reason: SourceUnavailableReason::Unauthorized,
+        };
+        let json = serde_json::to_string(&state).unwrap();
+        assert!(!json.contains("Bearer "));
+        assert!(json.contains("unauthorized"));
     }
 }
