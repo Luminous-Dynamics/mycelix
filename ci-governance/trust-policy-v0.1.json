@@ -1,0 +1,12 @@
+{
+  "schema": "mycelix.ci.trust-policy.v0.1",
+  "workflow_default_permissions": {"contents": "read"},
+  "critical_jobs": ["changes", "test-assurance", "ci-pass"],
+  "job_required_permissions": {
+    "changes": {"contents": "read", "pull-requests": "read"},
+    "test-assurance": {"contents": "read"},
+    "ci-pass": {"contents": "read"}
+  },
+  "require_full_sha_for_remote_actions": true,
+  "require_checkout_persist_credentials_false": true
+}
