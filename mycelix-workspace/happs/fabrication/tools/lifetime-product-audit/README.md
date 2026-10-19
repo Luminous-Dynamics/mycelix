@@ -7,9 +7,7 @@ This tool is a **draft engineering aid**. A passing report establishes only that
 ## Run from the Mycelix repository root
 
 ```bash
-# If Cargo.lock is absent, resolve once, review the result, then commit the lockfile.
-cargo generate-lockfile --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml
-
+# Dependencies are pinned by the committed Cargo.lock; use --locked for repeatable resolution.
 cargo test --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml --all-targets
 
 cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml -- \
@@ -48,4 +46,4 @@ The report includes SHA-256 digests of the exact schema, record, and benchmark b
 - The evaluator covers the named frozen v0.3 scenarios; unknown scenarios fail closed instead of being skipped.
 - The tool is not a purchasing system and never fetches supplier pages or promotes a marketing claim into verified inventory.
 - The current schema is a draft and must be reconciled with existing Mycelix product revision, manufactured-unit, qualification, BOM, and repair/restoration owners before becoming canonical.
-- Hosted Rust 1.96.0 run [39210363080](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39210363080) compiled the prior formatted revision, passed all 16 tests, and returned PASS with 17 v0.3 scenarios and zero errors/warnings. Subsequent workflow/documentation changes must be validated on the exact current head. Do not treat a prior-head pass as evidence for a newer SHA. Commit and use Cargo.lock with --locked before claiming dependency-lock reproducibility.
+- Hosted Rust 1.96.0 run [39210363080](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39210363080) compiled the prior formatted revision, passed all 16 tests, and returned PASS with 17 v0.3 scenarios and zero errors/warnings. Subsequent workflow/documentation changes must be validated on the exact current head. Do not treat a prior-head pass as evidence for a newer SHA. The lockfile is now committed; the exact-head workflow must pass with --locked before claiming lockfile-pinned reproducibility.
