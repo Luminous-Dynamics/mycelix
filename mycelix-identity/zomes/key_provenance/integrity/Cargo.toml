@@ -1,0 +1,14 @@
+[package]
+name = "key_provenance_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Integrity boundary for DID-authored external evidence-key provenance publications"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+mycelix-identity-provenance = { path = "../../../crates/identity-provenance" }
