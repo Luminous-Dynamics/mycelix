@@ -8,5 +8,6 @@
   "observed_terms_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "operation": "benchmark_evaluation",
   "purpose": "benchmark_evaluation",
-  "actor_class": "internal_reviewer"
+  "actor_class": "internal_reviewer",
+  "observed_source_sha256": "9c1f088251bc0d9e796a3ff5e190df6d9f5b062c1868170df94a1f26981c1724"
 }
