@@ -321,8 +321,8 @@ fn VaultPage() -> impl IntoView {
                     view! {
                         <AvailabilityState
                             kind=AvailabilityStateKind::Empty
-                            title="Live Vault, Empty Summary"
-                            description="Connected to a live conductor, but Personal view endpoints have not returned records yet."
+                            title="Live Personal sources unavailable"
+                            description="No Personal source view was successfully read. This is not confirmation that the vault is empty; check the source-status notice and retry when the relevant source is reachable."
                             action={Some(view! {
                                 <A href="/identity" attr:class="btn btn-primary">"Review Identity"</A>
                             }.into_any())}
