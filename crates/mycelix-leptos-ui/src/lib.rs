@@ -104,7 +104,7 @@ pub mod data_table {
                 return 0;
             }
             let size = u64::from(self.page_size);
-            let pages = self.total_items / size + if !self.total_items.is_multiple_of(size) { 1 } else { 0 };
+            let pages = self.total_items.div_ceil(size);
             u32::try_from(pages).unwrap_or(u32::MAX)
         }
 
