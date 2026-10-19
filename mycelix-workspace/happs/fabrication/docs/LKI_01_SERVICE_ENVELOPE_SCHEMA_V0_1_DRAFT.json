@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:lki-01:service-envelope:0.1-draft",
+  "title": "LKI-01 Serviceability Envelope Record (draft)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "schema_version",
+    "record_state",
+    "units",
+    "reference_frame",
+    "sources",
+    "envelopes",
+    "fit_checks",
+    "obstacle_inventory_state",
+    "collision_policy",
+    "assumptions_and_limits"
+  ],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "0.1.0-draft"
+    },
+    "record_state": {
+      "enum": [
+        "concept",
+        "screening",
+        "measured",
+        "qualified"
+      ]
+    },
+    "units": {
+      "const": "mm"
+    },
+    "reference_frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame_id",
+        "axis_definition",
+        "origin_definition"
+      ],
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axis_definition": {
+          "const": "x=width, y=depth, z=height"
+        },
+        "origin_definition": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "source_type",
+          "evidence_state",
+          "revision",
+          "source_ref",
+          "digest_sha256",
+          "method_and_limitations"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_type": {
+            "enum": [
+              "assumption",
+              "synthetic_fixture",
+              "supplier_cad",
+              "controlled_drawing",
+              "measurement_report"
+            ]
+          },
+          "evidence_state": {
+            "enum": [
+              "assumption",
+              "synthetic",
+              "measured",
+              "approved"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Fa-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method_and_limitations": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "envelopes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "envelope_id",
+          "role",
+          "frame_id",
+          "origin_mm",
+          "size_mm",
+          "clearance_mm",
+          "source_id",
+          "notes"
+        ],
+        "properties": {
+          "envelope_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "module",
+              "bay",
+              "installation_sweep",
+              "service_access",
+              "removal_sweep",
+              "obstacle",
+              "keep_out"
+            ]
+          },
+          "frame_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "origin_mm": {
+            "$ref": "#/$defs/xyz"
+          },
+          "size_mm": {
+            "$ref": "#/$defs/positive_xyz"
+          },
+          "clearance_mm": {
+            "$ref": "#/$defs/nonnegative_xyz"
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fit_checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "module_envelope_id",
+          "bay_envelope_id",
+          "minimum_clearance_mm"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "module_envelope_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bay_envelope_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minimum_clearance_mm": {
+            "$ref": "#/$defs/nonnegative_xyz"
+          }
+        }
+      }
+    },
+    "collision_policy": {
+      "const": "axis_aligned_aabb_conservative; touching_is_conflict"
+    },
+    "assumptions_and_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "obstacle_inventory_state": {
+      "enum": [
+        "incomplete",
+        "reviewed"
+      ]
+    }
+  },
+  "$defs": {
+    "xyz": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      }
+    },
+    "positive_xyz": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "y": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "z": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "nonnegative_xyz": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "z": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

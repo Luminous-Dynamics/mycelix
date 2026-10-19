@@ -1,0 +1,552 @@
+{
+  "benchmark_version": "0.1.0-draft",
+  "benchmark_name": "Conservative Serviceability Envelope Screening",
+  "scope": "Synthetic geometry-only known answers for a coarse AABB checker. These are software fixtures, not product measurements.",
+  "semantics": {
+    "outcome_labels": [
+      "PASS_SCREENING",
+      "FAIL_HARD_GATE",
+      "BLOCK_MISSING_SOURCE_DIGEST",
+      "BLOCK_UNSUPPORTED_QUALIFICATION"
+    ],
+    "touching_counts_as_collision": true,
+    "collision_check": "Inflate each moving envelope by its per-face clearance and compare against obstacles / keep-outs.",
+    "fit_check": "The module's six faces must each meet or exceed the required clearance to the bay."
+  },
+  "scenarios": [
+    {
+      "scenario_id": "ENV-001",
+      "description": "Module fits with excess clearance.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            20,
+            20,
+            20
+          ],
+          "size": [
+            760,
+            560,
+            560
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [],
+        "obstacles": []
+      },
+      "expected_outcome": "PASS_SCREENING"
+    },
+    {
+      "scenario_id": "ENV-002",
+      "description": "Module exactly meets every minimum face clearance.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [],
+        "obstacles": []
+      },
+      "expected_outcome": "PASS_SCREENING"
+    },
+    {
+      "scenario_id": "ENV-003",
+      "description": "Module width leaves less than required clearance.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            5,
+            20,
+            20
+          ],
+          "size": [
+            780,
+            560,
+            560
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [],
+        "obstacles": []
+      },
+      "expected_outcome": "FAIL_HARD_GATE"
+    },
+    {
+      "scenario_id": "ENV-004",
+      "description": "Module exceeds the bay's depth.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            590,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [],
+        "obstacles": []
+      },
+      "expected_outcome": "FAIL_HARD_GATE"
+    },
+    {
+      "scenario_id": "ENV-005",
+      "description": "Installation sweep intersects a keep-out obstacle.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [
+          {
+            "origin": [
+              0,
+              -500,
+              0
+            ],
+            "size": [
+              800,
+              500,
+              600
+            ],
+            "clearance": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "obstacles": [
+          {
+            "origin": [
+              300,
+              -200,
+              200
+            ],
+            "size": [
+              100,
+              100,
+              100
+            ]
+          }
+        ]
+      },
+      "expected_outcome": "FAIL_HARD_GATE"
+    },
+    {
+      "scenario_id": "ENV-006",
+      "description": "Removal sweep has a collision after applying its clearance.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [
+          {
+            "origin": [
+              0,
+              -500,
+              0
+            ],
+            "size": [
+              800,
+              500,
+              600
+            ],
+            "clearance": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "obstacles": [
+          {
+            "origin": [
+              805,
+              -200,
+              200
+            ],
+            "size": [
+              50,
+              100,
+              100
+            ]
+          }
+        ]
+      },
+      "expected_outcome": "FAIL_HARD_GATE"
+    },
+    {
+      "scenario_id": "ENV-007",
+      "description": "Touching an obstacle is treated as conflict, not as safe clearance.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [
+          {
+            "origin": [
+              0,
+              0,
+              0
+            ],
+            "size": [
+              100,
+              100,
+              100
+            ],
+            "clearance": [
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "obstacles": [
+          {
+            "origin": [
+              100,
+              0,
+              0
+            ],
+            "size": [
+              20,
+              100,
+              100
+            ]
+          }
+        ]
+      },
+      "expected_outcome": "FAIL_HARD_GATE"
+    },
+    {
+      "scenario_id": "ENV-008",
+      "description": "Measured geometry without a digest is not evidence-resolvable.",
+      "setup": {
+        "record_state": "measured",
+        "source_evidence_state": "measured",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [],
+        "obstacles": []
+      },
+      "expected_outcome": "BLOCK_MISSING_SOURCE_DIGEST"
+    },
+    {
+      "scenario_id": "ENV-009",
+      "description": "A v0.1 screening result cannot claim physical qualification.",
+      "setup": {
+        "record_state": "qualified",
+        "source_evidence_state": "approved",
+        "source_digest_present": true,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [],
+        "obstacles": []
+      },
+      "expected_outcome": "BLOCK_UNSUPPORTED_QUALIFICATION"
+    },
+    {
+      "scenario_id": "ENV-010",
+      "description": "A moving envelope remains separated from the obstacle after clearance inflation.",
+      "setup": {
+        "record_state": "draft",
+        "source_evidence_state": "assumption",
+        "source_digest_present": false,
+        "module": {
+          "origin": [
+            10,
+            10,
+            10
+          ],
+          "size": [
+            780,
+            580,
+            580
+          ]
+        },
+        "bay": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            800,
+            600,
+            600
+          ]
+        },
+        "minimum_clearance": [
+          10,
+          10,
+          10
+        ],
+        "moving": [
+          {
+            "origin": [
+              0,
+              0,
+              0
+            ],
+            "size": [
+              100,
+              100,
+              100
+            ],
+            "clearance": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "obstacles": [
+          {
+            "origin": [
+              120,
+              0,
+              0
+            ],
+            "size": [
+              20,
+              100,
+              100
+            ]
+          }
+        ]
+      },
+      "expected_outcome": "PASS_SCREENING"
+    }
+  ]
+}

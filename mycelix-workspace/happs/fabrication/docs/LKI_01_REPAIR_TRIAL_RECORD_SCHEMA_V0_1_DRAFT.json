@@ -1,0 +1,433 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/lki-01-repair-trial-record-v0.1-draft.json",
+  "title": "LKI-01 Repair Trial Record v0.1 (draft)",
+  "description": "One traceable attempt for an unpowered fit/serviceability fixture trial. Not a safety assessment, qualified repair, or proof of durability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trial_id",
+    "record_state",
+    "claim_ceiling",
+    "product_revision",
+    "fixture",
+    "task",
+    "operating_state",
+    "timings",
+    "outcome",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0-draft"
+    },
+    "trial_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "record_state": {
+      "enum": [
+        "planned",
+        "performed",
+        "voided"
+      ]
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 20
+    },
+    "product_revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_id",
+        "product_revision",
+        "bom_revision",
+        "geometry_revision",
+        "interface_revision"
+      ],
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "product_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bom_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "geometry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interface_revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "fixture_state",
+        "drawing_revision",
+        "dimensions_mm",
+        "dimension_basis",
+        "energized_appliance_present"
+      ],
+      "properties": {
+        "fixture_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixture_state": {
+          "enum": [
+            "concept_only",
+            "fabricated_uninspected",
+            "inspected_unpowered_fixture"
+          ]
+        },
+        "drawing_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "drawing_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "dimensions_mm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "overall_width",
+            "overall_depth",
+            "overall_height"
+          ],
+          "properties": {
+            "overall_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "overall_depth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "overall_height": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "dimension_basis": {
+          "enum": [
+            "concept_target",
+            "measured_fixture",
+            "manufacturer_controlled_dimension"
+          ]
+        },
+        "energized_appliance_present": {
+          "const": false
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "task_type",
+        "procedure_revision",
+        "operator_role",
+        "attempt_index",
+        "participant_token",
+        "start_condition",
+        "stop_condition"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_type": {
+          "enum": [
+            "dimensional_inspection",
+            "module_insert_remove",
+            "access_open_close",
+            "non_hazardous_fault_identification",
+            "post_mockup_check"
+          ]
+        },
+        "procedure_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator_role": {
+          "enum": [
+            "qualified_technician",
+            "trained_observer",
+            "intended_user",
+            "design_engineer"
+          ]
+        },
+        "attempt_index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "participant_token": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Pseudonymous identifier; do not place names or personal data here."
+        },
+        "start_condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stop_condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tools_declared": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "training_or_familiarity": {
+          "type": "string"
+        }
+      }
+    },
+    "operating_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appliance_energized",
+        "mains_connected",
+        "refrigerant_or_process_fluid_present",
+        "heating_element_present",
+        "test_article_is_surrogate_only"
+      ],
+      "properties": {
+        "appliance_energized": {
+          "const": false
+        },
+        "mains_connected": {
+          "const": false
+        },
+        "refrigerant_or_process_fluid_present": {
+          "const": false
+        },
+        "heating_element_present": {
+          "const": false
+        },
+        "test_article_is_surrogate_only": {
+          "const": true
+        }
+      }
+    },
+    "timings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "diagnosis",
+        "active_labour",
+        "parts_tool_wait",
+        "verification",
+        "rework",
+        "total_downtime"
+      ],
+      "properties": {
+        "diagnosis": {
+          "$ref": "#/$defs/timePhase"
+        },
+        "active_labour": {
+          "$ref": "#/$defs/timePhase"
+        },
+        "parts_tool_wait": {
+          "$ref": "#/$defs/timePhase"
+        },
+        "verification": {
+          "$ref": "#/$defs/timePhase"
+        },
+        "rework": {
+          "$ref": "#/$defs/timePhase"
+        },
+        "total_downtime": {
+          "$ref": "#/$defs/timePhase"
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "permanent_structure_damage",
+        "damage_description",
+        "mockup_function_restored",
+        "post_check_status",
+        "recurrence_follow_up_days",
+        "recurrence_observed",
+        "limitations"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "success",
+            "failure",
+            "stopped_for_safety",
+            "incomplete",
+            "not_run"
+          ]
+        },
+        "permanent_structure_damage": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "damage_description": {
+          "type": "string"
+        },
+        "mockup_function_restored": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "post_check_status": {
+          "enum": [
+            "passed",
+            "failed",
+            "not_performed",
+            "not_applicable"
+          ]
+        },
+        "recurrence_follow_up_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "recurrence_observed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      },
+      "description": "Source/test/photo/video/calibration references with digests. A URL or filename alone does not verify authenticity."
+    }
+  },
+  "$defs": {
+    "timePhase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "minutes",
+        "rationale"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "measured",
+            "not_applicable",
+            "not_recorded",
+            "not_started"
+          ]
+        },
+        "minutes": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "rationale": {
+          "type": "string"
+        }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "kind",
+        "sha256",
+        "revision_scope",
+        "status"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "drawing",
+            "measurement_sheet",
+            "photo",
+            "video",
+            "calibration_record",
+            "procedure",
+            "observer_record",
+            "other"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "revision_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "captured",
+            "reviewed",
+            "superseded",
+            "retracted"
+          ]
+        },
+        "uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    }
+  }
+}

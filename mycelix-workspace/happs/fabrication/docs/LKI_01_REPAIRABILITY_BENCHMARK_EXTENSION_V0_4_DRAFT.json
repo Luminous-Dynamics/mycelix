@@ -1,0 +1,260 @@
+{
+  "benchmark_id": "LKI-01-REPAIRABILITY-EXTENSION-V0.4",
+  "benchmark_version": "0.4.0-draft",
+  "status": "specification_only",
+  "extension_of": {
+    "benchmark_id": "LKI-01-LIFETIME-PRODUCT-QUALIFICATION-V0.3",
+    "benchmark_version": "0.3.0-draft",
+    "path": "mycelix-workspace/happs/fabrication/docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json",
+    "relationship": "additive_extension; v0.3 remains immutable and is audited separately"
+  },
+  "purpose": "Add known-answer checks for human-facing repairability, repair event phase accounting, post-repair verification, recurrence claim limits, and service-parts evidence. This extension does not measure actual user or technician performance; it checks an evaluator against synthetic scenarios.",
+  "claim_ceiling": "This file is an unexecuted benchmark specification. Passing its software oracle does not mean user studies, physical repairs, service-parts continuity, appliance safety, or product durability have been demonstrated.",
+  "hard_invariants": [
+    "A calculated repairability index cannot stand in for observed opening, access, or fault-identification tasks by the intended user population.",
+    "A failed hard access or non-destructive-service requirement cannot be compensated by a high aggregate score.",
+    "Diagnosis time, active labour, parts/tool waiting, verification time, rework, and total downtime are distinct quantities; missing phases must not be silently imputed as zero.",
+    "A repair counts as restored only within a declared scope and after post-repair function verification bound to the exact product/module revision.",
+    "A short follow-up with no observed recurrence does not prove lifetime reliability or a permanent repair.",
+    "A recurrence observed within the declared window must remain visible and must block a stronger durable-restoration claim.",
+    "A service-parts listing is not a current parts-availability or continuity commitment.",
+    "User and technician task outcomes, unsuccessful attempts, damage, and sample sizes must remain in the denominator and must not be silently omitted.",
+    "Human testing must not ask unqualified participants to undertake hazardous mains, induction-cooking, or refrigerant-system work.",
+    "A software audit of synthetic known answers is not a physical, human-factors, conformity, or service-network trial."
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "HUMAN-001",
+      "title": "Calculated repairability score has no observed user-task evidence",
+      "category": "human_facing_repairability",
+      "setup": {
+        "calculated_index_high": true,
+        "opening_task_observed": false,
+        "fault_identification_observed": false,
+        "representative_user_sample_declared": false
+      },
+      "expected_outcome": "INCONCLUSIVE_NO_CLAIM",
+      "required_assertions": [
+        "do not infer user repairability from the calculated index",
+        "observe opening and fault-identification tasks with an appropriate participant protocol",
+        "report the sample, task, unsuccessful attempts and limitations"
+      ]
+    },
+    {
+      "scenario_id": "HUMAN-002",
+      "title": "High score hides failed opening or access and permanent damage",
+      "category": "human_facing_repairability",
+      "setup": {
+        "calculated_index_high": true,
+        "opening_task_observed": true,
+        "user_can_open_without_damage": false,
+        "critical_component_accessed": false,
+        "permanent_structure_damage": true
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "failed non-destructive access remains a hard failure",
+        "aggregate score cannot offset permanent-structure damage",
+        "retain the failed attempt and damage in the report"
+      ]
+    },
+    {
+      "scenario_id": "HUMAN-003",
+      "title": "Observed user-task evidence passes only its defined accessibility scope",
+      "category": "human_facing_repairability",
+      "setup": {
+        "opening_task_observed": true,
+        "user_can_open_without_damage": true,
+        "critical_component_accessed": true,
+        "fault_identification_observed": true,
+        "representative_user_sample_declared": true,
+        "protocol_version_declared": true
+      },
+      "expected_outcome": "PASS_SCOPED_GATE",
+      "required_assertions": [
+        "pass only the named user-task accessibility gate",
+        "retain sample size, task conditions, success rate and uncertainty",
+        "do not imply electrical safety or that participants may perform hazardous repairs"
+      ]
+    },
+    {
+      "scenario_id": "REPAIR-PHASE-001",
+      "title": "Repair event records its full timeline and revision",
+      "category": "repair_event_measurement",
+      "setup": {
+        "diagnosis_time_recorded": true,
+        "active_labor_time_recorded": true,
+        "parts_wait_time_recorded": true,
+        "verification_time_recorded": true,
+        "rework_attempts_recorded": true,
+        "total_downtime_recorded": true,
+        "exact_revision_bound": true
+      },
+      "expected_outcome": "PASS_SCOPED_GATE",
+      "required_assertions": [
+        "keep diagnosis, active labour, wait, verification, rework and downtime separate",
+        "bind the record to the exact product/module revision",
+        "report failures and denominators instead of only successful repairs"
+      ]
+    },
+    {
+      "scenario_id": "REPAIR-PHASE-002",
+      "title": "Repair report omits parts waiting while claiming low repair burden",
+      "category": "repair_event_measurement",
+      "setup": {
+        "diagnosis_time_recorded": true,
+        "active_labor_time_recorded": true,
+        "parts_wait_time_recorded": false,
+        "verification_time_recorded": true,
+        "rework_attempts_recorded": true,
+        "total_downtime_recorded": true,
+        "exact_revision_bound": true,
+        "low_repair_burden_claimed": true
+      },
+      "expected_outcome": "INCONCLUSIVE_NO_CLAIM",
+      "required_assertions": [
+        "missing parts/tool wait is unknown, not zero",
+        "do not publish a complete repair-burden claim from incomplete phase data",
+        "collect missing data or explicitly narrow the claim"
+      ]
+    },
+    {
+      "scenario_id": "RESTORE-001",
+      "title": "Component is repaired but post-repair verification is absent",
+      "category": "restoration_verification",
+      "setup": {
+        "repair_attempted": true,
+        "post_repair_verification_passed": false,
+        "exact_revision_bound": true
+      },
+      "expected_outcome": "BLOCK_UNQUALIFIED",
+      "required_assertions": [
+        "do not count the repair as restored",
+        "require the scoped functional check and an evidence reference",
+        "separate repair attempt from verified restoration"
+      ]
+    },
+    {
+      "scenario_id": "RESTORE-002",
+      "title": "Post-repair function is verified on the exact revision",
+      "category": "restoration_verification",
+      "setup": {
+        "repair_attempted": true,
+        "post_repair_verification_passed": true,
+        "exact_revision_bound": true,
+        "verification_scope_declared": true
+      },
+      "expected_outcome": "PASS_SCOPED_GATE",
+      "required_assertions": [
+        "pass only the stated post-repair function check",
+        "retain exact revision, test conditions and evidence identity",
+        "do not infer long-term reliability from a single successful check"
+      ]
+    },
+    {
+      "scenario_id": "RECURRENCE-001",
+      "title": "Same failure recurs within a declared follow-up window",
+      "category": "repair_recurrence",
+      "setup": {
+        "follow_up_window_declared": true,
+        "recurrence_observed_within_window": true,
+        "durable_restoration_claimed": true
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "recurrence blocks the stated durable-restoration claim within this protocol",
+        "retain repair attempt, recurrence timing and probable cause as separate events",
+        "do not erase recurrence by counting the initial repair as an unconditional success"
+      ]
+    },
+    {
+      "scenario_id": "PARTS-001",
+      "title": "Service part is listed but no current continuity evidence exists",
+      "category": "service_parts_continuity",
+      "setup": {
+        "component_service_part_listed": true,
+        "written_parts_policy_present": false,
+        "current_source_evidence_present": false,
+        "exact_part_number_bound": false
+      },
+      "expected_outcome": "BLOCK_UNQUALIFIED",
+      "required_assertions": [
+        "a parts-list entry alone does not establish current availability or a future commitment",
+        "do not claim a parts-continuity horizon",
+        "obtain dated, exact-part-number evidence and disclose commitment limitations"
+      ]
+    },
+    {
+      "scenario_id": "PARTS-002",
+      "title": "Current parts evidence supports only a scoped continuity statement",
+      "category": "service_parts_continuity",
+      "setup": {
+        "component_service_part_listed": true,
+        "written_parts_policy_present": true,
+        "policy_validity_period_declared": true,
+        "current_source_evidence_present": true,
+        "exact_part_number_bound": true
+      },
+      "expected_outcome": "PASS_SCOPED_GATE",
+      "required_assertions": [
+        "pass only the scoped, dated parts-evidence gate",
+        "distinguish a written policy from inventory on hand and a binding guarantee",
+        "expire or refresh time-sensitive evidence before relying on it"
+      ]
+    },
+    {
+      "scenario_id": "SCORE-001",
+      "title": "Weighted repairability score attempts to compensate for a hard-gate failure",
+      "category": "non_compensable_repairability_gate",
+      "setup": {
+        "calculated_index_high": true,
+        "hard_opening_gate_pass": false,
+        "permanent_structure_damage": true
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "do not rank as feasible or repairable under the declared hard constraint",
+        "preserve reasons and failed-trial evidence",
+        "revise the architecture instead of increasing the aggregate score"
+      ]
+    }
+  ],
+  "proposed_software_benchmarks": [
+    {
+      "metric_id": "BENCH-REPAIR-PHASE-COMPLETENESS",
+      "target": 100,
+      "unit": "percent",
+      "definition": "All repair records claiming complete burden data contain all declared timing phases and a revision binding; missing is not zero."
+    },
+    {
+      "metric_id": "BENCH-POSTREPAIR-VERIFICATION",
+      "target": 100,
+      "unit": "percent",
+      "definition": "Every repair counted as restored has scoped post-repair verification evidence bound to the exact revision."
+    },
+    {
+      "metric_id": "BENCH-USER-OBSERVATION-SEPARATION",
+      "target": 100,
+      "unit": "percent",
+      "definition": "Every human-facing repairability claim is supported by observed user-task data or remains explicitly inconclusive."
+    },
+    {
+      "metric_id": "BENCH-SERVICE-PARTS-EVIDENCE",
+      "target": 100,
+      "unit": "percent",
+      "definition": "Every parts-continuity claim resolves to dated evidence for the exact part and declared scope."
+    },
+    {
+      "metric_id": "BENCH-HARD-GATE-NONCOMPENSATION",
+      "target": 100,
+      "unit": "percent",
+      "definition": "No aggregate score promotes a candidate that fails a declared non-compensable access or damage gate."
+    }
+  ],
+  "physical_and_human_studies_not_performed": [
+    "Observed, non-hazardous opening and fault-identification tasks using an appropriate participant protocol",
+    "Qualified technician repairs with separately measured diagnosis, labour, waiting, verification, rework and downtime",
+    "Post-repair verification and pre-registered recurrence follow-up",
+    "Dated service-parts and supplier-continuity evidence"
+  ]
+}

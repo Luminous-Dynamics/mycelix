@@ -1,0 +1,339 @@
+{
+  "benchmark_id": "LKI-01-LIFETIME-PRODUCT-QUALIFICATION-V0.2",
+  "benchmark_version": "0.2.0-draft",
+  "status": "specification_only",
+  "product_id": "LKI-01",
+  "purpose": "Adversarial known-answer scenarios for future product-record validation, module-compatibility decisions, repairability claims, and release-gate reporting. Version 0.2 adds an explicit module-envelope-versus-bay-fit known-answer scenario.",
+  "claim_ceiling": "This file is an unexecuted benchmark specification. It is not evidence that a product evaluator, simulator, appliance, or physical prototype passes these cases.",
+  "decision_semantics": {
+    "PASS_SCOPED_GATE": "The exact named gate may pass within the stated scope; this does not imply product release.",
+    "BLOCK_UNQUALIFIED": "Evidence is insufficient or incompatible; the evaluator must block the dependent claim or gate.",
+    "FAIL_HARD_GATE": "A declared hard requirement is violated; the candidate is not eligible for release.",
+    "INCONCLUSIVE_NO_CLAIM": "Available evidence cannot support a superiority or lifetime claim; disclose uncertainty and collect the required evidence."
+  },
+  "hard_invariants": [
+    "No weighted score can compensate for a failed safety, electrical, thermal, structural, or required conformity gate.",
+    "Unknown, missing, stale, revoked, or out-of-scope evidence must not be treated as passing evidence.",
+    "Mechanical fit alone does not establish module compatibility.",
+    "A simulated result is not a physical measurement or certification.",
+    "A 50-year design intent is not a demonstrated 50-year service life.",
+    "A supplier candidate or expired quote is not a confirmed in-stock, qualified, long-term source.",
+    "Changed geometry, BOM, interface, or installation conditions require explicit revision impact assessment.",
+    "Pareto comparison includes only candidates that pass their declared hard constraints; rejected candidates remain visible in the report.",
+    "Report failures, unsuccessful repairs, missing data, and excluded impacts; never silently drop them from denominators."
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "ENERGY-001",
+      "title": "Claimed energy advantage uses a non-comparable baseline",
+      "category": "energy_benchmark",
+      "setup": {
+        "candidate_capacity_litres": 180,
+        "baseline_capacity_litres": 90,
+        "candidate_test_conditions_declared": true,
+        "baseline_test_conditions_matched": false,
+        "claimed_improvement_percent": 15
+      },
+      "expected_outcome": "INCONCLUSIVE_NO_CLAIM",
+      "required_assertions": [
+        "no 15% improvement claim permitted",
+        "retest or justify a valid normalization method",
+        "publish capacity, ambient, loading, door-cycle, uncertainty and method"
+      ]
+    },
+    {
+      "scenario_id": "LCA-001",
+      "title": "Lower-embodied-carbon material claim omits use phase and end of life",
+      "category": "lifecycle_assessment",
+      "setup": {
+        "materials_inventory_complete": true,
+        "use_phase_energy_included": false,
+        "repair_replacement_scenarios_included": false,
+        "end_of_life_included": false,
+        "comparison_boundary_matched": false
+      },
+      "expected_outcome": "INCONCLUSIVE_NO_CLAIM",
+      "required_assertions": [
+        "no whole-life environmental superiority claim permitted",
+        "report boundary and excluded stages explicitly",
+        "expand to a matched functional unit and declared lifecycle scope"
+      ]
+    },
+    {
+      "scenario_id": "LIFE-001",
+      "title": "Fifty-year design intent misrepresented as proven service life",
+      "category": "lifetime_claim",
+      "setup": {
+        "design_horizon_years": 50,
+        "accelerated_ageing_data": false,
+        "field_history_years": 0,
+        "validated_lifecycle_model": false
+      },
+      "expected_outcome": "INCONCLUSIVE_NO_CLAIM",
+      "required_assertions": [
+        "retain 50 years only as a design target",
+        "no demonstrated-lifetime wording allowed",
+        "list what evidence is required to raise claim status"
+      ]
+    },
+    {
+      "scenario_id": "MOD-001",
+      "title": "Qualified module replacement without permanent-structure damage",
+      "category": "serviceability",
+      "setup": {
+        "module_qualified": true,
+        "removal_path_verified": true,
+        "service_clearance_pass": true,
+        "permanent_structure_damage": false,
+        "post_install_test_pass": true
+      },
+      "expected_outcome": "PASS_SCOPED_GATE",
+      "required_assertions": [
+        "serviceability gate may pass for the tested configuration",
+        "test report names exact product/BOM/interface revisions",
+        "no whole-product release implied"
+      ]
+    },
+    {
+      "scenario_id": "MOD-002",
+      "title": "Mechanically fitting replacement has incompatible electrical rating",
+      "category": "module_compatibility",
+      "setup": {
+        "mechanical_envelope_match": true,
+        "electrical_rating_match": false,
+        "supplier_qualification": "datasheet_checked"
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "module rejected despite envelope match",
+        "no compatible/drop-in claim permitted",
+        "safety review and correct component selection required"
+      ]
+    },
+    {
+      "scenario_id": "MOD-003",
+      "title": "Module envelope plus required fit allowance exceeds bay dimensions",
+      "category": "geometry_interface",
+      "setup": {
+        "module_envelope_mm": {
+          "width": 620,
+          "depth": 600,
+          "height": 800
+        },
+        "bay_clear_envelope_mm": {
+          "width": 620,
+          "depth": 620,
+          "height": 830
+        },
+        "minimum_fit_clearance_mm": {
+          "width": 10,
+          "depth": 10,
+          "height": 10
+        }
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "module is rejected because width plus required allowance exceeds actual bay clear envelope",
+        "visual resemblance or a nominal appliance footprint cannot override dimension arithmetic",
+        "do not claim a serviceable fit until the interface is redesigned and checked"
+      ]
+    },
+    {
+      "scenario_id": "PARETO-001",
+      "title": "Cheapest design violates accessibility/service clearance",
+      "category": "multi_objective_optimization",
+      "setup": {
+        "purchase_cost_lowest": true,
+        "required_service_clearance_pass": false,
+        "safety_gates_pass": true,
+        "other_candidates_feasible": true
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "infeasible candidate excluded from feasible Pareto frontier",
+        "infeasibility reason remains visible",
+        "cost cannot compensate for a hard-constraint failure"
+      ]
+    },
+    {
+      "scenario_id": "REP-001",
+      "title": "Fast repair causes damage to permanent cabinetry",
+      "category": "repairability",
+      "setup": {
+        "replacement_time_minutes": [
+          42,
+          48,
+          44
+        ],
+        "permanent_structure_damage": true,
+        "module_function_restored": true
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "non-destructive replacement target fails despite sub-60-minute time",
+        "damage and rework remain in the denominator",
+        "redesign or explicitly narrower service procedure required"
+      ]
+    },
+    {
+      "scenario_id": "REPLAY-001",
+      "title": "Same frozen inputs produce a different deterministic evaluation report",
+      "category": "reproducibility",
+      "setup": {
+        "frozen_input_digest_same": true,
+        "evaluator_version_same": true,
+        "report_digest_same": false
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "reproducibility claim fails",
+        "nondeterministic field or uncontrolled dependency identified",
+        "do not use report as a release-grade artifact until explained"
+      ]
+    },
+    {
+      "scenario_id": "REV-001",
+      "title": "BOM changed without revision increment or change record",
+      "category": "configuration_management",
+      "setup": {
+        "component_revision_changed": true,
+        "bom_revision_changed": false,
+        "change_record_present": false,
+        "test_evidence_targets_old_revision": true
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "release blocked for revision inconsistency",
+        "old evidence not silently attached to changed assembly",
+        "affected regression and physical tests identified"
+      ]
+    },
+    {
+      "scenario_id": "SAFE-001",
+      "title": "All digital simulations pass but critical safety evidence is missing",
+      "category": "safety_gate",
+      "setup": {
+        "geometry_check_pass": true,
+        "rigid_body_simulation_pass": true,
+        "electrical_safety_evidence": null,
+        "thermal_test_evidence": null,
+        "qualified_assessment": null
+      },
+      "expected_outcome": "BLOCK_UNQUALIFIED",
+      "required_assertions": [
+        "safety gates remain not tested/blocked",
+        "no scalar score or visual output may promote to release",
+        "identify responsible qualified assessment and required tests"
+      ]
+    },
+    {
+      "scenario_id": "SUP-001",
+      "title": "Only supplier evidence is a marketing page",
+      "category": "procurement_evidence",
+      "setup": {
+        "supplier_record_state": "marketing_claim",
+        "current_written_quote": false,
+        "stock_confirmation": false,
+        "sample_inspected": false
+      },
+      "expected_outcome": "BLOCK_UNQUALIFIED",
+      "required_assertions": [
+        "supplier is a candidate only",
+        "availability/price/lead time not asserted as confirmed",
+        "product release cannot depend on this source without further qualification or alternate"
+      ]
+    },
+    {
+      "scenario_id": "SUP-002",
+      "title": "Quotation and availability evidence are expired",
+      "category": "procurement_evidence",
+      "setup": {
+        "quote_expired": true,
+        "last_availability_check_days_ago": 120,
+        "supplier_qualification": "qualified"
+      },
+      "expected_outcome": "BLOCK_UNQUALIFIED",
+      "required_assertions": [
+        "time-sensitive procurement claim flagged stale",
+        "historical qualification does not mean current stock or price",
+        "refresh evidence before purchase authorization"
+      ]
+    },
+    {
+      "scenario_id": "THERM-001",
+      "title": "Cabinet blocks refrigeration exhaust airflow",
+      "category": "thermal_integration",
+      "setup": {
+        "appliance_installation_instructions_available": true,
+        "required_exhaust_clearance_met": false,
+        "refrigeration_energy_test_pass": null
+      },
+      "expected_outcome": "FAIL_HARD_GATE",
+      "required_assertions": [
+        "configuration rejected before energy comparison",
+        "no thermal or energy claim may be released",
+        "CAD appearance or nominal appliance rating cannot override airflow failure"
+      ]
+    },
+    {
+      "scenario_id": "THERM-002",
+      "title": "Induction cooktop adjacent to cold module without qualified thermal separation",
+      "category": "thermal_and_electrical_safety",
+      "setup": {
+        "cooktop_present": true,
+        "thermal_boundary_defined": false,
+        "instrumented_interaction_test": false,
+        "qualified_safety_review": false
+      },
+      "expected_outcome": "BLOCK_UNQUALIFIED",
+      "required_assertions": [
+        "release gate remains blocked/not tested",
+        "prototype must not be treated as consumer-ready",
+        "optional cooktop can be removed from the configuration to reduce scope"
+      ]
+    }
+  ],
+  "proposed_software_benchmarks": [
+    {
+      "metric_id": "BENCH-FALSE-SAFE-PASS",
+      "target": 0,
+      "unit": "false_passes",
+      "definition": "Zero false passes on scenarios where a hard safety/compatibility gate fails or lacks required evidence."
+    },
+    {
+      "metric_id": "BENCH-STALE-EVIDENCE-DETECTION",
+      "target": 100,
+      "unit": "percent",
+      "definition": "Detect every stale or expired time-sensitive supplier record in the frozen known-answer corpus."
+    },
+    {
+      "metric_id": "BENCH-REVISION-COHERENCE",
+      "target": 100,
+      "unit": "percent",
+      "definition": "Detect all deliberate BOM/geometry/evidence revision mismatches represented in the corpus."
+    },
+    {
+      "metric_id": "BENCH-DETERMINISTIC-REPLAY",
+      "target": 100,
+      "unit": "percent_identical_reports",
+      "definition": "Identical frozen inputs, policy, and evaluator build must produce identical canonical reports across 100 replays."
+    },
+    {
+      "metric_id": "BENCH-HARD-GATE-NONCOMPENSATION",
+      "target": 100,
+      "unit": "percent",
+      "definition": "No candidate violating a hard gate appears as feasible in any generated ranking or Pareto frontier."
+    }
+  ],
+  "physical_benchmarks_to_add_after_fixture_design": [
+    "Static load and stability under approved load cases",
+    "Drawer/door cycle and fastener-retention tests",
+    "Timed module removal and replacement with unsuccessful attempts retained",
+    "Instrumented integrated refrigeration temperature/energy/condensation and recovery tests",
+    "Measured sound pressure under declared operating conditions",
+    "Transport/handling and post-transport functional inspection",
+    "Finish, moisture, and cleaning-chemical exposure tests",
+    "Qualified appliance/electrical safety assessment for each released configuration"
+  ],
+  "status_note": "Targets are proposed. Freeze scenario data, oracle expectations, evaluator version, and metric definitions before scoring a candidate. A passing software corpus validates only the evaluator against these scenarios, not physical product safety or durability."
+}

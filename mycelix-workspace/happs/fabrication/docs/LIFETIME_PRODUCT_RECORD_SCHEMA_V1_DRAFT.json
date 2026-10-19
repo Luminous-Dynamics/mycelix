@@ -1,0 +1,794 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/lifetime-product-record-v1-draft.json",
+  "title": "Lifetime Product Record v1 (Draft)",
+  "description": "Provisional machine-readable contract for a durable product composed of permanent structure, replaceable modules, wear parts, interfaces, service policy, evidence, and release gates. Not yet the canonical Mycelix wire schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "product_id",
+    "revision",
+    "lifecycle_state",
+    "product_name",
+    "product_family",
+    "intended_use",
+    "units",
+    "geometry",
+    "bom",
+    "interfaces",
+    "service_policy",
+    "metrics",
+    "release_gates",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "lifetime-product-v1-draft"
+    },
+    "product_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]{2,63}$",
+      "description": "Stable product-family/model identity for this draft only. It is not a manufactured-unit serial, qualification receipt, or repair-event identity; production integration must reference the existing Mycelix physical-product/design owner."
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "lifecycle_state": {
+      "enum": [
+        "concept",
+        "prototype",
+        "under_test",
+        "released",
+        "superseded",
+        "withdrawn"
+      ]
+    },
+    "product_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "product_family": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "intended_use": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "target_markets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "length",
+        "mass",
+        "temperature"
+      ],
+      "properties": {
+        "length": {
+          "const": "mm"
+        },
+        "mass": {
+          "const": "kg"
+        },
+        "temperature": {
+          "const": "degC"
+        }
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometry_revision",
+        "coordinate_system",
+        "envelope_mm",
+        "geometry_status"
+      ],
+      "properties": {
+        "geometry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coordinate_system": {
+          "enum": [
+            "right-handed-mm",
+            "declared-local-frame"
+          ]
+        },
+        "envelope_mm": {
+          "$ref": "#/$defs/dimensions"
+        },
+        "geometry_status": {
+          "enum": [
+            "placeholder",
+            "conceptual",
+            "measured",
+            "CAD-reviewed",
+            "physically-verified"
+          ]
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "bom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bom_revision",
+        "bom_status",
+        "items"
+      ],
+      "properties": {
+        "bom_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bom_status": {
+          "enum": [
+            "illustrative",
+            "draft",
+            "under_review",
+            "released"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/component"
+          },
+          "description": "Illustrative component snapshot used by the offline draft audit. Manufacturing remains authoritative for released BOM records and subassembly relationships."
+        }
+      },
+      "description": "Derived read-only BOM snapshot for offline engineering-contract evaluation. The authoritative BOM and subassembly explosion remain owned by Mycelix Manufacturing. Production integration must resolve canonical BOM identity/revision and preserve its exact source digest rather than creating a competing BOM ledger."
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interface"
+      },
+      "description": "Proposed product/module interface declarations. Geometry fit is not electrical, thermal, serviceability, conformity, or safety qualification."
+    },
+    "service_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parts_support_target_years_after_last_sale",
+        "repair_documentation",
+        "module_replacement_policy",
+        "policy_status"
+      ],
+      "properties": {
+        "parts_support_target_years_after_last_sale": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "repair_documentation": {
+          "enum": [
+            "none",
+            "internal",
+            "available_on_request",
+            "public"
+          ]
+        },
+        "module_replacement_policy": {
+          "enum": [
+            "replace_whole_product",
+            "manufacturer_service_only",
+            "trained_technician",
+            "user_serviceable_where_safe",
+            "mixed_by_module"
+          ]
+        },
+        "policy_status": {
+          "enum": [
+            "proposed",
+            "supplier-confirmed",
+            "contractual",
+            "field-validated"
+          ]
+        },
+        "compatibility_policy": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/metric"
+      }
+    },
+    "release_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/gate"
+      },
+      "description": "Local draft gate statuses only. A pass must link to evidence; this structure cannot issue appliance certification or replace competent review."
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      },
+      "description": "References to evidence artifacts scoped to this draft aggregate view. This array does not create a new evidence store, qualification authority, or physical-test certification."
+    },
+    "change_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_id",
+        "reason",
+        "affected_ids",
+        "regression_tests"
+      ],
+      "properties": {
+        "change_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "affected_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "regression_tests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "review_uri": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "depth",
+        "height"
+      ],
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "depth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "revision",
+        "kind",
+        "quantity",
+        "unit",
+        "criticality",
+        "material_or_specification",
+        "supplier_validation_state",
+        "replaceability",
+        "failure_modes"
+      ],
+      "properties": {
+        "component_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "permanent_structure",
+            "replaceable_module",
+            "wear_part",
+            "fastener",
+            "consumable",
+            "control_module",
+            "appliance",
+            "other"
+          ]
+        },
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "enum": [
+            "each",
+            "mm",
+            "m",
+            "m2",
+            "m3",
+            "kg",
+            "g",
+            "L",
+            "mL",
+            "set",
+            "pair"
+          ]
+        },
+        "criticality": {
+          "enum": [
+            "noncritical",
+            "functional",
+            "safety_related",
+            "critical_pending_review"
+          ]
+        },
+        "material_or_specification": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "supplier_validation_state": {
+          "enum": [
+            "not_assessed",
+            "candidate_only",
+            "datasheet_checked",
+            "sample_tested",
+            "qualified",
+            "obsolete"
+          ]
+        },
+        "supplier_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/supplierRecord"
+          }
+        },
+        "interface_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "replaceability": {
+          "enum": [
+            "not_replaceable",
+            "replaceable_non_destructively",
+            "replaceable_after_partial_disassembly",
+            "replaceable_by_qualified_service"
+          ]
+        },
+        "failure_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "mechanical_wear",
+              "fatigue",
+              "thermal_cycling",
+              "corrosion",
+              "moisture",
+              "chemical_exposure",
+              "impact",
+              "electrical_failure",
+              "seal_failure",
+              "obsolescence",
+              "unknown"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "service_procedure_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "supplierRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supplier_name",
+        "source_uri",
+        "checked_at",
+        "evidence_state"
+      ],
+      "properties": {
+        "supplier_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manufacturer_part_number": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "quote_valid_until": {
+          "type": "string",
+          "format": "date"
+        },
+        "lead_time_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_state": {
+          "enum": [
+            "marketing_claim",
+            "datasheet",
+            "written_quote",
+            "availability_confirmed",
+            "sample_inspected",
+            "qualified"
+          ]
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interface_id",
+        "revision",
+        "module_class",
+        "module_envelope_mm",
+        "removal_direction",
+        "service_clearance_mm",
+        "verification_state",
+        "bay_clear_envelope_mm",
+        "minimum_fit_clearance_mm",
+        "installation_evidence_refs"
+      ],
+      "properties": {
+        "interface_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_class": {
+          "enum": [
+            "refrigeration",
+            "freezer",
+            "induction_cooktop",
+            "dishwasher",
+            "drawer",
+            "door",
+            "control",
+            "power",
+            "other"
+          ]
+        },
+        "removal_direction": {
+          "enum": [
+            "front",
+            "rear",
+            "left",
+            "right",
+            "top",
+            "bottom",
+            "multiple",
+            "not_defined"
+          ]
+        },
+        "service_clearance_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Required external service/access envelope around the installed module, in mm; distinct from the bay's internal fit allowance."
+        },
+        "max_module_mass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "thermal_boundary": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "utility_requirements": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "mains_electricity",
+              "low_voltage",
+              "ventilation_inlet",
+              "ventilation_outlet",
+              "drainage",
+              "water",
+              "control_bus",
+              "none",
+              "to_be_defined"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "compatibility_test_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "Evidence IDs from the top-level evidence array for measured compatibility tests tied to the exact module/interface revision. A nominal model fit or a free-text note is not a test result."
+        },
+        "verification_state": {
+          "enum": [
+            "proposed",
+            "geometry_checked",
+            "engineering_reviewed",
+            "physically_verified",
+            "qualified",
+            "blocked"
+          ]
+        },
+        "module_envelope_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Maximum external module bounding envelope in the declared width/depth/height axes, mm. Mechanical fit alone does not establish operational compatibility."
+        },
+        "bay_clear_envelope_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Measured clear internal envelope of the actual host bay after liners, rails and obstructions, in the same local axes and mm."
+        },
+        "minimum_fit_clearance_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Minimum total dimensional allowance beyond the module envelope on each axis, in mm. The checker requires module envelope + allowance <= bay clear envelope. This does not replace manufacturer ventilation, electrical, thermal, or service clearances."
+        },
+        "installation_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Evidence IDs from the top-level evidence array for the exact manufacturer's installation instructions/datasheet. A filename or arbitrary label is not evidence; each ID must resolve to a source URI and digest."
+        }
+      },
+      "description": "Proposed replaceable-module interface. Dimensional fit is necessary but not sufficient for compatibility, safety, ventilation, thermal performance or certification."
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_id",
+        "statement",
+        "target_value",
+        "unit",
+        "status",
+        "measurement_method"
+      ],
+      "properties": {
+        "metric_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "target_value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparison_baseline": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "estimated",
+            "simulated",
+            "bench_tested",
+            "independently_verified",
+            "field_observed",
+            "rejected"
+          ]
+        },
+        "measurement_method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "requirement",
+        "status",
+        "owner_role",
+        "evidence_refs"
+      ],
+      "properties": {
+        "gate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "status": {
+          "enum": [
+            "not_tested",
+            "blocked",
+            "fail",
+            "pass",
+            "not_applicable_with_rationale"
+          ]
+        },
+        "owner_role": {
+          "enum": [
+            "design_engineer",
+            "mechanical_engineer",
+            "electrical_safety",
+            "appliance_supplier",
+            "qualified_assessor",
+            "manufacturing_quality",
+            "service_engineer",
+            "human_release_authority"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 1500
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "kind",
+        "status",
+        "subject_ids",
+        "recorded_at",
+        "source_uri"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "requirement",
+            "calculation",
+            "simulation",
+            "test_report",
+            "inspection",
+            "supplier_datasheet",
+            "written_quote",
+            "certification_document",
+            "field_report",
+            "review",
+            "other"
+          ]
+        },
+        "status": {
+          "enum": [
+            "asserted",
+            "proposed",
+            "analytically_estimated",
+            "simulated",
+            "measured",
+            "independently_verified",
+            "field_observed",
+            "superseded",
+            "retracted"
+          ]
+        },
+        "subject_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method_and_limitations": {
+          "type": "string",
+          "maxLength": 3000
+        }
+      }
+    }
+  }
+}
