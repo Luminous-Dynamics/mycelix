@@ -331,7 +331,7 @@ fn valid_utc_timestamp(value: &str) -> bool {
     {
         return false;
     }
-    if parse_date(&value[..10]).is_none() {
+    if value.get(..10).and_then(parse_date).is_none() {
         return false;
     }
     let hour = value.get(11..13).and_then(|v| v.parse::<u32>().ok());
@@ -874,6 +874,126 @@ mod tests {
         let duplicate = profile.operations[0].clone();
         profile.operations.push(duplicate);
         assert!(validate_profile(&profile).is_err());
+    }
+
+    #[test]
+    fn overlapping_unknown_grant_prevents_implicit_admission() {
+        let mut profile = profile();
+        let mut overlapping = profile
+            .operations
+            .iter()
+            .find(|grant| grant.grant_id == "grant-benchmark-evaluation")
+            .expect("evaluation grant exists")
+            .clone();
+        overlapping.grant_id = "grant-benchmark-evaluation-unknown-overlap".to_string();
+        overlapping.decision = PermissionDecision::Unknown;
+        profile.operations.push(overlapping);
+        validate_profile(&profile).expect("overlapping grants are structurally valid");
+        let request = request(
+            Operation::BenchmarkEvaluation,
+            Purpose::BenchmarkEvaluation,
+            ActorClass::InternalReviewer,
+        );
+        let result = evaluate(&profile, &request);
+        assert_eq!(result.admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(result.reason_code, "overlapping_grants_include_unknown_permission");
+    }
+
+    #[test]
+    fn explicit_deny_overrides_overlapping_allow() {
+        let mut profile = profile();
+        let mut overlapping = profile
+            .operations
+            .iter()
+            .find(|grant| grant.grant_id == "grant-benchmark-evaluation")
+            .expect("evaluation grant exists")
+            .clone();
+        overlapping.grant_id = "grant-benchmark-evaluation-deny-overlap".to_string();
+        overlapping.decision = PermissionDecision::Denied;
+        profile.operations.push(overlapping);
+        validate_profile(&profile).expect("overlapping grants are structurally valid");
+        let request = request(
+            Operation::BenchmarkEvaluation,
+            Purpose::BenchmarkEvaluation,
+            ActorClass::InternalReviewer,
+        );
+        let result = evaluate(&profile, &request);
+        assert_eq!(result.admission_decision, AdmissionDecision::Denied);
+        assert_eq!(result.reason_code, "operation_explicitly_denied");
+    }
+
+    #[test]
+    fn approved_profile_without_verified_terms_digest_is_invalid() {
+        let mut profile = profile();
+        profile.terms.terms_sha256 = None;
+        assert!(validate_profile(&profile).is_err());
+    }
+
+    #[test]
+    fn unicode_malformed_timestamp_is_rejected_without_panicking() {
+        let value = "éééééééééé"; // 20 bytes, but not ASCII UTC syntax.
+        assert!(!valid_utc_timestamp(value));
+    }
+
+    #[test]
+    fn published_json_schemas_parse_and_local_references_resolve() {
+        use serde_json::Value;
+
+        fn visit(value: &Value, root: &Value, references: &mut Vec<String>) {
+            match value {
+                Value::Object(object) => {
+                    if let Some(reference) = object.get("$ref").and_then(Value::as_str) {
+                        references.push(reference.to_string());
+                    }
+                    for child in object.values() {
+                        visit(child, root, references);
+                    }
+                }
+                Value::Array(values) => {
+                    for child in values {
+                        visit(child, root, references);
+                    }
+                }
+                _ => {}
+            }
+            let _ = root;
+        }
+
+        let schemas = [
+            (
+                "profile",
+                include_str!("../schemas/source-use-profile-v0.1.schema.json"),
+            ),
+            (
+                "request",
+                include_str!("../schemas/source-use-request-v0.1.schema.json"),
+            ),
+            (
+                "receipt",
+                include_str!("../schemas/source-use-receipt-v0.1.schema.json"),
+            ),
+        ];
+        for (name, raw) in schemas {
+            let schema: Value =
+                serde_json::from_str(raw).unwrap_or_else(|error| panic!("{name}: {error}"));
+            assert_eq!(
+                schema["$schema"],
+                "https://json-schema.org/draft/2020-12/schema"
+            );
+            assert_eq!(schema["additionalProperties"], false);
+            assert!(schema["required"].is_array());
+            let mut references = Vec::new();
+            visit(&schema, &schema, &mut references);
+            for reference in references {
+                let definition = reference
+                    .strip_prefix("#/$defs/")
+                    .expect("schema references must be local");
+                assert!(
+                    schema["$defs"].get(definition).is_some(),
+                    "{name}: unresolved schema reference {reference}"
+                );
+            }
+        }
     }
 
     #[test]
