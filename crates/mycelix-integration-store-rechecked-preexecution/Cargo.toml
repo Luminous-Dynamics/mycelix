@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-integration-store-rechecked-preexecution"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Same-invocation provider/root and durable-attempt requalification for Mycelix integration preexecution"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-current-capability-coverage = { path = "../mycelix-integration-current-capability-coverage" }
+mycelix-integration-execution-binding = { path = "../mycelix-integration-execution-binding" }
+mycelix-integration-preexecution-admission = { path = "../mycelix-integration-preexecution-admission" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+thiserror = "2.0"
