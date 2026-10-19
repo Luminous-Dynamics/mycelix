@@ -126,10 +126,19 @@ pub enum ReceiptValidationError {
 impl std::fmt::Display for ReceiptValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnsupportedSchemaVersion(v) => write!(f, "unsupported process-run receipt schema version {v}"),
-            Self::MissingOrOversizeField(field) => write!(f, "required field {field} is missing, blank, or oversized"),
-            Self::InvalidDigest(field) => write!(f, "{field} must be a 64-character lowercase SHA-256 digest"),
-            Self::InvalidGitCommit => write!(f, "source_commit_hex must be 40 or 64 lowercase hexadecimal characters"),
+            Self::UnsupportedSchemaVersion(v) => {
+                write!(f, "unsupported process-run receipt schema version {v}")
+            }
+            Self::MissingOrOversizeField(field) => {
+                write!(f, "required field {field} is missing, blank, or oversized")
+            }
+            Self::InvalidDigest(field) => {
+                write!(f, "{field} must be a 64-character lowercase SHA-256 digest")
+            }
+            Self::InvalidGitCommit => write!(
+                f,
+                "source_commit_hex must be 40 or 64 lowercase hexadecimal characters"
+            ),
             Self::TooManyItems(field) => write!(f, "too many entries in {field}"),
             Self::DuplicateItem(field) => write!(f, "duplicate entries in {field}"),
             Self::InconsistentEvidenceState(reason) => write!(f, "inconsistent evidence state: {reason}"),
@@ -163,7 +172,11 @@ pub fn validate_process_run_receipt(
         ("producer_id", receipt.producer_id.as_str(), MAX_ID_BYTES),
         ("scenario_id", receipt.scenario_id.as_str(), MAX_ID_BYTES),
         ("tool_name", receipt.tool_name.as_str(), MAX_ID_BYTES),
-        ("tool_version", receipt.tool_version.as_str(), MAX_VERSION_BYTES),
+        (
+            "tool_version",
+            receipt.tool_version.as_str(),
+            MAX_VERSION_BYTES,
+        ),
         ("model_domain", receipt.model_domain.as_str(), MAX_ID_BYTES),
     ] {
         if value.trim().is_empty() || value.len() > max {
@@ -178,7 +191,9 @@ pub fn validate_process_run_receipt(
         return Err(ReceiptValidationError::InvalidDigest("build_sha256"));
     }
     if !is_sha256(&receipt.configuration_sha256) {
-        return Err(ReceiptValidationError::InvalidDigest("configuration_sha256"));
+        return Err(ReceiptValidationError::InvalidDigest(
+            "configuration_sha256",
+        ));
     }
     if !is_sha256(&receipt.report_sha256) {
         return Err(ReceiptValidationError::InvalidDigest("report_sha256"));
@@ -188,22 +203,40 @@ pub fn validate_process_run_receipt(
     }
 
     if receipt.input_artifact_sha256.is_empty() {
-        return Err(ReceiptValidationError::MissingOrOversizeField("input_artifact_sha256"));
+        return Err(ReceiptValidationError::MissingOrOversizeField(
+            "input_artifact_sha256",
+        ));
     }
     if receipt.assumption_ids.is_empty() {
-        return Err(ReceiptValidationError::MissingOrOversizeField("assumption_ids"));
+        return Err(ReceiptValidationError::MissingOrOversizeField(
+            "assumption_ids",
+        ));
     }
-    validate_digest_list("input_artifact_sha256", &receipt.input_artifact_sha256, MAX_INPUT_ARTIFACTS)?;
+    validate_digest_list(
+        "input_artifact_sha256",
+        &receipt.input_artifact_sha256,
+        MAX_INPUT_ARTIFACTS,
+    )?;
     validate_string_list("assumption_ids", &receipt.assumption_ids, MAX_ASSUMPTIONS)?;
-    validate_string_list("observation_ids", &receipt.observation_ids, MAX_OBSERVATIONS)?;
+    validate_string_list(
+        "observation_ids",
+        &receipt.observation_ids,
+        MAX_OBSERVATIONS,
+    )?;
     validate_digest_list(
         "observation_artifact_sha256",
         &receipt.observation_artifact_sha256,
         MAX_OBSERVATIONS,
     )?;
-    validate_optional_digest("calibration_record_sha256", &receipt.calibration_record_sha256)?;
+    validate_optional_digest(
+        "calibration_record_sha256",
+        &receipt.calibration_record_sha256,
+    )?;
     validate_optional_digest("parent_receipt_sha256", &receipt.parent_receipt_sha256)?;
-    validate_optional_digest("supersedes_receipt_sha256", &receipt.supersedes_receipt_sha256)?;
+    validate_optional_digest(
+        "supersedes_receipt_sha256",
+        &receipt.supersedes_receipt_sha256,
+    )?;
 
     match receipt.evidence_origin {
         EvidenceOrigin::SyntheticFixture | EvidenceOrigin::SimulationOutput => {
@@ -228,16 +261,16 @@ pub fn validate_process_run_receipt(
                 &receipt.measurement_system_id,
                 MAX_ID_BYTES,
             )?;
-            validate_required_option_string(
-                "instrument_id",
-                &receipt.instrument_id,
-                MAX_ID_BYTES,
-            )?;
+            validate_required_option_string("instrument_id", &receipt.instrument_id, MAX_ID_BYTES)?;
             if receipt.observed_at_unix_ms.is_none() {
-                return Err(ReceiptValidationError::MissingInstrumentObservation("observed_at_unix_ms"));
+                return Err(ReceiptValidationError::MissingInstrumentObservation(
+                    "observed_at_unix_ms",
+                ));
             }
             if receipt.observation_ids.is_empty() {
-                return Err(ReceiptValidationError::MissingInstrumentObservation("observation_ids"));
+                return Err(ReceiptValidationError::MissingInstrumentObservation(
+                    "observation_ids",
+                ));
             }
             if receipt.observation_ids.len() != receipt.observation_artifact_sha256.len() {
                 return Err(ReceiptValidationError::InconsistentEvidenceState(
@@ -468,14 +501,18 @@ mod tests {
         r.input_artifact_sha256.clear();
         assert_eq!(
             validate_process_run_receipt(&r),
-            Err(ReceiptValidationError::MissingOrOversizeField("input_artifact_sha256"))
+            Err(ReceiptValidationError::MissingOrOversizeField(
+                "input_artifact_sha256"
+            ))
         );
 
         let mut r = valid_simulation();
         r.assumption_ids.clear();
         assert_eq!(
             validate_process_run_receipt(&r),
-            Err(ReceiptValidationError::MissingOrOversizeField("assumption_ids"))
+            Err(ReceiptValidationError::MissingOrOversizeField(
+                "assumption_ids"
+            ))
         );
     }
 
@@ -485,7 +522,9 @@ mod tests {
         r.instrument_id = Some("x".repeat(MAX_ID_BYTES + 1));
         assert!(matches!(
             validate_process_run_receipt(&r),
-            Err(ReceiptValidationError::MissingInstrumentObservation("instrument_id"))
+            Err(ReceiptValidationError::MissingInstrumentObservation(
+                "instrument_id"
+            ))
         ));
     }
 
@@ -588,7 +627,10 @@ mod tests {
         r.reviewed_report_sha256 = Some(r.report_sha256.clone());
         r.reviewed_at_unix_ms = Some(1_800_000_001_000);
         assert_eq!(validate_process_run_receipt(&r), Ok(()));
-        assert!(r.out_of_domain, "independent review must not erase OOD status");
+        assert!(
+            r.out_of_domain,
+            "independent review must not erase OOD status"
+        );
     }
 
     #[test]
@@ -611,10 +653,13 @@ mod tests {
     #[test]
     fn rejects_duplicate_digest_and_assumption_entries() {
         let mut r = valid_simulation();
-        r.input_artifact_sha256.push(r.input_artifact_sha256[0].clone());
+        r.input_artifact_sha256
+            .push(r.input_artifact_sha256[0].clone());
         assert_eq!(
             validate_process_run_receipt(&r),
-            Err(ReceiptValidationError::DuplicateItem("input_artifact_sha256"))
+            Err(ReceiptValidationError::DuplicateItem(
+                "input_artifact_sha256"
+            ))
         );
 
         let mut r = valid_simulation();
@@ -651,7 +696,10 @@ mod tests {
     fn rejects_unknown_json_fields_and_unsupported_versions() {
         let receipt = valid_simulation();
         let mut value = serde_json::to_value(&receipt).unwrap();
-        value.as_object_mut().unwrap().insert("unexpected".into(), serde_json::Value::Bool(true));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<ProcessRunReceipt>(value).is_err());
 
         let mut r = valid_simulation();
