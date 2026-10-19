@@ -1,0 +1,294 @@
+{
+  "profile_id": "generic-mycelix-ci-path-admission-v1",
+  "profile_version": 1,
+  "issue": 1359,
+  "authority": "SchedulingOnly",
+  "frozen_main": "20452d0cde9448c424d708d6307aa33a3d1901e3",
+  "workflow": {
+    "path": ".github/workflows/ci.yml",
+    "blob_sha": "aa8e18ee225e1bbd20e477230909a49da4514b38"
+  },
+  "decision_precedence": [
+    "AdmitKnownRelevant",
+    "AdmitUnknown",
+    "SkipProvenIrrelevant"
+  ],
+  "unknown_policy": "AdmitUnknown",
+  "known_relevant": [
+    {
+      "pattern": ".github/workflows/ci.yml",
+      "reason": "generic CI workflow semantics"
+    },
+    {
+      "pattern": "docs/ci/generic_ci_path_admission_v1.json",
+      "reason": "admission profile bytes"
+    },
+    {
+      "pattern": "scripts/evaluate_generic_ci_path_admission.py",
+      "reason": "admission oracle bytes"
+    },
+    {
+      "pattern": "mycelix-commons/**",
+      "reason": "format + commons tests; also civic shared commons-types"
+    },
+    {
+      "pattern": "mycelix-civic/**",
+      "reason": "format + civic tests"
+    },
+    {
+      "pattern": "mycelix-hearth/**",
+      "reason": "format + hearth tests"
+    },
+    {
+      "pattern": "mycelix-finance/**",
+      "reason": "format + finance unit/integration tests"
+    },
+    {
+      "pattern": "mycelix-governance/**",
+      "reason": "format + governance tests"
+    },
+    {
+      "pattern": "mycelix-identity/**",
+      "reason": "format + identity tests"
+    },
+    {
+      "pattern": "mycelix-personal/**",
+      "reason": "format + personal tests"
+    },
+    {
+      "pattern": "mycelix-attribution/**",
+      "reason": "format + attribution tests"
+    },
+    {
+      "pattern": "crates/mycelix-bridge-*/**",
+      "reason": "shared bridge crates consumed across generic CI jobs"
+    },
+    {
+      "pattern": "crates/mycelix-zome-helpers/**",
+      "reason": "shared zome helper path dependency"
+    },
+    {
+      "pattern": "crates/mycelix-zkp-core/**",
+      "reason": "shared ZKP path dependency"
+    },
+    {
+      "pattern": "crates/mycelix-core-types/**",
+      "reason": "governance path dependency"
+    },
+    {
+      "pattern": "crates/feldman-dkg/**",
+      "reason": "governance path dependency"
+    },
+    {
+      "pattern": "crates/luminous-sim-core/**",
+      "reason": "latent path dependency declared by personal stress-tester; currently absent but future addition is relevant",
+      "latent": true
+    },
+    {
+      "pattern": "mycelix-workspace/**",
+      "reason": "conservative v1 closure for SDK, Prism outer workspace, ZKP proof libs, and workspace-local shared crates"
+    },
+    {
+      "pattern": "nix/modules/holochain-base.nix",
+      "reason": "imported by finance Nix CI environment"
+    }
+  ],
+  "proven_irrelevant": [
+    {
+      "pattern": "docs/lex-net/**",
+      "reason": "generic CI commands do not consume this documentation subtree",
+      "evidence": {
+        "repository_search": "no default-branch code-search consumers of docs/lex-net at frozen_main",
+        "scope": "generic Mycelix CI only"
+      }
+    }
+  ],
+  "job_closures": {
+    "format": [
+      "mycelix-commons/**",
+      "mycelix-civic/**",
+      "mycelix-hearth/**",
+      "mycelix-finance/**",
+      "mycelix-governance/**",
+      "mycelix-identity/**",
+      "mycelix-personal/**",
+      "mycelix-attribution/**",
+      "crates/mycelix-bridge-*/**"
+    ],
+    "test-commons": [
+      "mycelix-commons/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**"
+    ],
+    "test-civic": [
+      "mycelix-civic/**",
+      "mycelix-commons/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**"
+    ],
+    "test-hearth": [
+      "mycelix-hearth/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**",
+      "crates/mycelix-zkp-core/**",
+      "mycelix-workspace/**"
+    ],
+    "test-finance": [
+      "mycelix-finance/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**",
+      "crates/mycelix-zkp-core/**",
+      "mycelix-workspace/**"
+    ],
+    "test-finance-integration": [
+      "mycelix-finance/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**",
+      "crates/mycelix-zkp-core/**",
+      "mycelix-workspace/**",
+      "nix/modules/holochain-base.nix"
+    ],
+    "test-governance": [
+      "mycelix-governance/**",
+      "crates/mycelix-core-types/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**",
+      "crates/feldman-dkg/**",
+      "crates/mycelix-zkp-core/**",
+      "mycelix-workspace/**"
+    ],
+    "test-identity": [
+      "mycelix-identity/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**",
+      "crates/mycelix-zkp-core/**",
+      "mycelix-workspace/**"
+    ],
+    "test-personal": [
+      "mycelix-personal/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zkp-core/**",
+      "crates/luminous-sim-core/**",
+      "mycelix-workspace/**"
+    ],
+    "test-attribution": [
+      "mycelix-attribution/**",
+      "crates/mycelix-bridge-*/**",
+      "crates/mycelix-zome-helpers/**"
+    ],
+    "test-bridge": [
+      "crates/mycelix-bridge-*/**"
+    ],
+    "test-sdk": [
+      "mycelix-workspace/**"
+    ],
+    "test-prism": [
+      "mycelix-workspace/**"
+    ]
+  },
+  "fixtures": [
+    {
+      "paths": [
+        "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "crates/mycelix-zkp-core/src/lib.rs"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "crates/luminous-sim-core/src/lib.rs"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "mycelix-workspace/mycelix-prism/prism-common/Cargo.toml"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "mycelix-workspace/mycelix-core/libs/proofs-config/src/lib.rs"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "nix/modules/holochain-base.nix"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "docs/ci/generic_ci_path_admission_v1.json"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "scripts/evaluate_generic_ci_path_admission.py"
+      ],
+      "expect": "AdmitKnownRelevant"
+    },
+    {
+      "paths": [
+        "docs/lex-net/LEX_NET_CONSTITUTION_V1.md"
+      ],
+      "expect": "SkipProvenIrrelevant"
+    },
+    {
+      "paths": [
+        "docs/lex-net/a.md",
+        "docs/lex-net/b.md"
+      ],
+      "expect": "SkipProvenIrrelevant"
+    },
+    {
+      "paths": [
+        "docs/lex-net/a.md",
+        "future-shared/runtime/new.rs"
+      ],
+      "expect": "AdmitUnknown"
+    },
+    {
+      "paths": [
+        "future-shared/runtime/new.rs"
+      ],
+      "expect": "AdmitUnknown"
+    },
+    {
+      "paths": [],
+      "expect": "AdmissionProfileInvalid"
+    },
+    {
+      "paths": [
+        "../outside"
+      ],
+      "expect": "AdmissionProfileInvalid"
+    },
+    {
+      "paths": [
+        "/absolute/path"
+      ],
+      "expect": "AdmissionProfileInvalid"
+    }
+  ],
+  "nonclaims": [
+    "This profile controls scheduling classification only.",
+    "SkipProvenIrrelevant is not CI PASS or product qualification.",
+    "AdmitKnownRelevant does not mean a product changed; it means generic CI may consume the path.",
+    "AdmitUnknown is deliberately conservative and must not be converted to skip.",
+    "This profile does not prove the complete dependency graph forever; it freezes the audited v1 surface."
+  ]
+}
