@@ -101,6 +101,7 @@ Interface compatibility is not merely matching dimensions. It includes thermal p
 - [LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json](./LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json) is an illustrative LKI-01 record with three placeholder BOM entries, two provisional interfaces, and five unpassed release gates.
 - [LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json](./LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json) defines 14 adversarial known-answer scenarios, nine hard invariants, and five proposed software-evaluator metrics.
 - [LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_2_DRAFT.json](./LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_2_DRAFT.json) preserves v0.1 and adds a module-envelope/required-fit-clearance negative control, for 15 known-answer cases.
+- [LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json](./LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json) adds two evidence-backed interface verification cases: status strings with missing evidence must block; measured interface claims require resolvable, digest-bound source and test records.
 - [LIFETIME_PRODUCT_OWNER_CROSSWALK_DRAFT.md](./LIFETIME_PRODUCT_OWNER_CROSSWALK_DRAFT.md) maps draft fields to existing Mycelix Manufacturing/Supply Chain/product identity/repair owners, plus Symtropy, Symthaea and Sol-Atlas issue owners.
 - [tools/lifetime-product-audit/README.md](../tools/lifetime-product-audit/README.md) documents a standalone Rust audit tool; [src/main.rs](../tools/lifetime-product-audit/src/main.rs) includes schema validation, draft-specific semantic checks, scenario-oracle checks and unit tests.
 
