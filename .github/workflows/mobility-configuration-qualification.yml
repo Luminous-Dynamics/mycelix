@@ -1,0 +1,165 @@
+name: Mobility Configuration Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.json'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - 'tools/mobility_qualification_reference.py'
+      - 'tools/compare_mobility_qualification.py'
+      - 'tools/generate_mobility_qualification_mutations.py'
+      - '.github/workflows/mobility-configuration-qualification.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.json'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - 'tools/mobility_qualification_reference.py'
+      - 'tools/compare_mobility_qualification.py'
+      - 'tools/generate_mobility_qualification_mutations.py'
+      - '.github/workflows/mobility-configuration-qualification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-rust:
+    runs-on: ubuntu-latest
+    outputs:
+      normalized_sha256: ${{ steps.rust_hash.outputs.sha256 }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mycelix-commons/crates/mobility-configuration-qualification
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --check
+      - run: cargo test
+      - name: Emit normalized Rust result
+        run: cargo run --quiet --bin mobility-qualification -- ../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json > /tmp/rust-normalized.json
+      - name: Record normalized Rust SHA-256
+        id: rust_hash
+        working-directory: .
+        run: echo "sha256=$(sha256sum /tmp/rust-normalized.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobility-rust-normalized
+          path: /tmp/rust-normalized.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Prove Rust evaluator rejects altered corpus
+        run: |
+          python3 -c 'import json; p="../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"][0]["expected_outcome"]="unsafe-universal-safety-score"; json.dump(d,open("/tmp/rust-corrupted.json","w"))'
+          if cargo run --quiet --bin mobility-qualification -- /tmp/rust-corrupted.json > /tmp/rust-corrupted.out; then
+            echo "Rust evaluator accepted a corrupted corpus" >&2
+            exit 1
+          fi
+          echo "Rust evaluator correctly rejected corrupted corpus"
+
+  qualify-reference:
+    runs-on: ubuntu-latest
+    outputs:
+      normalized_sha256: ${{ steps.python_hash.outputs.sha256 }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent reference evaluation
+        run: python3 tools/mobility_qualification_reference.py
+      - name: Emit normalized reference result
+        run: python3 tools/mobility_qualification_reference.py --normalized > /tmp/python-normalized.json
+      - name: Prove Python evaluator rejects altered corpus
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"][0]["forbidden_inference"]="corrupted-boundary"; json.dump(d,open("/tmp/python-corrupted.json","w"))'
+          if python3 tools/mobility_qualification_reference.py /tmp/python-corrupted.json > /tmp/python-corrupted.out; then
+            echo "Python evaluator accepted a corrupted corpus" >&2
+            exit 1
+          fi
+          echo "Python evaluator correctly rejected corrupted corpus"
+      - name: Record normalized reference SHA-256
+        id: python_hash
+        run: echo "sha256=$(sha256sum /tmp/python-normalized.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobility-python-normalized
+          path: /tmp/python-normalized.json
+          if-no-files-found: error
+          retention-days: 30
+
+  differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [qualify-rust, qualify-reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobility-rust-normalized
+          path: /tmp/rust
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobility-python-normalized
+          path: /tmp/python
+      - name: Verify producer SHA-256 digests
+        env:
+          RUST_SHA256: ${{ needs.qualify-rust.outputs.normalized_sha256 }}
+          PYTHON_SHA256: ${{ needs.qualify-reference.outputs.normalized_sha256 }}
+        run: |
+          echo "$RUST_SHA256  /tmp/rust/rust-normalized.json" | sha256sum -c -
+          echo "$PYTHON_SHA256  /tmp/python/python-normalized.json" | sha256sum -c -
+      - name: Compare independent normalized results
+        run: python3 tools/compare_mobility_qualification.py /tmp/rust/rust-normalized.json /tmp/python/python-normalized.json
+      - name: Prove comparator rejects altered semantic output
+        run: |
+          python3 -c 'import json; p="/tmp/python/python-normalized.json"; d=json.load(open(p)); d["vectors"][0]["forbidden_inference"] += "-corrupted"; json.dump(d,open("/tmp/corrupted.json","w"))'
+          if python3 tools/compare_mobility_qualification.py /tmp/rust/rust-normalized.json /tmp/corrupted.json; then
+            echo "Comparator accepted a corrupted semantic result" >&2
+            exit 1
+          fi
+          echo "Comparator correctly rejected corrupted semantic output"
+
+
+  mutation-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [qualify-rust, qualify-reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build Rust evaluator once
+        run: cargo build --quiet --bin mobility-qualification --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+      - name: Generate deterministic mutation corpus
+        run: python3 tools/generate_mobility_qualification_mutations.py docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json /tmp/mobility-mutations
+      - name: Require both evaluators to reject every mutation
+        run: |
+          set -euo pipefail
+          failures=0
+          count=0
+          for corpus in /tmp/mobility-mutations/*.json; do
+            count=$((count + 1))
+            name=$(basename "$corpus")
+            if python3 tools/mobility_qualification_reference.py "$corpus" > /tmp/python-mutation.out 2>&1; then
+              echo "FAIL: Python accepted $name" >&2
+              failures=$((failures + 1))
+            fi
+            if ./mycelix-commons/target/debug/mobility-qualification "$corpus" > /tmp/rust-mutation.out 2>&1; then
+              echo "FAIL: Rust accepted $name" >&2
+              failures=$((failures + 1))
+            fi
+          done
+          test "$count" -eq 20
+          test "$failures" -eq 0
+          echo "Both evaluators rejected all $count mutation cases"
+      - name: Prove input ordering is canonicalized, not semantically significant
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"]=list(reversed(d["vectors"])); json.dump(d,open("/tmp/reordered.json","w"))'
+          ./mycelix-commons/target/debug/mobility-qualification /tmp/reordered.json > /tmp/reordered-rust.json
+          python3 tools/mobility_qualification_reference.py --normalized /tmp/reordered.json > /tmp/reordered-python.json
+          python3 tools/compare_mobility_qualification.py /tmp/reordered-rust.json /tmp/reordered-python.json
