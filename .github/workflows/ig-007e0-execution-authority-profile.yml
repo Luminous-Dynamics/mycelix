@@ -1,0 +1,87 @@
+name: IG-007E0 Execution Authority Profile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/execution-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007e0_execution_profile.py"
+      - "mycelix-governance/docs/IG_007E0_EXECUTION_AUTHORITY_PROFILE.md"
+      - ".github/workflows/ig-007e0-execution-authority-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-execution-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind frozen execution source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/execution/coordinator/src/lib.rs)" = "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef"
+          test "$(git hash-object mycelix-governance/zomes/execution/integrity/src/lib.rs)" = "657edaee9a314f100a0c4b1609a4596cf243e61d"
+
+      - name: Syntax compile validator
+        run: python -m py_compile mycelix-governance/scripts/validate_ig007e0_execution_profile.py
+
+      - name: Validate profile twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007e0_execution_profile.py \
+            --profile mycelix-governance/profiles/observed/execution-fca2c107-v1.json \
+            --self-test > /tmp/ig007e0-1.json
+          python mycelix-governance/scripts/validate_ig007e0_execution_profile.py \
+            --profile mycelix-governance/profiles/observed/execution-fca2c107-v1.json \
+            --self-test > /tmp/ig007e0-2.json
+          cmp /tmp/ig007e0-1.json /tmp/ig007e0-2.json
+
+      - name: Assert frozen commitment and authority ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007e0-1.json', encoding='utf-8') as f:
+              result = json.load(f)
+          assert result['validated'] is True
+          assert result['self_test'] is True
+          assert result['authority_class'] == 'ObservedSourceBound'
+          assert result['profile_id'] == 'mycelix-execution-observed-fca2c107-v1'
+          assert result['profile_revision'] == 1
+          assert result['profile_content_sha256'] == 'c977bdcef9e5faac83351050999451432b618d5cc523bece804eba5dd1ae81f6'
+          assert result['known_gap_issue'] == 904
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
