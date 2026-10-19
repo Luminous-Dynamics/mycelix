@@ -20,6 +20,7 @@ members = [
     "zomes/budgeting/integrity",
     "zomes/budgeting/coordinator",
     "crates/governance-utils",
+    "crates/mycelix-constitutional-effect-delivery",
 ]
 exclude = ["tests"]
 
