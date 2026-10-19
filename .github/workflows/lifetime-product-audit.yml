@@ -41,13 +41,8 @@ jobs:
           components: rustfmt, clippy
       - name: Check verifier formatting
         run: cargo fmt --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml -- --check
-      - name: Resolve and emit temporary dependency lock for repository pinning
-        run: |
-          cargo generate-lockfile --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml
-          echo "LIFETIME_AUDIT_LOCK_BEGIN"
-          base64 -w0 mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.lock
-          echo
-          echo "LIFETIME_AUDIT_LOCK_END"
+      - name: Verify committed dependency lock
+        run: cargo metadata --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml --no-deps --format-version 1 > /dev/null
       - name: Run validator unit tests with locked dependencies
         run: cargo test --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml --all-targets
       - name: Audit frozen draft record and benchmark corpus
