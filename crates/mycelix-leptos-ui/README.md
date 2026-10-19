@@ -15,7 +15,7 @@ Shared, public Leptos 0.8 components consumed by `mycelix-leptos-core` and the p
 - `tabs`: `Tabs`, `TabPanel`
 - `toasts`: `Toast`, `ToastKind`, `ToastState`, `ToastContainer`, and context helpers
 
-The components use native HTML controls, semantic table/tab/navigation roles, visible focus states, and touch-friendly primary controls. The shared tabs component supports roving keyboard focus with ArrowLeft/ArrowRight wrapping and Home/End navigation; tab IDs must be unique and match their TabPanel IDs. Reduced-motion preferences are respected for loading effects. The sovereign radar accepts eight finite caller-supplied scores; if the consumer supplies no scores, it reports that profile data is unavailable rather than drawing invented profile values.
+The components use native HTML controls, semantic table/tab/navigation roles, visible focus states, and touch-friendly primary controls. The shared tabs component supports roving keyboard focus with ArrowLeft/ArrowRight wrapping and Home/End navigation; tab IDs must be non-empty DOM ID tokens without ASCII whitespace, unique across the rendered page, and match their TabPanel IDs. Reduced-motion preferences are respected for loading effects. The sovereign radar accepts eight finite caller-supplied scores; if the consumer supplies no scores, it reports that profile data is unavailable rather than drawing invented profile values.
 
 ## Styling
 
