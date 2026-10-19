@@ -1,6 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root//! Lending Integrity Zome
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+//! Lending Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
@@ -91,31 +92,62 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate a public app-entry create identically for entry and record authorities.
+///
+/// `must_get_valid_record` reports StoreRecord validity. Keeping the create/update
+/// rules shared here ensures an update that depends on a predecessor gets the same
+/// semantic theorem from StoreRecord authorities that StoreEntry authorities apply.
+fn validate_app_entry_create(
+    action: Create,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Loan(loan) => {
+            validate_create_loan(EntryCreationAction::Create(action), loan)
+        }
+        EntryTypes::LoanOffer(offer) => {
+            validate_create_loan_offer(EntryCreationAction::Create(action), offer)
+        }
+        EntryTypes::PaymentSchedule(schedule) => {
+            validate_create_payment_schedule(EntryCreationAction::Create(action), schedule)
+        }
+    }
+}
+
+/// Validate a public app-entry update identically for entry and record authorities.
+fn validate_app_entry_update(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Loan(loan) => validate_update_loan(action, loan),
+        EntryTypes::LoanOffer(offer) => validate_update_loan_offer(action, offer),
+        EntryTypes::PaymentSchedule(_) => Ok(ValidateCallbackResult::Invalid(
+            "Payment schedules cannot be updated".into(),
+        )),
+    }
+}
+
 /// Main validation callback using FlatOp pattern
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::Loan(loan) => {
-                    validate_create_loan(EntryCreationAction::Create(action), loan)
-                }
-                EntryTypes::LoanOffer(offer) => {
-                    validate_create_loan_offer(EntryCreationAction::Create(action), offer)
-                }
-                EntryTypes::PaymentSchedule(schedule) => {
-                    validate_create_payment_schedule(EntryCreationAction::Create(action), schedule)
-                }
-            },
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_app_entry_create(action, app_entry)
+            }
             OpEntry::UpdateEntry {
                 app_entry, action, ..
-            } => match app_entry {
-                EntryTypes::Loan(loan) => validate_update_loan(action, loan),
-                EntryTypes::LoanOffer(offer) => validate_update_loan_offer(action, offer),
-                EntryTypes::PaymentSchedule(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Payment schedules cannot be updated".into(),
-                )),
-            },
+            } => validate_app_entry_update(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::StoreRecord(store_record) => match store_record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_app_entry_create(action, app_entry)
+            }
+            OpRecord::UpdateEntry {
+                app_entry, action, ..
+            } => validate_app_entry_update(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -183,53 +215,311 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
+fn loan_validation_error(loan: &Loan) -> Option<String> {
+    if !loan.borrower_did.starts_with("did:") {
+        return Some("Borrower must be a valid DID".into());
+    }
+    if !loan.lender_did.is_empty() && !loan.lender_did.starts_with("did:") {
+        return Some("Lender must be a valid DID when assigned".into());
+    }
+    if !loan.principal.is_finite() || loan.principal <= 0.0 {
+        return Some("Principal must be finite and positive".into());
+    }
+    if !loan.interest_rate.is_finite() || !(0.0..=1.0).contains(&loan.interest_rate) {
+        return Some("Interest rate must be finite and between 0 and 100%".into());
+    }
+    if loan.currency.is_empty() {
+        return Some("Currency must not be empty".into());
+    }
+    if loan.term_days == 0 {
+        return Some("Loan term must be at least one day".into());
+    }
+    if !loan.lender_did.is_empty() && loan.borrower_did == loan.lender_did {
+        return Some("Cannot lend to yourself".into());
+    }
+    None
+}
+
 fn validate_create_loan(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     loan: Loan,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !loan.borrower_did.starts_with("did:") {
+    if let Some(msg) = loan_validation_error(&loan) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    // Legacy loans are frozen to one canonical creation state. Later financial
+    // states must be reached through predecessor-checked updates, never by
+    // creating an already-funded/defaulted/repaid entry directly.
+    if loan.status != LoanStatus::Requested {
         return Ok(ValidateCallbackResult::Invalid(
-            "Borrower must be a valid DID".into(),
+            "New legacy loans must begin in Requested state".into(),
         ));
     }
-    if !loan.lender_did.starts_with("did:") {
+    if !loan.lender_did.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Lender must be a valid DID".into(),
+            "Requested loans cannot pre-assign a lender".into(),
         ));
     }
-    if loan.principal <= 0.0 {
+    if loan.funded.is_some() || loan.maturity.is_some() || loan.repaid.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Principal must be positive".into(),
+            "Requested loans cannot carry funded, maturity, or repaid timestamps".into(),
         ));
     }
-    if loan.interest_rate < 0.0 || loan.interest_rate > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Interest rate must be between 0 and 100%".into(),
-        ));
+
+    // `request_loan` accepts borrower_did from the client, so bind the request
+    // to the action author at integrity validation. This prevents a caller from
+    // publishing a debt request in somebody else's identity.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("Loan", "borrower_did", &loan.borrower_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
-    if loan.borrower_did == loan.lender_did {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot lend to yourself".into(),
-        ));
-    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_loan(_action: Update, loan: Loan) -> ExternResult<ValidateCallbackResult> {
-    // Principal and parties cannot change, but status can
-    if loan.principal <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Principal must be positive".into(),
+fn is_allowed_loan_transition(previous: &LoanStatus, next: &LoanStatus) -> bool {
+    matches!(
+        (previous, next),
+        (LoanStatus::Requested, LoanStatus::Funded)
+            | (LoanStatus::Requested, LoanStatus::Cancelled)
+            // `Offered` is retained only for already-existing legacy entries.
+            | (LoanStatus::Offered, LoanStatus::Funded)
+            | (LoanStatus::Offered, LoanStatus::Cancelled)
+            | (LoanStatus::Funded, LoanStatus::Active)
+            | (LoanStatus::Funded, LoanStatus::Repaid)
+            | (LoanStatus::Active, LoanStatus::Repaid)
+            | (LoanStatus::Active, LoanStatus::Defaulted)
+    )
+}
+
+fn validate_loan_update_against_previous(
+    actor_did: &str,
+    previous: &Loan,
+    updated: &Loan,
+) -> ValidateCallbackResult {
+    if let Some(msg) = loan_validation_error(updated) {
+        return ValidateCallbackResult::Invalid(msg);
+    }
+
+    if previous.id != updated.id {
+        return ValidateCallbackResult::Invalid("Loan id is immutable".into());
+    }
+    if previous.borrower_did != updated.borrower_did {
+        return ValidateCallbackResult::Invalid("Loan borrower is immutable".into());
+    }
+    if previous.principal != updated.principal {
+        return ValidateCallbackResult::Invalid("Loan principal is immutable".into());
+    }
+    if previous.currency != updated.currency {
+        return ValidateCallbackResult::Invalid("Loan currency is immutable".into());
+    }
+    if previous.term_days != updated.term_days {
+        return ValidateCallbackResult::Invalid("Loan term is immutable".into());
+    }
+    if previous.collateral_ids != updated.collateral_ids {
+        return ValidateCallbackResult::Invalid("Loan collateral set is immutable".into());
+    }
+    if previous.created != updated.created {
+        return ValidateCallbackResult::Invalid("Loan creation timestamp is immutable".into());
+    }
+
+    if !is_allowed_loan_transition(&previous.status, &updated.status) {
+        return ValidateCallbackResult::Invalid(format!(
+            "Invalid legacy loan transition: {:?} -> {:?}",
+            previous.status, updated.status
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+
+    let funding_transition = matches!(
+        (&previous.status, &updated.status),
+        (LoanStatus::Requested, LoanStatus::Funded)
+            | (LoanStatus::Offered, LoanStatus::Funded)
+    );
+
+    if funding_transition {
+        if updated.lender_did.is_empty() {
+            return ValidateCallbackResult::Invalid(
+                "Funding must assign a lender DID".into(),
+            );
+        }
+        if !previous.lender_did.is_empty() && previous.lender_did != updated.lender_did {
+            return ValidateCallbackResult::Invalid(
+                "An already-assigned lender cannot be replaced during funding".into(),
+            );
+        }
+        if actor_did != updated.lender_did {
+            return ValidateCallbackResult::Invalid(
+                "Only the funding lender may fund a legacy loan".into(),
+            );
+        }
+        if updated.funded.is_none() || updated.maturity.is_none() {
+            return ValidateCallbackResult::Invalid(
+                "Funding must record funded and maturity timestamps".into(),
+            );
+        }
+        if updated.repaid.is_some() {
+            return ValidateCallbackResult::Invalid(
+                "A newly funded loan cannot already be repaid".into(),
+            );
+        }
+        if let (Some(funded), Some(maturity)) = (updated.funded, updated.maturity) {
+            if maturity <= funded {
+                return ValidateCallbackResult::Invalid(
+                    "Loan maturity must be after the funded timestamp".into(),
+                );
+            }
+        }
+    } else {
+        if previous.lender_did != updated.lender_did {
+            return ValidateCallbackResult::Invalid(
+                "Loan lender is immutable after funding".into(),
+            );
+        }
+        if previous.interest_rate != updated.interest_rate {
+            return ValidateCallbackResult::Invalid(
+                "Loan interest rate is immutable after funding".into(),
+            );
+        }
+        if previous.funded != updated.funded || previous.maturity != updated.maturity {
+            return ValidateCallbackResult::Invalid(
+                "Loan funding timestamps are immutable after funding".into(),
+            );
+        }
+    }
+
+    match updated.status {
+        LoanStatus::Cancelled => {
+            if actor_did != previous.borrower_did {
+                return ValidateCallbackResult::Invalid(
+                    "Only the borrower may cancel a legacy loan request".into(),
+                );
+            }
+            if updated.repaid != previous.repaid {
+                return ValidateCallbackResult::Invalid(
+                    "Cancellation cannot alter repayment evidence".into(),
+                );
+            }
+        }
+        LoanStatus::Defaulted => {
+            if previous.lender_did.is_empty() || actor_did != previous.lender_did {
+                return ValidateCallbackResult::Invalid(
+                    "Only the lender may mark an active legacy loan defaulted".into(),
+                );
+            }
+            if updated.repaid != previous.repaid {
+                return ValidateCallbackResult::Invalid(
+                    "Default cannot alter repayment evidence".into(),
+                );
+            }
+        }
+        LoanStatus::Repaid => {
+            let actor_is_participant = actor_did == previous.borrower_did
+                || (!previous.lender_did.is_empty() && actor_did == previous.lender_did);
+            if !actor_is_participant {
+                return ValidateCallbackResult::Invalid(
+                    "Only a loan participant may record legacy repayment".into(),
+                );
+            }
+            if updated.repaid.is_none() {
+                return ValidateCallbackResult::Invalid(
+                    "Repaid loans must record a repayment timestamp".into(),
+                );
+            }
+            if let (Some(funded), Some(repaid)) = (updated.funded, updated.repaid) {
+                if repaid < funded {
+                    return ValidateCallbackResult::Invalid(
+                        "Repayment timestamp cannot precede funding".into(),
+                    );
+                }
+            }
+        }
+        LoanStatus::Active => {
+            let actor_is_participant = actor_did == previous.borrower_did
+                || (!previous.lender_did.is_empty() && actor_did == previous.lender_did);
+            if !actor_is_participant {
+                return ValidateCallbackResult::Invalid(
+                    "Only a loan participant may activate a funded legacy loan".into(),
+                );
+            }
+            if updated.repaid != previous.repaid {
+                return ValidateCallbackResult::Invalid(
+                    "Activation cannot alter repayment evidence".into(),
+                );
+            }
+        }
+        LoanStatus::Funded => {
+            // Funding authority and timestamp checks are handled above.
+        }
+        LoanStatus::Requested | LoanStatus::Offered => {
+            return ValidateCallbackResult::Invalid(
+                "Legacy loan updates cannot move back into pre-funding states".into(),
+            );
+        }
+    }
+
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_loan(action: Update, loan: Loan) -> ExternResult<ValidateCallbackResult> {
+    let previous_record = must_get_valid_record(action.original_action_address.clone())?;
+    let previous_loan = match previous_record.entry().to_app_option::<Loan>() {
+        Ok(Some(previous)) => previous,
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Loan update must reference a valid predecessor Loan entry".into(),
+            ))
+        }
+    };
+
+    let actor_did = did_for_author(&action.author);
+    Ok(validate_loan_update_against_previous(
+        &actor_did,
+        &previous_loan,
+        &loan,
+    ))
+}
+
+fn loan_offer_validation_error(offer: &LoanOffer) -> Option<String> {
+    if offer.id.is_empty() {
+        return Some("Offer id must not be empty".into());
+    }
+    if !offer.lender_did.starts_with("did:") {
+        return Some("Lender must be a valid DID".into());
+    }
+    if offer.currency.is_empty() {
+        return Some("Offer currency must not be empty".into());
+    }
+    if !offer.min_amount.is_finite()
+        || !offer.max_amount.is_finite()
+        || offer.min_amount <= 0.0
+        || offer.max_amount <= 0.0
+    {
+        return Some("Offer amounts must be finite and positive".into());
+    }
+    if offer.min_amount > offer.max_amount {
+        return Some("Min amount cannot exceed max amount".into());
+    }
+    if !offer.base_interest_rate.is_finite()
+        || !(0.0..=1.0).contains(&offer.base_interest_rate)
+    {
+        return Some("Interest rate must be finite and between 0 and 100%".into());
+    }
+    if !offer.min_credit_score.is_finite() {
+        return Some("Minimum credit score must be finite".into());
+    }
+    if offer.max_term_days == 0 {
+        return Some("Maximum term must be at least one day".into());
+    }
+    None
 }
 
 fn validate_create_loan_offer(
@@ -241,9 +531,6 @@ fn validate_create_loan_offer(
     // and never checks the caller, so before this any agent could publish a loan
     // offer in someone else's name (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md,
     // finance Class-A, `lending:234`).
-    //
-    // Safe to bind: exactly one coordinator creation path, no on-behalf-of flow
-    // (verified 2026-07-28).
     let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
@@ -251,58 +538,133 @@ fn validate_create_loan_offer(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    if !offer.lender_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Lender must be a valid DID".into(),
-        ));
+    if let Some(msg) = loan_offer_validation_error(&offer) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
-    if offer.min_amount > offer.max_amount {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Min amount cannot exceed max amount".into(),
-        ));
-    }
-    if offer.base_interest_rate < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Interest rate cannot be negative".into(),
-        ));
-    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_loan_offer_update_against_previous(
+    actor_did: &str,
+    previous: &LoanOffer,
+    updated: &LoanOffer,
+) -> ValidateCallbackResult {
+    if actor_did != previous.lender_did {
+        return ValidateCallbackResult::Invalid(
+            "Only the lender may update a legacy loan offer".into(),
+        );
+    }
+
+    if previous.id != updated.id
+        || previous.lender_did != updated.lender_did
+        || previous.max_amount != updated.max_amount
+        || previous.min_amount != updated.min_amount
+        || previous.currency != updated.currency
+        || previous.base_interest_rate != updated.base_interest_rate
+        || previous.min_credit_score != updated.min_credit_score
+        || previous.max_term_days != updated.max_term_days
+        || previous.collateral_required != updated.collateral_required
+        || previous.created != updated.created
+    {
+        return ValidateCallbackResult::Invalid(
+            "Legacy loan-offer economic terms are immutable".into(),
+        );
+    }
+
+    // The deprecated coordinator has exactly one supported offer mutation:
+    // active -> inactive. Do not let an update become a hidden repricing surface.
+    if !previous.active || updated.active {
+        return ValidateCallbackResult::Invalid(
+            "Legacy loan offers may only transition from active to inactive".into(),
+        );
+    }
+
+    ValidateCallbackResult::Valid
 }
 
 fn validate_update_loan_offer(
     action: Update,
     offer: LoanOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Bind updates too, so a bound create cannot simply be overwritten by another
-    // agent. Safe: the only coordinator update path (`deactivate_offer`:415)
-    // locates the offer with `query()`, which reads the CALLER'S OWN source chain
-    // only — it can already only touch offers the caller authored.
-    //
-    // NOTE: `Update.author` is a field; `EntryCreationAction::author()` is a
-    // method. Hence the asymmetry with the create validator above.
-    let author_did = did_for_author(&action.author);
-    if let ValidateCallbackResult::Invalid(msg) =
-        require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
-    {
-        return Ok(ValidateCallbackResult::Invalid(msg));
-    }
+    let previous_record = must_get_valid_record(action.original_action_address.clone())?;
+    let previous_offer = match previous_record.entry().to_app_option::<LoanOffer>() {
+        Ok(Some(previous)) => previous,
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "LoanOffer update must reference a valid predecessor LoanOffer entry".into(),
+            ))
+        }
+    };
 
-    if offer.min_amount > offer.max_amount {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Min amount cannot exceed max amount".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    let actor_did = did_for_author(&action.author);
+    Ok(validate_loan_offer_update_against_previous(
+        &actor_did,
+        &previous_offer,
+        &offer,
+    ))
 }
 
 fn validate_create_payment_schedule(
     _action: EntryCreationAction,
     schedule: PaymentSchedule,
 ) -> ExternResult<ValidateCallbackResult> {
+    if schedule.loan_id.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Schedule loan id must not be empty".into(),
+        ));
+    }
     if schedule.payments.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Schedule must have at least one payment".into(),
         ));
+    }
+
+    let mut previous_due: Option<Timestamp> = None;
+    for (index, payment) in schedule.payments.iter().enumerate() {
+        if payment.payment_number != (index as u32 + 1) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment numbers must be contiguous starting at 1".into(),
+            ));
+        }
+        if let Some(due) = previous_due {
+            if payment.due_date <= due {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Scheduled payment due dates must be strictly increasing".into(),
+                ));
+            }
+        }
+        previous_due = Some(payment.due_date);
+
+        if payment.paid {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New payment schedules cannot contain already-paid installments".into(),
+            ));
+        }
+        if !payment.principal_amount.is_finite()
+            || !payment.interest_amount.is_finite()
+            || !payment.total_amount.is_finite()
+            || payment.principal_amount <= 0.0
+            || payment.interest_amount < 0.0
+            || payment.total_amount <= 0.0
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment amounts must be finite with positive principal/total and non-negative interest".into(),
+            ));
+        }
+
+        let expected_total = payment.principal_amount + payment.interest_amount;
+        if !expected_total.is_finite() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment principal plus interest must remain finite".into(),
+            ));
+        }
+        let tolerance = 1e-9_f64.max(expected_total.abs() * 1e-12);
+        if (payment.total_amount - expected_total).abs() > tolerance {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment total must equal principal plus interest".into(),
+            ));
+        }
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -346,6 +708,35 @@ mod tests {
         format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
     }
 
+    fn valid_requested_loan() -> Loan {
+        Loan {
+            id: "loan:test:001".into(),
+            borrower_did: test_author_did(),
+            lender_did: String::new(),
+            principal: 1000.0,
+            currency: "SAP".into(),
+            interest_rate: 0.0,
+            term_days: 30,
+            collateral_ids: vec!["collateral:test:001".into()],
+            status: LoanStatus::Requested,
+            created: ts(1_000_000),
+            funded: None,
+            maturity: None,
+            repaid: None,
+        }
+    }
+
+    fn active_loan() -> Loan {
+        Loan {
+            lender_did: "did:mycelix:lender".into(),
+            interest_rate: 0.05,
+            status: LoanStatus::Active,
+            funded: Some(ts(2_000_000)),
+            maturity: Some(ts(20_000_000)),
+            ..valid_requested_loan()
+        }
+    }
+
     fn valid_offer() -> LoanOffer {
         LoanOffer {
             id: "offer:test:001".into(),
@@ -359,6 +750,162 @@ mod tests {
             collateral_required: false,
             active: true,
             created: ts(1_000_000),
+        }
+    }
+
+    fn valid_schedule() -> PaymentSchedule {
+        PaymentSchedule {
+            loan_id: "loan:test:001".into(),
+            payments: vec![
+                ScheduledPayment {
+                    payment_number: 1,
+                    due_date: ts(10_000_000),
+                    principal_amount: 100.0,
+                    interest_amount: 5.0,
+                    total_amount: 105.0,
+                    paid: false,
+                },
+                ScheduledPayment {
+                    payment_number: 2,
+                    due_date: ts(20_000_000),
+                    principal_amount: 100.0,
+                    interest_amount: 5.0,
+                    total_amount: 105.0,
+                    paid: false,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn test_requested_loan_from_committing_borrower_is_accepted() {
+        let result = validate_create_loan(
+            EntryCreationAction::Create(make_create()),
+            valid_requested_loan(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_requested_loan_forged_for_another_borrower_is_rejected() {
+        let mut forged = valid_requested_loan();
+        forged.borrower_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_loan(EntryCreationAction::Create(make_create()), forged).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_non_finite_legacy_money_is_rejected() {
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let mut loan = valid_requested_loan();
+            loan.principal = bad;
+            let result =
+                validate_create_loan(EntryCreationAction::Create(make_create()), loan).unwrap();
+            assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        }
+    }
+
+    #[test]
+    fn test_loan_principal_cannot_change_on_update() {
+        let previous = active_loan();
+        let mut updated = previous.clone();
+        updated.status = LoanStatus::Repaid;
+        updated.repaid = Some(ts(3_000_000));
+        updated.principal += 1.0;
+        let result = validate_loan_update_against_previous(
+            &previous.borrower_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_only_lender_can_default_active_loan() {
+        let previous = active_loan();
+        let mut updated = previous.clone();
+        updated.status = LoanStatus::Defaulted;
+
+        let rejected = validate_loan_update_against_previous(
+            &previous.borrower_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(rejected, ValidateCallbackResult::Invalid(_)));
+
+        let accepted = validate_loan_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(accepted, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_only_borrower_can_cancel_requested_loan() {
+        let previous = valid_requested_loan();
+        let mut updated = previous.clone();
+        updated.status = LoanStatus::Cancelled;
+
+        let rejected = validate_loan_update_against_previous(
+            "did:mycelix:someone-else",
+            &previous,
+            &updated,
+        );
+        assert!(matches!(rejected, ValidateCallbackResult::Invalid(_)));
+
+        let accepted = validate_loan_update_against_previous(
+            &previous.borrower_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(accepted, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_funding_binds_new_lender_to_update_author() {
+        let previous = valid_requested_loan();
+        let mut updated = previous.clone();
+        updated.status = LoanStatus::Funded;
+        updated.lender_did = "did:mycelix:lender".into();
+        updated.interest_rate = 0.05;
+        updated.funded = Some(ts(2_000_000));
+        updated.maturity = Some(ts(20_000_000));
+
+        let rejected = validate_loan_update_against_previous(
+            "did:mycelix:someone-else",
+            &previous,
+            &updated,
+        );
+        assert!(matches!(rejected, ValidateCallbackResult::Invalid(_)));
+
+        let accepted = validate_loan_update_against_previous(
+            &updated.lender_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(accepted, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_terminal_loan_states_cannot_be_resurrected() {
+        for terminal in [
+            LoanStatus::Repaid,
+            LoanStatus::Defaulted,
+            LoanStatus::Cancelled,
+        ] {
+            let mut previous = active_loan();
+            previous.status = terminal;
+            let mut updated = previous.clone();
+            updated.status = LoanStatus::Active;
+            let result = validate_loan_update_against_previous(
+                &previous.borrower_did,
+                &previous,
+                &updated,
+            );
+            assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         }
     }
 
@@ -390,16 +937,114 @@ mod tests {
     }
 
     #[test]
-    fn test_update_own_offer_is_accepted() {
-        let result = validate_update_loan_offer(make_update(), valid_offer()).unwrap();
+    fn test_offer_owner_can_deactivate_without_repricing() {
+        let previous = valid_offer();
+        let mut updated = previous.clone();
+        updated.active = false;
+        let result = validate_loan_offer_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
+    fn test_offer_update_cannot_change_economic_terms() {
+        let previous = valid_offer();
+        let mut updated = previous.clone();
+        updated.active = false;
+        updated.max_amount += 1.0;
+        let result = validate_loan_offer_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_inactive_offer_cannot_be_reactivated() {
+        let mut previous = valid_offer();
+        previous.active = false;
+        let mut updated = previous.clone();
+        updated.active = true;
+        let result = validate_loan_offer_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_update_another_lenders_offer_is_rejected() {
-        let mut forged = valid_offer();
-        forged.lender_did = "did:mycelix:uhCAkSomeoneElse".into();
-        let result = validate_update_loan_offer(make_update(), forged).unwrap();
+        let previous = valid_offer();
+        let mut updated = previous.clone();
+        updated.active = false;
+        let result = validate_loan_offer_update_against_previous(
+            "did:mycelix:uhCAkSomeoneElse",
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_valid_payment_schedule_is_accepted() {
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            valid_schedule(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_payment_schedule_numbers_must_be_contiguous() {
+        let mut schedule = valid_schedule();
+        schedule.payments[1].payment_number = 3;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_payment_schedule_due_dates_must_increase() {
+        let mut schedule = valid_schedule();
+        schedule.payments[1].due_date = schedule.payments[0].due_date;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_new_payment_schedule_cannot_claim_paid_installment() {
+        let mut schedule = valid_schedule();
+        schedule.payments[0].paid = true;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_payment_schedule_total_must_match_components() {
+        let mut schedule = valid_schedule();
+        schedule.payments[0].total_amount = 999.0;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }
