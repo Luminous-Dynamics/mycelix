@@ -4,15 +4,15 @@
   "status": "research-only candidate transition semantics; not production behavior",
   "decision_rules": [
     "All input trust_level and confidence values must be finite and in [0,1]; decay_rate must be finite and in [0,1]; interaction_count must fit u32.",
-    "When last_update is the existing zero sentinel, the first valid decay call initializes the watermark and applies no decay.",
-    "For an initialized state, timestamps must be monotone nondecreasing; backward time or checked i64 subtraction overflow rejects without mutation.",
+    "The existing last_update == 0 sentinel is reserved for uninitialized state; current_time == 0 is rejected because the legacy scalar field cannot distinguish an initialized epoch-zero timestamp from the sentinel.",
+    "For an initialized state, timestamps must be monotone nondecreasing; backwards time, a transition to reserved timestamp zero, or checked i64 subtraction overflow rejects without mutation.",
     "For a valid positive elapsed duration, trust decays by decay_rate^(elapsed_seconds/86400), confidence by the square root of that factor; equal timestamps produce no decay.",
     "Decay rate zero means immediate zero after positive elapsed time; decay rate one means no decay.",
     "Interaction weight must be finite and nonnegative. Positive weights are capped at 0.3; confidence grows by 0.05*(effective_weight/0.3), clamped to [0,1]. Accepted positive-weight interactions increment the u32 count with checked arithmetic.",
     "Zero interaction weight means no evidence: state and count are unchanged and confidence must not increase.",
     "Any invalid state or input rejects without committing a partial state update."
   ],
-  "case_count": 30,
+  "case_count": 32,
   "cases": [
     {
       "id": "TC-001-first-timestamp",
@@ -672,6 +672,40 @@
       "expected": {
         "valid": false
       }
+    },
+    {
+      "id": "TC-031-zero-timestamp-sentinel-collision",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "0",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "0"
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "TC-032-transition-to-zero-sentinel-rejected",
+      "state": {
+        "trust_level": "0.8",
+        "confidence": "0.6",
+        "decay_rate": "0.99",
+        "last_update": "-1",
+        "interaction_count": 5
+      },
+      "operation": {
+        "kind": "decay",
+        "current_time": "0"
+      },
+      "expected": {
+        "valid": false
+      }
     }
   ],
   "mutation_controls": [
@@ -699,6 +733,11 @@
       "id": "TC-MUT-005",
       "description": "Allow non-finite or out-of-range state to propagate.",
       "must_be_detected_by": "TC-011-nan-decay-rate"
+    },
+    {
+      "id": "TC-MUT-006",
+      "description": "Accept timestamp zero as initialized state and later mistake it for the uninitialized sentinel, silently skipping elapsed-time decay.",
+      "must_be_detected_by": "TC-031-zero-timestamp-sentinel-collision;TC-032-transition-to-zero-sentinel-rejected"
     }
   ]
 }
