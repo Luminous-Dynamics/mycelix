@@ -332,4 +332,16 @@ Reference design/standards context: buildingSMART's IFC and regulatory informati
 
 Related Symtropy route work is being developed separately in [draft PR #1993](https://github.com/Luminous-Dynamics/symtropy/pull/1993). Its current route playback and synthetic-room demo do not yet import real building models, implement XR, check camera collisions, or validate compliance.
 
+### First global source-watch seed: Johannesburg, South Africa
+
+A research-only source-watch fixture indexes four official Government of South Africa locators: the existing National Building Regulations and Building Standards Act publication; the 2026 Amendment Bill public-comment notice; the separate consultation-deadline extension; and the Cabinet statement describing approval to publish the draft Bill for public participation. The 2026 Bill is recorded as a proposal, not as an in-force replacement. The source-watch snapshot is dated 2026-10-19, and the extension notice records 12 November 2026 as the public-comment deadline.
+
+Official locators:
+- Existing Act publication: https://www.gov.za/documents/national-building-regulations-and-building-standards-act-16-apr-2015-1302
+- 2026 Amendment Bill consultation notice: https://www.gov.za/documents/notices/national-building-regulations-and-building-standards-act-publication-national
+- Consultation extension: https://www.gov.za/documents/notices/national-building-regulations-and-building-standards-act-extension-submission
+- Cabinet process statement: https://www.gov.za/news/cabinet-statements/statement-cabinet-meeting-6-may-2026-07-may-2026
+
+This is a locator inventory, not source verification. The fixture deliberately records no source-byte digest, no verified content, no legal-applicability decision, and no emitted binding rules. Next steps are to preserve the exact official source bytes and hashes, independently establish the consolidated Act and amendments, determine applicable national regulations/SANS editions/municipal instruments, and have local legal and building professionals review the resulting bounded jurisdiction pack. The validator also tests that research profiles explicitly classify every regulatory domain and that the proposal cannot silently enter the binding-rule layer.
+
 This remains a prototype and is not an authoritative global code registry, source-signature verification service, or legal advice.
