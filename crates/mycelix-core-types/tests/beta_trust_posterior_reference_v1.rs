@@ -1,11 +1,11 @@
 //! Research-only independent oracle for Beta-Bernoulli trust uncertainty.
- //!
- //! This test intentionally does not call MATL/TCDM production scoring. It freezes
+//!
+//! This test intentionally does not call MATL/TCDM production scoring. It freezes
  //! a separate mathematical reference so we can compare score-only policies with
  //! uncertainty-aware policies without quietly changing deployed trust semantics.
  //! Run with: cargo test -p mycelix-core-types --test beta_trust_posterior_reference_v1
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashSet;
 
 const CORPUS: &str = include_str!("data/beta-trust-posterior-reference-v1.json");
@@ -119,8 +119,8 @@ fn frozen_corpus_matches_reference_values_and_rejects_invalid_domains() {
     let cases = corpus["cases"]
         .as_array()
         .expect("reference cases must be an array");
-    assert_eq!(cases.len(), 20, "unexpected frozen case count");
-    assert_eq!(corpus["case_count"].as_u64(), Some(20));
+    assert_eq!(cases.len(), 22, "unexpected frozen case count");
+    assert_eq!(corpus["case_count"].as_u64(), Some(22));
 
     let mut ids = HashSet::new();
     let mut valid_count = 0;
@@ -166,7 +166,7 @@ fn frozen_corpus_matches_reference_values_and_rejects_invalid_domains() {
     }
 
     assert_eq!(valid_count, 13);
-    assert_eq!(invalid_count, 7);
+    assert_eq!(invalid_count, 9);
 }
 
 #[test]
@@ -232,4 +232,46 @@ fn named_semantic_mutants_are_detected_by_the_frozen_cases() {
     let balanced = evaluate(by_id(cases, "BTP-008-balanced-evidence"), false)
         .expect("valid balanced-evidence case");
     assert!(!close(balanced.lower_bound, balanced.mean));
+}
+
+#[test]
+fn deterministic_parameter_grid_preserves_posterior_invariants() {
+    let prior_grid = [0.1_f64, 0.5, 1.0, 2.0, 10.0, 100.0];
+    let evidence_grid = [0_usize, 1, 5, 20];
+    let tail_grid = [0.01_f64, 0.05, 0.1, 0.25, 0.5, 0.9];
+
+    let mut checked = 0_usize;
+    for prior_alpha in prior_grid {
+        for prior_beta in prior_grid {
+            for successes in evidence_grid {
+                for failures in evidence_grid {
+                    let observations: Vec<bool> = std::iter::repeat_n(true, successes)
+                        .chain(std::iter::repeat_n(false, failures))
+                        .collect();
+                    let mut previous_lower_bound = 0.0_f64;
+                    for epsilon in tail_grid {
+                        let case = json!({
+                            "prior_alpha": prior_alpha.to_string(),
+                            "prior_beta": prior_beta.to_string(),
+                            "observations": observations,
+                            "tail_probability": epsilon.to_string()
+                        });
+                        let result = evaluate(&case, false).expect("grid case is valid");
+                        assert!(result.variance >= 0.0);
+                        assert!(result.variance <= 0.25);
+                        assert!((0.0..=1.0).contains(&result.mean));
+                        assert!((0.0..=1.0).contains(&result.lower_bound));
+                        assert!(result.lower_bound <= result.mean);
+                        assert!(
+                            result.lower_bound + ABS_TOL >= previous_lower_bound,
+                            "less conservative tail probability should not lower the bound"
+                        );
+                        previous_lower_bound = result.lower_bound;
+                        checked += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(checked, 3456, "unexpected deterministic grid size");
 }
