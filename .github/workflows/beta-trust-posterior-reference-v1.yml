@@ -1,0 +1,94 @@
+name: Beta Trust Posterior Reference V1
+
+on:
+  push:
+    branches:
+      - research/matl-beta-trust-posterior-reference-v1
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/beta-trust-posterior-reference-v1.yml'
+      - 'crates/mycelix-core-types/Cargo.toml'
+      - 'crates/mycelix-core-types/Cargo.lock'
+      - 'crates/mycelix-core-types/tests/beta_trust_posterior_reference_v1.rs'
+      - 'crates/mycelix-core-types/tests/data/beta-trust-posterior-reference-v1.json'
+      - 'docs/research/MATL_BETA_TRUST_POSTERIOR_REFERENCE_2026-10.md'
+
+permissions:
+  contents: read
+
+# Preserve each exact qualification subject; stale or cancelled runs are not a pass.
+concurrency:
+  group: beta-trust-posterior-reference-v1-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  reference:
+    name: Exact-head beta posterior reference
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert tested commit
+        run: |
+          test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+          git status --short --branch
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
+          cargo +1.96.0 --version
+
+      - name: Check package formatting
+        run: cargo +1.96.0 fmt --manifest-path crates/mycelix-core-types/Cargo.toml --all -- --check
+
+      - name: Validate locked package metadata
+        run: cargo +1.96.0 metadata --manifest-path crates/mycelix-core-types/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+
+      - name: Run frozen posterior reference oracle
+        run: cargo +1.96.0 test --manifest-path crates/mycelix-core-types/Cargo.toml --locked --test beta_trust_posterior_reference_v1
+
+      - name: Run core-type unit tests
+        run: cargo +1.96.0 test --manifest-path crates/mycelix-core-types/Cargo.toml --locked --lib
+
+      - name: Verify clean postflight and emit evidence
+        run: |
+          test -z "$(git status --porcelain)"
+          {
+            echo "profile=IndependentBernoulliEvidencePosteriorV1"
+            echo "status=reference-gate-passed"
+            echo "qualified_sha=$QUALIFIED_SHA"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "rust_commit=$(rustc +1.96.0 --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo +1.96.0 --version)"
+            echo "rustfmt=$(rustfmt +1.96.0 --version)"
+            echo "workflow_blob=$(git hash-object .github/workflows/beta-trust-posterior-reference-v1.yml)"
+            echo "manifest_blob=$(git hash-object crates/mycelix-core-types/Cargo.toml)"
+            echo "lock_sha256=$(sha256sum crates/mycelix-core-types/Cargo.lock | cut -d' ' -f1)"
+            echo "corpus_blob=$(git hash-object crates/mycelix-core-types/tests/data/beta-trust-posterior-reference-v1.json)"
+            echo "corpus_sha256=$(sha256sum crates/mycelix-core-types/tests/data/beta-trust-posterior-reference-v1.json | cut -d' ' -f1)"
+            echo "test_blob=$(git hash-object crates/mycelix-core-types/tests/beta_trust_posterior_reference_v1.rs)"
+            echo "test_sha256=$(sha256sum crates/mycelix-core-types/tests/beta_trust_posterior_reference_v1.rs | cut -d' ' -f1)"
+            echo "postflight=clean"
+          } >> "$GITHUB_STEP_SUMMARY"
