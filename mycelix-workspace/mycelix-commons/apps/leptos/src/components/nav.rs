@@ -11,6 +11,7 @@ pub fn Nav() -> impl IntoView {
         <nav class="navbar">
             <a href="/" class="logo">"Mycelix Commons"</a>
             <div class="nav-links">
+                <A href="/farmer">"Farmer"</A>
                 <A href="/property">"Property"</A>
                 <A href="/housing">"Housing"</A>
                 <A href="/care">"Care"</A>
