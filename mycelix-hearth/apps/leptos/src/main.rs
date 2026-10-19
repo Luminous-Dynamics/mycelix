@@ -14,6 +14,7 @@ pub mod mock_data;
 mod onboarding;
 pub mod record_bridge;
 mod pages;
+mod runtime_mode;
 mod signal_listener;
 mod simulated_life;
 mod soma_bridge;

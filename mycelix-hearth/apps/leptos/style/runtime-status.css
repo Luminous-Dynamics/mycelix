@@ -1,0 +1,116 @@
+/* Explicit runtime/data provenance for Hearth. Kept separate from the living
+ * visual system so truth-state styling can evolve without entangling themes. */
+
+.runtime-status-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0.75rem 2rem 0;
+}
+
+.runtime-status-wrap:empty {
+    display: none;
+}
+
+.runtime-status-wrap .availability-state {
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-soft);
+    background: var(--surface);
+    box-shadow: var(--shadow-ambient);
+}
+
+.runtime-status-wrap .availability-state-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.runtime-status-wrap .availability-state-icon {
+    color: var(--primary);
+    line-height: 1.4;
+}
+
+.runtime-status-wrap .availability-state-copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.runtime-status-wrap .availability-state-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.runtime-status-wrap .availability-state-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.runtime-status-wrap .availability-state-description {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.runtime-status-wrap .status-pill {
+    font-size: 0.65rem;
+    line-height: 1;
+    padding: 0.3rem 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--primary-glow);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.runtime-status-wrap .availability-mock .status-pill {
+    color: var(--bond-decaying);
+}
+
+.runtime-status-wrap .availability-degraded .status-pill,
+.runtime-status-wrap .availability-unavailable .status-pill {
+    color: var(--bond-neglected);
+}
+
+.runtime-status-wrap .availability-locked .status-pill {
+    color: var(--tier-guardian);
+}
+
+.runtime-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-soft);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.runtime-progress-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--primary);
+    animation: runtimePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes runtimePulse {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 640px) {
+    .runtime-status-wrap {
+        padding: 0.6rem 1rem 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .runtime-progress-dot {
+        animation: none;
+    }
+}
