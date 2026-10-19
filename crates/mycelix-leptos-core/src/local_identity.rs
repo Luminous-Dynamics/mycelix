@@ -1069,3 +1069,119 @@ mod tests {
         assert_ne!(phrase_a, phrase_b);
     }
 }
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod browser_storage_tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    struct IdentityStorageBackup {
+        storage: web_sys::Storage,
+        values: Vec<(&'static str, Option<String>)>,
+    }
+
+    impl IdentityStorageBackup {
+        fn new_and_clear() -> Self {
+            let storage = web_sys::window()
+                .expect("browser window is available in this test")
+                .local_storage()
+                .expect("localStorage API is available")
+                .expect("localStorage is available");
+            let keys = [
+                LEGACY_DID_KEY,
+                IDENTITY_SECRET_KEY,
+                IDENTITY_PUBLIC_KEY,
+                IDENTITY_SECRET_ENCRYPTED_KEY,
+            ];
+            let values = keys
+                .into_iter()
+                .map(|key| (key, storage.get_item(key).expect("storage read succeeds")))
+                .collect();
+            let backup = Self { storage, values };
+            backup.clear_identity_keys();
+            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+            backup
+        }
+
+        fn clear_identity_keys(&self) {
+            for key in [
+                LEGACY_DID_KEY,
+                IDENTITY_SECRET_KEY,
+                IDENTITY_PUBLIC_KEY,
+                IDENTITY_SECRET_ENCRYPTED_KEY,
+            ] {
+                self.storage.remove_item(key).expect("test storage cleanup succeeds");
+            }
+        }
+    }
+
+    impl Drop for IdentityStorageBackup {
+        fn drop(&mut self) {
+            self.clear_identity_keys();
+            for (key, value) in &self.values {
+                match value {
+                    Some(value) => {
+                        let _ = self.storage.set_item(key, value);
+                    }
+                    None => {
+                        let _ = self.storage.remove_item(key);
+                    }
+                }
+            }
+            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        }
+    }
+
+    #[wasm_bindgen_test]
+    async fn protected_creation_writes_no_plaintext_secret_and_unlocks_same_key() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let posture = create_protected_identity("synthetic browser test passphrase")
+            .await
+            .expect("protected identity creation succeeds in isolated browser storage");
+        assert_eq!(posture, LocalIdentityStoragePosture::ProtectedUnlockedInSession);
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        let public_b64 = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("public-key metadata was persisted");
+        assert!(storage
+            .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+            .unwrap()
+            .is_some());
+
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        let signing_key = unlock_with_passphrase("synthetic browser test passphrase")
+            .await
+            .expect("correct passphrase unlocks the protected identity");
+        assert!(public_key_matches_signing_key(&public_b64, &signing_key));
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+    }
+
+    #[wasm_bindgen_test]
+    async fn unlock_rejects_tampered_public_key_without_caching_decrypted_key() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic browser test passphrase")
+            .await
+            .expect("protected identity creation succeeds in isolated browser storage");
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let wrong_key = SigningKey::from_bytes(&[117u8; 32]);
+        storage
+            .set_item(
+                IDENTITY_PUBLIC_KEY,
+                &base64_encode(wrong_key.verifying_key().as_bytes()),
+            )
+            .expect("test can tamper with the isolated public-key metadata");
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+
+        assert!(unlock_with_passphrase("synthetic browser test passphrase")
+            .await
+            .is_err());
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+    }
+}
