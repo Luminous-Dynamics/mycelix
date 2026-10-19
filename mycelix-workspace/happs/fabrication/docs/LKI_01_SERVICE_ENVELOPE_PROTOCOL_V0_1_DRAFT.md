@@ -21,8 +21,9 @@ The v0.1 checker is deliberately conservative: it uses axis-aligned bounding box
 1. Every envelope uses a named reference frame, explicit millimetres, lower-corner origin and positive dimensions.
 2. A fit check references one module and one bay and specifies the minimum clearance at each opposing face.
 3. Installation, service-access and removal envelopes are checked against all obstacle and keep-out envelopes after clearance inflation.
-4. Every envelope cites a source record. Assumptions and synthetic fixtures can support only a screening result. Measured, controlled-drawing or approved sources require an exact revision and SHA-256 digest.
-5. Unknown or unresolved references, missing/invalid geometry, failed face clearance, collision, or a requested physical qualification produce a blocked/failing result. Do not change unknowns to zero or omit inconvenient obstacles.
+4. Every envelope cites a source record. Assumptions and synthetic fixtures can support only a screening result. Measured, controlled-drawing or approved sources require an exact revision and SHA-256 digest. Source type and evidence state must agree (for example, an assumption cannot be relabelled approved).
+5. The record declares whether the service-space obstacle inventory is incomplete or reviewed. A record cannot advance to screening/measured state without a reviewed inventory backed by at least one measured/approved digest-bound source; this records review provenance, not proof that every physical obstruction was found.
+6. Unknown or unresolved references, missing/invalid geometry, failed face clearance, collision, inconsistent evidence states, or a requested physical qualification produce a blocked/failing result. Do not change unknowns to zero or omit inconvenient obstacles.
 6. The checker always emits `physical_fit_qualified=false`. A passing result means only that the declared synthetic/recorded AABBs passed these narrow arithmetic checks; it never certifies a physical product.
 
 ## Software benchmark
@@ -48,6 +49,7 @@ In addition to those ten frozen examples, the Rust test suite checks metamorphic
 These are programme targets to evaluate, not results already achieved:
 
 - 100% of critical geometry claims bind to an exact revision and SHA-256 source digest before design release.
+- 100% of records promoted beyond concept state carry a reviewed obstacle-inventory declaration and digest-bound review source; actual inventory completeness must still be validated against controlled CAD and the physical environment.
 - 100% of designated modules have separately represented fit, install, service and removal checks before physical prototype release.
 - Zero unresolved hard-gate failures on the approved controlled geometry.
 - Zero permanent damage to the reusable structure in each designated non-destructive removal trial.
