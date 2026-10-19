@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "subject": "Mycelix Finance substrate qualification",
+  "target": {
+    "holochain": "0.7.0",
+    "hdk": "0.7.0",
+    "hdi": "0.8.0",
+    "hc_cli": "0.7.0",
+    "lair": "0.7.1",
+    "javascript_client": "0.21.0",
+    "rust_client": "0.9.0"
+  },
+  "authoritative_source": "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+  "current_declaration": {
+    "cargo": {
+      "hdk": "0.6.1",
+      "hdi": "0.7.1",
+      "holochain_zome_types": "0.6.1",
+      "holochain_integrity_types": "0.6.1",
+      "holo_hash": "0.6.1",
+      "hdk_derive": "0.6.1",
+      "holochain_serialized_bytes": "0.0.57"
+    },
+    "holonix": {
+      "finance_flake_ref": "d21b3543",
+      "workspace_flake_ref": "d21b3543",
+      "declared_runtime_lineage": "0.6-era; runtime build-info must be measured, not inferred"
+    },
+    "qualification_runner": {
+      "rust": "1.96.1",
+      "rust_commit": "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+    },
+    "javascript_client": "not present in public Finance tree",
+    "rust_client": "not present in public Finance tree"
+  },
+  "qualification_rule": "Target qualification is prohibited until declared and measured substrate identities match the target matrix.",
+  "current_status": "BLOCKED_SUBSTRATE_MISMATCH",
+  "runtime_measurement": {
+    "required_for_qualification": true,
+    "command_source": "mycelix-finance/flake.nix#ci",
+    "binaries": [
+      "holochain",
+      "hc"
+    ],
+    "rule": "measured runtime versions must match target.holochain"
+  }
+}
