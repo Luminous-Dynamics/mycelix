@@ -1,0 +1,364 @@
+{
+  "schema": "mycelix-trust-calibration-reference-v1",
+  "profile": "BinaryProbabilityScoreReferenceV1",
+  "status": "research-only score arithmetic reference; no model calibration result is claimed",
+  "prediction_semantics": "Every input probability must be a calibrated or calibratable probability of the same explicitly named binary outcome. A TCDM trust_level/confidence value is not a probability by name alone.",
+  "metrics": {
+    "brier_score": "mean((p_i-y_i)^2); lower is better; strictly proper for binary probability forecasts.",
+    "log_loss": "mean(-y_i*ln(p_i)-(1-y_i)*ln(1-p_i)); p_i must be strictly within (0,1), finite.",
+    "mean_probability": "mean(p_i), reported beside the observed_positive_rate.",
+    "observed_positive_rate": "mean(y_i), the empirical event rate in this finite fixture."
+  },
+  "case_count": 18,
+  "cases": [
+    {
+      "id": "TCAL-001-separable-probabilities",
+      "probabilities": [
+        "0.1",
+        "0.9",
+        "0.1",
+        "0.9"
+      ],
+      "outcomes": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "interpretation": "Well-separated, correct probability ordering.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.0099999999999999985",
+        "log_loss": "0.10536051565782630",
+        "mean_probability": "0.50000000000000000",
+        "observed_positive_rate": "0.50000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-002-overconfident-wrong",
+      "probabilities": [
+        "0.99",
+        "0.99",
+        "0.99",
+        "0.99"
+      ],
+      "outcomes": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "interpretation": "Severe penalty when highly confident predictions are wrong.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.73509999999999998",
+        "log_loss": "3.4563902234544428",
+        "mean_probability": "0.98999999999999999",
+        "observed_positive_rate": "0.25000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-003-underconfident-constant",
+      "probabilities": [
+        "0.6",
+        "0.6",
+        "0.6",
+        "0.6"
+      ],
+      "outcomes": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "interpretation": "Constant probability at the wrong base rate.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.26000000000000001",
+        "log_loss": "0.71355817782007280",
+        "mean_probability": "0.59999999999999998",
+        "observed_positive_rate": "0.50000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-004-constant-base-rate-not-informative",
+      "probabilities": [
+        "0.5",
+        "0.5",
+        "0.5",
+        "0.5"
+      ],
+      "outcomes": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "interpretation": "Can be calibrated at the aggregate base rate while providing no ranking information.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.25000000000000000",
+        "log_loss": "0.69314718055994529",
+        "mean_probability": "0.50000000000000000",
+        "observed_positive_rate": "0.50000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-005-discriminative-and-correct",
+      "probabilities": [
+        "0.2",
+        "0.2",
+        "0.8",
+        "0.8"
+      ],
+      "outcomes": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "interpretation": "Correctly separates negative and positive outcomes.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.039999999999999994",
+        "log_loss": "0.22314355131420974",
+        "mean_probability": "0.50000000000000000",
+        "observed_positive_rate": "0.50000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-006-base-rate-shift-underpredict",
+      "probabilities": [
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1"
+      ],
+      "outcomes": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "interpretation": "Prior/base-rate shift exposes stale forecasts.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.61000000000000010",
+        "log_loss": "1.7532789486599905",
+        "mean_probability": "0.10000000000000001",
+        "observed_positive_rate": "0.75000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-007-base-rate-shift-adjusted",
+      "probabilities": [
+        "0.75",
+        "0.75",
+        "0.75",
+        "0.75"
+      ],
+      "outcomes": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "interpretation": "Forecast adjusted to the changed 75% event rate; still has no within-group discrimination.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.18750000000000000",
+        "log_loss": "0.56233514461880829",
+        "mean_probability": "0.75000000000000000",
+        "observed_positive_rate": "0.75000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-008-constant-calibrated-at-25pct",
+      "probabilities": [
+        "0.25",
+        "0.25",
+        "0.25",
+        "0.25"
+      ],
+      "outcomes": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "interpretation": "Aggregate calibration alone does not establish useful case discrimination.",
+      "expected": {
+        "valid": true,
+        "brier_score": "0.18750000000000000",
+        "log_loss": "0.56233514461880829",
+        "mean_probability": "0.25000000000000000",
+        "observed_positive_rate": "0.25000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-009-near-certain-correct",
+      "probabilities": [
+        "0.000000001",
+        "0.999999999"
+      ],
+      "outcomes": [
+        0,
+        1
+      ],
+      "interpretation": "Finite near-boundary score behavior without allowing infinite log loss.",
+      "expected": {
+        "valid": true,
+        "brier_score": "9.9999997171806897e-19",
+        "log_loss": "9.9999998635903427e-10",
+        "mean_probability": "0.50000000000000000",
+        "observed_positive_rate": "0.50000000000000000"
+      }
+    },
+    {
+      "id": "TCAL-X01-zero-probability",
+      "probabilities": [
+        "0"
+      ],
+      "outcomes": [
+        0
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Strict probability boundary yields infinite log loss."
+    },
+    {
+      "id": "TCAL-X02-one-probability",
+      "probabilities": [
+        "1"
+      ],
+      "outcomes": [
+        1
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Strict probability boundary yields infinite log loss."
+    },
+    {
+      "id": "TCAL-X03-negative-probability",
+      "probabilities": [
+        "-0.01"
+      ],
+      "outcomes": [
+        0
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Probability outside [0,1]."
+    },
+    {
+      "id": "TCAL-X04-above-one-probability",
+      "probabilities": [
+        "1.01"
+      ],
+      "outcomes": [
+        1
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Probability outside [0,1]."
+    },
+    {
+      "id": "TCAL-X05-nan-probability",
+      "probabilities": [
+        "NaN"
+      ],
+      "outcomes": [
+        0
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Non-finite probability."
+    },
+    {
+      "id": "TCAL-X06-infinite-probability",
+      "probabilities": [
+        "Infinity"
+      ],
+      "outcomes": [
+        0
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Non-finite probability."
+    },
+    {
+      "id": "TCAL-X07-mismatched-lengths",
+      "probabilities": [
+        "0.3",
+        "0.4"
+      ],
+      "outcomes": [
+        0
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "One outcome per predicted probability is required."
+    },
+    {
+      "id": "TCAL-X08-nonbinary-outcome",
+      "probabilities": [
+        "0.4"
+      ],
+      "outcomes": [
+        2
+      ],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Binary outcomes must be 0 or 1."
+    },
+    {
+      "id": "TCAL-X09-empty-samples",
+      "probabilities": [],
+      "outcomes": [],
+      "expected": {
+        "valid": false
+      },
+      "reason": "Scores are undefined for an empty sample."
+    }
+  ],
+  "mutation_controls": [
+    {
+      "id": "TCAL-MUT-001",
+      "description": "Replace squared Brier error with absolute error.",
+      "must_be_detected_by": "TCAL-001-separable-probabilities"
+    },
+    {
+      "id": "TCAL-MUT-002",
+      "description": "Compute log loss without conditioning the term on the observed label.",
+      "must_be_detected_by": "TCAL-002-overconfident-wrong"
+    },
+    {
+      "id": "TCAL-MUT-003",
+      "description": "Accept p=0 or p=1 as finite log-loss inputs.",
+      "must_be_detected_by": "TCAL-X01-zero-probability;TCAL-X02-one-probability"
+    },
+    {
+      "id": "TCAL-MUT-004",
+      "description": "Accept non-finite or out-of-range predicted probabilities.",
+      "must_be_detected_by": "TCAL-X03-negative-probability;TCAL-X04-above-one-probability;TCAL-X05-nan-probability;TCAL-X06-infinite-probability"
+    },
+    {
+      "id": "TCAL-MUT-005",
+      "description": "Score mismatched prediction/outcome lengths or non-binary labels.",
+      "must_be_detected_by": "TCAL-X07-mismatched-lengths;TCAL-X08-nonbinary-outcome"
+    },
+    {
+      "id": "TCAL-MUT-006",
+      "description": "Use aggregate calibration alone as proof of useful discrimination or as evidence that TCDM confidence is a probability.",
+      "must_be_detected_by": "TCAL-004-constant-base-rate-not-informative;TCAL-007-base-rate-shift-adjusted;TCAL-008-constant-calibrated-at-25pct"
+    }
+  ]
+}
