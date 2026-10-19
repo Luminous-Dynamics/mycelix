@@ -214,22 +214,94 @@ fn audit_record_semantics(record: &Value) -> Vec<String> {
         .get("obstacle_inventory_state")
         .and_then(Value::as_str)
         .unwrap_or("incomplete");
+    let mut inventory_source_ids = Vec::<String>::new();
+    if let Some(ids) = record
+        .get("obstacle_inventory_evidence_source_ids")
+        .and_then(Value::as_array)
+    {
+        for id in ids.iter().filter_map(Value::as_str) {
+            inventory_source_ids.push(id.to_string());
+        }
+    } else {
+        issues.push("OBSTACLE_INVENTORY_SOURCE_IDS_MISSING".to_string());
+    }
+
     if matches!(record_state, "screening" | "measured")
         && obstacle_inventory_state != "reviewed"
     {
         issues.push("OBSTACLE_INVENTORY_NOT_REVIEWED".to_string());
     }
-    if obstacle_inventory_state == "reviewed"
-        && !sources.values().any(|source| {
-            let state = source.get("evidence_state").and_then(Value::as_str).unwrap_or("");
+    if obstacle_inventory_state == "reviewed" && inventory_source_ids.is_empty() {
+        issues.push("OBSTACLE_INVENTORY_REVIEW_EVIDENCE_MISSING".to_string());
+    }
+    if obstacle_inventory_state == "reviewed" {
+        for source_id in &inventory_source_ids {
+            let Some(source) = sources.get(source_id) else {
+                issues.push(format!(
+                    "OBSTACLE_INVENTORY_SOURCE_UNRESOLVED:{source_id}"
+                ));
+                continue;
+            };
+            let state = source
+                .get("evidence_state")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let source_type = source
+                .get("source_type")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let digest_valid = source
                 .get("digest_sha256")
                 .and_then(Value::as_str)
                 .is_some_and(is_sha256_hex);
-            matches!(state, "measured" | "approved") && digest_valid
-        })
-    {
-        issues.push("OBSTACLE_INVENTORY_REVIEW_EVIDENCE_MISSING".to_string());
+            if !matches!(source_type, "controlled_drawing" | "measurement_report")
+                || !matches!(state, "measured" | "approved")
+                || !digest_valid
+            {
+                issues.push(format!(
+                    "OBSTACLE_INVENTORY_REVIEW_EVIDENCE_UNQUALIFIED:{source_id}"
+                ));
+            }
+        }
+    }
+    if matches!(record_state, "screening" | "measured") {
+        if let Some(items) = record.get("envelopes").and_then(Value::as_array) {
+            for envelope in items {
+                let id = envelope
+                    .get("envelope_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                let source_id = envelope
+                    .get("source_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let Some(source) = sources.get(source_id) else {
+                    continue;
+                };
+                let state = source
+                    .get("evidence_state")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let digest_valid = source
+                    .get("digest_sha256")
+                    .and_then(Value::as_str)
+                    .is_some_and(is_sha256_hex);
+                if !matches!(state, "measured" | "approved") || !digest_valid {
+                    issues.push(format!(
+                        "NON_CONCEPT_ENVELOPE_SOURCE_UNQUALIFIED:{id}"
+                    ));
+                }
+                let role = envelope.get("role").and_then(Value::as_str).unwrap_or("");
+                if obstacle_inventory_state == "reviewed"
+                    && matches!(role, "obstacle" | "keep_out")
+                    && !inventory_source_ids.iter().any(|declared| declared == source_id)
+                {
+                    issues.push(format!(
+                        "OBSTACLE_SOURCE_NOT_IN_REVIEW_MANIFEST:{id}:{source_id}"
+                    ));
+                }
+            }
+        }
     }
 
     let reference_frame = record
