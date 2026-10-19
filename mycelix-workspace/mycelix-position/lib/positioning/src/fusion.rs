@@ -215,11 +215,24 @@ impl std::fmt::Display for FusionError {
         match self {
             Self::NonFiniteOmega => write!(formatter, "CI omega must be finite"),
             Self::OmegaOutOfRange => write!(formatter, "CI omega must be within [0, 1]"),
-            Self::NonFiniteMean { input, axis } => write!(formatter, "estimate {input:?} has a non-finite mean on axis {axis}"),
-            Self::InvalidCovariance { input, axis } => write!(formatter, "estimate {input:?} covariance must be finite and strictly positive on axis {axis}"),
-            Self::NonFinitePrecision { axis } => write!(formatter, "CI precision arithmetic is invalid on axis {axis}"),
-            Self::InvalidFusedCovariance { axis } => write!(formatter, "fused covariance is invalid on axis {axis}"),
-            Self::NonFiniteFusedMean { axis } => write!(formatter, "fused mean is invalid on axis {axis}"),
+            Self::NonFiniteMean { input, axis } => write!(
+                formatter,
+                "estimate {input:?} has a non-finite mean on axis {axis}"
+            ),
+            Self::InvalidCovariance { input, axis } => write!(
+                formatter,
+                "estimate {input:?} covariance must be finite and strictly positive on axis {axis}"
+            ),
+            Self::NonFinitePrecision { axis } => write!(
+                formatter,
+                "CI precision arithmetic is invalid on axis {axis}"
+            ),
+            Self::InvalidFusedCovariance { axis } => {
+                write!(formatter, "fused covariance is invalid on axis {axis}")
+            }
+            Self::NonFiniteFusedMean { axis } => {
+                write!(formatter, "fused mean is invalid on axis {axis}")
+            }
         }
     }
 }
@@ -329,19 +342,40 @@ mod tests {
     #[test]
     fn ci_rejects_invalid_weight_and_covariance_without_clamping() {
         let good = GaussianEstimate3D::new([0.0; 3], [1.0; 3]);
-        assert_eq!(covariance_intersection_3d(&good, &good, f64::NAN), Err(FusionError::NonFiniteOmega));
-        assert_eq!(covariance_intersection_3d(&good, &good, -0.1), Err(FusionError::OmegaOutOfRange));
+        assert_eq!(
+            covariance_intersection_3d(&good, &good, f64::NAN),
+            Err(FusionError::NonFiniteOmega)
+        );
+        assert_eq!(
+            covariance_intersection_3d(&good, &good, -0.1),
+            Err(FusionError::OmegaOutOfRange)
+        );
         let invalid = GaussianEstimate3D::new([0.0; 3], [0.0, 1.0, 1.0]);
-        assert_eq!(covariance_intersection_3d(&invalid, &good, 0.5), Err(FusionError::InvalidCovariance { input: FusionInput::A, axis: 0 }));
+        assert_eq!(
+            covariance_intersection_3d(&invalid, &good, 0.5),
+            Err(FusionError::InvalidCovariance {
+                input: FusionInput::A,
+                axis: 0
+            })
+        );
     }
 
     #[test]
     fn ci_rejects_non_finite_mean_and_reciprocal_overflow() {
         let good = GaussianEstimate3D::new([0.0; 3], [1.0; 3]);
         let invalid_mean = GaussianEstimate3D::new([f64::INFINITY, 0.0, 0.0], [1.0; 3]);
-        assert_eq!(covariance_intersection_3d(&invalid_mean, &good, 0.5), Err(FusionError::NonFiniteMean { input: FusionInput::A, axis: 0 }));
+        assert_eq!(
+            covariance_intersection_3d(&invalid_mean, &good, 0.5),
+            Err(FusionError::NonFiniteMean {
+                input: FusionInput::A,
+                axis: 0
+            })
+        );
         let tiny = GaussianEstimate3D::new([0.0; 3], [f64::from_bits(1), 1.0, 1.0]);
-        assert_eq!(covariance_intersection_3d(&tiny, &good, 0.5), Err(FusionError::NonFinitePrecision { axis: 0 }));
+        assert_eq!(
+            covariance_intersection_3d(&tiny, &good, 0.5),
+            Err(FusionError::NonFinitePrecision { axis: 0 })
+        );
     }
 
     #[test]
@@ -363,14 +397,31 @@ mod tests {
         let mut seed = 0x9e3779b97f4a7c15_u64;
         for _ in 0..10_000 {
             let mut draw = || {
-                seed = seed.wrapping_mul(6_364_136_223_846_793_005)
+                seed = seed
+                    .wrapping_mul(6_364_136_223_846_793_005)
                     .wrapping_add(1_442_695_040_888_963_407);
                 ((seed >> 11) as f64) / ((1_u64 << 53) as f64)
             };
-            let means_a = [draw() * 2_000.0 - 1_000.0, draw() * 2_000.0 - 1_000.0, draw() * 2_000.0 - 1_000.0];
-            let means_b = [draw() * 2_000.0 - 1_000.0, draw() * 2_000.0 - 1_000.0, draw() * 2_000.0 - 1_000.0];
-            let covariance_a = [10.0_f64.powf(draw() * 12.0 - 6.0), 10.0_f64.powf(draw() * 12.0 - 6.0), 10.0_f64.powf(draw() * 12.0 - 6.0)];
-            let covariance_b = [10.0_f64.powf(draw() * 12.0 - 6.0), 10.0_f64.powf(draw() * 12.0 - 6.0), 10.0_f64.powf(draw() * 12.0 - 6.0)];
+            let means_a = [
+                draw() * 2_000.0 - 1_000.0,
+                draw() * 2_000.0 - 1_000.0,
+                draw() * 2_000.0 - 1_000.0,
+            ];
+            let means_b = [
+                draw() * 2_000.0 - 1_000.0,
+                draw() * 2_000.0 - 1_000.0,
+                draw() * 2_000.0 - 1_000.0,
+            ];
+            let covariance_a = [
+                10.0_f64.powf(draw() * 12.0 - 6.0),
+                10.0_f64.powf(draw() * 12.0 - 6.0),
+                10.0_f64.powf(draw() * 12.0 - 6.0),
+            ];
+            let covariance_b = [
+                10.0_f64.powf(draw() * 12.0 - 6.0),
+                10.0_f64.powf(draw() * 12.0 - 6.0),
+                10.0_f64.powf(draw() * 12.0 - 6.0),
+            ];
             let omega = draw();
             let a = GaussianEstimate3D::new(means_a, covariance_a);
             let b = GaussianEstimate3D::new(means_b, covariance_b);
@@ -383,10 +434,11 @@ mod tests {
                 assert!(forward.covariance_diag[axis] >= low * (1.0 - 1.0e-12));
                 assert!(forward.covariance_diag[axis] <= high * (1.0 + 1.0e-12));
                 assert!((forward.mean[axis] - reverse.mean[axis]).abs() <= 1.0e-9);
-                assert!((forward.covariance_diag[axis] - reverse.covariance_diag[axis]).abs()
-                    <= 1.0e-9 * high.max(1.0));
+                assert!(
+                    (forward.covariance_diag[axis] - reverse.covariance_diag[axis]).abs()
+                        <= 1.0e-9 * high.max(1.0)
+                );
             }
         }
     }
-
 }
