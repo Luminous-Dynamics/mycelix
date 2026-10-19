@@ -1,0 +1,26 @@
+{
+  "schema": "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-RECEIPT-CONTRACT-V1",
+  "receipt_schema": "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-RECEIPT-V1",
+  "canonicalization": "JSON-SORT-KEYS-SEPARATORS-UTF8-V1",
+  "semantic_boundary": "trusted_candidate_independent_semantic_recomputation",
+  "required_top_level": [
+    "receipt_id_sha256",
+    "schema",
+    "subject",
+    "trigger_execution",
+    "trusted_control_plane",
+    "candidate_surface",
+    "semantic_result",
+    "reported_execution",
+    "disposition",
+    "claim_ceiling"
+  ],
+  "prohibited_authority_claims": [
+    "production_conformance",
+    "cryptographic_validity",
+    "scitt_trust",
+    "transport_trust",
+    "operational_authority",
+    "legal_authority"
+  ]
+}
