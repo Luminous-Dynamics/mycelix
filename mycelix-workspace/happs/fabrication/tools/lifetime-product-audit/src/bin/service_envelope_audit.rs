@@ -782,9 +782,9 @@ mod tests {
         assert!(issues
             .iter()
             .any(|issue| issue.starts_with("NON_CONCEPT_ENVELOPE_SOURCE_UNQUALIFIED:")));
-        assert!(issues
-            .iter()
-            .any(|issue| issue == "OBSTACLE_INVENTORY_REVIEW_EVIDENCE_UNQUALIFIED:SRC-CONCEPT-001"));
+        assert!(issues.iter().any(|issue| {
+            issue == "OBSTACLE_INVENTORY_REVIEW_EVIDENCE_UNQUALIFIED:SRC-CONCEPT-001"
+        }));
     }
 
     #[test]
