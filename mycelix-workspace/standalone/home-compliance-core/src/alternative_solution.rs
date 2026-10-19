@@ -466,7 +466,9 @@ where
             AlternativeReviewDisposition::SupportsSubmission => supporters += 1,
             AlternativeReviewDisposition::ChallengesSubmission
             | AlternativeReviewDisposition::RequiresMoreEvidence
-            | AlternativeReviewDisposition::Inconclusive => dissent.push(review.reviewer_id.clone()),
+            | AlternativeReviewDisposition::Inconclusive => {
+                dissent.push(review.reviewer_id.clone())
+            }
         }
     }
     if case.independent_reviews.len() < 2 {
@@ -540,7 +542,12 @@ mod tests {
         }
     }
 
-    fn review(id: &str, case_rev: &str, design_rev: &str, disposition: AlternativeReviewDisposition) -> AlternativeIndependentReview {
+    fn review(
+        id: &str,
+        case_rev: &str,
+        design_rev: &str,
+        disposition: AlternativeReviewDisposition,
+    ) -> AlternativeIndependentReview {
         AlternativeIndependentReview {
             reviewer_id: id.into(),
             expertise_scope: "Relevant independent technical expertise".into(),
@@ -576,8 +583,18 @@ mod tests {
                 assessment("maintainability", CriterionOutcome::Pass),
             ],
             independent_reviews: vec![
-                review("reviewer:a", "case-rev:1", "house:model:rev7", AlternativeReviewDisposition::SupportsSubmission),
-                review("reviewer:b", "case-rev:1", "house:model:rev7", AlternativeReviewDisposition::SupportsSubmission),
+                review(
+                    "reviewer:a",
+                    "case-rev:1",
+                    "house:model:rev7",
+                    AlternativeReviewDisposition::SupportsSubmission,
+                ),
+                review(
+                    "reviewer:b",
+                    "case-rev:1",
+                    "house:model:rev7",
+                    AlternativeReviewDisposition::SupportsSubmission,
+                ),
             ],
         }
     }
@@ -597,7 +614,8 @@ mod tests {
 
     #[test]
     fn complete_alternative_is_ready_for_authority_submission_not_approval() {
-        let report = evaluate_alternative_solution_case(&case(), &path_available, &evidence_verified);
+        let report =
+            evaluate_alternative_solution_case(&case(), &path_available, &evidence_verified);
         assert_eq!(report.status, AlternativeSolutionStatus::ReadyForAuthoritySubmission);
         assert!(report.blockers.is_empty());
         assert_eq!(report.criteria_passed, 2);
@@ -609,7 +627,11 @@ mod tests {
         case.assessments[0].outcome = CriterionOutcome::Fail;
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
         assert_eq!(report.status, AlternativeSolutionStatus::Blocked);
-        assert!(report.blockers.contains(&AlternativeCaseBlocker::CriterionFailed("egress-outcome".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&AlternativeCaseBlocker::CriterionFailed("egress-outcome".into()))
+        );
     }
 
     #[test]
@@ -617,7 +639,11 @@ mod tests {
         let mut case = case();
         case.assessments[0].outcome = CriterionOutcome::Unknown;
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
-        assert!(report.blockers.contains(&AlternativeCaseBlocker::CriterionUnknown("egress-outcome".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&AlternativeCaseBlocker::CriterionUnknown("egress-outcome".into()))
+        );
     }
 
     #[test]
@@ -627,7 +653,12 @@ mod tests {
             &path_available,
             &|_: &EvidenceRef| EvidenceVerification::ArtifactNotFound,
         );
-        assert!(report.blockers.iter().any(|blocker| matches!(blocker, AlternativeCaseBlocker::EvidenceArtifactNotFound { .. })));
+        assert!(report.blockers.iter().any(|blocker| {
+            matches!(
+                blocker,
+                AlternativeCaseBlocker::EvidenceArtifactNotFound { .. }
+            )
+        }));
     }
 
     #[test]
@@ -637,7 +668,9 @@ mod tests {
             &path_available,
             &|_: &EvidenceRef| EvidenceVerification::DigestMismatch,
         );
-        assert!(report.blockers.iter().any(|blocker| matches!(blocker, AlternativeCaseBlocker::EvidenceDigestMismatch { .. })));
+        assert!(report.blockers.iter().any(|blocker| {
+            matches!(blocker, AlternativeCaseBlocker::EvidenceDigestMismatch { .. })
+        }));
     }
 
     #[test]
@@ -661,7 +694,13 @@ mod tests {
         let mut case = case();
         case.independent_reviews[0].reviewed_design_revision_id = "house:model:rev6".into();
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
-        assert!(report.blockers.contains(&AlternativeCaseBlocker::ReviewPinsDifferentDesignRevision("reviewer:a".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&AlternativeCaseBlocker::ReviewPinsDifferentDesignRevision(
+                    "reviewer:a".into()
+                ))
+        );
     }
 
     #[test]
@@ -669,13 +708,18 @@ mod tests {
         let mut case = case();
         case.independent_reviews[0].reviewer_id = case.author_id.clone();
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
-        assert!(report.blockers.contains(&AlternativeCaseBlocker::ReviewerIsAuthor("designer:1".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&AlternativeCaseBlocker::ReviewerIsAuthor("designer:1".into()))
+        );
     }
 
     #[test]
     fn dissent_is_preserved_instead_of_being_averaged_away() {
         let mut case = case();
-        case.independent_reviews[1].disposition = AlternativeReviewDisposition::ChallengesSubmission;
+        case.independent_reviews[1].disposition =
+            AlternativeReviewDisposition::ChallengesSubmission;
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
         assert_eq!(report.status, AlternativeSolutionStatus::ReadyForAuthoritySubmission);
         assert_eq!(report.preserved_dissenting_reviewers, vec!["reviewer:b".to_owned()]);
@@ -715,6 +759,10 @@ mod tests {
         let mut case = case();
         case.assessments.pop();
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
-        assert!(report.blockers.contains(&AlternativeCaseBlocker::MissingAssessment("maintainability".into())));
+        assert!(
+            report
+                .blockers
+                .contains(&AlternativeCaseBlocker::MissingAssessment("maintainability".into()))
+        );
     }
 }
