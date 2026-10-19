@@ -682,6 +682,35 @@ mod tests {
     }
 
     #[test]
+    fn noncritical_failed_outcome_remains_explorable_but_not_submission_ready() {
+        let mut case = case();
+        case.assessments[1].outcome = CriterionOutcome::Fail;
+        let report =
+            evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
+        assert_eq!(
+            report.status,
+            AlternativeSolutionStatus::ReadyForIndependentReview
+        );
+        assert_eq!(report.failed_criteria, vec!["maintainability".to_owned()]);
+        assert_eq!(report.criteria_failed, 1);
+    }
+
+    #[test]
+    fn one_immutable_evidence_artifact_can_support_multiple_criteria() {
+        let mut case = case();
+        case.assessments[1].evidence = case.assessments[0].evidence.clone();
+        let report =
+            evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
+        assert_eq!(
+            report.status,
+            AlternativeSolutionStatus::ReadyForAuthoritySubmission
+        );
+        assert!(!report.blockers.iter().any(|blocker| {
+            matches!(blocker, AlternativeCaseBlocker::DuplicateEvidenceId(_))
+        }));
+    }
+
+    #[test]
     fn missing_criterion_assessment_blocks_submission() {
         let mut case = case();
         case.assessments.pop();
