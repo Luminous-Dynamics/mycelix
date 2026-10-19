@@ -1,0 +1,128 @@
+name: continual-adaptation-censoring-classification-provenance
+
+on:
+  push:
+    paths:
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json"
+      - "docs/research/generate_censoring_classification_properties.py"
+      - "docs/research/verify_censoring_classification.py"
+      - "docs/research/verify_censoring_classification.mjs"
+      - "docs/research/verify_censoring_classification_policy_liveness.py"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_PROVENANCE_V1.md"
+      - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json"
+      - "docs/research/generate_censoring_classification_properties.py"
+      - "docs/research/verify_censoring_classification.py"
+      - "docs/research/verify_censoring_classification.mjs"
+      - "docs/research/verify_censoring_classification_policy_liveness.py"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_PROVENANCE_V1.md"
+      - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Classification provenance research regression (non-authoritative)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch exact event commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Run fixed corpus with Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json)"
+          python3 docs/research/verify_censoring_classification.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json             python-fixed.json
+
+      - name: Run fixed corpus with Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json)"
+          node docs/research/verify_censoring_classification.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json             node-fixed.json
+
+      - name: Differential-compare fixed reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u python-fixed.json node-fixed.json
+
+      - name: Verify policy substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json)"
+          tmp_policy="$(mktemp)"
+          trap 'rm -f "$tmp_policy"' EXIT
+          cp docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json "$tmp_policy"
+          printf '\n' >> "$tmp_policy"
+          ! python3 docs/research/verify_censoring_classification.py             "$POLICY_BLOB_SHA"             "$tmp_policy"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json             ignored.json
+          ! node docs/research/verify_censoring_classification.mjs             "$POLICY_BLOB_SHA"             "$tmp_policy"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json             ignored.json
+
+      - name: Generate corpus twice and require byte identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY=docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json
+          FIXTURES=docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_FIXTURES.json
+          python3 docs/research/generate_censoring_classification_properties.py "$POLICY" "$FIXTURES" generated-a.json
+          python3 docs/research/generate_censoring_classification_properties.py "$POLICY" "$FIXTURES" generated-b.json
+          cmp -s generated-a.json generated-b.json
+          test "$(python3 -c 'import json; print(len(json.load(open("generated-a.json"))["cases"]))')" = "128"
+
+      - name: Run generated corpus with Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json)"
+          python3 docs/research/verify_censoring_classification.py             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             generated-a.json             python-generated.json
+
+      - name: Run generated corpus with Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json)"
+          node docs/research/verify_censoring_classification.mjs             "$POLICY_BLOB_SHA"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             generated-a.json             node-generated.json
+
+      - name: Differential-compare generated reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u python-generated.json node-generated.json
+
+      - name: Run policy-liveness campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_policy_liveness.py             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json             docs/research/verify_censoring_classification.py             docs/research/verify_censoring_classification.mjs
+
+      - name: Emit exact-head receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          test "$actual_head" = "$GITHUB_SHA"
+          printf 'exact_head=%s\n' "$actual_head"
+
+      - name: State non-authoritative boundary
+        shell: bash
+        run: |
+          echo "Classification provenance regression is research evidence only."
+          echo "This workflow is not the qualification authority."

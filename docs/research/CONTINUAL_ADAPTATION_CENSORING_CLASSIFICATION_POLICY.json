@@ -1,0 +1,52 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-policy.v1",
+  "status": "research-policy-only",
+  "epoch_order": [
+    "t0",
+    "t1",
+    "t2"
+  ],
+  "relations": {
+    "requires": {
+      "source_types": ["Claim"],
+      "target_types": ["AttemptCensus"]
+    },
+    "uses": {
+      "source_types": ["AttemptCensus"],
+      "target_types": ["Attempt", "CensoringClassification"]
+    },
+    "classifies": {
+      "source_types": ["CensoringClassification"],
+      "target_types": ["Attempt"]
+    },
+    "frozen_by": {
+      "source_types": ["CensoringClassification"],
+      "target_types": ["ClassificationPolicy"]
+    },
+    "supported_by": {
+      "source_types": ["CensoringClassification"],
+      "target_types": ["ClassificationBasis", "Result"]
+    },
+    "supersedes": {
+      "source_types": ["CensoringClassification"],
+      "target_types": ["CensoringClassification"]
+    },
+    "invalidated_by": {
+      "source_types": ["CensoringClassification"],
+      "target_types": ["InvalidationRecord"]
+    }
+  },
+  "classification": {
+    "one_target_per_classification": true,
+    "one_policy_per_classification": true,
+    "one_basis_per_classification": true,
+    "policy_must_be_frozen_before_outcome": true,
+    "classification_recorded_at_or_before_outcome": true,
+    "class_must_match_attempt_reason": true,
+    "history_is_immutable": true,
+    "base_revision_anchor_required": true,
+    "require_supersedes_for_nonzero_revision": true,
+    "result_cannot_support_classification": true,
+    "active_classification_required": true
+  }
+}

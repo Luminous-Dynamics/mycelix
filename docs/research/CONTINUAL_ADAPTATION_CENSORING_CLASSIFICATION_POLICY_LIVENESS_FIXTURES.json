@@ -1,0 +1,53 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-policy-liveness.v1",
+  "status": "research-fixture-only",
+  "mutations": [
+    {
+      "case_id": "CPL-001",
+      "source_case_id": "CCP-022",
+      "policy_path": ["classification", "class_must_match_attempt_reason"],
+      "value": false,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-002",
+      "source_case_id": "CCP-010",
+      "policy_path": ["classification", "result_cannot_support_classification"],
+      "value": false,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-003",
+      "source_case_id": "CCP-015",
+      "policy_path": ["classification", "active_classification_required"],
+      "value": false,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-004",
+      "source_case_id": "CCP-001",
+      "policy_path": ["classification", "history_is_immutable"],
+      "value": false,
+      "extra_mutations": [
+        ["set_node", "a01", "censoring_reason", "InfrastructureCensoring"],
+        ["set_node", "c01", "censoring_reason", "InfrastructureCensoring"]
+      ],
+      "preserve_history_anchor": true,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-005",
+      "source_case_id": "CCP-019",
+      "policy_path": ["classification", "classification_recorded_at_or_before_outcome"],
+      "value": false,
+      "expected_verdict": "qualified"
+    },
+    {
+      "case_id": "CPL-006",
+      "source_case_id": "CCP-020",
+      "policy_path": ["classification", "require_supersedes_for_nonzero_revision"],
+      "value": false,
+      "expected_verdict": "qualified"
+    }
+  ]
+}
