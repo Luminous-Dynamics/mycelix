@@ -101,6 +101,11 @@ fn transition(case: &Value) -> Result<Transition, String> {
     {
         "decay" => {
             let current_time = parse_i64(&case["operation"]["current_time"], "current_time")?;
+            if current_time == 0 {
+                return Err(
+                    "timestamp zero is reserved for the legacy uninitialized sentinel".to_owned(),
+                );
+            }
             if state.last_update == 0 {
                 // Match the legacy first-observation sentinel: initialize only.
                 state.last_update = current_time;
@@ -226,8 +231,8 @@ fn frozen_transition_corpus_matches_candidate_contract() {
         Some("mycelix-tcdm-transition-contract-v1")
     );
     let all_cases = cases(&corpus);
-    assert_eq!(all_cases.len(), 30, "unexpected frozen case count");
-    assert_eq!(corpus["case_count"].as_u64(), Some(30));
+    assert_eq!(all_cases.len(), 32, "unexpected frozen case count");
+    assert_eq!(corpus["case_count"].as_u64(), Some(32));
     assert_eq!(
         corpus["decision_rules"]
             .as_array()
@@ -238,7 +243,7 @@ fn frozen_transition_corpus_matches_candidate_contract() {
     let controls = corpus["mutation_controls"]
         .as_array()
         .expect("mutation_controls must be an array");
-    assert_eq!(controls.len(), 5, "unexpected mutation-control count");
+    assert_eq!(controls.len(), 6, "unexpected mutation-control count");
 
     let mut ids = HashSet::new();
     let mut valid_count = 0;
@@ -266,7 +271,7 @@ fn frozen_transition_corpus_matches_candidate_contract() {
         }
     }
     assert_eq!(valid_count, 17, "unexpected valid case count");
-    assert_eq!(invalid_count, 13, "unexpected invalid case count");
+    assert_eq!(invalid_count, 15, "unexpected invalid case count");
 }
 
 #[test]
@@ -278,6 +283,8 @@ fn time_regression_and_overflow_fail_closed() {
         "TC-008-delta-overflow",
         "TC-009-negative-decay-rate",
         "TC-010-decay-rate-above-one",
+        "TC-031-zero-timestamp-sentinel-collision",
+        "TC-032-transition-to-zero-sentinel-rejected",
     ] {
         assert!(transition(case_by_id(all_cases, id)).is_err(), "{id}");
     }
