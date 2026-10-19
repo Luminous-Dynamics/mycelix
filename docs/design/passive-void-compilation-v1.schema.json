@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-void-compilation-v1.json",
+  "title": "Mycelix Passive Void Compilation Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "graph_digest",
+    "embedding_digest",
+    "semantic_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-void-compilation-v1"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "embedding_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "compiled_void_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "semantic_status": {
+      "const": "CandidateGeometryOnly"
+    },
+    "directionality_status": {
+      "const": "IntentOnly"
+    },
+    "physical_connectivity_evidence_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manufacturability_evidence_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

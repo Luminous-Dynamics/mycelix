@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-device-realization-v1.json",
+  "title": "Mycelix Passive Device Realization Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "graph_digest",
+    "void_geometry_digest",
+    "candidate_geometry_digest",
+    "body_envelope",
+    "external_ports",
+    "output_is_material_candidate",
+    "external_port_tunnels_are_explicit",
+    "physical_transport_unproven"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-device-realization-v1"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "void_geometry_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "candidate_geometry_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "body_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_mm",
+        "max_mm"
+      ],
+      "properties": {
+        "min_mm": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "max_mm": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "external_ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "port",
+          "outward_unit"
+        ],
+        "properties": {
+          "port": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outward_unit": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+          }
+        }
+      }
+    },
+    "output_is_material_candidate": {
+      "const": true
+    },
+    "external_port_tunnels_are_explicit": {
+      "const": true
+    },
+    "physical_transport_unproven": {
+      "const": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
