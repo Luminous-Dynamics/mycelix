@@ -131,7 +131,10 @@ impl std::fmt::Display for ReceiptValidationError {
                 write!(f, "unsupported process-run receipt schema version {v}")
             }
             Self::InvalidSerializedReceipt => {
-                write!(f, "serialized receipt is malformed or violates strict JSON field rules")
+                write!(
+                    f,
+                    "serialized receipt is malformed or violates strict JSON field rules"
+                )
             }
             Self::MissingOrOversizeField(field) => {
                 write!(f, "required field {field} is missing, blank, or oversized")
