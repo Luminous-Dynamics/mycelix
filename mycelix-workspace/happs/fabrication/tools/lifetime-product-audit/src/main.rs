@@ -1,5 +1,5 @@
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::env;
@@ -38,7 +38,10 @@ fn main() {
         Ok(Some(args)) => match run(args) {
             Ok(report) => {
                 let failed = report.get("status").and_then(Value::as_str) == Some("FAIL");
-                println!("{}", serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into()));
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
+                );
                 if failed {
                     std::process::exit(1);
                 }
@@ -80,11 +83,14 @@ fn parse_args() -> Result<Option<Args>, String> {
             }
             "--schema" => schema = Some(PathBuf::from(next_value(&mut values, "--schema")?)),
             "--record" => record = Some(PathBuf::from(next_value(&mut values, "--record")?)),
-            "--benchmark" => benchmark = Some(PathBuf::from(next_value(&mut values, "--benchmark")?)),
+            "--benchmark" => {
+                benchmark = Some(PathBuf::from(next_value(&mut values, "--benchmark")?))
+            }
             "--as-of" => as_of = Some(next_value(&mut values, "--as-of")?),
             "--freshness-days" => {
                 let raw = next_value(&mut values, "--freshness-days")?;
-                freshness_days = raw.parse::<i64>()
+                freshness_days = raw
+                    .parse::<i64>()
                     .map_err(|_| "--freshness-days must be a non-negative integer".to_string())?;
                 if freshness_days < 0 {
                     return Err("--freshness-days must be a non-negative integer".to_string());
@@ -108,7 +114,9 @@ fn parse_args() -> Result<Option<Args>, String> {
 }
 
 fn next_value(values: &mut impl Iterator<Item = String>, flag: &str) -> Result<String, String> {
-    values.next().ok_or_else(|| format!("{flag} requires a value"))
+    values
+        .next()
+        .ok_or_else(|| format!("{flag} requires a value"))
 }
 
 fn run(args: Args) -> Result<Value, String> {
@@ -121,7 +129,10 @@ fn run(args: Args) -> Result<Value, String> {
         Ok(()) => true,
         Err(error) => {
             push_issue(
-                &mut issues, "error", "SCHEMA_META_INVALID", "$schema",
+                &mut issues,
+                "error",
+                "SCHEMA_META_INVALID",
+                "$schema",
                 format!("Schema is not valid Draft 2020-12: {error}"),
             );
             false
@@ -135,7 +146,10 @@ fn run(args: Args) -> Result<Value, String> {
         Ok(validator) => Some(validator),
         Err(error) => {
             push_issue(
-                &mut issues, "error", "SCHEMA_COMPILE_FAILED", "$schema",
+                &mut issues,
+                "error",
+                "SCHEMA_COMPILE_FAILED",
+                "$schema",
                 format!("Unable to compile the schema with format assertions enabled: {error}"),
             );
             None
@@ -144,7 +158,8 @@ fn run(args: Args) -> Result<Value, String> {
 
     let mut record_schema_valid = false;
     if let Some(validator) = validator {
-        let errors: Vec<String> = validator.iter_errors(&record)
+        let errors: Vec<String> = validator
+            .iter_errors(&record)
             .map(|error| format!("{}: {}", error.instance_path(), error))
             .collect();
         if errors.is_empty() {
@@ -152,7 +167,10 @@ fn run(args: Args) -> Result<Value, String> {
         } else {
             for error in errors {
                 push_issue(
-                    &mut issues, "error", "RECORD_SCHEMA_INVALID", "$record",
+                    &mut issues,
+                    "error",
+                    "RECORD_SCHEMA_INVALID",
+                    "$record",
                     error,
                 );
             }
@@ -164,12 +182,17 @@ fn run(args: Args) -> Result<Value, String> {
 
     let error_count = issues.iter().filter(|i| i.severity == "error").count();
     let warning_count = issues.iter().filter(|i| i.severity == "warning").count();
-    let issue_values: Vec<Value> = issues.iter().map(|i| json!({
-        "severity": i.severity,
-        "code": i.code,
-        "path": i.path,
-        "message": i.message
-    })).collect();
+    let issue_values: Vec<Value> = issues
+        .iter()
+        .map(|i| {
+            json!({
+                "severity": i.severity,
+                "code": i.code,
+                "path": i.path,
+                "message": i.message
+            })
+        })
+        .collect();
 
     Ok(json!({
         "tool": "lifetime-product-audit",
@@ -198,7 +221,8 @@ fn run(args: Args) -> Result<Value, String> {
 }
 
 fn read_json(path: &Path) -> Result<(Value, Vec<u8>, String), String> {
-    let bytes = fs::read(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    let bytes =
+        fs::read(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
     let value = serde_json::from_slice::<Value>(&bytes)
         .map_err(|error| format!("invalid JSON in {}: {error}", path.display()))?;
     let digest = sha256_hex(&bytes);
@@ -225,19 +249,33 @@ fn push_issue(
     });
 }
 
-fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, issues: &mut Vec<Issue>) {
+fn validate_record_semantics(
+    record: &Value,
+    as_of: &str,
+    freshness_days: i64,
+    issues: &mut Vec<Issue>,
+) {
     let components = record.pointer("/bom/items").and_then(Value::as_array);
     let interfaces = record.get("interfaces").and_then(Value::as_array);
-    let lifecycle = record.get("lifecycle_state").and_then(Value::as_str).unwrap_or("unknown");
+    let lifecycle = record
+        .get("lifecycle_state")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
 
     let mut component_ids = HashSet::new();
     if let Some(components) = components {
         for (index, component) in components.iter().enumerate() {
             let path = format!("$.bom.items[{index}]");
-            let component_id = component.get("component_id").and_then(Value::as_str).unwrap_or("");
+            let component_id = component
+                .get("component_id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             if component_id.is_empty() || !component_ids.insert(component_id.to_string()) {
                 push_issue(
-                    issues, "error", "BOM_COMPONENT_ID_DUPLICATE_OR_EMPTY", format!("{path}.component_id"),
+                    issues,
+                    "error",
+                    "BOM_COMPONENT_ID_DUPLICATE_OR_EMPTY",
+                    format!("{path}.component_id"),
                     "Component identifiers must be non-empty and unique within a BOM revision.",
                 );
             }
@@ -248,16 +286,24 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
     if let Some(interfaces) = interfaces {
         for (index, interface) in interfaces.iter().enumerate() {
             let path = format!("$.interfaces[{index}]");
-            let interface_id = interface.get("interface_id").and_then(Value::as_str).unwrap_or("");
+            let interface_id = interface
+                .get("interface_id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             if interface_id.is_empty() || !interface_ids.insert(interface_id.to_string()) {
                 push_issue(
-                    issues, "error", "INTERFACE_ID_DUPLICATE_OR_EMPTY", format!("{path}.interface_id"),
+                    issues,
+                    "error",
+                    "INTERFACE_ID_DUPLICATE_OR_EMPTY",
+                    format!("{path}.interface_id"),
                     "Interface identifiers must be non-empty and unique within a product revision.",
                 );
             }
             if let Some(violation) = interface_fit_violation(interface) {
                 push_issue(
-                    issues, "error", "MODULE_ENVELOPE_EXCEEDS_BAY",
+                    issues,
+                    "error",
+                    "MODULE_ENVELOPE_EXCEEDS_BAY",
                     format!("{path}.module_envelope_mm"),
                     violation,
                 );
@@ -269,39 +315,57 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
                         let evidence_id = reference.as_str().unwrap_or("");
                         if evidence_record(record, evidence_id).is_none() {
                             push_issue(
-                                issues, "error", "INTERFACE_EVIDENCE_REF_UNRESOLVED",
+                                issues,
+                                "error",
+                                "INTERFACE_EVIDENCE_REF_UNRESOLVED",
                                 format!("{path}.{field}[{ref_index}]"),
-                                format!("Evidence reference '{evidence_id}' does not resolve to a top-level evidence record."),
+                                format!(
+                                    "Evidence reference '{evidence_id}' does not resolve to a top-level evidence record."
+                                ),
                             );
                         }
                     }
                 }
             }
 
-            let verification_state = interface.get("verification_state")
-                .and_then(Value::as_str).unwrap_or("proposed");
-            let installation_refs = interface.get("installation_evidence_refs")
-                .and_then(Value::as_array).cloned().unwrap_or_default();
-            if matches!(verification_state, "engineering_reviewed" | "physically_verified" | "qualified")
-                && !installation_evidence_is_admissible(record, &installation_refs)
+            let verification_state = interface
+                .get("verification_state")
+                .and_then(Value::as_str)
+                .unwrap_or("proposed");
+            let installation_refs = interface
+                .get("installation_evidence_refs")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if matches!(
+                verification_state,
+                "engineering_reviewed" | "physically_verified" | "qualified"
+            ) && !installation_evidence_is_admissible(record, &installation_refs)
             {
                 push_issue(
-                    issues, "error", "INTERFACE_INSTALLATION_EVIDENCE_MISSING",
+                    issues,
+                    "error",
+                    "INTERFACE_INSTALLATION_EVIDENCE_MISSING",
                     format!("{path}.installation_evidence_refs"),
                     "An engineering-reviewed, physically verified, or qualified interface must resolve to a digest-bound installation datasheet or certification document that is not superseded/retracted.",
                 );
             }
 
             if matches!(verification_state, "physically_verified" | "qualified") {
-                let compatibility_refs = interface.get("compatibility_test_refs")
-                    .and_then(Value::as_array).cloned().unwrap_or_default();
+                let compatibility_refs = interface
+                    .get("compatibility_test_refs")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
                 if !compatibility_test_evidence_is_admissible(
                     record,
                     &compatibility_refs,
                     verification_state == "qualified",
                 ) {
                     push_issue(
-                        issues, "error", "INTERFACE_COMPATIBILITY_TEST_MISSING",
+                        issues,
+                        "error",
+                        "INTERFACE_COMPATIBILITY_TEST_MISSING",
                         format!("{path}.compatibility_test_refs"),
                         if verification_state == "qualified" {
                             "A qualified interface requires a digest-bound, independently verified test/inspection record for this configuration."
@@ -322,27 +386,40 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
                     let reference = reference.as_str().unwrap_or("");
                     if !interface_ids.contains(reference) {
                         push_issue(
-                            issues, "error", "INTERFACE_REFERENCE_UNRESOLVED",
+                            issues,
+                            "error",
+                            "INTERFACE_REFERENCE_UNRESOLVED",
                             format!("{path}.interface_refs[{ref_index}]"),
-                            format!("Interface reference '{reference}' does not resolve in this product record."),
+                            format!(
+                                "Interface reference '{reference}' does not resolve in this product record."
+                            ),
                         );
                     }
                 }
             }
 
-            if component.get("supplier_validation_state").and_then(Value::as_str) == Some("qualified") {
-                let qualified_source_present = component.get("supplier_records")
+            if component
+                .get("supplier_validation_state")
+                .and_then(Value::as_str)
+                == Some("qualified")
+            {
+                let qualified_source_present = component
+                    .get("supplier_records")
                     .and_then(Value::as_array)
-                    .map(|records| records.iter().any(|source| {
-                        matches!(
-                            source.get("evidence_state").and_then(Value::as_str),
-                            Some("sample_inspected") | Some("qualified")
-                        )
-                    }))
+                    .map(|records| {
+                        records.iter().any(|source| {
+                            matches!(
+                                source.get("evidence_state").and_then(Value::as_str),
+                                Some("sample_inspected") | Some("qualified")
+                            )
+                        })
+                    })
                     .unwrap_or(false);
                 if !qualified_source_present {
                     push_issue(
-                        issues, "error", "QUALIFIED_COMPONENT_WITHOUT_QUALIFICATION_EVIDENCE",
+                        issues,
+                        "error",
+                        "QUALIFIED_COMPONENT_WITHOUT_QUALIFICATION_EVIDENCE",
                         format!("{path}.supplier_records"),
                         "A component cannot be marked qualified without a linked sample-inspection or qualification record.",
                     );
@@ -352,42 +429,62 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
             if let Some(suppliers) = component.get("supplier_records").and_then(Value::as_array) {
                 for (supplier_index, supplier) in suppliers.iter().enumerate() {
                     let supplier_path = format!("{path}.supplier_records[{supplier_index}]");
-                    let checked_at = supplier.get("checked_at").and_then(Value::as_str).unwrap_or("");
+                    let checked_at = supplier
+                        .get("checked_at")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
                     match (date_to_days(checked_at), date_to_days(as_of)) {
                         (Some(checked_day), Some(as_of_day)) if checked_day > as_of_day => {
                             push_issue(
-                                issues, "error", "SUPPLIER_EVIDENCE_FROM_FUTURE",
+                                issues,
+                                "error",
+                                "SUPPLIER_EVIDENCE_FROM_FUTURE",
                                 format!("{supplier_path}.checked_at"),
                                 "Supplier evidence cannot be dated after the explicit audit date.",
                             );
                         }
                         (Some(checked_day), Some(as_of_day))
                             if as_of_day - checked_day > freshness_days
-                                && supplier.get("evidence_state").and_then(Value::as_str) == Some("availability_confirmed") =>
+                                && supplier.get("evidence_state").and_then(Value::as_str)
+                                    == Some("availability_confirmed") =>
                         {
                             push_issue(
-                                issues, "warning", "SUPPLIER_AVAILABILITY_STALE",
+                                issues,
+                                "warning",
+                                "SUPPLIER_AVAILABILITY_STALE",
                                 format!("{supplier_path}.checked_at"),
-                                format!("Availability was checked {} days before the audit date, exceeding the configured freshness window of {freshness_days} days.", as_of_day - checked_day),
+                                format!(
+                                    "Availability was checked {} days before the audit date, exceeding the configured freshness window of {freshness_days} days.",
+                                    as_of_day - checked_day
+                                ),
                             );
                         }
                         (None, _) => push_issue(
-                            issues, "error", "SUPPLIER_CHECK_DATE_INVALID",
+                            issues,
+                            "error",
+                            "SUPPLIER_CHECK_DATE_INVALID",
                             format!("{supplier_path}.checked_at"),
                             "Supplier evidence requires a valid YYYY-MM-DD checked_at date.",
                         ),
                         _ => {}
                     }
 
-                    if let Some(expiry) = supplier.get("quote_valid_until").and_then(Value::as_str) {
+                    if let Some(expiry) = supplier.get("quote_valid_until").and_then(Value::as_str)
+                    {
                         match (date_to_days(expiry), date_to_days(as_of)) {
-                            (Some(expiry_day), Some(as_of_day)) if expiry_day < as_of_day => push_issue(
-                                issues, "warning", "SUPPLIER_QUOTE_EXPIRED",
-                                format!("{supplier_path}.quote_valid_until"),
-                                "Quote validity has expired; do not present its price or lead time as current.",
-                            ),
+                            (Some(expiry_day), Some(as_of_day)) if expiry_day < as_of_day => {
+                                push_issue(
+                                    issues,
+                                    "warning",
+                                    "SUPPLIER_QUOTE_EXPIRED",
+                                    format!("{supplier_path}.quote_valid_until"),
+                                    "Quote validity has expired; do not present its price or lead time as current.",
+                                )
+                            }
                             (None, _) => push_issue(
-                                issues, "error", "SUPPLIER_QUOTE_EXPIRY_INVALID",
+                                issues,
+                                "error",
+                                "SUPPLIER_QUOTE_EXPIRY_INVALID",
                                 format!("{supplier_path}.quote_valid_until"),
                                 "quote_valid_until must be a valid YYYY-MM-DD date when present.",
                             ),
@@ -403,29 +500,43 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
         for (index, gate) in gates.iter().enumerate() {
             let path = format!("$.release_gates[{index}]");
             let status = gate.get("status").and_then(Value::as_str).unwrap_or("");
-            let evidence_empty = gate.get("evidence_refs")
+            let evidence_empty = gate
+                .get("evidence_refs")
                 .and_then(Value::as_array)
                 .map(|refs| refs.is_empty())
                 .unwrap_or(true);
             if status == "pass" && evidence_empty {
                 push_issue(
-                    issues, "error", "GATE_PASS_WITHOUT_EVIDENCE",
+                    issues,
+                    "error",
+                    "GATE_PASS_WITHOUT_EVIDENCE",
                     format!("{path}.evidence_refs"),
                     "A passing release gate must reference the evidence that justifies the pass.",
                 );
             }
             if status == "not_applicable_with_rationale"
-                && gate.get("rationale").and_then(Value::as_str).map(str::trim).unwrap_or("").is_empty()
+                && gate
+                    .get("rationale")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .unwrap_or("")
+                    .is_empty()
             {
                 push_issue(
-                    issues, "error", "GATE_NA_WITHOUT_RATIONALE",
+                    issues,
+                    "error",
+                    "GATE_NA_WITHOUT_RATIONALE",
                     format!("{path}.rationale"),
                     "A not-applicable gate requires a rationale.",
                 );
             }
-            if lifecycle == "released" && !matches!(status, "pass" | "not_applicable_with_rationale") {
+            if lifecycle == "released"
+                && !matches!(status, "pass" | "not_applicable_with_rationale")
+            {
                 push_issue(
-                    issues, "error", "RELEASE_GATE_NOT_SATISFIED",
+                    issues,
+                    "error",
+                    "RELEASE_GATE_NOT_SATISFIED",
                     format!("{path}.status"),
                     "A released record cannot contain an untested, blocked, or failed release gate.",
                 );
@@ -436,13 +547,20 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
     if let Some(metrics) = record.get("metrics").and_then(Value::as_array) {
         for (index, metric) in metrics.iter().enumerate() {
             let status = metric.get("status").and_then(Value::as_str).unwrap_or("");
-            let evidence_empty = metric.get("evidence_refs")
+            let evidence_empty = metric
+                .get("evidence_refs")
                 .and_then(Value::as_array)
                 .map(|refs| refs.is_empty())
                 .unwrap_or(true);
-            if matches!(status, "bench_tested" | "independently_verified" | "field_observed") && evidence_empty {
+            if matches!(
+                status,
+                "bench_tested" | "independently_verified" | "field_observed"
+            ) && evidence_empty
+            {
                 push_issue(
-                    issues, "error", "MEASURED_METRIC_WITHOUT_EVIDENCE",
+                    issues,
+                    "error",
+                    "MEASURED_METRIC_WITHOUT_EVIDENCE",
                     format!("$.metrics[{index}].evidence_refs"),
                     "A measured or independently verified metric must link to its supporting evidence.",
                 );
@@ -453,12 +571,20 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
     if let Some(evidence) = record.get("evidence").and_then(Value::as_array) {
         for (index, entry) in evidence.iter().enumerate() {
             let status = entry.get("status").and_then(Value::as_str).unwrap_or("");
-            let has_digest = entry.get("source_sha256").and_then(Value::as_str)
+            let has_digest = entry
+                .get("source_sha256")
+                .and_then(Value::as_str)
                 .map(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
                 .unwrap_or(false);
-            if matches!(status, "measured" | "independently_verified" | "field_observed") && !has_digest {
+            if matches!(
+                status,
+                "measured" | "independently_verified" | "field_observed"
+            ) && !has_digest
+            {
                 push_issue(
-                    issues, "warning", "EVIDENCE_DIGEST_MISSING",
+                    issues,
+                    "warning",
+                    "EVIDENCE_DIGEST_MISSING",
                     format!("$.evidence[{index}].source_sha256"),
                     "Measured/verified evidence should carry a SHA-256 digest of the exact source artifact.",
                 );
@@ -470,9 +596,15 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
 fn interface_fit_violation(interface: &Value) -> Option<String> {
     const AXES: [&str; 3] = ["width", "depth", "height"];
     for axis in AXES {
-        let module = interface.pointer(&format!("/module_envelope_mm/{axis}"))?.as_f64()?;
-        let bay = interface.pointer(&format!("/bay_clear_envelope_mm/{axis}"))?.as_f64()?;
-        let allowance = interface.pointer(&format!("/minimum_fit_clearance_mm/{axis}"))?.as_f64()?;
+        let module = interface
+            .pointer(&format!("/module_envelope_mm/{axis}"))?
+            .as_f64()?;
+        let bay = interface
+            .pointer(&format!("/bay_clear_envelope_mm/{axis}"))?
+            .as_f64()?;
+        let allowance = interface
+            .pointer(&format!("/minimum_fit_clearance_mm/{axis}"))?
+            .as_f64()?;
         if module + allowance > bay + 1e-9 {
             return Some(format!(
                 "{axis}: module envelope ({module} mm) + minimum fit allowance ({allowance} mm) exceeds bay clear envelope ({bay} mm)."
@@ -483,31 +615,37 @@ fn interface_fit_violation(interface: &Value) -> Option<String> {
 }
 
 fn evidence_record<'a>(record: &'a Value, evidence_id: &str) -> Option<&'a Value> {
-    record.get("evidence")?.as_array()?.iter().find(|entry| {
-        entry.get("evidence_id").and_then(Value::as_str) == Some(evidence_id)
-    })
+    record
+        .get("evidence")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("evidence_id").and_then(Value::as_str) == Some(evidence_id))
 }
 
 fn has_source_digest(evidence: &Value) -> bool {
-    evidence.get("source_sha256")
+    evidence
+        .get("source_sha256")
         .and_then(Value::as_str)
         .map(|digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()))
         .unwrap_or(false)
 }
 
 fn installation_evidence_is_admissible(record: &Value, references: &[Value]) -> bool {
-    references.iter().filter_map(Value::as_str).any(|evidence_id| {
-        let Some(evidence) = evidence_record(record, evidence_id) else { return false };
-        matches!(
-            evidence.get("kind").and_then(Value::as_str),
-            Some("supplier_datasheet") | Some("certification_document")
-        )
-            && !matches!(
+    references
+        .iter()
+        .filter_map(Value::as_str)
+        .any(|evidence_id| {
+            let Some(evidence) = evidence_record(record, evidence_id) else {
+                return false;
+            };
+            matches!(
+                evidence.get("kind").and_then(Value::as_str),
+                Some("supplier_datasheet") | Some("certification_document")
+            ) && !matches!(
                 evidence.get("status").and_then(Value::as_str),
                 Some("superseded") | Some("retracted")
-            )
-            && has_source_digest(evidence)
-    })
+            ) && has_source_digest(evidence)
+        })
 }
 
 fn compatibility_test_evidence_is_admissible(
@@ -515,43 +653,62 @@ fn compatibility_test_evidence_is_admissible(
     references: &[Value],
     require_independent_verification: bool,
 ) -> bool {
-    references.iter().filter_map(Value::as_str).any(|evidence_id| {
-        let Some(evidence) = evidence_record(record, evidence_id) else { return false };
-        let acceptable_status = if require_independent_verification {
-            evidence.get("status").and_then(Value::as_str) == Some("independently_verified")
-        } else {
-            matches!(
-                evidence.get("status").and_then(Value::as_str),
-                Some("measured") | Some("independently_verified") | Some("field_observed")
-            )
-        };
-        acceptable_status
-            && matches!(
-                evidence.get("kind").and_then(Value::as_str),
-                Some("test_report") | Some("inspection")
-            )
-            && has_source_digest(evidence)
-    })
+    references
+        .iter()
+        .filter_map(Value::as_str)
+        .any(|evidence_id| {
+            let Some(evidence) = evidence_record(record, evidence_id) else {
+                return false;
+            };
+            let acceptable_status = if require_independent_verification {
+                evidence.get("status").and_then(Value::as_str) == Some("independently_verified")
+            } else {
+                matches!(
+                    evidence.get("status").and_then(Value::as_str),
+                    Some("measured") | Some("independently_verified") | Some("field_observed")
+                )
+            };
+            acceptable_status
+                && matches!(
+                    evidence.get("kind").and_then(Value::as_str),
+                    Some("test_report") | Some("inspection")
+                )
+                && has_source_digest(evidence)
+        })
 }
 
 fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
     if benchmark.get("benchmark_version").and_then(Value::as_str) != Some(CORPUS_VERSION) {
         push_issue(
-            issues, "error", "BENCHMARK_VERSION_UNEXPECTED", "$benchmark.benchmark_version",
-            format!("This validator is pinned to corpus version {CORPUS_VERSION}; do not silently replace a frozen benchmark."),
+            issues,
+            "error",
+            "BENCHMARK_VERSION_UNEXPECTED",
+            "$benchmark.benchmark_version",
+            format!(
+                "This validator is pinned to corpus version {CORPUS_VERSION}; do not silently replace a frozen benchmark."
+            ),
         );
     }
     if benchmark.get("status").and_then(Value::as_str) != Some("specification_only") {
         push_issue(
-            issues, "error", "BENCHMARK_STATUS_UNEXPECTED", "$benchmark.status",
+            issues,
+            "error",
+            "BENCHMARK_STATUS_UNEXPECTED",
+            "$benchmark.status",
             "This draft corpus must remain explicitly marked specification_only until a defined evaluator has been executed.",
         );
     }
 
-    let claim_ceiling = benchmark.get("claim_ceiling").and_then(Value::as_str).unwrap_or("");
+    let claim_ceiling = benchmark
+        .get("claim_ceiling")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     if !claim_ceiling.to_ascii_lowercase().contains("unexecuted") {
         push_issue(
-            issues, "error", "BENCHMARK_CLAIM_CEILING_MISSING", "$benchmark.claim_ceiling",
+            issues,
+            "error",
+            "BENCHMARK_CLAIM_CEILING_MISSING",
+            "$benchmark.claim_ceiling",
             "The benchmark must state that it has not yet been executed as evidence.",
         );
     }
@@ -559,7 +716,10 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
     let invariants = benchmark.get("hard_invariants").and_then(Value::as_array);
     if invariants.map(|items| items.len()).unwrap_or(0) < 9 {
         push_issue(
-            issues, "error", "BENCHMARK_INVARIANTS_INCOMPLETE", "$benchmark.hard_invariants",
+            issues,
+            "error",
+            "BENCHMARK_INVARIANTS_INCOMPLETE",
+            "$benchmark.hard_invariants",
             "Expected at least nine explicit hard invariants for this frozen draft.",
         );
     }
@@ -568,7 +728,10 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
         Some(scenarios) => scenarios,
         None => {
             push_issue(
-                issues, "error", "BENCHMARK_SCENARIOS_MISSING", "$benchmark.scenarios",
+                issues,
+                "error",
+                "BENCHMARK_SCENARIOS_MISSING",
+                "$benchmark.scenarios",
                 "Benchmark corpus must contain a scenarios array.",
             );
             return 0;
@@ -576,8 +739,14 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
     };
     if scenarios.len() != 17 {
         push_issue(
-            issues, "error", "BENCHMARK_V0_3_SCENARIO_COUNT_CHANGED", "$benchmark.scenarios",
-            format!("Frozen v0.3 corpus expects 17 scenarios; found {}. Revise the corpus version when adding/removing cases.", scenarios.len()),
+            issues,
+            "error",
+            "BENCHMARK_V0_3_SCENARIO_COUNT_CHANGED",
+            "$benchmark.scenarios",
+            format!(
+                "Frozen v0.3 corpus expects 17 scenarios; found {}. Revise the corpus version when adding/removing cases.",
+                scenarios.len()
+            ),
         );
     }
 
@@ -585,26 +754,52 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
     let mut checked = 0;
     for (index, scenario) in scenarios.iter().enumerate() {
         let path = format!("$.scenarios[{index}]");
-        let scenario_id = scenario.get("scenario_id").and_then(Value::as_str).unwrap_or("");
+        let scenario_id = scenario
+            .get("scenario_id")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         if scenario_id.is_empty() || !ids.insert(scenario_id.to_string()) {
             push_issue(
-                issues, "error", "BENCHMARK_SCENARIO_ID_DUPLICATE_OR_EMPTY",
+                issues,
+                "error",
+                "BENCHMARK_SCENARIO_ID_DUPLICATE_OR_EMPTY",
                 format!("{path}.scenario_id"),
                 "Scenario IDs must be non-empty and unique.",
             );
             continue;
         }
 
-        let title_ok = scenario.get("title").and_then(Value::as_str).map(|s| !s.trim().is_empty()).unwrap_or(false);
-        let category_ok = scenario.get("category").and_then(Value::as_str).map(|s| !s.trim().is_empty()).unwrap_or(false);
+        let title_ok = scenario
+            .get("title")
+            .and_then(Value::as_str)
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        let category_ok = scenario
+            .get("category")
+            .and_then(Value::as_str)
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
         let setup_ok = scenario.get("setup").map(Value::is_object).unwrap_or(false);
-        let assertions_ok = scenario.get("required_assertions").and_then(Value::as_array)
+        let assertions_ok = scenario
+            .get("required_assertions")
+            .and_then(Value::as_array)
             .map(|items| !items.is_empty() && items.iter().all(Value::is_string))
             .unwrap_or(false);
-        let expected = scenario.get("expected_outcome").and_then(Value::as_str).unwrap_or("");
-        if !title_ok || !category_ok || !setup_ok || !assertions_ok || !VALID_OUTCOMES.contains(&expected) {
+        let expected = scenario
+            .get("expected_outcome")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !title_ok
+            || !category_ok
+            || !setup_ok
+            || !assertions_ok
+            || !VALID_OUTCOMES.contains(&expected)
+        {
             push_issue(
-                issues, "error", "BENCHMARK_SCENARIO_SHAPE_INVALID", path.clone(),
+                issues,
+                "error",
+                "BENCHMARK_SCENARIO_SHAPE_INVALID",
+                path.clone(),
                 "Scenario must include a title, category, object setup, valid expected outcome, and non-empty string required_assertions.",
             );
             continue;
@@ -613,19 +808,30 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
         match evaluate_scenario(scenario) {
             Some(actual) if actual == expected => checked += 1,
             Some(actual) => push_issue(
-                issues, "error", "BENCHMARK_ORACLE_MISMATCH",
+                issues,
+                "error",
+                "BENCHMARK_ORACLE_MISMATCH",
                 format!("{path}.expected_outcome"),
-                format!("Known-answer evaluator returned {actual}, but corpus expects {expected} for {scenario_id}."),
+                format!(
+                    "Known-answer evaluator returned {actual}, but corpus expects {expected} for {scenario_id}."
+                ),
             ),
             None => push_issue(
-                issues, "error", "BENCHMARK_SCENARIO_UNSUPPORTED",
+                issues,
+                "error",
+                "BENCHMARK_SCENARIO_UNSUPPORTED",
                 format!("{path}.scenario_id"),
-                format!("No deterministic rule is implemented for scenario {scenario_id}; refusing to skip it."),
+                format!(
+                    "No deterministic rule is implemented for scenario {scenario_id}; refusing to skip it."
+                ),
             ),
         }
     }
 
-    if let Some(metrics) = benchmark.get("proposed_software_benchmarks").and_then(Value::as_array) {
+    if let Some(metrics) = benchmark
+        .get("proposed_software_benchmarks")
+        .and_then(Value::as_array)
+    {
         let expected_targets = [
             ("BENCH-FALSE-SAFE-PASS", 0.0),
             ("BENCH-STALE-EVIDENCE-DETECTION", 100.0),
@@ -634,12 +840,17 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
             ("BENCH-HARD-GATE-NONCOMPENSATION", 100.0),
         ];
         for (metric_id, target) in expected_targets {
-            let matching: Vec<&Value> = metrics.iter().filter(|metric| {
-                metric.get("metric_id").and_then(Value::as_str) == Some(metric_id)
-            }).collect();
-            if matching.len() != 1 || matching[0].get("target").and_then(Value::as_f64) != Some(target) {
+            let matching: Vec<&Value> = metrics
+                .iter()
+                .filter(|metric| metric.get("metric_id").and_then(Value::as_str) == Some(metric_id))
+                .collect();
+            if matching.len() != 1
+                || matching[0].get("target").and_then(Value::as_f64) != Some(target)
+            {
                 push_issue(
-                    issues, "error", "BENCHMARK_TARGET_MISMATCH",
+                    issues,
+                    "error",
+                    "BENCHMARK_TARGET_MISMATCH",
                     "$benchmark.proposed_software_benchmarks",
                     format!("Expected exactly one {metric_id} metric with target {target}."),
                 );
@@ -647,7 +858,10 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
         }
     } else {
         push_issue(
-            issues, "error", "BENCHMARK_METRICS_MISSING", "$benchmark.proposed_software_benchmarks",
+            issues,
+            "error",
+            "BENCHMARK_METRICS_MISSING",
+            "$benchmark.proposed_software_benchmarks",
             "The draft corpus must retain its proposed software-evaluator benchmark section.",
         );
     }
@@ -669,22 +883,38 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
                 && b("service_clearance_pass") == Some(true)
                 && b("permanent_structure_damage") == Some(false)
                 && b("post_install_test_pass") == Some(true)
-            { Some("PASS_SCOPED_GATE") } else { Some("BLOCK_UNQUALIFIED") }
+            {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
         }
         "MOD-002" => {
-            if b("mechanical_envelope_match") == Some(true) && b("electrical_rating_match") == Some(false) {
+            if b("mechanical_envelope_match") == Some(true)
+                && b("electrical_rating_match") == Some(false)
+            {
                 Some("FAIL_HARD_GATE")
-            } else if b("mechanical_envelope_match") == Some(true) && b("electrical_rating_match") == Some(true) {
+            } else if b("mechanical_envelope_match") == Some(true)
+                && b("electrical_rating_match") == Some(true)
+            {
                 Some("PASS_SCOPED_GATE")
-            } else { Some("BLOCK_UNQUALIFIED") }
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
         }
         "MOD-003" => {
             let mut complete = true;
             let mut fits = true;
             for axis in ["width", "depth", "height"] {
-                let module = setup.pointer(&format!("/module_envelope_mm/{axis}")).and_then(Value::as_f64);
-                let bay = setup.pointer(&format!("/bay_clear_envelope_mm/{axis}")).and_then(Value::as_f64);
-                let allowance = setup.pointer(&format!("/minimum_fit_clearance_mm/{axis}")).and_then(Value::as_f64);
+                let module = setup
+                    .pointer(&format!("/module_envelope_mm/{axis}"))
+                    .and_then(Value::as_f64);
+                let bay = setup
+                    .pointer(&format!("/bay_clear_envelope_mm/{axis}"))
+                    .and_then(Value::as_f64);
+                let allowance = setup
+                    .pointer(&format!("/minimum_fit_clearance_mm/{axis}"))
+                    .and_then(Value::as_f64);
                 match (module, bay, allowance) {
                     (Some(module), Some(bay), Some(allowance)) => {
                         if module + allowance > bay + 1e-9 {
@@ -721,7 +951,10 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
                 && b("installation_evidence_digest_valid") == Some(true);
             let test_evidence = b("compatibility_test_resolves") == Some(true)
                 && b("compatibility_test_digest_valid") == Some(true)
-                && matches!(s("compatibility_test_status"), Some("measured") | Some("independently_verified") | Some("field_observed"));
+                && matches!(
+                    s("compatibility_test_status"),
+                    Some("measured") | Some("independently_verified") | Some("field_observed")
+                );
             if verified && install_evidence && test_evidence {
                 Some("PASS_SCOPED_GATE")
             } else {
@@ -731,7 +964,9 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
         "THERM-001" => {
             if b("required_exhaust_clearance_met") == Some(false) {
                 Some("FAIL_HARD_GATE")
-            } else if b("required_exhaust_clearance_met") == Some(true) && b("refrigeration_energy_test_pass") == Some(true) {
+            } else if b("required_exhaust_clearance_met") == Some(true)
+                && b("refrigeration_energy_test_pass") == Some(true)
+            {
                 Some("PASS_SCOPED_GATE")
             } else {
                 Some("INCONCLUSIVE_NO_CLAIM")
@@ -741,52 +976,91 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
             if b("thermal_boundary_defined") != Some(true)
                 || b("instrumented_interaction_test") != Some(true)
                 || b("qualified_safety_review") != Some(true)
-            { Some("BLOCK_UNQUALIFIED") } else { Some("PASS_SCOPED_GATE") }
+            {
+                Some("BLOCK_UNQUALIFIED")
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "SUP-001" => {
             if s("supplier_record_state") == Some("marketing_claim")
                 && b("current_written_quote") != Some(true)
                 && b("stock_confirmation") != Some(true)
                 && b("sample_inspected") != Some(true)
-            { Some("BLOCK_UNQUALIFIED") } else { Some("PASS_SCOPED_GATE") }
+            {
+                Some("BLOCK_UNQUALIFIED")
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "SUP-002" => {
-            if b("quote_expired") == Some(true) || n("last_availability_check_days_ago").unwrap_or(i64::MAX) > 30 {
+            if b("quote_expired") == Some(true)
+                || n("last_availability_check_days_ago").unwrap_or(i64::MAX) > 30
+            {
                 Some("BLOCK_UNQUALIFIED")
-            } else { Some("PASS_SCOPED_GATE") }
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "REV-001" => {
             if b("component_revision_changed") == Some(true)
                 && b("bom_revision_changed") == Some(false)
                 && b("change_record_present") == Some(false)
                 && b("test_evidence_targets_old_revision") == Some(true)
-            { Some("FAIL_HARD_GATE") } else { Some("PASS_SCOPED_GATE") }
+            {
+                Some("FAIL_HARD_GATE")
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "REP-001" => {
             if b("permanent_structure_damage") == Some(true) {
                 Some("FAIL_HARD_GATE")
             } else if b("module_function_restored") == Some(true) {
-                let times = setup.get("replacement_time_minutes").and_then(Value::as_array);
+                let times = setup
+                    .get("replacement_time_minutes")
+                    .and_then(Value::as_array);
                 if let Some(times) = times {
-                    if !times.is_empty() && times.iter().all(|v| v.as_f64().map(|x| x <= 60.0).unwrap_or(false)) {
+                    if !times.is_empty()
+                        && times
+                            .iter()
+                            .all(|v| v.as_f64().map(|x| x <= 60.0).unwrap_or(false))
+                    {
                         Some("PASS_SCOPED_GATE")
-                    } else { Some("INCONCLUSIVE_NO_CLAIM") }
-                } else { Some("INCONCLUSIVE_NO_CLAIM") }
-            } else { Some("BLOCK_UNQUALIFIED") }
+                    } else {
+                        Some("INCONCLUSIVE_NO_CLAIM")
+                    }
+                } else {
+                    Some("INCONCLUSIVE_NO_CLAIM")
+                }
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
         }
         "ENERGY-001" => {
             if b("baseline_test_conditions_matched") != Some(true)
-                || setup.get("candidate_capacity_litres").and_then(Value::as_f64)
-                    != setup.get("baseline_capacity_litres").and_then(Value::as_f64)
-            { Some("INCONCLUSIVE_NO_CLAIM") }
-            else { Some("PASS_SCOPED_GATE") }
+                || setup
+                    .get("candidate_capacity_litres")
+                    .and_then(Value::as_f64)
+                    != setup
+                        .get("baseline_capacity_litres")
+                        .and_then(Value::as_f64)
+            {
+                Some("INCONCLUSIVE_NO_CLAIM")
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "LIFE-001" => {
             if n("design_horizon_years") == Some(50)
                 && n("field_history_years") == Some(0)
                 && b("accelerated_ageing_data") == Some(false)
                 && b("validated_lifecycle_model") == Some(false)
-            { Some("INCONCLUSIVE_NO_CLAIM") } else { Some("PASS_SCOPED_GATE") }
+            {
+                Some("INCONCLUSIVE_NO_CLAIM")
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "SAFE-001" => {
             if b("geometry_check_pass") == Some(true)
@@ -794,32 +1068,48 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
                 && b("electrical_safety_evidence") == Some(true)
                 && b("thermal_test_evidence") == Some(true)
                 && b("qualified_assessment") == Some(true)
-            { Some("PASS_SCOPED_GATE") } else { Some("BLOCK_UNQUALIFIED") }
+            {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
         }
         "LCA-001" => {
             if b("use_phase_energy_included") != Some(true)
                 || b("repair_replacement_scenarios_included") != Some(true)
                 || b("end_of_life_included") != Some(true)
                 || b("comparison_boundary_matched") != Some(true)
-            { Some("INCONCLUSIVE_NO_CLAIM") } else { Some("PASS_SCOPED_GATE") }
+            {
+                Some("INCONCLUSIVE_NO_CLAIM")
+            } else {
+                Some("PASS_SCOPED_GATE")
+            }
         }
         "PARETO-001" => {
             if b("required_service_clearance_pass") == Some(false) {
                 Some("FAIL_HARD_GATE")
             } else if b("required_service_clearance_pass") == Some(true)
                 && b("safety_gates_pass") == Some(true)
-            { Some("PASS_SCOPED_GATE") } else { Some("BLOCK_UNQUALIFIED") }
+            {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
         }
         "REPLAY-001" => {
             if b("frozen_input_digest_same") == Some(true)
                 && b("evaluator_version_same") == Some(true)
                 && b("report_digest_same") == Some(false)
-            { Some("FAIL_HARD_GATE") }
-            else if b("frozen_input_digest_same") == Some(true)
+            {
+                Some("FAIL_HARD_GATE")
+            } else if b("frozen_input_digest_same") == Some(true)
                 && b("evaluator_version_same") == Some(true)
                 && b("report_digest_same") == Some(true)
-            { Some("PASS_SCOPED_GATE") }
-            else { Some("BLOCK_UNQUALIFIED") }
+            {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
         }
         _ => None,
     }
@@ -869,39 +1159,75 @@ mod tests {
 
     #[test]
     fn schema_and_example_record_pass_draft_2020_12_validation() {
-        let schema: Value = serde_json::from_str(&repo_file("../../docs/LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json")).unwrap();
-        let record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let schema: Value = serde_json::from_str(&repo_file(
+            "../../docs/LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json",
+        ))
+        .unwrap();
+        let record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         assert!(draft202012::meta::validate(&schema).is_ok());
-        let validator = draft202012::options().should_validate_formats(true).build(&schema).unwrap();
-        assert!(validator.is_valid(&record), "example must satisfy the exact schema");
+        let validator = draft202012::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
+        assert!(
+            validator.is_valid(&record),
+            "example must satisfy the exact schema"
+        );
     }
 
     #[test]
     fn benchmark_corpus_known_answers_match() {
-        let benchmark: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json")).unwrap();
-        let scenarios = benchmark.get("scenarios").and_then(Value::as_array).unwrap();
+        let benchmark: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json",
+        ))
+        .unwrap();
+        let scenarios = benchmark
+            .get("scenarios")
+            .and_then(Value::as_array)
+            .unwrap();
         assert_eq!(scenarios.len(), 17);
-        assert_eq!(benchmark["benchmark_version"].as_str(), Some(CORPUS_VERSION));
+        assert_eq!(
+            benchmark["benchmark_version"].as_str(),
+            Some(CORPUS_VERSION)
+        );
         for scenario in scenarios {
             let expected = scenario["expected_outcome"].as_str().unwrap();
-            assert_eq!(evaluate_scenario(scenario), Some(expected), "scenario {}", scenario["scenario_id"]);
+            assert_eq!(
+                evaluate_scenario(scenario),
+                Some(expected),
+                "scenario {}",
+                scenario["scenario_id"]
+            );
         }
     }
 
     #[test]
     fn module_envelope_plus_fit_allowance_must_fit_inside_bay() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["interfaces"][0]["module_envelope_mm"]["width"] = json!(615);
         record["interfaces"][0]["bay_clear_envelope_mm"]["width"] = json!(620);
         record["interfaces"][0]["minimum_fit_clearance_mm"]["width"] = json!(10);
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(issues.iter().any(|issue| issue.code == "MODULE_ENVELOPE_EXCEEDS_BAY"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "MODULE_ENVELOPE_EXCEEDS_BAY")
+        );
     }
 
     #[test]
     fn verified_interface_requires_resolved_installation_and_test_evidence() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["interfaces"][0]["verification_state"] = json!("physically_verified");
         record["interfaces"][0]["installation_evidence_refs"] = json!(["INSTALL-001"]);
         record["interfaces"][0]["compatibility_test_refs"] = json!(["TEST-001"]);
@@ -929,22 +1255,49 @@ mod tests {
         ]);
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(!issues.iter().any(|issue| issue.code == "INTERFACE_INSTALLATION_EVIDENCE_MISSING"));
-        assert!(!issues.iter().any(|issue| issue.code == "INTERFACE_COMPATIBILITY_TEST_MISSING"));
-        assert!(!issues.iter().any(|issue| issue.code == "INTERFACE_EVIDENCE_REF_UNRESOLVED"));
+        assert!(
+            !issues
+                .iter()
+                .any(|issue| issue.code == "INTERFACE_INSTALLATION_EVIDENCE_MISSING")
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|issue| issue.code == "INTERFACE_COMPATIBILITY_TEST_MISSING")
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|issue| issue.code == "INTERFACE_EVIDENCE_REF_UNRESOLVED")
+        );
     }
 
     #[test]
     fn qualified_interface_cannot_use_unresolved_or_unverified_evidence() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["interfaces"][0]["verification_state"] = json!("qualified");
         record["interfaces"][0]["installation_evidence_refs"] = json!(["missing-install-doc"]);
         record["interfaces"][0]["compatibility_test_refs"] = json!(["missing-test"]);
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(issues.iter().any(|issue| issue.code == "INTERFACE_EVIDENCE_REF_UNRESOLVED"));
-        assert!(issues.iter().any(|issue| issue.code == "INTERFACE_INSTALLATION_EVIDENCE_MISSING"));
-        assert!(issues.iter().any(|issue| issue.code == "INTERFACE_COMPATIBILITY_TEST_MISSING"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "INTERFACE_EVIDENCE_REF_UNRESOLVED")
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "INTERFACE_INSTALLATION_EVIDENCE_MISSING")
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "INTERFACE_COMPATIBILITY_TEST_MISSING")
+        );
     }
 
     #[test]
@@ -1031,17 +1384,27 @@ mod tests {
 
     #[test]
     fn passing_release_gate_without_evidence_is_rejected() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["release_gates"][0]["status"] = json!("pass");
         record["release_gates"][0]["evidence_refs"] = json!([]);
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(issues.iter().any(|issue| issue.code == "GATE_PASS_WITHOUT_EVIDENCE"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "GATE_PASS_WITHOUT_EVIDENCE")
+        );
     }
 
     #[test]
     fn stale_supplier_availability_and_expired_quote_are_disclosed() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["bom"]["items"][0]["supplier_records"] = json!([{
             "supplier_name":"Example supplier (synthetic)",
             "source_uri":"https://example.invalid/source",
@@ -1051,8 +1414,16 @@ mod tests {
         }]);
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(issues.iter().any(|issue| issue.code == "SUPPLIER_AVAILABILITY_STALE"));
-        assert!(issues.iter().any(|issue| issue.code == "SUPPLIER_QUOTE_EXPIRED"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "SUPPLIER_AVAILABILITY_STALE")
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "SUPPLIER_QUOTE_EXPIRED")
+        );
     }
 
     #[test]
@@ -1068,19 +1439,33 @@ mod tests {
 
     #[test]
     fn released_record_with_untested_gates_is_rejected() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["lifecycle_state"] = json!("released");
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(issues.iter().any(|issue| issue.code == "RELEASE_GATE_NOT_SATISFIED"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "RELEASE_GATE_NOT_SATISFIED")
+        );
     }
 
     #[test]
     fn qualified_component_without_qualification_evidence_is_rejected() {
-        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        let mut record: Value = serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json",
+        ))
+        .unwrap();
         record["bom"]["items"][0]["supplier_validation_state"] = json!("qualified");
         let mut issues = Vec::new();
         validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
-        assert!(issues.iter().any(|issue| issue.code == "QUALIFIED_COMPONENT_WITHOUT_QUALIFICATION_EVIDENCE"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "QUALIFIED_COMPONENT_WITHOUT_QUALIFICATION_EVIDENCE")
+        );
     }
 }
