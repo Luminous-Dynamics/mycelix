@@ -1,0 +1,36 @@
+{
+  "profile": "mycelix.food-traceability-event.v1",
+  "eventId": "urn:mycelix:food-event:co-op-hub-01:cold-room-gap-20261012-001",
+  "eventType": "HANDLING_OBSERVED",
+  "eventTime": "2026-10-12T09:00:00+02:00",
+  "recordedAt": "2026-10-12T09:00:05+02:00",
+  "actorRef": "urn:mycelix:sensor:cold-room-01",
+  "siteRef": "urn:mycelix:site:co-op-hub-01:cold-room",
+  "subjects": [
+    {
+      "productProfileRef": "urn:mycelix:product-profile:pasteurized-milk-v1",
+      "lotRef": "urn:mycelix:food-lot:milk-20261012-a"
+    }
+  ],
+  "handlingObservations": [
+    {
+      "parameter": "temperature",
+      "status": "missing",
+      "observedAt": "2026-10-12T09:00:00+02:00",
+      "receivedAt": "2026-10-12T09:00:05+02:00",
+      "sensorRef": "urn:mycelix:sensor:cold-room-01",
+      "calibrationStatus": "unknown",
+      "unitCode": "CEL",
+      "unitCodeSystem": "UNECE_REC20",
+      "unitCodeListVersion": "REC20-REV17-2021"
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "evidenceRef": "urn:mycelix:evidence:cold-room-01:gap-log-001",
+      "evidenceType": "sensor_record",
+      "status": "claimed"
+    }
+  ],
+  "notes": "Synthetic example only. The missing temperature reading is unknown, not an in-range observation or evidence of safe handling."
+}

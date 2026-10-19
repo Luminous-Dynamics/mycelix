@@ -1,0 +1,37 @@
+{
+  "profile": "mycelix.food-traceability-event.v1",
+  "eventId": "urn:mycelix:food-event:greenhouse-01:forecast-20261012-001",
+  "eventType": "FORECASTED",
+  "eventTime": "2026-10-12T06:00:00+02:00",
+  "recordedAt": "2026-10-12T06:01:00+02:00",
+  "actorRef": "urn:mycelix:model-service:symthaea-forecast",
+  "siteRef": "urn:mycelix:site:greenhouse-01",
+  "subjects": [
+    {
+      "productProfileRef": "urn:mycelix:product-profile:strawberries-v1",
+      "lotRef": "urn:mycelix:forecast:greenhouse-01:strawberries-week-42",
+      "quantity": {
+        "status": "forecast",
+        "value": "24.5",
+        "unitCode": "KGM",
+        "unitCodeSystem": "UNECE_REC20",
+        "unitCodeListVersion": "REC20-REV17-2021"
+      }
+    }
+  ],
+  "forecastMetadata": {
+    "modelRef": "urn:mycelix:model:yield-forecast",
+    "modelVersion": "symthaea-yield-forecast-0.1.0",
+    "issuedAt": "2026-10-12T06:00:00+02:00",
+    "horizonStart": "2026-10-13T00:00:00+02:00",
+    "horizonEnd": "2026-10-20T23:59:59+02:00"
+  },
+  "evidenceRefs": [
+    {
+      "evidenceRef": "urn:mycelix:evidence:symthaea-yield-forecast:run-001",
+      "evidenceType": "other",
+      "status": "claimed"
+    }
+  ],
+  "notes": "Synthetic forecast only. It must not be counted as harvested or available inventory."
+}

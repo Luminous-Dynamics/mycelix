@@ -1,0 +1,30 @@
+{
+  "profile": "mycelix.food-traceability-corpus-manifest.v1",
+  "corpusKind": "synthetic",
+  "schema": {
+    "path": "docs/food/schemas/food-traceability-event.v1.schema.json",
+    "gitBlobSha1": "0db1de1fa79f2d53463aef445423f4c65e03bbf7"
+  },
+  "fixtures": [
+    {
+      "path": "docs/food/examples/eggs-produced.v1.json",
+      "gitBlobSha1": "224a411fd6a5798c826a8bbf275630d597a479f8",
+      "purpose": "observed egg lot quantity by dozen"
+    },
+    {
+      "path": "docs/food/examples/forecasted-harvest.v1.json",
+      "gitBlobSha1": "f73c2cd8f142babf138704aba1f7b4aaba27fc6f",
+      "purpose": "model-versioned harvest forecast that must not become stock"
+    },
+    {
+      "path": "docs/food/examples/milk-to-cheese-transformed.v1.json",
+      "gitBlobSha1": "996e4c501ba2e35a0e012b8875d76b4153c2426c",
+      "purpose": "milk-to-cheese transformation with input/output lot lineage"
+    },
+    {
+      "path": "docs/food/examples/cold-chain-missing-sample.v1.json",
+      "gitBlobSha1": "4a037e0e1297ee5e75898f23de5e7cd22e34d89a",
+      "purpose": "missing sensor sample tied to a lot with no fabricated lot quantity"
+    }
+  ]
+}

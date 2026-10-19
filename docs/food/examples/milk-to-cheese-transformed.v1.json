@@ -1,0 +1,49 @@
+{
+  "profile": "mycelix.food-traceability-event.v1",
+  "eventId": "urn:mycelix:food-event:processor-01:milk-to-cheese-20261012-001",
+  "eventType": "TRANSFORMED",
+  "eventTime": "2026-10-12T08:00:00+02:00",
+  "recordedAt": "2026-10-12T08:02:00+02:00",
+  "actorRef": "urn:mycelix:producer:processor-01",
+  "siteRef": "urn:mycelix:site:processor-01:dairy-room",
+  "subjects": [
+    {
+      "productProfileRef": "urn:mycelix:product-profile:cheese-v1",
+      "lotRef": "urn:mycelix:food-lot:cheese-20261012-a"
+    }
+  ],
+  "inputs": [
+    {
+      "productProfileRef": "urn:mycelix:product-profile:pasteurized-milk-v1",
+      "lotRef": "urn:mycelix:food-lot:milk-20261012-a",
+      "quantity": {
+        "status": "observed",
+        "value": "20",
+        "unitCode": "LTR",
+        "unitCodeSystem": "UNECE_REC20",
+        "unitCodeListVersion": "REC20-REV17-2021"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "productProfileRef": "urn:mycelix:product-profile:cheese-v1",
+      "lotRef": "urn:mycelix:food-lot:cheese-20261012-a",
+      "quantity": {
+        "status": "observed",
+        "value": "3.2",
+        "unitCode": "KGM",
+        "unitCodeSystem": "UNECE_REC20",
+        "unitCodeListVersion": "REC20-REV17-2021"
+      }
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "evidenceRef": "urn:mycelix:evidence:processor-01:transformation-record-001",
+      "evidenceType": "producer_statement",
+      "status": "claimed"
+    }
+  ],
+  "notes": "Synthetic example only; quantities demonstrate cross-unit transformation lineage and are not a validated production yield."
+}
