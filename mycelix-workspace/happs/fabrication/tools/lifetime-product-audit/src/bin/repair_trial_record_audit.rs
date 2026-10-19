@@ -392,6 +392,10 @@ mod tests {
         );
         record["timings"]["parts_tool_wait"]["minutes"] = Value::Null;
         record["timings"]["parts_tool_wait"]["rationale"] = json!("");
-        assert!(validate_record_semantics(&record).iter().any(|issue| issue.contains("requires a reason")));
+        assert!(
+            validate_record_semantics(&record)
+                .iter()
+                .any(|issue| issue.contains("requires a reason"))
+        );
     }
 }
