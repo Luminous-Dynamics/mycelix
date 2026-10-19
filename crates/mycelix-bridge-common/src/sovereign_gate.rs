@@ -7,8 +7,9 @@
 //! `gate_civic()` is a drop-in replacement for `gate_consciousness()`.
 //! It attempts to fetch a native `SovereignCredential` (8D) first. If the
 //! local bridge supports it, evaluation uses the full 8-dimensional profile.
-//! Otherwise, it falls back to the legacy `ConsciousnessCredential` (4D)
-//! with automatic conversion to the 8D space.
+//! Otherwise, it falls back to the legacy `ConsciousnessCredential` (4D) only
+//! when the requested per-dimension constraints can be represented without
+//! silently dropping an authority requirement.
 //!
 //! Returns the same `GovernanceEligibility` for backward compatibility.
 
@@ -49,11 +50,93 @@ pub fn sovereign_from_credential(credential: &ConsciousnessCredential) -> Sovere
     SovereignProfile::from(legacy)
 }
 
-/// Convert a `CivicRequirement` to the legacy `GovernanceRequirement`.
+/// Why an 8D civic requirement cannot be enforced by the legacy 4D gate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyCivicRequirementError {
+    /// Per-dimension constraints that have no enforceable legacy requirement
+    /// field and would otherwise be silently discarded.
+    pub unsupported_dimensions: Vec<SovereignDimension>,
+}
+
+impl core::fmt::Display for LegacyCivicRequirementError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "legacy civic fallback cannot enforce dimensions: {:?}",
+            self.unsupported_dimensions
+        )
+    }
+}
+
+/// Convert a `CivicRequirement` to a legacy `GovernanceRequirement` only when
+/// every explicit per-dimension constraint is enforceable by the legacy gate.
 ///
-/// Maps per-dimension minimums back to the old identity/community minimums.
-/// Dimensions without a clear mapping are dropped (conservative — never gates
-/// more than the old system would).
+/// The legacy requirement schema can enforce only identity and community
+/// minima. The existing compatibility mapping can therefore preserve:
+///
+/// - EpistemicIntegrity / NetworkResilience -> identity
+/// - CivicParticipation / SemanticResonance -> community
+///
+/// It cannot express explicit minimums for ThermodynamicYield,
+/// EconomicVelocity, StewardshipCare, or DomainCompetence. Those requirements
+/// must use native 8D evaluation; silently discarding them would weaken the
+/// requested authority policy.
+pub fn try_governance_requirement_from_civic(
+    civic: &CivicRequirement,
+) -> Result<GovernanceRequirement, LegacyCivicRequirementError> {
+    let min_tier = match civic.min_tier {
+        CivicTier::Observer => ConsciousnessTier::Observer,
+        CivicTier::Participant => ConsciousnessTier::Participant,
+        CivicTier::Citizen => ConsciousnessTier::Citizen,
+        CivicTier::Steward => ConsciousnessTier::Steward,
+        CivicTier::Guardian => ConsciousnessTier::Guardian,
+    };
+
+    let mut min_identity = None;
+    let mut min_community = None;
+    let mut unsupported_dimensions = Vec::new();
+
+    for &(dim, val) in &civic.min_dimensions {
+        match dim {
+            SovereignDimension::EpistemicIntegrity | SovereignDimension::NetworkResilience => {
+                min_identity = Some(min_identity.unwrap_or(0.0_f64).max(val));
+            }
+            SovereignDimension::CivicParticipation | SovereignDimension::SemanticResonance => {
+                min_community = Some(min_community.unwrap_or(0.0_f64).max(val));
+            }
+            SovereignDimension::ThermodynamicYield
+            | SovereignDimension::EconomicVelocity
+            | SovereignDimension::StewardshipCare
+            | SovereignDimension::DomainCompetence => {
+                if !unsupported_dimensions.contains(&dim) {
+                    unsupported_dimensions.push(dim);
+                }
+            }
+        }
+    }
+
+    if !unsupported_dimensions.is_empty() {
+        return Err(LegacyCivicRequirementError {
+            unsupported_dimensions,
+        });
+    }
+
+    Ok(GovernanceRequirement {
+        min_tier,
+        min_identity,
+        min_community,
+    })
+}
+
+/// Lossy compatibility converter retained for source compatibility.
+///
+/// **Do not use this function for authorization enforcement.** It predates the
+/// checked fallback and silently drops 8D constraints that the legacy schema
+/// cannot represent. Enforcement code must use
+/// [`try_governance_requirement_from_civic`] and fail closed on `Err`.
+#[deprecated(
+    note = "lossy compatibility helper; use try_governance_requirement_from_civic for authorization"
+)]
 pub fn governance_requirement_from_civic(civic: &CivicRequirement) -> GovernanceRequirement {
     let min_tier = match civic.min_tier {
         CivicTier::Observer => ConsciousnessTier::Observer,
@@ -68,15 +151,12 @@ pub fn governance_requirement_from_civic(civic: &CivicRequirement) -> Governance
 
     for &(dim, val) in &civic.min_dimensions {
         match dim {
-            // Epistemic maps to identity in the old system
             SovereignDimension::EpistemicIntegrity | SovereignDimension::NetworkResilience => {
                 min_identity = Some(min_identity.unwrap_or(0.0_f64).max(val));
             }
-            // Civic participation maps to community in the old system
             SovereignDimension::CivicParticipation | SovereignDimension::SemanticResonance => {
                 min_community = Some(min_community.unwrap_or(0.0_f64).max(val));
             }
-            // Other dimensions have no legacy equivalent — silently ignored
             _ => {}
         }
     }
@@ -178,11 +258,13 @@ fn sovereign_to_legacy_profile(
 
 /// Gate a governance action using the 8D Sovereign Profile.
 ///
-/// Drop-in replacement for `gate_consciousness()`. Tries to fetch a native
-/// `SovereignCredential` from the local bridge first. Falls back to the legacy
-/// `ConsciousnessCredential` path if the bridge doesn't support it yet.
+/// Tries native 8D `SovereignCredential` evaluation first. Legacy fallback is
+/// permitted only when the exact explicit per-dimension requirement can be
+/// represented by the legacy requirement schema. If not, the compatibility
+/// boundary fails closed instead of silently weakening the authority policy.
 ///
-/// Returns `Ok(GovernanceEligibility)` — eligible or ineligible with reasons.
+/// Returns `Ok(GovernanceEligibility)` for native/representable paths; an
+/// unsupported legacy fallback returns an error so callers cannot authorize.
 #[cfg(feature = "hdk")]
 pub fn gate_civic(
     bridge_zome: &str,
@@ -220,7 +302,12 @@ pub fn gate_civic(
     }
 
     // --- Fallback: legacy ConsciousnessCredential path ---
-    let legacy_req = governance_requirement_from_civic(requirement);
+    // Never translate an unrepresentable 8D policy into a weaker legacy one.
+    let legacy_req = try_governance_requirement_from_civic(requirement).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "civic authorization requires native 8D evaluation; {error}"
+        )))
+    })?;
     crate::consciousness_profile::gate_consciousness(bridge_zome, &legacy_req, action_name)
 }
 
@@ -265,7 +352,7 @@ mod tests {
     #[test]
     fn civic_requirement_basic_converts_to_participant() {
         let civic = civic_requirement_basic();
-        let legacy = governance_requirement_from_civic(&civic);
+        let legacy = try_governance_requirement_from_civic(&civic).unwrap();
         assert_eq!(legacy.min_tier, ConsciousnessTier::Participant);
         assert!(legacy.min_identity.is_none());
         assert!(legacy.min_community.is_none());
@@ -274,7 +361,7 @@ mod tests {
     #[test]
     fn civic_requirement_voting_converts_with_identity_minimum() {
         let civic = civic_requirement_voting();
-        let legacy = governance_requirement_from_civic(&civic);
+        let legacy = try_governance_requirement_from_civic(&civic).unwrap();
         assert_eq!(legacy.min_tier, ConsciousnessTier::Citizen);
         assert_eq!(legacy.min_identity, Some(0.25));
     }
@@ -282,7 +369,7 @@ mod tests {
     #[test]
     fn civic_requirement_constitutional_converts_with_both_minimums() {
         let civic = civic_requirement_constitutional();
-        let legacy = governance_requirement_from_civic(&civic);
+        let legacy = try_governance_requirement_from_civic(&civic).unwrap();
         assert_eq!(legacy.min_tier, ConsciousnessTier::Steward);
         assert_eq!(legacy.min_identity, Some(0.5));
         assert_eq!(legacy.min_community, Some(0.3));
@@ -291,10 +378,61 @@ mod tests {
     #[test]
     fn civic_requirement_guardian_converts_correctly() {
         let civic = civic_requirement_guardian();
-        let legacy = governance_requirement_from_civic(&civic);
+        let legacy = try_governance_requirement_from_civic(&civic).unwrap();
         assert_eq!(legacy.min_tier, ConsciousnessTier::Guardian);
         assert_eq!(legacy.min_identity, Some(0.7));
         assert_eq!(legacy.min_community, Some(0.5));
+    }
+
+    #[test]
+    fn unsupported_8d_dimensions_fail_checked_legacy_conversion() {
+        let unsupported = [
+            SovereignDimension::ThermodynamicYield,
+            SovereignDimension::EconomicVelocity,
+            SovereignDimension::StewardshipCare,
+            SovereignDimension::DomainCompetence,
+        ];
+
+        for dimension in unsupported {
+            let civic = CivicRequirement {
+                min_tier: CivicTier::Participant,
+                min_dimensions: vec![(dimension, 0.25)],
+            };
+            let error = try_governance_requirement_from_civic(&civic).unwrap_err();
+            assert_eq!(error.unsupported_dimensions, vec![dimension]);
+        }
+    }
+
+    #[test]
+    fn mixed_requirement_cannot_drop_only_the_unrepresentable_constraint() {
+        let civic = CivicRequirement {
+            min_tier: CivicTier::Citizen,
+            min_dimensions: vec![
+                (SovereignDimension::EpistemicIntegrity, 0.25),
+                (SovereignDimension::DomainCompetence, 0.8),
+            ],
+        };
+        let error = try_governance_requirement_from_civic(&civic).unwrap_err();
+        assert_eq!(
+            error.unsupported_dimensions,
+            vec![SovereignDimension::DomainCompetence]
+        );
+    }
+
+    #[test]
+    fn duplicate_unsupported_dimensions_are_reported_once() {
+        let civic = CivicRequirement {
+            min_tier: CivicTier::Participant,
+            min_dimensions: vec![
+                (SovereignDimension::DomainCompetence, 0.5),
+                (SovereignDimension::DomainCompetence, 0.8),
+            ],
+        };
+        let error = try_governance_requirement_from_civic(&civic).unwrap_err();
+        assert_eq!(
+            error.unsupported_dimensions,
+            vec![SovereignDimension::DomainCompetence]
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -483,8 +621,10 @@ mod tests {
     }
 
     #[test]
-    fn all_civic_presets_have_matching_legacy_presets() {
-        // Verify civic presets produce equivalent legacy requirements
+    fn all_civic_presets_are_losslessly_legacy_representable() {
+        // Stock presets currently use only legacy-representable explicit minima.
+        // This test prevents the preset definitions from later adding a native-only
+        // dimension while silently retaining legacy fallback authority.
         use crate::consciousness_profile::*;
 
         let pairs: Vec<(CivicRequirement, GovernanceRequirement)> = vec![
@@ -499,7 +639,8 @@ mod tests {
         ];
 
         for (civic, expected) in pairs {
-            let converted = governance_requirement_from_civic(&civic);
+            let converted = try_governance_requirement_from_civic(&civic)
+                .expect("stock civic preset must remain losslessly legacy-representable");
             assert_eq!(
                 converted.min_tier, expected.min_tier,
                 "Tier mismatch for {:?}",
