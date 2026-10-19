@@ -745,36 +745,146 @@ pub async fn protect_existing_identity(
     Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
 }
 
-/// Encrypt the local identity's secret key with `passphrase` and switch
-/// storage over to the encrypted form.
+/// Create, protect, or rotate the passphrase for the local identity.
 ///
-/// Generates the keypair first (via [`ensure_keypair`]) if none exists yet
-/// — so this can be the very first thing a fresh visitor does, going
-/// straight from "no identity" to "protected identity" with no unprotected
-/// window from the caller's perspective (there's a brief one internally,
-/// same as any "generate, then protect" flow).
+/// This entry point routes to the checked storage-transition APIs. New
+/// identities are created directly in encrypted storage; an existing
+/// unprotected identity is encrypted and read back before the plaintext
+/// secret is removed; an already protected identity can rotate its
+/// passphrase only while its key is unlocked in this session.
 ///
-/// Idempotent-ish: calling again with a new passphrase re-encrypts under
-/// the new one (effectively a passphrase change), since it always starts
-/// from the in-memory key, not the stored ciphertext.
+/// A protected-but-locked, legacy-only, unavailable, or inconsistent state
+/// is rejected rather than triggering implicit key generation.
 ///
 /// # Errors
 ///
-/// Returns an error if `passphrase` is empty, or if the underlying
-/// WebCrypto calls fail (see [`identity_crypto::encrypt`]).
+/// Returns an error for empty passphrases, unavailable/corrupt storage,
+/// unsuccessful persistence/read-back verification, or attempts to operate
+/// on an identity that is locked or inconsistent.
 pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
-    if passphrase.is_empty() {
-        return Err("Passphrase must not be empty".to_string());
+    validate_new_identity_passphrase(passphrase)?;
+    match inspect_local_identity_posture() {
+        LocalIdentityStoragePosture::NoIdentity => {
+            create_protected_identity(passphrase).await.map(|_| ())
+        }
+        LocalIdentityStoragePosture::UnprotectedIdentity => {
+            protect_existing_identity(passphrase).await.map(|_| ())
+        }
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+            rewrap_protected_identity(passphrase).await
+        }
+        LocalIdentityStoragePosture::ProtectedLocked => Err(
+            "Identity is protected but locked; unlock it before changing the passphrase.".into(),
+        ),
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => Err(
+            "A legacy identity label needs explicit migration or recovery; no key was generated."
+                .into(),
+        ),
+        LocalIdentityStoragePosture::StorageUnavailable => Err(
+            "Identity storage is unavailable; no identity was created or changed.".into(),
+        ),
+        LocalIdentityStoragePosture::CorruptOrInconsistent => Err(
+            "Identity storage is inconsistent; inspect or recover it before changing protection."
+                .into(),
+        ),
     }
-    let signing_key = ensure_keypair();
+}
+
+async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
+    validate_new_identity_passphrase(passphrase)?;
+    let signing_key = UNLOCKED_KEY
+        .with(|cell| cell.borrow().clone())
+        .ok_or_else(|| "Protected identity is not unlocked in this session.".to_string())?;
+
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser window is unavailable; passphrase was not changed.".to_string())?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser identity storage is unavailable.".to_string())?
+        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let mut snapshot = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
+    let public_b64 = snapshot
+        .public_b64
+        .clone()
+        .ok_or_else(|| "Protected identity public-key metadata is missing.".to_string())?;
+    let previous_wire = snapshot
+        .encrypted_wire
+        .clone()
+        .ok_or_else(|| "Protected identity envelope is missing.".to_string())?;
+    let valid_previous_state = classify_identity_storage_snapshot(&snapshot)
+        == LocalIdentityStoragePosture::ProtectedLocked
+        && snapshot.secret_b64.is_none()
+        && public_key_matches_signing_key(&public_b64, &signing_key)
+        && encrypted_blob_is_structurally_valid(&previous_wire);
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if !valid_previous_state {
+        return Err(
+            "Protected identity storage is inconsistent; passphrase was not changed.".into(),
+        );
+    }
+
     let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
-    save_json(
-        IDENTITY_SECRET_ENCRYPTED_KEY,
-        &EncryptedBlobWire::from(&blob),
-    );
-    remove_item(IDENTITY_SECRET_KEY); // no more plaintext secret at rest
-    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
-    Ok(())
+    let next_wire = serde_json::to_string(&EncryptedBlobWire::from(&blob))
+        .map_err(|_| "Could not serialize the updated protected envelope.".to_string())?;
+
+    let mut current = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Browser identity storage became unavailable.".to_string())?;
+    let unchanged = current.secret_b64.is_none()
+        && current.public_b64.as_deref() == Some(public_b64.as_str())
+        && current.encrypted_wire.as_deref() == Some(previous_wire.as_str())
+        && public_key_matches_signing_key(&public_b64, &signing_key);
+    if let Some(secret_b64) = current.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if !unchanged {
+        return Err(
+            "Identity storage changed during passphrase rotation; no new envelope was written."
+                .into(),
+        );
+    }
+
+    if storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &next_wire)
+        .is_err()
+    {
+        return Err(
+            "Could not persist the rotated passphrase envelope; the previous envelope remains authoritative."
+                .into(),
+        );
+    }
+    let readback = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Could not verify the rotated identity envelope.".to_string())?;
+    if readback.as_deref() == Some(next_wire.as_str())
+        && encrypted_blob_is_structurally_valid(&next_wire)
+    {
+        return Ok(());
+    }
+
+    // Restore the previous envelope if the new one cannot be verified.
+    if storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &previous_wire)
+        .is_err()
+    {
+        return Err(
+            "Passphrase rotation could not be verified and rollback failed; inspect identity posture before retrying."
+                .into(),
+        );
+    }
+    let restored = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Previous envelope restore could not be verified.".to_string())?;
+    if restored.as_deref() == Some(previous_wire.as_str()) {
+        Err("Passphrase rotation failed verification; the previous passphrase remains active.".into())
+    } else {
+        Err(
+            "Passphrase rotation and rollback could not be verified; inspect identity posture before retrying."
+                .into(),
+        )
+    }
 }
 
 /// Decrypt the passphrase-protected local identity and cache it in memory
