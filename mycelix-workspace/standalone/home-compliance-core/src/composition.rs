@@ -560,23 +560,6 @@ fn compose_rule_modules_internal(
                     continue;
                 }
 
-                let Some(verifier) = override_verifier else {
-                    issues.push(CompositionIssue::OverrideNotAuthenticated {
-                        statement_id: statement.statement_id.clone(),
-                        target_statement_id: directive.target_statement_id.clone(),
-                    });
-                    continue;
-                };
-                let verification = verifier.verify_override(module, statement, directive);
-                if verification != OverrideVerification::Verified {
-                    issues.push(CompositionIssue::OverrideVerificationFailed {
-                        statement_id: statement.statement_id.clone(),
-                        target_statement_id: directive.target_statement_id.clone(),
-                        reason: verification,
-                    });
-                    continue;
-                }
-
                 for (field, value) in [
                     (
                         "target_statement_id",
@@ -600,6 +583,27 @@ fn compose_rule_modules_internal(
                     issues.push(CompositionIssue::InvalidOverrideEvidenceDigest {
                         statement_id: statement.statement_id.clone(),
                     });
+                }
+
+                // Validate local metadata before crossing the authentication
+                // boundary so malformed digests remain diagnosable even when
+                // the caller supplies no verifier. This never accepts an
+                // override: authentication is still mandatory below.
+                let Some(verifier) = override_verifier else {
+                    issues.push(CompositionIssue::OverrideNotAuthenticated {
+                        statement_id: statement.statement_id.clone(),
+                        target_statement_id: directive.target_statement_id.clone(),
+                    });
+                    continue;
+                };
+                let verification = verifier.verify_override(module, statement, directive);
+                if verification != OverrideVerification::Verified {
+                    issues.push(CompositionIssue::OverrideVerificationFailed {
+                        statement_id: statement.statement_id.clone(),
+                        target_statement_id: directive.target_statement_id.clone(),
+                        reason: verification,
+                    });
+                    continue;
                 }
                 let Some((target_module, target)) = statements
                     .get(directive.target_statement_id.as_str())
