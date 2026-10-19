@@ -294,10 +294,13 @@ where
     }
 
     let mut assessments: HashMap<&str, &AlternativeCriterionAssessment> = HashMap::new();
-    let mut seen_evidence = HashSet::new();
+    let mut evidence_digests: HashMap<&str, &str> = HashMap::new();
     let mut criteria_passed = 0;
     let mut criteria_failed = 0;
     let mut criteria_unknown = 0;
+    let mut failed_criteria = Vec::new();
+    let mut unknown_criteria = Vec::new();
+    let mut review_requires_more_evidence = false;
     for assessment in &case.assessments {
         let Some(criterion) = criteria.get(assessment.criterion_id.as_str()).copied() else {
             blockers.push(AlternativeCaseBlocker::AssessmentHasUnknownCriterion(
@@ -333,6 +336,7 @@ where
                 assessment.criterion_id.clone(),
             ));
         }
+        let mut evidence_ids_for_criterion = HashSet::new();
         for evidence in &assessment.evidence {
             if !nonblank(&evidence.artifact_id) {
                 blockers.push(AlternativeCaseBlocker::EvidenceNotSupplied(
@@ -347,7 +351,15 @@ where
                 });
                 continue;
             }
-            if !seen_evidence.insert((evidence.artifact_id.as_str(), evidence.artifact_sha256.as_str())) {
+            if !evidence_ids_for_criterion.insert(evidence.artifact_id.as_str()) {
+                blockers.push(AlternativeCaseBlocker::DuplicateEvidenceId(
+                    evidence.artifact_id.clone(),
+                ));
+            }
+            if evidence_digests
+                .insert(evidence.artifact_id.as_str(), evidence.artifact_sha256.as_str())
+                .is_some_and(|existing_digest| existing_digest != evidence.artifact_sha256)
+            {
                 blockers.push(AlternativeCaseBlocker::DuplicateEvidenceId(
                     evidence.artifact_id.clone(),
                 ));
@@ -379,6 +391,7 @@ where
             CriterionOutcome::Pass => criteria_passed += 1,
             CriterionOutcome::Fail => {
                 criteria_failed += 1;
+                failed_criteria.push(assessment.criterion_id.clone());
                 if criterion.critical_to_safety_or_health {
                     blockers.push(AlternativeCaseBlocker::CriterionFailed(
                         assessment.criterion_id.clone(),
@@ -387,6 +400,7 @@ where
             }
             CriterionOutcome::Unknown => {
                 criteria_unknown += 1;
+                unknown_criteria.push(assessment.criterion_id.clone());
                 if criterion.critical_to_safety_or_health {
                     blockers.push(AlternativeCaseBlocker::CriterionUnknown(
                         assessment.criterion_id.clone(),
@@ -408,6 +422,9 @@ where
     let mut supporters = 0;
     let mut dissent = Vec::new();
     for review in &case.independent_reviews {
+        if review.disposition == AlternativeReviewDisposition::RequiresMoreEvidence {
+            review_requires_more_evidence = true;
+        }
         if !nonblank(&review.reviewer_id) {
             blockers.push(AlternativeCaseBlocker::InvalidReviewMetadata {
                 reviewer_id: review.reviewer_id.clone(),
@@ -462,13 +479,17 @@ where
     blockers.sort_by(|left, right| format!("{left:?}").cmp(&format!("{right:?}")));
     dissent.sort();
 
+    failed_criteria.sort();
+    unknown_criteria.sort();
+
     let status = if !blockers.is_empty() {
         AlternativeSolutionStatus::Blocked
-    } else if dissent.is_empty() {
-        AlternativeSolutionStatus::ReadyForAuthoritySubmission
+    } else if criteria_failed > 0 || criteria_unknown > 0 || review_requires_more_evidence {
+        // Non-critical unresolved outcomes can be explored, but are not presented
+        // as a complete authority-submission package.
+        AlternativeSolutionStatus::ReadyForIndependentReview
     } else {
-        // Dissent and "more evidence" conclusions remain visible. A complete
-        // dossier can still be submitted for authority review with dissent attached.
+        // Challenges and inconclusive opinions remain attached to the dossier.
         AlternativeSolutionStatus::ReadyForAuthoritySubmission
     };
 
@@ -476,6 +497,8 @@ where
         status,
         blockers,
         preserved_dissenting_reviewers: dissent,
+        failed_criteria,
+        unknown_criteria,
         criteria_passed,
         criteria_failed,
         criteria_unknown,
