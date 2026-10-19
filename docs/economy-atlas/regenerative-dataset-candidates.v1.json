@@ -1,0 +1,679 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "mycelix.regenerative-dataset-candidates",
+  "catalog_status": "source_discovery_only",
+  "qualification": {
+    "source_artifacts_downloaded": false,
+    "real_observations_imported": false,
+    "candidate_ingestion_gates_passed": false,
+    "dataset_rights_independently_verified": false
+  },
+  "global_ingestion_rules": [
+    "A web page marked open or a metadata license field is not by itself sufficient when the same record has contradictory or absent license information.",
+    "Do not download, check in, transform, redistribute or embed source data until access permissions, license scope, attribution obligations, modification rights and intended use are documented.",
+    "Dataset access and dataset reuse rights are separate questions. A downloadable file is not automatically licensed for reuse.",
+    "Do not promote metadata statements to observed data quality; inspect source artifact bytes, schema, data dictionary, station/time coverage, missingness, units and revisions before accepting a series.",
+    "Any later receipt must bind source artifact digest, exact indicator catalog digest, source revision, unit mapping and time/geography definitions.",
+    "A dataset may be appropriate for scholarly analysis but not for a public, commercial or redistributed product; qualification must be scoped to the actual intended use."
+  ],
+  "candidates": [
+    {
+      "candidate_id": "south-africa.swam-satellite-water-quality.2026.v1",
+      "title": "EO Africa SWAM satellite-derived water-quality series",
+      "publisher": "Zenodo record; work by CSIR, University of Cape Town and University of Stirling",
+      "dataset_url": "https://zenodo.org/records/18670504",
+      "related_indicator_ids": [
+        "water.pollutant-concentration.v1"
+      ],
+      "discovery_status": "license_not_verified",
+      "reported_availability": "The project README describes the datasets as freely/openly accessible through Zenodo. Its GPL-3.0 license section applies to repository code; it does not clearly specify a separate license for the Zenodo data files.",
+      "temporal_coverage": {
+        "start_date": "2015-08-01",
+        "end_date": "2025-08-30",
+        "basis": "Sentinel-2 acquisition search period described in record; individual series ranges must be verified from files."
+      },
+      "spatial_coverage": {
+        "geography": "Six water bodies that the linked SWAM project README explicitly locates in Western Cape Province, South Africa.",
+        "entities": [
+          {
+            "code": "CW",
+            "name": "Clanwilliam Dam"
+          },
+          {
+            "code": "MV",
+            "name": "Misverstand Dam"
+          },
+          {
+            "code": "RV",
+            "name": "Rietvlei"
+          },
+          {
+            "code": "TW",
+            "name": "Theewaterskloof Dam"
+          },
+          {
+            "code": "VV",
+            "name": "Voelvlei Dam"
+          },
+          {
+            "code": "ZV",
+            "name": "Zeekoevlei"
+          }
+        ],
+        "caveat": "Not a Gauteng/Johannesburg proxy. The RV/Rietvlei name is ambiguous nationally, but SWAM scopes its selected water bodies to Western Cape; exact coordinates/polygons are still needed for precise site identity."
+      },
+      "reported_measures": [
+        {
+          "name": "Chlorophyll-a concentration",
+          "native_unit": "mg m^-3",
+          "method_summary": "The record describes ACOLITE-RAdCor atmospheric correction and an MDN algorithm."
+        },
+        {
+          "name": "Total suspended matter concentration",
+          "native_unit": "g m^-3",
+          "method_summary": "The record describes C2RCC/C2X-Complex and the Jiang et al. 2023 algorithm."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "CSV",
+        "gridded_format": "NetCDF4 (time, lat, lon)",
+        "reported_total_file_volume_mb": 223.4,
+        "quality_coverage_rule": "Records are included only where more than 5% of total water-body area has valid pixels after atmospheric correction and the water-quality algorithm.",
+        "columns_reported": [
+          "water-body name",
+          "satellite overpass date/time UTC",
+          "date",
+          "10th percentile",
+          "mean or median concentration depending on variable",
+          "90th percentile",
+          "number of valid pixels"
+        ],
+        "preview_only_inspection": {
+          "method": "web text preview only; not a retained or locally hashed source artifact",
+          "sample_asset": "CHL_timeseries_2015_2025_CW.csv",
+          "source_url": "https://zenodo.org/records/18670504/files/CHL_timeseries_2015_2025_CW.csv?download=1",
+          "displayed_total_lines_in_preview": 433,
+          "header": [
+            "Lake_name",
+            "DateTime_UTC",
+            "Date",
+            "CHL_10P",
+            "CHL_mean",
+            "CHL_median",
+            "CHL_90P",
+            "N_valid"
+          ],
+          "first_displayed_data_date": "2015-08-10",
+          "last_displayed_data_date": "2025-11-07",
+          "note": "Preview dates are discovery observations only. Do not treat this as an ingested dataset or a verified complete time range.",
+          "source_listing_checksum_md5": "1a522a5cb61fa7d23cbaf31fb4a55ea5",
+          "digest_verified_locally": false,
+          "checksum_note": "Zenodo lists this MD5 for the file. It is a metadata claim, not a hash calculated on retained bytes and not the SHA-256 required for a future observation receipt.",
+          "additional_preview_checks": [
+            {
+              "asset": "TSM_timeseries_2015_2025_CW.csv",
+              "source_url": "https://zenodo.org/records/18670504/files/TSM_timeseries_2015_2025_CW.csv?download=1",
+              "preview_observation": "The public preview displays multiple rows for calendar date 2024-12-10 with distinct DateTime_UTC values.",
+              "required_handling": "Preserve acquisition timestamp and date separately. Treat multiple overpasses on one date differently from duplicate timestamp records; do not deduplicate on Date alone."
+            }
+          ]
+        }
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "open",
+        "declared_file_license": null,
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://zenodo.org/records/18670504",
+          "https://github.com/DalinJiang/EO-Africa-SWAM",
+          "https://help.zenodo.org/docs/deposit/describe-records/licenses/",
+          "https://support.zenodo.org/help/en-gb/2-content/21-can-i-get-permission-to-use-a-specific-record",
+          "https://developers.zenodo.org/",
+          "https://about.zenodo.org/policies/"
+        ],
+        "assessment_note": "The Zenodo record's Rights/License field is blank in the inspected page. The linked project's README calls the data free/open via Zenodo but explicitly states GPL-3.0 applies to its code; that code license does not clearly license the separate data files. Zenodo documents that record license conditions govern reuse and a missing displayed file license should be resolved with authoritative record metadata or the rights holder. Do not infer CC-BY or any other data license."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "license_not_verified",
+          "spatial_identity_not_verified",
+          "source_artifact_not_retained_or_hashed",
+          "metadata_date_range_conflict_unresolved",
+          "code_license_does_not_confirm_dataset_license",
+          "target_geography_mismatch_for_johannesburg_pilot"
+        ],
+        "required_evidence": [
+          "Record-level file license confirmed from authoritative metadata or written rights-holder permission",
+          "Attribution and citation text recorded",
+          "Commercial/research redistribution and transformation rights confirmed for the intended product",
+          "Original file downloaded in an approved workspace and SHA-256 calculated",
+          "CSV schema, row counts, date range, missingness, duplicate timestamps and non-finite values inspected",
+          "Water-body coordinates/polygons and site identity checked against the record",
+          "Algorithm, atmospheric correction, valid-pixel threshold and remote-sensing uncertainty recorded",
+          "Reconcile the record description's stated search end date (2025-08-30) with the CHL CSV preview's last displayed date (2025-11-07) and document the authoritative data/version window",
+          "Verify the exact Rietvlei water-body coordinates and confirm the target site identity before any Johannesburg-area association"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "A Western Cape remote-sensing research pilot after data-file license confirmation, source-byte retention/hash, date-window reconciliation, and water-body identity validation.",
+        "not_suitable_for": "Johannesburg/Gauteng water-quality status claims, drinking-water-safety certification, a laboratory-equivalent concentration claim, or causal proof that an intervention improved water quality.",
+        "next_action": "Resolve the file-level data license and date-window discrepancy; verify coordinates/polygons against the intended Western Cape site. For a Johannesburg/Gauteng pilot, select a separate Gauteng source and independently qualify that source's license and coverage."
+      },
+      "known_findings": [
+        {
+          "finding_id": "SWAM-PREVIEW-DATE-WINDOW-001",
+          "severity": "medium",
+          "observation": "Zenodo record description states the Sentinel-2 search period was 2015-08-01 through 2025-08-30, while the publicly rendered CHL_timeseries_2015_2025_CW.csv preview contains a row dated 2025-11-07. The discrepancy may reflect stale narrative metadata, later processing, or a different range; the page alone does not establish which explanation is correct.",
+          "required_resolution": "Confirm the exact file/version and inclusive data window against the authoritative deposited metadata or the dataset authors before any trend/window analysis. Preserve the response or immutable metadata snapshot."
+        },
+        {
+          "finding_id": "SWAM-RIETVLEI-SITE-IDENTITY-001",
+          "severity": "medium",
+          "observation": "The linked SWAM project README explicitly scopes its six target water bodies to Western Cape Province. The RV/Rietvlei code must not be assumed to mean the separate Rietvlei Dam/water bodies around Gauteng/Johannesburg.",
+          "required_resolution": "Match the series to the Western Cape site using the GeoJSON water-body polygons or coordinates. If the study target is Johannesburg/Gauteng, use a separate source with verified Gauteng coordinates and qualify its rights independently."
+        },
+        {
+          "finding_id": "SWAM-MULTI-OVERPASS-DAY-001",
+          "severity": "low",
+          "observation": "The preview for TSM_timeseries_2015_2025_CW.csv contains multiple records for calendar date 2024-12-10 with distinct DateTime_UTC timestamps. This can represent distinct satellite overpasses rather than duplicate observations.",
+          "required_resolution": "Use the UTC acquisition timestamp as the event-level key, audit duplicate timestamps separately from multi-overpass days, and record a documented rule before aggregation or deduplication."
+        },
+        {
+          "finding_id": "SWAM-DATA-CODE-LICENSE-SCOPE-001",
+          "severity": "medium",
+          "observation": "The linked EO-Africa-SWAM README describes dataset access as free/open through Zenodo but its License section says GPL-3.0 applies to code; the Zenodo dataset record's Rights/License field is blank in the inspected page. Code licensing is not evidence that separate dataset files are licensed for modification or redistribution.",
+          "required_resolution": "Verify an explicit file/data license in authoritative Zenodo metadata or obtain written rights-holder confirmation covering the intended research, commercial, redistribution and modification uses before import."
+        }
+      ]
+    },
+    {
+      "candidate_id": "south-africa.national-water-chemistry.1972-2011.v1",
+      "title": "South African river, dam and lake inorganic water chemistry dataset (1972–2011)",
+      "publisher": "Water Research Observatory / Water SA; underlying data attributed to Department of Water Affairs and CSIR",
+      "dataset_url": "https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa",
+      "related_indicator_ids": [
+        "water.pollutant-concentration.v1"
+      ],
+      "discovery_status": "license_metadata_conflict",
+      "temporal_coverage": {
+        "start_date": "1972-01-01",
+        "end_date": "2011-12-31",
+        "basis": "Dataset record metadata; confirm per file."
+      },
+      "spatial_coverage": {
+        "geography": "National South African surface waters",
+        "entities": [
+          "rivers",
+          "dams",
+          "lakes"
+        ],
+        "caveat": "The catalogue describes more than 2,000 monitoring stations; do not infer every station has dense or continuous records."
+      },
+      "reported_measures": [
+        {
+          "name": "Inorganic surface-water chemistry",
+          "native_unit": "variable-specific; inspect data dictionary",
+          "method_summary": "Record describes measured major ions, pH, conductivity, alkalinity and dissolved solids plus calculated variables."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Multiple Excel spreadsheets",
+        "access_note": "The WRO page currently displays a 'Log in to download' message for resources.",
+        "reported_sample_count_description": "More than 500,000 complete chemical analyses (source wording; not an exact count)",
+        "reported_station_count_description": "Over 2,000 monitoring stations (source wording; not an exact count)"
+      },
+      "license_assessment": {
+        "license_status": "conflicting",
+        "displayed_access_status": "WRO dataset page says 'No License Provided' in the top License section; an additional metadata field later claims 'Open (Creative commons)' with CC BY-SA 4.0 URL.",
+        "declared_file_license": "CC BY-SA 4.0 is claimed in one metadata field but is not consistent with the page's top-level license state.",
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa",
+          "https://creativecommons.org/licenses/by-sa/4.0/"
+        ],
+        "assessment_note": "The conflicting license representations and login-gated downloads must be resolved against authoritative terms and actual files before use."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "license_metadata_conflict",
+          "download_requires_login",
+          "processed_dataset_methodology_requires_review"
+        ],
+        "required_evidence": [
+          "Written or authoritative record-level license confirmation resolves the conflict",
+          "Download/access terms reviewed; authorized access established",
+          "Original files and accompanying station/data dictionary artifacts retained with SHA-256 digests",
+          "Processing and exclusions of incomplete analyses documented from publication/source metadata",
+          "Measured and calculated variables distinguished before use"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "Potential historical baseline after license and method reconciliation.",
+        "not_suitable_for": "Treating it as raw unprocessed monitoring data without auditing its reported exclusion and derived-variable processing.",
+        "next_action": "Resolve record-level license conflict and download terms; then compare data dictionary and published paper before selecting any series."
+      },
+      "known_findings": []
+    },
+    {
+      "candidate_id": "south-africa.dws-water-quality-monitoring-portal.v1",
+      "title": "Department of Water and Sanitation water-quality monitoring portal",
+      "publisher": "South African Department of Water and Sanitation",
+      "dataset_url": "https://www.dws.gov.za/iwqs/wms/data/000key.asp",
+      "related_indicator_ids": [
+        "water.pollutant-concentration.v1"
+      ],
+      "discovery_status": "restricted_noncommercial_use",
+      "temporal_coverage": {
+        "start_date": null,
+        "end_date": null,
+        "basis": "Portal describes records as old as the 1950s at some sites; coverage must be checked per station."
+      },
+      "spatial_coverage": {
+        "geography": "South Africa",
+        "entities": [
+          "groundwater",
+          "rivers",
+          "dams",
+          "estuaries"
+        ],
+        "caveat": "Coverage is highly uneven; some groundwater sites have only one record and some river sites have thousands of samples."
+      },
+      "reported_measures": [
+        {
+          "name": "Common water-quality constituents",
+          "native_unit": "analyte-specific; verify per file",
+          "method_summary": "Portal provides site selection, tabular data and supporting plots."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Portal-linked data files",
+        "reported_sample_count": null,
+        "reported_station_count": null
+      },
+      "license_assessment": {
+        "license_status": "restricted",
+        "displayed_access_status": "Portal states data are supplied free of charge and may not be sold; use is restricted to academic, research or personal purposes.",
+        "declared_file_license": "No general commercial reuse permission established by portal language.",
+        "commercial_reuse": "permission_required",
+        "redistribution": "prohibited_unless_permission_granted",
+        "modification": "permission_required",
+        "evidence_urls": [
+          "https://www.dws.gov.za/iwqs/wms/data/000key.asp",
+          "https://www.dws.gov.za/niwis2/Info/WaterQualityMonitoringNetworkInfo"
+        ],
+        "assessment_note": "Do not incorporate into a commercial service, resell, or redistribute under an assumed open-data license. Obtain explicit permission for any intended use beyond the portal's stated scope."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "noncommercial_use_restriction",
+          "redistribution_terms_not_cleared"
+        ],
+        "required_evidence": [
+          "Explicit written permission covers the exact planned use and distribution model",
+          "Attribution language and any additional conditions recorded",
+          "Selected station's record continuity, units, detection limits and metadata inspected"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "Potential academic, research or personal analysis within the portal's current terms.",
+        "not_suitable_for": "Default source for a public or commercial Mycelix product without written permission.",
+        "next_action": "Use only if the intended use fits current restrictions; otherwise prioritize a dataset with an unambiguous file-level license."
+      },
+      "known_findings": []
+    },
+    {
+      "candidate_id": "south-africa.jukskei-water-quality-study.2021.v1",
+      "title": "Jukskei River water-quality study data (Figshare shared item)",
+      "publisher": "University of Johannesburg / Figshare",
+      "dataset_url": "https://figshare.com/s/330479b055d982d4065d",
+      "related_indicator_ids": [
+        "water.physicochemical-profile.v1",
+        "water.microbial-contamination.v1",
+        "water.toxic-elements-concentration.v1"
+      ],
+      "discovery_status": "license_declared_access_private",
+      "reported_availability": "Figshare item page displays a 329.66 kB download, says 'This item is shared privately', and displays CC BY 4.0. Actual archive/files have not been downloaded or inspected in this pass.",
+      "temporal_coverage": {
+        "start_date": "2018-06-01",
+        "end_date": "2018-08-31",
+        "basis": "The linked peer-reviewed article says samples were collected monthly from June through August 2018; exact date range and row dates must be checked in the files."
+      },
+      "spatial_coverage": {
+        "geography": "Jukskei River at Victoria Yards, Lorenzville / central Johannesburg, Gauteng, South Africa.",
+        "entities": [
+          "Upstream sample site at Victoria Yards",
+          "Downstream sample site at Victoria Yards"
+        ],
+        "caveat": "The paper describes two sampling points at one reach and six water samples across three months. Verify file-level coordinates and sample dates before mapping."
+      },
+      "reported_measures": [
+        {
+          "name": "Physicochemical water-quality measures",
+          "native_unit": "Parameter-specific; inspect files for exact unit and calculation",
+          "method_summary": "Paper describes temperature, pH, electrical conductivity, total dissolved solids and turbidity, among other variables."
+        },
+        {
+          "name": "Microbiological / organism measures",
+          "native_unit": "Assay-specific; inspect files",
+          "method_summary": "Paper reports total coliform, E. coli, bacterial isolates, genetic markers and antimicrobial-resistance results."
+        },
+        {
+          "name": "Potentially toxic elements",
+          "native_unit": "Analyte-specific; inspect files",
+          "method_summary": "Paper reports ICP-MS analysis of multiple potentially toxic elements; exact field/unit mapping requires file review."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Small study-support archive; exact internal file formats not verified",
+        "reported_download_size_kb": 329.66,
+        "item_modified_on": "2021-08-03",
+        "paper_sample_count": 6,
+        "design_note": "Two sites (upstream and downstream) at Victoria Yards; sampling described as monthly from June to August 2018.",
+        "limitation": "Not a long-term monitoring time series; do not infer present water quality or city-wide conditions from this small study.",
+        "access_note": "Figshare landing page says item is shared privately even though it displays CC BY 4.0."
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "Figshare item is marked 'shared privately'; its item page displays CC BY 4.0.",
+        "declared_file_license": "CC BY 4.0 displayed on the Figshare item page; precise scope and stable access should be checked against the permitted item/files before import.",
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://figshare.com/s/330479b055d982d4065d",
+          "https://pmc.ncbi.nlm.nih.gov/articles/PMC8392637/",
+          "https://creativecommons.org/licenses/by/4.0/"
+        ],
+        "assessment_note": "The Figshare page displays CC BY 4.0 but also labels the item as shared privately. Record that metadata accurately; do not infer that the underlying archive has been retained, that the share link is stable/public, or that file-level license scope has been independently verified. The associated paper is CC BY, but the actual data item should be confirmed separately."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "private_share_access_scope_not_resolved",
+          "underlying_files_not_inspected",
+          "small_sample_window_not_a_trend_series"
+        ],
+        "required_evidence": [
+          "Confirm authorized and stable access to the Figshare item and preserve its record metadata",
+          "Verify the CC BY 4.0 license is attached to the actual files and record attribution requirements",
+          "Download only from an authorized access path; retain source file(s), SHA-256 digests, filenames and data dictionary",
+          "Inspect table schema, exact sample dates, upstream/downstream site IDs, row counts, units, missingness, detection limits and methods",
+          "Reconcile sample rows to the paper's six-sample description and document derived/calculated variables",
+          "Label evidence as a small 2018 study rather than a current or long-term monitoring series"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "A small, explicitly dated receipt-validation pilot for a Johannesburg water-quality research dataset after access and file-level rights are resolved.",
+        "not_suitable_for": "Long-term trend estimation, city-wide water-quality inference, current drinking-water-safety certification, or intervention-causality claims.",
+        "next_action": "Resolve access/rights and inspect the exact files; if appropriate, validate one fully documented record and preserve sample/site/time/method metadata."
+      },
+      "known_findings": [
+        {
+          "finding_id": "JUKSKEI-PRIVATE-SHARE-ACCESS-001",
+          "severity": "medium",
+          "observation": "The Figshare item page displays a CC BY 4.0 license but labels the data item 'shared privately'. This creates an access/persistence qualification question even though the declared license is permissive.",
+          "required_resolution": "Confirm permitted/stable access and file-level CC BY 4.0 scope, preserve metadata and archive digest, and maintain attribution if later redistribution is permitted."
+        },
+        {
+          "finding_id": "JUKSKEI-SIX-SAMPLE-WINDOW-001",
+          "severity": "medium",
+          "observation": "The peer-reviewed paper describes six water samples, two sites at one Jukskei reach, and monthly sampling from June through August 2018. This is not a longitudinal catchment-monitoring series.",
+          "required_resolution": "Preserve the precise sample/site design and collection dates; restrict any use to the paper's narrow context and prohibit long-term trend or current-condition inference."
+        }
+      ]
+    },
+    {
+      "candidate_id": "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1",
+      "title": "Hartbeespoort and Roodeplaat catchments water-quality data (University of Pretoria)",
+      "publisher": "University of Pretoria Research Data",
+      "dataset_url": "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767",
+      "related_indicator_ids": [
+        "water.physicochemical-profile.v1",
+        "water.microbial-contamination.v1",
+        "water.toxic-elements-concentration.v1"
+      ],
+      "discovery_status": "license_not_verified",
+      "reported_availability": "The indexed institutional repository page states 'Licence CC BY 4.0' and reports Version 2 modified 2025-05-22 (37.01 kB). The detail page/files were not inspected directly in this pass, so file-level license association, attribution details and data dictionary still require verification.",
+      "temporal_coverage": {
+        "start_date": null,
+        "end_date": null,
+        "basis": "Period not confirmed in accessible metadata; inspect repository record and files before describing the time span."
+      },
+      "spatial_coverage": {
+        "geography": "Hartbeespoort and Roodeplaat catchments in South Africa (exact site coordinates and administrative boundaries require metadata inspection).",
+        "entities": [
+          "Jukskei River",
+          "Hennops River",
+          "Crocodile River",
+          "Magalies River",
+          "Swartspruit",
+          "Leeuspruit",
+          "Pienaars River",
+          "Moreletaspruit",
+          "Hartbeesspruit",
+          "Edendalespruit"
+        ],
+        "caveat": "Indexed description says upstream, midstream and downstream sites were selected where possible; exact site coordinates, sample dates and analyte coverage have not been inspected."
+      },
+      "reported_measures": [
+        {
+          "name": "Catchment water-quality measurements",
+          "native_unit": "Analyte-specific; not available in inspected metadata",
+          "method_summary": "The indexed repository result identifies a water-quality dataset compiled from a scientific laboratory; source files and methods not inspected."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Unknown pending authorized file inspection",
+        "reported_download_size_kb": 37.01,
+        "repository_version": 2,
+        "repository_modified_on": "2025-05-22",
+        "limitation": "The license/data details could not be reviewed in this pass; all values are metadata-description claims only."
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "The canonical detail page was not inspectable in this review; indexed metadata does not establish a file-level license.",
+        "declared_file_license": "CC BY 4.0 is displayed in the indexed institutional repository metadata; association with actual files and attribution details remain to be confirmed directly.",
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767"
+        ],
+        "assessment_note": "The indexed University of Pretoria record reports CC BY 4.0, but the canonical detail page/files were not inspected directly during this pass. Retain the declaration as source metadata, not as independent file-level verification. Review exact terms, attribution and underlying file metadata before import."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "license_not_verified",
+          "repository_detail_page_not_inspected",
+          "source_files_and_data_dictionary_not_inspected",
+          "period_and_site_coverage_not_verified"
+        ],
+        "required_evidence": [
+          "Access the canonical record and verify license and permitted use for the actual files",
+          "Record exact file list, file hashes, data dictionary, version and citation metadata",
+          "Inspect sample dates, analytes, units, lab methods, detection limits, missingness and duplicate sample IDs",
+          "Check site coordinates and catchment boundaries, including upstream/midstream/downstream identities",
+          "Match observation unit/denominator and geographic/time scope to relevant indicator contracts"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "Potential catchment source for a larger South African pilot if rights, file schema and sampling continuity are verified.",
+        "not_suitable_for": "Any computed/public trend until files, sample window, sites, units and license have been reviewed.",
+        "next_action": "Resolve access and rights through the repository, then inspect the small V2 artifact and data dictionary before deciding whether it supports a series or only snapshot comparisons."
+      },
+      "known_findings": [
+        {
+          "finding_id": "UP-CATCHMENTS-LICENSE-METADATA-001",
+          "severity": "medium",
+          "observation": "The indexed repository summary surfaces size, version and catchment information, but the canonical detail page was not inspectable during this review, so no authoritative license field or file contents were available to verify.",
+          "required_resolution": "Retrieve the record through an authorized repository route or contact the depositor, then retain license metadata and inspect the exact artifacts before import."
+        }
+      ]
+    },
+    {
+      "candidate_id": "south-africa.jukskei-river-microbial-data.2025.v1",
+      "title": "A river in crisis: Jukskei River water-quality and microbial-burden study data",
+      "publisher": "American Society for Microbiology / Applied and Environmental Microbiology; study by University of the Witwatersrand collaborators",
+      "dataset_url": "https://journals.asm.org/doi/10.1128/aem.01566-25",
+      "related_indicator_ids": [
+        "water.physicochemical-profile.v1",
+        "water.microbial-contamination.v1"
+      ],
+      "discovery_status": "license_not_verified",
+      "reported_availability": "The article is open access and says raw bacterial counts are in Table S2 of the supplementary material. The publisher states it does not own supplementary-material copyright and asks users to contact the corresponding author for reuse. The DOCX supplement has not been downloaded or imported.",
+      "temporal_coverage": {
+        "start_date": null,
+        "end_date": null,
+        "basis": "The article states water was sampled monthly over 12 months; exact first/last sample dates were not captured in the accessible metadata excerpt and must be transcribed from the actual records before setting bounds."
+      },
+      "spatial_coverage": {
+        "geography": "Jukskei River, Johannesburg, Gauteng, South Africa; five study sites A–E described by the paper.",
+        "entities": [
+          {
+            "site": "A",
+            "context": "business district",
+            "coordinates_as_published": "26,18147°S, 28,10237°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.18147,
+              "longitude": 28.10237,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
+          },
+          {
+            "site": "B",
+            "context": "recreational park",
+            "coordinates_as_published": "26,16475°S, 28,13029°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.16475,
+              "longitude": 28.13029,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
+          },
+          {
+            "site": "C",
+            "context": "densely populated informal settlement",
+            "coordinates_as_published": "26,08208°S, 28,10873°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.08208,
+              "longitude": 28.10873,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
+          },
+          {
+            "site": "D",
+            "context": "residential suburb",
+            "coordinates_as_published": "26,06715°S, 28,10767°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.06715,
+              "longitude": 28.10767,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
+          },
+          {
+            "site": "E",
+            "context": "golf estate",
+            "coordinates_as_published": "25,98690°S, 27,99731°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -25.9869,
+              "longitude": 27.99731,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
+          }
+        ],
+        "caveat": "Locations and coordinate formatting are copied as published. Confirm conversion and study-site identity before map plotting; spatial coverage describes the study's five sites, not the entire Jukskei catchment."
+      },
+      "reported_measures": [
+        {
+          "name": "Physicochemical and fecal-indicator parameters",
+          "native_unit": "Parameter-specific; inspect paper/supplement for each exact unit",
+          "method_summary": "The paper describes temperature, pH, total dissolved solids, total coliform and E. coli measurements across five sites."
+        },
+        {
+          "name": "Pathogen bacterial counts",
+          "native_unit": "Log CFU per 100 mL for reported bacterial counts",
+          "method_summary": "Salmonella, Shigella and Vibrio cholerae enumeration with culture-based methods and real-time PCR targeting invA, ipaH and toxR."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Supplementary DOCX contains site metadata and raw bacterial count data (Table S2); exact row schema not locally inspected",
+        "study_sample_count": 60,
+        "site_count": 5,
+        "reported_sampling_frequency": "Monthly over 12 months",
+        "supplement_filename": "aem.01566-25-s0002.docx",
+        "supplement_size_kb": 29.55,
+        "article_published_on": "2025-10-08",
+        "study_design_note": "60 water samples (five sites sampled monthly over 12 months) as described in the article methods; exact collection-date range must be verified from source records.",
+        "limitation": "A one-year, five-site study may support a tightly bounded season/site comparison after validation but does not establish long-term trends or current river-wide safety."
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "Article is open access; publisher says raw bacterial-count data are in supplemental material but explicitly states it does not own the supplement copyright and asks users to contact the corresponding author for reuse.",
+        "declared_file_license": "No separate reuse license for the supplemental raw data was established from the article page during this review.",
+        "commercial_reuse": "permission_required",
+        "redistribution": "permission_required",
+        "modification": "permission_required",
+        "evidence_urls": [
+          "https://journals.asm.org/doi/10.1128/aem.01566-25",
+          "https://doi.org/10.1128/aem.01566-25"
+        ],
+        "assessment_note": "Open-access article status is not by itself a license for the supplementary raw data. The publisher says it holds only a non-exclusive license to publish the supplemental files and instructs users to contact the corresponding author for reuse. Obtain permission or authoritative license terms for the planned analysis, adaptation and redistribution before importing."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "supplemental_reuse_rights_not_verified",
+          "source_file_not_retained_or_hashed",
+          "exact_sample_date_range_not_verified"
+        ],
+        "required_evidence": [
+          "Obtain written permission or authoritative supplemental-file license terms from the corresponding author covering the intended reuse and redistribution",
+          "Download the supplemental DOCX only after access/permission review; retain source bytes, filename, source revision and SHA-256 digest",
+          "Inspect Table S2 and the site table; record schema, row counts, sample IDs, date/time, site codes, analytes, native units and quality flags",
+          "Reconcile the study's 60-sample/five-site/12-month description to the actual sample rows",
+          "Record culture/PCR method, censoring/detection semantics and transformation provenance if tables are normalized",
+          "Preserve exact collection-date range before writing temporal bounds or comparing seasons"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "A Gauteng-relevant observation-receipt prototype for five-site Jukskei measurements once supplementary-data reuse rights and source files are verified.",
+        "not_suitable_for": "Current safety certification, long-term multi-year trend estimation, catchment-wide claims without representativeness analysis, or causal intervention claims.",
+        "next_action": "Contact the corresponding author about reuse of Table S2/supplement, then inspect and hash the actual file before preparing even one observation receipt."
+      },
+      "known_findings": [
+        {
+          "finding_id": "ASM-JUKSKEI-SUPPLEMENT-REUSE-RIGHTS-001",
+          "severity": "high",
+          "observation": "The 2025 article is open access, but the publisher explicitly says it does not own the supplemental material copyright and directs users to the corresponding author for reuse. A separate reusable-data license was not established during this review.",
+          "required_resolution": "Obtain written permission or file-level license terms for the actual supplemental DOCX, intended transformations, publication and redistribution before ingestion."
+        },
+        {
+          "finding_id": "ASM-JUKSKEI-12-MONTH-WINDOW-001",
+          "severity": "medium",
+          "observation": "The article reports 60 water samples from five sites sampled monthly over 12 months, but the exact inclusive first/last sample dates were not captured in the accessible source metadata reviewed here.",
+          "required_resolution": "Inspect the supplement's date/site records and reconcile the 60 samples before setting temporal bounds, season labels or comparison periods."
+        }
+      ]
+    }
+  ]
+}

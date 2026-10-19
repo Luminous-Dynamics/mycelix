@@ -1,0 +1,1093 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "mycelix.regenerative-indicators",
+  "catalog_status": "candidate_indicator_definitions",
+  "qualification": {
+    "empirical_observations_loaded": false,
+    "indicators_computed": false,
+    "independently_validated": false,
+    "composite_score_enabled": false
+  },
+  "global_comparison_contract": [
+    "Preserve native values, units and definitions; any normalized display is an additional, versioned derived representation.",
+    "Compare two values only when the indicator definition, unit, denominator, geographic/population boundary, time window and relevant method versions match.",
+    "For intensity metrics, display the absolute numerator as well; a falling intensity can coexist with rising absolute pressure.",
+    "Keep social deprivation, ecological condition/overshoot, monetary flows, energy flows and material flows distinct.",
+    "Missing, not collected, below detection limit, suppressed, not applicable and not computable are different states and must not be coerced to zero.",
+    "Targets are normative inputs, observations are empirical records, derived indicators are calculations, and interpretation is inference; store them separately.",
+    "Candidate definitions are not claims that a dataset exists, that the indicator is implemented, or that any outcome has improved.",
+    "For laboratory studies, keep small-sample studies separate from continuous-monitoring time series; sample counts and study windows must travel with each comparison."
+  ],
+  "missingness_vocabulary": [
+    "observed",
+    "estimated",
+    "not_collected",
+    "not_applicable",
+    "suppressed",
+    "below_detection_limit",
+    "not_computable",
+    "unknown"
+  ],
+  "research_refs": [
+    {
+      "ref_id": "doughnut-place-portraits-methodology",
+      "title": "Doughnut Data Portraits: A Methodological Guide",
+      "publisher": "Doughnut Economics Action Lab",
+      "reference_type": "methodology",
+      "published_year": 2025,
+      "retrieved_on": "2026-10-12",
+      "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide"
+    },
+    {
+      "ref_id": "un-seea-ecosystem-accounting",
+      "title": "SEEA Ecosystem Accounting",
+      "publisher": "United Nations Statistics Division",
+      "reference_type": "international_statistical_framework",
+      "published_year": 2021,
+      "retrieved_on": "2026-10-12",
+      "url": "https://seea.un.org/en/methodology/ecosystem-accounting"
+    },
+    {
+      "ref_id": "un-sdg-indicator-metadata",
+      "title": "SDG Indicators Metadata Repository",
+      "publisher": "United Nations Statistics Division",
+      "reference_type": "indicator_metadata_repository",
+      "published_year": 2026,
+      "retrieved_on": "2026-10-12",
+      "url": "https://unstats.un.org/sdgs/metadata/"
+    },
+    {
+      "ref_id": "fao-soil-health-indicators",
+      "title": "Global Soil Health Indicators and Assessment",
+      "publisher": "Food and Agriculture Organization of the United Nations",
+      "reference_type": "technical_guidance",
+      "retrieved_on": "2026-10-12",
+      "url": "https://www.fao.org/soils-portal/soil-degradation-restoration/global-soil-health-indicators-and-assessment/en/"
+    },
+    {
+      "ref_id": "emf-circular-measurement",
+      "title": "Measurement and reporting for the circular economy",
+      "publisher": "Ellen MacArthur Foundation",
+      "reference_type": "measurement_guidance",
+      "published_year": 2024,
+      "retrieved_on": "2026-10-12",
+      "url": "https://www.ellenmacarthurfoundation.org/topics/measurement/overview"
+    },
+    {
+      "ref_id": "emf-material-circularity-indicator",
+      "title": "Material Circularity Indicator",
+      "publisher": "Ellen MacArthur Foundation",
+      "reference_type": "measurement_tool",
+      "published_year": 2015,
+      "retrieved_on": "2026-10-12",
+      "url": "https://www.ellenmacarthurfoundation.org/material-circularity-indicator"
+    },
+    {
+      "ref_id": "energy-network-regenerative-economics",
+      "title": "Measuring regenerative economics: 10 principles and measures undergirding systemic economic health",
+      "publisher": "Global Transitions / Elsevier",
+      "reference_type": "peer_reviewed_article",
+      "published_year": 2019,
+      "retrieved_on": "2026-10-12",
+      "url": "https://doi.org/10.1016/j.glt.2019.02.002"
+    },
+    {
+      "ref_id": "regenerative-agriculture-outcomes-review",
+      "title": "What Is Regenerative Agriculture? A Review of Definitions",
+      "publisher": "Frontiers in Sustainable Food Systems",
+      "reference_type": "peer_reviewed_review",
+      "published_year": 2020,
+      "retrieved_on": "2026-10-12",
+      "url": "https://doi.org/10.3389/fsufs.2020.577723"
+    },
+    {
+      "ref_id": "dws-water-quality-data-explorer",
+      "title": "Water quality data exploration tool",
+      "publisher": "Department of Water and Sanitation, South Africa",
+      "reference_type": "data_discovery_portal",
+      "retrieved_on": "2026-10-12",
+      "url": "https://www.dws.gov.za/iwqs/wms/data/000key.asp"
+    },
+    {
+      "ref_id": "swam-water-quality-zenodo-2026",
+      "title": "Datasets produced during the EOAfrica Sentinel-2 user-relevant water quality monitoring project",
+      "publisher": "Zenodo; dataset produced by CSIR, University of Cape Town and University of Stirling",
+      "reference_type": "research_dataset_discovery",
+      "published_year": 2026,
+      "retrieved_on": "2026-10-12",
+      "url": "https://zenodo.org/records/18670504"
+    },
+    {
+      "ref_id": "wro-south-african-water-chemistry-1972-2011",
+      "title": "An inorganic water chemistry dataset (1972–2011) of rivers, dams and lakes in South Africa",
+      "publisher": "Water Research Observatory / Water SA",
+      "reference_type": "research_dataset_discovery",
+      "published_year": 2013,
+      "retrieved_on": "2026-10-12",
+      "url": "https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa"
+    },
+    {
+      "ref_id": "jukskei-water-quality-study-data",
+      "title": "Soul of the Jukskei River: underlying water-quality study data",
+      "publisher": "University of Johannesburg / Figshare",
+      "reference_type": "research_dataset_discovery",
+      "published_year": 2021,
+      "retrieved_on": "2026-10-12",
+      "url": "https://figshare.com/s/330479b055d982d4065d"
+    },
+    {
+      "ref_id": "up-hartbeespoort-roodeplaat-water-quality-data",
+      "title": "Hartbeespoort and Roodeplaat catchments: water quality data",
+      "publisher": "University of Pretoria Research Data",
+      "reference_type": "research_dataset_discovery",
+      "published_year": 2025,
+      "retrieved_on": "2026-10-12",
+      "url": "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767"
+    },
+    {
+      "ref_id": "asm-jukskei-water-quality-study-2025",
+      "title": "A river in crisis: water quality, microbial burden, and public health implications of a South African urban river",
+      "publisher": "American Society for Microbiology, Applied and Environmental Microbiology",
+      "reference_type": "peer_reviewed_article_with_supplemental_raw_data",
+      "published_year": 2025,
+      "retrieved_on": "2026-10-12",
+      "url": "https://journals.asm.org/doi/10.1128/aem.01566-25"
+    }
+  ],
+  "indicators": [
+    {
+      "indicator_id": "social.basic-needs-deprivation-share.v1",
+      "title": "Basic-needs deprivation share",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "social_wellbeing",
+      "indicator_type": "derived",
+      "definition": "Share of the explicitly defined population that fails one or more locally specified basic-needs thresholds. Preserve each component alongside any stated combined calculation.",
+      "native_unit": "fraction_of_population (0-1) or percent_of_population (0-100); choose one per series",
+      "denominator": "Resident population in the stated geography and reference period; document age/household exclusions.",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "Named geography plus population definition",
+      "temporal_resolution_required": "Reference period and observation date",
+      "baseline_and_target": "Store observed baseline separately from normative target; identify the authority and date for each threshold.",
+      "uncertainty_required": "Sampling and coverage uncertainty; list excluded populations and subgroup coverage.",
+      "input_requirements": [
+        "component threshold definitions",
+        "population denominator",
+        "source series and revision",
+        "geography and period"
+      ],
+      "comparability_key": [
+        "indicator definition and thresholds",
+        "unit",
+        "population denominator",
+        "geography",
+        "period",
+        "source revision"
+      ],
+      "missing_data_rule": "missing_or_unknown; never substitute zero or classify missing groups as meeting the threshold",
+      "caveats": [
+        "Do not combine dimensions with opaque weights.",
+        "A place-specific threshold is not automatically comparable across places."
+      ],
+      "research_ref_ids": [
+        "doughnut-place-portraits-methodology",
+        "un-sdg-indicator-metadata"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "ecology.ecosystem-extent-by-type.v1",
+      "title": "Ecosystem extent by type",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1",
+        "regenerative.land.agroecology-outcomes.v1"
+      ],
+      "domain": "ecosystem_extent",
+      "indicator_type": "observed_or_accounted",
+      "definition": "Area of each explicitly classified ecosystem type inside a declared accounting boundary at a stated time; changes require consistent classification and boundary handling.",
+      "native_unit": "hectares (ha) or square kilometres (km2); one unit per series",
+      "denominator": "Absolute area; optional share of defined accounting area as a separate derived series.",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Versioned spatial boundary and ecosystem classification",
+      "temporal_resolution_required": "Observation/reference date plus classification epoch",
+      "baseline_and_target": "Record reference extent and any desired/reference condition; do not infer that every ecosystem type should maximize its area.",
+      "uncertainty_required": "Classification error, map resolution, and boundary uncertainty",
+      "input_requirements": [
+        "spatial boundary",
+        "ecosystem class system/version",
+        "classified map or inventory",
+        "reference date"
+      ],
+      "comparability_key": [
+        "ecosystem classification",
+        "boundary version",
+        "native unit",
+        "mapping method/resolution",
+        "reference date"
+      ],
+      "missing_data_rule": "unknown_for_unmapped_or_unclassified_area; report coverage explicitly",
+      "caveats": [
+        "Extent is not ecosystem condition or quality.",
+        "An increase in one ecosystem type can coincide with loss of another."
+      ],
+      "research_ref_ids": [
+        "un-seea-ecosystem-accounting"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "ecology.ecosystem-condition-profile.v1",
+      "title": "Ecosystem condition profile",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "ecosystem_condition",
+      "indicator_type": "observed_or_derived",
+      "definition": "A profile of selected condition variables for each ecosystem type compared with a documented reference level; keep native variables visible rather than assuming a universal composite.",
+      "native_unit": "variable-specific native units; no common unit for the profile",
+      "denominator": "Defined ecosystem asset/type, sampling frame, and accounting area",
+      "desired_direction": "target_band",
+      "spatial_scope_required": "Spatially explicit ecosystem assets and sampling sites",
+      "temporal_resolution_required": "Sampling date/season and repeat interval",
+      "baseline_and_target": "Reference levels and target bands must be versioned per ecosystem type and variable.",
+      "uncertainty_required": "Measurement error, sampling design, reference-condition uncertainty and confidence intervals where available",
+      "input_requirements": [
+        "condition variables and protocols",
+        "ecosystem type",
+        "site/sample design",
+        "reference level",
+        "time"
+      ],
+      "comparability_key": [
+        "variable and protocol version",
+        "ecosystem type",
+        "sampling design",
+        "native unit",
+        "reference definition",
+        "period"
+      ],
+      "missing_data_rule": "unknown_per_variable; no blank-to-zero conversion or implicit composite",
+      "caveats": [
+        "Condition is multidimensional; an aggregate requires explicit weights and sensitivity analysis.",
+        "Monetary ecosystem value is not a substitute for biophysical condition."
+      ],
+      "research_ref_ids": [
+        "un-seea-ecosystem-accounting"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "ecology.physical-ecosystem-service-flow.v1",
+      "title": "Physical ecosystem-service flow",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "ecosystem_services",
+      "indicator_type": "accounting_series",
+      "definition": "Physical supply of a named ecosystem service by ecosystem assets and its use by named beneficiaries/economic units during the same accounting period.",
+      "native_unit": "service-specific physical unit; never assume services share a unit",
+      "denominator": "Named ecosystem assets, beneficiary units, and accounting boundary",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Provider asset and beneficiary/use geography",
+      "temporal_resolution_required": "Common accounting period for supply and use",
+      "baseline_and_target": "Record demand, sustainable/reference supply assumptions and target rationale separately.",
+      "uncertainty_required": "Source-model uncertainty, attribution and spatial transfer assumptions",
+      "input_requirements": [
+        "service classification",
+        "ecosystem asset",
+        "physical supply estimate",
+        "use/beneficiary record",
+        "accounting period"
+      ],
+      "comparability_key": [
+        "service definition",
+        "provider/beneficiary boundary",
+        "unit",
+        "method",
+        "period"
+      ],
+      "missing_data_rule": "unknown_for_unobserved_flows; do not infer no service from absent accounting",
+      "caveats": [
+        "Supply/use does not itself prove equitable access or ecosystem sustainability.",
+        "Monetary valuation is optional and cannot replace physical quantities."
+      ],
+      "research_ref_ids": [
+        "un-seea-ecosystem-accounting"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "climate.absolute-territorial-ghg.v1",
+      "title": "Absolute territorial greenhouse-gas emissions",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "climate_pressure",
+      "indicator_type": "accounting_series",
+      "definition": "Total territorial greenhouse-gas emissions for a stated inventory boundary, gases, sectors and reporting period, using a declared inventory standard and global-warming-potential version.",
+      "native_unit": "tonnes CO2-equivalent per reporting period (tCO2e/period)",
+      "denominator": "No denominator: absolute total",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "Inventory geography and sector boundary",
+      "temporal_resolution_required": "Annual or explicitly defined inventory period",
+      "baseline_and_target": "Store base year, restatements and target separately; preserve absolute total when also reporting intensity.",
+      "uncertainty_required": "Inventory uncertainty and method/revision metadata",
+      "input_requirements": [
+        "included gases and sectors",
+        "territorial boundary",
+        "inventory standard/version",
+        "GWP version",
+        "reporting period"
+      ],
+      "comparability_key": [
+        "inventory boundary",
+        "gases/sectors",
+        "GWP version",
+        "unit",
+        "period",
+        "inventory methodology"
+      ],
+      "missing_data_rule": "unknown_if_inventory_missing_or_incomplete; show coverage",
+      "caveats": [
+        "Do not confuse territorial and consumption-based emissions.",
+        "Do not infer an absolute decline from an intensity decline."
+      ],
+      "research_ref_ids": [
+        "doughnut-place-portraits-methodology",
+        "un-sdg-indicator-metadata"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "climate.territorial-ghg-per-capita.v1",
+      "title": "Territorial greenhouse-gas emissions per capita",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "climate_pressure",
+      "indicator_type": "derived",
+      "definition": "Territorial greenhouse-gas inventory total divided by a population estimate with matching geography and period; show the absolute inventory alongside it.",
+      "native_unit": "tCO2e per person per year (tCO2e/person/year)",
+      "denominator": "Resident population estimate with declared reference date/method",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "Same inventory geography and compatible population geography",
+      "temporal_resolution_required": "Matching annual inventory and population period",
+      "baseline_and_target": "Record baseline, population source, and target authority; never replace absolute-emissions series.",
+      "uncertainty_required": "Propagate inventory and population uncertainty when material",
+      "input_requirements": [
+        "absolute territorial GHG series",
+        "population series",
+        "geography/period mapping"
+      ],
+      "comparability_key": [
+        "inventory boundary",
+        "GWP version",
+        "population source/method",
+        "period",
+        "unit"
+      ],
+      "missing_data_rule": "unknown_if_either_numerator_or_denominator_is_missing; reject zero/invalid denominator",
+      "caveats": [
+        "Per-capita declines can coexist with rising absolute emissions.",
+        "Territorial per-capita figures are not consumption footprints."
+      ],
+      "research_ref_ids": [
+        "un-sdg-indicator-metadata"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "water.pollutant-concentration.v1",
+      "title": "Pollutant-specific water quality",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1",
+        "regenerative.land.agroecology-outcomes.v1"
+      ],
+      "domain": "freshwater_quality",
+      "indicator_type": "observed",
+      "definition": "Concentration or indicator value for a named pollutant/organism at a declared monitoring location and depth using a specified sampling and laboratory protocol.",
+      "native_unit": "pollutant-specific unit (for example mg/L); never combine unlike pollutants without an explicit method",
+      "denominator": "Sample volume or protocol-defined measurement basis",
+      "desired_direction": "boundary_ratio",
+      "spatial_scope_required": "Water body, monitoring station, sampling depth and catchment context",
+      "temporal_resolution_required": "Sample date, season and sampling frequency",
+      "baseline_and_target": "Attach jurisdictional/ecological threshold, legal status and version as separate fields.",
+      "uncertainty_required": "Detection limit, lab method, sampling uncertainty and quality flags",
+      "input_requirements": [
+        "pollutant/organism definition",
+        "sampling method",
+        "location",
+        "date",
+        "lab result",
+        "detection limit"
+      ],
+      "comparability_key": [
+        "analyte",
+        "unit",
+        "method/detection limit",
+        "station/water body",
+        "season/period",
+        "threshold version"
+      ],
+      "missing_data_rule": "below_detection_limit_is_censored_not_zero; absent sample is unknown",
+      "caveats": [
+        "A single station or pollutant is not a complete water-health assessment.",
+        "Thresholds can vary by ecosystem, use and jurisdiction."
+      ],
+      "research_ref_ids": [
+        "un-sdg-indicator-metadata",
+        "regenerative-agriculture-outcomes-review",
+        "dws-water-quality-data-explorer",
+        "swam-water-quality-zenodo-2026",
+        "wro-south-african-water-chemistry-1972-2011"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "soil.organic-carbon-stock.v1",
+      "title": "Soil organic carbon stock",
+      "framework_ids": [
+        "regenerative.land.agroecology-outcomes.v1"
+      ],
+      "domain": "soil_health",
+      "indicator_type": "observed_or_derived",
+      "definition": "Soil organic carbon stock estimated for a specified soil depth, area, bulk-density and coarse-fragment protocol, with repeated sampling under a consistent method.",
+      "native_unit": "tonnes of carbon per hectare for a stated depth (t C/ha, depth specified)",
+      "denominator": "Sampled land area; profile depth and soil mass convention must be recorded",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Field/site polygon and sampling design",
+      "temporal_resolution_required": "Sample date/season and repeat interval",
+      "baseline_and_target": "Use site-specific baseline and comparable repeated measures; disclose stock-change model if used.",
+      "uncertainty_required": "Sampling and analytical uncertainty, bulk density and depth corrections",
+      "input_requirements": [
+        "sampling points/design",
+        "depth",
+        "laboratory method",
+        "bulk density",
+        "coarse fragments",
+        "land-use history"
+      ],
+      "comparability_key": [
+        "depth",
+        "sampling design",
+        "laboratory method",
+        "bulk-density correction",
+        "land-use/ecosystem",
+        "period"
+      ],
+      "missing_data_rule": "unknown_if_sampling_or_conversion_inputs_missing; estimated values must be labeled",
+      "caveats": [
+        "Carbon concentration is not the same as carbon stock or verified sequestration.",
+        "Short time series can be dominated by spatial and measurement noise."
+      ],
+      "research_ref_ids": [
+        "fao-soil-health-indicators",
+        "regenerative-agriculture-outcomes-review"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "soil.water-infiltration-rate.v1",
+      "title": "Soil water infiltration rate",
+      "framework_ids": [
+        "regenerative.land.agroecology-outcomes.v1"
+      ],
+      "domain": "soil_water_function",
+      "indicator_type": "observed",
+      "definition": "Rate at which water infiltrates into soil under a specified instrument, pre-wetting, soil-moisture state and protocol.",
+      "native_unit": "millimetres per hour (mm/h)",
+      "denominator": "Surface area and test duration according to the selected protocol",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Field/site and sampling locations",
+      "temporal_resolution_required": "Sample date, preceding weather and soil moisture state",
+      "baseline_and_target": "Compare repeated measurements with matched protocol and seasonal context.",
+      "uncertainty_required": "Replicate variance, instrument resolution and spatial sampling uncertainty",
+      "input_requirements": [
+        "test protocol",
+        "instrument",
+        "soil moisture",
+        "test duration",
+        "locations",
+        "weather context"
+      ],
+      "comparability_key": [
+        "instrument/protocol",
+        "soil moisture/pre-wetting",
+        "soil/land-use type",
+        "season",
+        "unit"
+      ],
+      "missing_data_rule": "unknown_if_protocol_or_context_is_missing; do not impute from management practice",
+      "caveats": [
+        "Higher infiltration is not universally better under all site conditions.",
+        "A single test does not demonstrate watershed-scale outcomes."
+      ],
+      "research_ref_ids": [
+        "fao-soil-health-indicators",
+        "regenerative-agriculture-outcomes-review"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "biodiversity.native-taxon-occupancy.v1",
+      "title": "Native taxon occupancy or abundance",
+      "framework_ids": [
+        "regenerative.land.agroecology-outcomes.v1",
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "biodiversity",
+      "indicator_type": "observed_or_derived",
+      "definition": "Occupancy, encounter rate or abundance for a declared native taxon/group under an explicit protocol; keep raw observations and detection assumptions available.",
+      "native_unit": "taxon- and protocol-specific count, occupancy fraction or index",
+      "denominator": "Sample sites, sampling effort or eligible area; explicitly state which",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Survey frame, habitat/ecosystem type and locations",
+      "temporal_resolution_required": "Survey dates, season and repeat interval",
+      "baseline_and_target": "Use a documented reference condition and site/ecoregion context; no universal target for every taxon.",
+      "uncertainty_required": "Detection probability, sampling effort and identification confidence",
+      "input_requirements": [
+        "taxonomic unit",
+        "survey protocol",
+        "sampling effort",
+        "site/habitat",
+        "date",
+        "detection assumptions"
+      ],
+      "comparability_key": [
+        "taxon/group",
+        "protocol",
+        "effort",
+        "habitat",
+        "season",
+        "unit/index version"
+      ],
+      "missing_data_rule": "non-detection_is_not_absence_without_detection_model; no survey means unknown",
+      "caveats": [
+        "Species richness alone can hide losses of abundance, composition or endemic taxa.",
+        "Do not pool incompatible survey protocols into one score."
+      ],
+      "research_ref_ids": [
+        "un-seea-ecosystem-accounting",
+        "regenerative-agriculture-outcomes-review"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "materials.material-footprint-per-capita.v1",
+      "title": "Material footprint per capita",
+      "framework_ids": [
+        "regenerative.circular-economy.v1",
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "material_use",
+      "indicator_type": "derived_accounting_series",
+      "definition": "Material footprint attributed to a population/economy under the chosen material-flow-accounting method divided by a compatible population estimate.",
+      "native_unit": "tonnes per person per year, with material categories stated (t/person/year)",
+      "denominator": "Resident population or explicitly selected population basis",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "Economy/consumption boundary and included material categories",
+      "temporal_resolution_required": "Annual account period",
+      "baseline_and_target": "Keep total footprint, category breakdown and per-capita series; state target scope and method.",
+      "uncertainty_required": "Input-output/embodied-flow model uncertainty and revision metadata",
+      "input_requirements": [
+        "material flow account",
+        "trade/embodied material method",
+        "category mapping",
+        "population series",
+        "period"
+      ],
+      "comparability_key": [
+        "material category/classification",
+        "accounting boundary",
+        "method/version",
+        "population",
+        "period",
+        "unit"
+      ],
+      "missing_data_rule": "unknown_if_flow_account_is_incomplete; do not treat unaccounted imported materials as zero",
+      "caveats": [
+        "Per-capita measures can improve while total throughput rises.",
+        "Material footprint is not interchangeable with domestic material consumption."
+      ],
+      "research_ref_ids": [
+        "un-sdg-indicator-metadata",
+        "emf-circular-measurement"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "materials.virgin-material-input.v1",
+      "title": "Virgin material input",
+      "framework_ids": [
+        "regenerative.circular-economy.v1"
+      ],
+      "domain": "material_use",
+      "indicator_type": "accounting_series",
+      "definition": "Mass of virgin material entering the stated system boundary during a period, segmented by material category and origin where feasible.",
+      "native_unit": "tonnes per period (t/period), by material category",
+      "denominator": "Absolute mass; optional intensity is a separately named derived indicator",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "System boundary, material categories and origin/import rules",
+      "temporal_resolution_required": "Accounting period and inventory date",
+      "baseline_and_target": "Keep absolute quantities; define any target and separate intensity metrics.",
+      "uncertainty_required": "Mass-balance coverage, estimation uncertainty and data gaps",
+      "input_requirements": [
+        "system boundary",
+        "material categories",
+        "virgin/recycled classification",
+        "inflow records",
+        "period"
+      ],
+      "comparability_key": [
+        "boundary",
+        "material taxonomy",
+        "virgin definition",
+        "unit",
+        "period"
+      ],
+      "missing_data_rule": "unknown_for_untraced_flows; report unclassified fraction",
+      "caveats": [
+        "Lower input is not inherently beneficial if essential service provision or wellbeing collapses.",
+        "Virgin input must be read alongside service demand, durability and stocks."
+      ],
+      "research_ref_ids": [
+        "emf-circular-measurement",
+        "un-sdg-indicator-metadata"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "circularity.product-material-circularity.v1",
+      "title": "Product material circularity",
+      "framework_ids": [
+        "regenerative.circular-economy.v1"
+      ],
+      "domain": "product_circularity",
+      "indicator_type": "derived",
+      "definition": "A product-level circularity metric calculated using the exact documented version of a named tool (for example the Material Circularity Indicator), its inputs and assumptions.",
+      "native_unit": "tool-defined dimensionless score; preserve tool/version and component values",
+      "denominator": "Product or explicitly described product portfolio; not automatically economy-wide",
+      "desired_direction": "higher_is_better",
+      "spatial_scope_required": "Product bill-of-materials and stated product boundary",
+      "temporal_resolution_required": "Design/data snapshot date and assessment period",
+      "baseline_and_target": "Store tool version, baseline product design and target separately.",
+      "uncertainty_required": "Bill-of-materials coverage, end-of-life assumptions and input estimates",
+      "input_requirements": [
+        "material composition",
+        "recycled/virgin content",
+        "use/lifetime assumptions",
+        "end-of-life pathway",
+        "tool version"
+      ],
+      "comparability_key": [
+        "tool/version",
+        "product boundary",
+        "material data coverage",
+        "lifetime assumption",
+        "end-of-life scenario"
+      ],
+      "missing_data_rule": "not_computable_if_required_inputs_missing; never default missing material fractions to zero",
+      "caveats": [
+        "Product score is not a system-level circularity measure.",
+        "MCI tool status and method compatibility should be rechecked before operational use."
+      ],
+      "research_ref_ids": [
+        "emf-material-circularity-indicator",
+        "emf-circular-measurement"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "circularity.material-repair-reuse-share.v1",
+      "title": "Repair, reuse and remanufacturing share",
+      "framework_ids": [
+        "regenerative.circular-economy.v1"
+      ],
+      "domain": "material_circulation",
+      "indicator_type": "derived_accounting_series",
+      "definition": "Mass or item count routed to clearly distinguished repair, direct reuse, refurbishment, remanufacturing and recycling pathways divided by a declared eligible flow; each pathway remains separately reported.",
+      "native_unit": "fraction or percent of a declared eligible flow; mass-based and item-based series must not mix",
+      "denominator": "Explicit eligible product/material flow entering the system",
+      "desired_direction": "higher_is_better",
+      "spatial_scope_required": "Product/material system boundary and waste hierarchy stage",
+      "temporal_resolution_required": "Accounting period and product-cohort window where relevant",
+      "baseline_and_target": "Record pathway-specific baseline and policy/measurement definitions.",
+      "uncertainty_required": "Tracing coverage, mass-balance discrepancies, pathway classification uncertainty",
+      "input_requirements": [
+        "inflow total",
+        "pathway event/weight",
+        "classification rules",
+        "period",
+        "coverage"
+      ],
+      "comparability_key": [
+        "flow boundary",
+        "unit/denominator",
+        "pathway categories",
+        "classification method",
+        "period"
+      ],
+      "missing_data_rule": "unknown_for_untraced_flow; publish traced and untraced fractions",
+      "caveats": [
+        "Do not collapse repair/reuse/remanufacturing/recycling into one unqualified rate.",
+        "Higher circular share does not establish lower absolute extraction or pollution."
+      ],
+      "research_ref_ids": [
+        "emf-circular-measurement"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "waste.waste-generation-per-capita.v1",
+      "title": "Waste generation per capita",
+      "framework_ids": [
+        "regenerative.circular-economy.v1",
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "waste_and_pollution",
+      "indicator_type": "derived_accounting_series",
+      "definition": "Mass of waste generated under an explicit waste classification and system boundary divided by a matching population estimate.",
+      "native_unit": "kilograms per person per year (kg/person/year)",
+      "denominator": "Resident population or explicitly stated service population",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "Waste-generation boundary, included sectors and collection coverage",
+      "temporal_resolution_required": "Annual period and population reference date",
+      "baseline_and_target": "Keep absolute waste generation, treatment route and per-capita series together.",
+      "uncertainty_required": "Uncollected/illegal disposal estimate uncertainty and classification gaps",
+      "input_requirements": [
+        "waste classification",
+        "generation estimate",
+        "treatment/collection coverage",
+        "population",
+        "period"
+      ],
+      "comparability_key": [
+        "waste taxonomy",
+        "included sectors",
+        "boundary",
+        "population",
+        "unit",
+        "period"
+      ],
+      "missing_data_rule": "unknown_for_unmeasured_or_uncollected_flows; display coverage",
+      "caveats": [
+        "Waste collected is not necessarily waste generated.",
+        "Lower reported amounts can reflect weaker collection or measurement, not prevention."
+      ],
+      "research_ref_ids": [
+        "emf-circular-measurement",
+        "un-sdg-indicator-metadata"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "agroecology.yield-stability.v1",
+      "title": "Agricultural yield stability",
+      "framework_ids": [
+        "regenerative.land.agroecology-outcomes.v1"
+      ],
+      "domain": "agroecology_and_livelihoods",
+      "indicator_type": "derived",
+      "definition": "Variability of yield for a defined crop, field/system, harvest basis and time series; publish mean, observation count and variability statistic rather than a stability score alone.",
+      "native_unit": "coefficient of variation (dimensionless) plus native yield unit and mean",
+      "denominator": "Matched crop/area/harvest definition for every included season",
+      "desired_direction": "lower_is_better",
+      "spatial_scope_required": "Farm/field boundary, crop and management system",
+      "temporal_resolution_required": "Seasonal/yearly series and sufficiently long time window",
+      "baseline_and_target": "Baseline and intervention comparison require matched weather, crop, area and observation window or explicit controls.",
+      "uncertainty_required": "Sample count, interannual variation, weather confounding and missing seasons",
+      "input_requirements": [
+        "yield series",
+        "crop/variety",
+        "area basis",
+        "seasons",
+        "weather/context",
+        "management history"
+      ],
+      "comparability_key": [
+        "crop/variety",
+        "yield unit/area basis",
+        "season length",
+        "geography/soil context",
+        "time window",
+        "statistic"
+      ],
+      "missing_data_rule": "not_estimated_below_declared_minimum_observations; no interpolation without a labeled method",
+      "caveats": [
+        "Low variability may coexist with low yield or degraded soil.",
+        "Practice adoption is not outcome evidence; causal claims need a design appropriate to the question."
+      ],
+      "research_ref_ids": [
+        "regenerative-agriculture-outcomes-review",
+        "fao-soil-health-indicators"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "network.finn-cycling-index.v1",
+      "title": "Finn Cycling Index (flow-network cycling)",
+      "framework_ids": [
+        "regenerative.economics.energy-network-science.v1"
+      ],
+      "domain": "network_circulation",
+      "indicator_type": "network_metric",
+      "definition": "Flow-network cycling measure computed from a fully declared, bounded and typed flow matrix using a specific published implementation/version; retain matrix, boundary and preprocessing receipt.",
+      "native_unit": "dimensionless ratio under the selected formulation; report exact equation/version",
+      "denominator": "Defined system throughput/flow quantity per metric specification",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Explicit nodes, boundary, internal/external flows and node classification",
+      "temporal_resolution_required": "Flow matrix interval and aggregation window",
+      "baseline_and_target": "Compare only same network boundary, equation and flow-accounting convention.",
+      "uncertainty_required": "Input flow measurement error, incomplete flows and matrix sensitivity",
+      "input_requirements": [
+        "typed flow matrix",
+        "node/edge taxonomy",
+        "boundary flows",
+        "units",
+        "time window",
+        "algorithm/version"
+      ],
+      "comparability_key": [
+        "metric equation/version",
+        "node/edge boundary",
+        "flow type/unit",
+        "time window",
+        "preprocessing",
+        "network coverage"
+      ],
+      "missing_data_rule": "not_computable_if_matrix_is_incomplete_or_boundary_is_ambiguous; do not infer zeros",
+      "caveats": [
+        "A high cycling index alone does not prove ecological or social benefit.",
+        "Financial transfers cannot substitute for energy/material/care flows without an explicit model."
+      ],
+      "research_ref_ids": [
+        "energy-network-regenerative-economics"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "network.energy-network-structure.v1",
+      "title": "Energy-network structure and vitality profile",
+      "framework_ids": [
+        "regenerative.economics.energy-network-science.v1"
+      ],
+      "domain": "network_resilience",
+      "indicator_type": "network_metric",
+      "definition": "A profile of the exact energy-network metrics used by a named method (for example aggradation, diversity, mutualism or vitality-window measures); each metric must have its own formula, network boundary and native unit.",
+      "native_unit": "metric-specific; no universal unit for the profile",
+      "denominator": "Network nodes, flows, throughflow or other equation-specific basis",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Bounded network, node classes and flow categories",
+      "temporal_resolution_required": "Flow interval, aggregation window and network revision",
+      "baseline_and_target": "Use reference distributions or explicit thresholds with a rationale; do not infer a universal optimum.",
+      "uncertainty_required": "Matrix completeness, parameter sensitivity and model-structure uncertainty",
+      "input_requirements": [
+        "network flow matrix",
+        "metric formula/version",
+        "node/edge definitions",
+        "time window",
+        "input coverage"
+      ],
+      "comparability_key": [
+        "named metric/equation",
+        "boundary",
+        "flow types/units",
+        "time window",
+        "implementation version"
+      ],
+      "missing_data_rule": "unknown_or_not_computable_if_contract_incomplete; no composite until component definitions are frozen",
+      "caveats": [
+        "The socioeconomic interpretation of ecological network indicators needs domain-specific validation.",
+        "Avoid collapsing efficiency, resilience, diversity and mutualism into an opaque score."
+      ],
+      "research_ref_ids": [
+        "energy-network-regenerative-economics"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "water.physicochemical-profile.v1",
+      "title": "Freshwater physicochemical profile",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "freshwater_physical_chemistry",
+      "indicator_type": "observed",
+      "definition": "A typed profile of sample-level measurements such as pH, temperature, electrical conductivity, total dissolved solids, turbidity and alkalinity. Each variable is a separate series with its own unit, method, sample matrix, sampling context and site/time.",
+      "native_unit": "Variable-specific (e.g. pH dimensionless, temperature °C, electrical conductivity µS/cm or µS/m, TDS mg/L, turbidity NTU); no single composite unit.",
+      "denominator": "Use each variable's native measurement basis. For concentration-like variables retain sampled volume and exact unit; do not normalize unlike physical quantities to a shared denominator.",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Station/site identifier, coordinates or boundary, water body/catchment and sampling point (e.g. upstream/downstream).",
+      "temporal_resolution_required": "Exact sample/collection timestamp, timezone when known, season and sampling interval.",
+      "baseline_and_target": "Record reference period and applicable parameter-specific guideline with issuing authority, water-use class and version. Do not treat generic directionality as a threshold.",
+      "uncertainty_required": "Field/lab method, calibration, detection or reporting limits, replicate/sampling variability and quality flags.",
+      "input_requirements": [
+        "parameter name",
+        "native unit",
+        "sample date/time",
+        "site identity",
+        "field or laboratory method",
+        "sample matrix and depth when relevant",
+        "reported value/quality flag"
+      ],
+      "comparability_key": [
+        "parameter and method",
+        "native unit",
+        "sample matrix",
+        "site/station",
+        "sampling season/time",
+        "guideline version if interpreting exceedance"
+      ],
+      "missing_data_rule": "No sample is unknown, not zero; non-detects retain censoring and limits; invalid measurements retain a quality flag instead of being silently removed.",
+      "caveats": [
+        "pH, conductivity, turbidity and TDS are not interchangeable signals.",
+        "A profile is not a water-safety certification or a single score.",
+        "Upstream/downstream differences in a small study are not automatically causal effects."
+      ],
+      "research_ref_ids": [
+        "jukskei-water-quality-study-data",
+        "up-hartbeespoort-roodeplaat-water-quality-data",
+        "dws-water-quality-data-explorer",
+        "un-sdg-indicator-metadata",
+        "asm-jukskei-water-quality-study-2025"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "water.microbial-contamination.v1",
+      "title": "Microbiological contamination and indicator organisms",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1",
+        "regenerative.land.agroecology-outcomes.v1"
+      ],
+      "domain": "freshwater_microbiology",
+      "indicator_type": "observed_or_derived",
+      "definition": "A series for a named organism, indicator group, assay or genetic marker measured in a defined water sample. Keep culture counts, MPN/CFU, molecular copies, detection status and antibiotic-susceptibility classifications distinct.",
+      "native_unit": "Method-specific (e.g. MPN/100 mL, CFU/100 mL, copies per stated volume, detection status with assay limits, or susceptibility category).",
+      "denominator": "Sample volume, replicate scheme and assay-specific reporting basis.",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Water body, station, upstream/downstream location, coordinates and sampling frame.",
+      "temporal_resolution_required": "Exact sample timestamp and repeated-sampling interval; preserve collection and lab analysis dates separately.",
+      "baseline_and_target": "Any action threshold must name organism/marker, water-use class, guideline authority and version; resistance categories use their own laboratory standard.",
+      "uncertainty_required": "Method sensitivity/specificity where available, detection limit, replicate/sample count, lab protocol and contamination controls.",
+      "input_requirements": [
+        "organism/marker or assay",
+        "sample date/time",
+        "sample volume",
+        "method/version",
+        "result and native category/unit",
+        "site identity",
+        "limit/quality flags"
+      ],
+      "comparability_key": [
+        "organism/marker",
+        "assay/protocol",
+        "sample volume",
+        "unit or category definition",
+        "site/sampling design",
+        "period",
+        "guideline or susceptibility standard"
+      ],
+      "missing_data_rule": "Not-tested, not-detected and missing are different states; a missing lab result is not a negative; values below detection retain censoring.",
+      "caveats": [
+        "A small number of grab samples cannot establish long-term or city-wide safety.",
+        "Presence/absence, organism counts, molecular markers and antimicrobial resistance are different metrics."
+      ],
+      "research_ref_ids": [
+        "jukskei-water-quality-study-data",
+        "un-sdg-indicator-metadata",
+        "asm-jukskei-water-quality-study-2025"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    },
+    {
+      "indicator_id": "water.toxic-elements-concentration.v1",
+      "title": "Toxic-element concentration in freshwater",
+      "framework_ids": [
+        "regenerative.doughnut.place-portrait.v1"
+      ],
+      "domain": "freshwater_toxic_elements",
+      "indicator_type": "observed",
+      "definition": "A sample-level concentration series for one named element or analyte measured by a declared laboratory method; dissolved and total concentrations and different chemical forms remain distinct.",
+      "native_unit": "Analyte-specific mass/volume unit (e.g. µg/L or mg/L); no shared unit across reported analytes.",
+      "denominator": "Sample volume and the precise dissolved/total/chemical-fraction definition.",
+      "desired_direction": "context_dependent",
+      "spatial_scope_required": "Water body, site/station, coordinates, upstream/downstream position and sample matrix.",
+      "temporal_resolution_required": "Exact sample timestamp and laboratory analysis date.",
+      "baseline_and_target": "Keep numeric observations separate from threshold comparisons. Every threshold must specify analyte, matrix, water-use class, issuing authority and version.",
+      "uncertainty_required": "Instrument/method, calibration, detection and quantification limits, blank/replicate information, and measurement uncertainty.",
+      "input_requirements": [
+        "element/analyte and chemical fraction",
+        "unit",
+        "sample timestamp",
+        "lab method/instrument",
+        "detection/quantification limits",
+        "site identity"
+      ],
+      "comparability_key": [
+        "analyte/speciation",
+        "sample matrix/fraction",
+        "lab method",
+        "unit",
+        "limit and quality flags",
+        "site",
+        "period",
+        "threshold version when applicable"
+      ],
+      "missing_data_rule": "Unmeasured and below-detection-limit values are not zero; preserve censoring, qualifier codes and blank/invalid sample states.",
+      "caveats": [
+        "Concentrations from a small study do not establish catchment-wide exposure or causal source attribution.",
+        "Threshold exceedance depends on the named intended water use and applicable standard."
+      ],
+      "research_ref_ids": [
+        "jukskei-water-quality-study-data",
+        "up-hartbeespoort-roodeplaat-water-quality-data",
+        "un-sdg-indicator-metadata"
+      ],
+      "status": "candidate_definition",
+      "observations_loaded": false,
+      "computed": false
+    }
+  ]
+}

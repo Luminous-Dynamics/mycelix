@@ -1,0 +1,566 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/feat/economy-atlas-model-registry-v1/docs/economy-atlas/regenerative-dataset-candidates.schema.json",
+  "title": "Mycelix Regenerative Dataset Candidate Catalog v1",
+  "description": "Research/discovery-only catalog. Every included candidate is blocked from import pending explicit rights, metadata, provenance and quality review.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "catalog_status",
+    "qualification",
+    "global_ingestion_rules",
+    "candidates"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "catalog_id": {
+      "const": "mycelix.regenerative-dataset-candidates"
+    },
+    "catalog_status": {
+      "const": "source_discovery_only"
+    },
+    "qualification": {
+      "type": "object",
+      "required": [
+        "source_artifacts_downloaded",
+        "real_observations_imported",
+        "candidate_ingestion_gates_passed",
+        "dataset_rights_independently_verified"
+      ],
+      "properties": {
+        "source_artifacts_downloaded": {
+          "const": false
+        },
+        "real_observations_imported": {
+          "const": false
+        },
+        "candidate_ingestion_gates_passed": {
+          "const": false
+        },
+        "dataset_rights_independently_verified": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "global_ingestion_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "title",
+        "publisher",
+        "dataset_url",
+        "related_indicator_ids",
+        "discovery_status",
+        "temporal_coverage",
+        "spatial_coverage",
+        "reported_measures",
+        "reported_data_shape",
+        "license_assessment",
+        "ingestion_gate",
+        "suitability",
+        "known_findings"
+      ],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 2
+        },
+        "dataset_url": {
+          "type": "string",
+          "pattern": "^https://[^\\s]+$"
+        },
+        "related_indicator_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "discovery_status": {
+          "enum": [
+            "license_not_verified",
+            "license_metadata_conflict",
+            "restricted_noncommercial_use",
+            "license_declared_access_private"
+          ]
+        },
+        "temporal_coverage": {
+          "type": "object",
+          "required": [
+            "start_date",
+            "end_date",
+            "basis"
+          ],
+          "properties": {
+            "start_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "end_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "basis": {
+              "type": "string",
+              "minLength": 4
+            }
+          },
+          "additionalProperties": false
+        },
+        "spatial_coverage": {
+          "type": "object",
+          "required": [
+            "geography",
+            "entities",
+            "caveat"
+          ],
+          "properties": {
+            "geography": {
+              "type": "string",
+              "minLength": 2
+            },
+            "entities": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/spatial_entity"
+              }
+            },
+            "caveat": {
+              "type": "string",
+              "minLength": 4
+            }
+          },
+          "additionalProperties": false
+        },
+        "reported_measures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "native_unit",
+              "method_summary"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2
+              },
+              "native_unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "method_summary": {
+                "type": "string",
+                "minLength": 4
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "reported_data_shape": {
+          "type": "object",
+          "required": [
+            "timeseries_format"
+          ],
+          "properties": {
+            "timeseries_format": {
+              "type": "string",
+              "minLength": 2
+            }
+          },
+          "additionalProperties": true
+        },
+        "license_assessment": {
+          "type": "object",
+          "required": [
+            "license_status",
+            "displayed_access_status",
+            "declared_file_license",
+            "commercial_reuse",
+            "redistribution",
+            "modification",
+            "evidence_urls",
+            "assessment_note"
+          ],
+          "properties": {
+            "license_status": {
+              "enum": [
+                "unverified",
+                "conflicting",
+                "restricted",
+                "verified"
+              ]
+            },
+            "displayed_access_status": {
+              "type": "string",
+              "minLength": 3
+            },
+            "declared_file_license": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "commercial_reuse": {
+              "enum": [
+                "unknown",
+                "permitted",
+                "prohibited",
+                "permission_required"
+              ]
+            },
+            "redistribution": {
+              "enum": [
+                "unknown",
+                "permitted",
+                "prohibited_unless_permission_granted",
+                "permission_required"
+              ]
+            },
+            "modification": {
+              "enum": [
+                "unknown",
+                "permitted",
+                "prohibited",
+                "permission_required"
+              ]
+            },
+            "evidence_urls": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^https://[^\\s]+$"
+              }
+            },
+            "assessment_note": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false
+        },
+        "ingestion_gate": {
+          "type": "object",
+          "required": [
+            "status",
+            "ingestion_authorized",
+            "values_imported",
+            "reason_codes",
+            "required_evidence"
+          ],
+          "properties": {
+            "status": {
+              "const": "blocked"
+            },
+            "ingestion_authorized": {
+              "const": false
+            },
+            "values_imported": {
+              "const": false
+            },
+            "reason_codes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 3
+              }
+            },
+            "required_evidence": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 8
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "suitability": {
+          "type": "object",
+          "required": [
+            "best_initial_use",
+            "not_suitable_for",
+            "next_action"
+          ],
+          "properties": {
+            "best_initial_use": {
+              "type": "string",
+              "minLength": 5
+            },
+            "not_suitable_for": {
+              "type": "string",
+              "minLength": 5
+            },
+            "next_action": {
+              "type": "string",
+              "minLength": 5
+            }
+          },
+          "additionalProperties": false
+        },
+        "reported_availability": {
+          "type": "string",
+          "minLength": 5
+        },
+        "known_findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "uniqueItems": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "discovery_status": {
+                "const": "license_not_verified"
+              }
+            },
+            "required": [
+              "discovery_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "license_assessment": {
+                "properties": {
+                  "license_status": {
+                    "const": "unverified"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "discovery_status": {
+                "const": "license_metadata_conflict"
+              }
+            },
+            "required": [
+              "discovery_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "license_assessment": {
+                "properties": {
+                  "license_status": {
+                    "const": "conflicting"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "discovery_status": {
+                "const": "restricted_noncommercial_use"
+              }
+            },
+            "required": [
+              "discovery_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "license_assessment": {
+                "properties": {
+                  "license_status": {
+                    "const": "restricted"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "discovery_status": {
+                "const": "license_declared_access_private"
+              }
+            },
+            "required": [
+              "discovery_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "license_assessment": {
+                "properties": {
+                  "license_status": {
+                    "const": "unverified"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "severity",
+        "observation",
+        "required_resolution"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9.-]*$"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 20
+        },
+        "required_resolution": {
+          "type": "string",
+          "minLength": 10
+        }
+      },
+      "additionalProperties": false
+    },
+    "spatial_entity": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 2
+        },
+        {
+          "type": "object",
+          "title": "A named waterbody/site code",
+          "required": [
+            "code",
+            "name"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "title": "Jukskei 2025 study site with preserved source coordinates",
+          "required": [
+            "site",
+            "context",
+            "coordinates_as_published",
+            "coordinates_decimal_degrees"
+          ],
+          "properties": {
+            "site": {
+              "enum": [
+                "A",
+                "B",
+                "C",
+                "D",
+                "E"
+              ]
+            },
+            "context": {
+              "type": "string",
+              "minLength": 2
+            },
+            "coordinates_as_published": {
+              "type": "string",
+              "pattern": "^\\d{2},\\d{5}°S, \\d{2},\\d{5}°E$"
+            },
+            "coordinates_decimal_degrees": {
+              "type": "object",
+              "required": [
+                "latitude",
+                "longitude",
+                "conversion_note"
+              ],
+              "properties": {
+                "latitude": {
+                  "type": "number",
+                  "minimum": -27,
+                  "maximum": -25
+                },
+                "longitude": {
+                  "type": "number",
+                  "minimum": 27,
+                  "maximum": 29
+                },
+                "conversion_note": {
+                  "type": "string",
+                  "minLength": 20
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

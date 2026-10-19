@@ -1,0 +1,600 @@
+{
+  "schema_version": "1.0.0",
+  "registry_id": "mycelix.economy-atlas",
+  "registry_status": "initial_discovery_inventory",
+  "qualified_for_execution": false,
+  "generated_from": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "ref": "feat/economy-atlas-model-registry-v1",
+    "note": "Source refs below are pinned to exact repository commits for reproducible discovery. This does not qualify code execution or empirical validity; moving sources require a new reviewed registry revision.",
+    "pinned_source_snapshots": {
+      "Luminous-Dynamics/mycelix": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+      "Luminous-Dynamics/symthaea": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+    }
+  },
+  "status_vocabulary": {
+    "implemented_source": "Implementation source exists; exact runnable adapter still requires qualification.",
+    "paper_reported": "Claim or result is reported in a paper; not reproduced by this registry.",
+    "design_only": "Specification/source profile only; no execution authority implied.",
+    "conceptual": "Narrative proposal; distinct from implementations with similar names.",
+    "discovery_required": "Canonical source and implementation status unresolved.",
+    "external_framework": "Externally documented framework or methodology; source-linked for study but not implemented or executed by this repository."
+  },
+  "models": [
+    {
+      "model_id": "mycelix.finance.tricurrency.v1",
+      "title": "Mycelix Finance three-currency system",
+      "domain": [
+        "monetary_systems",
+        "commons",
+        "reputation",
+        "mutual_credit"
+      ],
+      "epistemic_status": "implemented_source",
+      "execution_status": "adapter_not_qualified",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "mycelix-finance/README.md",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-finance/README.md"
+        },
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "README.md",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/README.md"
+        },
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-workspace/sdk/src/economics/decay_garden.rs"
+        },
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+        }
+      ],
+      "currency_contract": {
+        "MYCEL": "soulbound reputation substrate, range 0.0–1.0",
+        "SAP": "transferable circulation medium with demurrage",
+        "TEND": "zero-sum mutual credit; 1 TEND = 1 hour of service"
+      },
+      "documented_parameters": {
+        "sap_annual_demurrage": {
+          "value": 0.02,
+          "unit": "fraction_per_year",
+          "provenance": "Finance README default"
+        },
+        "inalienable_reserve_minimum": {
+          "value": 0.25,
+          "unit": "fraction",
+          "provenance": "Finance README"
+        },
+        "tend_limits": {
+          "value": {
+            "healthy": 40,
+            "stressed": 60,
+            "critical": 80,
+            "failing": 120
+          },
+          "unit": "TEND_balance_limit_abs",
+          "provenance": "Finance README"
+        }
+      },
+      "limitations": [
+        "README parameters are not proof of current code behavior; trace validators/coordinators before presenting these as enforced runtime facts.",
+        "Root maturity matrix states Finance has partial multi-agent testing and no dedicated UI.",
+        "Currency semantics conflict with the Essay 16 conceptual variant and the Symthaea thermodynamic ledger.",
+        "The shared SDK has unqualified source-level concerns in its compost arithmetic: ratio validity checks only the sum and distribution truncates each share independently. The registry records these as follow-up findings; runtime reachability has not yet been traced."
+      ],
+      "validation_findings": [
+        {
+          "finding_id": "FIN-ATLAS-SDK-COMPOST-RATIO-DOMAIN-001",
+          "severity": "potential accounting invariant violation; call-site reachability not yet traced",
+          "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "CompostDistribution::is_valid checks only that the three ratios sum approximately to 1.0. It does not independently require every ratio to be finite and within [0, 1]. A ratio tuple such as (1.1, -0.1, 0.0) can therefore satisfy the sum check; distribute(100) casts the negative share to u64 (saturating to 0) and allocates 110 to the first pool.",
+          "required_follow_up": "Trace every construction/validation call site before judging reachability; validate each ratio in [0,1], require the sum invariant, and add a regression test that invalid ratios cannot inflate allocation.",
+          "source_repository": "Luminous-Dynamics/mycelix"
+        },
+        {
+          "finding_id": "FIN-ATLAS-SDK-COMPOST-ROUNDING-RESIDUAL-001",
+          "severity": "deterministic accounting residual; policy not documented",
+          "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "CompostDistribution::distribute truncates local, regional and global shares independently to u64. For some totals, the allocation sum is below the source total (for example 11 produces 7 + 2 + 1 = 10 at 70/20/10 ratios).",
+          "required_follow_up": "Expose the residual explicitly or define a deterministic remainder-allocation rule; do not hide it in visualizations.",
+          "source_repository": "Luminous-Dynamics/mycelix"
+        },
+        {
+          "finding_id": "FIN-ATLAS-SDK-DEMURRAGE-RATE-CONTRACT-001",
+          "severity": "adapter contract gap to verify at call sites",
+          "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "The low-level calculate_demurrage function returns zero for annual_rate <= 0 and does not itself enforce the DemurrageConfig comment's constitutional 1–5% bound.",
+          "required_follow_up": "Trace config construction and mutation validators; the Atlas adapter must enforce the documented domain before it calls the arithmetic primitive.",
+          "source_repository": "Luminous-Dynamics/mycelix"
+        },
+        {
+          "finding_id": "FIN-ATLAS-COMPOST-DELIVERY-STATUS-001",
+          "severity": "false-success status / possible unaccounted compost; confirm call-path reachability with integration tests",
+          "source_repository": "Luminous-Dynamics/mycelix",
+          "source_file": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "In apply_hearth_demurrage, the SAP deduction and pool update occur before treasury delivery attempts. Delivery-call errors are logged but are not queued for retry, and the function then returns redistributed: true unconditionally. It also skips any pool whose optional destination ID is absent. The personal apply_demurrage path has a pending queue for failed calls, but also skips absent optional destination IDs without setting fully_redistributed = false. Both active-zome paths assign integer-division residual to the global allocation, unlike the separate SDK CompostDistribution::distribute helper. This is a source-level control-flow finding, not a claim that a production loss has been observed.",
+          "required_follow_up": "Make redistribution status reflect each tier's amount and delivery result. A nonzero tier with no destination must be recorded as not redistributed or routed to a defined canonical destination; failed hearth deliveries should reuse or extend the pending-queue/recovery pattern. Add regression/integration tests for missing IDs, each failed treasury call, successful retries/queue drain, and conservation between deducted amount, delivered amount, and pending amount. Do not change live finance behavior until these contracts and recovery semantics are agreed and tested."
+        }
+      ]
+    },
+    {
+      "model_id": "symthaea.economics.kernel.v1",
+      "title": "Symthaea economics mathematical kernel",
+      "domain": [
+        "markets",
+        "welfare",
+        "distribution",
+        "finance_math",
+        "game_theory"
+      ],
+      "epistemic_status": "implemented_source",
+      "execution_status": "best_first_runner_candidate",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "crates/domains/symthaea-economics/README.md",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/domains/symthaea-economics/README.md"
+        },
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "crates/domains/symthaea-economics/src/lib.rs",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/domains/symthaea-economics/src/lib.rs"
+        }
+      ],
+      "capabilities": [
+        "linear supply and demand",
+        "equilibrium and no-solution outcomes",
+        "administered-price shortages and surpluses",
+        "tax incidence, revenue, surplus and deadweight loss",
+        "Lorenz curve, normalized Gini, Hoover, Theil T and Atkinson metrics",
+        "finance time-value / amortization / IRR functions",
+        "2×2 strategic games and Nash/Pareto analyses"
+      ],
+      "limitations": [
+        "Kernel is mathematical primitives, not a full agent-based macroeconomy.",
+        "Comparisons must preserve the precise metric definitions and model assumptions."
+      ]
+    },
+    {
+      "model_id": "symthaea.economy.thermodynamic-ledger.v1",
+      "title": "Thermodynamic production-credit ledger",
+      "domain": [
+        "production",
+        "resource_flows",
+        "monetary_issuance"
+      ],
+      "epistemic_status": "implemented_source",
+      "execution_status": "blocked_pending_input_contract_and_validation",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/core/symthaea-infrastructure/src/economy.rs"
+        }
+      ],
+      "documented_equations": {
+        "issuance": "production_mw × efficiency² × collective_phi² × 0.1, subject to thresholds",
+        "entropy_burn": "min(surprise × 0.5, total_supply × 0.1)"
+      },
+      "initial_supply": {
+        "value": 1000,
+        "unit": "Tend-like ledger units",
+        "provenance": "Rust Default implementation"
+      },
+      "validation_findings": [
+        {
+          "finding_id": "SYM-ECO-TEND-INPUT-DOMAIN-001",
+          "severity": "input-domain validation gap in the source method; runtime caller contract not qualified",
+          "observation": "mint_production_credit gates only low efficiency and low collective_phi. It does not locally reject negative/non-finite production values or non-finite efficiency/Phi values, and it does not enforce efficiency's expected [0,1] domain. Invalid values can therefore reach arithmetic unless callers reject them first.",
+          "required_follow_up": "Define and test the intended input contract at the narrowest shared boundary. Reject non-finite production, efficiency, and Phi; reject negative production and efficiency outside [0,1]. Do not invent a maximum collective_phi without an authoritative model definition.",
+          "source_repository": "Luminous-Dynamics/symthaea",
+          "source_file": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "source_commit": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+        },
+        {
+          "finding_id": "SYM-ECO-TEND-NEGATIVE-SURPRISE-002",
+          "severity": "negative-input supply inflation path in source arithmetic; caller reachability not qualified",
+          "observation": "apply_entropy_tax computes tax = min(surprise × 0.5, total_tend_supply × 0.1) without rejecting negative or non-finite surprise. For negative surprise, tax can be negative; subtracting that tax then increases total_tend_supply instead of burning supply.",
+          "required_follow_up": "Reject negative and non-finite surprise values before tax arithmetic, and add direct Rust tests for negative, NaN, positive infinity, and valid boundary values. Verify upstream callers cannot bypass the same contract.",
+          "source_repository": "Luminous-Dynamics/symthaea",
+          "source_file": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "source_commit": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+        },
+        {
+          "finding_id": "SYM-ECO-TEND-PHI-DOMAIN-003",
+          "severity": "model-domain ambiguity requiring explicit specification",
+          "observation": "The source rejects collective_phi below 0.2 but does not define a maximum or canonical scale for the value. A UI must not impose an undocumented upper bound or imply that the source alone establishes what values above 1.0 mean.",
+          "required_follow_up": "Document the authoritative range, units/meaning and calibration for collective_phi before selecting UI bounds or comparing runs; until then display the upper domain as unspecified and keep execution disabled.",
+          "source_repository": "Luminous-Dynamics/symthaea",
+          "source_file": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "source_commit": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+        }
+      ],
+      "limitations": [
+        "Not zero-sum bilateral mutual credit; treat as a distinct model variant.",
+        "Adapter must reject invalid domains and report those checks separately from source checks."
+      ]
+    },
+    {
+      "model_id": "symthaea.energy.lcoe.v1",
+      "title": "Energy levelized cost and viability",
+      "domain": [
+        "energy",
+        "capital_allocation",
+        "cost_analysis"
+      ],
+      "epistemic_status": "implemented_source",
+      "execution_status": "adapter_not_qualified",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "crates/core/symthaea-core/src/physics/economics.rs",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/core/symthaea-core/src/physics/economics.rs"
+        }
+      ],
+      "documented_equation": "LCOE = (Capital × CRF + O&M + Fuel) / (Capacity × CapacityFactor × 8760)",
+      "limitations": [
+        "Display currency, units, lifetime, discount rate and capacity factor.",
+        "Separate code defaults from externally evidenced cost assumptions.",
+        "Do not treat a computed LCOE as validated evidence that the underlying energy technology will attain those costs."
+      ]
+    },
+    {
+      "model_id": "symthaea.civilization.multiworld.v1",
+      "title": "Multiworld civilization/resource simulation",
+      "domain": [
+        "civilization",
+        "production",
+        "resources",
+        "growth",
+        "demography"
+      ],
+      "epistemic_status": "paper_reported",
+      "execution_status": "runner_and_current_config_need_trace",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "papers/governance/planetary-civilization/planetary_civilization.tex",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/papers/governance/planetary-civilization/planetary_civilization.tex"
+        }
+      ],
+      "paper_described_features": [
+        "eight-sector modified Cobb–Douglas production",
+        "resource consumption and demurrage",
+        "innovation diffusion and inter-world dynamics"
+      ],
+      "limitations": [
+        "Paper explicitly states the described economy does not model price dynamics, market formation or monetary policy.",
+        "Must trace current executable, configuration, seed behavior and telemetry before promising replay."
+      ]
+    },
+    {
+      "model_id": "symthaea.governance.tricurrency.paper-results.v1",
+      "title": "Triple-currency governance sensitivity results",
+      "domain": [
+        "governance",
+        "monetary_policy",
+        "distribution"
+      ],
+      "epistemic_status": "paper_reported",
+      "execution_status": "not_independently_reproduced",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "papers/governance/embodied-governance/embodied_governance.tex",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/papers/governance/embodied-governance/embodied_governance.tex"
+        }
+      ],
+      "paper_reported_results": [
+        "No significant transaction-velocity effect for demurrage tested at 1–5%, with the exempt floor described as binding.",
+        "MYCEL Gini approximately 0.016 across tested Jubilee frequencies."
+      ],
+      "limitations": [
+        "These are paper-reported findings, not independently reproduced results.",
+        "Trace scenario configuration, seed, outputs and statistical method before using in comparison charts."
+      ]
+    },
+    {
+      "model_id": "mycelix.finance.macro-evidence-profile.v1",
+      "title": "FIN-SYS macro-financial source profile",
+      "domain": [
+        "debt",
+        "credit",
+        "macro_finance",
+        "evidence_provenance"
+      ],
+      "epistemic_status": "design_only",
+      "execution_status": "not_an_ingestion_or_simulation_runner",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md"
+        }
+      ],
+      "source_families": [
+        "IMF Global Debt Database / Fiscal Monitor",
+        "BIS debt-service-ratio and credit datasets",
+        "World Bank International Debt Statistics"
+      ],
+      "limitations": [
+        "Source document explicitly states design contract only; no ingestion authority.",
+        "Debt stock, debt service, refinancing dependence, Minsky-style finance and criminal fraud must remain separate concepts.",
+        "Unknown coordinates remain Unknown; no source-derived crisis/fraud classification."
+      ]
+    },
+    {
+      "model_id": "symthaea.concepts.tricurrency.essay16.v1",
+      "title": "Essay 16 conceptual three-currency commons",
+      "domain": [
+        "commons",
+        "currency_design",
+        "care_economy"
+      ],
+      "epistemic_status": "conceptual",
+      "execution_status": "display_only",
+      "source_refs": [
+        {
+          "repository": "Luminous-Dynamics/symthaea",
+          "path": "book/src/sovereignty/essay-16.md",
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/book/src/sovereignty/essay-16.md"
+        }
+      ],
+      "currency_contract": {
+        "MYCEL": "medium of exchange",
+        "SAP": "long-term commons-investment/nutrient currency with demurrage if idle",
+        "TEND": "care currency with restricted non-market conversion"
+      },
+      "limitations": [
+        "Do not merge with mycelix.finance.tricurrency.v1 without an explicit decision record identifying the intended canonical semantics."
+      ]
+    },
+    {
+      "model_id": "regenerative.economics.energy-network-science.v1",
+      "title": "Regenerative Economics — Energy Network Science (10-principle framework)",
+      "domain": [
+        "regenerative_economics",
+        "ecological_economics",
+        "socio_ecological_networks",
+        "resilience",
+        "collective_learning"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "research_framework; runner_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "Measuring regenerative economics: 10 principles and measures undergirding systemic economic health",
+          "publisher": "Global Transitions / ScienceDirect",
+          "reference_type": "peer_reviewed_research_paper",
+          "published_year": 2019,
+          "url": "https://doi.org/10.1016/j.glt.2019.02.002",
+          "retrieved_on": "2026-10-11"
+        },
+        {
+          "title": "Measuring regenerative economics: 10 principles and measures undergirding systemic economic health",
+          "publisher": "Directory of Open Access Journals (DOAJ)",
+          "reference_type": "bibliographic_record",
+          "published_year": 2019,
+          "url": "https://doaj.org/article/176752b20697478f8e7236819256d030",
+          "retrieved_on": "2026-10-11"
+        }
+      ],
+      "framework_summary": "An energy-flow and network-science approach to socio-economic health. It emphasizes where money, resources, energy, and information circulate; reinvestment in human, social, natural, and physical capacities; reliable inputs and healthy outputs; balancing efficiency with resilience; diversity of roles and organizations; mutually beneficial relations; reducing excessive extraction/speculation; and adaptive collective learning.",
+      "framework_categories": [
+        "circulation",
+        "organizational_structure",
+        "relationships_and_values",
+        "collective_learning"
+      ],
+      "measurable_dimensions": [
+        "Cross-scale circulation / total system throughflow relative to external input (network aggradation)",
+        "Internal reinvestment and cycling (including Finn Cycling Index where the required flow matrix is available)",
+        "Reliability of critical inputs and environmental/social quality of outputs",
+        "Efficiency–resilience balance / window of vitality",
+        "Diversity of roles and organizations",
+        "Direct and indirect mutualism in network relationships",
+        "Constructive investment versus extractive or speculative flows",
+        "Indicators of human needs, capacity use, education, and collective learning"
+      ],
+      "limitations": [
+        "This is an external research framework, not an implementation or endorsement by Mycelix.",
+        "Several metrics require a bounded, typed network flow matrix, an explicit system boundary, and justified aggregation; values cannot be computed from currency balances alone.",
+        "The authors explicitly call for further application, testing, interpretation, and refinement when transferring network measures to socio-economic settings.",
+        "Do not collapse the dimensions into one regenerative score until normalization, weights, missing-data behavior, and trade-offs are justified and reviewed."
+      ]
+    },
+    {
+      "model_id": "regenerative.doughnut.place-portrait.v1",
+      "title": "Doughnut Economics — Place-Based Social and Ecological Portrait",
+      "domain": [
+        "regenerative_economics",
+        "wellbeing",
+        "planetary_boundaries",
+        "place_based_policy",
+        "social_foundation"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "external_methodology; local_dataset_and_runner_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "What is the Doughnut?",
+          "publisher": "Doughnut Economics Action Lab (DEAL)",
+          "reference_type": "framework_overview",
+          "url": "https://doughnuteconomics.org/doughnut/",
+          "retrieved_on": "2026-10-11"
+        },
+        {
+          "title": "Doughnut Data Portraits: Visualiser & Data Hub (v1.1)",
+          "publisher": "Doughnut Economics Action Lab (DEAL)",
+          "reference_type": "interactive_methodology_tool",
+          "published_year": 2026,
+          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-visualiser-data-hub",
+          "retrieved_on": "2026-10-11"
+        },
+        {
+          "title": "Doughnut Data Portraits: A Methodological Guide",
+          "publisher": "Doughnut Economics Action Lab (DEAL)",
+          "reference_type": "methodology_guide",
+          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide",
+          "retrieved_on": "2026-10-11"
+        }
+      ],
+      "framework_summary": "A social foundation and an ecological ceiling: assess whether a place meets human needs while remaining within planetary limits. DEAL's current Data Portrait workflow organizes indicators through four lenses formed by two domains (social/ecological) and two scales (local/global), with 44 dimensions in the published tool description.",
+      "dimensions_count": 44,
+      "four_lenses": [
+        "local_social",
+        "local_ecological",
+        "global_social",
+        "global_ecological"
+      ],
+      "normalization_contract": {
+        "social_lenses": "The visualiser expects a 0–1 ratio, with 0 representing deprivation and 1 the social target.",
+        "ecological_lenses": "The visualiser expects 0 or greater, with 1 at the target boundary and values greater than 1 indicating overshoot.",
+        "comparison_warning": "These are visualization conventions. Raw indicators may use different units, directionality, and target transformations; preserve those definitions and data lineage."
+      },
+      "limitations": [
+        "This is an external framework/tool specification; Mycelix has not implemented its visualiser or supplied a place dataset.",
+        "Indicator targets, transformations, geographic scope, period, source quality, and missingness must accompany the numbers; values without these fields are not comparable.",
+        "DEAL's documentation notes that the current public data table alone is insufficient to replicate analyses without separate indicator-source and methods documentation.",
+        "A visually filled wedge is not proof of valid data or causal policy impact; unknown data must remain visible as unknown in the Atlas."
+      ]
+    },
+    {
+      "model_id": "regenerative.circular-economy.v1",
+      "title": "Circular Economy — Materials Circulation and Nature Regeneration",
+      "domain": [
+        "regenerative_economics",
+        "circular_economy",
+        "material_flows",
+        "waste_prevention",
+        "ecosystem_regeneration"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "principles_documented; material_flow_model_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "The Circular Economy — Definition and Model",
+          "publisher": "Ellen MacArthur Foundation",
+          "reference_type": "framework_overview",
+          "url": "https://www.ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview",
+          "retrieved_on": "2026-10-11"
+        },
+        {
+          "title": "Circular Economy Principles",
+          "publisher": "Ellen MacArthur Foundation",
+          "reference_type": "principles",
+          "published_year": 2024,
+          "url": "https://www.ellenmacarthurfoundation.org/circular-economy-principles",
+          "retrieved_on": "2026-10-11"
+        }
+      ],
+      "framework_summary": "A design approach built around three principles: eliminate waste and pollution, circulate products and materials at their highest value, and regenerate nature. Recycling is one loop among maintenance, reuse, refurbishment, remanufacture, and biological return; circularity is not synonymous with regeneration unless ecological outcomes are measured.",
+      "core_principles": [
+        "Eliminate waste and pollution",
+        "Circulate products and materials at their highest value",
+        "Regenerate nature"
+      ],
+      "candidate_atlas_indicators": [
+        "Virgin-material input and material throughput by type and lifecycle stage",
+        "Product lifetime, repair, reuse, refurbishment and remanufacturing flows",
+        "Waste and pollution generated, prevented, reused, and leaked to the environment",
+        "Biological nutrient return and technical-material recovery kept as distinct flows",
+        "Measured ecological restoration outcomes with baseline, location, time horizon, and verification source"
+      ],
+      "limitations": [
+        "The candidate indicators above are proposed for the Atlas; they are not represented as a single official Ellen MacArthur Foundation metric set.",
+        "A high recycling or recirculation rate alone does not demonstrate lower total extraction, lower absolute impacts, or ecosystem recovery.",
+        "Material-flow accounting needs consistent units, product lifetimes, imports/exports, system boundaries, and treatment of downcycling and quality loss.",
+        "Do not add money, tonnes, biodiversity indicators, and wellbeing measures into one score without an explicit reviewed methodology."
+      ]
+    },
+    {
+      "model_id": "regenerative.land.agroecology-outcomes.v1",
+      "title": "Regenerative Land and Agriculture — Outcomes Framework",
+      "domain": [
+        "regenerative_economics",
+        "agroecology",
+        "soil_health",
+        "water_cycles",
+        "biodiversity",
+        "rural_livelihoods"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "outcomes_framework; local_observation_dataset_and_runner_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "What Is Regenerative Agriculture? A Review of Scholar and Practitioner Definitions Based on Processes and Outcomes",
+          "publisher": "Frontiers in Sustainable Food Systems / FAO AGRIS",
+          "reference_type": "peer_reviewed_review",
+          "published_year": 2020,
+          "url": "https://doi.org/10.3389/fsufs.2020.577723",
+          "retrieved_on": "2026-10-11"
+        },
+        {
+          "title": "Regenerative Agriculture — Practices and Innovation for Sustainable Agriculture",
+          "publisher": "Food and Agriculture Organization of the United Nations (FAO)",
+          "reference_type": "sector_framework_overview",
+          "url": "https://www.fao.org/americas/priorities/agricultura-sostenible/practicas-innovacion/3.-regenerative-agriculture/en",
+          "retrieved_on": "2026-10-11"
+        }
+      ],
+      "framework_summary": "A land- and food-system lens for checking whether production practices contribute to restorative outcomes such as soil health, hydrological function, biodiversity and ecosystem services, while also considering productivity, resilience, input use, and local livelihoods. Definitions vary; a list of practices alone is not proof of regeneration.",
+      "candidate_outcomes": [
+        "Soil organic matter/carbon and soil structure measured against a site-specific baseline",
+        "Water infiltration, retention, runoff, and water-quality indicators",
+        "On-farm and landscape biodiversity using a declared observation method",
+        "Input intensity and nutrient/pesticide loss where relevant and measured",
+        "Yield stability and farm income/livelihood resilience over multiple seasons",
+        "Restoration outcomes by location, baseline, measurement period and verification source"
+      ],
+      "limitations": [
+        "A 2020 review of scholarly and practitioner definitions found substantial variation and no widely accepted common definition at that time; define the intended contract and context instead of assuming consensus.",
+        "Practices (such as cover crops or reduced tillage) are intervention descriptors, not direct proof that soil, biodiversity or water outcomes improved.",
+        "Outcome measurement requires repeated, location-specific baselines and explicit methods; climate, soil type, farm context and time horizon affect comparison.",
+        "Do not represent this external framework as a Mycelix implementation or infer verified carbon removal, biodiversity gain, or social benefit without source data and a suitable measurement method."
+      ]
+    },
+    {
+      "model_id": "creditism.fineco.discovery.v1",
+      "title": "Creditism / FIN-ECO-006",
+      "domain": [
+        "credit",
+        "monetary_systems",
+        "commons",
+        "macroeconomics"
+      ],
+      "epistemic_status": "discovery_required",
+      "execution_status": "unresolved",
+      "source_refs": [],
+      "limitations": [
+        "Canonical source and executable implementation were not resolved in this discovery pass.",
+        "Do not synthesize missing parameters or imply that the model is absent from all repositories."
+      ]
+    }
+  ]
+}

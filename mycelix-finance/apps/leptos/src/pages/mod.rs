@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 mod home;
+mod economy_atlas;
 mod mycel;
 mod oracle;
 mod profile;
@@ -12,6 +13,7 @@ mod tend;
 mod treasury;
 
 pub use home::HomePage;
+pub use economy_atlas::EconomyAtlasPage;
 pub use mycel::MycelPage;
 pub use oracle::OraclePage;
 pub use profile::ProfilePage;
