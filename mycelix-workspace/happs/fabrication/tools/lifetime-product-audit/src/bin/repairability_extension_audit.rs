@@ -431,7 +431,7 @@ mod tests {
             .find(|case| case["scenario_id"] == "SCORE-001")
             .unwrap()
             .clone();
-        scenario["permanent_structure_damage"] = json!(false);
+        scenario["setup"]["hard_opening_gate_pass"] = json!(true);
         scenario["setup"]["permanent_structure_damage"] = json!(true);
         assert_eq!(evaluate_scenario(&scenario), Some("FAIL_HARD_GATE"));
     }
