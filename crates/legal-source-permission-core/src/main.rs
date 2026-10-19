@@ -646,7 +646,7 @@ fn evaluate(profile: &SourceUseProfile, request: &SourceUseRequest) -> DecisionR
         .terms
         .verified_at_utc
         .as_deref()
-        .is_some_and(|verified_at| verified_at > request.as_of_utc)
+        .is_some_and(|verified_at| verified_at > request.as_of_utc.as_str())
     {
         return unknown("terms_verified_after_request_time");
     }
