@@ -5,6 +5,10 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Personal — Leptos CSR frontend for the Mycelix sovereign vault"
 
+[features]
+default = []
+hydrate = []
+
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8" }
