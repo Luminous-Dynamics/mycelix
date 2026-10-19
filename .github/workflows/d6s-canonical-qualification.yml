@@ -4,8 +4,21 @@ on:
   push:
     branches:
       - myc-int-demo-d6t-canonical-encoding
+  # This reference qualification has dedicated test/corpus/verifier inputs. It
+  # must not gate unrelated pull requests (for example, the logistics offline
+  # twin) when these D6S-specific inputs are absent from their changed-file set.
+  # The dedicated branch push and manual workflow_dispatch remain available.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_1_golden_vectors.rs"
+      - "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_2_authority_boundary.rs"
+      - "docs/integral/d6s-canon-1-golden-vectors.json"
+      - "docs/integral/d6s-canon-1-manifest.json"
+      - "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
+      - "docs/integral/d6s-canon-2-manifest.json"
+      - "scripts/integral/verify_d6s_canon_1.py"
+      - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
   workflow_dispatch:
 
 permissions:
