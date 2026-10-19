@@ -649,7 +649,7 @@ fn HealthPage() -> impl IntoView {
                 <SourceCollectionEmptyState
                     label="Health records"
                     state=health_records_source_state
-                    has_records=move || health_record_count.get() > 0
+                    has_records=move || (health_record_count.get() > 0)
                 />
             </section>
 
