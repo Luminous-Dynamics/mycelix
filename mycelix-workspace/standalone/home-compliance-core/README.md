@@ -41,7 +41,7 @@ See [Global Building-Code Composition and Evidence Reform](docs/GLOBAL_BUILDING_
 
 ## Status
 
-Early prototype and design slice. Unit tests are included but were not run in the authoring environment because Rust tooling is unavailable there. The crate includes revision-lineage, invariant-gated migration planning, dependency invalidation and time-aware regulatory-source modules, but is not yet integrated with an IFC parser, a live source registry, identity verification, cryptographic artifact storage, trusted semantic extraction, migration executors, or a professional/municipal workflow.
+Early prototype and design slice. The dedicated GitHub Actions Home Compliance Core workflow passed on exact head `16e7c5e22c9dd684d9dabd73cee2dea727fa9a3a`: 113 unit tests, 8 integration tests, fixture/schema validation with 24 negative controls, Rust formatting, offline benchmark compilation, and strict Clippy. The benchmark harness was compiled but not timed. Rust tooling is unavailable in the authoring environment, so these results come from the linked hosted run, not a local execution. The crate is not yet integrated with a real IFC parser, cryptographically authenticated live source registry, production artifact storage, trusted semantic extraction, migration executor, or a professional/municipal workflow.
 
 The test rule pack uses example.invalid and synthetic digest strings. It is not a real South African or other jurisdiction pack.
 
