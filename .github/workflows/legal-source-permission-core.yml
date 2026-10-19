@@ -46,7 +46,7 @@ jobs:
       - name: Explicit permission admits matching evaluation request
         run: |
           cargo run --manifest-path crates/legal-source-permission-core/Cargo.toml -- check crates/legal-source-permission-core/fixtures/fictional-source-profile-v0.1.json crates/legal-source-permission-core/fixtures/benchmark-evaluation-allowed-v0.1.json > "$RUNNER_TEMP/allowed.json"
-          jq -e '.admission_decision == "admitted" and .reason_code == "operation_explicitly_permitted_within_scope"' "$RUNNER_TEMP/allowed.json"
+          jq -e '.admission_decision == "admitted" and .reason_code == "operation_explicitly_permitted_within_scope" and .expected_terms_sha256 == .observed_terms_sha256 and .expected_source_sha256 == .observed_source_sha256 and (.profile_sha256 | test("^[a-f0-9]{64}$")) and (.request_sha256 | test("^[a-f0-9]{64}$"))' "$RUNNER_TEMP/allowed.json"
 
       - name: Explicit cache denial blocks request
         run: |
