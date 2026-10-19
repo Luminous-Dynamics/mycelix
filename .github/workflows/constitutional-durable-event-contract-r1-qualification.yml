@@ -1,0 +1,358 @@
+name: Constitutional Durable Event Contract R1 Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-event-provider/**'
+      - 'mycelix-governance/specs/constitutional-durable-event-contract.v1.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_DURABLE_EVENT_CONTRACT_V0_1.md'
+      - '.github/workflows/constitutional-durable-event-contract-r1-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-durable-event-r1-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: ac3f71e37c480a9c6f99578fe2106285fe567a5b
+  OLD_SEMANTIC_HEAD: 36a4fcffb6ca806570ebf439f9c36cf76401e7b2
+
+jobs:
+  qualify:
+    name: Rust exact-head durable event contract R1
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact verifier and repair lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$OLD_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-durable-event-contract-r1-qualification.yml"
+
+          expected_repair_files=$'mycelix-governance/crates/constitutional-event-provider/src/lib.rs\nmycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs'
+          test "$(git diff --name-only "$OLD_SEMANTIC_HEAD" "$EXPECTED_SEMANTIC_HEAD")" = "$expected_repair_files"
+
+          rm -rf durable-event-r1-evidence
+          mkdir -p durable-event-r1-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > durable-event-r1-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > durable-event-r1-evidence/expected-semantic-head.txt
+          printf '%s\n' "$OLD_SEMANTIC_HEAD" > durable-event-r1-evidence/old-semantic-head.txt
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-provider/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-provider/src/lib.rs \
+            mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs \
+            mycelix-governance/specs/constitutional-durable-event-contract.v1.json \
+            mycelix-governance/docs/CONSTITUTIONAL_DURABLE_EVENT_CONTRACT_V0_1.md \
+            > durable-event-r1-evidence/source-hashes-before.txt
+
+          if git diff --name-only "$OLD_SEMANTIC_HEAD" "$EXPECTED_SEMANTIC_HEAD" | grep -E '^mycelix-governance/zomes/' >/dev/null; then
+            echo "E0-R1 repair unexpectedly changes Holochain zomes" >&2
+            exit 1
+          fi
+
+      - name: Verify machine-readable activation and identity ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('mycelix-governance/specs/constitutional-durable-event-contract.v1.json')
+          data = json.loads(p.read_text())
+          assert data['contract_id'] == 'MYC-CONST-003D1D-E0'
+          assert data['contract_revision'] == 3
+          assert data['authority_class'] == 'InertContractPendingQualifiedClaimBinding'
+          assert data['provider_key'] == 'action_id'
+
+          mapping = data['effect_ledger_mapping']
+          assert mapping['operation_id'] == 'ConstitutionalOperation.operation_id'
+          assert mapping['proposal_id'] == 'ConstitutionalOperation.proposal_id'
+          assert mapping['claim_binding_commitment'] == 'ConstitutionalOperation.claim_binding'
+          assert mapping['action_id'] == 'ActionIntent.action_id'
+          assert mapping['action_commitment'] == 'ActionIntent.action_commitment'
+          assert mapping['provider_key_regenerated'] is False
+          assert mapping['action_commitment_regenerated'] is False
+          assert mapping['qualification_inherited_from_D1C'] is False
+
+          assert data['canonical_payload']['commitment'] == 'domain-separated-blake3-256'
+          assert data['canonical_payload']['commitment_encoding'] == 'blake3-256:<64-lowercase-hex>'
+          assert data['publish_semantics']['overwrite_allowed'] is False
+          assert data['publish_semantics']['last_write_wins_allowed'] is False
+
+          projection = data['projection_semantics']
+          assert projection['constitutional_completion_depends_on_signal_delivery'] is False
+          assert projection['projection_attempt_ids_unique'] is True
+          assert projection['projection_ordinals_contiguous_from_one'] is True
+          assert projection['projection_attempt_time_non_decreasing'] is True
+          assert projection['projection_failure_rewrites_durable_event'] is False
+          assert projection['projection_unknown_outcome_rewrites_durable_event'] is False
+
+          assert 'not_a_holochain_entry_type' in data['non_claims']
+          assert 'not_a_live_write_extern' in data['non_claims']
+          assert 'not_wired_to_GovernanceAction_EmitEvent' in data['non_claims']
+          assert 'claim_binding_commitment_is_opaque_in_E0' in data['non_claims']
+          print('durable-event R1 contract ceiling: PASS')
+          PY
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Prove R1 equals pinned rustfmt of old exact E0 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD_LIB=/tmp/e0-old-lib.rs
+          OLD_TEST=/tmp/e0-old-effect-ledger-identity.rs
+          git show "$OLD_SEMANTIC_HEAD:mycelix-governance/crates/constitutional-event-provider/src/lib.rs" > "$OLD_LIB"
+          git show "$OLD_SEMANTIC_HEAD:mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs" > "$OLD_TEST"
+
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustfmt --version | tee durable-event-r1-evidence/rustfmt-provenance-version.txt
+              rustfmt --edition 2024 /tmp/e0-old-lib.rs
+              rustfmt --edition 2024 /tmp/e0-old-effect-ledger-identity.rs
+              cmp /tmp/e0-old-lib.rs mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+              cmp /tmp/e0-old-effect-ledger-identity.rs mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs
+              sha256sum /tmp/e0-old-lib.rs /tmp/e0-old-effect-ledger-identity.rs > durable-event-r1-evidence/formatted-old-source.sha256
+              echo PASS > durable-event-r1-evidence/rustfmt-provenance.txt
+            '
+
+      - name: Compile and test exact R1 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee durable-event-r1-evidence/rustc-version.txt
+              cargo --version | tee durable-event-r1-evidence/cargo-version.txt
+              rustfmt --version | tee durable-event-r1-evidence/rustfmt-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml --package constitutional-event-provider -- --check \
+                2>&1 | tee durable-event-r1-evidence/cargo-fmt.log
+              cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets \
+                2>&1 | tee durable-event-r1-evidence/cargo-check.log
+              cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets \
+                2>&1 | tee durable-event-r1-evidence/cargo-test.log
+
+              cp mycelix-governance/Cargo.lock durable-event-r1-evidence/derived-Cargo.lock
+              sha256sum durable-event-r1-evidence/derived-Cargo.lock > durable-event-r1-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Mutation control — ClaimBinding participates in event identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+          cp "$SRC" /tmp/durable-event-lib.rs
+          trap 'cp /tmp/durable-event-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-provider/src/lib.rs')
+          s = p.read_text()
+          old = '    push_str(&mut hasher, &authority.claim_binding_commitment);\n'
+          assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets > durable-event-r1-evidence/mutant-claim-binding-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml same_action_id_with_different_claim_binding_is_integrity_conflict > durable-event-r1-evidence/mutant-claim-binding-test.log 2>&1; then
+              echo "ClaimBinding-omission mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/durable-event-lib.rs "$SRC"; trap - EXIT
+          echo PASS > durable-event-r1-evidence/mutant-claim-binding.txt
+
+      - name: Mutation control — conflicts cannot collapse to ExistingSame
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+          cp "$SRC" /tmp/durable-event-lib.rs
+          trap 'cp /tmp/durable-event-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-provider/src/lib.rs')
+          s = p.read_text()
+          old = '    if existing.semantic_commitment() == candidate.semantic_commitment() {\n'
+          new = '    if true || existing.semantic_commitment() == candidate.semantic_commitment() {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets > durable-event-r1-evidence/mutant-conflict-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml same_action_id_with_different_payload_is_integrity_conflict > durable-event-r1-evidence/mutant-conflict-test.log 2>&1; then
+              echo "conflict-collapse mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/durable-event-lib.rs "$SRC"; trap - EXIT
+          echo PASS > durable-event-r1-evidence/mutant-conflict.txt
+
+      - name: Mutation control — wall-clock time cannot define event identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+          cp "$SRC" /tmp/durable-event-lib.rs
+          trap 'cp /tmp/durable-event-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-provider/src/lib.rs')
+          s = p.read_text()
+          anchor = '        let payload_commitment = payload_commitment(&canonical_payload);\n'
+          assert anchor in s
+          s = s.replace(anchor, anchor + '        let time_salt = committed_at_unix_ms.to_string();\n', 1)
+          old = '            &payload_commitment,\n        );\n\n        Ok(Self {'
+          new = '            &format!("{payload_commitment}:{time_salt}"),\n        );\n\n        Ok(Self {'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets > durable-event-r1-evidence/mutant-time-identity-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml wall_clock_time_does_not_define_event_identity > durable-event-r1-evidence/mutant-time-identity-test.log 2>&1; then
+              echo "wall-clock identity mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/durable-event-lib.rs "$SRC"; trap - EXIT
+          echo PASS > durable-event-r1-evidence/mutant-time-identity.txt
+
+      - name: Mutation control — projection delivery cannot define constitutional completion
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+          cp "$SRC" /tmp/durable-event-lib.rs
+          trap 'cp /tmp/durable-event-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-provider/src/lib.rs')
+          s = p.read_text()
+          old = '    Ok(true)\n}\n\n/// Deterministic compact JSON.'
+          new = '    Ok(projections.iter().all(|p| matches!(&p.outcome, ProjectionOutcome::Delivered)))\n}\n\n/// Deterministic compact JSON.'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets > durable-event-r1-evidence/mutant-projection-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml failed_signal_projection_does_not_revoke_constitutional_completion > durable-event-r1-evidence/mutant-projection-test.log 2>&1; then
+              echo "projection-completion mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/durable-event-lib.rs "$SRC"; trap - EXIT
+          echo PASS > durable-event-r1-evidence/mutant-projection.txt
+
+      - name: Mutation control — commitments remain self-describing
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+          cp "$SRC" /tmp/durable-event-lib.rs
+          trap 'cp /tmp/durable-event-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-provider/src/lib.rs')
+          s = p.read_text()
+          old = '    format!("{COMMITMENT_PREFIX}{}", hash.to_hex())\n'
+          new = '    hash.to_hex().to_string()\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets > durable-event-r1-evidence/mutant-commitment-tag-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml commitments_are_self_describing_blake3_256 > durable-event-r1-evidence/mutant-commitment-tag-test.log 2>&1; then
+              echo "commitment-tag mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/durable-event-lib.rs "$SRC"; trap - EXIT
+          echo PASS > durable-event-r1-evidence/mutant-commitment-tag.txt
+
+      - name: Mutation control — projection attempt IDs remain unique
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-event-provider/src/lib.rs
+          cp "$SRC" /tmp/durable-event-lib.rs
+          trap 'cp /tmp/durable-event-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-provider/src/lib.rs')
+          s = p.read_text()
+          old = '        if !seen_attempt_ids.insert(projection.projection_attempt_id.as_str()) {\n'
+          new = '        if false && !seen_attempt_ids.insert(projection.projection_attempt_id.as_str()) {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml --all-targets > durable-event-r1-evidence/mutant-projection-id-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-event-provider/Cargo.toml duplicate_projection_attempt_id_is_rejected > durable-event-r1-evidence/mutant-projection-id-test.log 2>&1; then
+              echo "projection-attempt-ID mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/durable-event-lib.rs "$SRC"; trap - EXIT
+          echo PASS > durable-event-r1-evidence/mutant-projection-id.txt
+
+      - name: Verify semantic source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-provider/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-provider/src/lib.rs \
+            mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs \
+            mycelix-governance/specs/constitutional-durable-event-contract.v1.json \
+            mycelix-governance/docs/CONSTITUTIONAL_DURABLE_EVENT_CONTRACT_V0_1.md \
+            > durable-event-r1-evidence/source-hashes-after.txt
+
+          cmp durable-event-r1-evidence/source-hashes-before.txt durable-event-r1-evidence/source-hashes-after.txt
+
+          git diff --exit-code -- \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-provider/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-provider/src/lib.rs \
+            mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs \
+            mycelix-governance/specs/constitutional-durable-event-contract.v1.json \
+            mycelix-governance/docs/CONSTITUTIONAL_DURABLE_EVENT_CONTRACT_V0_1.md
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-durable-event-r1-${{ env.EXPECTED_HEAD }}
+          path: durable-event-r1-evidence
+          if-no-files-found: error
+          retention-days: 30
