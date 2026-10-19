@@ -138,9 +138,14 @@ pub struct AuthorizedCredentialAcceptanceKey {
 
 impl AuthorizedCredentialAcceptanceKey {
     pub fn validate(&self) -> Result<()> {
-        VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
+        let verifying_key = VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
             Error::Crypto(format!("invalid acceptance service public key: {error}"))
         })?;
+        if verifying_key.is_weak() {
+            return Err(Error::Crypto(
+                "weak Ed25519 acceptance service public key".to_string(),
+            ));
+        }
         if self
             .valid_until
             .as_ref()
@@ -184,9 +189,14 @@ impl AuthorizedCredentialTransparencyWitness {
     pub fn validate(&self) -> Result<()> {
         self.actor.validate()?;
         self.organization.validate()?;
-        VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
+        let verifying_key = VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
             Error::Crypto(format!("invalid transparency witness public key: {error}"))
         })?;
+        if verifying_key.is_weak() {
+            return Err(Error::Crypto(
+                "weak Ed25519 transparency witness public key".to_string(),
+            ));
+        }
         if self
             .valid_until
             .as_ref()
@@ -3343,6 +3353,41 @@ mod tests {
         };
         assert!(key.validate().is_err());
     }
+
+    #[test]
+    fn acceptance_service_key_rejects_weak_ed25519_public_key() {
+        let key = AuthorizedCredentialAcceptanceKey {
+            public_key: [0; 32],
+            valid_from: Utc::now(),
+            valid_until: None,
+            revoked_at: None,
+        };
+
+        assert!(key
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("weak Ed25519 acceptance service public key"));
+    }
+
+    #[test]
+    fn transparency_witness_rejects_weak_ed25519_public_key() {
+        let witness = AuthorizedCredentialTransparencyWitness {
+            actor: actor("did:key:weak-witness"),
+            organization: OrganizationId::new("org:weak-witness").unwrap(),
+            public_key: [0; 32],
+            valid_from: Utc::now(),
+            valid_until: None,
+            revoked_at: None,
+        };
+
+        assert!(witness
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("weak Ed25519 transparency witness public key"));
+    }
+
 
     #[test]
     fn action_hash_binds_the_proposed_event() {
