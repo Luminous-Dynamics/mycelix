@@ -1,0 +1,98 @@
+name: Integration Transport Observation Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-transport-admission-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-transport-observation/**'
+      - '.github/workflows/integration-transport-observation-qualification.yml'
+  push:
+    branches:
+      - feat/integration-transport-observation-v1
+    paths:
+      - 'crates/mycelix-integration-transport-observation/**'
+      - '.github/workflows/integration-transport-observation-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-transport-observation/Cargo.toml
+  SOURCE: crates/mycelix-integration-transport-observation/src/lib.rs
+
+concurrency:
+  group: integration-transport-observation-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Provider-neutral issuance and ambiguity semantics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-transport-observation
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce zero-byte versus possible-issue distinction
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'DefinitelyNotIssued' "$SOURCE"
+          grep -Fq 'CompleteProviderResponse' "$SOURCE"
+          grep -Fq 'AmbiguousPossibleIssue' "$SOURCE"
+          grep -Fq 'if evidence.application_bytes_written == 0' "$SOURCE"
+          grep -Fq 'application_bytes_written > evidence.planned_request_bytes' "$SOURCE"
+          grep -Fq 'completed request write must account for all planned bytes' "$SOURCE"
+
+      - name: Enforce response status does not mint business outcome
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'provider_business_semantics_verified_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'safe_reexecution_granted_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'grants_execution_authority(&self) -> bool' "$SOURCE"
+          if grep -Eq 'ExternalExecutionOutcome|RejectedBeforeCommit|ExternalReceipt|Confirmed\(' "$SOURCE"; then
+            echo 'Transport observation must not mint provider business outcomes.'
+            exit 1
+          fi
+
+      - name: Enforce provider-neutral dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --manifest-path "$MANIFEST" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl|stripe)( |$)'; then
+            echo 'Network/TLS/provider dependency entered observation kernel.'
+            exit 1
+          fi
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|send\(|connect\(' "$SOURCE"; then
+            echo 'Observation kernel must remain pure/provider-neutral.'
+            exit 1
+          fi
