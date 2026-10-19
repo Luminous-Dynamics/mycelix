@@ -747,8 +747,8 @@ pub mod app_shell {
         #[prop(into)] brand_name: String,
         #[prop(into)] brand_icon: String,
         nav_links: Vec<NavLink>,
-        #[prop(optional)] mobile_tabs: Option<Vec<NavTab>>,
-        #[prop(optional)] meta_view: Option<AnyView>,
+        mobile_tabs: Option<Vec<NavTab>>,
+        meta_view: Option<AnyView>,
         children: Children,
     ) -> impl IntoView {
         let desktop_links = nav_links;
