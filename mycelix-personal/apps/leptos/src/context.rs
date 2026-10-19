@@ -226,6 +226,7 @@ pub fn provide_personal_context() {
             let mut successful_sources: Vec<&'static str> = Vec::new();
             let mut unavailable_sources: Vec<&'static str> = Vec::new();
 
+            ctx.profile_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Option<ProfileView>>(
                     "identity_vault",
@@ -248,6 +249,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.keys_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<MasterKeyView>>(
                     "identity_vault",
@@ -268,6 +270,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.credentials_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<StoredCredentialView>>(
                     "credential_wallet",
@@ -288,6 +291,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.biometrics_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<BiometricView>>(
                     "health_vault",
@@ -308,6 +312,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.consents_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<ConsentGrantView>>(
                     "health_vault",
@@ -328,6 +333,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.preferences_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
                     "data_preferences",
@@ -348,6 +354,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.preference_log_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
                     "data_preferences",
@@ -368,6 +375,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.health_records_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<HealthRecordView>>(
                     "health_vault",
@@ -388,6 +396,7 @@ pub fn provide_personal_context() {
                 }
             }
 
+            ctx.activity_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<ActivityItemView>>(
                     "personal_bridge",
