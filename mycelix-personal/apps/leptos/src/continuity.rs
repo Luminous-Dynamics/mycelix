@@ -64,7 +64,7 @@ mod tests {
 
 #[component]
 pub fn ContinuityPage() -> impl IntoView {
-    let disclosure_scope = RwSignal::new("selected".to_string());
+    let disclosure_scope = RwSignal::new("none".to_string());
     let disclosure_description = move || disclosure_scope_summary(&disclosure_scope.get());
 
     view! {
