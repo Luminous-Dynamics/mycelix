@@ -475,9 +475,13 @@ async fn persist_protected_signing_key(
         .local_storage()
         .map_err(|_| "Browser identity storage is unavailable.".to_string())?
         .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
-    let snapshot = read_identity_storage_snapshot_from(&storage)
+    let mut snapshot = read_identity_storage_snapshot_from(&storage)
         .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
-    if classify_identity_storage_snapshot(&snapshot) != LocalIdentityStoragePosture::NoIdentity {
+    let initial_posture = classify_identity_storage_snapshot(&snapshot);
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if initial_posture != LocalIdentityStoragePosture::NoIdentity {
         return Err(
             "Identity storage is not empty. Inspect or recover the existing identity before creating another."
                 .into(),
@@ -491,11 +495,15 @@ async fn persist_protected_signing_key(
 
     // Encryption yields to the browser event loop. Recheck before any write so
     // a second tab cannot silently overwrite a newly created identity.
-    let current = read_identity_storage_snapshot_from(&storage)
+    let mut current = read_identity_storage_snapshot_from(&storage)
         .map_err(|_| "Browser identity storage became unavailable.".to_string())?;
-    if classify_identity_storage_snapshot(&current) != LocalIdentityStoragePosture::NoIdentity
-        || UNLOCKED_KEY.with(|cell| cell.borrow().is_some())
-    {
+    let storage_still_empty =
+        classify_identity_storage_snapshot(&current) == LocalIdentityStoragePosture::NoIdentity
+            && !UNLOCKED_KEY.with(|cell| cell.borrow().is_some());
+    if let Some(secret_b64) = current.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if !storage_still_empty {
         return Err(
             "Identity storage changed during creation or recovery. No new identity was written."
                 .into(),
