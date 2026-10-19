@@ -1,0 +1,61 @@
+name: QUAL-GOV-002A Workflow Ancestry Lint
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/qualification/qual_gov_002a_workflow_ancestry_lint.py'
+      - 'mycelix-workspace/docs/qualification/QUAL_GOV_002A_WORKFLOW_ANCESTRY_LINT_V1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qual-gov-002a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Qualification workflow ancestry hygiene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Closed self-test corpus
+        run: python3 scripts/qualification/qual_gov_002a_workflow_ancestry_lint.py --self-test
+
+      - name: Lint changed workflows
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/qualification/qual_gov_002a_workflow_ancestry_lint.py --base "$BASE_SHA" --head HEAD
+
+      - name: Static dependency-free audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          path = Path('scripts/qualification/qual_gov_002a_workflow_ancestry_lint.py')
+          tree = ast.parse(path.read_text())
+          allowed = {'__future__','argparse','pathlib','re','subprocess','sys','dataclasses'}
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          unexpected = imports - allowed
+          assert not unexpected, unexpected
+          print('stdlib-only:', sorted(imports))
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --porcelain)"
