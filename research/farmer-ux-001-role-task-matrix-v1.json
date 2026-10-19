@@ -1,0 +1,327 @@
+{
+  "schema_version": "1.0.0",
+  "status": "product_hypothesis_for_field_validation",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5194",
+  "organizing_principle": "Shared task and evidence contracts; role-specific projections; no duplicated identity, inventory, route, trust, service lifecycle, or payment authority.",
+  "first_workflow": "irrigation_problem_to_farmer_decided_service_outcome",
+  "shared_capabilities": [
+    "capture_observation",
+    "link_to_opaque_site_or_asset_reference",
+    "show_source_time_evidence_state_and_unknowns",
+    "create_and_track_work_request",
+    "show_quote_terms_and_expiry",
+    "record_explicit_decision",
+    "preserve_offline_pending_conflict_and_confirmed_states",
+    "record_completion_separately_from_acceptance",
+    "support_dispute_rework_correction_and_export",
+    "purpose_bound_permission_and_minimum_disclosure",
+    "human_mediated_channel"
+  ],
+  "roles": [
+    {
+      "id": "farmer_smallholder_crop",
+      "priority": "P0",
+      "purpose": "Make day-to-day decisions and coordinate work without needing constant connectivity or expert-level software skills.",
+      "key_tasks": [
+        "record field or irrigation problem",
+        "review evidence and qualified recommendations",
+        "compare a repair quote or available alternatives",
+        "track service request and deadline",
+        "accept, dispute, or request rework",
+        "review harvest and resource records"
+      ],
+      "interface_projection": [
+        "today_attention_queue",
+        "field_context",
+        "recommendation_card",
+        "service_request_timeline",
+        "quote_review",
+        "completion_receipt"
+      ],
+      "critical_risks": [
+        "confusing modelled conditions with measurements",
+        "losing offline observations",
+        "mistaking a request or provider completion for an accepted service",
+        "exposing exact location or commercial data"
+      ],
+      "outcome_metrics": [
+        "task_success_without_facilitator",
+        "time_to_capture",
+        "accepted_service_within_useful_window",
+        "out_of_pocket_cost",
+        "unresolved_request_rate",
+        "user_agency_comprehension"
+      ]
+    },
+    {
+      "id": "farmer_mixed_or_livestock",
+      "priority": "P1",
+      "purpose": "Manage heterogeneous operations without forcing crop-centric assumptions onto animals, feed, water, and veterinary support.",
+      "key_tasks": [
+        "record livestock observation with time and provenance",
+        "track feed and water needs",
+        "request qualified veterinary or livestock-extension support",
+        "review supplies and service commitments",
+        "retain animal-health uncertainty and escalation paths"
+      ],
+      "interface_projection": [
+        "livestock_attention_queue",
+        "feed_water_resource_view",
+        "qualified_observation_timeline",
+        "adviser_referral"
+      ],
+      "critical_risks": [
+        "presenting advisory output as a veterinary diagnosis",
+        "flattening unit and species distinctions",
+        "delaying urgent human or veterinary care"
+      ],
+      "outcome_metrics": [
+        "correct_escalation_comprehension",
+        "record_completeness",
+        "time_to_human_referral",
+        "supply_and_service_fulfillment"
+      ]
+    },
+    {
+      "id": "extension_officer_agronomist",
+      "priority": "P0",
+      "purpose": "Support evidence-backed field visits and follow-up while preserving farmer agency and clearly separating reported from personally observed facts.",
+      "key_tasks": [
+        "plan visits and follow-up",
+        "review farmer-authorized field history",
+        "record direct observations separately from farmer reports",
+        "provide sourced advice with assumptions and limits",
+        "track whether a recommendation was tried and what happened"
+      ],
+      "interface_projection": [
+        "visit_queue",
+        "consented_case_summary",
+        "observation_and_advice_timeline",
+        "follow_up_queue",
+        "correction_and_source_panel"
+      ],
+      "critical_risks": [
+        "overstating evidence or recommendation certainty",
+        "unapproved access to farmer records",
+        "confusing model-generated text with expert-approved advice",
+        "creating extra administrative burden"
+      ],
+      "outcome_metrics": [
+        "visit_preparation_time",
+        "follow_up_completion",
+        "source_and_observation_distinction",
+        "farmer_comprehension",
+        "minutes_of_duplicate_data_entry"
+      ]
+    },
+    {
+      "id": "irrigation_water_service_provider",
+      "priority": "P0",
+      "purpose": "Receive, quote, schedule, execute, and document pump/pipe/irrigation service work with clear scope and acceptance.",
+      "key_tasks": [
+        "acknowledge a request",
+        "inspect authorized asset context",
+        "submit scope- and expiry-bound quote",
+        "state travel and parts requirements",
+        "report availability and arrival",
+        "record work performed and parts used",
+        "respond to acceptance, complaint, or rework"
+      ],
+      "interface_projection": [
+        "service_inbox",
+        "quote_builder",
+        "parts_and_capacity_view",
+        "job_timeline",
+        "completion_evidence",
+        "rework_queue"
+      ],
+      "critical_risks": [
+        "booking without accepted complete terms",
+        "invented route or arrival promise",
+        "completion mistaken for customer acceptance",
+        "missing parts or hidden charges"
+      ],
+      "outcome_metrics": [
+        "request_acknowledgement_time",
+        "quote_integrity",
+        "arrival_and_window_accuracy",
+        "rework_rate",
+        "parts_wait",
+        "accepted_job_rate"
+      ]
+    },
+    {
+      "id": "farm_machinery_operator_or_coordinator",
+      "priority": "P1",
+      "purpose": "Coordinate shared machinery, operators, maintenance, and field-service windows while making capacity and route evidence explicit.",
+      "key_tasks": [
+        "declare equipment capability and readiness",
+        "receive compatible requests",
+        "review verified route legs and deadlines",
+        "schedule or decline with reason",
+        "record breakdown, maintenance, parts delay and recovery",
+        "report service completion for customer decision"
+      ],
+      "interface_projection": [
+        "fleet_readiness",
+        "compatible_requests",
+        "deadline_and_route_panel",
+        "maintenance_and_parts",
+        "dispatch_outcome"
+      ],
+      "critical_risks": [
+        "scheduling unavailable equipment",
+        "using straight-line distance as travel time",
+        "optimizing utilization while excluding remote or smaller farms",
+        "treating a schedule as completed work"
+      ],
+      "outcome_metrics": [
+        "compatible_job_fulfillment",
+        "travel_deadline_error",
+        "dead_mileage",
+        "downtime",
+        "unserved_request_rate_by_cohort"
+      ]
+    },
+    {
+      "id": "producer_cooperative_or_food_coordinator",
+      "priority": "P1",
+      "purpose": "Coordinate members, planned and observed supply, typed products, orders, pickup/delivery, shortages and disputes.",
+      "key_tasks": [
+        "maintain product profiles with explicit units",
+        "separate planned yield from current stock",
+        "publish evidence-backed offers",
+        "manage orders and reservations",
+        "coordinate collection or delivery",
+        "record handoff, shortage, spoilage or recall"
+      ],
+      "interface_projection": [
+        "member_and_permission_view",
+        "typed_inventory",
+        "offer_order_queue",
+        "pickup_delivery_plan",
+        "fulfillment_and_correction_receipts"
+      ],
+      "critical_risks": [
+        "forecast becoming inventory",
+        "incompatible product units",
+        "exposing farm or household locations unnecessarily",
+        "credential mistaken for food-safety or regulatory approval"
+      ],
+      "outcome_metrics": [
+        "fill_rate",
+        "spoilage_and_rejection",
+        "producer_payment_delay",
+        "fulfillment_reliability",
+        "privacy_disclosure_count"
+      ]
+    },
+    {
+      "id": "solar_energy_and_pump_technician",
+      "priority": "P2",
+      "purpose": "Maintain solar, electrical, storage and pumping equipment using safe work records and explicit qualification boundaries.",
+      "key_tasks": [
+        "inspect asset and maintenance history",
+        "triage a fault using qualified procedures",
+        "quote labor and parts",
+        "schedule authorized work",
+        "record inspection and commissioning evidence",
+        "track recurring faults and downtime"
+      ],
+      "interface_projection": [
+        "asset_history",
+        "fault_triage",
+        "qualified_work_checklist",
+        "parts_and_safety",
+        "commissioning_receipt"
+      ],
+      "critical_risks": [
+        "unsafe action from incomplete information",
+        "unqualified automated diagnosis",
+        "commissioning mistaken for proof of long-term safety",
+        "unauthorized actuation or isolation"
+      ],
+      "outcome_metrics": [
+        "repeat_fault_rate",
+        "time_to_restoration",
+        "inspection_record_completeness",
+        "parts_delay",
+        "safety_escalation_compliance"
+      ]
+    },
+    {
+      "id": "construction_repair_trade",
+      "priority": "P2",
+      "purpose": "Coordinate inspection-backed repair and retrofit work packages, materials, labor, change orders and accepted delivery.",
+      "key_tasks": [
+        "define scope and exclusions",
+        "record site conditions",
+        "estimate quantities, labor, timing and materials",
+        "document authorized changes",
+        "record inspection and defect correction",
+        "obtain customer acceptance or dispute"
+      ],
+      "interface_projection": [
+        "site_observation",
+        "scope_and_quote",
+        "materials_and_labor_plan",
+        "change_order_log",
+        "inspection_and_acceptance"
+      ],
+      "critical_risks": [
+        "simulated design mistaken for structural or code approval",
+        "unapproved change orders",
+        "missing safety requirements",
+        "billable completion mistaken for acceptable quality"
+      ],
+      "outcome_metrics": [
+        "rework_rate",
+        "scope_change_traceability",
+        "material_variance",
+        "inspection_pass_rate_with_denominator",
+        "time_to_accepted_delivery"
+      ]
+    },
+    {
+      "id": "circular_economy_operator",
+      "priority": "P3",
+      "purpose": "Coordinate collection, sorting, reuse, repair and lawful transfer of materials with auditable quantities and destinations.",
+      "key_tasks": [
+        "record pickup and material category",
+        "weigh or count material with declared units",
+        "document sorting and contamination",
+        "track custody transfer",
+        "connect recoverable material with authorized reuse or processing",
+        "record rejects and residual waste"
+      ],
+      "interface_projection": [
+        "collection_queue",
+        "typed_material_record",
+        "sorting_and_quality",
+        "custody_timeline",
+        "destination_and_recovery_report"
+      ],
+      "critical_risks": [
+        "unverified weight or material classification",
+        "missing custody transitions",
+        "unlawful handling or unauthorized recipients",
+        "counting collected material as recovered material"
+      ],
+      "outcome_metrics": [
+        "verified_recovery_fraction",
+        "contamination_rate",
+        "custody_completeness",
+        "cost_per_accepted_recovery",
+        "worker_safety_and_payment"
+      ]
+    }
+  ],
+  "prioritization_rule": "P0 roles validate the shared decision-to-outcome loop. P1 adds food and machinery operations that reuse it. P2 adds other maintenance/construction roles after safe work and capability contracts exist. P3 follows only when traceability and buyer/destination evidence are defined.",
+  "non_goals": [
+    "one independent app per occupation",
+    "new identity or trust score",
+    "parallel quote/booking/payment lifecycle",
+    "automatic diagnosis, procurement, payment, physical actuation or regulatory decision",
+    "role-based access treated as permission to expose all farmer data"
+  ]
+}

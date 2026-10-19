@@ -1,0 +1,309 @@
+{
+  "schema_version": "1.0.0",
+  "status": "english_copy_hypothesis_for_local_user_testing",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5194",
+  "principles": [
+    "Use a plain-language state label with a concrete next action.",
+    "Never imply server confirmation from a local save, network submission, forecast, provider claim, or model output.",
+    "Do not use green/red or iconography as the sole communication of state.",
+    "Keep critical terms short enough for translation and read-aloud assistance; validate phrasing with local speakers.",
+    "Every critical state must distinguish what happened, what is not yet known, and what the user can do next."
+  ],
+  "states": [
+    {
+      "key": "local_saved",
+      "state_family": "sync",
+      "headline": "Saved on this device",
+      "body": "This record is on this device. It has not reached the service yet.",
+      "primary_action": "View pending changes",
+      "secondary_actions": [
+        "Keep working",
+        "Review sync help"
+      ],
+      "must_not_imply": [
+        "server_received",
+        "provider_notified",
+        "booking_confirmed"
+      ]
+    },
+    {
+      "key": "sync_pending",
+      "state_family": "sync",
+      "headline": "Waiting to send",
+      "body": "Your request is saved. It will be sent when a connection is available.",
+      "primary_action": "View request",
+      "secondary_actions": [
+        "Use another contact method"
+      ],
+      "must_not_imply": [
+        "request_received_by_provider",
+        "booking_confirmed"
+      ]
+    },
+    {
+      "key": "sync_confirmed",
+      "state_family": "sync",
+      "headline": "Request received",
+      "body": "The service confirmed that this request was received. A provider has not yet agreed to do the work.",
+      "primary_action": "View request status",
+      "secondary_actions": [
+        "Contact support"
+      ],
+      "must_not_imply": [
+        "provider_available",
+        "quote_accepted",
+        "booking_confirmed"
+      ]
+    },
+    {
+      "key": "sync_conflict",
+      "state_family": "sync",
+      "headline": "Two changes need review",
+      "body": "This device and the service have different versions. Nothing has been silently replaced.",
+      "primary_action": "Compare changes",
+      "secondary_actions": [
+        "Ask the other person",
+        "Leave for later"
+      ],
+      "must_not_imply": [
+        "either_version_is_automatically_correct",
+        "newer_timestamp_always_wins"
+      ]
+    },
+    {
+      "key": "evidence_stale",
+      "state_family": "evidence",
+      "headline": "This information may be out of date",
+      "body": "Last updated: {as_of_time}. Conditions may have changed since then.",
+      "primary_action": "Check for an update",
+      "secondary_actions": [
+        "Continue with this limitation",
+        "Ask an adviser"
+      ],
+      "must_not_imply": [
+        "current_field_condition_verified",
+        "automatic_recommendation_is_safe"
+      ]
+    },
+    {
+      "key": "evidence_conflict",
+      "state_family": "evidence",
+      "headline": "The sources disagree",
+      "body": "We cannot confirm which observation is correct. Review the sources before acting.",
+      "primary_action": "Compare sources",
+      "secondary_actions": [
+        "Ask an adviser",
+        "Record a new observation"
+      ],
+      "must_not_imply": [
+        "conflicting_values_can_be_averaged_into_truth",
+        "one_source_was_selected_without_explanation"
+      ]
+    },
+    {
+      "key": "evidence_unknown",
+      "state_family": "evidence",
+      "headline": "Not enough information to confirm this",
+      "body": "The available information does not support a reliable answer yet.",
+      "primary_action": "See what is missing",
+      "secondary_actions": [
+        "Ask a person",
+        "Continue without this estimate"
+      ],
+      "must_not_imply": [
+        "unknown_means_zero",
+        "unknown_means_safe",
+        "unknown_means_false"
+      ]
+    },
+    {
+      "key": "modelled_route",
+      "state_family": "spatial",
+      "headline": "Estimated travel time",
+      "body": "This is a modelled estimate, not a measured trip. Route coverage and conditions may affect it.",
+      "primary_action": "View route evidence",
+      "secondary_actions": [
+        "Confirm with provider"
+      ],
+      "must_not_imply": [
+        "observed_travel_time",
+        "guaranteed_arrival"
+      ]
+    },
+    {
+      "key": "no_route_evidence",
+      "state_family": "spatial",
+      "headline": "Travel time is not known",
+      "body": "We do not have a validated route estimate for this trip. Straight-line distance cannot confirm travel time.",
+      "primary_action": "Contact the provider",
+      "secondary_actions": [
+        "Choose another provider",
+        "Use a human-assisted option"
+      ],
+      "must_not_imply": [
+        "zero_minutes",
+        "impossible_route",
+        "guaranteed_service_access"
+      ]
+    },
+    {
+      "key": "no_provider",
+      "state_family": "service",
+      "headline": "No available provider found",
+      "body": "Your request is still recorded, but no provider is currently available for this work.",
+      "primary_action": "Try another channel",
+      "secondary_actions": [
+        "Keep request open",
+        "Cancel request"
+      ],
+      "must_not_imply": [
+        "service_delivered",
+        "request_deleted",
+        "provider_offer_exists"
+      ]
+    },
+    {
+      "key": "quote_incomplete",
+      "state_family": "commercial",
+      "headline": "The quote needs more detail",
+      "body": "Review the missing price, unit, timing, expiry, travel fee, or work-scope terms before agreeing.",
+      "primary_action": "Ask for a complete quote",
+      "secondary_actions": [
+        "Decline quote",
+        "Ask a person to explain"
+      ],
+      "must_not_imply": [
+        "total_cost_is_known",
+        "booking_confirmed",
+        "acceptance_is_inferred"
+      ]
+    },
+    {
+      "key": "quote_expired",
+      "state_family": "commercial",
+      "headline": "This quote has expired",
+      "body": "The terms are no longer available for acceptance. Ask whether the provider can renew them.",
+      "primary_action": "Request an updated quote",
+      "secondary_actions": [
+        "Choose another option",
+        "Close request"
+      ],
+      "must_not_imply": [
+        "old_price_is_still_valid",
+        "booking_confirmed"
+      ]
+    },
+    {
+      "key": "booking_confirmed",
+      "state_family": "service",
+      "headline": "Booking confirmed",
+      "body": "The provider has confirmed the agreed work and time. The work has not yet been completed.",
+      "primary_action": "View agreed terms",
+      "secondary_actions": [
+        "Contact provider",
+        "Request a change"
+      ],
+      "must_not_imply": [
+        "work_completed",
+        "farmer_accepted_completion",
+        "payment_completed"
+      ]
+    },
+    {
+      "key": "provider_reported_complete",
+      "state_family": "service",
+      "headline": "The provider reports the work is complete",
+      "body": "Please review the result. You can accept it, report a problem, or request rework.",
+      "primary_action": "Review the work",
+      "secondary_actions": [
+        "Report a problem",
+        "Request rework"
+      ],
+      "must_not_imply": [
+        "farmer_accepted",
+        "quality_verified_independently",
+        "payment_authorized"
+      ]
+    },
+    {
+      "key": "service_accepted",
+      "state_family": "service",
+      "headline": "You accepted the completed work",
+      "body": "Your acceptance has been recorded. You can still view the agreed terms and receipt.",
+      "primary_action": "View receipt",
+      "secondary_actions": [
+        "Report a later issue"
+      ],
+      "must_not_imply": [
+        "every_technical_claim_independently_verified",
+        "payment_completed_unless_separately_confirmed"
+      ]
+    },
+    {
+      "key": "service_disputed",
+      "state_family": "service",
+      "headline": "Problem reported",
+      "body": "Your concern has been recorded. It has not yet been resolved.",
+      "primary_action": "View dispute and next steps",
+      "secondary_actions": [
+        "Add evidence",
+        "Contact a person",
+        "Request rework"
+      ],
+      "must_not_imply": [
+        "fault_or_guilt_adjudicated",
+        "dispute_resolved",
+        "farmer_penalized"
+      ]
+    },
+    {
+      "key": "permission_revoked",
+      "state_family": "privacy",
+      "headline": "Future sharing is turned off",
+      "body": "This system will stop new sharing under this permission. Copies already received by others may need separate handling.",
+      "primary_action": "Review who has access",
+      "secondary_actions": [
+        "Export my records",
+        "Read sharing details"
+      ],
+      "must_not_imply": [
+        "external_copies_were_recalled",
+        "all_data_is_deleted_everywhere"
+      ]
+    },
+    {
+      "key": "human_mediation",
+      "state_family": "access",
+      "headline": "You can continue with a person",
+      "body": "You can use a phone call, cooperative, adviser, or another supported channel without losing the request reference.",
+      "primary_action": "Show request reference",
+      "secondary_actions": [
+        "Choose a contact method"
+      ],
+      "must_not_imply": [
+        "app_registration_required",
+        "human_relay_authority_is_implicit"
+      ]
+    },
+    {
+      "key": "outcome_unknown",
+      "state_family": "sync",
+      "headline": "We couldn't confirm whether this went through",
+      "body": "Your request may have reached the service, but we do not have an authoritative response. It has not been confirmed or rejected.",
+      "primary_action": "Review safe next steps",
+      "secondary_actions": [
+        "Check status if an authoritative check is available",
+        "Contact a person",
+        "View request reference",
+        "Leave as unknown"
+      ],
+      "must_not_imply": [
+        "request_not_applied",
+        "request_received_by_provider",
+        "booking_confirmed",
+        "automatic_retry_is_safe",
+        "request_was_lost"
+      ]
+    }
+  ]
+}

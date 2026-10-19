@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/farmer-ux-001-evaluation-matrix-v1.schema.json",
+  "title": "Farmer UX multi-level evaluation matrix",
+  "description": "Proposed model/system/process evaluation contract. Schema validity is not model quality, usability, governance, or field qualification.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "tracking_issue",
+    "thesis",
+    "research_anchors",
+    "claim_boundary",
+    "levels",
+    "release_maturity_levels",
+    "release_rule"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "proposed_matrix_for_local_validation"
+    },
+    "tracking_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "thesis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "research_anchors": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "organization",
+          "published",
+          "url",
+          "relevance"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organization": {
+            "type": "string",
+            "minLength": 1
+          },
+          "published": {
+            "type": "string",
+            "minLength": 4
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "relevance": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "claim_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "decision_question",
+          "unit_of_evaluation",
+          "hard_gates",
+          "metrics",
+          "do_not_collapse"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "model",
+              "system",
+              "process"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit_of_evaluation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hard_gates": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "method",
+                "target",
+                "denominator"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]+$"
+                },
+                "method": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "target": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "denominator": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "do_not_collapse": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "release_maturity_levels": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "release_rule": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
