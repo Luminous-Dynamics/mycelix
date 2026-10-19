@@ -385,13 +385,13 @@ fn validate_capability(
         ));
     }
 
-    // If has expiration, must be in future
-    if let Some(expires) = cap.expires_at {
-        if expires <= cap.granted_at {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Expiration must be after grant time".to_string(),
-            ));
-        }
+    // If has expiration, must be after grant time
+    if let Some(expires) = cap.expires_at
+        && expires <= cap.granted_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Expiration must be after grant time".to_string(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)

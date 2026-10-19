@@ -186,6 +186,52 @@ impl Config {
         })
     }
 
+    /// Optional Origin header for Holochain admin/app WebSocket connections.
+    ///
+    /// Holochain client 0.8.1 makes the origin explicit so conductors with an
+    /// allowed-origin policy can authenticate the browser/application origin.
+    pub fn holochain_origin(&self) -> Option<String> {
+        env::var("HOLOCHAIN_ORIGIN").ok()
+    }
+
+    /// Deterministic backend configuration for unit tests.
+    ///
+    /// This avoids process-global environment mutation, which is unsafe under
+    /// Rust 2024 and makes concurrently executed tests order-dependent.
+    #[cfg(test)]
+    pub fn for_test() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 3001,
+            holochain_conductor_url: "ws://localhost:8888".to_string(),
+            holochain_admin_url: "ws://localhost:8889".to_string(),
+            holochain_app_id: "mycelix_mail".to_string(),
+            holochain_stub_mode: true,
+            lair_url: None,
+            lair_passphrase: None,
+            holochain_connect_timeout_secs: 30,
+            holochain_max_reconnect_attempts: 5,
+            jwt_secret: "test-secret-for-testing-at-least-32-bytes".to_string(),
+            jwt_expiration_hours: 24,
+            trust_cache_ttl_secs: 300,
+            trust_cache_max_entries: 10_000,
+            default_min_trust: 0.3,
+            byzantine_threshold: 0.2,
+            cors_origins: vec!["http://localhost:5173".to_string()],
+            rate_limit_rpm: 100,
+            log_level: "info".to_string(),
+            bridge_url: None,
+            bridge_stub_mode: true,
+            bridge_cache_ttl_secs: 300,
+            bridge_fallback_trust: 0.3,
+            bridge_zome_name: "bridge".to_string(),
+            bridge_cross_happ_enabled: true,
+            bridge_min_confidence: 0.3,
+            identity_conductor_url: None,
+            identity_verify_on_send: true,
+        }
+    }
+
     /// Get trust cache TTL as Duration
     pub fn trust_cache_ttl(&self) -> Duration {
         Duration::from_secs(self.trust_cache_ttl_secs)
