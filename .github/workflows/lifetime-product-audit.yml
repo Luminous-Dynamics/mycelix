@@ -63,3 +63,10 @@ jobs:
             --bin repair_trial_record_audit -- \
             --schema mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_SCHEMA_V0_1_DRAFT.json \
             --record mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_EXAMPLE_V0_1_DRAFT.json
+      - name: Audit conservative service-envelope contract and benchmark
+        run: |
+          cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
+            --bin service_envelope_audit -- \
+            --schema mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_SCHEMA_V0_1_DRAFT.json \
+            --record mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_EXAMPLE_V0_1_DRAFT.json \
+            --benchmark mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_BENCHMARK_V0_1_DRAFT.json
