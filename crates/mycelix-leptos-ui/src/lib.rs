@@ -476,7 +476,7 @@ pub mod tabs {
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct TabDefinition {
-        /// Stable, unique ID shared by this tab and its matching TabPanel.
+        /// Stable, valid DOM ID, unique across the rendered page and shared by this tab and its matching TabPanel.
         pub id: String,
         pub label: String,
     }
@@ -494,7 +494,7 @@ pub mod tabs {
     ///
     /// The parent owns the selected-tab signal. ArrowLeft/ArrowRight wrap, and
     /// Home/End jump to the first/last tab. IDs must be unique within the tab
-    /// list and must match the IDs supplied to TabPanel.
+    /// list and page, and must match IDs supplied to TabPanel. Use a non-empty DOM ID token with no ASCII whitespace.
     #[component]
     pub fn Tabs(
         tabs: Vec<TabDefinition>,
