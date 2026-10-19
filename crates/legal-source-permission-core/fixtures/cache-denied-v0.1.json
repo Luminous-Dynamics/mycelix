@@ -5,7 +5,7 @@
   "territory": "ZA",
   "as_of_utc": "2026-10-19T08:00:00Z",
   "requested_retention_seconds": 0,
-  "observed_terms_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "observed_terms_sha256": "cea449e48f0d450c6f64ca4c7f6f6da5c8d5bbe4d7f51e566255c02215ea677e",
   "operation": "cache",
   "purpose": "benchmark_evaluation",
   "actor_class": "automated_service"
