@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/crates/legal-source-permission-core/schemas/source-use-profile-v0.1.schema.json",
+  "title": "Mycelix Source Use Permission Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "profile_status",
+    "source",
+    "terms",
+    "reviewer",
+    "operations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "approved",
+        "revoked",
+        "expired"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publisher_id",
+        "canonical_ref",
+        "component_id",
+        "version_id",
+        "content_sha256"
+      ],
+      "properties": {
+        "publisher_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "terms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "terms_ref",
+        "terms_version",
+        "terms_sha256",
+        "review_status",
+        "verified_at_utc",
+        "valid_from_utc",
+        "valid_until_utc"
+      ],
+      "properties": {
+        "terms_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "terms_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "terms_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "review_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "unverified"
+          ]
+        },
+        "verified_at_utc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_from_utc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_until_utc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "reviewer": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewer_ref",
+            "reviewer_basis",
+            "decision",
+            "reviewed_at_utc"
+          ],
+          "properties": {
+            "reviewer_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reviewer_basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "approved",
+                "rejected",
+                "not_reviewed"
+              ]
+            },
+            "reviewed_at_utc": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            }
+          }
+        }
+      ]
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/operationGrant"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profile_status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "profile_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "reviewer"
+        ],
+        "properties": {
+          "reviewer": {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "const": "approved"
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "operationGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grant_id",
+        "operation",
+        "decision",
+        "purposes",
+        "actor_classes",
+        "territories",
+        "valid_from_utc",
+        "valid_until_utc",
+        "max_retention_seconds",
+        "evidence_refs",
+        "rationale"
+      ],
+      "properties": {
+        "grant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "manual_access",
+            "automated_retrieval",
+            "temporary_processing",
+            "cache",
+            "full_text_indexing",
+            "embedding_generation",
+            "summarization",
+            "model_training",
+            "model_fine_tuning",
+            "benchmark_evaluation",
+            "quote_display",
+            "redistribution",
+            "metadata_processing"
+          ]
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allowed",
+            "denied",
+            "unknown"
+          ]
+        },
+        "purposes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "manual_legal_research",
+              "automated_legal_research",
+              "benchmark_evaluation",
+              "model_training",
+              "model_serving",
+              "internal_audit",
+              "public_display",
+              "redistribution"
+            ]
+          }
+        },
+        "actor_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "human_researcher",
+              "internal_reviewer",
+              "automated_service",
+              "production_service",
+              "public_user"
+            ]
+          }
+        },
+        "territories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          }
+        },
+        "valid_from_utc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_until_utc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_retention_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
