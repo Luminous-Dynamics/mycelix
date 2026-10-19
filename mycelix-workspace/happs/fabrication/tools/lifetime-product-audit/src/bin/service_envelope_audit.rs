@@ -534,4 +534,100 @@ mod tests {
         };
         assert!(boxes_conflict(a, b));
     }
+
+    #[test]
+    fn translation_of_a_module_and_bay_preserves_fit_result() {
+        let module = Box3 {
+            origin: [20.0, 20.0, 20.0],
+            size: [760.0, 560.0, 560.0],
+            clearance: [0.0, 0.0, 0.0],
+        };
+        let bay = Box3 {
+            origin: [0.0, 0.0, 0.0],
+            size: [800.0, 600.0, 600.0],
+            clearance: [0.0, 0.0, 0.0],
+        };
+        let delta = [1234.0, -567.0, 31.0];
+        let shifted_module = Box3 {
+            origin: [
+                module.origin[0] + delta[0],
+                module.origin[1] + delta[1],
+                module.origin[2] + delta[2],
+            ],
+            ..module
+        };
+        let shifted_bay = Box3 {
+            origin: [
+                bay.origin[0] + delta[0],
+                bay.origin[1] + delta[1],
+                bay.origin[2] + delta[2],
+            ],
+            ..bay
+        };
+        assert_eq!(
+            fits_with_clearance(module, bay, [10.0; 3]),
+            fits_with_clearance(shifted_module, shifted_bay, [10.0; 3])
+        );
+    }
+
+    #[test]
+    fn increasing_required_clearance_cannot_turn_failure_into_success() {
+        let module = Box3 {
+            origin: [20.0, 20.0, 20.0],
+            size: [760.0, 560.0, 560.0],
+            clearance: [0.0, 0.0, 0.0],
+        };
+        let bay = Box3 {
+            origin: [0.0, 0.0, 0.0],
+            size: [800.0, 600.0, 600.0],
+            clearance: [0.0, 0.0, 0.0],
+        };
+        assert!(fits_with_clearance(module, bay, [10.0, 10.0, 10.0]));
+        assert!(!fits_with_clearance(module, bay, [21.0, 10.0, 10.0]));
+    }
+
+    #[test]
+    fn greater_moving_clearance_cannot_remove_an_existing_collision() {
+        let moving = Box3 {
+            origin: [0.0, 0.0, 0.0],
+            size: [100.0, 100.0, 100.0],
+            clearance: [0.0, 0.0, 0.0],
+        };
+        let obstacle = Box3 {
+            origin: [95.0, 0.0, 0.0],
+            size: [20.0, 100.0, 100.0],
+            clearance: [0.0, 0.0, 0.0],
+        };
+        let more_clearance = Box3 {
+            clearance: [10.0, 10.0, 10.0],
+            ..moving
+        };
+        assert!(boxes_conflict(moving, obstacle));
+        assert!(boxes_conflict(more_clearance, obstacle));
+    }
+
+    #[test]
+    fn reordering_envelopes_does_not_change_semantic_results() {
+        let record = example_record();
+        let expected = audit_record_semantics(&record);
+        let mut reordered = record.clone();
+        reordered["envelopes"].as_array_mut().unwrap().reverse();
+        assert_eq!(audit_record_semantics(&reordered), expected);
+    }
+
+    #[test]
+    fn missing_required_scenario_geometry_fails_closed() {
+        let malformed = json!({
+            "setup": {
+                "record_state": "draft",
+                "source_evidence_state": "assumption",
+                "source_digest_present": false,
+                "module": {"origin": [10, 10, 10], "size": [780, 580, 580]},
+                "bay": {"origin": [0, 0, 0], "size": [800, 600, 600]},
+                "moving": [],
+                "obstacles": []
+            }
+        });
+        assert!(evaluate_scenario(&malformed).is_none());
+    }
 }
