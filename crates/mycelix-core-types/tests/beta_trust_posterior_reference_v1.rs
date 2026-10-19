@@ -1,11 +1,11 @@
 //! Research-only independent oracle for Beta-Bernoulli trust uncertainty.
 //!
 //! This test intentionally does not call MATL/TCDM production scoring. It freezes
- //! a separate mathematical reference so we can compare score-only policies with
+//! a separate mathematical reference so we can compare score-only policies with
  //! uncertainty-aware policies without quietly changing deployed trust semantics.
  //! Run with: cargo test -p mycelix-core-types --test beta_trust_posterior_reference_v1
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 const CORPUS: &str = include_str!("data/beta-trust-posterior-reference-v1.json");
@@ -54,7 +54,11 @@ fn evaluate(case: &Value, invert_observations: bool) -> Result<Summary, String> 
         let outcome = observation
             .as_bool()
             .ok_or_else(|| format!("observations[{index}] must be boolean"))?;
-        let success = if invert_observations { !outcome } else { outcome };
+        let success = if invert_observations {
+            !outcome
+        } else {
+            outcome
+        };
         if success {
             alpha += 1.0;
         } else {
@@ -124,7 +128,11 @@ fn frozen_corpus_matches_reference_values_and_rejects_invalid_domains() {
     let controls = corpus["mutation_controls"]
         .as_array()
         .expect("mutation_controls must be an array");
-    assert_eq!(controls.len(), 5, "unexpected semantic mutation-control count");
+    assert_eq!(
+        controls.len(),
+        5,
+        "unexpected semantic mutation-control count"
+    );
 
     let mut ids = HashSet::new();
     let mut valid_count = 0;
@@ -139,7 +147,8 @@ fn frozen_corpus_matches_reference_values_and_rejects_invalid_domains() {
 
         if valid {
             valid_count += 1;
-            let actual = result.unwrap_or_else(|error| panic!("{id}: valid case rejected: {error}"));
+            let actual =
+                result.unwrap_or_else(|error| panic!("{id}: valid case rejected: {error}"));
             for (field, value) in [
                 ("alpha", actual.alpha),
                 ("beta", actual.beta),
@@ -154,7 +163,10 @@ fn frozen_corpus_matches_reference_values_and_rejects_invalid_domains() {
                 );
             }
             assert!(actual.variance >= 0.0, "{id}: variance must be nonnegative");
-            assert!((0.0..=1.0).contains(&actual.mean), "{id}: mean outside [0,1]");
+            assert!(
+                (0.0..=1.0).contains(&actual.mean),
+                "{id}: mean outside [0,1]"
+            );
             assert!(
                 (0.0..=1.0).contains(&actual.lower_bound),
                 "{id}: lower bound outside [0,1]"
@@ -190,8 +202,11 @@ fn observation_order_is_irrelevant_under_the_iid_bernoulli_model() {
 fn swapping_success_and_failure_evidence_reflects_the_posterior() {
     let corpus: Value = serde_json::from_str(CORPUS).expect("reference corpus");
     let cases = corpus["cases"].as_array().expect("cases array");
-    let success_biased = evaluate(by_id(cases, "BTP-010-asymmetric-prior-success-biased"), false)
-        .expect("success-biased case is valid");
+    let success_biased = evaluate(
+        by_id(cases, "BTP-010-asymmetric-prior-success-biased"),
+        false,
+    )
+    .expect("success-biased case is valid");
     let failure_biased = evaluate(by_id(cases, "BTP-011-mirrored-prior-failure-biased"), false)
         .expect("failure-biased case is valid");
     assert!(close(success_biased.mean + failure_biased.mean, 1.0));
