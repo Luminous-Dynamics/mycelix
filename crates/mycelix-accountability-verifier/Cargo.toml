@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-accountability-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Provider-neutral cryptographic verification boundary for Mycelix accountability receipts"
+
+[dependencies]
+mycelix-accountability-core = { path = "../mycelix-accountability-core" }
+thiserror = "2.0"
