@@ -1,0 +1,12 @@
+[package]
+name = "constitutional-authority"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure constitutional authority taxonomy and conformance rules for Mycelix governance"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
