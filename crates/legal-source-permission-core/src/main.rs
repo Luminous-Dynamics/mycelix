@@ -890,7 +890,10 @@ mod tests {
             ActorClass::InternalReviewer,
         );
         wrong_purpose.territory = "US".to_string();
-        assert_eq!(admission(&wrong_purpose).admission_decision, AdmissionDecision::Denied);
+        assert_eq!(
+            admission(&wrong_purpose).admission_decision,
+            AdmissionDecision::Denied
+        );
     }
 
     #[test]
