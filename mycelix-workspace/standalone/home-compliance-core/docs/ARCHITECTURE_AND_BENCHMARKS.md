@@ -308,6 +308,20 @@ Acceptance targets:
 - **No global extrapolation:** support for one jurisdiction never implies support for a sibling jurisdiction or a different country.
 
 ## Global code composition and evidence-backed reform
+## Alternative-solution pathways and design freedom
+
+The new `alternative_solution` module keeps performance-based demonstrations, variance requests and appeals distinct from code-reform proposals. A reviewed jurisdiction adapter must identify an available submission path; each case names the exact rule statement and design revision, defines testable performance outcomes, pins method and evaluator versions, includes verified evidence bytes and counter-evidence, registers uncertainty and affected-group impacts, and preserves independent reviews tied to the exact case/design revisions.
+
+A safety-critical failed or unknown criterion blocks. Non-critical failures/unknowns remain named and keep the case at `ReadyForIndependentReview`; they are not silently converted into success. The strongest positive state is `ReadyForAuthoritySubmission`, not approval or evidence of legal equivalence. Dissenting reviews are retained and the authority remains responsible for its decision.
+
+Proposed targets:
+- 100% of declared criteria map to an outcome, versioned method, uncertainty note, counter-evidence summary and byte-verified artifact.
+- 0 safety-critical Fail/Unknown results reach submission-ready status.
+- 100% of alternative cases identify the exact jurisdiction source/module and source statement; unknown or unavailable pathways never pass.
+- 100% of independent reviews reference the exact case and design revision; stale reviews block.
+- 100% of known failed or unknown criteria are shown by identifier; zero aggregation into a single opaque safety score.
+- 100% of dissent and requests for more evidence remain visible; owners may compare alternatives, but only the authority can decide the case.
+
 
 The new `composition` module makes rule-module ancestry explicit while refusing to infer legal precedence from geographic scope or numeric ordering. Global-reference modules cannot declare binding requirements. Binding statements from indeterminate/non-applicable sources are rejected; conflicts return multiple provenance-carrying candidates without a selected winner. Explicit overrides name the inherited statement, decision record, reviewer, rationale, and evidence digest. The metadata-only composer rejects any override; a separate `compose_verified_rule_modules` entry point requires an external jurisdiction-specific `OverrideVerifier` to authenticate the decision, reviewer, source bytes, and authority to vary that exact rule. No production verifier is included. Owner preferences, engineering baselines, proposals, and evidence-backed reform proposals remain separate from binding requirements.
 
