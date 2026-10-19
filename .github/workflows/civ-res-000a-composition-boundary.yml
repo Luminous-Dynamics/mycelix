@@ -1,0 +1,80 @@
+name: CIV-RES-000A Composition Boundary
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/CIV_RES_000A_COMPOSITION_BOUNDARY_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/civ_res_000a_manifest.json'
+      - 'scripts/qualification/civ_res_000a_composition_boundary_v1.py'
+      - '.github/workflows/civ-res-000a-composition-boundary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-res-000a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Civic Resilience composition boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          OBSERVED_HEAD="$(git rev-parse HEAD)"
+          OBSERVED_PARENT="$(git rev-parse HEAD^)"
+          OBSERVED_TREE="$(git rev-parse HEAD^{tree})"
+          printf 'head=%s\nparent=%s\ntree=%s\n' "$OBSERVED_HEAD" "$OBSERVED_PARENT" "$OBSERVED_TREE"
+          test "$OBSERVED_PARENT" = "$EXPECTED_PARENT"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/civ-res-000a-composition-boundary.yml'
+            'mycelix-workspace/docs/civic-resilience/CIV_RES_000A_COMPOSITION_BOUNDARY_V1.md'
+            'mycelix-workspace/docs/civic-resilience/civ_res_000a_manifest.json'
+            'scripts/qualification/civ_res_000a_composition_boundary_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate composition corpus
+        run: python3 scripts/qualification/civ_res_000a_composition_boundary_v1.py
+
+      - name: Static no-runtime-authority audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'CIV-RES-000A must remain documentation/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+          if git grep -nEi '(^|[^a-z])(production[_ -]?ready|deployment[_ -]?ready)[^a-z].*(true|yes|pass)' -- \
+              mycelix-workspace/docs/civic-resilience \
+              scripts/qualification/civ_res_000a_composition_boundary_v1.py; then
+            echo 'CIV-RES-000A must not claim deployment/product readiness' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
