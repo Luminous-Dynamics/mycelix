@@ -1,0 +1,373 @@
+name: PSI-002B3A3K0V-F2S1b1 lock capsule
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'qualification/psi-002b3a3k0v-f2s1-validator/**'
+      - '.github/workflows/psi-002b3a3k0v-f2s1b1-lock-capsule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lock-capsule:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record source provenance
+        run: |
+          git rev-parse HEAD > source-commit.txt
+          git rev-parse HEAD^{tree} > source-tree.txt
+          git status --porcelain=v1 --untracked-files=no > source-status.txt
+          test ! -s source-status.txt
+          sha256sum .github/workflows/psi-002b3a3k0v-f2s1b1-lock-capsule.yml > workflow-sha256.txt
+
+      - name: Record runner environment
+        run: |
+          uname -a > runner-uname.txt
+          cat /etc/os-release > runner-os-release.txt
+          python3 --version > runner-python-version.txt
+
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --no-self-update
+          rustc +1.96.0 --version --verbose | tee rustc-1.96.0.txt
+          cargo +1.96.0 --version --verbose | tee cargo-1.96.0.txt
+
+      - name: Generate standalone lockfile
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          rm -f Cargo.lock
+          cargo +1.96.0 generate-lockfile --manifest-path Cargo.toml
+          test -s Cargo.lock
+          cp Cargo.lock Cargo.lock.first
+          cargo +1.96.0 generate-lockfile --manifest-path Cargo.toml
+          cmp Cargo.lock.first Cargo.lock
+          rm Cargo.lock.first
+          sha256sum Cargo.lock | tee Cargo.lock.sha256
+
+      - name: Freeze dependency/source inventory
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --format-version 1 > cargo-metadata.json
+          cargo +1.96.0 tree --manifest-path Cargo.toml --locked > cargo-tree.txt
+          python3 - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+
+          meta = json.loads(Path("cargo-metadata.json").read_text())
+          packages = []
+          for p in sorted(meta["packages"], key=lambda x: x["id"]):
+              packages.append({
+                  "id": p["id"],
+                  "name": p["name"],
+                  "version": p["version"],
+                  "source": p.get("source"),
+                  "checksum": p.get("checksum"),
+                  "edition": p["edition"],
+                  "rust_version": p.get("rust_version"),
+                  "manifest_path": str(Path(p["manifest_path"]).relative_to(Path(meta["workspace_root"]))),
+              })
+          inventory = {
+              "schema": "psi-002b3a3k0v-f2s1b1-dependency-source-inventory.v1",
+              "toolchain": "1.96.0",
+              "manifest_sha256": hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest(),
+              "lock_sha256": hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(),
+              "packages": packages,
+          }
+          raw = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
+          Path("dependency-source-inventory.v1.json").write_bytes(raw + b"\n")
+          Path("dependency-source-inventory.v1.sha256").write_text(
+              hashlib.sha256(raw + b"\n").hexdigest() + "  dependency-source-inventory.v1.json\n"
+          )
+          PY
+
+      - name: Independently verify lock/source inventory
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          python3 - <<'PY'
+          import json
+          import hashlib
+          import tomllib
+          from pathlib import Path
+
+          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          inventory = json.loads(Path("dependency-source-inventory.v1.json").read_text())
+
+          assert set(lock) == {"version", "package"}, "unexpected Cargo.lock top-level fields"
+          assert lock["version"] == 4, "unsupported Cargo.lock format version"
+          assert isinstance(lock["package"], list), "Cargo.lock package section must be a list"
+
+          lock_packages = []
+          for package in lock["package"]:
+              lock_packages.append({
+                  "name": package["name"],
+                  "version": package["version"],
+                  "source": package.get("source"),
+                  "checksum": package.get("checksum"),
+              })
+          lock_identities = [
+              (x["name"], x["version"], x["source"], x["checksum"])
+              for x in lock_packages
+          ]
+          assert len(lock_identities) == len(set(lock_identities)), "duplicate Cargo.lock package identity"
+          lock_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+
+          assert set(inventory) == {
+              "schema",
+              "toolchain",
+              "manifest_sha256",
+              "lock_sha256",
+              "packages",
+          }, "unexpected inventory top-level fields"
+          inventory_packages = [
+              {
+                  "name": p["name"],
+                  "version": p["version"],
+                  "source": p.get("source"),
+                  "checksum": p.get("checksum"),
+              }
+              for p in inventory["packages"]
+          ]
+          inventory_ids = [p["id"] for p in inventory["packages"]]
+          assert inventory_ids == sorted(inventory_ids), "inventory package ordering is not canonical"
+          inventory_identities = [
+              (x["name"], x["version"], x["source"], x["checksum"])
+              for x in inventory_packages
+          ]
+          assert len(inventory_identities) == len(set(inventory_identities)), "duplicate inventory package identity"
+          inventory_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+
+          assert lock_packages == inventory_packages, "source inventory does not independently match Cargo.lock"
+          assert inventory["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(), "inventory lock digest mismatch"
+          assert inventory["manifest_sha256"] == hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest(), "inventory manifest digest mismatch"
+
+          projection = json.dumps(lock_packages, sort_keys=True, separators=(",", ":")).encode()
+          Path("cargo-lock-source-projection.v1.json").write_bytes(projection + b"\n")
+          Path("cargo-lock-source-projection.v1.sha256").write_text(
+              hashlib.sha256(projection + b"\n").hexdigest() + "  cargo-lock-source-projection.v1.json\n"
+          )
+          PY
+
+      - name: Generate canonical provenance record
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import platform
+          from pathlib import Path
+
+          def sha256(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          provenance = {
+              "schema": "psi-002b3a3k0v-f2s1b1-provenance.v1",
+              "qualification": "PSI-002B3A3K0V-F2S1",
+              "package": "psi-002b3a3k0v-f2s1-validator",
+              "source": {
+                  "commit_sha": Path("../../source-commit.txt").read_text().strip(),
+                  "tree_sha": Path("../../source-tree.txt").read_text().strip(),
+                  "workflow_sha256": Path("../../workflow-sha256.txt").read_text().split()[0],
+                  "manifest_sha256": sha256("Cargo.toml"),
+                  "lock_sha256": sha256("Cargo.lock"),
+              },
+              "toolchain": {
+                  "rust": "1.96.0",
+                  "rustc_version_sha256": sha256("../../rustc-1.96.0.txt"),
+                  "cargo_version_sha256": sha256("../../cargo-1.96.0.txt"),
+              },
+              "runner": {
+                  "os_release_sha256": sha256("../../runner-os-release.txt"),
+                  "uname_sha256": sha256("../../runner-uname.txt"),
+                  "python_version_sha256": sha256("../../runner-python-version.txt"),
+                  "platform_machine": platform.machine(),
+              },
+          }
+          raw = json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode()
+          Path("provenance.v1.json").write_bytes(raw + b"\n")
+          Path("provenance.v1.sha256").write_text(
+              hashlib.sha256(raw + b"\n").hexdigest() + "  provenance.v1.json\n"
+          )
+          PY
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path("provenance.v1.json").read_text())
+          assert p["schema"] == "psi-002b3a3k0v-f2s1b1-provenance.v1"
+          assert p["qualification"] == "PSI-002B3A3K0V-F2S1"
+          assert p["package"] == "psi-002b3a3k0v-f2s1-validator"
+          assert len(p["source"]["commit_sha"]) == 40 and all(c in "0123456789abcdef" for c in p["source"]["commit_sha"])
+          assert len(p["source"]["tree_sha"]) == 40 and all(c in "0123456789abcdef" for c in p["source"]["tree_sha"])
+          for key in ("workflow_sha256", "manifest_sha256", "lock_sha256"):
+              value = p["source"][key]
+              assert len(value) == 64 and all(c in "0123456789abcdef" for c in value), key
+          assert p["source"]["workflow_sha256"] == Path("../../workflow-sha256.txt").read_text().split()[0]
+          assert p["source"]["commit_sha"] == __import__("subprocess").check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          assert p["source"]["tree_sha"] == __import__("subprocess").check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
+          assert p["source"]["manifest_sha256"] == hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest()
+          assert p["source"]["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest()
+          assert p["toolchain"]["rust"] == "1.96.0"
+          assert p["toolchain"]["rustc_version_sha256"] == hashlib.sha256(Path("../../rustc-1.96.0.txt").read_bytes()).hexdigest()
+          assert p["toolchain"]["cargo_version_sha256"] == hashlib.sha256(Path("../../cargo-1.96.0.txt").read_bytes()).hexdigest()
+          canonical = json.dumps(p, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+          recorded = Path("provenance.v1.sha256").read_text().strip().split()
+          assert recorded == [hashlib.sha256(canonical).hexdigest(), "provenance.v1.json"]
+          PY
+
+      - name: Verify locked/offline metadata after capsule generation
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          cargo +1.96.0 fetch --manifest-path Cargo.toml --locked
+          cargo +1.96.0 build --manifest-path Cargo.toml --locked --offline
+          cargo +1.96.0 test --manifest-path Cargo.toml --locked --offline
+          cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --offline --format-version 1 > metadata-offline.json
+          cargo +1.96.0 tree --manifest-path Cargo.toml --locked --offline > cargo-tree-offline.txt
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def canonical(path):
+              value = json.loads(Path(path).read_text())
+              root = value["workspace_root"]
+              target = value["target_directory"]
+              def normalize(item):
+                  if isinstance(item, str):
+                      return item.replace(root, "$WORKSPACE").replace(target, "$TARGET")
+                  if isinstance(item, list):
+                      return [normalize(x) for x in item]
+                  if isinstance(item, dict):
+                      return {k: normalize(v) for k, v in item.items()}
+                  return item
+              return json.dumps(normalize(value), sort_keys=True, separators=(",", ":"))
+
+          assert canonical("cargo-metadata.json") == canonical("metadata-offline.json"), "locked/offline metadata differs"
+          assert Path("cargo-tree.txt").read_text() == Path("cargo-tree-offline.txt").read_text(), "locked/offline dependency trees differ"
+          Path("cargo-metadata.canonical.json").write_text(canonical("cargo-metadata.json") + "\n")
+          PY
+
+      - name: Package capsule
+        run: |
+          mkdir -p capsule
+          cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.toml capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock.sha256 capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-metadata.canonical.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree.txt capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree-offline.txt capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-lock-source-projection.v1.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-lock-source-projection.v1.sha256 capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/provenance.v1.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/provenance.v1.sha256 capsule/
+          cp source-commit.txt source-tree.txt source-status.txt workflow-sha256.txt capsule/
+          cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
+          cp rustc-1.96.0.txt cargo-1.96.0.txt capsule/
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          capsule = Path("capsule")
+          base = [
+              "Cargo.toml",
+              "Cargo.lock",
+              "Cargo.lock.sha256",
+              "cargo-metadata.canonical.json",
+              "cargo-tree.txt",
+              "cargo-tree-offline.txt",
+              "dependency-source-inventory.v1.json",
+              "dependency-source-inventory.v1.sha256",
+              "cargo-lock-source-projection.v1.json",
+              "cargo-lock-source-projection.v1.sha256",
+              "provenance.v1.json",
+              "provenance.v1.sha256",
+              "source-commit.txt",
+              "source-tree.txt",
+              "source-status.txt",
+              "workflow-sha256.txt",
+              "runner-uname.txt",
+              "runner-os-release.txt",
+              "runner-python-version.txt",
+              "rustc-1.96.0.txt",
+              "cargo-1.96.0.txt",
+              "evidence-receipt.v1.json",
+              "evidence-receipt.v1.sha256",
+              "manifest.pre-receipt.sha256",
+          ]
+          lines = [
+              f"{hashlib.sha256((capsule / name).read_bytes()).hexdigest()}  {name}"
+              for name in base
+          ]
+          (capsule / "manifest.pre-receipt.sha256").write_text("\n".join(lines) + "\n")
+
+          artifacts = [
+              "cargo-metadata.canonical.json",
+              "cargo-tree.txt",
+              "cargo-tree-offline.txt",
+              "dependency-source-inventory.v1.json",
+              "cargo-lock-source-projection.v1.json",
+              "provenance.v1.json",
+              "Cargo.toml",
+              "Cargo.lock",
+          ]
+          receipt = {
+              "schema": "psi-002b3a3k0v-f2s1b1-evidence-receipt.v1",
+              "pre_receipt_manifest_sha256": hashlib.sha256(
+                  (capsule / "manifest.pre-receipt.sha256").read_bytes()
+              ).hexdigest(),
+              "artifacts": {
+                  name: hashlib.sha256((capsule / name).read_bytes()).hexdigest()
+                  for name in artifacts
+              },
+          }
+          raw = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+          (capsule / "evidence-receipt.v1.json").write_bytes(raw)
+          (capsule / "evidence-receipt.v1.sha256").write_text(
+              hashlib.sha256(raw).hexdigest() + "  evidence-receipt.v1.json\n"
+          )
+
+          final = base + [
+              "evidence-receipt.v1.json",
+              "evidence-receipt.v1.sha256",
+              "manifest.pre-receipt.sha256",
+          ]
+          assert len(final) == len(set(final))
+          assert set(final) == {p.name for p in capsule.iterdir()}
+          (capsule / "manifest.sha256").write_text(
+              "\n".join(
+                  f"{hashlib.sha256((capsule / name).read_bytes()).hexdigest()}  {name}"
+                  for name in sorted(final)
+              ) + "\n"
+          )
+          PY
+
+      - name: Run capsule verifier tamper-negative tests
+        run: |
+          python3 qualification/psi-002b3a3k0v-f2s1-validator/tools/test_verify_capsule_negative.py
+
+      - name: Independently verify packaged capsule
+        run: |
+          python3 qualification/psi-002b3a3k0v-f2s1-validator/tools/verify_capsule.py capsule
+
+      - name: Upload lock capsule
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: psi-002b3a3k0v-f2s1b1-lock-capsule
+          path: capsule/
+          if-no-files-found: error
+          retention-days: 14
