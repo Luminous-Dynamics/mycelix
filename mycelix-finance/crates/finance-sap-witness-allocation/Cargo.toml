@@ -1,0 +1,15 @@
+[package]
+name = "finance-sap-witness-allocation"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+blake3 = "1"
+finance-sap-value-notes = { path = "../finance-sap-value-notes" }
+finance-sap-witness-policy = { path = "../finance-sap-witness-policy" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+finance-sap-account-v2 = { path = "../finance-sap-account-v2" }

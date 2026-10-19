@@ -1,0 +1,16 @@
+[package]
+name = "finance-sap-witness-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-SAFE-018 independently rooted SAP transfer witness policy theorem"
+
+[dependencies]
+serde = { workspace = true }
+blake3 = "1.8"
+finance-sap-value-notes = { path = "../finance-sap-value-notes" }
+finance-sap-transfer-finality = { path = "../finance-sap-transfer-finality" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+finance-sap-account-v2 = { path = "../finance-sap-account-v2" }
