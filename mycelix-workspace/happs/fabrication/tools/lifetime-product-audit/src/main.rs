@@ -36,7 +36,7 @@ fn main() {
         Ok(None) => {}
         Ok(Some(args)) => match run(args) {
             Ok(report) => {
-                let failed = report["status"] == "FAIL";
+                let failed = report.get("status").and_then(Value::as_str) == Some("FAIL");
                 println!("{}", serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into()));
                 if failed {
                     std::process::exit(1);
@@ -186,9 +186,9 @@ fn run(args: Args) -> Result<Value, String> {
             "supplier_availability_established": false
         },
         "input_digests_sha256": {
-            "schema": {"path": args.schema, "sha256": schema_digest, "bytes": schema_bytes.len()},
-            "record": {"path": args.record, "sha256": record_digest, "bytes": record_bytes.len()},
-            "benchmark": {"path": args.benchmark, "sha256": benchmark_digest, "bytes": benchmark_bytes.len()}
+            "schema": {"path": args.schema.display().to_string(), "sha256": schema_digest, "bytes": schema_bytes.len()},
+            "record": {"path": args.record.display().to_string(), "sha256": record_digest, "bytes": record_bytes.len()},
+            "benchmark": {"path": args.benchmark.display().to_string(), "sha256": benchmark_digest, "bytes": benchmark_bytes.len()}
         },
         "error_count": error_count,
         "warning_count": warning_count,
@@ -647,13 +647,13 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
 
 fn date_to_days(date: &str) -> Option<i64> {
     let bytes = date.as_bytes();
-    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+    if !date.is_ascii() || bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
         return None;
     }
     let year = date[0..4].parse::<i64>().ok()?;
     let month = date[5..7].parse::<i64>().ok()?;
     let day = date[8..10].parse::<i64>().ok()?;
-    if !(1..=12).contains(&month) || day < 1 {
+    if year < 1 || !(1..=12).contains(&month) || day < 1 {
         return None;
     }
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
@@ -741,6 +741,32 @@ mod tests {
             }
         });
         assert_eq!(evaluate_scenario(&scenario), Some("FAIL_HARD_GATE"));
+    }
+
+    #[test]
+    fn passing_release_gate_without_evidence_is_rejected() {
+        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        record["release_gates"][0]["status"] = json!("pass");
+        record["release_gates"][0]["evidence_refs"] = json!([]);
+        let mut issues = Vec::new();
+        validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
+        assert!(issues.iter().any(|issue| issue.code == "GATE_PASS_WITHOUT_EVIDENCE"));
+    }
+
+    #[test]
+    fn stale_supplier_availability_and_expired_quote_are_disclosed() {
+        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        record["bom"]["items"][0]["supplier_records"] = json!([{
+            "supplier_name":"Example supplier (synthetic)",
+            "source_uri":"https://example.invalid/source",
+            "checked_at":"2026-08-01",
+            "quote_valid_until":"2026-08-15",
+            "evidence_state":"availability_confirmed"
+        }]);
+        let mut issues = Vec::new();
+        validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
+        assert!(issues.iter().any(|issue| issue.code == "SUPPLIER_AVAILABILITY_STALE"));
+        assert!(issues.iter().any(|issue| issue.code == "SUPPLIER_QUOTE_EXPIRED"));
     }
 
     #[test]
