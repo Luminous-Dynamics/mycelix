@@ -167,7 +167,7 @@ pub async fn decrypt(passphrase: &str, blob: &EncryptedBlob) -> Result<Vec<u8>, 
     Ok(Uint8Array::new(&result).to_vec())
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_arch = "wasm32"))]
 mod tests {
     use super::*;
 
