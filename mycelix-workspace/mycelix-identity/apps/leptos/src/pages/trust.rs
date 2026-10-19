@@ -63,27 +63,30 @@ pub fn TrustPage() -> impl IntoView {
                             </div>
                         </div>
 
-                        // ── What each tier unlocks ──
+                        // ── Tier-associated eligibility ──
                         <div class="tier-unlock-grid">
                             {tiers.iter().map(|t| {
-                                let unlocked = score >= t.min_score();
-                                let class = if unlocked { "tier-unlock-card unlocked" } else { "tier-unlock-card locked" };
+                                let reached = score >= t.min_score();
+                                // Keep historical class names for CSS compatibility. The copy is
+                                // intentionally eligibility-oriented: reaching a trust tier does
+                                // not by itself establish current capability or execution authority.
+                                let class = if reached { "tier-unlock-card unlocked" } else { "tier-unlock-card locked" };
                                 let color = t.css_color().to_string();
                                 let label = t.label().to_string();
-                                let unlocks = match t {
-                                    TrustTier::Observer => "View public data, browse domains",
-                                    TrustTier::Basic => "Submit proposals, join discussions",
-                                    TrustTier::Standard => "Vote on proposals, delegate voice",
-                                    TrustTier::Elevated => "Join councils, constitutional input",
-                                    TrustTier::Guardian => "Veto power, constitutional amendments",
+                                let eligibility = match t {
+                                    TrustTier::Observer => "Public-data and domain browsing eligibility",
+                                    TrustTier::Basic => "Proposal and discussion eligibility, subject to current policy",
+                                    TrustTier::Standard => "Voting and delegation eligibility, subject to current policy",
+                                    TrustTier::Elevated => "Council and constitutional eligibility, subject to current policy",
+                                    TrustTier::Guardian => "Guardian-action eligibility, subject to explicit authority checks",
                                 };
                                 view! {
                                     <div class={class}>
                                         <span class="unlock-tier" style=format!("color: {color}")>{label}</span>
                                         <span class="unlock-threshold">{format!("\u{2265} {:.0}%", t.min_score() * 100.0)}</span>
-                                        <span class="unlock-desc">{unlocks}</span>
+                                        <span class="unlock-desc">{eligibility}</span>
                                         <span class="unlock-status">
-                                            {if unlocked { "\u{2714} Unlocked" } else { "\u{1F512} Locked" }}
+                                            {if reached { "\u{2714} Tier reached" } else { "\u{1F512} Tier not reached" }}
                                         </span>
                                     </div>
                                 }
@@ -160,7 +163,9 @@ pub fn TrustPage() -> impl IntoView {
             // ── Trust Credentials ──
             <section class="trust-section">
                 <h2>"Trust Credentials"</h2>
-                <p class="section-desc">"K-Vector commitment proofs issued by the network"</p>
+                <p class="section-desc">
+                    "Trust-tier credentials issued by the network. Cryptographic proof verification is not represented in this view."
+                </p>
                 {move || {
                     let creds = trust_creds();
                     let now = now_secs();
@@ -204,8 +209,13 @@ pub fn TrustPage() -> impl IntoView {
                                             <span class="tc-value">{issuer_short}</span>
                                         </div>
                                         <div class="tc-meta">
-                                            <span class="tc-label">"K-Vector Commitment"</span>
-                                            <span class="tc-value tc-crypto">"\u{1F510} ZKP-verified range proof"</span>
+                                            <span class="tc-label">"Cryptographic verification"</span>
+                                            <span
+                                                class="tc-value tc-crypto"
+                                                data-verification-state="unknown"
+                                            >
+                                                "Not represented in this view"
+                                            </span>
                                         </div>
                                     </div>
                                 }
