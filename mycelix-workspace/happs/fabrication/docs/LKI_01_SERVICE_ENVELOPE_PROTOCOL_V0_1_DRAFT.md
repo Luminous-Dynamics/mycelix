@@ -22,9 +22,9 @@ The v0.1 checker is deliberately conservative: it uses axis-aligned bounding box
 2. A fit check references one module and one bay and specifies the minimum clearance at each opposing face.
 3. Installation, service-access and removal envelopes are checked against all obstacle and keep-out envelopes after clearance inflation.
 4. Every envelope cites a source record. Assumptions and synthetic fixtures can support only a screening result. Measured, controlled-drawing or approved sources require an exact revision and SHA-256 digest. Source type and evidence state must agree (for example, an assumption cannot be relabelled approved).
-5. The record declares whether the service-space obstacle inventory is incomplete or reviewed. A record cannot advance to screening/measured state without a reviewed inventory backed by at least one measured/approved digest-bound source; this records review provenance, not proof that every physical obstruction was found.
+5. The record declares whether the service-space obstacle inventory is incomplete or reviewed and lists explicit evidence source IDs. Screening/measured records require a non-empty manifest of digest-bound controlled-drawing or measurement-report evidence; each obstacle/keep-out envelope must cite a source in that manifest. This records review provenance, not proof that every physical obstruction was found.
 6. Unknown or unresolved references, missing/invalid geometry, failed face clearance, collision, inconsistent evidence states, or a requested physical qualification produce a blocked/failing result. Do not change unknowns to zero or omit inconvenient obstacles.
-6. The checker always emits `physical_fit_qualified=false`. A passing result means only that the declared synthetic/recorded AABBs passed these narrow arithmetic checks; it never certifies a physical product.
+7. The checker always emits `physical_fit_qualified=false`. A passing result means only that the declared synthetic/recorded AABBs passed these narrow arithmetic checks; it never certifies a physical product.
 
 ## Software benchmark
 
