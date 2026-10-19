@@ -18,7 +18,7 @@ use mycelix_leptos_core::{
     provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
 };
 use personal_leptos_types::{
-    ClaimLifecycleStatus, ConsentGrantView, CredentialType, SourceReadState, StoredCredentialView,
+    ConsentGrantView, CredentialType, SourceReadState, StoredCredentialView,
 };
 
 use crate::context::{
