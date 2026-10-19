@@ -1,0 +1,286 @@
+{
+  "schema": "mycelix.desci.millennium_biology.official_criteria",
+  "schema_version": "1.0.0",
+  "criteria_generation": "DESCI-BIO-001B-2026-09-28-01",
+  "status": "source_bound_historical_snapshot",
+  "source": {
+    "publisher": "FutureHouse / Edison Scientific",
+    "url": "https://millenniumproblems.bio/",
+    "announcement_url": "https://www.futurehouse.org/news/millennium-problems-for-biology",
+    "publication_date": "2026-09-23",
+    "retrieved_at": "2026-09-28",
+    "living_project": true,
+    "authority": "external_source_only",
+    "source_bytes_vendored": false,
+    "note": "This artifact records a dated, source-faithful criteria snapshot. A later source revision requires a new criteria generation; it must not silently re-score historical evidence."
+  },
+  "scope": {
+    "claim_ceiling": [
+      "This artifact does not establish a scientific result.",
+      "This artifact does not declare any challenge solved.",
+      "This artifact does not grant experimental, clinical, organismal, or biosafety authority.",
+      "Local surrogates, simulations, model scores, community attestations, and hypotheses cannot satisfy an official criterion unless the external source explicitly permits that evidence class."
+    ],
+    "non_equivalences": [
+      "official criterion != local interpretation",
+      "partial success != complete success",
+      "simulation != experimental satisfaction",
+      "prospective candidate != validated candidate",
+      "model score != criterion evidence",
+      "community vote != scientific criterion satisfaction"
+    ]
+  },
+  "criteria": [
+    {
+      "challenge_id": "MPB-2026-09-23-01",
+      "ordinal": 1,
+      "title": "Origins of life",
+      "source_section": "01",
+      "criterion": "Demonstrate unassisted emergence of self-replicating RNA- and protein-based cells from a plausible primordial soup with a plausible energy source in a laboratory setting.",
+      "required_conditions": [
+        "Emergent cells are a bounded compartment.",
+        "Abundance increases by at least 10^6 when supplied with sufficient primordial soup and energy.",
+        "Division could plausibly continue indefinitely given sufficient energy and primordial soup.",
+        "Heritable genetic information is clearly encoded within the cell and causally determines at least part of molecular composition.",
+        "Nucleic-acid, polypeptide, or similar polymer information carriers are strongly preferred by the source."
+      ],
+      "required_evidence": ["laboratory_observation", "quantified_abundance", "heredity_evidence", "continuation_plausibility"],
+      "partial_success": null,
+      "explicit_noncriteria": ["Ambiguous or controversial heredity does not satisfy the source criterion by default."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-02",
+      "ordinal": 2,
+      "title": "Cryopreservation",
+      "source_section": "02",
+      "criterion": "Demonstrate reversible whole-body cryopreservation of live, intact, wild-type adult mice with high viability.",
+      "required_conditions": [
+        "Whole adult mice are frozen or vitrified for at least 24 hours.",
+        "Recovery exceeds 99% viability.",
+        "No permanent organ damage or bodily harm occurs.",
+        "Experiments have ethics approval.",
+        "Somatic genetic engineering is discouraged but permitted by the source."
+      ],
+      "required_evidence": ["whole_animal_observation", "recovery_viability", "organ_damage_assessment", "ethics_approval"],
+      "partial_success": null,
+      "explicit_noncriteria": []
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-03",
+      "ordinal": 3,
+      "title": "The reverse translatase",
+      "source_section": "03",
+      "criterion": "Create a purified protein catalyst or fixed protein complex that processively reads an untagged peptide and synthesizes a covalent RNA or DNA strand encoding its residue sequence without disallowed sequence side channels.",
+      "required_conditions": [
+        "No nucleic-acid template.",
+        "No preattached sequence barcode.",
+        "No residue-specific operator cycle.",
+        "No database lookup.",
+        "The resulting nucleic acid is compatible with ordinary downstream polymerases, ligases, amplification, or sequencing reactions.",
+        "At least 100 random peptide sequences of at least 50 amino acids each are preregistered, synthesized, and pooled.",
+        "Reverse-translation plus sequencing infers peptide sequences without a dictionary at at least 90% sequence accuracy.",
+        "Average read length is at least 25 residues.",
+        "Average read quality is at least Q10."
+      ],
+      "required_evidence": ["preregistration", "pooled_sequence_set", "processive_catalysis", "sequencing_result", "accuracy_metric", "read_length_metric", "quality_metric"],
+      "partial_success": null,
+      "explicit_noncriteria": ["Lookup- or barcode-dependent encoding is not equivalent to reverse translation under the source definition."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-04",
+      "ordinal": 4,
+      "title": "Improve Rubisco",
+      "source_section": "04",
+      "criterion": "Produce a Rubisco enzyme beyond the naturally occurring Pareto frontier for CO2 specificity versus enzymatic turnover.",
+      "required_conditions": [
+        "CO2/O2 specificity (S_c/o) is at least as high as Galdieria partita Rubisco.",
+        "Enzymatic turnover (kcat) is at least as high as maize Rubisco.",
+        "Specificity and turnover are measured in paired enzyme assays.",
+        "Galdieria partita Rubisco and maize Rubisco are the respective controls."
+      ],
+      "required_evidence": ["paired_enzyme_assays", "specificity_measurement", "turnover_measurement", "specified_controls"],
+      "partial_success": null,
+      "explicit_noncriteria": ["Improvement on only one axis does not establish the complete source criterion."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-05",
+      "ordinal": 5,
+      "title": "The quadruplet cell",
+      "source_section": "05",
+      "criterion": "Produce a living and replicating cell in which every protein-coding sequence, including translation machinery, is encoded as uninterrupted nonoverlapping quadruplet codons without detectable triplet decoding.",
+      "required_conditions": [
+        "The cell is living and replicating.",
+        "Every protein-coding sequence uses uninterrupted nonoverlapping quadruplet codons.",
+        "Translation machinery itself uses quadruplet coding.",
+        "No detectable triplet decoding.",
+        "Mutation-position effects satisfy bona fide quadruplet encoding: probability of nonsynonymous mutation is similar regardless of index within the codon.",
+        "Encodings where the first three positions are generally sufficient to specify the amino acid are excluded."
+      ],
+      "required_evidence": ["living_cell_observation", "replication", "genome_translation_analysis", "triplet_decoding_exclusion", "mutation_position_analysis"],
+      "partial_success": null,
+      "explicit_noncriteria": ["A partial recoding scheme or a scheme retaining detectable triplet decoding is not the complete criterion."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-06",
+      "ordinal": 6,
+      "title": "Somatic limb regeneration",
+      "source_section": "06",
+      "criterion": "Demonstrate reproducible regeneration of lost limbs in adult wild-type mice with functional and sensory outcomes indistinguishable from controls.",
+      "required_conditions": [
+        "Adult wild-type mice are used.",
+        "Regrowth follows amputation.",
+        "Motor performance is indistinguishable from controls under a standard battery.",
+        "Sensory perception in the regrown limb is indistinguishable from controls.",
+        "Blinded observers cannot distinguish regrown versus control limbs from non-invasive observational data.",
+        "Experiments have ethics approval."
+      ],
+      "required_evidence": ["whole_animal_observation", "regeneration_measurement", "motor_function", "sensory_function", "blinded_assessment", "reproducibility", "ethics_approval"],
+      "partial_success": null,
+      "explicit_noncriteria": ["Morphological regrowth without the stated functional and blinded-observer outcomes is not the complete criterion."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-07",
+      "ordinal": 7,
+      "title": "Bacterial production of gene therapies",
+      "source_section": "07",
+      "criterion": "Produce infectious replication-incompetent AAV and lentivirus in bacteria meeting the source's particle, genome, and nuclease-resistance requirements.",
+      "required_conditions": [
+        "AAV and lentivirus are produced in a bacterial host.",
+        "Particles are infectious and replication-incompetent.",
+        "Particles contain a pre-specified viral genome.",
+        "Physical-capsid to viral-genome ratio is similar to mammalian-cell purification.",
+        "Infectious-unit to viral-genome ratio is similar to mammalian-cell purification.",
+        "Viral genomes are nuclease-resistant."
+      ],
+      "required_evidence": ["bacterial_host_observation", "particle_characterization", "genome_identity", "infectivity", "replication_incompetence", "nuclease_resistance", "mammalian_control_comparison"],
+      "partial_success": {
+        "source_defined": true,
+        "description": "Demonstrating AAV production on its own is explicitly considered partial success; lentivirus remains part of the complete target."
+      },
+      "explicit_noncriteria": ["AAV-only success is not equivalent to satisfying the full AAV-plus-lentivirus target."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-08",
+      "ordinal": 8,
+      "title": "Programmable proteases",
+      "source_section": "08",
+      "criterion": "Prospectively design proteases that efficiently cleave blinded accessible sites in endogenous folded proteins in living cells, with acceptable catalytic efficiency and proteome-wide off-target cleavage.",
+      "required_conditions": [
+        "Target sites are preregistered.",
+        "Targets are blinded and accessible sites in endogenous folded proteins.",
+        "Protease design is prospective.",
+        "Designs are produced within 24 hours after target sites are provided.",
+        "No wet-lab work occurs before evaluation except production of designed proteins for assay.",
+        "Catalytic efficiency and proteome-wide off-target cleavage are similar to or better than widely used site-specific proteases.",
+        "Complete challenge requires more than 80% success across 20 preregistered sites."
+      ],
+      "required_evidence": ["preregistration", "prospective_design_record", "timing_record", "living_cell_assay", "cleavage_efficiency", "off_target_assessment"],
+      "partial_success": {
+        "source_defined": true,
+        "description": "Efficient cleavage of preregistered peptide sequences in solution with off-target controls is explicitly described as a weaker partial form."
+      },
+      "explicit_noncriteria": ["Post-registration screening or target-specific evolution is not permitted under the complete challenge protocol."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-09",
+      "ordinal": 9,
+      "title": "Cell-penetrating protein binders",
+      "source_section": "09",
+      "criterion": "Design zero-shot protein binders that engage preregistered intracellular protein targets in living cells after extracellular administration at pharmacologically supported concentrations.",
+      "required_conditions": [
+        "Targets are preregistered.",
+        "Binder designs are zero-shot and receive no further evolution or optimization before evaluation.",
+        "Targets are engaged reliably in living cells.",
+        "Administration is extracellular.",
+        "Concentrations are pharmacologically supported.",
+        "Cell entry is therapeutically plausible.",
+        "Transfection, intrabody expression, electroporation, membrane disruption, or similar disallowed delivery methods are not used.",
+        "Complete challenge requires 80% success across 20 preregistered targets.",
+        "Designs are produced within 24 hours after targets are provided.",
+        "No wet-lab work occurs before evaluation except production of designed proteins for assay."
+      ],
+      "required_evidence": ["preregistration", "zero_shot_design_record", "timing_record", "extracellular_administration", "intracellular_target_engagement", "delivery_mechanism_assessment"],
+      "partial_success": null,
+      "explicit_noncriteria": ["Humanized-monoclonal-like binders are preferred by the source but are not the only permitted protein-binder scaffold."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-10",
+      "ordinal": 10,
+      "title": "Protein amplification chain reaction",
+      "source_section": "10",
+      "criterion": "Demonstrate single-pot input-protein-dependent exponential amplification of arbitrary peptide substrates into full-length, sequence-faithful covalent polypeptide copies without nucleic-acid templating or a preformed cognate scaffold.",
+      "required_conditions": [
+        "At least 100 random peptide sequences of at least 50 amino acids each are preregistered, synthesized, and pooled.",
+        "Peptide abundance in solution is amplified at least 1000x.",
+        "Per-residue sequence accuracy is at least 90%.",
+        "No nucleic-acid template.",
+        "No preformed cognate scaffold.",
+        "Reasonable analysis-facilitating peptide modifications are permitted only if inactive in amplification.",
+        "Explicit peptide sequencing as the amplification method is not permitted.",
+        "Reverse translation to a nucleic-acid intermediate is not permitted."
+      ],
+      "required_evidence": ["preregistration", "pooled_sequence_set", "amplification_measurement", "sequence_fidelity", "single_pot_observation", "templating_exclusion"],
+      "partial_success": null,
+      "explicit_noncriteria": ["Reverse-translation intermediates do not satisfy this criterion because they duplicate another Millennium Problem."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-11",
+      "ordinal": 11,
+      "title": "5' polymerases",
+      "source_section": "11",
+      "criterion": "Produce a complete set of 3'>5' polymerases comparable to commonly used 5'>3' polymerases.",
+      "required_conditions": [
+        "A 3'>5' DNA polymerase is produced.",
+        "A 3'>5' RNA polymerase is produced.",
+        "A 3'>5' reverse transcriptase is produced.",
+        "A 3'>5' RDRP is produced.",
+        "Processivity and error characteristics are similar to or better than Taq, T7 RNA polymerase, M-MLV RT, and Phi 6 RDRP respectively.",
+        "Proteins may be designed de novo, discovered in nature, engineered, or evolved from natural starting points."
+      ],
+      "required_evidence": ["four_polymerase_set", "processivity_measurement", "error_measurement", "reference_comparators"],
+      "partial_success": null,
+      "explicit_noncriteria": ["A single reverse-direction polymerase does not satisfy the complete set."]
+    },
+    {
+      "challenge_id": "MPB-2026-09-23-12",
+      "ordinal": 12,
+      "title": "New nitrogenases",
+      "source_section": "12",
+      "criterion": "Create a nitrogenase that converts N2 to ammonia at approximately natural-protein rates while lacking sequence and structural homology to the natural nitrogenase family.",
+      "required_conditions": [
+        "N2 is converted to ammonia.",
+        "Rate is at least of a similar order of magnitude to naturally occurring proteins.",
+        "Sequence similarity is below the source's thresholds relative to all known nitrogenase and nitrogenase-like proteins.",
+        "Structural similarity is below the source's thresholds relative to all known nitrogenase and nitrogenase-like proteins.",
+        "The protein may be designed de novo, discovered in nature, engineered, or evolved from natural starting points."
+      ],
+      "required_evidence": ["nitrogen_fixation_assay", "rate_measurement", "sequence_similarity_analysis", "structure_similarity_analysis", "reference_family_comparison"],
+      "partial_success": null,
+      "explicit_noncriteria": []
+    }
+  ],
+  "qualification": {
+    "source_cross_check": {
+      "checked_against": "https://millenniumproblems.bio/",
+      "checked_at": "2026-09-28",
+      "result": "12_problem_order_titles_and_criteria_fields_cross_checked"
+    },
+    "generation_rules": [
+      "Historical evidence must bind the exact criteria_generation used for evaluation.",
+      "Later edits to the living source require a new criteria_generation.",
+      "This artifact is a paraphrase, not a wholesale copy of the source page.",
+      "A local surrogate benchmark must use a distinct surrogate authority/type and cannot overwrite these criteria.",
+      "Model agreement, reputation, governance decisions, or community votes cannot promote evidence into official criterion satisfaction.",
+      "Negative, null, contradictory, superseded, and failed evidence remain eligible for lineage retention."
+    ],
+    "adversarial_fixtures": [
+      "simulation_result_as_experimental_evidence = reject",
+      "model_score_as_criterion_evidence = reject",
+      "community_attestation_as_criterion_satisfaction = reject",
+      "partial_success_as_complete_success = reject",
+      "post_registration_candidate_mutation_as_same_prospective_candidate = reject",
+      "missing_required_control_as_passing_official_criterion = reject",
+      "later_source_revision_rescores_historical_result_without_new_generation = reject"
+    ]
+  }
+}
