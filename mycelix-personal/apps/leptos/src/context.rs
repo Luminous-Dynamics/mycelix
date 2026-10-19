@@ -14,8 +14,8 @@ use wasm_bindgen_futures::spawn_local;
 use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
 use personal_leptos_types::{
     ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
-    MasterKeyView, PreferenceChangeLogView, ProfileView, SourceReadState,
-    SourceUnavailableReason, StoredCredentialView,
+    MasterKeyView, PreferenceChangeLogView, ProfileView, SourceReadState, SourceUnavailableReason,
+    StoredCredentialView,
 };
 
 use crate::mock_data;
@@ -354,7 +354,8 @@ pub fn provide_personal_context() {
                 }
             }
 
-            ctx.preference_log_source_state.set(SourceReadState::Loading);
+            ctx.preference_log_source_state
+                .set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
                     "data_preferences",
@@ -370,12 +371,14 @@ pub fn provide_personal_context() {
                     successful_sources.push("preference history");
                 }
                 Err(_) => {
-                    ctx.preference_log_source_state.set(unavailable_source_state());
+                    ctx.preference_log_source_state
+                        .set(unavailable_source_state());
                     unavailable_sources.push("preference history");
                 }
             }
 
-            ctx.health_records_source_state.set(SourceReadState::Loading);
+            ctx.health_records_source_state
+                .set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<HealthRecordView>>(
                     "health_vault",
@@ -391,7 +394,8 @@ pub fn provide_personal_context() {
                     successful_sources.push("health records");
                 }
                 Err(_) => {
-                    ctx.health_records_source_state.set(unavailable_source_state());
+                    ctx.health_records_source_state
+                        .set(unavailable_source_state());
                     unavailable_sources.push("health records");
                 }
             }
@@ -490,7 +494,8 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         }
         Err(_) => {
             let previous = ctx.preferences_source_state.get_untracked();
-            ctx.preferences_source_state.set(failed_refresh_state(previous));
+            ctx.preferences_source_state
+                .set(failed_refresh_state(previous));
             ctx.status_note.set(
                 "Live mode: sharing preferences could not be refreshed; source status now indicates whether prior data is stale or unavailable."
                     .into(),
@@ -535,7 +540,8 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
         }
         Err(_) => {
             let previous = ctx.biometrics_source_state.get_untracked();
-            ctx.biometrics_source_state.set(failed_refresh_state(previous));
+            ctx.biometrics_source_state
+                .set(failed_refresh_state(previous));
             ctx.status_note.set(
                 "Live mode: biometric records could not be refreshed; source status now indicates whether prior data is stale or unavailable."
                     .into(),
@@ -554,7 +560,8 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
         }
         Err(_) => {
             let previous = ctx.consents_source_state.get_untracked();
-            ctx.consents_source_state.set(failed_refresh_state(previous));
+            ctx.consents_source_state
+                .set(failed_refresh_state(previous));
             ctx.status_note.set(
                 "Live mode: consent grants could not be refreshed; source status now indicates whether prior data is stale or unavailable."
                     .into(),
@@ -573,7 +580,8 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
         }
         Err(_) => {
             let previous = ctx.health_records_source_state.get_untracked();
-            ctx.health_records_source_state.set(failed_refresh_state(previous));
+            ctx.health_records_source_state
+                .set(failed_refresh_state(previous));
             ctx.status_note.set(
                 "Live mode: health records could not be refreshed; source status now indicates whether prior data is stale or unavailable."
                     .into(),
@@ -585,8 +593,8 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
 #[cfg(test)]
 mod source_status_tests {
     use super::{
-        empty_profile, failed_refresh_state, live_collection_state, live_source_status,
-        SourceReadState, SourceUnavailableReason,
+        SourceReadState, SourceUnavailableReason, empty_profile, failed_refresh_state,
+        live_collection_state, live_source_status,
     };
 
     #[test]
