@@ -94,12 +94,18 @@ fn audit_file(path: &PathBuf) -> Result<Value, String> {
         issues.push("benchmark_version does not match the pinned v0.4 extension".into());
     }
     if corpus.get("status").and_then(Value::as_str) != Some("specification_only") {
-        issues.push("status must remain specification_only until real studies are performed".into());
+        issues
+            .push("status must remain specification_only until real studies are performed".into());
     }
 
     let parent = corpus.get("extension_of");
-    if parent.and_then(|v| v.get("benchmark_id")).and_then(Value::as_str) != Some(PARENT_ID)
-        || parent.and_then(|v| v.get("benchmark_version")).and_then(Value::as_str)
+    if parent
+        .and_then(|v| v.get("benchmark_id"))
+        .and_then(Value::as_str)
+        != Some(PARENT_ID)
+        || parent
+            .and_then(|v| v.get("benchmark_version"))
+            .and_then(Value::as_str)
             != Some(PARENT_VERSION)
     {
         issues.push("extension_of must point to the frozen v0.3 baseline by ID and version".into());
@@ -110,7 +116,8 @@ fn audit_file(path: &PathBuf) -> Result<Value, String> {
         .and_then(Value::as_str)
         .unwrap_or("");
     if !claim_ceiling.to_ascii_lowercase().contains("unexecuted") {
-        issues.push("claim_ceiling must state that this benchmark is unexecuted as evidence".into());
+        issues
+            .push("claim_ceiling must state that this benchmark is unexecuted as evidence".into());
     }
     let invariants = corpus.get("hard_invariants").and_then(Value::as_array);
     if invariants.map(|items| items.len()).unwrap_or(0) < 9
@@ -166,7 +173,9 @@ fn audit_file(path: &PathBuf) -> Result<Value, String> {
             && VALID_OUTCOMES.contains(&expected);
 
         if !shape_ok {
-            issues.push(format!("scenario index {index} has invalid required fields"));
+            issues.push(format!(
+                "scenario index {index} has invalid required fields"
+            ));
             continue;
         }
         if !ids.insert(id.to_string()) {
@@ -194,9 +203,7 @@ fn audit_file(path: &PathBuf) -> Result<Value, String> {
             .flatten()
             .filter(|metric| metric.get("metric_id").and_then(Value::as_str) == Some(metric_id))
             .collect();
-        if matches.len() != 1
-            || matches[0].get("target").and_then(Value::as_f64) != Some(100.0)
-        {
+        if matches.len() != 1 || matches[0].get("target").and_then(Value::as_f64) != Some(100.0) {
             issues.push(format!(
                 "expected exactly one {metric_id} metric with target 100"
             ));
@@ -385,8 +392,10 @@ mod tests {
     fn corpus() -> Value {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../docs/LKI_01_REPAIRABILITY_BENCHMARK_EXTENSION_V0_4_DRAFT.json");
-        serde_json::from_str(&fs::read_to_string(path).expect("v0.4 corpus fixture must be readable"))
-            .expect("v0.4 corpus fixture must be valid JSON")
+        serde_json::from_str(
+            &fs::read_to_string(path).expect("v0.4 corpus fixture must be readable"),
+        )
+        .expect("v0.4 corpus fixture must be valid JSON")
     }
 
     #[test]
