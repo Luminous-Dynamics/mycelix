@@ -23,6 +23,8 @@
 
 use hdi::prelude::*;
 
+pub mod manufacturing_run_receipt;
+
 fn default_schema_v1() -> u8 {
     1
 }
