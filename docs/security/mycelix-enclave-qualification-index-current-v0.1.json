@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "artifact_type": "current-enclave-qualification-index",
+  "profile_id": "mycelix.security.enclave",
+  "profile_version": "0.1.0",
+  "snapshot_date": "2026-10-04",
+  "claim_ceiling": "ReferenceModelOnly",
+  "note": "PR heads are exact snapshot identities at this index update; child PRs may still change afterward.",
+  "boundaries": [
+    {
+      "pr": 3973,
+      "issue": 3973,
+      "name": "protected release",
+      "head": "2127b5c3087f107a9121d536a48c93b5f57dbacf",
+      "execution": "33/33 independent semantic vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3974,
+      "issue": 3974,
+      "name": "comparative benchmark",
+      "head": "d387a233732c83ffb519c82874caf1b7037e8190",
+      "execution": "24/24 independent reference-model executions",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3975,
+      "issue": 3975,
+      "name": "E1 CUI/CMMC revision boundary",
+      "head": "31b00430affc7909e6776e74b5dbb590a700ab3f",
+      "execution": "12/12 structural revision-boundary vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3976,
+      "issue": 3968,
+      "name": "sovereign enclave profile",
+      "head": "358e7bd40f1dadec0b9c6316c608414b51f0fcad",
+      "execution": "reference-model / structural JSON validation",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3977,
+      "issue": 3977,
+      "name": "RATS Evidence/appraisal",
+      "head": "bc28a1aa13048ce60757cce10fc168cb0db73d7",
+      "execution": "31/31 independent semantic vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3982,
+      "issue": 3982,
+      "name": "trusted-time freshness",
+      "head": "3a06e6a5410e3b068fb2c18ccf5355f2efbbec77",
+      "execution": "17/17 independent interval vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3983,
+      "issue": 3983,
+      "name": "TPM 2.0 Evidence",
+      "head": "2373c05347c32dbcad54621c6238a72e13a8e0cf",
+      "execution": "NOT EXECUTED: no /dev/tpm*, swtpm, or tpm2-tools in current environment",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3994,
+      "issue": 3994,
+      "name": "EAT measured component",
+      "head": "506f6598d92796be101f62cb2a7ea46613c0192b",
+      "execution": "16/16 independent semantic vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 4001,
+      "issue": 4001,
+      "name": "PEP decision boundary",
+      "head": "690073394f3685bd8a28dd5f573a9b9925b0364d",
+      "execution": "24/24 independent decision-algebra vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 4011,
+      "issue": 4006,
+      "name": "physical platform Evidence capture/coherence",
+      "head": "e7f872db866ad3dbbcf7738bb94be670491b84fe",
+      "execution": "22-vector legacy semantic corpus; superseded by stacked executable verification #4030",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4013,
+      "issue": 4006,
+      "name": "platform Evidence exact-head validation",
+      "head": "e7f872db866ad3dbbcf7738bb94be670491b84fe",
+      "execution": "validation substrate; current platform stack is #4030/#4038",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4016,
+      "issue": 4006,
+      "name": "security-evidence CI gate",
+      "head": "40413a45472c61ed9814b6b8daccb38f7bd20076",
+      "execution": "CI infrastructure; later stack extended the executable gate",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4019,
+      "issue": 4006,
+      "name": "independent PC-client PCR reconstruction",
+      "head": "04fb145826a4bcf892347571d50fa3aab4c0b71b",
+      "execution": "22-vector legacy corpus; superseded by current 25-vector replay profile",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4030,
+      "issue": 4022,
+      "name": "executable platform reconstruction closure",
+      "head": "d43cb07cee17b19c8c252bde09868b8fda9eb0a1",
+      "execution": "draft; current PR stack; previous workflow attempt failed before later parser fixes",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4034,
+      "issue": 4032,
+      "name": "event payload -> digest coherence",
+      "head": "56a48b5003aac3fc37255277c5eaef73c75d3dcd",
+      "execution": "draft; latest workflow queued after YAML adapter parser fix",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4036,
+      "issue": 4035,
+      "name": "raw TCG PC-client event-log parser",
+      "head": "443aee4138a1b89cc36471233fb493c637b709cc",
+      "execution": "draft; raw binary parser plus truncation/algorithm self-tests; workflow queued",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4038,
+      "issue": 4037,
+      "name": "physical capture raw-eventlog composition",
+      "head": "78e9526ca49e39a4068dc42e8b18dd3e53c6081f",
+      "execution": "draft; independent raw parser + adapter + observed PCR + payload coherence; workflow queued",
+      "qualification": "EvidenceGatePending"
+    },
+    {
+      "pr": 4040,
+      "issue": 4039,
+      "name": "independent reference-value appraisal",
+      "head": "99919d7420d6f68fbc7efb9ef8f90d05ada52a30",
+      "execution": "draft; reviewed static registry + exact digest appraisal; workflow queued",
+      "qualification": "EvidenceGatePending"
+    }
+  ],
+  "executed_invariants": [
+    "raw Evidence != Attestation Result != Authorization",
+    "trusted-time interval != perfect wall clock",
+    "vTPM Evidence != physical TPM security",
+    "measured component != policy approval",
+    "transfer receipt != reusable release authority",
+    "ANY DENY > ANY INDETERMINATE > ALL PASS",
+    "comparative benchmark has no composite security score",
+    "platform parser success != event-log reconstruction",
+    "observed TPM identity != manufacturer trust",
+    "one capture session != mix-and-match evidence",
+    "PCR artifact digest != actual PCR-state digest",
+    "reconstructed PCR state == observed PCR state is a separate theorem",
+    "tpm2_eventlog parser PCR output != independent tpm2_pcrread observation",
+    "raw binary event payload != YAML presentation rendering",
+    "reference-value version/digest != reference-set authorization",
+    "payload-digest coherence PASS != firmware truth",
+    "queued CI != PASS",
+    "self-consistent receipt != independently recomputed receipt"
+  ],
+  "current_execution_environment": {
+    "tpm_device": false,
+    "swtpm": false,
+    "tpm2_quote": false,
+    "tpm2_checkquote": false,
+    "tpm2_pcrread": false,
+    "tpm2_pcrextend": false,
+    "tpm2_eventlog": false,
+    "nix_available": false,
+    "dedicated_security_workflow": "queued on current stacked heads; no current green qualification result"
+  },
+  "current_external_compliance_boundary": {
+    "cmmc_phase_two_status": "suspended-2026-07-13",
+    "cmmc_level_2_during_pause": "Current public DoW CIO guidance states that during the suspension Level 2 enforcement uses the 110 NIST SP 800-171 Rev.2 requirements through the described assessment paths.",
+    "engineering_target": "NIST SP 800-171 Rev.3 and related Rev.3 publications remain the repository engineering target.",
+    "contract_surface": "DFARS 252.204-7021 remains contract/solicitation specific; required CMMC level is inserted by the Contracting Officer."
+  },
+  "blockers": [
+    "Real TPM/vTPM execution is unavailable in the current environment.",
+    "Physical PC-client measured-boot and event-log reconstruction remain unexecuted.",
+    "The active hardening stack is draft/open and not merged to main.",
+    "Current Actions for the latest active heads are queued; earlier attempts exposed parser regressions that are being corrected.",
+    "Physical capture still requires independently sourced trusted time, authorized reference values, and exact OS/workload identity.",
+    "CMMC/NIST semantic mapping is not certification evidence.",
+    "Independent assessment, organizational controls, physical/personnel controls, and contract applicability remain external."
+  ],
+  "unproven": [
+    "physical TPM security",
+    "measured boot",
+    "firmware correctness",
+    "kernel integrity",
+    "manufacturer/EK trust",
+    "FIPS 140-3 validation",
+    "CMMC status",
+    "classified authorization",
+    "CDS approval",
+    "legal export-control authorization",
+    "system-wide superiority over SIPRNet/NIPRNet"
+  ]
+}
