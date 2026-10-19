@@ -1,0 +1,93 @@
+{
+  "schema_version": "0.1.0-draft",
+  "trial_id": "LKI01-TRIAL-PLAN-0001",
+  "record_state": "planned",
+  "claim_ceiling": "Planned unpowered surrogate-fixture trial only; no physical trial, fit, safety, conformity, durability, or serviceability claim is made.",
+  "product_revision": {
+    "product_id": "LKI-01",
+    "product_revision": "concept-0",
+    "bom_revision": "placeholder-bom-0",
+    "geometry_revision": "concept-envelope-0",
+    "interface_revision": "candidate-independent-0"
+  },
+  "fixture": {
+    "fixture_id": "LKI01-ADJUSTABLE-UNPOWERED-MOCKUP-001",
+    "fixture_state": "concept_only",
+    "drawing_revision": "fixture-concept-0",
+    "drawing_sha256": null,
+    "dimensions_mm": {
+      "overall_width": 1800,
+      "overall_depth": 900,
+      "overall_height": 900
+    },
+    "dimension_basis": "concept_target",
+    "energized_appliance_present": false,
+    "notes": "Illustrative planning envelope only; dimensions are not approved, measured, or matched to a selected appliance. Derive the fabricated fixture from controlled drawings after candidate module selection."
+  },
+  "task": {
+    "task_id": "MOCKUP-INSERT-REMOVE-001",
+    "task_type": "module_insert_remove",
+    "procedure_revision": "unpowered-fixture-procedure-0",
+    "operator_role": "design_engineer",
+    "attempt_index": 1,
+    "participant_token": null,
+    "start_condition": "Planned only; fixture and surrogate module are not fabricated or inspected.",
+    "stop_condition": "Stop before any energized appliance, mains connection, refrigerant/process fluid, heating element, unsecured ballast, or unreviewed structural load case is introduced.",
+    "tools_declared": [],
+    "training_or_familiarity": "Not assessed; record per operator before a performed trial."
+  },
+  "operating_state": {
+    "appliance_energized": false,
+    "mains_connected": false,
+    "refrigerant_or_process_fluid_present": false,
+    "heating_element_present": false,
+    "test_article_is_surrogate_only": true
+  },
+  "timings": {
+    "diagnosis": {
+      "state": "not_started",
+      "minutes": null,
+      "rationale": "No trial performed."
+    },
+    "active_labour": {
+      "state": "not_started",
+      "minutes": null,
+      "rationale": "No trial performed."
+    },
+    "parts_tool_wait": {
+      "state": "not_started",
+      "minutes": null,
+      "rationale": "No trial performed."
+    },
+    "verification": {
+      "state": "not_started",
+      "minutes": null,
+      "rationale": "No trial performed."
+    },
+    "rework": {
+      "state": "not_started",
+      "minutes": null,
+      "rationale": "No trial performed."
+    },
+    "total_downtime": {
+      "state": "not_started",
+      "minutes": null,
+      "rationale": "No trial performed; no functional unit is in service."
+    }
+  },
+  "outcome": {
+    "status": "not_run",
+    "permanent_structure_damage": null,
+    "damage_description": "",
+    "mockup_function_restored": null,
+    "post_check_status": "not_performed",
+    "recurrence_follow_up_days": null,
+    "recurrence_observed": null,
+    "limitations": [
+      "Planning example only.",
+      "No physical mockup has been fabricated or measured.",
+      "No appliance candidate or locally available model has been qualified."
+    ]
+  },
+  "evidence": []
+}
