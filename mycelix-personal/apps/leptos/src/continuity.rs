@@ -7,15 +7,59 @@ use leptos::prelude::*;
 /// workspace. This page has no source adapters and never persists or shares data.
 #[component]
 pub fn ContinuityPage() -> impl IntoView {
-    let disclosure_scope = RwSignal::new("selected".to_string());
-
-    let disclosure_description = move || match disclosure_scope.get().as_str() {
+fn disclosure_scope_summary(scope: &str) -> &'static str {
+    match scope {
         "none" => "No fields selected. A real relying service would receive no vehicle details from this preview.",
         "existence" => "Preview: disclose only that a vehicle-service record exists. No owner, identifier, date, location, or service detail is included.",
         "selected" => "Preview: disclose selected service categories and their evidence state only. Identifier, owner, location, and full notes stay private.",
         "full" => "High exposure: a full record could reveal detailed history. This prototype still sends nothing; a real flow must show every exact field and recipient before consent.",
         _ => "No disclosure scope selected.",
-    };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::disclosure_scope_summary;
+
+    #[test]
+    fn no_disclosure_is_the_minimal_default() {
+        assert!(disclosure_scope_summary("none").contains("No fields selected"));
+    }
+
+    #[test]
+    fn existence_only_excludes_identifying_fields() {
+        let preview = disclosure_scope_summary("existence");
+        assert!(preview.contains("only that a vehicle-service record exists"));
+        assert!(preview.contains("No owner, identifier"));
+    }
+
+    #[test]
+    fn selected_scope_preserves_private_fields() {
+        let preview = disclosure_scope_summary("selected");
+        assert!(preview.contains("service categories and their evidence state only"));
+        assert!(preview.contains("stay private"));
+    }
+
+    #[test]
+    fn full_scope_is_explicitly_high_exposure() {
+        let preview = disclosure_scope_summary("full");
+        assert!(preview.contains("High exposure"));
+        assert!(preview.contains("sends nothing"));
+    }
+
+    #[test]
+    fn unknown_scope_fails_closed() {
+        assert_eq!(
+            disclosure_scope_summary("unexpected"),
+            "No disclosure scope selected."
+        );
+    }
+}
+
+#[component]
+pub fn ContinuityPage() -> impl IntoView {
+    let disclosure_scope = RwSignal::new("selected".to_string());
+    let disclosure_description = move || disclosure_scope_summary(&disclosure_scope.get());
 
     view! {
         <div class="stack-page continuity-page">
