@@ -1,0 +1,141 @@
+{
+  "schema": "aerocommons-authority-ceiling-v1",
+  "status": "design-qualification-corpus",
+  "authority_ceiling": "protocol_integrity_only",
+  "nonclaims": [
+    "physical_correctness",
+    "safety",
+    "airworthiness",
+    "certification",
+    "manufacturing_conformity",
+    "measurement_truth_beyond_declared_semantics"
+  ],
+  "cases": [
+    {
+      "id": "AC-AUTH-001",
+      "name": "entry_hash_is_not_engineering_identity",
+      "boundary": "identity",
+      "input": "EntryHash supplied where Artifact/Configuration/Execution identity is required",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "EntryHash equality implies engineering identity equality"
+    },
+    {
+      "id": "AC-AUTH-002",
+      "name": "action_hash_is_not_execution_identity",
+      "boundary": "identity",
+      "input": "ActionHash supplied where Execution/Observation identity is required",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "ActionHash equality or inequality establishes execution identity semantics"
+    },
+    {
+      "id": "AC-AUTH-003",
+      "name": "attestation_is_not_measurement",
+      "boundary": "epistemic_role",
+      "input": "Attestation record presented as a Measurement evidence object",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "Attestation establishes a physical measurement"
+    },
+    {
+      "id": "AC-AUTH-004",
+      "name": "reputation_is_not_physical_evidence",
+      "boundary": "authority",
+      "input": "Reputation/MATL value changes while evidence records remain unchanged",
+      "expected_validator_result": "Valid",
+      "engineering_status": "Unchanged",
+      "forbidden_inference": "Reputation change changes physical evidence validity"
+    },
+    {
+      "id": "AC-AUTH-005",
+      "name": "simulation_is_not_observation",
+      "boundary": "epistemic_role",
+      "input": "Simulation result with numeric output presented as an Observation",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "Matching numeric result converts prediction into observation"
+    },
+    {
+      "id": "AC-AUTH-006",
+      "name": "create_record_validity_is_not_current_state",
+      "boundary": "lifecycle",
+      "input": "Referenced CreateRecord validates while a later Update/DeleteLink operation is invalid",
+      "expected_validator_result": "Valid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "must_get_valid_record proves all later state transitions are valid"
+    },
+    {
+      "id": "AC-AUTH-007",
+      "name": "current_link_state_is_not_validation_evidence",
+      "boundary": "determinism",
+      "input": "Validation decision depends on mutable current link collection",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "current link projection is authoritative source state"
+    },
+    {
+      "id": "AC-AUTH-008",
+      "name": "reputation_change_does_not_mutate_evidence",
+      "boundary": "authority",
+      "input": "Same evidence object observed before and after reputation change",
+      "expected_validator_result": "Valid",
+      "engineering_status": "Unchanged",
+      "forbidden_inference": "reputation is an evidence mutation"
+    },
+    {
+      "id": "AC-AUTH-009",
+      "name": "certification_projection_is_not_certification_authority",
+      "boundary": "authority",
+      "input": "Current certification/status projection changes without source certification record change",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "projection alone establishes certification"
+    },
+    {
+      "id": "AC-AUTH-010",
+      "name": "foreign_identifier_is_not_native_identity",
+      "boundary": "identity",
+      "input": "STEP/AP242/QIF identifier text collides with a native AeroCommons identifier",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "textual identifier equality implies cross-system identity"
+    },
+    {
+      "id": "AC-AUTH-011",
+      "name": "missing_dependency_is_unresolved",
+      "boundary": "dependency",
+      "input": "Required addressable dependency is temporarily unavailable",
+      "expected_validator_result": "Unresolved",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "unavailable dependency means invalid evidence or failed engineering claim"
+    },
+    {
+      "id": "AC-AUTH-012",
+      "name": "superseded_relation_is_not_current_without_lifecycle",
+      "boundary": "lifecycle",
+      "input": "Superseded epistemic relation referenced as current without explicit lifecycle evidence",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "RequiresReview",
+      "forbidden_inference": "historical relation remains current by default"
+    },
+    {
+      "id": "AC-AUTH-013",
+      "name": "private_payload_is_not_public_payload",
+      "boundary": "disclosure",
+      "input": "Public commitment references a controlled/private engineering payload",
+      "expected_validator_result": "Valid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "public provenance implies public payload disclosure"
+    },
+    {
+      "id": "AC-AUTH-014",
+      "name": "prediction_and_observation_are_not_interchangeable",
+      "boundary": "epistemic_role",
+      "input": "Prediction and observation share subject, units, and numeric value",
+      "expected_validator_result": "Invalid",
+      "engineering_status": "Unknown",
+      "forbidden_inference": "same value or units erase epistemic-role distinction"
+    }
+  ]
+}
