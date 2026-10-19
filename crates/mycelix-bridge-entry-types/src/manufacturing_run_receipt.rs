@@ -141,10 +141,19 @@ impl std::fmt::Display for ReceiptValidationError {
             ),
             Self::TooManyItems(field) => write!(f, "too many entries in {field}"),
             Self::DuplicateItem(field) => write!(f, "duplicate entries in {field}"),
-            Self::InconsistentEvidenceState(reason) => write!(f, "inconsistent evidence state: {reason}"),
-            Self::MissingInstrumentObservation(field) => write!(f, "instrument-observed evidence requires {field}"),
-            Self::InvalidCalibrationInterval => write!(f, "calibration validity interval is incomplete or reversed"),
-            Self::ObservationOutsideCalibrationInterval => write!(f, "observation time is outside the declared calibration interval"),
+            Self::InconsistentEvidenceState(reason) => {
+                write!(f, "inconsistent evidence state: {reason}")
+            }
+            Self::MissingInstrumentObservation(field) => {
+                write!(f, "instrument-observed evidence requires {field}")
+            }
+            Self::InvalidCalibrationInterval => {
+                write!(f, "calibration validity interval is incomplete or reversed")
+            }
+            Self::ObservationOutsideCalibrationInterval => write!(
+                f,
+                "observation time is outside the declared calibration interval"
+            ),
             Self::InvalidReviewState(reason) => write!(f, "invalid review state: {reason}"),
         }
     }
