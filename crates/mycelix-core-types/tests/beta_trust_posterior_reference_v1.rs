@@ -121,6 +121,10 @@ fn frozen_corpus_matches_reference_values_and_rejects_invalid_domains() {
         .expect("reference cases must be an array");
     assert_eq!(cases.len(), 22, "unexpected frozen case count");
     assert_eq!(corpus["case_count"].as_u64(), Some(22));
+    let controls = corpus["mutation_controls"]
+        .as_array()
+        .expect("mutation_controls must be an array");
+    assert_eq!(controls.len(), 5, "unexpected semantic mutation-control count");
 
     let mut ids = HashSet::new();
     let mut valid_count = 0;
