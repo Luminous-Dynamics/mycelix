@@ -5,8 +5,6 @@ use leptos::prelude::*;
 
 /// Read-only, explicitly synthetic preview for the Personal life-continuity
 /// workspace. This page has no source adapters and never persists or shares data.
-#[component]
-pub fn ContinuityPage() -> impl IntoView {
 fn disclosure_scope_summary(scope: &str) -> &'static str {
     match scope {
         "none" => "No fields selected. A real relying service would receive no vehicle details from this preview.",
