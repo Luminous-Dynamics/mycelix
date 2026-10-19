@@ -1,0 +1,39 @@
+name: Core Types CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - '.github/workflows/core-types-ci.yml'
+  pull_request:
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - '.github/workflows/core-types-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  core-types:
+    name: Core types
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-core-types
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml --all -- --check
+      - name: Test dependency-light core
+        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml
+      - name: Test serde contract
+        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --features serde
+      - name: Check Holochain + serde compatibility
+        run: cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --features holochain,serde
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-core-types/Cargo.toml --features serde -- -D warnings
