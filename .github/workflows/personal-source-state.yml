@@ -53,15 +53,22 @@ jobs:
             echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
             exit 1
           fi
-      - name: Generate and fingerprint standalone dependency lock
+      - name: Generate and fingerprint standalone dependency locks
         run: |
           cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
-          sha256sum mycelix-personal/apps/leptos/Cargo.lock
+          cargo generate-lockfile --manifest-path mycelix-personal/crates/personal-leptos-types/Cargo.toml
+          sha256sum mycelix-personal/apps/leptos/Cargo.lock mycelix-personal/crates/personal-leptos-types/Cargo.lock
       - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
+        run: |
+          cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-personal/crates/personal-leptos-types/Cargo.toml -- --check
       - name: Run Personal source-status unit tests
         run: cargo test --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --lib
+      - name: Run source-aware Personal type contract tests
+        run: cargo test --manifest-path mycelix-personal/crates/personal-leptos-types/Cargo.toml --locked
       - name: Run strict Clippy on Personal app
         run: cargo clippy --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Run strict Clippy on Personal types
+        run: cargo clippy --manifest-path mycelix-personal/crates/personal-leptos-types/Cargo.toml --locked --all-targets -- -D warnings
       - name: Compile Personal app for WASM
         run: cargo check --manifest-path mycelix-personal/apps/leptos/Cargo.toml --locked --target wasm32-unknown-unknown
