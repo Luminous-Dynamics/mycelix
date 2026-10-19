@@ -1,0 +1,31 @@
+name: Governance Constitution Migration
+
+on:
+  pull_request:
+    paths:
+      - 'docs/security/GOVERNANCE_CONSTITUTION_TRUST_ROOT_MIGRATION.md'
+      - 'crates/mycelix-governance-constitution/**'
+      - 'mycelix-governance/zomes/constitution-authority/**'
+      - 'mycelix-governance/dna/**'
+      - '.github/workflows/governance-constitution-migration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  migration-contract:
+    name: Constitutional migration contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require fail-closed source manifest
+        run: |
+          grep -q 'governance_constitution: null' mycelix-governance/dna/dna.yaml
+      - name: Require legacy non-authority status contract
+        run: |
+          grep -q 'legacy_constitution_authoritative: false' \
+            mycelix-governance/zomes/constitution-authority/coordinator/src/lib.rs
+      - name: Require transition migration gates
+        run: |
+          grep -q 'Successor transition gate' docs/security/GOVERNANCE_CONSTITUTION_TRUST_ROOT_MIGRATION.md
+          grep -q 'transition nonce is fresh' docs/security/GOVERNANCE_CONSTITUTION_TRUST_ROOT_MIGRATION.md
