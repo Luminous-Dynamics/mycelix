@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/living-city-concept-v0.1.schema.json",
+  "title": "Living City Concept Record",
+  "description": "Versioned design hypothesis. Validation confirms record shape only, not cultural authenticity, feasibility, or community approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "concept_id",
+    "title",
+    "version",
+    "status",
+    "place",
+    "climate",
+    "authorship",
+    "cultural_review",
+    "design_hypotheses",
+    "evaluation_axes",
+    "sources",
+    "rights",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "living-city-concept/0.1"
+    },
+    "concept_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "concept",
+        "researched",
+        "simulated",
+        "community_reviewed",
+        "pilot_tested",
+        "measured_outcomes"
+      ]
+    },
+    "place": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "geographic_scope",
+        "geography_status"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 2
+        },
+        "geographic_scope": {
+          "enum": [
+            "neighborhood",
+            "city",
+            "region",
+            "bioregion",
+            "multi-region"
+          ]
+        },
+        "geography_status": {
+          "enum": [
+            "illustrative",
+            "proposed",
+            "source_verified"
+          ]
+        },
+        "country_or_region": {
+          "type": "string"
+        }
+      }
+    },
+    "climate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_status",
+        "hazards_to_investigate"
+      ],
+      "properties": {
+        "profile_status": {
+          "enum": [
+            "unknown",
+            "illustrative",
+            "source_verified"
+          ]
+        },
+        "classification": {
+          "type": "string"
+        },
+        "hazards_to_investigate": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "authorship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "contributors",
+        "attribution_status"
+      ],
+      "properties": {
+        "origin": {
+          "enum": [
+            "working_hypothesis",
+            "community_authored",
+            "co_authored"
+          ]
+        },
+        "contributors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attribution_status": {
+          "enum": [
+            "pending",
+            "documented",
+            "restricted"
+          ]
+        }
+      }
+    },
+    "cultural_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "evidence_refs",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_started",
+            "invited",
+            "in_progress",
+            "reviewed",
+            "contested",
+            "restricted"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "design_hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hypothesis_id",
+          "statement",
+          "intended_benefits",
+          "failure_modes"
+        ],
+        "properties": {
+          "hypothesis_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 8
+          },
+          "intended_benefits": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "failure_modes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "evaluation_axes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "thermal_comfort",
+          "water_security",
+          "flood_safety",
+          "public_space_access",
+          "housing_affordability",
+          "tenure_security",
+          "accessibility",
+          "biodiversity",
+          "mobility",
+          "repairability",
+          "cultural_meaning",
+          "livelihoods",
+          "lifecycle_cost",
+          "service_reliability"
+        ]
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "title",
+          "url",
+          "use",
+          "rights_status"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "use": {
+            "enum": [
+              "methodology",
+              "place_evidence",
+              "climate_evidence",
+              "design_precedent"
+            ]
+          },
+          "rights_status": {
+            "enum": [
+              "link_only",
+              "open_license_verified",
+              "permission_required",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_status",
+        "restricted_knowledge_present"
+      ],
+      "properties": {
+        "asset_status": {
+          "enum": [
+            "no_assets",
+            "rights_pending",
+            "rights_cleared"
+          ]
+        },
+        "restricted_knowledge_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "scenario_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "review_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

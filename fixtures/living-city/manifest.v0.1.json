@@ -1,0 +1,46 @@
+{
+  "manifest_version": "living-city-fixture-manifest/0.1",
+  "schema_path": "schemas/living-city-concept-v0.1.schema.json",
+  "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
+  "fixtures": [
+    {
+      "path": "fixtures/living-city/concepts/johannesburg-highveld-rewoven.v0.1.json",
+      "expect_valid": true,
+      "concept_id": "johannesburg-highveld-rewoven"
+    },
+    {
+      "path": "fixtures/living-city/concepts/hot-arid-shade-network.v0.1.json",
+      "expect_valid": true,
+      "concept_id": "hot-arid-shade-network"
+    },
+    {
+      "path": "fixtures/living-city/concepts/river-delta-living-with-water.v0.1.json",
+      "expect_valid": true,
+      "concept_id": "river-delta-living-with-water"
+    },
+    {
+      "path": "fixtures/living-city/invalid/missing-climate-provenance.json",
+      "expect_valid": false,
+      "expected_violation": "climate.profile_status is required"
+    },
+    {
+      "path": "fixtures/living-city/invalid/missing-cultural-review.json",
+      "expect_valid": false,
+      "expected_violation": "cultural_review.status is required"
+    },
+    {
+      "path": "fixtures/living-city/invalid/missing-source-rights.json",
+      "expect_valid": false,
+      "expected_violation": "sources[].rights_status is required"
+    }
+  ],
+  "acceptance_rules": [
+    "Every listed fixture must exist and parse as JSON.",
+    "The schema must validate against the declared JSON Schema dialect.",
+    "Each positive fixture must validate against the schema.",
+    "Each negative fixture must fail validation against the schema.",
+    "A negative fixture failing for a different reason must be reported separately; it does not satisfy its intended control.",
+    "Schema format keywords are not assumed to be assertions unless the validator explicitly enables the Draft 2020-12 format-assertion vocabulary or performs equivalent application-level checks.",
+    "Validation proves record structure only; it does not prove factual accuracy, rights ownership, cultural authenticity, consent, or feasibility."
+  ]
+}

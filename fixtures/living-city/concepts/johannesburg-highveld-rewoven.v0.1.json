@@ -1,0 +1,97 @@
+{
+  "schema_version": "living-city-concept/0.1",
+  "concept_id": "johannesburg-highveld-rewoven",
+  "title": "Highveld Garden City Rewoven",
+  "version": 1,
+  "status": "concept",
+  "place": {
+    "label": "Johannesburg, South Africa",
+    "geographic_scope": "city",
+    "geography_status": "illustrative"
+  },
+  "climate": {
+    "profile_status": "unknown",
+    "hazards_to_investigate": [
+      "summer-storm runoff",
+      "winter cold and dry periods",
+      "heat exposure",
+      "water supply reliability",
+      "legacy soil and mine-land constraints"
+    ]
+  },
+  "authorship": {
+    "origin": "working_hypothesis",
+    "contributors": [],
+    "attribution_status": "pending"
+  },
+  "cultural_review": {
+    "status": "not_started",
+    "evidence_refs": [],
+    "notes": "No community endorsement is implied. Local authorship and review are required before cultural claims or implementation."
+  },
+  "design_hypotheses": [
+    {
+      "hypothesis_id": "johannesburg-highveld-rewoven-1",
+      "statement": "A connected network of shaded walking routes and everyday civic spaces may improve comfort and access if located using observed need and safe-route evidence.",
+      "intended_benefits": [
+        "thermal_comfort",
+        "public_space_access",
+        "mobility"
+      ],
+      "failure_modes": [
+        "tree establishment failure",
+        "unsafe routes",
+        "maintenance burden",
+        "unequal distribution"
+      ]
+    },
+    {
+      "hypothesis_id": "johannesburg-highveld-rewoven-2",
+      "statement": "Distributed rainwater capture and landscape infiltration may reduce local runoff where soil, contamination, and flood constraints permit.",
+      "intended_benefits": [
+        "water_security",
+        "flood_safety",
+        "biodiversity"
+      ],
+      "failure_modes": [
+        "contaminated soil",
+        "infiltration risk",
+        "drought",
+        "maintenance failure"
+      ]
+    }
+  ],
+  "evaluation_axes": [
+    "thermal_comfort",
+    "water_security",
+    "public_space_access",
+    "housing_affordability",
+    "biodiversity",
+    "mobility",
+    "service_reliability"
+  ],
+  "sources": [
+    {
+      "source_id": "unhabitat-nbs-2025",
+      "title": "Integrating Nature-based Solutions into Urban & Territorial Planning",
+      "url": "https://unhabitat.org/integrating-nature-based-solutions-into-urban-territorial-planning",
+      "use": "methodology",
+      "rights_status": "link_only"
+    },
+    {
+      "source_id": "unhabitat-public-space",
+      "title": "Global Public Space Programme",
+      "url": "https://unhabitat.org/programme/global-public-space-programme",
+      "use": "methodology",
+      "rights_status": "link_only"
+    }
+  ],
+  "rights": {
+    "asset_status": "no_assets",
+    "restricted_knowledge_present": false
+  },
+  "limitations": [
+    "No neighborhood boundary, local measurements, land rights, or municipal datasets have been verified in this fixture.",
+    "Plant selection and spatial interventions require local ecological and community review."
+  ]
+}

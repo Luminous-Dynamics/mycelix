@@ -1,0 +1,95 @@
+{
+  "schema_version": "living-city-concept/0.1",
+  "concept_id": "invalid-missing-cultural-review",
+  "title": "Hot-Arid Shade Network",
+  "version": 1,
+  "status": "concept",
+  "place": {
+    "label": "Illustrative hot-arid settlement context",
+    "geographic_scope": "region",
+    "geography_status": "illustrative"
+  },
+  "climate": {
+    "profile_status": "unknown",
+    "hazards_to_investigate": [
+      "extreme heat",
+      "water scarcity",
+      "dust",
+      "night-time heat retention",
+      "energy reliability"
+    ]
+  },
+  "authorship": {
+    "origin": "working_hypothesis",
+    "contributors": [],
+    "attribution_status": "pending"
+  },
+  "cultural_review": {
+    "evidence_refs": [],
+    "notes": "status intentionally omitted"
+  },
+  "design_hypotheses": [
+    {
+      "hypothesis_id": "hot-arid-shade-network-1",
+      "statement": "A continuous, accessible shade network may make essential walking trips more comfortable when designed around actual travel patterns.",
+      "intended_benefits": [
+        "thermal_comfort",
+        "accessibility",
+        "mobility"
+      ],
+      "failure_modes": [
+        "shade gaps",
+        "night-time safety concerns",
+        "wind and dust effects",
+        "obstruction of emergency access"
+      ]
+    },
+    {
+      "hypothesis_id": "hot-arid-shade-network-2",
+      "statement": "Courtyards and passive ventilation may reduce cooling demand where orientation, materials, density, and household practices support them.",
+      "intended_benefits": [
+        "thermal_comfort",
+        "lifecycle_cost",
+        "repairability"
+      ],
+      "failure_modes": [
+        "poor ventilation",
+        "overheating during extreme events",
+        "unaffordable construction",
+        "inappropriate cultural borrowing"
+      ]
+    }
+  ],
+  "evaluation_axes": [
+    "thermal_comfort",
+    "water_security",
+    "accessibility",
+    "housing_affordability",
+    "repairability",
+    "lifecycle_cost"
+  ],
+  "sources": [
+    {
+      "source_id": "unhabitat-nbs-2025",
+      "title": "Integrating Nature-based Solutions into Urban & Territorial Planning",
+      "url": "https://unhabitat.org/integrating-nature-based-solutions-into-urban-territorial-planning",
+      "use": "methodology",
+      "rights_status": "link_only"
+    },
+    {
+      "source_id": "unhabitat-public-space",
+      "title": "Global Public Space Programme",
+      "url": "https://unhabitat.org/programme/global-public-space-programme",
+      "use": "methodology",
+      "rights_status": "link_only"
+    }
+  ],
+  "rights": {
+    "asset_status": "no_assets",
+    "restricted_knowledge_present": false
+  },
+  "limitations": [
+    "This is a climate-led placeholder, not a representation of a named culture or a sourced local building tradition.",
+    "Climate classification and design precedents must be supplied for a real site."
+  ]
+}
