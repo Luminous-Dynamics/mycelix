@@ -239,9 +239,9 @@ pub fn validate_node_id(node_id: &str) -> Result<(), String> {
 // CONSCIOUSNESS GATING REQUIREMENTS
 // ============================================================================
 
-/// Consciousness tier requirements for positioning operations.
-/// These mirror the mycelix-space pattern but are self-contained
-/// (no dependency on mycelix-bridge-common for standalone deployment).
+// Consciousness tier requirements for positioning operations. These mirror the
+// mycelix-space pattern but are self-contained (no dependency on
+// mycelix-bridge-common for standalone deployment).
 
 /// Minimum identity score for anchor registration (Participant tier).
 pub const ANCHOR_REGISTRATION_IDENTITY: f64 = 0.15;
@@ -458,9 +458,12 @@ mod tests {
 
     #[test]
     fn consciousness_gating_tier_ordering() {
-        // Registration < computation < certification
-        assert!(ANCHOR_REGISTRATION_IDENTITY < POSITION_COMPUTATION_IDENTITY);
-        assert!(POSITION_COMPUTATION_IDENTITY < ANCHOR_CERTIFICATION_IDENTITY);
+        // These are protocol constants, so assert their relationship in a const
+        // evaluation context rather than pretending this is a runtime property.
+        const {
+            assert!(ANCHOR_REGISTRATION_IDENTITY < POSITION_COMPUTATION_IDENTITY);
+            assert!(POSITION_COMPUTATION_IDENTITY < ANCHOR_CERTIFICATION_IDENTITY);
+        }
     }
 
     #[test]
