@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:schema:jurisdiction-source-watch:1.0.0",
+  "title": "Research-only jurisdiction source watch",
+  "description": "Registry of official source locators that are not yet content-hashed, legally interpreted, or compiled to binding requirements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_notice",
+    "jurisdiction_id",
+    "display_name",
+    "captured_on",
+    "declared_support_status",
+    "source_bytes_verified",
+    "legal_applicability_evaluated",
+    "binding_rules_emitted",
+    "source_records",
+    "next_actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "fixture_notice": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jurisdiction_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$",
+      "minLength": 1
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "captured_on": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "declared_support_status": {
+      "const": "researching"
+    },
+    "source_bytes_verified": {
+      "const": false
+    },
+    "legal_applicability_evaluated": {
+      "const": false
+    },
+    "binding_rules_emitted": {
+      "const": false
+    },
+    "source_records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "title",
+          "official_locator",
+          "issuer",
+          "source_role",
+          "registry_status",
+          "legal_effect_assessment",
+          "consultation_deadline",
+          "source_sha256",
+          "source_bytes_verified",
+          "binding_claim_emitted",
+          "observed_on",
+          "status_note"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "official_locator": {
+            "type": "string",
+            "pattern": "^https://www\\.(gov\\.za|thedtic\\.gov\\.za)/",
+            "minLength": 1
+          },
+          "issuer": {
+            "const": "South African Government"
+          },
+          "source_role": {
+            "type": "string",
+            "enum": [
+              "existing_act_locator",
+              "draft_bill_public_comment",
+              "comment_deadline_extension_notice",
+              "cabinet_process_statement"
+            ]
+          },
+          "registry_status": {
+            "type": "string",
+            "enum": [
+              "locator_only_unverified",
+              "proposal_for_public_comment",
+              "consultation_deadline_notice",
+              "publication_for_consultation_statement"
+            ]
+          },
+          "legal_effect_assessment": {
+            "const": "not_evaluated"
+          },
+          "consultation_deadline": {
+            "type": "string",
+            "pattern": "^$|^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^$|^[A-Fa-f0-9]{64}$"
+          },
+          "source_bytes_verified": {
+            "const": false
+          },
+          "binding_claim_emitted": {
+            "const": false
+          },
+          "observed_on": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "status_note": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "next_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
