@@ -299,6 +299,7 @@ mod economic_simulations {
         let mut warning = 0u32;
         let mut margin_call = 0u32;
         let mut liquidation = 0u32;
+        let mut invalid = 0u32;
 
         for pos in &positions {
             let crashed_value = (pos.initial_value as f64 * crash_factor) as u64;
@@ -313,6 +314,7 @@ mod economic_simulations {
                 CollateralHealthStatus::Warning => warning += 1,
                 CollateralHealthStatus::MarginCall => margin_call += 1,
                 CollateralHealthStatus::Liquidation => liquidation += 1,
+                CollateralHealthStatus::Invalid => invalid += 1,
             }
         }
 
@@ -321,8 +323,9 @@ mod economic_simulations {
         // Positions at 47.5-50% → MarginCall/Liquidation
         // Positions below 40% → Healthy (still under 80%)
 
-        let total = healthy + warning + margin_call + liquidation;
+        let total = healthy + warning + margin_call + liquidation + invalid;
         assert_eq!(total, n_positions as u32);
+        assert_eq!(invalid, 0, "positive finite collateral inputs must not produce Invalid LTV");
 
         // With LTVs uniformly distributed in [30%, 75%] and a 50% crash:
         // New LTVs = old * 2, so range [60%, 150%]
