@@ -1,0 +1,27 @@
+FICTIONAL PUBLISHER TERMS — VERSION 1
+Source component: fictional-case-law-collection
+Source snapshot: snapshot-2026-10
+Effective interval: 2026-01-01T00:00:00Z through (but not including) 2027-01-01T00:00:00Z
+Territory used in the benchmark fixture: ZA
+
+The following permissions are invented solely to test software behavior. They are not a real publisher's terms, a contract, a license, or legal advice.
+
+Allowed for the synthetic benchmark:
+- Manual access for manual_legal_research by human_researcher in ZA, with zero retention.
+- Automated retrieval for automated_legal_research by automated_service in ZA, with no more than 30 seconds of retention.
+- Temporary processing for benchmark_evaluation by internal_reviewer in ZA, without retention.
+- Summarization for benchmark_evaluation by internal_reviewer in ZA, without retention.
+- Benchmark evaluation by internal_reviewer in ZA, without retention.
+- Quote display for internal_audit by internal_reviewer in ZA, without retention.
+
+Denied for the synthetic benchmark:
+- Caching.
+- Embedding generation.
+- Model training and fine-tuning.
+- Redistribution.
+
+Not established by this synthetic terms record:
+- Full-text indexing.
+- Metadata processing.
+
+All operations remain subject to the exact source snapshot, declared purpose, actor class, territory, effective interval, and retention limit represented in the synthetic profile. Permission for one operation does not grant another operation by implication.
