@@ -169,8 +169,9 @@ pub enum LocalIdentityStoragePosture {
     UnprotectedIdentity,
     /// An encrypted key container and public key exist; this session has not unlocked it.
     ProtectedLocked,
-    /// An encrypted key is present and its key is unlocked in this WASM session.
-    ProtectedUnlocked,
+    /// An encrypted container is present and a matching key exists in this session.
+    /// This does not authenticate the currently persisted ciphertext.
+    ProtectedUnlockedInSession,
     /// Stored key fields are malformed, incomplete, or contradictory.
     CorruptOrInconsistent,
 }
@@ -201,9 +202,12 @@ pub fn inspect_local_identity_posture() -> LocalIdentityStoragePosture {
     };
     let posture = classify_identity_storage_snapshot(&snapshot);
     if posture == LocalIdentityStoragePosture::ProtectedLocked
-        && UNLOCKED_KEY.with(|cell| cell.borrow().is_some())
+        && snapshot
+            .public_b64
+            .as_deref()
+            .is_some_and(unlocked_cache_matches_public_key)
     {
-        LocalIdentityStoragePosture::ProtectedUnlocked
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession
     } else {
         posture
     }
@@ -270,6 +274,20 @@ fn classify_identity_storage_snapshot(
         // A lone public key or plaintext secret is not a usable identity.
         _ => LocalIdentityStoragePosture::CorruptOrInconsistent,
     }
+}
+
+fn unlocked_cache_matches_public_key(public_b64: &str) -> bool {
+    let Some(public_bytes) = base64_decode(public_b64) else {
+        return false;
+    };
+    if public_bytes.len() != 32 {
+        return false;
+    }
+    UNLOCKED_KEY.with(|cell| {
+        cell.borrow().as_ref().is_some_and(|signing_key| {
+            public_bytes.as_slice() == signing_key.verifying_key().as_bytes()
+        })
+    })
 }
 
 fn public_key_matches_secret(secret_b64: &str, public_b64: &str) -> bool {
@@ -655,6 +673,22 @@ mod tests {
             ciphertext_b64: base64_encode(&[3u8; 48]),
         };
         serde_json::to_string(&wire).unwrap()
+    }
+
+    #[test]
+    fn protected_unlocked_posture_requires_the_cached_key_to_match_public_key() {
+        let cached = SigningKey::from_bytes(&[31u8; 32]);
+        let other = SigningKey::from_bytes(&[32u8; 32]);
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(cached.clone()));
+
+        assert!(unlocked_cache_matches_public_key(&base64_encode(
+            cached.verifying_key().as_bytes()
+        )));
+        assert!(!unlocked_cache_matches_public_key(&base64_encode(
+            other.verifying_key().as_bytes()
+        )));
+
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
     }
 
     #[test]
