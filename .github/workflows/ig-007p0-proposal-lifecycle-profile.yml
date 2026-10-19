@@ -1,0 +1,79 @@
+name: IG-007P0 Proposal Lifecycle Profile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/proposal-lifecycle-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007p0_proposal_lifecycle_profile.py"
+      - "mycelix-governance/docs/IG_007P0_PROPOSAL_LIFECYCLE_PROFILE.md"
+      - ".github/workflows/ig-007p0-proposal-lifecycle-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-proposal-lifecycle-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SHA256: 7f42e2a8df25df94112d23f261d1f3ffe299d46d37cb3a5a6fe02aca0aa6c108
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact checkout and proposal source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+          test "$(git hash-object mycelix-governance/zomes/proposals/coordinator/src/lib.rs)" = "eb8358353ee259ef9c3b46617a61d3439f1c714c"
+          test "$(git hash-object mycelix-governance/zomes/proposals/integrity/src/lib.rs)" = "986bc0526aec8d37436efbe5ba798bc41705e3cf"
+
+      - name: Syntax compile validator
+        run: python -m py_compile mycelix-governance/scripts/validate_ig007p0_proposal_lifecycle_profile.py
+
+      - name: Validate twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/proposal-lifecycle-fca2c107-v1.json
+          python mycelix-governance/scripts/validate_ig007p0_proposal_lifecycle_profile.py --profile "$PROFILE" --self-test > /tmp/ig007p0-1.json
+          python mycelix-governance/scripts/validate_ig007p0_proposal_lifecycle_profile.py --profile "$PROFILE" --self-test > /tmp/ig007p0-2.json
+          cmp /tmp/ig007p0-1.json /tmp/ig007p0-2.json
+
+      - name: Assert frozen identity and authority ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007p0-1.json', encoding='utf-8') as f:
+              result = json.load(f)
+          assert result['validated'] is True
+          assert result['self_test'] is True
+          assert result['authority_class'] == 'ObservedSourceBound'
+          assert result['profile_id'] == 'mycelix-proposal-lifecycle-observed-fca2c107-v1'
+          assert result['profile_content_sha256'] == '7f42e2a8df25df94112d23f261d1f3ffe299d46d37cb3a5a6fe02aca0aa6c108'
+          assert result['known_gap_issue'] == 66
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
