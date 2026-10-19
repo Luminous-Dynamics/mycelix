@@ -1,0 +1,59 @@
+name: Identity Crypto Wire Contract
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - '.github/workflows/identity-crypto-wire-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - '.github/workflows/identity-crypto-wire-contract.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native-wire-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+      - name: Check test formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml \
+            -- --check
+      - name: Run native crypto wire contract
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml \
+            --features native \
+            --test algorithm_wire_contract \
+            -- --nocapture
+
+  rustcrypto-hybrid-wire-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+      - name: Run RustCrypto hybrid wire contract
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml \
+            --features hybrid-rc \
+            --test algorithm_wire_contract \
+            -- --nocapture
