@@ -11,7 +11,7 @@
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-use mycelix_leptos_core::holochain_provider::{use_holochain, HolochainCtx};
+use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
 use personal_leptos_types::{
     ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
     MasterKeyView, PreferenceChangeLogView, ProfileView, StoredCredentialView,
@@ -80,10 +80,7 @@ fn empty_profile() -> ProfileView {
     }
 }
 
-fn live_source_status(
-    successful_sources: &[&str],
-    unavailable_sources: &[&str],
-) -> String {
+fn live_source_status(successful_sources: &[&str], unavailable_sources: &[&str]) -> String {
     if unavailable_sources.is_empty() {
         format!(
             "Live mode: all {} Personal source views returned successfully. An empty list means that specific source returned no records at this read time.",
@@ -119,9 +116,7 @@ pub fn provide_personal_context() {
         activity: RwSignal::new(Vec::new()),
         loading: RwSignal::new(true),
         live_sync_ready: RwSignal::new(false),
-        status_note: RwSignal::new(
-            "Personal source state has not been checked yet.".into(),
-        ),
+        status_note: RwSignal::new("Personal source state has not been checked yet.".into()),
     };
 
     provide_context(ctx.clone());
@@ -142,7 +137,8 @@ pub fn provide_personal_context() {
             ctx.consents.set(mock_data::mock_consents());
             ctx.preferences.set(mock_data::mock_preferences());
             ctx.preference_log.set(mock_data::mock_preference_log());
-            ctx.health_record_count.set(mock_data::mock_health_records());
+            ctx.health_record_count
+                .set(mock_data::mock_health_records());
             ctx.activity.set(mock_data::mock_activity());
             ctx.status_note.set(
                 "Mock mode: all displayed Personal records are synthetic examples, not live vault records."
@@ -312,20 +308,14 @@ mod source_status_tests {
 
     #[test]
     fn live_empty_results_are_not_reported_as_missing_sources() {
-        let note = live_source_status(
-            &["credentials", "activity history"],
-            &[],
-        );
+        let note = live_source_status(&["credentials", "activity history"], &[]);
         assert!(note.contains("returned successfully"));
         assert!(note.contains("empty list means that specific source returned no records"));
     }
 
     #[test]
     fn failed_source_reads_are_distinguished_from_confirmed_empty() {
-        let note = live_source_status(
-            &["profile"],
-            &["credentials", "health records"],
-        );
+        let note = live_source_status(&["profile"], &["credentials", "health records"]);
         assert!(note.contains("partial source read"));
         assert!(note.contains("credentials, health records"));
         assert!(note.contains("not confirmed empty"));
@@ -333,10 +323,7 @@ mod source_status_tests {
 
     #[test]
     fn all_failed_live_reads_never_claim_the_vault_is_empty() {
-        let note = live_source_status(
-            &[],
-            &["profile", "credentials"],
-        );
+        let note = live_source_status(&[], &["profile", "credentials"]);
         assert!(note.contains("Records are unavailable, not confirmed absent"));
     }
 
