@@ -378,28 +378,95 @@ fn validate_create_credential(
         ));
     }
 
-    // New credentials must not have a revocation timestamp
+    // New credentials must not carry revocation metadata.
     if cred.revoked_at.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
             "New credentials cannot have a revocation timestamp".into(),
+        ));
+    }
+    if cred.revocation_reason.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New credentials cannot have a revocation reason".into(),
         ));
     }
 
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate trust credential update (for revocation)
+/// Pure credential-update policy.
+///
+/// A trust credential update is a terminal revocation transition, not a way to
+/// rewrite the assertion. All assertion-bearing fields remain immutable.
+fn validate_credential_revocation_transition(
+    original: &TrustCredential,
+    updated: &TrustCredential,
+) -> Result<(), &'static str> {
+    if updated.id != original.id {
+        return Err("Trust credential ID cannot be changed");
+    }
+    if updated.subject_did != original.subject_did {
+        return Err("Subject DID cannot be changed");
+    }
+    if updated.issuer_did != original.issuer_did {
+        return Err("Issuer DID cannot be changed");
+    }
+    if updated.kvector_commitment != original.kvector_commitment {
+        return Err("K-Vector commitment cannot be changed");
+    }
+    if updated.range_proof != original.range_proof {
+        return Err("Range proof cannot be changed by credential update");
+    }
+    if updated.trust_score_range != original.trust_score_range {
+        return Err("Trust score range cannot be changed by credential update");
+    }
+    if updated.trust_tier != original.trust_tier {
+        return Err("Trust tier cannot be changed by credential update");
+    }
+    if updated.issued_at != original.issued_at {
+        return Err("Issuance timestamp cannot be changed");
+    }
+    if updated.expires_at != original.expires_at {
+        return Err("Credential expiration cannot be changed by credential update");
+    }
+    if updated.supersedes != original.supersedes {
+        return Err("Credential supersession reference cannot be changed by credential update");
+    }
+
+    if original.revoked {
+        return Err("Revoked trust credentials cannot be updated again");
+    }
+    if !updated.revoked {
+        return Err("Trust credential updates are revocation-only");
+    }
+
+    let revoked_at = updated
+        .revoked_at
+        .as_ref()
+        .ok_or("Revoked credentials must have a revoked_at timestamp")?;
+    if revoked_at < &original.issued_at {
+        return Err("Revocation timestamp cannot predate credential issuance");
+    }
+
+    let reason = updated
+        .revocation_reason
+        .as_deref()
+        .ok_or("Revoked credentials must have a revocation reason")?;
+    if reason.trim().is_empty() {
+        return Err("Revocation reason cannot be empty");
+    }
+    if reason.len() > 2048 {
+        return Err("Revocation reason exceeds maximum length of 2048 bytes");
+    }
+
+    Ok(())
+}
+
+/// Validate trust credential update (revocation only).
 fn validate_update_credential(
     action: Update,
     cred: TrustCredential,
 ) -> ExternResult<ValidateCallbackResult> {
-    if cred.kvector_commitment.len() != 32 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "K-Vector commitment must be 32 bytes".into(),
-        ));
-    }
-
-    // Fetch original to enforce invariants
+    // Fetch original to enforce invariants.
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: TrustCredential = original_record
         .entry()
@@ -420,65 +487,10 @@ fn validate_update_credential(
         ));
     }
 
-    // Immutable fields
-    if cred.id != original.id {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Trust credential ID cannot be changed".into(),
-        ));
+    match validate_credential_revocation_transition(&original, &cred) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    if cred.subject_did != original.subject_did {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Subject DID cannot be changed".into(),
-        ));
-    }
-    if cred.issuer_did != original.issuer_did {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Issuer DID cannot be changed".into(),
-        ));
-    }
-    if cred.kvector_commitment != original.kvector_commitment {
-        return Ok(ValidateCallbackResult::Invalid(
-            "K-Vector commitment cannot be changed".into(),
-        ));
-    }
-    if cred.issued_at != original.issued_at {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Issuance timestamp cannot be changed".into(),
-        ));
-    }
-
-    // Revoked is irreversible
-    if original.revoked && !cred.revoked {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Trust credential revocation is irreversible".into(),
-        ));
-    }
-
-    // If being revoked, revoked_at must be set
-    if cred.revoked && cred.revoked_at.is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Revoked credentials must have a revoked_at timestamp".into(),
-        ));
-    }
-
-    // revoked_at is immutable once set
-    if let Some(original_ts) = &original.revoked_at {
-        match &cred.revoked_at {
-            Some(new_ts) if new_ts != original_ts => {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Revocation timestamp cannot be changed once set".into(),
-                ));
-            }
-            None => {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Revocation timestamp cannot be removed".into(),
-                ));
-            }
-            _ => {}
-        }
-    }
-
-    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate attestation request creation
@@ -653,6 +665,119 @@ mod tests {
             let upper = a.max(b);
             TrustScoreRange { lower, upper }
         })
+    }
+
+    fn base_credential() -> TrustCredential {
+        TrustCredential {
+            id: "cred-1".to_string(),
+            subject_did: "did:mycelix:subject".to_string(),
+            issuer_did: "did:mycelix:issuer".to_string(),
+            kvector_commitment: vec![7u8; 32],
+            range_proof: vec![1, 2, 3],
+            trust_score_range: TrustScoreRange {
+                lower: 0.4,
+                upper: 0.59,
+            },
+            trust_tier: TrustTier::Standard,
+            issued_at: Timestamp::from_micros(100),
+            expires_at: Some(Timestamp::from_micros(10_000)),
+            revoked: false,
+            revocation_reason: None,
+            revoked_at: None,
+            supersedes: Some("cred-0".to_string()),
+        }
+    }
+
+    fn revoked_from(original: &TrustCredential) -> TrustCredential {
+        let mut updated = original.clone();
+        updated.revoked = true;
+        updated.revocation_reason = Some("key compromise".to_string());
+        updated.revoked_at = Some(Timestamp::from_micros(1_000));
+        updated
+    }
+
+    #[test]
+    fn valid_revocation_only_transition_is_accepted() {
+        let original = base_credential();
+        let updated = revoked_from(&original);
+        assert_eq!(
+            validate_credential_revocation_transition(&original, &updated),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn non_revocation_update_is_rejected() {
+        let original = base_credential();
+        let updated = original.clone();
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn tier_escalation_during_revocation_is_rejected() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.trust_tier = TrustTier::Guardian;
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn proof_mutation_during_revocation_is_rejected() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.range_proof.push(9);
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn score_range_mutation_during_revocation_is_rejected() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.trust_score_range = TrustScoreRange {
+            lower: 0.8,
+            upper: 1.0,
+        };
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn expiration_mutation_during_revocation_is_rejected() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.expires_at = None;
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn supersession_mutation_during_revocation_is_rejected() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.supersedes = Some("attacker-selected".to_string());
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn second_update_after_revocation_is_rejected() {
+        let original = base_credential();
+        let revoked = revoked_from(&original);
+        let second = revoked.clone();
+        assert!(validate_credential_revocation_transition(&revoked, &second).is_err());
+    }
+
+    #[test]
+    fn revocation_requires_nonempty_reason() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.revocation_reason = Some("   ".to_string());
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn revocation_timestamp_cannot_predate_issuance() {
+        let original = base_credential();
+        let mut updated = revoked_from(&original);
+        updated.revoked_at = Some(Timestamp::from_micros(99));
+        assert!(validate_credential_revocation_transition(&original, &updated).is_err());
     }
 
     proptest! {
