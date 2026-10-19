@@ -7,8 +7,6 @@
 //! status, and an honest unavailable state instead of synthetic profile data.
 //! Domain state and Holochain authority remain in the consuming application.
 
-use leptos::prelude::*;
-
 pub mod badge {
     use leptos::prelude::*;
 
@@ -106,7 +104,7 @@ pub mod data_table {
                 return 0;
             }
             let size = u64::from(self.page_size);
-            let pages = self.total_items / size + if self.total_items % size != 0 { 1 } else { 0 };
+            let pages = self.total_items / size + if !self.total_items.is_multiple_of(size) { 1 } else { 0 };
             u32::try_from(pages).unwrap_or(u32::MAX)
         }
 
@@ -160,8 +158,8 @@ pub mod data_table {
                     </tbody>
                 </table>
                 {current_pagination.map(|page| {
-                    let previous = on_page_change.clone();
-                    let next = on_page_change.clone();
+                    let previous = on_page_change;
+                    let next = on_page_change;
                     let page_count = page.page_count();
                     let current_page = page.normalized_page();
                     view! {
