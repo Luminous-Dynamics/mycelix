@@ -63,6 +63,38 @@ pub fn verify_governance_agent(_: ()) -> ExternResult<()> {
     verify_governance_or_bootstrap()
 }
 
+#[hdk_extern]
+pub fn verify_strict_governance_agent(_: ()) -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    if gov_links.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Strict governance authorization is unavailable: no governance agents are registered"
+                .into(),
+        )));
+    }
+
+    let caller = agent_info()?.agent_initial_pubkey;
+    if gov_links.iter().any(|link| {
+        AgentPubKey::try_from(link.target.clone())
+            .map(|agent| agent == caller)
+            .unwrap_or(false)
+    }) {
+        Ok(())
+    } else {
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not an authorized governance agent".into(),
+        )))
+    }
+}
+
+
 // =============================================================================
 // CONSTANTS
 // =============================================================================
