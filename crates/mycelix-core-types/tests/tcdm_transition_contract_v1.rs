@@ -125,9 +125,7 @@ fn transition(case: &Value) -> Result<Transition, String> {
                 } else if state.decay_rate == 0.0 {
                     0.0
                 } else {
-                    state
-                        .decay_rate
-                        .powf(elapsed_seconds as f64 / 86_400.0)
+                    state.decay_rate.powf(elapsed_seconds as f64 / 86_400.0)
                 };
                 if !factor.is_finite() || !(0.0..=1.0).contains(&factor) {
                     return Err("decay factor must be finite and in [0, 1]".to_owned());
@@ -148,10 +146,7 @@ fn transition(case: &Value) -> Result<Transition, String> {
                 return Err("interaction weight must be non-negative".to_owned());
             }
             if weight == 0.0 {
-                return Ok(Transition {
-                    state,
-                    no_op: true,
-                });
+                return Ok(Transition { state, no_op: true });
             }
 
             let next_count = state
@@ -213,7 +208,10 @@ fn compare_expected_state(id: &str, actual: &State, expected: &Value) {
     }
     let expected_time = parse_i64(&expected["last_update"], &format!("{id}.last_update"))
         .expect("expected last_update must fit i64");
-    assert_eq!(actual.last_update, expected_time, "{id}: last_update mismatch");
+    assert_eq!(
+        actual.last_update, expected_time,
+        "{id}: last_update mismatch"
+    );
     assert_eq!(
         u64::from(actual.interaction_count),
         expected["interaction_count"]
@@ -249,7 +247,9 @@ fn frozen_transition_corpus_matches_candidate_contract() {
     let mut valid_count = 0;
     let mut invalid_count = 0;
     for case in all_cases {
-        let id = case["id"].as_str().expect("each case must have a stable ID");
+        let id = case["id"]
+            .as_str()
+            .expect("each case must have a stable ID");
         assert!(ids.insert(id), "duplicate case ID {id}");
         let expected_valid = case["expected"]["valid"]
             .as_bool()
@@ -262,12 +262,17 @@ fn frozen_transition_corpus_matches_candidate_contract() {
             compare_expected_state(id, &actual.state, &case["expected"]["state"]);
             assert_eq!(
                 actual.no_op,
-                case["expected"]["no_op"].as_bool().expect("valid case needs no_op"),
+                case["expected"]["no_op"]
+                    .as_bool()
+                    .expect("valid case needs no_op"),
                 "{id}: no_op mismatch"
             );
         } else {
             invalid_count += 1;
-            assert!(result.is_err(), "{id}: invalid transition input was accepted");
+            assert!(
+                result.is_err(),
+                "{id}: invalid transition input was accepted"
+            );
         }
     }
     assert_eq!(valid_count, 17, "unexpected valid case count");
@@ -365,7 +370,9 @@ fn deterministic_hundred_thousand_step_sequence_preserves_state_invariants() {
             .unwrap_or_else(|error| panic!("step {step}: interaction rejected: {error}"))
             .state;
 
-        now = now.checked_add(86_400).expect("deterministic timestamp remains in range");
+        now = now
+            .checked_add(86_400)
+            .expect("deterministic timestamp remains in range");
         let decay = json!({
             "state": {
                 "trust_level": state.trust_level.to_string(),
