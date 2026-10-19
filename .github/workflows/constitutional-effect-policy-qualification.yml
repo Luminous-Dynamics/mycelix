@@ -1,0 +1,85 @@
+name: Constitutional Effect Policy Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/crates/constitutional-effect-policy/**'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_EFFECT_POLICY_V0_1.md'
+      - 'mycelix-governance/tools/formal/qualify_effect_policy.py'
+      - '.github/workflows/constitutional-effect-policy-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-effect-policy-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SUBJECT_HEAD: bcc8ae7a38ebcc2b7f1dc2e9f11f12c25712be84
+  EXPECTED_MAIN_PARENT: 20452d0cde9448c424d708d6307aa33a3d1901e3
+
+jobs:
+  qualify:
+    name: Exact-head constitutional effect policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind evidence to exact lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SUBJECT_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_MAIN_PARENT"
+          rm -rf effect-policy-evidence
+          mkdir -p effect-policy-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > effect-policy-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SUBJECT_HEAD" > effect-policy-evidence/expected-subject-head.txt
+          printf '%s\n' "$EXPECTED_MAIN_PARENT" > effect-policy-evidence/expected-main-parent.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Run exact-head Rust qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 mycelix-governance/tools/formal/qualify_effect_policy.py \
+                --expected-head "$EXPECTED_HEAD" \
+                --expected-subject-head "$EXPECTED_SUBJECT_HEAD" \
+                --expected-main-parent "$EXPECTED_MAIN_PARENT" \
+                --out "$PWD/effect-policy-evidence"
+            '
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-effect-policy-${{ env.EXPECTED_HEAD }}
+          path: effect-policy-evidence
+          if-no-files-found: error
+          retention-days: 30
