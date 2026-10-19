@@ -30,6 +30,13 @@ cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lif
   --record mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_EXAMPLE_V0_1_DRAFT.json
 ```
 
+# Conservative service-envelope screening and frozen known-answer corpus.
+cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
+  --bin service_envelope_audit -- \
+  --schema mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_SCHEMA_V0_1_DRAFT.json \
+  --record mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_EXAMPLE_V0_1_DRAFT.json \
+  --benchmark mycelix-workspace/happs/fabrication/docs/LKI_01_SERVICE_ENVELOPE_BENCHMARK_V0_1_DRAFT.json
+
 Pass an explicit `--as-of YYYY-MM-DD` to the v0.3 audit so supplier-evidence freshness checks are reproducible. Its `--freshness-days` defaults to `30`.
 
 ## Current checks
@@ -37,6 +44,7 @@ Pass an explicit `--as-of YYYY-MM-DD` to the v0.3 audit so supplier-evidence fre
 - v0.3: JSON Schema Draft 2020-12 meta-validation, example-record validation, component/interface ID and reference integrity, module-fit arithmetic, supplier evidence freshness, release-gate semantics, measured-metric evidence, and 17 frozen known-answer scenarios.
 - v0.4 extension: pinned parent/version metadata, shape checks, duplicate/unknown scenario rejection, 11 deterministic known-answer outcomes, and five explicit software benchmark targets.
 - Repair-trial record: draft 2020-12 schema validation, explicit null/reason treatment for unmeasured phases, traceable evidence digests, exact revision identifiers, successful-outcome post-checks, damage disclosures, and fail-closed unpowered-surrogate constraints.
+- Service envelope: draft 2020-12 schema validation, source and frame reference integrity, six-face module fit clearance, conservative AABB checks for install/service/removal volumes against obstacles, digest gates for measured/approved geometry, and ten frozen known-answer cases. Always reports physical fit qualification as false.
 - The companion [unpowered fixture and trial protocol](../../docs/LKI_01_UNPOWERED_FIXTURE_AND_REPAIR_TRIAL_PROTOCOL_V0_1_DRAFT.md) specifies a staged, adjustable, candidate-independent mockup plan. No fixture is fabricated or dimensionally verified.
 
 ## Deliberate limitations
