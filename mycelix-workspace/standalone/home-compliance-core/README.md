@@ -20,6 +20,12 @@ The `jurisdiction_registry` module requires an auditable capability card before 
 “Metadata complete” is not legal certification: the prototype does not authenticate reviewers, recompute source bytes, verify legal authority, or prove that test cases are adequate. The card lets us scale country-by-country without pretending every module or country is implemented.
 
 ## Global rule composition and evidence-led reform
+## Alternative-solution and homeowner-design pathway
+
+The new `alternative_solution` module prepares a performance-based alternative, variance request, or appeal dossier without treating aesthetic preference as an override of binding law. It requires an explicit jurisdiction pathway adapter, defined outcome criteria, a versioned method for every criterion, evidence artifacts verified against their actual bytes, uncertainty and counter-evidence records, and independent reviews pinned to exact case/design revisions.
+
+A valid dossier can reach `ReadyForAuthoritySubmission`; that means it is organized for a legally authorized authority to decide—not that the authority has approved it or accepted technical equivalence. A known failed/unknown safety-critical criterion blocks the submission. A non-critical failed/unknown criterion remains visible and keeps the dossier in `ReadyForIndependentReview`. Dissent is preserved rather than averaged away. This supports creative design without hiding technical or legal constraints.
+
 The South African public-consultation opportunity is tracked in [SA NBRBS Amendment Bill 2026 evidence comment plan](docs/SA_NBRBS_AMENDMENT_BILL_2026_EVIDENCE_COMMENT_PLAN.md). It records the official deadline and submission route, proposes a balanced evidence plan around objective approval criteria and design freedom, and distinguishes verified facts from questions requiring legal/evidence review. It is a preparation document only; no submission has been sent. A separate [provisional comment draft](docs/SA_NBRBS_AMENDMENT_BILL_2026_PROVISIONAL_COMMENT_DRAFT.md) turns that research into a balanced, clause-focused draft and a pre-submission checklist. It has not been filed and requires full primary-text comparison, submitter approval, and legal review.
 
 
