@@ -222,7 +222,9 @@ fn read_identity_storage_snapshot() -> Result<IdentityStorageSnapshot, ()> {
         legacy_did: storage.get_item(LEGACY_DID_KEY).map_err(|_| ())?,
         secret_b64: storage.get_item(IDENTITY_SECRET_KEY).map_err(|_| ())?,
         public_b64: storage.get_item(IDENTITY_PUBLIC_KEY).map_err(|_| ())?,
-        encrypted_wire: storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).map_err(|_| ())?,
+        encrypted_wire: storage
+            .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+            .map_err(|_| ())?,
     })
 }
 
