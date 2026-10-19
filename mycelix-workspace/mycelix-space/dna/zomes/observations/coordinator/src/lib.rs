@@ -471,7 +471,10 @@ pub fn fuse_observations_for_object(norad_id: u32) -> ExternResult<FusedEstimate
     }
 
     // Build trust weighting from submitter trust levels.
-    // Each observation's sensor_id is mapped to its submitter's trust weight.
+    // Until signed cryptographic verification records are available, every
+    // observation is deliberately re-quarantined to Unverified. This preserves
+    // fusion availability while preventing structurally admitted trust
+    // credentials from silently increasing consequential sensor weight.
     let mut trust_weighting = TrustWeighting::default();
     for obs in &observations {
         let trust_level = lookup_agent_trust_level(&obs.submitted_by);
@@ -568,33 +571,34 @@ pub fn get_fused_state(norad_id: u32) -> ExternResult<Option<FusedEstimate>> {
 // Trust level lookup
 // =============================================================================
 
-/// Look up the trust level for an agent via cross-role call to the identity cluster.
+/// Return the trust level currently permitted to influence sensor fusion.
 ///
-/// Queries the identity cluster's `trust_credentials` zome for the agent's trust
-/// level. Falls back to `TrustLevel::Unverified` if:
-/// - The identity cluster is unreachable (standalone deployment)
-/// - The agent has no trust credential on file
-/// - Any deserialization or call error occurs
+/// Trust credentials are structurally admitted in Identity, but their STARK
+/// proofs are not yet bound to signed cryptographic verification records in the
+/// authority path tracked by #108. Until that record-backed protocol exists,
+/// no credential tier may increase a sensor's fusion weight.
 ///
-/// This is intentionally fail-open: observations are sensor data weighted by trust,
-/// not gated by it. Chi-square consistency checks in the fusion pipeline protect
-/// against bad data regardless of trust level.
-fn lookup_agent_trust_level(agent: &AgentPubKey) -> TrustLevel {
-    match call(
-        CallTargetCell::OtherRole("identity".into()),
-        ZomeName::from("trust_credentials"),
-        FunctionName::from("get_agent_trust_level"),
-        None,
-        agent.clone(),
-    ) {
-        Ok(ZomeCallResponse::Ok(result)) => result
-            .decode::<TrustLevel>()
-            .unwrap_or(TrustLevel::Unverified),
-        _ => {
-            // Identity cluster unreachable or agent has no trust credential
-            // Default to Unverified — chi-square gating still protects against bad data
-            TrustLevel::Unverified
-        }
+/// The previous implementation also decoded Identity's `TrustTier` directly as
+/// Space's unrelated `TrustLevel` enum. Their variant order happened to align in
+/// a way that could silently reinterpret Elevated/Guardian as
+/// Verified/FoundingMember. Removing the cross-role decode closes both problems.
+fn lookup_agent_trust_level(_agent: &AgentPubKey) -> TrustLevel {
+    quarantined_trust_level()
+}
+
+fn quarantined_trust_level() -> TrustLevel {
+    TrustLevel::Unverified
+}
+
+#[cfg(test)]
+mod trust_weighting_quarantine_tests {
+    use super::{TrustLevel, quarantined_trust_level};
+
+    #[test]
+    fn unverified_proofs_cannot_raise_fusion_weight() {
+        let level = quarantined_trust_level();
+        assert_eq!(level, TrustLevel::Unverified);
+        assert!((level.weight() - 0.1).abs() < f64::EPSILON);
     }
 }
 

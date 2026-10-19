@@ -1,0 +1,66 @@
+name: Space Trust Quarantine
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-space/dna/zomes/observations/coordinator/**'
+      - 'mycelix-workspace/mycelix-space/zomes/shared/**'
+      - '.github/workflows/space-trust-quarantine.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-space/dna/zomes/observations/coordinator/**'
+      - 'mycelix-workspace/mycelix-space/zomes/shared/**'
+      - '.github/workflows/space-trust-quarantine.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  trust-quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Assert unverified trust remains quarantined
+        shell: bash
+        run: |
+          FILE=mycelix-workspace/mycelix-space/dna/zomes/observations/coordinator/src/lib.rs
+
+          if grep -Fq 'FunctionName::from("get_agent_trust_level")' "$FILE"; then
+            echo 'ERROR: legacy Identity trust-tier endpoint is again feeding Space trust weighting' >&2
+            exit 1
+          fi
+
+          grep -Fq 'TrustLevel::Unverified' "$FILE"
+          grep -Fq 'unverified_proofs_cannot_raise_fusion_weight' "$FILE"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-space
+
+      - name: Check observations coordinator formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-space/dna/zomes/observations/coordinator/Cargo.toml \
+            -- --check
+
+      - name: Test observations coordinator
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-space/dna/zomes/observations/coordinator/Cargo.toml \
+            --lib
+
+      - name: Check observations coordinator for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-space/dna/zomes/observations/coordinator/Cargo.toml \
+            --target wasm32-unknown-unknown
