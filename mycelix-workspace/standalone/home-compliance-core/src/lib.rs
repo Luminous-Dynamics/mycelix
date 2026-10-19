@@ -12,6 +12,7 @@ pub mod alternative_solution;
 pub mod composition;
 pub mod evolution;
 pub mod jurisdiction_registry;
+pub mod numeric_constraints;
 pub mod reform;
 pub mod regulatory;
 
