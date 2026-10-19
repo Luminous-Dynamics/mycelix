@@ -2,8 +2,8 @@
 //!
 //! This test intentionally does not call MATL/TCDM production scoring. It freezes
 //! a separate mathematical reference so we can compare score-only policies with
- //! uncertainty-aware policies without quietly changing deployed trust semantics.
- //! Run with: cargo test -p mycelix-core-types --test beta_trust_posterior_reference_v1
+//! uncertainty-aware policies without quietly changing deployed trust semantics.
+//! Run with: cargo test -p mycelix-core-types --test beta_trust_posterior_reference_v1
 
 use serde_json::{Value, json};
 use std::collections::HashSet;
