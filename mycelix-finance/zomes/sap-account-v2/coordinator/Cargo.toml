@@ -1,0 +1,20 @@
+[package]
+name = "sap_account_v2"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-SAFE-014 coordinator for disabled owner-authored SAP V2 collateral claim journal"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "sap_account_v2"
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdk = { workspace = true }
+serde = { workspace = true }
+finance-sap-account-v2 = { path = "../../../crates/finance-sap-account-v2" }
+finance-collateral-issuance-persistence = { path = "../../../crates/finance-collateral-issuance-persistence" }
+sap_account_v2_integrity = { path = "../integrity" }
+collateral_issuance_v2_integrity = { path = "../../collateral-issuance-v2/integrity" }
+mycelix-bridge-entry-types = { workspace = true }
