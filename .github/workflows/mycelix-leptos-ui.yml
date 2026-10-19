@@ -43,6 +43,8 @@ jobs:
         run: cargo fmt --manifest-path crates/mycelix-leptos-ui/Cargo.toml -- --check
       - name: Test shared UI crate
         run: cargo test --manifest-path crates/mycelix-leptos-ui/Cargo.toml
+      - name: Test shared core form accessibility helpers
+        run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib accessibility_tests
       - name: Check shared UI crate with Clippy
         run: cargo clippy --manifest-path crates/mycelix-leptos-ui/Cargo.toml --all-targets -- -D warnings
       - name: Resolve shared-core dependency graph from a clean checkout
