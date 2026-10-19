@@ -388,12 +388,12 @@ pub fn verify_migration_candidate(
                 invariant_id: invariant_id.clone(),
             });
         }
-        if let (Some(source_value), Some(target_value)) = (source_value, target_value) {
-            if source_value != target_value {
-                issues.push(MigrationVerificationIssue::CriticalInvariantChanged(
-                    invariant_id.clone(),
-                ));
-            }
+        if let (Some(source_value), Some(target_value)) = (source_value, target_value)
+            && source_value != target_value
+        {
+            issues.push(MigrationVerificationIssue::CriticalInvariantChanged(
+                invariant_id.clone(),
+            ));
         }
     }
 
