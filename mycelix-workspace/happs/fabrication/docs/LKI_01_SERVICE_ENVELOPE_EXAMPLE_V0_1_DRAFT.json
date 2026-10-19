@@ -172,5 +172,6 @@
     "A screening pass is not physical fit confirmation, ergonomics validation, safety assessment, appliance conformity, durability evidence, or permission to energize a unit.",
     "A measured or qualified claim must be supported by controlled, revision-bound geometry evidence with SHA-256 digests and an independently reviewed physical test."
   ],
-  "obstacle_inventory_state": "incomplete"
+  "obstacle_inventory_state": "incomplete",
+  "obstacle_inventory_evidence_source_ids": []
 }
