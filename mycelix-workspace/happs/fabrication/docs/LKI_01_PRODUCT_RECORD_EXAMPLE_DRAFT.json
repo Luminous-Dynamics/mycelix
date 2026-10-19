@@ -99,11 +99,6 @@
       "interface_id": "IF-COOL-001",
       "revision": "0.1.0-draft",
       "module_class": "refrigeration",
-      "envelope_mm": {
-        "width": 600,
-        "depth": 600,
-        "height": 800
-      },
       "removal_direction": "front",
       "service_clearance_mm": {
         "width": 100,
@@ -117,17 +112,27 @@
         "ventilation_outlet"
       ],
       "compatibility_test_refs": [],
-      "verification_state": "proposed"
+      "verification_state": "proposed",
+      "module_envelope_mm": {
+        "width": 600,
+        "depth": 600,
+        "height": 800
+      },
+      "bay_clear_envelope_mm": {
+        "width": 620,
+        "depth": 620,
+        "height": 830
+      },
+      "minimum_fit_clearance_mm": {
+        "width": 10,
+        "depth": 10,
+        "height": 10
+      }
     },
     {
       "interface_id": "IF-COOK-001",
       "revision": "0.1.0-draft",
       "module_class": "induction_cooktop",
-      "envelope_mm": {
-        "width": 600,
-        "depth": 600,
-        "height": 100
-      },
       "removal_direction": "top",
       "service_clearance_mm": {
         "width": 100,
@@ -141,7 +146,22 @@
         "ventilation_outlet"
       ],
       "compatibility_test_refs": [],
-      "verification_state": "proposed"
+      "verification_state": "proposed",
+      "module_envelope_mm": {
+        "width": 600,
+        "depth": 600,
+        "height": 100
+      },
+      "bay_clear_envelope_mm": {
+        "width": 620,
+        "depth": 620,
+        "height": 120
+      },
+      "minimum_fit_clearance_mm": {
+        "width": 10,
+        "depth": 10,
+        "height": 10
+      }
     }
   ],
   "service_policy": {
