@@ -7,9 +7,12 @@ This tool is a **draft engineering aid**. A passing report establishes only that
 ## Run from the Mycelix repository root
 
 ```bash
-cargo test --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml
+# If Cargo.lock is absent, resolve once, review the result, then commit the lockfile.
+cargo generate-lockfile --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml
 
-cargo run --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml -- \
+cargo test --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml --all-targets
+
+cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml -- \
   --schema mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json \
   --record mycelix-workspace/happs/fabrication/docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json \
   --benchmark mycelix-workspace/happs/fabrication/docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json \
@@ -45,4 +48,4 @@ The report includes SHA-256 digests of the exact schema, record, and benchmark b
 - The evaluator covers the named frozen v0.3 scenarios; unknown scenarios fail closed instead of being skipped.
 - The tool is not a purchasing system and never fetches supplier pages or promotes a marketing claim into verified inventory.
 - The current schema is a draft and must be reconciled with existing Mycelix product revision, manufactured-unit, qualification, BOM, and repair/restoration owners before becoming canonical.
-- This tool has **not yet been compiled or executed in the authoring environment**. Run the command above and review the exact-head result before treating it as passing source code.
+- Hosted Rust 1.96.0 run [39210363080](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39210363080) compiled the prior formatted revision, passed all 16 tests, and returned PASS with 17 v0.3 scenarios and zero errors/warnings. Subsequent workflow/documentation changes must be validated on the exact current head. Do not treat a prior-head pass as evidence for a newer SHA. Commit and use Cargo.lock with --locked before claiming dependency-lock reproducibility.
