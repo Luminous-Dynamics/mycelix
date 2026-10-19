@@ -59,6 +59,16 @@ Performance-based design is not an invitation to skip verification. The Internat
 The software must never turn a visual rendering, owner preference, AI-generated rationale, or generalized research finding into evidence of compliance.
 
 ## 3. Evidence-backed change to codes
+## 2A. Alternative means, variances, and appeals without false permission
+
+A homeowner's preferred architectural expression is not itself a legal violation. But an owner preference does not waive a binding requirement either. The compiler should distinguish the conventional prescriptive path from a jurisdiction-authorized performance-based demonstration, variance request, or appeal. For each route, the selected jurisdiction adapter must establish that the route exists for the specific project category and target rule; the existence of a route is never a prediction of its outcome.
+
+The Rust `alternative_solution` module is a new submission-dossier primitive. Each case ties a design revision to the exact jurisdiction module and rule statement it responds to, compares the prescriptive path, defines the protected performance outcomes and acceptance criteria, records the methods/versions/limits used, and links every assessment to verified evidence bytes. It requires a complete treatment of alternatives, expected benefits, foreseeable harms, affected groups, uncertainty, counter-evidence, and independent review of the exact case and design revisions.
+
+A safety-critical failed or unknown criterion blocks submission. Non-critical unresolved outcomes may remain explorable but cannot be presented as a complete authority-submission package. Reviewers who disagree remain visible, and a request for more evidence downgrades the dossier to independent review. The strongest positive state is only `ReadyForAuthoritySubmission`: it is not proof of equivalence, code compliance, or permission to build.
+
+This is the software expression of performance-based regulation: preserve the public outcome the rule is meant to secure, then evaluate an alternative method against explicit criteria. The jurisdiction's actual adopted code and authority must determine whether the path is available and what evidence is accepted. See the [ICC Performance Code](https://shop.iccsafe.org/2024-icc-performance-coder-for-buildings-and-facilities.html) and OECD's [Regulatory Impact Assessment principles](https://www.oecd.org/en/publications/regulatory-impact-assessment_7a9638cb-en.html).
+
 
 Code reform is a first-class process, not an informal comment field and not an automatic side effect of a simulation.
 
