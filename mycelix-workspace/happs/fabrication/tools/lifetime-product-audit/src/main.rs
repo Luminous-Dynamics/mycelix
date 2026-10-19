@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
+const CORPUS_VERSION: &str = "0.2.0-draft";
 const VALID_OUTCOMES: [&str; 4] = [
     "PASS_SCOPED_GATE",
     "BLOCK_UNQUALIFIED",
@@ -254,6 +255,13 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
                     "Interface identifiers must be non-empty and unique within a product revision.",
                 );
             }
+            if let Some(violation) = interface_fit_violation(interface) {
+                push_issue(
+                    issues, "error", "MODULE_ENVELOPE_EXCEEDS_BAY",
+                    format!("{path}.module_envelope_mm"),
+                    violation,
+                );
+            }
         }
     }
 
@@ -410,7 +418,28 @@ fn validate_record_semantics(record: &Value, as_of: &str, freshness_days: i64, i
     }
 }
 
+fn interface_fit_violation(interface: &Value) -> Option<String> {
+    const AXES: [&str; 3] = ["width", "depth", "height"];
+    for axis in AXES {
+        let module = interface.pointer(&format!("/module_envelope_mm/{axis}"))?.as_f64()?;
+        let bay = interface.pointer(&format!("/bay_clear_envelope_mm/{axis}"))?.as_f64()?;
+        let allowance = interface.pointer(&format!("/minimum_fit_clearance_mm/{axis}"))?.as_f64()?;
+        if module + allowance > bay + 1e-9 {
+            return Some(format!(
+                "{axis}: module envelope ({module} mm) + minimum fit allowance ({allowance} mm) exceeds bay clear envelope ({bay} mm)."
+            ));
+        }
+    }
+    None
+}
+
 fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
+    if benchmark.get("benchmark_version").and_then(Value::as_str) != Some(CORPUS_VERSION) {
+        push_issue(
+            issues, "error", "BENCHMARK_VERSION_UNEXPECTED", "$benchmark.benchmark_version",
+            format!("This validator is pinned to corpus version {CORPUS_VERSION}; do not silently replace a frozen benchmark."),
+        );
+    }
     if benchmark.get("status").and_then(Value::as_str) != Some("specification_only") {
         push_issue(
             issues, "error", "BENCHMARK_STATUS_UNEXPECTED", "$benchmark.status",
@@ -444,10 +473,10 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
             return 0;
         }
     };
-    if scenarios.len() != 14 {
+    if scenarios.len() != 15 {
         push_issue(
-            issues, "error", "BENCHMARK_V0_1_SCENARIO_COUNT_CHANGED", "$benchmark.scenarios",
-            format!("Frozen v0.1 corpus expects 14 scenarios; found {}. Revise the corpus version when adding/removing cases.", scenarios.len()),
+            issues, "error", "BENCHMARK_V0_2_SCENARIO_COUNT_CHANGED", "$benchmark.scenarios",
+            format!("Frozen v0.2 corpus expects 15 scenarios; found {}. Revise the corpus version when adding/removing cases.", scenarios.len()),
         );
     }
 
@@ -547,6 +576,30 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
             } else if b("mechanical_envelope_match") == Some(true) && b("electrical_rating_match") == Some(true) {
                 Some("PASS_SCOPED_GATE")
             } else { Some("BLOCK_UNQUALIFIED") }
+        }
+        "MOD-003" => {
+            let mut complete = true;
+            let mut fits = true;
+            for axis in ["width", "depth", "height"] {
+                let module = setup.pointer(&format!("/module_envelope_mm/{axis}")).and_then(Value::as_f64);
+                let bay = setup.pointer(&format!("/bay_clear_envelope_mm/{axis}")).and_then(Value::as_f64);
+                let allowance = setup.pointer(&format!("/minimum_fit_clearance_mm/{axis}")).and_then(Value::as_f64);
+                match (module, bay, allowance) {
+                    (Some(module), Some(bay), Some(allowance)) => {
+                        if module + allowance > bay + 1e-9 {
+                            fits = false;
+                        }
+                    }
+                    _ => complete = false,
+                }
+            }
+            if !complete {
+                Some("BLOCK_UNQUALIFIED")
+            } else if fits {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("FAIL_HARD_GATE")
+            }
         }
         "THERM-001" => {
             if b("required_exhaust_clearance_met") == Some(false) {
@@ -698,13 +751,38 @@ mod tests {
 
     #[test]
     fn benchmark_corpus_known_answers_match() {
-        let benchmark: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json")).unwrap();
+        let benchmark: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_2_DRAFT.json")).unwrap();
         let scenarios = benchmark.get("scenarios").and_then(Value::as_array).unwrap();
-        assert_eq!(scenarios.len(), 14);
+        assert_eq!(scenarios.len(), 15);
+        assert_eq!(benchmark["benchmark_version"].as_str(), Some(CORPUS_VERSION));
         for scenario in scenarios {
             let expected = scenario["expected_outcome"].as_str().unwrap();
             assert_eq!(evaluate_scenario(scenario), Some(expected), "scenario {}", scenario["scenario_id"]);
         }
+    }
+
+    #[test]
+    fn module_envelope_plus_fit_allowance_must_fit_inside_bay() {
+        let mut record: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json")).unwrap();
+        record["interfaces"][0]["module_envelope_mm"]["width"] = json!(615);
+        record["interfaces"][0]["bay_clear_envelope_mm"]["width"] = json!(620);
+        record["interfaces"][0]["minimum_fit_clearance_mm"]["width"] = json!(10);
+        let mut issues = Vec::new();
+        validate_record_semantics(&record, "2026-10-19", 30, &mut issues);
+        assert!(issues.iter().any(|issue| issue.code == "MODULE_ENVELOPE_EXCEEDS_BAY"));
+    }
+
+    #[test]
+    fn module_bay_fit_known_answer_rejects_insufficient_width_clearance() {
+        let scenario = json!({
+            "scenario_id":"MOD-003",
+            "setup":{
+                "module_envelope_mm":{"width":620,"depth":600,"height":800},
+                "bay_clear_envelope_mm":{"width":620,"depth":620,"height":830},
+                "minimum_fit_clearance_mm":{"width":10,"depth":10,"height":10}
+            }
+        });
+        assert_eq!(evaluate_scenario(&scenario), Some("FAIL_HARD_GATE"));
     }
 
     #[test]
