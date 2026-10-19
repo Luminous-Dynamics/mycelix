@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 pub mod app;
-pub mod continuity;
 pub mod context;
+pub mod continuity;
 pub mod mock_data;
 pub mod telemetry;
