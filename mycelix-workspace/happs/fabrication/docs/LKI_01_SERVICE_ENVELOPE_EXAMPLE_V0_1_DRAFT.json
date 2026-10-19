@@ -1,0 +1,175 @@
+{
+  "record_id": "LKI-01-SERVICE-ENVELOPE-EXAMPLE",
+  "schema_version": "0.1.0-draft",
+  "record_state": "concept",
+  "units": "mm",
+  "reference_frame": {
+    "frame_id": "LKI-01-CONCEPT-FRAME-001",
+    "axis_definition": "x=width, y=depth, z=height",
+    "origin_definition": "Lower-front-left of illustrative bay; positive y points inward. This is not approved CAD."
+  },
+  "sources": [
+    {
+      "source_id": "SRC-CONCEPT-001",
+      "source_type": "assumption",
+      "evidence_state": "assumption",
+      "revision": "illustrative-v0.1",
+      "source_ref": "This record's assumptions; no physical unit or supplier module selected.",
+      "digest_sha256": null,
+      "method_and_limitations": "Synthetic dimensional values solely to exercise the checker. Not measured, supplier-backed, fabricated, or suitable for construction."
+    }
+  ],
+  "envelopes": [
+    {
+      "envelope_id": "BAY-COLD-001",
+      "role": "bay",
+      "frame_id": "LKI-01-CONCEPT-FRAME-001",
+      "origin_mm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size_mm": {
+        "x": 800,
+        "y": 600,
+        "z": 600
+      },
+      "clearance_mm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "source_id": "SRC-CONCEPT-001",
+      "notes": "Illustrative clear cavity; not an appliance installation specification."
+    },
+    {
+      "envelope_id": "MOD-COLD-001",
+      "role": "module",
+      "frame_id": "LKI-01-CONCEPT-FRAME-001",
+      "origin_mm": {
+        "x": 20,
+        "y": 20,
+        "z": 20
+      },
+      "size_mm": {
+        "x": 760,
+        "y": 560,
+        "z": 560
+      },
+      "clearance_mm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "source_id": "SRC-CONCEPT-001",
+      "notes": "Placeholder module envelope with 20 mm on each side; not matched to a real appliance."
+    },
+    {
+      "envelope_id": "INSTALL-SWEEP-001",
+      "role": "installation_sweep",
+      "frame_id": "LKI-01-CONCEPT-FRAME-001",
+      "origin_mm": {
+        "x": 20,
+        "y": -580,
+        "z": 20
+      },
+      "size_mm": {
+        "x": 760,
+        "y": 600,
+        "z": 560
+      },
+      "clearance_mm": {
+        "x": 10,
+        "y": 10,
+        "z": 10
+      },
+      "source_id": "SRC-CONCEPT-001",
+      "notes": "Coarse axis-aligned insertion volume only; not a kinematic path."
+    },
+    {
+      "envelope_id": "SERVICE-ACCESS-001",
+      "role": "service_access",
+      "frame_id": "LKI-01-CONCEPT-FRAME-001",
+      "origin_mm": {
+        "x": 0,
+        "y": 610,
+        "z": 0
+      },
+      "size_mm": {
+        "x": 800,
+        "y": 350,
+        "z": 760
+      },
+      "clearance_mm": {
+        "x": 25,
+        "y": 25,
+        "z": 25
+      },
+      "source_id": "SRC-CONCEPT-001",
+      "notes": "Illustrative exterior access volume, not an ergonomic or human-factors finding."
+    },
+    {
+      "envelope_id": "REMOVAL-SWEEP-001",
+      "role": "removal_sweep",
+      "frame_id": "LKI-01-CONCEPT-FRAME-001",
+      "origin_mm": {
+        "x": 20,
+        "y": -900,
+        "z": 20
+      },
+      "size_mm": {
+        "x": 760,
+        "y": 920,
+        "z": 560
+      },
+      "clearance_mm": {
+        "x": 10,
+        "y": 10,
+        "z": 10
+      },
+      "source_id": "SRC-CONCEPT-001",
+      "notes": "Coarse removal volume; physical trial and real geometry absent."
+    },
+    {
+      "envelope_id": "SIDE-KEEP-OUT-001",
+      "role": "keep_out",
+      "frame_id": "LKI-01-CONCEPT-FRAME-001",
+      "origin_mm": {
+        "x": 850,
+        "y": 0,
+        "z": 0
+      },
+      "size_mm": {
+        "x": 20,
+        "y": 600,
+        "z": 600
+      },
+      "clearance_mm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "source_id": "SRC-CONCEPT-001",
+      "notes": "Synthetic adjacent obstruction used to demonstrate clearance checking."
+    }
+  ],
+  "fit_checks": [
+    {
+      "check_id": "FIT-COLD-001",
+      "module_envelope_id": "MOD-COLD-001",
+      "bay_envelope_id": "BAY-COLD-001",
+      "minimum_clearance_mm": {
+        "x": 10,
+        "y": 10,
+        "z": 10
+      }
+    }
+  ],
+  "collision_policy": "axis_aligned_aabb_conservative; touching_is_conflict",
+  "assumptions_and_limits": [
+    "All dimensions are synthetic concept inputs and must not be used to cut, fabricate, install, or qualify a product.",
+    "Axis-aligned bounding boxes are a conservative screening approximation; no rotated, articulated, flexible, or exact CAD collision analysis is implemented.",
+    "A screening pass is not physical fit confirmation, ergonomics validation, safety assessment, appliance conformity, durability evidence, or permission to energize a unit.",
+    "A measured or qualified claim must be supported by controlled, revision-bound geometry evidence with SHA-256 digests and an independently reviewed physical test."
+  ]
+}
