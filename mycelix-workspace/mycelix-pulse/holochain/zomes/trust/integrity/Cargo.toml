@@ -7,6 +7,13 @@ description = "Integrity zome for Mycelix Mail Trust"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# These findings are control-flow presentation only in provenance-heavy
+# validation code. Keep them scoped to this package rather than weakening
+# workspace warnings or rewriting the validator during cohort qualification.
+[lints.clippy]
+collapsible_match = "allow"
+collapsible_if = "allow"
+
 [dependencies]
 hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }

@@ -6,6 +6,15 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# `EntryTypes` is a Holochain schema-facing enum; boxing a large variant to
+# satisfy Clippy would alter its generated representation. Keep that lint
+# explicit here. `collapsible_match` is scoped to this legacy validator until
+# it can be refactored independently without mixing source churn into cohort
+# qualification.
+[lints.clippy]
+large_enum_variant = "allow"
+collapsible_match = "allow"
+
 [dependencies]
 hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }

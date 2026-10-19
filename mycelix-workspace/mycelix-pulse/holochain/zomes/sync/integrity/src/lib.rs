@@ -184,10 +184,11 @@ pub enum SyncPayload {
     /// No payload
     None,
 
-    /// Email state change
+    /// Email state change. The state is boxed to keep the enum compact while
+    /// preserving serde/Holochain's value-level representation of the payload.
     EmailState {
         email_hash: ActionHash,
-        new_state: EmailStateCrdt,
+        new_state: Box<EmailStateCrdt>,
     },
 
     /// Folder change
