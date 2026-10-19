@@ -493,10 +493,12 @@
         "interface_id",
         "revision",
         "module_class",
-        "envelope_mm",
+        "module_envelope_mm",
         "removal_direction",
         "service_clearance_mm",
-        "verification_state"
+        "verification_state",
+        "bay_clear_envelope_mm",
+        "minimum_fit_clearance_mm"
       ],
       "properties": {
         "interface_id": {
@@ -520,9 +522,6 @@
             "other"
           ]
         },
-        "envelope_mm": {
-          "$ref": "#/$defs/dimensions"
-        },
         "removal_direction": {
           "enum": [
             "front",
@@ -536,7 +535,8 @@
           ]
         },
         "service_clearance_mm": {
-          "$ref": "#/$defs/dimensions"
+          "$ref": "#/$defs/dimensions",
+          "description": "Required external service/access envelope around the installed module, in mm; distinct from the bay's internal fit allowance."
         },
         "max_module_mass_kg": {
           "type": "number",
@@ -579,8 +579,21 @@
             "qualified",
             "blocked"
           ]
+        },
+        "module_envelope_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Maximum external module bounding envelope in the declared width/depth/height axes, mm. Mechanical fit alone does not establish operational compatibility."
+        },
+        "bay_clear_envelope_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Measured clear internal envelope of the actual host bay after liners, rails and obstructions, in the same local axes and mm."
+        },
+        "minimum_fit_clearance_mm": {
+          "$ref": "#/$defs/dimensions",
+          "description": "Minimum total dimensional allowance beyond the module envelope on each axis, in mm. The checker requires module envelope + allowance <= bay clear envelope. This does not replace manufacturer ventilation, electrical, thermal, or service clearances."
         }
-      }
+      },
+      "description": "Proposed replaceable-module interface. Dimensional fit is necessary but not sufficient for compatibility, safety, ventilation, thermal performance or certification."
     },
     "metric": {
       "type": "object",
