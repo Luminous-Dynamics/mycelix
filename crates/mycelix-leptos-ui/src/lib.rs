@@ -258,8 +258,9 @@ pub mod loading {
         } else {
             label
         };
+        let aria_label = label.clone();
         view! {
-            <div class="mycelix-skeleton-group" role="status" aria-label=label>
+            <div class="mycelix-skeleton-group" role="status" aria-label=aria_label>
                 {(0..count).map(|index| {
                     let width = if index + 1 == count { "62%" } else { "100%" };
                     view! {
