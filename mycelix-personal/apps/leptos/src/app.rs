@@ -3,6 +3,7 @@
 
 use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
+use leptos::text_prop::TextProp;
 use leptos_router::components::{A, Route, Router, Routes};
 use leptos_router::hooks::use_location;
 use leptos_router::path;
@@ -19,7 +20,7 @@ use mycelix_leptos_core::{
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
 use crate::context::{
-    provide_cultural_context, provide_personal_context, refresh_health_state,
+    SymbolRegistry, provide_cultural_context, provide_personal_context, refresh_health_state,
     refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
 };
 use crate::telemetry::ConstellationTelemetry;
@@ -766,12 +767,16 @@ fn PersonalSourceNotice() -> impl IntoView {
 }
 
 #[component]
-fn PageHeader(eyebrow: &'static str, title: &'static str, summary: String) -> impl IntoView {
+fn PageHeader(
+    #[prop(into)] eyebrow: TextProp,
+    #[prop(into)] title: TextProp,
+    #[prop(into)] summary: TextProp,
+) -> impl IntoView {
     view! {
         <header class="page-header">
-            <span class="page-eyebrow">{eyebrow}</span>
-            <h1>{title}</h1>
-            <p>{summary}</p>
+            <span class="page-eyebrow">{move || eyebrow.get()}</span>
+            <h1>{move || title.get()}</h1>
+            <p>{move || summary.get()}</p>
         </header>
     }
 }
@@ -782,13 +787,13 @@ fn SectionTitle(title: &'static str) -> impl IntoView {
 }
 
 #[component]
-fn VaultStat<F>(label: &'static str, value: F) -> impl IntoView
+fn VaultStat<F>(#[prop(into)] label: TextProp, value: F) -> impl IntoView
 where
     F: Fn() -> String + 'static,
 {
     view! {
         <div class="vault-stat">
-            <span class="vault-stat-label">{label}</span>
+            <span class="vault-stat-label">{move || label.get()}</span>
             <strong class="vault-stat-value">{value()}</strong>
         </div>
     }
