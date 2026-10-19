@@ -42,6 +42,25 @@ pub const DEFAULT_MAX_MORAL_SEVERITY: f32 = 0.3;
 /// Default sub-passport TTL: 24 hours in microseconds.
 pub const DEFAULT_TTL_US: u64 = 24 * 3600 * 1_000_000;
 
+/// Current canonical signing-transcript version.
+pub const SUB_PASSPORT_TRANSCRIPT_VERSION: u16 = 2;
+
+/// Legacy unframed transcript version. Deserialized pre-v2 passports default
+/// to this value so normal verification fails closed instead of silently
+/// reinterpreting a v1 signature as a v2 signature.
+pub const SUB_PASSPORT_TRANSCRIPT_VERSION_LEGACY: u16 = 1;
+
+const SUB_PASSPORT_TRANSCRIPT_DOMAIN_V2: &[u8] = b"mycelix:sub-passport:transcript:v2\0";
+
+const fn legacy_transcript_version() -> u16 {
+    SUB_PASSPORT_TRANSCRIPT_VERSION_LEGACY
+}
+
+fn push_len_prefixed(buf: &mut Vec<u8>, bytes: &[u8]) {
+    buf.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+    buf.extend_from_slice(bytes);
+}
+
 /// Action types that can be permitted via sub-passport.
 /// Ordered by privilege level (lower = safer).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -101,6 +120,11 @@ pub struct SubPassport {
     pub correction_count: u32,
     /// Human-readable purpose/scope description.
     pub purpose: String,
+    /// Version of the canonical transcript covered by `delegator_signature`.
+    /// Missing pre-v2 serialized values deserialize as legacy v1 and are not
+    /// accepted by normal verification.
+    #[serde(default = "legacy_transcript_version")]
+    pub signature_transcript_version: u16,
     /// Delegator signature binding this passport to the delegator's key.
     /// Empty if unsigned (local use only).
     #[serde(default)]
@@ -126,6 +150,7 @@ impl SubPassport {
             violation_count: 0,
             correction_count: 0,
             purpose,
+            signature_transcript_version: SUB_PASSPORT_TRANSCRIPT_VERSION,
             delegator_signature: Vec::new(),
         }
     }
@@ -158,6 +183,7 @@ impl SubPassport {
             violation_count: 0,
             correction_count: 0,
             purpose,
+            signature_transcript_version: SUB_PASSPORT_TRANSCRIPT_VERSION,
             delegator_signature: Vec::new(),
         }
     }
@@ -222,33 +248,56 @@ impl SubPassport {
         self.correction_count as f64 / total as f64
     }
 
-    /// Deterministic serialization of signable fields.
+    /// Canonical v2 serialization of delegated authority.
+    ///
+    /// v2 uses an explicit domain separator plus length framing for all
+    /// variable-length fields. It binds both DIDs, purpose, maximum tier,
+    /// action ceiling, severity ceiling, Ahimsa enforcement, issuance time,
+    /// and expiry time. Mutable runtime state such as effective tier,
+    /// violation/correction counters, and revocation metadata is deliberately
+    /// not part of the delegator's original authorization transcript.
     pub fn canonical_bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(128);
-        buf.extend_from_slice(self.agent_did.as_bytes());
-        buf.extend_from_slice(self.delegator_did.as_bytes());
+        let mut buf = Vec::with_capacity(
+            96 + self.agent_did.len() + self.delegator_did.len() + self.purpose.len(),
+        );
+        buf.extend_from_slice(SUB_PASSPORT_TRANSCRIPT_DOMAIN_V2);
+        buf.extend_from_slice(&SUB_PASSPORT_TRANSCRIPT_VERSION.to_le_bytes());
+        push_len_prefixed(&mut buf, self.agent_did.as_bytes());
+        push_len_prefixed(&mut buf, self.delegator_did.as_bytes());
+        push_len_prefixed(&mut buf, self.purpose.as_bytes());
         buf.push(self.max_tier as u8);
         buf.push(self.max_action as u8);
         buf.extend_from_slice(&self.max_moral_severity.to_le_bytes());
+        buf.push(u8::from(self.ahimsa_enforced));
+        buf.extend_from_slice(&self.issued_at.to_le_bytes());
         buf.extend_from_slice(&self.expires_at.to_le_bytes());
         buf
     }
 
     /// Sign with BLAKE3 keyed hash. Always available (no feature gate).
+    ///
+    /// This is a MAC for local/shared-key deployments, not a publicly
+    /// verifiable digital signature. Ed25519 remains the public-key path when
+    /// the `identity` feature is enabled.
     pub fn sign_blake3(&mut self, key: &[u8; 32]) {
+        self.signature_transcript_version = SUB_PASSPORT_TRANSCRIPT_VERSION;
         let data = self.canonical_bytes();
         let mac = blake3::keyed_hash(key, &data);
         self.delegator_signature = mac.as_bytes().to_vec();
     }
 
-    /// Verify BLAKE3 keyed hash signature.
+    /// Verify BLAKE3 keyed hash signature against the current v2 transcript.
+    /// Legacy v1 signatures fail closed and require an explicit migration.
     pub fn verify_blake3(&self, key: &[u8; 32]) -> bool {
+        if self.signature_transcript_version != SUB_PASSPORT_TRANSCRIPT_VERSION {
+            return false;
+        }
         let data = self.canonical_bytes();
         let mac = blake3::keyed_hash(key, &data);
         self.delegator_signature == mac.as_bytes().as_slice()
     }
 
-    /// Whether this passport has been signed.
+    /// Whether this passport carries any signature/MAC bytes.
     pub fn is_signed(&self) -> bool {
         !self.delegator_signature.is_empty()
     }
@@ -257,16 +306,20 @@ impl SubPassport {
     #[cfg(feature = "identity")]
     pub fn sign_ed25519(&mut self, key: &ed25519_dalek::SigningKey) {
         use ed25519_dalek::Signer;
+        self.signature_transcript_version = SUB_PASSPORT_TRANSCRIPT_VERSION;
         let data = self.canonical_bytes();
         let sig = key.sign(&data);
         self.delegator_signature = sig.to_bytes().to_vec();
     }
 
-    /// Verify Ed25519 signature (requires `identity` feature).
+    /// Verify Ed25519 signature against the current v2 transcript.
+    /// Legacy v1 signatures fail closed and require an explicit migration.
     #[cfg(feature = "identity")]
     pub fn verify_ed25519(&self, pubkey: &ed25519_dalek::VerifyingKey) -> bool {
         use ed25519_dalek::Verifier;
-        if self.delegator_signature.len() != 64 {
+        if self.signature_transcript_version != SUB_PASSPORT_TRANSCRIPT_VERSION
+            || self.delegator_signature.len() != 64
+        {
             return false;
         }
         let sig_bytes: [u8; 64] = match self.delegator_signature.as_slice().try_into() {
@@ -280,13 +333,19 @@ impl SubPassport {
 
     /// Renew the sub-passport with a new TTL.
     /// Only possible if compliance ratio is above threshold.
+    ///
+    /// Revocation is terminal for this grant: a revoked passport cannot be
+    /// renewed back into authority. Successful renewal changes the signed time
+    /// bounds, so any prior signature is cleared and the delegator must sign
+    /// the renewed grant again before signature-based use.
     pub fn renew(&mut self, now_us: u64, ttl_hours: u64) -> bool {
-        if self.compliance_ratio() < 0.5 {
-            return false; // Too many violations
+        if self.revoked || self.compliance_ratio() < 0.5 {
+            return false;
         }
         self.issued_at = now_us;
         self.expires_at = now_us + ttl_hours * 3600 * 1_000_000;
-        self.revoked = false;
+        self.signature_transcript_version = SUB_PASSPORT_TRANSCRIPT_VERSION;
+        self.delegator_signature.clear();
         true
     }
 }
@@ -311,6 +370,10 @@ mod tests {
         assert_eq!(sp.max_tier, ConsciousnessTier::Participant);
         assert_eq!(sp.max_action, DelegatedActionType::Read);
         assert!(sp.ahimsa_enforced);
+        assert_eq!(
+            sp.signature_transcript_version,
+            SUB_PASSPORT_TRANSCRIPT_VERSION
+        );
         assert!(sp.is_valid(now()));
         assert!(!sp.is_valid(now() + DEFAULT_TTL_US + 1));
     }
@@ -470,6 +533,19 @@ mod tests {
     }
 
     #[test]
+    fn revoked_passport_cannot_renew_back_into_authority() {
+        let mut sp = SubPassport::new(
+            "did:mycelix:agent".into(),
+            "did:mycelix:human".into(),
+            "test".into(),
+            now(),
+        );
+        sp.revoke("delegation withdrawn", now());
+        assert!(!sp.renew(now() + 1, 24));
+        assert!(sp.revoked);
+    }
+
+    #[test]
     fn compliance_ratio() {
         let mut sp = SubPassport::new(
             "did:mycelix:agent".into(),
@@ -532,6 +608,13 @@ mod tests {
     }
 
     #[test]
+    fn canonical_bytes_frame_variable_length_identity_fields() {
+        let a = SubPassport::new("a".into(), "bc".into(), "scope".into(), now());
+        let b = SubPassport::new("ab".into(), "c".into(), "scope".into(), now());
+        assert_ne!(a.canonical_bytes(), b.canonical_bytes());
+    }
+
+    #[test]
     fn blake3_sign_verify() {
         let key = [42u8; 32];
         let mut sp = SubPassport::new(
@@ -558,6 +641,84 @@ mod tests {
         // Tamper with max_action
         sp.max_action = DelegatedActionType::Execute;
         assert!(!sp.verify_blake3(&key));
+    }
+
+    #[test]
+    fn transcript_binds_purpose_ahimsa_and_issuance_time() {
+        let key = [42u8; 32];
+        let mut sp = SubPassport::new(
+            "did:mycelix:agent".into(),
+            "did:mycelix:human".into(),
+            "code review".into(),
+            now(),
+        );
+        sp.sign_blake3(&key);
+        assert!(sp.verify_blake3(&key));
+
+        let mut purpose_tampered = sp.clone();
+        purpose_tampered.purpose = "governance".into();
+        assert!(!purpose_tampered.verify_blake3(&key));
+
+        let mut ahimsa_tampered = sp.clone();
+        ahimsa_tampered.ahimsa_enforced = false;
+        assert!(!ahimsa_tampered.verify_blake3(&key));
+
+        let mut issued_tampered = sp.clone();
+        issued_tampered.issued_at = issued_tampered.issued_at.saturating_sub(1);
+        assert!(!issued_tampered.verify_blake3(&key));
+    }
+
+    #[test]
+    fn legacy_transcript_version_fails_closed() {
+        let key = [42u8; 32];
+        let mut sp = SubPassport::new(
+            "did:mycelix:agent".into(),
+            "did:mycelix:human".into(),
+            "test".into(),
+            now(),
+        );
+        sp.sign_blake3(&key);
+        sp.signature_transcript_version = SUB_PASSPORT_TRANSCRIPT_VERSION_LEGACY;
+        assert!(!sp.verify_blake3(&key));
+    }
+
+    #[test]
+    fn runtime_tier_degradation_does_not_rewrite_original_delegation_signature() {
+        let key = [42u8; 32];
+        let mut sp = SubPassport::with_constraints(
+            "did:mycelix:agent".into(),
+            "did:mycelix:human".into(),
+            "build only".into(),
+            ConsciousnessTier::Citizen,
+            DelegatedActionType::Build,
+            0.3,
+            24,
+            now(),
+        );
+        sp.sign_blake3(&key);
+        for _ in 0..3 {
+            sp.record_violation();
+        }
+        assert_eq!(sp.effective_tier, ConsciousnessTier::Participant);
+        assert!(sp.verify_blake3(&key));
+    }
+
+    #[test]
+    fn successful_renewal_requires_a_fresh_signature() {
+        let key = [42u8; 32];
+        let mut sp = SubPassport::new(
+            "did:mycelix:agent".into(),
+            "did:mycelix:human".into(),
+            "test".into(),
+            now(),
+        );
+        sp.sign_blake3(&key);
+        assert!(sp.verify_blake3(&key));
+        assert!(sp.renew(now() + DEFAULT_TTL_US, 24));
+        assert!(!sp.is_signed());
+        assert!(!sp.verify_blake3(&key));
+        sp.sign_blake3(&key);
+        assert!(sp.verify_blake3(&key));
     }
 
     #[cfg(feature = "identity")]
