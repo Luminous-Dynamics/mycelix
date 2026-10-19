@@ -407,6 +407,8 @@ pub fn is_passphrase_protected() -> bool {
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
+    validate_new_identity_passphrase(passphrase)?;
+    ensure_empty_identity_storage()?;
     let signing_key = try_generate_signing_key()?;
     persist_protected_signing_key(signing_key, passphrase).await
 }
@@ -420,24 +422,42 @@ pub async fn restore_protected_identity_from_seed_phrase(
     phrase: &str,
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
+    validate_new_identity_passphrase(passphrase)?;
+    ensure_empty_identity_storage()?;
     let signing_key = signing_key_from_seed_phrase(phrase)?;
     persist_protected_signing_key(signing_key, passphrase).await
 }
 
-async fn persist_protected_signing_key(
-    signing_key: SigningKey,
-    passphrase: &str,
-) -> Result<LocalIdentityStoragePosture, String> {
+fn validate_new_identity_passphrase(passphrase: &str) -> Result<(), String> {
     if passphrase.trim().is_empty() {
         return Err("Passphrase must not be empty".into());
     }
+    Ok(())
+}
 
+fn ensure_empty_identity_storage() -> Result<(), String> {
     if UNLOCKED_KEY.with(|cell| cell.borrow().is_some()) {
         return Err(
             "An in-memory identity key already exists; inspect identity posture before creating or restoring."
                 .into(),
         );
     }
+    let snapshot = read_identity_storage_snapshot()
+        .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
+    if classify_identity_storage_snapshot(&snapshot) != LocalIdentityStoragePosture::NoIdentity {
+        return Err(
+            "Identity storage is not empty. Inspect or recover the existing identity before creating another."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+async fn persist_protected_signing_key(
+    signing_key: SigningKey,
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    validate_new_identity_passphrase(passphrase)?;
 
     let window = web_sys::window()
         .ok_or_else(|| "Browser window is unavailable; no identity was created.".to_string())?;
