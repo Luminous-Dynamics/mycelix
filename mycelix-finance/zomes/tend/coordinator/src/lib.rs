@@ -602,31 +602,38 @@ fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<
                     member_did, hearth_did
                 )))),
                 Err(e) => {
-                    // SECURITY NOTE: Decode error falls through permissively to support
-                    // bootstrap/standalone mode where hearth zome schema may differ.
+                    // A decode failure is not a positive membership assertion.
+                    // Monetary Hearth mutations must fail closed.
                     debug!(
-                        "verify_hearth_membership: decode error for {}@{}: {:?}, allowing (bootstrap/standalone)",
+                        "verify_hearth_membership: decode error for {}@{}: {:?}",
                         member_did, hearth_did, e
                     );
-                    Ok(())
+                    Err(wasm_error!(WasmErrorInner::Guest(
+                        "Unable to verify Hearth membership".into()
+                    )))
                 }
             }
         }
         Ok(other) => {
-            // SECURITY NOTE: Hearth zome unreachable/unauthorized — allow in bootstrap/standalone mode.
+            // An unexpected authorization response is not evidence of membership.
             debug!(
-                "verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (bootstrap/standalone)",
-                other, member_did, hearth_did
+                "verify_hearth_membership: hearth_bridge returned unexpected response for {}@{}: {:?}",
+                member_did, hearth_did, other
             );
-            Ok(())
+            Err(wasm_error!(WasmErrorInner::Guest(
+                "Unable to verify Hearth membership".into()
+            )))
         }
         Err(e) => {
-            // SECURITY NOTE: Hearth zome unreachable — allow in bootstrap/standalone mode.
+            // Availability of the membership authority is a prerequisite for the
+            // monetary mutation; do not downgrade to implicit bootstrap/standalone mode.
             debug!(
-                "verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (bootstrap/standalone)",
+                "verify_hearth_membership: hearth_bridge unavailable for {}@{}: {:?}",
                 member_did, hearth_did, e
             );
-            Ok(())
+            Err(wasm_error!(WasmErrorInner::Guest(
+                "Hearth membership authority unavailable".into()
+            )))
         }
     }
 }
