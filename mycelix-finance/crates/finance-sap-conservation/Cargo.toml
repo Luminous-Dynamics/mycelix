@@ -1,0 +1,14 @@
+[package]
+name = "finance-sap-conservation"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Request-bound SAP issuance provenance and balance conservation theorems"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
+finance-collateral-request-binding = { path = "../finance-collateral-request-binding" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
