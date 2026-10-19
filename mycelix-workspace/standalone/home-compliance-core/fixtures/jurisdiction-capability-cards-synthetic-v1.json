@@ -20,12 +20,66 @@
           "domain": "planning_and_land_use",
           "disposition": "missing",
           "gap_description": "Authoritative instrument set, edition lineage, and applicability rules are not yet reviewed in this synthetic fixture."
+        },
+        {
+          "domain": "structural_safety",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Structural engineering source pack, accepted calculation methods, and reviewed fixtures are not yet inventoried for this research target."
+        },
+        {
+          "domain": "fire_and_life_safety",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Applicable fire/egress instruments, local fire-authority interface, and reviewed scenarios are not yet inventoried for this research target."
+        },
+        {
+          "domain": "energy_and_thermal",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Energy and thermal requirements, local climate inputs, source editions, and validation cases are not yet reviewed for this research target."
+        },
+        {
+          "domain": "accessibility",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Accessibility legislation, standards adoption, local applicability, and independent inclusive-design cases are not yet reviewed for this research target."
+        },
+        {
+          "domain": "water_and_sanitation",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Water, wastewater, stormwater, and sanitation instruments plus utility-specific requirements are not yet reviewed for this research target."
+        },
+        {
+          "domain": "electrical_installations",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Electrical installation rules, licensed inspection evidence, and current adopted standards are not yet reviewed for this research target."
+        },
+        {
+          "domain": "permit_and_inspection_process",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Permit, review, inspection, occupancy, appeals, and municipal process requirements are not yet mapped for this research target."
+        },
+        {
+          "domain": "heritage_and_conservation",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Heritage triggers, protected-area overlays, and responsible-authority interfaces are not yet inventoried for this research target."
+        },
+        {
+          "domain": "environmental_and_site_hazards",
+          "disposition": "missing",
+          "gap_description": "Johannesburg, Gauteng, South Africa — Flood, fire, geotechnical, contamination, environmental, and other site-specific triggers are not yet inventoried for this research target."
         }
       ],
       "independent_reviews": [],
       "known_scope_gaps": [
         "No authoritative source pack or independent code fixture has been reviewed for this synthetic card.",
-        "No permit, code-compliance, engineering-safety, or professional-approval claim is made."
+        "No permit, code-compliance, engineering-safety, or professional-approval claim is made.",
+        "Johannesburg, Gauteng, South Africa — Structural engineering source pack, accepted calculation methods, and reviewed fixtures are not yet inventoried for this research target.",
+        "Johannesburg, Gauteng, South Africa — Applicable fire/egress instruments, local fire-authority interface, and reviewed scenarios are not yet inventoried for this research target.",
+        "Johannesburg, Gauteng, South Africa — Energy and thermal requirements, local climate inputs, source editions, and validation cases are not yet reviewed for this research target.",
+        "Johannesburg, Gauteng, South Africa — Accessibility legislation, standards adoption, local applicability, and independent inclusive-design cases are not yet reviewed for this research target.",
+        "Johannesburg, Gauteng, South Africa — Water, wastewater, stormwater, and sanitation instruments plus utility-specific requirements are not yet reviewed for this research target.",
+        "Johannesburg, Gauteng, South Africa — Electrical installation rules, licensed inspection evidence, and current adopted standards are not yet reviewed for this research target.",
+        "Johannesburg, Gauteng, South Africa — Permit, review, inspection, occupancy, appeals, and municipal process requirements are not yet mapped for this research target.",
+        "Johannesburg, Gauteng, South Africa — Heritage triggers, protected-area overlays, and responsible-authority interfaces are not yet inventoried for this research target.",
+        "Johannesburg, Gauteng, South Africa — Flood, fire, geotechnical, contamination, environmental, and other site-specific triggers are not yet inventoried for this research target."
       ],
       "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
       "accountable_maintainer": "governance:unassigned",
@@ -51,12 +105,66 @@
           "domain": "planning_and_land_use",
           "disposition": "missing",
           "gap_description": "Authoritative instrument set, edition lineage, and applicability rules are not yet reviewed in this synthetic fixture."
+        },
+        {
+          "domain": "structural_safety",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Structural engineering source pack, accepted calculation methods, and reviewed fixtures are not yet inventoried for this research target."
+        },
+        {
+          "domain": "fire_and_life_safety",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Applicable fire/egress instruments, local fire-authority interface, and reviewed scenarios are not yet inventoried for this research target."
+        },
+        {
+          "domain": "energy_and_thermal",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Energy and thermal requirements, local climate inputs, source editions, and validation cases are not yet reviewed for this research target."
+        },
+        {
+          "domain": "accessibility",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Accessibility legislation, standards adoption, local applicability, and independent inclusive-design cases are not yet reviewed for this research target."
+        },
+        {
+          "domain": "water_and_sanitation",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Water, wastewater, stormwater, and sanitation instruments plus utility-specific requirements are not yet reviewed for this research target."
+        },
+        {
+          "domain": "electrical_installations",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Electrical installation rules, licensed inspection evidence, and current adopted standards are not yet reviewed for this research target."
+        },
+        {
+          "domain": "permit_and_inspection_process",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Permit, review, inspection, occupancy, appeals, and municipal process requirements are not yet mapped for this research target."
+        },
+        {
+          "domain": "heritage_and_conservation",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Heritage triggers, protected-area overlays, and responsible-authority interfaces are not yet inventoried for this research target."
+        },
+        {
+          "domain": "environmental_and_site_hazards",
+          "disposition": "missing",
+          "gap_description": "San Francisco, California, United States — Flood, fire, geotechnical, contamination, environmental, and other site-specific triggers are not yet inventoried for this research target."
         }
       ],
       "independent_reviews": [],
       "known_scope_gaps": [
         "No California or municipal instrument applicability has been reviewed for this synthetic card.",
-        "No permit, code-compliance, engineering-safety, or professional-approval claim is made."
+        "No permit, code-compliance, engineering-safety, or professional-approval claim is made.",
+        "San Francisco, California, United States — Structural engineering source pack, accepted calculation methods, and reviewed fixtures are not yet inventoried for this research target.",
+        "San Francisco, California, United States — Applicable fire/egress instruments, local fire-authority interface, and reviewed scenarios are not yet inventoried for this research target.",
+        "San Francisco, California, United States — Energy and thermal requirements, local climate inputs, source editions, and validation cases are not yet reviewed for this research target.",
+        "San Francisco, California, United States — Accessibility legislation, standards adoption, local applicability, and independent inclusive-design cases are not yet reviewed for this research target.",
+        "San Francisco, California, United States — Water, wastewater, stormwater, and sanitation instruments plus utility-specific requirements are not yet reviewed for this research target.",
+        "San Francisco, California, United States — Electrical installation rules, licensed inspection evidence, and current adopted standards are not yet reviewed for this research target.",
+        "San Francisco, California, United States — Permit, review, inspection, occupancy, appeals, and municipal process requirements are not yet mapped for this research target.",
+        "San Francisco, California, United States — Heritage triggers, protected-area overlays, and responsible-authority interfaces are not yet inventoried for this research target.",
+        "San Francisco, California, United States — Flood, fire, geotechnical, contamination, environmental, and other site-specific triggers are not yet inventoried for this research target."
       ],
       "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
       "accountable_maintainer": "governance:unassigned",
@@ -82,12 +190,66 @@
           "domain": "planning_and_land_use",
           "disposition": "missing",
           "gap_description": "Authoritative instrument set, edition lineage, and applicability rules are not yet reviewed in this synthetic fixture."
+        },
+        {
+          "domain": "structural_safety",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Structural engineering source pack, accepted calculation methods, and reviewed fixtures are not yet inventoried for this research target."
+        },
+        {
+          "domain": "fire_and_life_safety",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Applicable fire/egress instruments, local fire-authority interface, and reviewed scenarios are not yet inventoried for this research target."
+        },
+        {
+          "domain": "energy_and_thermal",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Energy and thermal requirements, local climate inputs, source editions, and validation cases are not yet reviewed for this research target."
+        },
+        {
+          "domain": "accessibility",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Accessibility legislation, standards adoption, local applicability, and independent inclusive-design cases are not yet reviewed for this research target."
+        },
+        {
+          "domain": "water_and_sanitation",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Water, wastewater, stormwater, and sanitation instruments plus utility-specific requirements are not yet reviewed for this research target."
+        },
+        {
+          "domain": "electrical_installations",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Electrical installation rules, licensed inspection evidence, and current adopted standards are not yet reviewed for this research target."
+        },
+        {
+          "domain": "permit_and_inspection_process",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Permit, review, inspection, occupancy, appeals, and municipal process requirements are not yet mapped for this research target."
+        },
+        {
+          "domain": "heritage_and_conservation",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Heritage triggers, protected-area overlays, and responsible-authority interfaces are not yet inventoried for this research target."
+        },
+        {
+          "domain": "environmental_and_site_hazards",
+          "disposition": "missing",
+          "gap_description": "Berlin, Germany — Flood, fire, geotechnical, contamination, environmental, and other site-specific triggers are not yet inventoried for this research target."
         }
       ],
       "independent_reviews": [],
       "known_scope_gaps": [
         "No German federal/state/municipal instrument relationships have been reviewed for this synthetic card.",
-        "No permit, code-compliance, engineering-safety, or professional-approval claim is made."
+        "No permit, code-compliance, engineering-safety, or professional-approval claim is made.",
+        "Berlin, Germany — Structural engineering source pack, accepted calculation methods, and reviewed fixtures are not yet inventoried for this research target.",
+        "Berlin, Germany — Applicable fire/egress instruments, local fire-authority interface, and reviewed scenarios are not yet inventoried for this research target.",
+        "Berlin, Germany — Energy and thermal requirements, local climate inputs, source editions, and validation cases are not yet reviewed for this research target.",
+        "Berlin, Germany — Accessibility legislation, standards adoption, local applicability, and independent inclusive-design cases are not yet reviewed for this research target.",
+        "Berlin, Germany — Water, wastewater, stormwater, and sanitation instruments plus utility-specific requirements are not yet reviewed for this research target.",
+        "Berlin, Germany — Electrical installation rules, licensed inspection evidence, and current adopted standards are not yet reviewed for this research target.",
+        "Berlin, Germany — Permit, review, inspection, occupancy, appeals, and municipal process requirements are not yet mapped for this research target.",
+        "Berlin, Germany — Heritage triggers, protected-area overlays, and responsible-authority interfaces are not yet inventoried for this research target.",
+        "Berlin, Germany — Flood, fire, geotechnical, contamination, environmental, and other site-specific triggers are not yet inventoried for this research target."
       ],
       "update_policy": "Synthetic policy placeholder: establish authoritative publisher monitoring, snapshot retention, independent change review, and a locally selected freshness limit before pilot.",
       "accountable_maintainer": "governance:unassigned",
