@@ -1,0 +1,93 @@
+{
+  "schema": "mycelix.support-civic.stable-ticket-identity.v1",
+  "program": "SUP-CIV-001A",
+  "tracking_issue": 2044,
+  "parent_discovery_issue": 2030,
+  "civic_dependency_issue": 2028,
+  "parent_subject": "a85369699099d4c7524e502e531735eed4ab36f4",
+  "runtime_owner": "Deferred",
+  "source_family": {
+    "types_crate": "mycelix-commons/crates/support-types",
+    "integrity_zome": "mycelix-commons/zomes/support-tickets/integrity",
+    "coordinator_zome": "mycelix-commons/zomes/support-tickets/coordinator"
+  },
+  "stable_id_definition": {
+    "logical_type": "StableSupportTicketId",
+    "representation": "EntryHash(CanonicalSupportTicketIdentity)",
+    "action_hash_is_stable_id": false,
+    "legacy_support_ticket_schema_change_required": false
+  },
+  "canonical_identity_fields": [
+    "genesis_ticket_action_ref",
+    "requester_ref",
+    "intake_created_at_ref"
+  ],
+  "canonicality_requirements": [
+    "genesis_ticket_action_ref resolves to a Create action",
+    "the created application entry is SupportTicket",
+    "requester_ref equals the genesis SupportTicket requester",
+    "intake_created_at_ref equals the genesis SupportTicket created_at",
+    "canonical identity content is immutable",
+    "same canonical identity content yields the same EntryHash"
+  ],
+  "legacy_identity_states": [
+    "validated_identity_present",
+    "legacy_unmigrated_identity_absent",
+    "migration_failed_or_refused"
+  ],
+  "required_executable_refusals": [
+    "update_action_as_genesis",
+    "non_ticket_action_as_genesis",
+    "requester_mismatch",
+    "intake_created_at_mismatch",
+    "identity_entry_update",
+    "fabricated_identity_for_legacy_absence"
+  ],
+  "deferred_theorems": [
+    "revision_lineage",
+    "current_state_projection",
+    "status_transition_algebra",
+    "typed_assignment_priority_category_changes",
+    "current_index_maintenance",
+    "access_accountability_composition",
+    "civic_adapter_refs",
+    "completion_verification_binding",
+    "administrative_procedure_binding",
+    "municipal_external_reference_reconciliation",
+    "deployment_privacy_profile_composition"
+  ],
+  "non_equivalences": [
+    "SupportTicketActionHash != StableSupportTicketId",
+    "StableSupportTicketId != CurrentTicketState",
+    "StableSupportTicketId != TicketStatus",
+    "StableSupportTicketId != CivicAuthority",
+    "IdentityEntry != CurrentRevision",
+    "IdentityEntry != CompletionVerification",
+    "IdentityEntry != AdministrativeFinality",
+    "IdentityEntry != ExternalMunicipalClosure",
+    "IdentityEntry != OutcomeImprovement",
+    "IdentityEntry != CausalEffect",
+    "LegacyTicketWithoutIdentity != MigratedTicket",
+    "LinkToIdentity != ValidatedLineage",
+    "LatestSeenRevision != ProvenCurrentState",
+    "TicketPriority != CivicPriorityAuthority",
+    "SupportCategory != UniversalCivicTaxonomy",
+    "AutonomyLevel::FullAutonomous != CivicAuthority",
+    "AutonomousAction.approved != InstitutionalAuthority",
+    "AutonomousAction.executed != ConfirmedExternalEffect",
+    "AutonomousAction.success != OutcomeEffect",
+    "PredictionConfidence != ObservationTruth"
+  ],
+  "forbidden_claims": [
+    "runtime_identity_implemented",
+    "legacy_migration_complete",
+    "current_state_proven",
+    "status_transition_safe",
+    "civic_authority_established",
+    "completion_verified",
+    "municipal_legitimacy_established",
+    "privacy_compliance_established",
+    "johannesburg_deployment_ready"
+  ],
+  "claim_ceiling": "semantic identity and migration boundary only"
+}
