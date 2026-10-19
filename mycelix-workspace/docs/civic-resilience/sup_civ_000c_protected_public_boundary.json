@@ -1,0 +1,75 @@
+{
+  "schema": "mycelix.support-civic.protected-public-boundary.v1",
+  "program": "SUP-CIV-000C",
+  "tracking_issue": 2153,
+  "parent_subject": "a85369699099d4c7524e502e531735eed4ab36f4",
+  "runtime_owner": "Deferred",
+  "data_planes": [
+    "PublicOperationalEnvelope",
+    "ProtectedSupportPayload",
+    "ProtectedAccessReceiptRef",
+    "ReleaseProjectionRef"
+  ],
+  "legacy_classification_states": [
+    "LegacyPayloadNotClassifiedForCivicDisclosure",
+    "PublicEnvelopeQualifiedUnderProfile",
+    "ProtectedPayloadQualifiedUnderProfile",
+    "ReleaseProjectionQualifiedUnderProfile"
+  ],
+  "public_envelope_forbidden_raw_material": [
+    "unrestricted_protected_narrative",
+    "precise_private_location",
+    "private_contact_details",
+    "protected_attachments",
+    "security_sensitive_diagnostics",
+    "credentials_or_tokens"
+  ],
+  "storage_mechanism": "Deferred",
+  "universal_public_safe_field_set": false,
+  "universal_legal_basis": false,
+  "protected_access_may_imply_public_release": false,
+  "public_release_may_imply_access_legitimacy": false,
+  "application_delete_is_global_erasure": false,
+  "required_runtime_refusals": [
+    "raw_phone_or_name_in_free_text_to_public_envelope",
+    "exact_home_address_to_public_projection_without_release_policy",
+    "sensitive_comment_inherits_public_ticket_visibility",
+    "credential_token_ip_or_internal_topology_to_public_projection",
+    "linkable_identifier_precise_place_time_without_profile_review",
+    "protected_access_without_required_purpose_scope_evidence",
+    "public_dashboard_direct_protected_payload_read",
+    "release_when_required_history_or_mosaic_policy_missing_or_stale",
+    "delete_action_as_guaranteed_global_erasure",
+    "legacy_payload_silently_upgraded_to_civic_public_safe"
+  ],
+  "non_equivalences": [
+    "ServiceRequest != PublicDisclosureConsent",
+    "OperationalRouting != PublicDisclosureAuthority",
+    "PublicDhtReplication != PrivacyProtection",
+    "RequesterAgentPubKey != AnonymousIdentity",
+    "RequesterAgentPubKey != PublicIdentityConsent",
+    "PseudonymousIdentifier != AnonymousData",
+    "FreeTextDescription != PublicSafeSummary",
+    "NeedForRouting != PermissionForPublicPreciseLocation",
+    "OperationalDiagnosticNeed != PublicSystemDisclosure",
+    "PublicTicketEnvelope != AllLinkedMaterialPublic",
+    "ProtectedPayloadAccess != PublicReleaseAuthority",
+    "PublicRelease != AccessLegitimacy",
+    "ApplicationDeleteAction != GuaranteedGlobalErasure",
+    "LegacySupportPayload != CivicPublicSafePayload",
+    "PredictionConfidence != PublicDisclosureAuthority",
+    "PreemptiveAlert != PublicIncidentTruth"
+  ],
+  "deferred_runtime_decisions": [
+    "protected_storage_mechanism",
+    "key_or_capability_distribution",
+    "identity_projection_technique",
+    "public_safe_field_classifier",
+    "precise_location_operational_storage",
+    "retention_engine",
+    "deletion_or_erasure_implementation",
+    "civ_res_001b_release_policy_runtime",
+    "johannesburg_legal_profile_binding"
+  ],
+  "claim_ceiling": "semantic protected/public/release data-plane boundary only"
+}
