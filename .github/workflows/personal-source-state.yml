@@ -57,7 +57,7 @@ jobs:
         run: |
           cargo generate-lockfile --manifest-path mycelix-personal/apps/leptos/Cargo.toml
           cargo generate-lockfile --manifest-path mycelix-personal/crates/personal-leptos-types/Cargo.toml
-          sha256sum mycelix-personal/apps/leptos/Cargo.lock mycelix-personal/crates/personal-leptos-types/Cargo.lock
+          sha256sum mycelix-personal/apps/leptos/Cargo.lock mycelix-personal/Cargo.lock
       - name: Check formatting
         run: |
           cargo fmt --manifest-path mycelix-personal/apps/leptos/Cargo.toml -- --check
