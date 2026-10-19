@@ -352,24 +352,35 @@ mod source_status_tests {
 }
 
 pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(Some(profile)) = hc
+    match hc
         .call_zome_default::<(), Option<ProfileView>>("identity_vault", "get_my_profile_view", &())
         .await
     {
-        ctx.profile.set(profile.clone());
-        ctx.draft_profile.set(profile);
+        Ok(profile) => {
+            let profile = profile.unwrap_or_else(empty_profile);
+            ctx.profile.set(profile.clone());
+            ctx.draft_profile.set(profile);
+        }
+        Err(_) => ctx.status_note.set(
+            "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(keys) = hc
+    match hc
         .call_zome_default::<(), Vec<MasterKeyView>>("identity_vault", "get_my_keys_view", &())
         .await
     {
-        ctx.keys.set(keys);
+        Ok(keys) => ctx.keys.set(keys),
+        Err(_) => ctx.status_note.set(
+            "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
+                .into(),
+        ),
     }
 }
 
 pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(preferences) = hc
+    match hc
         .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
             "data_preferences",
             "get_my_preferences_view",
@@ -377,10 +388,14 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        ctx.preferences.set(preferences);
+        Ok(preferences) => ctx.preferences.set(preferences),
+        Err(_) => ctx.status_note.set(
+            "Live mode: sharing preferences could not be refreshed; the displayed policy may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(log) = hc
+    match hc
         .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
             "data_preferences",
             "get_change_log_view",
@@ -388,29 +403,45 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        ctx.preference_log.set(log);
+        Ok(log) => ctx.preference_log.set(log),
+        Err(_) => ctx.status_note.set(
+            "Live mode: preference history could not be refreshed; the displayed history may be stale."
+                .into(),
+        ),
     }
 }
 
 pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(biometrics) = hc
+    match hc
         .call_zome_default::<(), Vec<BiometricView>>("health_vault", "get_my_biometrics_view", &())
         .await
     {
-        ctx.biometrics.set(biometrics);
+        Ok(biometrics) => ctx.biometrics.set(biometrics),
+        Err(_) => ctx.status_note.set(
+            "Live mode: biometric records could not be refreshed; the displayed list may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(consents) = hc
+    match hc
         .call_zome_default::<(), Vec<ConsentGrantView>>("health_vault", "get_my_consents_view", &())
         .await
     {
-        ctx.consents.set(consents);
+        Ok(consents) => ctx.consents.set(consents),
+        Err(_) => ctx.status_note.set(
+            "Live mode: consent grants could not be refreshed; the displayed list may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(records) = hc
+    match hc
         .call_zome_default::<(), Vec<HealthRecordView>>("health_vault", "get_my_records_view", &())
         .await
     {
-        ctx.health_record_count.set(records.len());
+        Ok(records) => ctx.health_record_count.set(records.len()),
+        Err(_) => ctx.status_note.set(
+            "Live mode: health records could not be refreshed; the displayed count may be stale."
+                .into(),
+        ),
     }
 }
