@@ -577,6 +577,7 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
 mod source_status_tests {
     use super::{
         empty_profile, failed_refresh_state, live_collection_state, live_source_status,
+        SourceReadState, SourceUnavailableReason,
     };
 
     #[test]
