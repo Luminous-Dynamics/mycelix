@@ -201,6 +201,8 @@ pub struct AlternativeSolutionReport {
     pub status: AlternativeSolutionStatus,
     pub blockers: Vec<AlternativeCaseBlocker>,
     pub preserved_dissenting_reviewers: Vec<String>,
+    pub failed_criteria: Vec<String>,
+    pub unknown_criteria: Vec<String>,
     pub criteria_passed: usize,
     pub criteria_failed: usize,
     pub criteria_unknown: usize,
