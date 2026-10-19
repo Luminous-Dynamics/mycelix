@@ -1502,6 +1502,8 @@ fn verify_oracle_rate_against_consensus(
     #[derive(Debug, Deserialize)]
     struct ConsensusResult {
         median_price: f64,
+        reporter_count: u32,
+        fallback_used: bool,
     }
 
     let item = format!("{}_SAP", collateral_type); // e.g., "ETH_SAP", "USDC_SAP"
@@ -1514,7 +1516,12 @@ fn verify_oracle_rate_against_consensus(
         GetConsensusInput { item },
     ) {
         Ok(ZomeCallResponse::Ok(result)) => match result.decode::<ConsensusResult>() {
-            Ok(consensus) if consensus.median_price.is_finite() && consensus.median_price > 0.0 => {
+            Ok(consensus)
+                if consensus.median_price.is_finite()
+                    && consensus.median_price > 0.0
+                    && consensus.reporter_count >= 2
+                    && !consensus.fallback_used =>
+            {
                 let deviation =
                     (claimed_rate - consensus.median_price).abs() / consensus.median_price;
                 if deviation > ORACLE_RATE_TOLERANCE {
