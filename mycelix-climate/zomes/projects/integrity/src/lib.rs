@@ -287,3 +287,110 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_location() -> Location {
+        Location {
+            country_code: "ZA".into(),
+            region: Some("Gauteng".into()),
+            latitude: -26.2041,
+            longitude: 28.0473,
+        }
+    }
+
+    fn valid_project() -> ClimateProject {
+        ClimateProject {
+            id: "project:heat-resilience-1".into(),
+            name: "Heat resilience pilot".into(),
+            project_type: ProjectType::RenewableEnergy,
+            location: valid_location(),
+            expected_credits: 0.0,
+            start_date: 1_788_825_600,
+            verifier_did: None,
+            status: ProjectStatus::Proposed,
+        }
+    }
+
+    fn valid_milestone() -> ProjectMilestone {
+        ProjectMilestone {
+            project_id: "project:heat-resilience-1".into(),
+            title: "Baseline complete".into(),
+            description: "Baseline measurements collected".into(),
+            target_date: 1_800_000_000,
+            completed_at: None,
+            credits_issued: None,
+            verified_by: None,
+        }
+    }
+
+    fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
+        assert!(matches!(result.expect("validator should execute"), ValidateCallbackResult::Valid));
+    }
+
+    fn assert_invalid_contains(result: ExternResult<ValidateCallbackResult>, needle: &str) {
+        match result.expect("validator should execute") {
+            ValidateCallbackResult::Invalid(reason) => assert!(
+                reason.contains(needle),
+                "expected rejection containing {needle:?}, got {reason:?}"
+            ),
+            other => panic!("expected invalid result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn production_location_validator_accepts_valid_coordinates() {
+        assert_valid(validate_location(&valid_location()));
+    }
+
+    #[test]
+    fn production_location_validator_rejects_out_of_range_coordinates() {
+        let mut location = valid_location();
+        location.latitude = 90.1;
+        assert_invalid_contains(validate_location(&location), "Latitude");
+
+        let mut location = valid_location();
+        location.longitude = -180.1;
+        assert_invalid_contains(validate_location(&location), "Longitude");
+    }
+
+    #[test]
+    fn production_project_validator_accepts_valid_project() {
+        assert_valid(validate_climate_project(&valid_project()));
+    }
+
+    #[test]
+    fn production_project_validator_rejects_negative_expected_credits() {
+        let mut project = valid_project();
+        project.expected_credits = -0.01;
+        assert_invalid_contains(validate_climate_project(&project), "Expected credits");
+    }
+
+    #[test]
+    fn production_project_validator_rejects_invalid_verifier_identity() {
+        let mut project = valid_project();
+        project.verifier_did = Some("verifier-1".into());
+        assert_invalid_contains(validate_climate_project(&project), "did:");
+    }
+
+    #[test]
+    fn production_milestone_validator_accepts_valid_milestone() {
+        assert_valid(validate_milestone(&valid_milestone()));
+    }
+
+    #[test]
+    fn production_milestone_validator_rejects_negative_credits() {
+        let mut milestone = valid_milestone();
+        milestone.credits_issued = Some(-1.0);
+        assert_invalid_contains(validate_milestone(&milestone), "Credits issued");
+    }
+
+    #[test]
+    fn production_milestone_validator_rejects_unreasonably_early_completion() {
+        let mut milestone = valid_milestone();
+        milestone.completed_at = Some(milestone.target_date - 31_536_001);
+        assert_invalid_contains(validate_milestone(&milestone), "unreasonably early");
+    }
+}
