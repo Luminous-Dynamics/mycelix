@@ -1,0 +1,13 @@
+{
+  "schema": "mycelix.formal-tool-pins.v1",
+  "nixpkgs": {
+    "rev": "a50bf0c1b07873c1a53892292017041a8f0a1288",
+    "jdk_installable": "jdk17_headless"
+  },
+  "alloy": {
+    "version": "6.2.0",
+    "url": "https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar",
+    "sha256": "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d",
+    "solver": "sat4j"
+  }
+}
