@@ -423,3 +423,16 @@ body {
     .source-status-row { grid-template-columns: 1fr; gap: 0.2rem; }
 }
 
+
+.source-empty-copy {
+    margin: var(--space-sm) 0 0;
+    padding: var(--space-md);
+    border: 1px dashed var(--border-visible);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.health-record-summary { margin-bottom: var(--space-lg); }
+
