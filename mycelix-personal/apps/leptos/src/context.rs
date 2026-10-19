@@ -70,23 +70,57 @@ pub struct PersonalCtx {
     pub status_note: RwSignal<String>,
 }
 
+fn empty_profile() -> ProfileView {
+    ProfileView {
+        display_name: String::new(),
+        avatar: None,
+        bio: None,
+        metadata: std::collections::HashMap::new(),
+        updated_at: 0,
+    }
+}
+
+fn live_source_status(
+    successful_sources: &[&str],
+    unavailable_sources: &[&str],
+) -> String {
+    if unavailable_sources.is_empty() {
+        format!(
+            "Live mode: all {} Personal source views returned successfully. An empty list means that specific source returned no records at this read time.",
+            successful_sources.len()
+        )
+    } else if successful_sources.is_empty() {
+        format!(
+            "Live mode: no Personal source views could be read ({}). Records are unavailable, not confirmed absent.",
+            unavailable_sources.join(", ")
+        )
+    } else {
+        format!(
+            "Live mode: partial source read. Unavailable: {}. Empty lists are meaningful only for the sources that returned successfully; unavailable sources are not confirmed empty.",
+            unavailable_sources.join(", ")
+        )
+    }
+}
+
 pub fn provide_personal_context() {
-    let profile = mock_data::mock_profile();
+    let profile = empty_profile();
     let ctx = PersonalCtx {
         draft_profile: RwSignal::new(profile.clone()),
         profile: RwSignal::new(profile),
-        keys: RwSignal::new(mock_data::mock_keys()),
-        credentials: RwSignal::new(mock_data::mock_credentials()),
-        biometrics: RwSignal::new(mock_data::mock_biometrics()),
-        consents: RwSignal::new(mock_data::mock_consents()),
-        preferences: RwSignal::new(mock_data::mock_preferences()),
-        preference_log: RwSignal::new(mock_data::mock_preference_log()),
-        health_record_count: RwSignal::new(mock_data::mock_health_records()),
-        activity: RwSignal::new(mock_data::mock_activity()),
+        // Start empty in every mode. Synthetic data is populated only after
+        // the provider explicitly reports Mock mode.
+        keys: RwSignal::new(Vec::new()),
+        credentials: RwSignal::new(Vec::new()),
+        biometrics: RwSignal::new(Vec::new()),
+        consents: RwSignal::new(Vec::new()),
+        preferences: RwSignal::new(Vec::new()),
+        preference_log: RwSignal::new(Vec::new()),
+        health_record_count: RwSignal::new(0),
+        activity: RwSignal::new(Vec::new()),
         loading: RwSignal::new(true),
         live_sync_ready: RwSignal::new(false),
         status_note: RwSignal::new(
-            "Using stable local vault models while Personal zome view adapters are still being standardized.".into(),
+            "Personal source state has not been checked yet.".into(),
         ),
     };
 
@@ -97,14 +131,30 @@ pub fn provide_personal_context() {
         let hc = use_holochain();
 
         if hc.is_mock() {
+            // Synthetic fixtures exist only in explicit Mock mode. They are
+            // never used as fallback values for failed/empty Live reads.
+            let profile = mock_data::mock_profile();
+            ctx.profile.set(profile.clone());
+            ctx.draft_profile.set(profile);
+            ctx.keys.set(mock_data::mock_keys());
+            ctx.credentials.set(mock_data::mock_credentials());
+            ctx.biometrics.set(mock_data::mock_biometrics());
+            ctx.consents.set(mock_data::mock_consents());
+            ctx.preferences.set(mock_data::mock_preferences());
+            ctx.preference_log.set(mock_data::mock_preference_log());
+            ctx.health_record_count.set(mock_data::mock_health_records());
+            ctx.activity.set(mock_data::mock_activity());
             ctx.status_note.set(
-                "Running in mock mode. The vault shell is ready; conductor-backed Personal adapters come next."
+                "Mock mode: all displayed Personal records are synthetic examples, not live vault records."
                     .into(),
             );
         } else {
-            let mut loaded_any = false;
+            // Count source responses, not record counts. An Ok(empty) result is
+            // a successful source read and must clear any previously shown rows.
+            let mut successful_sources: Vec<&'static str> = Vec::new();
+            let mut unavailable_sources: Vec<&'static str> = Vec::new();
 
-            if let Ok(Some(profile)) = hc
+            match hc
                 .call_zome_default::<(), Option<ProfileView>>(
                     "identity_vault",
                     "get_my_profile_view",
@@ -112,12 +162,16 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                ctx.profile.set(profile.clone());
-                ctx.draft_profile.set(profile);
-                loaded_any = true;
+                Ok(profile) => {
+                    let profile = profile.unwrap_or_else(empty_profile);
+                    ctx.profile.set(profile.clone());
+                    ctx.draft_profile.set(profile);
+                    successful_sources.push("profile");
+                }
+                Err(_) => unavailable_sources.push("profile"),
             }
 
-            if let Ok(keys) = hc
+            match hc
                 .call_zome_default::<(), Vec<MasterKeyView>>(
                     "identity_vault",
                     "get_my_keys_view",
@@ -125,13 +179,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !keys.is_empty() {
+                Ok(keys) => {
                     ctx.keys.set(keys);
-                    loaded_any = true;
+                    successful_sources.push("identity keys");
                 }
+                Err(_) => unavailable_sources.push("identity keys"),
             }
 
-            if let Ok(credentials) = hc
+            match hc
                 .call_zome_default::<(), Vec<StoredCredentialView>>(
                     "credential_wallet",
                     "get_my_credentials_view",
@@ -139,13 +194,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !credentials.is_empty() {
+                Ok(credentials) => {
                     ctx.credentials.set(credentials);
-                    loaded_any = true;
+                    successful_sources.push("credentials");
                 }
+                Err(_) => unavailable_sources.push("credentials"),
             }
 
-            if let Ok(biometrics) = hc
+            match hc
                 .call_zome_default::<(), Vec<BiometricView>>(
                     "health_vault",
                     "get_my_biometrics_view",
@@ -153,13 +209,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !biometrics.is_empty() {
+                Ok(biometrics) => {
                     ctx.biometrics.set(biometrics);
-                    loaded_any = true;
+                    successful_sources.push("biometrics");
                 }
+                Err(_) => unavailable_sources.push("biometrics"),
             }
 
-            if let Ok(consents) = hc
+            match hc
                 .call_zome_default::<(), Vec<ConsentGrantView>>(
                     "health_vault",
                     "get_my_consents_view",
@@ -167,13 +224,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !consents.is_empty() {
+                Ok(consents) => {
                     ctx.consents.set(consents);
-                    loaded_any = true;
+                    successful_sources.push("consents");
                 }
+                Err(_) => unavailable_sources.push("consents"),
             }
 
-            if let Ok(preferences) = hc
+            match hc
                 .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
                     "data_preferences",
                     "get_my_preferences_view",
@@ -181,13 +239,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !preferences.is_empty() {
+                Ok(preferences) => {
                     ctx.preferences.set(preferences);
-                    loaded_any = true;
+                    successful_sources.push("sharing preferences");
                 }
+                Err(_) => unavailable_sources.push("sharing preferences"),
             }
 
-            if let Ok(log) = hc
+            match hc
                 .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
                     "data_preferences",
                     "get_change_log_view",
@@ -195,13 +254,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !log.is_empty() {
+                Ok(log) => {
                     ctx.preference_log.set(log);
-                    loaded_any = true;
+                    successful_sources.push("preference history");
                 }
+                Err(_) => unavailable_sources.push("preference history"),
             }
 
-            if let Ok(records) = hc
+            match hc
                 .call_zome_default::<(), Vec<HealthRecordView>>(
                     "health_vault",
                     "get_my_records_view",
@@ -209,13 +269,14 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !records.is_empty() {
+                Ok(records) => {
                     ctx.health_record_count.set(records.len());
-                    loaded_any = true;
+                    successful_sources.push("health records");
                 }
+                Err(_) => unavailable_sources.push("health records"),
             }
 
-            if let Ok(activity) = hc
+            match hc
                 .call_zome_default::<(), Vec<ActivityItemView>>(
                     "personal_bridge",
                     "get_recent_activity_view",
@@ -223,24 +284,18 @@ pub fn provide_personal_context() {
                 )
                 .await
             {
-                if !activity.is_empty() {
+                Ok(activity) => {
                     ctx.activity.set(activity);
-                    loaded_any = true;
+                    successful_sources.push("activity history");
                 }
+                Err(_) => unavailable_sources.push("activity history"),
             }
 
-            if loaded_any {
-                ctx.live_sync_ready.set(true);
-                ctx.status_note.set(
-                    "Connected to a live conductor. Personal profile, wallet, and health summary are now loading through typed view endpoints."
-                        .into(),
-                );
-            } else {
-                ctx.status_note.set(
-                    "Connected to a live conductor, but Personal view endpoints returned no records yet. The vault shell remains available."
-                        .into(),
-                );
-            }
+            ctx.live_sync_ready.set(!successful_sources.is_empty());
+            ctx.status_note.set(live_source_status(
+                &successful_sources,
+                &unavailable_sources,
+            ));
         }
 
         ctx.loading.set(false);
@@ -251,27 +306,81 @@ pub fn use_personal() -> PersonalCtx {
     expect_context::<PersonalCtx>()
 }
 
+#[cfg(test)]
+mod source_status_tests {
+    use super::{empty_profile, live_source_status};
+
+    #[test]
+    fn live_empty_results_are_not_reported_as_missing_sources() {
+        let note = live_source_status(
+            &["credentials", "activity history"],
+            &[],
+        );
+        assert!(note.contains("returned successfully"));
+        assert!(note.contains("empty list means that specific source returned no records"));
+    }
+
+    #[test]
+    fn failed_source_reads_are_distinguished_from_confirmed_empty() {
+        let note = live_source_status(
+            &["profile"],
+            &["credentials", "health records"],
+        );
+        assert!(note.contains("partial source read"));
+        assert!(note.contains("credentials, health records"));
+        assert!(note.contains("not confirmed empty"));
+    }
+
+    #[test]
+    fn all_failed_live_reads_never_claim_the_vault_is_empty() {
+        let note = live_source_status(
+            &[],
+            &["profile", "credentials"],
+        );
+        assert!(note.contains("Records are unavailable, not confirmed absent"));
+    }
+
+    #[test]
+    fn empty_profile_contains_no_mock_identity_fields() {
+        let profile = empty_profile();
+        assert!(profile.display_name.is_empty());
+        assert!(profile.avatar.is_none());
+        assert!(profile.bio.is_none());
+        assert!(profile.metadata.is_empty());
+        assert_eq!(profile.updated_at, 0);
+    }
+}
+
 pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(Some(profile)) = hc
+    match hc
         .call_zome_default::<(), Option<ProfileView>>("identity_vault", "get_my_profile_view", &())
         .await
     {
-        ctx.profile.set(profile.clone());
-        ctx.draft_profile.set(profile);
+        Ok(profile) => {
+            let profile = profile.unwrap_or_else(empty_profile);
+            ctx.profile.set(profile.clone());
+            ctx.draft_profile.set(profile);
+        }
+        Err(_) => ctx.status_note.set(
+            "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(keys) = hc
+    match hc
         .call_zome_default::<(), Vec<MasterKeyView>>("identity_vault", "get_my_keys_view", &())
         .await
     {
-        if !keys.is_empty() {
-            ctx.keys.set(keys);
-        }
+        Ok(keys) => ctx.keys.set(keys),
+        Err(_) => ctx.status_note.set(
+            "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
+                .into(),
+        ),
     }
 }
 
 pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(preferences) = hc
+    match hc
         .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
             "data_preferences",
             "get_my_preferences_view",
@@ -279,12 +388,14 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        if !preferences.is_empty() {
-            ctx.preferences.set(preferences);
-        }
+        Ok(preferences) => ctx.preferences.set(preferences),
+        Err(_) => ctx.status_note.set(
+            "Live mode: sharing preferences could not be refreshed; the displayed policy may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(log) = hc
+    match hc
         .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
             "data_preferences",
             "get_change_log_view",
@@ -292,37 +403,45 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        if !log.is_empty() {
-            ctx.preference_log.set(log);
-        }
+        Ok(log) => ctx.preference_log.set(log),
+        Err(_) => ctx.status_note.set(
+            "Live mode: preference history could not be refreshed; the displayed history may be stale."
+                .into(),
+        ),
     }
 }
 
 pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(biometrics) = hc
+    match hc
         .call_zome_default::<(), Vec<BiometricView>>("health_vault", "get_my_biometrics_view", &())
         .await
     {
-        if !biometrics.is_empty() {
-            ctx.biometrics.set(biometrics);
-        }
+        Ok(biometrics) => ctx.biometrics.set(biometrics),
+        Err(_) => ctx.status_note.set(
+            "Live mode: biometric records could not be refreshed; the displayed list may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(consents) = hc
+    match hc
         .call_zome_default::<(), Vec<ConsentGrantView>>("health_vault", "get_my_consents_view", &())
         .await
     {
-        if !consents.is_empty() {
-            ctx.consents.set(consents);
-        }
+        Ok(consents) => ctx.consents.set(consents),
+        Err(_) => ctx.status_note.set(
+            "Live mode: consent grants could not be refreshed; the displayed list may be stale."
+                .into(),
+        ),
     }
 
-    if let Ok(records) = hc
+    match hc
         .call_zome_default::<(), Vec<HealthRecordView>>("health_vault", "get_my_records_view", &())
         .await
     {
-        if !records.is_empty() {
-            ctx.health_record_count.set(records.len());
-        }
+        Ok(records) => ctx.health_record_count.set(records.len()),
+        Err(_) => ctx.status_note.set(
+            "Live mode: health records could not be refreshed; the displayed count may be stale."
+                .into(),
+        ),
     }
 }
