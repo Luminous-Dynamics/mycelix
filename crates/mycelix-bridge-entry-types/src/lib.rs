@@ -663,19 +663,19 @@ pub fn validate_query_fields(
     if query.params.len() > 8192 {
         return Err("Parameters must be 8192 characters or fewer".into());
     }
-    if !query.params.is_empty() {
-        if serde_json::from_str::<serde_json::Value>(&query.params).is_err() {
-            return Err("Parameters must be valid JSON".into());
-        }
+    if !query.params.is_empty()
+        && serde_json::from_str::<serde_json::Value>(&query.params).is_err()
+    {
+        return Err("Parameters must be valid JSON".into());
     }
-    if let Some(ref result) = query.result {
-        if result.len() > MAX_RESULT_BYTES {
-            return Err(format!(
-                "Result too large ({} bytes, max {})",
-                result.len(),
-                MAX_RESULT_BYTES
-            ));
-        }
+    if let Some(ref result) = query.result
+        && result.len() > MAX_RESULT_BYTES
+    {
+        return Err(format!(
+            "Result too large ({} bytes, max {})",
+            result.len(),
+            MAX_RESULT_BYTES
+        ));
     }
     Ok(())
 }
