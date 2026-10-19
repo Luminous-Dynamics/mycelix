@@ -95,6 +95,7 @@ use crate::identity_crypto::{self, EncryptedBlob};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use leptos::prelude::*;
 use std::cell::RefCell;
+use zeroize::Zeroize;
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
 /// string here directly, generated from `js_sys::Math::random()` (not a
@@ -527,11 +528,13 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
     let wire: EncryptedBlobWire = load_json(IDENTITY_SECRET_ENCRYPTED_KEY)
         .ok_or_else(|| "No passphrase-protected identity found".to_string())?;
     let blob = EncryptedBlob::try_from(&wire)?;
-    let secret_bytes = identity_crypto::decrypt(passphrase, &blob).await?;
-    let secret_array: [u8; 32] = secret_bytes
-        .try_into()
+    let mut secret_bytes = identity_crypto::decrypt(passphrase, &blob).await?;
+    let secret_array_result: Result<[u8; 32], _> = secret_bytes.as_slice().try_into();
+    secret_bytes.zeroize();
+    let mut secret_array = secret_array_result
         .map_err(|_| "Corrupt key material (wrong length after decrypt)".to_string())?;
     let signing_key = SigningKey::from_bytes(&secret_array);
+    secret_array.zeroize();
     let public_b64 = load_string(IDENTITY_PUBLIC_KEY)
         .ok_or_else(|| "Protected identity public-key metadata is missing.".to_string())?;
     if !public_key_matches_signing_key(&public_b64, &signing_key) {
@@ -584,12 +587,16 @@ pub fn export_seed_phrase(signing_key: &SigningKey) -> String {
 /// something else entirely — this crate only ever mints 24-word phrases).
 pub fn signing_key_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
     let mnemonic = bip39::Mnemonic::parse(phrase).map_err(|e| e.to_string())?;
-    let entropy = mnemonic.to_entropy();
-    let secret_array: [u8; 32] = entropy.try_into().map_err(|_| {
+    let mut entropy = mnemonic.to_entropy();
+    let secret_array_result: Result<[u8; 32], _> = entropy.as_slice().try_into();
+    entropy.zeroize();
+    let mut secret_array = secret_array_result.map_err(|_| {
         "Seed phrase does not encode a 32-byte key (wrong word count for a Mycelix identity?)"
             .to_string()
     })?;
-    Ok(SigningKey::from_bytes(&secret_array))
+    let signing_key = SigningKey::from_bytes(&secret_array);
+    secret_array.zeroize();
+    Ok(signing_key)
 }
 
 /// Restore the local identity from a BIP-39 backup phrase — the "I'm on a
@@ -683,7 +690,9 @@ fn try_generate_signing_key() -> Result<SigningKey, String> {
     crypto
         .get_random_values_with_u8_array(&mut seed)
         .map_err(|_| "crypto.getRandomValues failed.".to_string())?;
-    Ok(SigningKey::from_bytes(&seed))
+    let signing_key = SigningKey::from_bytes(&seed);
+    seed.zeroize();
+    Ok(signing_key)
 }
 
 // --- localStorage helpers (private key persistence) ---
