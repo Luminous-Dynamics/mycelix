@@ -414,12 +414,12 @@ fn compose_rule_modules_internal(
                 module.module_id.clone(),
             ));
         }
-        if let RuleModuleScope::Jurisdiction(path) = &module.scope {
-            if !valid_jurisdiction_path(path) {
-                issues.push(CompositionIssue::InvalidJurisdictionPath(
-                    module.module_id.clone(),
-                ));
-            }
+        if let RuleModuleScope::Jurisdiction(path) = &module.scope
+            && !valid_jurisdiction_path(path)
+        {
+            issues.push(CompositionIssue::InvalidJurisdictionPath(
+                module.module_id.clone(),
+            ));
         }
         for parent_id in &module.parent_module_ids {
             let parent = by_id[parent_id.as_str()];
