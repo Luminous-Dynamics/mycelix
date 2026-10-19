@@ -6,7 +6,8 @@ use std::{env, fs, process};
 
 const PROFILE_FIXTURE: &str = include_str!("../fixtures/fictional-source-profile-v0.1.json");
 const FICTIONAL_TERMS: &str = include_str!("../fixtures/fictional-publisher-terms-v1.txt");
-const FICTIONAL_SOURCE_SNAPSHOT: &str = include_str!("../fixtures/fictional-legal-source-snapshot-v1.txt");
+const FICTIONAL_SOURCE_SNAPSHOT: &str =
+    include_str!("../fixtures/fictional-legal-source-snapshot-v1.txt");
 const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -798,14 +799,20 @@ mod tests {
     fn approved_terms_digest_matches_exact_fictional_terms_bytes() {
         let profile = profile();
         let expected = sha256_hex(FICTIONAL_TERMS.as_bytes());
-        assert_eq!(profile.terms.terms_sha256.as_deref(), Some(expected.as_str()));
+        assert_eq!(
+            profile.terms.terms_sha256.as_deref(),
+            Some(expected.as_str())
+        );
     }
 
     #[test]
     fn source_digest_matches_exact_fictional_snapshot_bytes() {
         let profile = profile();
         let expected = sha256_hex(FICTIONAL_SOURCE_SNAPSHOT.as_bytes());
-        assert_eq!(profile.source.content_sha256.as_deref(), Some(expected.as_str()));
+        assert_eq!(
+            profile.source.content_sha256.as_deref(),
+            Some(expected.as_str())
+        );
     }
 
     #[test]
@@ -883,12 +890,14 @@ mod tests {
             Purpose::BenchmarkEvaluation,
             ActorClass::InternalReviewer,
         );
-        request.observed_source_sha256 = Some(
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_string(),
-        );
+        request.observed_source_sha256 =
+            Some("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_string());
         assert_eq!(admission(&request).reason_code, "source_digest_mismatch");
         request.observed_source_sha256 = None;
-        assert_eq!(admission(&request).reason_code, "observed_source_digest_missing");
+        assert_eq!(
+            admission(&request).reason_code,
+            "observed_source_digest_missing"
+        );
     }
 
     #[test]
@@ -908,8 +917,11 @@ mod tests {
     #[test]
     fn later_terms_verification_cannot_authorize_an_earlier_request() {
         let mut profile = profile();
-        profile.reviewer.as_mut().expect("reviewer exists").reviewed_at_utc =
-            "2026-10-16T00:00:00Z".to_string();
+        profile
+            .reviewer
+            .as_mut()
+            .expect("reviewer exists")
+            .reviewed_at_utc = "2026-10-16T00:00:00Z".to_string();
         profile.terms.verified_at_utc = Some("2026-10-18T10:00:00Z".to_string());
         let mut request = request(
             Operation::BenchmarkEvaluation,
