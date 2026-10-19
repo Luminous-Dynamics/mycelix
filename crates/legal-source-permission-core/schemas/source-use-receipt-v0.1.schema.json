@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/crates/legal-source-permission-core/schemas/source-use-receipt-v0.1.schema.json",
+  "title": "Mycelix Source Use Admission Receipt v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version",
+    "evaluator_version",
+    "profile_id",
+    "profile_sha256",
+    "request_sha256",
+    "permission_decision",
+    "admission_decision",
+    "reason_code",
+    "permission_grant_id",
+    "expected_terms_sha256",
+    "observed_terms_sha256",
+    "request",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "receipt_version": {
+      "const": "0.1.0"
+    },
+    "evaluator_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "permission_decision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "allowed",
+            "denied",
+            "unknown"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "admission_decision": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "denied",
+        "unknown"
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "permission_grant_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expected_terms_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observed_terms_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request": {
+      "$ref": "#/$defs/request"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "source_component_id",
+        "source_version_id",
+        "operation",
+        "purpose",
+        "actor_class",
+        "territory",
+        "as_of_utc",
+        "requested_retention_seconds",
+        "observed_terms_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "source_component_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "manual_access",
+            "automated_retrieval",
+            "temporary_processing",
+            "cache",
+            "full_text_indexing",
+            "embedding_generation",
+            "summarization",
+            "model_training",
+            "model_fine_tuning",
+            "benchmark_evaluation",
+            "quote_display",
+            "redistribution",
+            "metadata_processing"
+          ]
+        },
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "manual_legal_research",
+            "automated_legal_research",
+            "benchmark_evaluation",
+            "model_training",
+            "model_serving",
+            "internal_audit",
+            "public_display",
+            "redistribution"
+          ]
+        },
+        "actor_class": {
+          "type": "string",
+          "enum": [
+            "human_researcher",
+            "internal_reviewer",
+            "automated_service",
+            "production_service",
+            "public_user"
+          ]
+        },
+        "territory": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "as_of_utc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "requested_retention_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_terms_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
