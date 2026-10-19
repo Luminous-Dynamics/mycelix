@@ -7,24 +7,22 @@ use std::path::PathBuf;
 
 fn main() {
     match parse_args() {
-        Ok(Some((schema_path, record_path))) => {
-            match audit_files(&schema_path, &record_path) {
-                Ok(report) => {
-                    let failed = report.get("status").and_then(Value::as_str) != Some("PASS");
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
-                    );
-                    if failed {
-                        std::process::exit(1);
-                    }
-                }
-                Err(error) => {
-                    eprintln!("repair-trial-record-audit: {error}");
-                    std::process::exit(2);
+        Ok(Some((schema_path, record_path))) => match audit_files(&schema_path, &record_path) {
+            Ok(report) => {
+                let failed = report.get("status").and_then(Value::as_str) != Some("PASS");
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
+                );
+                if failed {
+                    std::process::exit(1);
                 }
             }
-        }
+            Err(error) => {
+                eprintln!("repair-trial-record-audit: {error}");
+                std::process::exit(2);
+            }
+        },
         Ok(None) => {}
         Err(error) => {
             eprintln!("repair-trial-record-audit: {error}");
@@ -141,8 +139,14 @@ fn audit_files(schema_path: &PathBuf, record_path: &PathBuf) -> Result<Value, St
 
 fn validate_record_semantics(record: &Value) -> Vec<String> {
     let mut issues = Vec::new();
-    let record_state = record.get("record_state").and_then(Value::as_str).unwrap_or("");
-    let fixture_state = record.pointer("/fixture/fixture_state").and_then(Value::as_str).unwrap_or("");
+    let record_state = record
+        .get("record_state")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let fixture_state = record
+        .pointer("/fixture/fixture_state")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let outcome = record.get("outcome");
     let outcome_status = outcome
         .and_then(|value| value.get("status"))
@@ -150,7 +154,10 @@ fn validate_record_semantics(record: &Value) -> Vec<String> {
         .unwrap_or("");
 
     if record_state == "performed"
-        && !matches!(fixture_state, "fabricated_uninspected" | "inspected_unpowered_fixture")
+        && !matches!(
+            fixture_state,
+            "fabricated_uninspected" | "inspected_unpowered_fixture"
+        )
     {
         issues.push("performed trial requires a fabricated fixture; concept-only geometry is not test evidence".into());
     }
@@ -176,11 +183,20 @@ fn validate_record_semantics(record: &Value) -> Vec<String> {
             };
             let state = phase.get("state").and_then(Value::as_str).unwrap_or("");
             let minutes = phase.get("minutes");
-            let rationale = phase.get("rationale").and_then(Value::as_str).unwrap_or("").trim();
+            let rationale = phase
+                .get("rationale")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
             match state {
                 "measured" => {
-                    if !minutes.and_then(Value::as_f64).is_some_and(|value| value.is_finite() && value >= 0.0) {
-                        issues.push(format!("{phase_name}: measured duration must be a finite non-negative number"));
+                    if !minutes
+                        .and_then(Value::as_f64)
+                        .is_some_and(|value| value.is_finite() && value >= 0.0)
+                    {
+                        issues.push(format!(
+                            "{phase_name}: measured duration must be a finite non-negative number"
+                        ));
                     }
                 }
                 "not_applicable" | "not_recorded" | "not_started" => {
@@ -188,7 +204,9 @@ fn validate_record_semantics(record: &Value) -> Vec<String> {
                         issues.push(format!("{phase_name}: non-measured phase must use null minutes, never a synthetic zero"));
                     }
                     if rationale.is_empty() {
-                        issues.push(format!("{phase_name}: non-measured phase requires a reason"));
+                        issues.push(format!(
+                            "{phase_name}: non-measured phase requires a reason"
+                        ));
                     }
                 }
                 _ => {}
@@ -236,7 +254,12 @@ fn validate_record_semantics(record: &Value) -> Vec<String> {
         }
     }
 
-    if record_state == "performed" && record.get("evidence").and_then(Value::as_array).is_some_and(Vec::is_empty) {
+    if record_state == "performed"
+        && record
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty)
+    {
         issues.push("performed trial requires at least one digest-bound evidence reference".into());
     }
 
@@ -282,11 +305,14 @@ mod tests {
     fn source() -> (Value, Value) {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let schema_path = root.join("../../docs/LKI_01_REPAIR_TRIAL_RECORD_SCHEMA_V0_1_DRAFT.json");
-        let record_path = root.join("../../docs/LKI_01_REPAIR_TRIAL_RECORD_EXAMPLE_V0_1_DRAFT.json");
-        let schema = serde_json::from_str(&fs::read_to_string(schema_path).expect("schema fixture exists"))
-            .expect("schema fixture is valid JSON");
-        let record = serde_json::from_str(&fs::read_to_string(record_path).expect("record fixture exists"))
-            .expect("record fixture is valid JSON");
+        let record_path =
+            root.join("../../docs/LKI_01_REPAIR_TRIAL_RECORD_EXAMPLE_V0_1_DRAFT.json");
+        let schema =
+            serde_json::from_str(&fs::read_to_string(schema_path).expect("schema fixture exists"))
+                .expect("schema fixture is valid JSON");
+        let record =
+            serde_json::from_str(&fs::read_to_string(record_path).expect("record fixture exists"))
+                .expect("record fixture is valid JSON");
         (schema, record)
     }
 
@@ -339,11 +365,19 @@ mod tests {
             "revision_scope":"mockup-fixture-0",
             "status":"captured"
         }]);
-        assert!(validate_record_semantics(&record).iter().any(|issue| issue.contains("passed post-check")));
+        assert!(
+            validate_record_semantics(&record)
+                .iter()
+                .any(|issue| issue.contains("passed post-check"))
+        );
         record["outcome"]["post_check_status"] = json!("passed");
         record["outcome"]["permanent_structure_damage"] = json!(true);
         record["outcome"]["damage_description"] = json!("Cracked rail.");
-        assert!(validate_record_semantics(&record).iter().any(|issue| issue.contains("permanent structure damage")));
+        assert!(
+            validate_record_semantics(&record)
+                .iter()
+                .any(|issue| issue.contains("permanent structure damage"))
+        );
     }
 
     #[test]
@@ -351,7 +385,11 @@ mod tests {
         let (_, mut record) = source();
         record["timings"]["parts_tool_wait"]["state"] = json!("not_recorded");
         record["timings"]["parts_tool_wait"]["minutes"] = json!(0.0);
-        assert!(validate_record_semantics(&record).iter().any(|issue| issue.contains("must use null minutes")));
+        assert!(
+            validate_record_semantics(&record)
+                .iter()
+                .any(|issue| issue.contains("must use null minutes"))
+        );
         record["timings"]["parts_tool_wait"]["minutes"] = Value::Null;
         record["timings"]["parts_tool_wait"]["rationale"] = json!("");
         assert!(validate_record_semantics(&record).iter().any(|issue| issue.contains("requires a reason")));
