@@ -56,8 +56,10 @@ pub use winterfell;
 
 // Re-exports
 pub use backend::{
-    BackendCapability, ProofBackend, backend_capability, select_backend,
+    BackendCapability, ProofBackend, backend_capability, select_backend_family,
 };
+#[allow(deprecated)]
+pub use backend::select_backend;
 pub use consciousness::{CivicTier, ConsciousnessProofRequest, ConsciousnessProofResult};
 #[cfg(feature = "dilithium")]
 pub use dilithium::DilithiumKeypair;

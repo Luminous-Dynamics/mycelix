@@ -5,16 +5,17 @@
 //! Ported from the Python `ZKBackend` ABC in
 //! `mycelix-core/0TML/tests/integration/zkbackend_abstraction.py` (895 lines).
 //!
-//! The trait enables drop-in backend switching: a governance zome can verify
-//! proofs from either backend without knowing which one generated them.
+//! Backend-family availability is deliberately separate from operational proof
+//! readiness. A linked proof library may be usable by circuit-specific code while
+//! the shared generic adapter remains unable to prove or verify any statement.
 
 use crate::error::ZkpResult;
 use crate::types::{BackendId, ProofResult, VerificationResult};
 
 /// Public inputs for a ZK proof circuit.
 ///
-/// Each circuit defines its own public input structure, but they all
-/// serialize through this common wrapper for the backend interface.
+/// Each circuit defines its own public input structure, but they all serialize
+/// through this common wrapper for the backend interface.
 #[derive(Clone, Debug)]
 pub struct PublicInputs {
     /// Serialized public inputs (circuit-specific format).
@@ -31,7 +32,6 @@ impl PublicInputs {
         }
     }
 
-    /// Create from a serde-serializable value.
     pub fn from_value<T: serde::Serialize>(
         value: &T,
         description: impl Into<String>,
@@ -42,33 +42,23 @@ impl PublicInputs {
     }
 }
 
-/// Unified interface for ZKP backends.
+/// Unified interface for operational ZKP adapters.
 ///
-/// Mirrors the Python `ZKBackend` ABC from `zkbackend_abstraction.py`.
-/// Each backend implements prove() and verify() with identical semantics.
+/// `is_available() == true` means this adapter itself can perform its advertised
+/// prove/verify operations in the current build. It must not be used merely to
+/// indicate that a backend dependency or backend family is linked.
 pub trait ProofBackend: Send + Sync {
-    /// Human-readable backend name (e.g. "RISC Zero", "Winterfell").
     fn name(&self) -> &str;
 
-    /// Backend version string.
     fn version(&self) -> &str;
 
-    /// Which backend this is.
     fn id(&self) -> BackendId;
 
-    /// Check if this adapter can perform its advertised operation in this build.
+    /// Whether this concrete adapter can perform its advertised proof operations.
     fn is_available(&self) -> bool;
 
-    /// Generate a proof for the given public inputs and witness.
-    ///
-    /// - `public_inputs`: Circuit-specific public inputs.
-    /// - `witness`: Private witness data (f32 values, Q16.16 encoded internally).
     fn prove(&self, public_inputs: &PublicInputs, witness: &[f32]) -> ZkpResult<ProofResult>;
 
-    /// Verify a proof against its public inputs.
-    ///
-    /// This is the operation that runs inside Holochain zomes (WASM).
-    /// Must be deterministic and not require filesystem or network.
     fn verify(
         &self,
         proof_bytes: &[u8],
@@ -76,12 +66,12 @@ pub trait ProofBackend: Send + Sync {
     ) -> ZkpResult<VerificationResult>;
 }
 
-// --- Backend implementations (feature-gated) ---
-
-/// Winterfell STARK backend — domain-specific, 3-10x faster than RISC0.
+/// Winterfell backend-family adapter.
 ///
-/// Best for: simple circuits (range proofs, membership, nullifiers).
-/// Proving: 5-15s. Verification: <50ms. Proof size: ~200KB.
+/// The Winterfell libraries are linked when `backend-winterfell` is enabled, but
+/// this generic adapter has no AIR/statement identity and therefore cannot prove
+/// or verify by itself. Circuit-specific implementations call Winterfell directly
+/// with their exact AIR and public-input theorem.
 #[cfg(feature = "backend-winterfell")]
 pub mod winterfell_backend {
     use super::*;
@@ -93,7 +83,6 @@ pub mod winterfell_backend {
     impl WinterfellBackend {
         pub fn new() -> Self {
             Self {
-                // Read winterfell version from the crate
                 version: "0.13.1".to_string(),
             }
         }
@@ -119,15 +108,12 @@ pub mod winterfell_backend {
         }
 
         fn is_available(&self) -> bool {
-            true // Always available when feature is enabled
+            false
         }
 
         fn prove(&self, _public_inputs: &PublicInputs, _witness: &[f32]) -> ZkpResult<ProofResult> {
-            // Circuit-specific proving logic is injected by each cluster's ZKP crate.
-            // This base implementation provides the backend interface;
-            // actual AIR circuits are defined in governance-zkp, health-zkp, etc.
             Err(crate::error::ZkpError::ProvingError(
-                "Use a circuit-specific prover (e.g. governance-zkp) instead of the base backend"
+                "generic Winterfell adapter has no circuit theorem; use a circuit-specific prover"
                     .into(),
             ))
         }
@@ -137,21 +123,18 @@ pub mod winterfell_backend {
             _proof_bytes: &[u8],
             _public_inputs: &PublicInputs,
         ) -> ZkpResult<VerificationResult> {
-            // Generic Winterfell proof verification.
-            // Circuit-specific verification is handled by each cluster's ZKP crate
-            // which calls winterfell::verify() with the appropriate AIR.
             Err(crate::error::ZkpError::VerificationFailed(
-                "Use a circuit-specific verifier (e.g. governance-zkp) instead of the base backend"
+                "generic Winterfell adapter has no circuit theorem; use a circuit-specific verifier"
                     .into(),
             ))
         }
     }
 }
 
-/// RISC0 zkVM backend — general-purpose, write any Rust as guest.
+/// RISC Zero backend-family compatibility adapter.
 ///
-/// Best for: complex multi-step logic (vote encryption, provenance chains).
-/// Proving: ~46.6s. Verification: ~92ms. Proof size: ~221KB.
+/// No RISC Zero dependency/verifier is linked by the current feature, so this
+/// adapter is structural-only and fail-closed.
 #[cfg(feature = "backend-risc0")]
 pub mod risc0_backend {
     use super::*;
@@ -188,11 +171,10 @@ pub mod risc0_backend {
         }
 
         fn is_available(&self) -> bool {
-            false // Structural adapter only: no RISC Zero dependency is linked.
+            false
         }
 
         fn prove(&self, _public_inputs: &PublicInputs, _witness: &[f32]) -> ZkpResult<ProofResult> {
-            // Circuit-specific guest programs are defined per cluster.
             Err(crate::error::ZkpError::ProvingError(
                 "Use a circuit-specific prover with a RISC0 guest image".into(),
             ))
@@ -203,8 +185,6 @@ pub mod risc0_backend {
             _proof_bytes: &[u8],
             _public_inputs: &PublicInputs,
         ) -> ZkpResult<VerificationResult> {
-            // Generic RISC0 receipt verification.
-            // Circuit-specific journal parsing is handled by each cluster.
             Err(crate::error::ZkpError::VerificationFailed(
                 "Use a circuit-specific verifier with the expected RISC0 image ID".into(),
             ))
@@ -212,18 +192,20 @@ pub mod risc0_backend {
     }
 }
 
-/// Operational status of a backend in this shared crate.
+/// Capability of a backend family in this shared crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BackendCapability {
-    /// The crate contains dependencies and circuit-specific implementations may use them.
+    /// Dependencies/support exist for circuit-specific implementations, but no
+    /// generic theorem-independent prover/verifier is implied.
     CircuitSpecific,
-    /// The public adapter exists, but this crate cannot prove or verify with it.
+    /// The public compatibility adapter exists, but no verifier is linked here.
     StructuralOnly,
     /// Identifier reserved for future protocol compatibility.
     Reserved,
 }
 
-/// Report capability without conflating a declared identifier with an implementation.
+/// Report backend-family capability without conflating it with operational proof
+/// readiness or circuit qualification.
 pub const fn backend_capability(backend: BackendId) -> BackendCapability {
     match backend {
         BackendId::Winterfell | BackendId::Miden => BackendCapability::CircuitSpecific,
@@ -232,11 +214,12 @@ pub const fn backend_capability(backend: BackendId) -> BackendCapability {
     }
 }
 
-/// Select an operational backend compiled into this crate.
+/// Select a candidate backend **family** for a broad complexity hint.
 ///
-/// Returns `None` rather than inventing an unavailable default. RISC Zero is not
-/// selected because its current feature is structural-only and links no verifier.
-pub fn select_backend(complexity: CircuitComplexity) -> Option<BackendId> {
+/// This says only which linked family a caller might investigate. It does not
+/// establish that a circuit implementation exists, that the generic adapter is
+/// operational, or that any theorem is qualified.
+pub fn select_backend_family(complexity: CircuitComplexity) -> Option<BackendId> {
     match complexity {
         CircuitComplexity::Simple => {
             #[cfg(feature = "backend-winterfell")]
@@ -263,12 +246,23 @@ pub fn select_backend(complexity: CircuitComplexity) -> Option<BackendId> {
     }
 }
 
-/// Hint for backend selection.
+/// Backward-compatible backend-family selector.
+///
+/// This historical name does **not** mean an operational generic prover/verifier
+/// has been selected. New callers should use [`select_backend_family`] and then
+/// resolve an exact circuit/profile through an independently qualified registry.
+#[deprecated(
+    since = "0.1.0",
+    note = "selects a candidate backend family only; use select_backend_family and an exact qualified circuit/profile"
+)]
+pub fn select_backend(complexity: CircuitComplexity) -> Option<BackendId> {
+    select_backend_family(complexity)
+}
+
+/// Coarse backend-family selection hint only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CircuitComplexity {
-    /// Range proofs, membership, nullifiers — Winterfell preferred.
     Simple,
-    /// Multi-step validation, arbitrary Rust logic — RISC0 preferred.
     Complex,
 }
 
@@ -291,8 +285,8 @@ mod tests {
     }
 
     #[test]
-    fn test_select_backend_simple() {
-        let backend = select_backend(CircuitComplexity::Simple);
+    fn test_select_backend_family_simple() {
+        let backend = select_backend_family(CircuitComplexity::Simple);
         #[cfg(feature = "backend-winterfell")]
         assert_eq!(backend, Some(BackendId::Winterfell));
         #[cfg(all(not(feature = "backend-winterfell"), feature = "backend-miden"))]
@@ -305,8 +299,8 @@ mod tests {
     }
 
     #[test]
-    fn test_select_backend_complex() {
-        let backend = select_backend(CircuitComplexity::Complex);
+    fn test_select_backend_family_complex() {
+        let backend = select_backend_family(CircuitComplexity::Complex);
         #[cfg(feature = "backend-miden")]
         assert_eq!(backend, Some(BackendId::Miden));
         #[cfg(all(not(feature = "backend-miden"), feature = "backend-winterfell"))]
@@ -318,8 +312,21 @@ mod tests {
         assert_eq!(backend, None);
     }
 
+    #[allow(deprecated)]
+    #[test]
+    fn compatibility_selector_is_family_selector_only() {
+        assert_eq!(
+            select_backend(CircuitComplexity::Simple),
+            select_backend_family(CircuitComplexity::Simple)
+        );
+    }
+
     #[test]
     fn test_backend_capabilities_are_truthful() {
+        assert_eq!(
+            backend_capability(BackendId::Winterfell),
+            BackendCapability::CircuitSpecific
+        );
         assert_eq!(
             backend_capability(BackendId::Risc0),
             BackendCapability::StructuralOnly
@@ -336,20 +343,21 @@ mod tests {
 
     #[cfg(feature = "backend-winterfell")]
     #[test]
-    fn test_winterfell_backend_available() {
+    fn generic_winterfell_adapter_is_not_operational() {
         let b = winterfell_backend::WinterfellBackend::new();
-        assert!(b.is_available());
+        assert!(!b.is_available());
         assert_eq!(b.id(), BackendId::Winterfell);
-        assert_eq!(b.name(), "Winterfell STARK");
+        assert_eq!(backend_capability(b.id()), BackendCapability::CircuitSpecific);
+        assert!(b.prove(&PublicInputs::new(vec![], "test"), &[]).is_err());
+        assert!(b.verify(&[], &PublicInputs::new(vec![], "test")).is_err());
     }
 
     #[cfg(feature = "backend-risc0")]
     #[test]
-    fn test_risc0_backend_available() {
+    fn generic_risc0_adapter_is_not_operational() {
         let b = risc0_backend::Risc0Backend::new();
         assert!(!b.is_available());
         assert_eq!(b.id(), BackendId::Risc0);
         assert_eq!(backend_capability(b.id()), BackendCapability::StructuralOnly);
-        assert_eq!(b.name(), "RISC Zero zkVM");
     }
 }
