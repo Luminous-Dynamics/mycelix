@@ -27,7 +27,9 @@
 //! - `backend-risc0`: structural compatibility adapter; no verifier is linked
 //! - `backend-dual`: Both backends
 //! - `dilithium`: CRYSTALS-Dilithium5 PQ signatures (~2.6KB WASM)
-//! - `full`: All backends + Dilithium (native testing only)
+//! - `full`: All ordinary backends + Dilithium (native testing only)
+//! - `legacy-unqualified-range-proof`: explicitly opts into the quarantined
+//!   historical range/jurisdiction proof lineage tracked by issue #227
 
 pub mod backend;
 pub mod circuits;
@@ -37,7 +39,13 @@ pub mod dilithium;
 pub mod domain;
 pub mod error;
 pub mod fixed_point;
-#[cfg(feature = "backend-winterfell")]
+// The registry type currently imports JurisdictionBox from the quarantined proof
+// module, so it follows the same legacy feature until those data types are
+// decoupled from proof authority.
+#[cfg(feature = "legacy-unqualified-range-proof")]
+#[deprecated(
+    note = "UNQUALIFIED: registry types are coupled to quarantined jurisdiction/range proof lineage (issue #227)"
+)]
 pub mod jurisdiction_registry;
 #[cfg(feature = "backend-winterfell")]
 pub mod location_attestation;

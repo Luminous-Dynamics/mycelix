@@ -27,10 +27,17 @@ backend-miden = [                # Miden VM ZK-STARK (actual zero-knowledge)
     "dep:miden-core",
 ]
 
+# SECURITY QUARANTINE: the historical HealthRangeAir circuit is underconstrained
+# (tracked in #227) and must not be compiled as ordinary backend-winterfell
+# authority. Enable only for legacy/unqualified evidence inspection until a
+# replacement theorem is implemented and adversarially qualified.
+legacy-unqualified-range-proof = ["backend-winterfell"]
+
 # PQ authentication (adds ~2.6KB to WASM)
 dilithium = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]
 
-# Full stack for native testing (never enable in zomes)
+# Full stack for native testing (never enable in zomes). Deliberately excludes
+# legacy-unqualified-range-proof so `full` cannot accidentally restore authority.
 full = ["backend-dual", "dilithium"]
 
 [dependencies]

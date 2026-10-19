@@ -2,13 +2,27 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Shared ZKP circuits for the Mycelix ecosystem.
 //!
-//! These circuits are used by multiple clusters:
-//! - range_proof: Health (VitalsInRange, AgeRange), Finance (balance_range)
+//! SECURITY: the historical `range_proof` / `HealthRangeAir` circuit is
+//! underconstrained and tracked by issue #227. It is excluded from ordinary
+//! `backend-winterfell` builds and may only be compiled with the explicit
+//! `legacy-unqualified-range-proof` feature for historical/unqualified evidence
+//! inspection. It must not be used as authority for Health, Finance, FL, or any
+//! other range claim until a replacement theorem is adversarially qualified.
+//!
+//! `jurisdiction_proof` composes two instances of that same range circuit and is
+//! therefore quarantined under the same explicit legacy feature. A host-side
+//! jurisdiction commitment does not repair the underlying range theorem.
 
-#[cfg(feature = "backend-winterfell")]
+#[cfg(feature = "legacy-unqualified-range-proof")]
+#[deprecated(
+    note = "UNQUALIFIED: HealthRangeAir is underconstrained (issue #227); historical inspection only"
+)]
 pub mod range_proof;
 
-#[cfg(feature = "backend-winterfell")]
+#[cfg(feature = "legacy-unqualified-range-proof")]
+#[deprecated(
+    note = "UNQUALIFIED: jurisdiction proof depends on quarantined HealthRangeAir (issue #227)"
+)]
 pub mod jurisdiction_proof;
 
 #[cfg(feature = "backend-winterfell")]
