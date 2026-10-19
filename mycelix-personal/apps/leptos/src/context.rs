@@ -302,42 +302,6 @@ pub fn use_personal() -> PersonalCtx {
     expect_context::<PersonalCtx>()
 }
 
-#[cfg(test)]
-mod source_status_tests {
-    use super::{empty_profile, live_source_status};
-
-    #[test]
-    fn live_empty_results_are_not_reported_as_missing_sources() {
-        let note = live_source_status(&["credentials", "activity history"], &[]);
-        assert!(note.contains("returned successfully"));
-        assert!(note.contains("empty list means that specific source returned no records"));
-    }
-
-    #[test]
-    fn failed_source_reads_are_distinguished_from_confirmed_empty() {
-        let note = live_source_status(&["profile"], &["credentials", "health records"]);
-        assert!(note.contains("partial source read"));
-        assert!(note.contains("credentials, health records"));
-        assert!(note.contains("not confirmed empty"));
-    }
-
-    #[test]
-    fn all_failed_live_reads_never_claim_the_vault_is_empty() {
-        let note = live_source_status(&[], &["profile", "credentials"]);
-        assert!(note.contains("Records are unavailable, not confirmed absent"));
-    }
-
-    #[test]
-    fn empty_profile_contains_no_mock_identity_fields() {
-        let profile = empty_profile();
-        assert!(profile.display_name.is_empty());
-        assert!(profile.avatar.is_none());
-        assert!(profile.bio.is_none());
-        assert!(profile.metadata.is_empty());
-        assert_eq!(profile.updated_at, 0);
-    }
-}
-
 pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
     match hc
         .call_zome_default::<(), Option<ProfileView>>("identity_vault", "get_my_profile_view", &())
@@ -430,5 +394,41 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
             "Live mode: health records could not be refreshed; the displayed count may be stale."
                 .into(),
         ),
+    }
+}
+
+#[cfg(test)]
+mod source_status_tests {
+    use super::{empty_profile, live_source_status};
+
+    #[test]
+    fn live_empty_results_are_not_reported_as_missing_sources() {
+        let note = live_source_status(&["credentials", "activity history"], &[]);
+        assert!(note.contains("returned successfully"));
+        assert!(note.contains("empty list means that specific source returned no records"));
+    }
+
+    #[test]
+    fn failed_source_reads_are_distinguished_from_confirmed_empty() {
+        let note = live_source_status(&["profile"], &["credentials", "health records"]);
+        assert!(note.contains("partial source read"));
+        assert!(note.contains("credentials, health records"));
+        assert!(note.contains("not confirmed empty"));
+    }
+
+    #[test]
+    fn all_failed_live_reads_never_claim_the_vault_is_empty() {
+        let note = live_source_status(&[], &["profile", "credentials"]);
+        assert!(note.contains("Records are unavailable, not confirmed absent"));
+    }
+
+    #[test]
+    fn empty_profile_contains_no_mock_identity_fields() {
+        let profile = empty_profile();
+        assert!(profile.display_name.is_empty());
+        assert!(profile.avatar.is_none());
+        assert!(profile.bio.is_none());
+        assert!(profile.metadata.is_empty());
+        assert_eq!(profile.updated_at, 0);
     }
 }
