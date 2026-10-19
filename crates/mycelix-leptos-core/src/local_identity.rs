@@ -195,14 +195,14 @@ struct IdentityStorageSnapshot {
 /// checks the persisted envelope shape only; the ciphertext's authenticated
 /// integrity is verified when the user unlocks.
 pub fn inspect_local_identity_posture() -> LocalIdentityStoragePosture {
-    let snapshot = match read_identity_storage_snapshot() {
+    let mut snapshot = match read_identity_storage_snapshot() {
         Ok(snapshot) => snapshot,
         Err(()) => {
             return LocalIdentityStoragePosture::StorageUnavailable;
         }
     };
     let posture = classify_identity_storage_snapshot(&snapshot);
-    if posture == LocalIdentityStoragePosture::ProtectedLocked
+    let result = if posture == LocalIdentityStoragePosture::ProtectedLocked
         && snapshot
             .public_b64
             .as_deref()
@@ -211,7 +211,11 @@ pub fn inspect_local_identity_posture() -> LocalIdentityStoragePosture {
         LocalIdentityStoragePosture::ProtectedUnlockedInSession
     } else {
         posture
+    };
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
     }
+    result
 }
 
 fn read_identity_storage_snapshot() -> Result<IdentityStorageSnapshot, ()> {
@@ -444,9 +448,13 @@ fn ensure_empty_identity_storage() -> Result<(), String> {
                 .into(),
         );
     }
-    let snapshot = read_identity_storage_snapshot()
+    let mut snapshot = read_identity_storage_snapshot()
         .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
-    if classify_identity_storage_snapshot(&snapshot) != LocalIdentityStoragePosture::NoIdentity {
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if posture != LocalIdentityStoragePosture::NoIdentity {
         return Err(
             "Identity storage is not empty. Inspect or recover the existing identity before creating another."
                 .into(),
@@ -568,9 +576,11 @@ pub async fn protect_existing_identity(
         .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
     let mut snapshot = read_identity_storage_snapshot_from(&storage)
         .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
-    if classify_identity_storage_snapshot(&snapshot)
-        != LocalIdentityStoragePosture::UnprotectedIdentity
-    {
+    let initial_posture = classify_identity_storage_snapshot(&snapshot);
+    if initial_posture != LocalIdentityStoragePosture::UnprotectedIdentity {
+        if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+            secret_b64.zeroize();
+        }
         return Err(
             "Only a consistent unprotected identity can be protected by this operation; no storage was changed."
                 .into(),
@@ -585,8 +595,9 @@ pub async fn protect_existing_identity(
         .public_b64
         .clone()
         .ok_or_else(|| "Existing public-key metadata is missing.".to_string())?;
-    let signing_key = signing_key_from_secret_b64(&prior_secret_b64)?;
+    let signing_key_result = signing_key_from_secret_b64(&prior_secret_b64);
     prior_secret_b64.zeroize();
+    let signing_key = signing_key_result?;
 
     if !public_key_matches_signing_key(&public_b64, &signing_key) {
         return Err("Existing identity secret/public key binding is inconsistent.".into());
@@ -605,16 +616,19 @@ pub async fn protect_existing_identity(
 
     // Encryption yields to the browser event loop; recheck that this is still
     // the same unprotected key before writing any new state.
-    let current = read_identity_storage_snapshot_from(&storage)
+    let mut current = read_identity_storage_snapshot_from(&storage)
         .map_err(|_| "Browser identity storage became unavailable.".to_string())?;
-    if classify_identity_storage_snapshot(&current)
-        != LocalIdentityStoragePosture::UnprotectedIdentity
-        || current.public_b64.as_deref() != Some(public_b64.as_str())
-        || !current
+    let same_unprotected_identity = classify_identity_storage_snapshot(&current)
+        == LocalIdentityStoragePosture::UnprotectedIdentity
+        && current.public_b64.as_deref() == Some(public_b64.as_str())
+        && current
             .secret_b64
             .as_deref()
-            .is_some_and(|secret| public_key_matches_secret(secret, &public_b64))
-    {
+            .is_some_and(|secret| public_key_matches_secret(secret, &public_b64));
+    if let Some(secret_b64) = current.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if !same_unprotected_identity {
         return Err(
             "Identity storage changed during protection. No storage was modified by this operation."
                 .into(),
@@ -635,7 +649,7 @@ pub async fn protect_existing_identity(
         return Err("Could not persist the protected identity envelope.".into());
     }
 
-    let stored_with_both = read_identity_storage_snapshot_from(&storage);
+    let mut stored_with_both = read_identity_storage_snapshot_from(&storage);
     let envelope_verified = stored_with_both.as_ref().is_ok_and(|stored| {
         stored.secret_b64.is_some()
             && stored.public_b64.as_deref() == Some(public_b64.as_str())
@@ -643,6 +657,11 @@ pub async fn protect_existing_identity(
             && public_key_matches_signing_key(&public_b64, &signing_key)
             && encrypted_blob_is_structurally_valid(&encrypted_wire)
     });
+    if let Ok(stored) = stored_with_both.as_mut() {
+        if let Some(secret_b64) = stored.secret_b64.as_mut() {
+            secret_b64.zeroize();
+        }
+    }
     if !envelope_verified {
         let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
         if cleanup.is_err() {
@@ -675,7 +694,7 @@ pub async fn protect_existing_identity(
         );
     }
 
-    let final_snapshot = read_identity_storage_snapshot_from(&storage);
+    let mut final_snapshot = read_identity_storage_snapshot_from(&storage);
     let protected_verified = final_snapshot.as_ref().is_ok_and(|stored| {
         stored.secret_b64.is_none()
             && stored.public_b64.as_deref() == Some(public_b64.as_str())
@@ -683,14 +702,27 @@ pub async fn protect_existing_identity(
             && classify_identity_storage_snapshot(stored)
                 == LocalIdentityStoragePosture::ProtectedLocked
     });
+    if let Ok(stored) = final_snapshot.as_mut() {
+        if let Some(secret_b64) = stored.secret_b64.as_mut() {
+            secret_b64.zeroize();
+        }
+    }
     if !protected_verified {
         let restore_plaintext = storage.set_item(IDENTITY_SECRET_KEY, &plaintext_rollback);
-        let remove_envelope = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
         plaintext_rollback.zeroize();
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-        if restore_plaintext.is_err() || remove_envelope.is_err() {
+        if restore_plaintext.is_err() {
+            // Keep the already-verified encrypted envelope as the only possible
+            // recovery copy; deleting it too could orphan the identity.
             return Err(
-                "Protected-state verification failed and rollback was incomplete; inspect posture before retrying."
+                "Protected-state verification failed and plaintext rollback was unavailable; encrypted recovery material was retained. Inspect posture before retrying."
+                    .into(),
+            );
+        }
+        let remove_envelope = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        if remove_envelope.is_err() {
+            return Err(
+                "Protected-state verification failed; plaintext was restored but encrypted-envelope cleanup failed. Inspect posture before retrying."
                     .into(),
             );
         }
@@ -1374,6 +1406,11 @@ mod browser_storage_tests {
                     None => {
                         let _ = self.storage.remove_item(key);
                     }
+                }
+            }
+            for (_, value) in &mut self.values {
+                if let Some(value) = value.as_mut() {
+                    value.zeroize();
                 }
             }
             UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = self.unlocked_key.clone());
