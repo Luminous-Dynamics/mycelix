@@ -1,0 +1,117 @@
+name: MYC-CONST-001 Lock Oracle
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/myc-const-001-lock-oracle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001-lock-oracle-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  CARGO_INCREMENTAL: '0'
+  EXPECTED_QUAL_PARENT: '62d9fc51e506c2fbc0b8e08be348c02c31b5edeb'
+  EXPECTED_PRODUCT_SHA: 'd15ea01f428f7bc0a17d35eca73de5910768ec84'
+  EXPECTED_LOCK_SHA256: 'cf3d5738087fc5810f94aa044c8ec8fa504c9f8123bd1b0c19f20adf1070d5db'
+  WORKFLOW: '.github/workflows/myc-const-001-lock-oracle.yml'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+
+jobs:
+  derive:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove diagnostic-only review shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_QUAL_PARENT"
+          mapfile -d '' changed < <(git diff --name-only -z "$EXPECTED_QUAL_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout exact repaired foundation subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_PRODUCT_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove exact diagnostic product identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = 'f872b74f13264e7345be02b64270179eed56c703'
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Derive exact Cargo lock reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$LOCKFILE" /tmp/Cargo.lock.before
+          cargo metadata --manifest-path "$CRATE_MANIFEST" --format-version 1 > /tmp/constitutional-metadata.json
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          actual_sha="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          test "$actual_sha" = "$EXPECTED_LOCK_SHA256"
+          test "$(git diff --numstat -- "$LOCKFILE")" = $'14\t0\tmycelix-governance/Cargo.lock'
+          printf '%s\n' '--- BEGIN GENERATED LOCK DELTA ---'
+          git diff -- "$LOCKFILE"
+          printf '%s\n' '--- END GENERATED LOCK DELTA ---'
+          printf 'before_sha256=' && sha256sum /tmp/Cargo.lock.before | awk '{print $1}'
+          printf 'after_sha256=%s\n' "$actual_sha"
+          printf 'lock_numstat=' && git diff --numstat -- "$LOCKFILE"
+
+      - name: Retry original locked compile with generated lock
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked --no-run
+
+      - name: Execute foundation suite with generated lock
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked
+
+      - name: Prove generated repair is lock-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test -z "$(git status --porcelain=v1 --untracked-files=no | grep -v '^ M mycelix-governance/Cargo.lock$' || true)"
+
+      - name: Strict Clippy with generated lock
+        run: cargo clippy --manifest-path "$CRATE_MANIFEST" --all-targets --locked -- -D warnings
+
+      - name: Emit diagnostic facts
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'generated_lock_sha256=%s\n' "$EXPECTED_LOCK_SHA256"
+          printf 'claim=Cargo 1.96 exact lock reconciliation is reproducible, lock-only, and sufficient for locked compile + foundation tests before the independently demonstrated Clippy gate\n'
+          printf 'nonclaim=repository mutation authority, committed R2 repair, MYC-CONST-001 qualification PASS, strict-Clippy PASS, MYC-CONST-001B semantics, runtime enforcement, legal validity\n'
