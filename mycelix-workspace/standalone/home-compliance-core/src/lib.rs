@@ -64,7 +64,6 @@ pub struct EvidenceRef {
     pub artifact_sha256: String,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Result of checking a reference against the actual bytes in a trusted
 /// artifact store. A verifier must recompute SHA-256 over the retrieved bytes;
 /// comparing the declared digest string to itself is not verification.
@@ -95,6 +94,7 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CheckOutcome {
     Pass,
     Fail,
