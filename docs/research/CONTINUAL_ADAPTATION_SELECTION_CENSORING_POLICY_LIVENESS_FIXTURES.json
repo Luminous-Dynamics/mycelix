@@ -1,0 +1,12 @@
+{
+  "schema": "mycelix.continual-adaptation.selection-censoring-policy-liveness.v1",
+  "status": "research-fixture-only",
+  "mutations": [
+    {"case_id":"SPL-001","source_case_id":"SCV-017","path":["population","full_episode_selection_rule"],"value":"MalformedSelectionRule","expected_verdict":"qualified"},
+    {"case_id":"SPL-002","source_case_id":"SCV-006","path":["analysis","survivor_selection_allowed_only"],"value":"FullEpisodeValue","expected_verdict":"unqualified"},
+    {"case_id":"SPL-003","source_case_id":"SCV-003","path":["censoring","always_requires_adjustment_or_block"],"value":[],"expected_verdict":"qualified"},
+    {"case_id":"SPL-004","source_case_id":"SCV-009","path":["censoring","requires_explicit_basis"],"value":[],"expected_verdict":"qualified"},
+    {"case_id":"SPL-005","source_case_id":"SCV-008","path":["analysis","pre_outcome_classification_required"],"value":false,"expected_verdict":"qualified"},
+    {"case_id":"SPL-006","source_case_id":"SCV-016","path":["analysis","complete_case_filter_allowed_only"],"value":"FullEpisodeValue","expected_verdict":"qualified"}
+  ]
+}

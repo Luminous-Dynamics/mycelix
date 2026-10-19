@@ -1,0 +1,10 @@
+{
+  "schema": "mycelix.continual-adaptation.selection-censoring-generated-properties-manifest.v1",
+  "status": "research-fixture-only",
+  "generator_version": "selection-censoring-v1",
+  "seed": 1396921857,
+  "case_count": 192,
+  "serialized_sha256": "sha256:3485f085a6ef336b63606119697d28b072b01d99f82280a954487ff5012d9224",
+  "serialized_bytes": 122212,
+  "note": "CI regenerates the corpus and compares this exact byte manifest before evaluation."
+}
