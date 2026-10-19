@@ -982,9 +982,12 @@ mod tests {
                     .module_lineage
                     .contains(&"global:ventilation-reference".to_owned())
             );
-            assert!(!result.module_lineage.iter().any(|module_id| {
-                foreign_module_ids.contains(&module_id.as_str())
-            }));
+            assert!(
+                !result
+                    .module_lineage
+                    .iter()
+                    .any(|module_id| foreign_module_ids.contains(&module_id.as_str()))
+            );
             assert!(result.non_binding_assertions.iter().any(|item| {
                 item.source.module_id == "global:ventilation-reference"
                     && item.force == RuleForce::EngineeringBaseline
