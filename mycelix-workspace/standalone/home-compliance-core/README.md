@@ -20,6 +20,8 @@ The `jurisdiction_registry` module requires an auditable capability card before 
 “Metadata complete” is not legal certification: the prototype does not authenticate reviewers, recompute source bytes, verify legal authority, or prove that test cases are adequate. The card lets us scale country-by-country without pretending every module or country is implemented.
 
 ## Global rule composition and evidence-led reform
+The South African public-consultation opportunity is tracked in [SA NBRBS Amendment Bill 2026 evidence comment plan](docs/SA_NBRBS_AMENDMENT_BILL_2026_EVIDENCE_COMMENT_PLAN.md). It records the official deadline and submission route, proposes a balanced evidence plan around objective approval criteria and design freedom, and distinguishes verified facts from questions requiring legal/evidence review. It is a preparation document only; no submission has been sent.
+
 
 The standalone crate now includes a composable ruleset engine and a code-reform dossier contract:
 
