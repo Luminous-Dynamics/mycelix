@@ -14,7 +14,8 @@ use wasm_bindgen_futures::spawn_local;
 use mycelix_leptos_core::holochain_provider::{HolochainCtx, use_holochain};
 use personal_leptos_types::{
     ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
-    MasterKeyView, PreferenceChangeLogView, ProfileView, StoredCredentialView,
+    MasterKeyView, PreferenceChangeLogView, ProfileView, SourceReadState, SourceUnavailableReason,
+    StoredCredentialView,
 };
 
 use crate::mock_data;
@@ -65,6 +66,15 @@ pub struct PersonalCtx {
     pub preference_log: RwSignal<Vec<PreferenceChangeLogView>>,
     pub health_record_count: RwSignal<usize>,
     pub activity: RwSignal<Vec<ActivityItemView>>,
+    pub profile_source_state: RwSignal<SourceReadState>,
+    pub keys_source_state: RwSignal<SourceReadState>,
+    pub credentials_source_state: RwSignal<SourceReadState>,
+    pub biometrics_source_state: RwSignal<SourceReadState>,
+    pub consents_source_state: RwSignal<SourceReadState>,
+    pub preferences_source_state: RwSignal<SourceReadState>,
+    pub preference_log_source_state: RwSignal<SourceReadState>,
+    pub health_records_source_state: RwSignal<SourceReadState>,
+    pub activity_source_state: RwSignal<SourceReadState>,
     pub loading: RwSignal<bool>,
     pub live_sync_ready: RwSignal<bool>,
     pub status_note: RwSignal<String>,
@@ -99,6 +109,54 @@ fn live_source_status(successful_sources: &[&str], unavailable_sources: &[&str])
     }
 }
 
+fn source_check_time_micros() -> i64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        (js_sys::Date::now() * 1_000.0) as i64
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_micros()
+            .min(i64::MAX as u128) as i64
+    }
+}
+
+fn live_collection_state(is_empty: bool) -> SourceReadState {
+    let checked_at = source_check_time_micros();
+    if is_empty {
+        SourceReadState::LiveConfirmedEmpty { checked_at }
+    } else {
+        SourceReadState::LiveWithRecords { checked_at }
+    }
+}
+
+fn unavailable_source_state() -> SourceReadState {
+    SourceReadState::Unavailable {
+        reason: SourceUnavailableReason::Unknown,
+    }
+}
+
+/// Preserve stale-data epistemics when a refresh fails after a prior success.
+fn failed_refresh_state(previous: SourceReadState) -> SourceReadState {
+    let last_successful_read_at = match previous {
+        SourceReadState::LiveWithRecords { checked_at }
+        | SourceReadState::LiveConfirmedEmpty { checked_at } => Some(checked_at),
+        SourceReadState::Stale {
+            last_successful_read_at,
+        } => last_successful_read_at,
+        _ => None,
+    };
+    match last_successful_read_at {
+        Some(last_successful_read_at) => SourceReadState::Stale {
+            last_successful_read_at: Some(last_successful_read_at),
+        },
+        None => unavailable_source_state(),
+    }
+}
+
 pub fn provide_personal_context() {
     let profile = empty_profile();
     let ctx = PersonalCtx {
@@ -114,6 +172,15 @@ pub fn provide_personal_context() {
         preference_log: RwSignal::new(Vec::new()),
         health_record_count: RwSignal::new(0),
         activity: RwSignal::new(Vec::new()),
+        profile_source_state: RwSignal::new(SourceReadState::NotChecked),
+        keys_source_state: RwSignal::new(SourceReadState::NotChecked),
+        credentials_source_state: RwSignal::new(SourceReadState::NotChecked),
+        biometrics_source_state: RwSignal::new(SourceReadState::NotChecked),
+        consents_source_state: RwSignal::new(SourceReadState::NotChecked),
+        preferences_source_state: RwSignal::new(SourceReadState::NotChecked),
+        preference_log_source_state: RwSignal::new(SourceReadState::NotChecked),
+        health_records_source_state: RwSignal::new(SourceReadState::NotChecked),
+        activity_source_state: RwSignal::new(SourceReadState::NotChecked),
         loading: RwSignal::new(true),
         live_sync_ready: RwSignal::new(false),
         status_note: RwSignal::new("Personal source state has not been checked yet.".into()),
@@ -140,6 +207,15 @@ pub fn provide_personal_context() {
             ctx.health_record_count
                 .set(mock_data::mock_health_records());
             ctx.activity.set(mock_data::mock_activity());
+            ctx.profile_source_state.set(SourceReadState::Demo);
+            ctx.keys_source_state.set(SourceReadState::Demo);
+            ctx.credentials_source_state.set(SourceReadState::Demo);
+            ctx.biometrics_source_state.set(SourceReadState::Demo);
+            ctx.consents_source_state.set(SourceReadState::Demo);
+            ctx.preferences_source_state.set(SourceReadState::Demo);
+            ctx.preference_log_source_state.set(SourceReadState::Demo);
+            ctx.health_records_source_state.set(SourceReadState::Demo);
+            ctx.activity_source_state.set(SourceReadState::Demo);
             ctx.status_note.set(
                 "Mock mode: all displayed Personal records are synthetic examples, not live vault records."
                     .into(),
@@ -150,6 +226,7 @@ pub fn provide_personal_context() {
             let mut successful_sources: Vec<&'static str> = Vec::new();
             let mut unavailable_sources: Vec<&'static str> = Vec::new();
 
+            ctx.profile_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Option<ProfileView>>(
                     "identity_vault",
@@ -159,14 +236,20 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(profile) => {
+                    ctx.profile_source_state
+                        .set(live_collection_state(profile.is_none()));
                     let profile = profile.unwrap_or_else(empty_profile);
                     ctx.profile.set(profile.clone());
                     ctx.draft_profile.set(profile);
                     successful_sources.push("profile");
                 }
-                Err(_) => unavailable_sources.push("profile"),
+                Err(_) => {
+                    ctx.profile_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("profile");
+                }
             }
 
+            ctx.keys_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<MasterKeyView>>(
                     "identity_vault",
@@ -176,12 +259,18 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(keys) => {
+                    ctx.keys_source_state
+                        .set(live_collection_state(keys.is_empty()));
                     ctx.keys.set(keys);
                     successful_sources.push("identity keys");
                 }
-                Err(_) => unavailable_sources.push("identity keys"),
+                Err(_) => {
+                    ctx.keys_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("identity keys");
+                }
             }
 
+            ctx.credentials_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<StoredCredentialView>>(
                     "credential_wallet",
@@ -191,12 +280,18 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(credentials) => {
+                    ctx.credentials_source_state
+                        .set(live_collection_state(credentials.is_empty()));
                     ctx.credentials.set(credentials);
                     successful_sources.push("credentials");
                 }
-                Err(_) => unavailable_sources.push("credentials"),
+                Err(_) => {
+                    ctx.credentials_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("credentials");
+                }
             }
 
+            ctx.biometrics_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<BiometricView>>(
                     "health_vault",
@@ -206,12 +301,18 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(biometrics) => {
+                    ctx.biometrics_source_state
+                        .set(live_collection_state(biometrics.is_empty()));
                     ctx.biometrics.set(biometrics);
                     successful_sources.push("biometrics");
                 }
-                Err(_) => unavailable_sources.push("biometrics"),
+                Err(_) => {
+                    ctx.biometrics_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("biometrics");
+                }
             }
 
+            ctx.consents_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<ConsentGrantView>>(
                     "health_vault",
@@ -221,12 +322,18 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(consents) => {
+                    ctx.consents_source_state
+                        .set(live_collection_state(consents.is_empty()));
                     ctx.consents.set(consents);
                     successful_sources.push("consents");
                 }
-                Err(_) => unavailable_sources.push("consents"),
+                Err(_) => {
+                    ctx.consents_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("consents");
+                }
             }
 
+            ctx.preferences_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
                     "data_preferences",
@@ -236,12 +343,19 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(preferences) => {
+                    ctx.preferences_source_state
+                        .set(live_collection_state(preferences.is_empty()));
                     ctx.preferences.set(preferences);
                     successful_sources.push("sharing preferences");
                 }
-                Err(_) => unavailable_sources.push("sharing preferences"),
+                Err(_) => {
+                    ctx.preferences_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("sharing preferences");
+                }
             }
 
+            ctx.preference_log_source_state
+                .set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
                     "data_preferences",
@@ -251,12 +365,20 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(log) => {
+                    ctx.preference_log_source_state
+                        .set(live_collection_state(log.is_empty()));
                     ctx.preference_log.set(log);
                     successful_sources.push("preference history");
                 }
-                Err(_) => unavailable_sources.push("preference history"),
+                Err(_) => {
+                    ctx.preference_log_source_state
+                        .set(unavailable_source_state());
+                    unavailable_sources.push("preference history");
+                }
             }
 
+            ctx.health_records_source_state
+                .set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<HealthRecordView>>(
                     "health_vault",
@@ -266,12 +388,19 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(records) => {
+                    ctx.health_records_source_state
+                        .set(live_collection_state(records.is_empty()));
                     ctx.health_record_count.set(records.len());
                     successful_sources.push("health records");
                 }
-                Err(_) => unavailable_sources.push("health records"),
+                Err(_) => {
+                    ctx.health_records_source_state
+                        .set(unavailable_source_state());
+                    unavailable_sources.push("health records");
+                }
             }
 
+            ctx.activity_source_state.set(SourceReadState::Loading);
             match hc
                 .call_zome_default::<(), Vec<ActivityItemView>>(
                     "personal_bridge",
@@ -281,10 +410,15 @@ pub fn provide_personal_context() {
                 .await
             {
                 Ok(activity) => {
+                    ctx.activity_source_state
+                        .set(live_collection_state(activity.is_empty()));
                     ctx.activity.set(activity);
                     successful_sources.push("activity history");
                 }
-                Err(_) => unavailable_sources.push("activity history"),
+                Err(_) => {
+                    ctx.activity_source_state.set(unavailable_source_state());
+                    unavailable_sources.push("activity history");
+                }
             }
 
             ctx.live_sync_ready.set(!successful_sources.is_empty());
@@ -308,25 +442,39 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
         .await
     {
         Ok(profile) => {
+            ctx.profile_source_state
+                .set(live_collection_state(profile.is_none()));
             let profile = profile.unwrap_or_else(empty_profile);
             ctx.profile.set(profile.clone());
             ctx.draft_profile.set(profile);
         }
-        Err(_) => ctx.status_note.set(
-            "Live mode: the profile source could not be refreshed; the displayed profile may be stale."
-                .into(),
-        ),
+        Err(_) => {
+            let previous = ctx.profile_source_state.get_untracked();
+            ctx.profile_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: the profile source could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<MasterKeyView>>("identity_vault", "get_my_keys_view", &())
         .await
     {
-        Ok(keys) => ctx.keys.set(keys),
-        Err(_) => ctx.status_note.set(
-            "Live mode: identity keys could not be refreshed; the displayed key list may be stale."
-                .into(),
-        ),
+        Ok(keys) => {
+            ctx.keys_source_state
+                .set(live_collection_state(keys.is_empty()));
+            ctx.keys.set(keys);
+        }
+        Err(_) => {
+            let previous = ctx.keys_source_state.get_untracked();
+            ctx.keys_source_state.set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: identity keys could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 }
 
@@ -339,11 +487,20 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        Ok(preferences) => ctx.preferences.set(preferences),
-        Err(_) => ctx.status_note.set(
-            "Live mode: sharing preferences could not be refreshed; the displayed policy may be stale."
-                .into(),
-        ),
+        Ok(preferences) => {
+            ctx.preferences_source_state
+                .set(live_collection_state(preferences.is_empty()));
+            ctx.preferences.set(preferences);
+        }
+        Err(_) => {
+            let previous = ctx.preferences_source_state.get_untracked();
+            ctx.preferences_source_state
+                .set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: sharing preferences could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
@@ -354,11 +511,20 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        Ok(log) => ctx.preference_log.set(log),
-        Err(_) => ctx.status_note.set(
-            "Live mode: preference history could not be refreshed; the displayed history may be stale."
-                .into(),
-        ),
+        Ok(log) => {
+            ctx.preference_log_source_state
+                .set(live_collection_state(log.is_empty()));
+            ctx.preference_log.set(log);
+        }
+        Err(_) => {
+            let previous = ctx.preference_log_source_state.get_untracked();
+            ctx.preference_log_source_state
+                .set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: preference history could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 }
 
@@ -367,39 +533,69 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
         .call_zome_default::<(), Vec<BiometricView>>("health_vault", "get_my_biometrics_view", &())
         .await
     {
-        Ok(biometrics) => ctx.biometrics.set(biometrics),
-        Err(_) => ctx.status_note.set(
-            "Live mode: biometric records could not be refreshed; the displayed list may be stale."
-                .into(),
-        ),
+        Ok(biometrics) => {
+            ctx.biometrics_source_state
+                .set(live_collection_state(biometrics.is_empty()));
+            ctx.biometrics.set(biometrics);
+        }
+        Err(_) => {
+            let previous = ctx.biometrics_source_state.get_untracked();
+            ctx.biometrics_source_state
+                .set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: biometric records could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<ConsentGrantView>>("health_vault", "get_my_consents_view", &())
         .await
     {
-        Ok(consents) => ctx.consents.set(consents),
-        Err(_) => ctx.status_note.set(
-            "Live mode: consent grants could not be refreshed; the displayed list may be stale."
-                .into(),
-        ),
+        Ok(consents) => {
+            ctx.consents_source_state
+                .set(live_collection_state(consents.is_empty()));
+            ctx.consents.set(consents);
+        }
+        Err(_) => {
+            let previous = ctx.consents_source_state.get_untracked();
+            ctx.consents_source_state
+                .set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: consent grants could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 
     match hc
         .call_zome_default::<(), Vec<HealthRecordView>>("health_vault", "get_my_records_view", &())
         .await
     {
-        Ok(records) => ctx.health_record_count.set(records.len()),
-        Err(_) => ctx.status_note.set(
-            "Live mode: health records could not be refreshed; the displayed count may be stale."
-                .into(),
-        ),
+        Ok(records) => {
+            ctx.health_records_source_state
+                .set(live_collection_state(records.is_empty()));
+            ctx.health_record_count.set(records.len());
+        }
+        Err(_) => {
+            let previous = ctx.health_records_source_state.get_untracked();
+            ctx.health_records_source_state
+                .set(failed_refresh_state(previous));
+            ctx.status_note.set(
+                "Live mode: health records could not be refreshed; source status now indicates whether prior data is stale or unavailable."
+                    .into(),
+            );
+        }
     }
 }
 
 #[cfg(test)]
 mod source_status_tests {
-    use super::{empty_profile, live_source_status};
+    use super::{
+        SourceReadState, SourceUnavailableReason, empty_profile, failed_refresh_state,
+        live_collection_state, live_source_status,
+    };
 
     #[test]
     fn live_empty_results_are_not_reported_as_missing_sources() {
@@ -430,5 +626,35 @@ mod source_status_tests {
         assert!(profile.bio.is_none());
         assert!(profile.metadata.is_empty());
         assert_eq!(profile.updated_at, 0);
+    }
+
+    #[test]
+    fn live_empty_and_live_with_records_are_distinct() {
+        let empty = live_collection_state(true);
+        let records = live_collection_state(false);
+        assert!(matches!(empty, SourceReadState::LiveConfirmedEmpty { .. }));
+        assert!(matches!(records, SourceReadState::LiveWithRecords { .. }));
+    }
+
+    #[test]
+    fn failed_refresh_marks_previous_live_state_stale() {
+        let previous = SourceReadState::LiveWithRecords { checked_at: 123 };
+        let next = failed_refresh_state(previous);
+        assert_eq!(
+            next,
+            SourceReadState::Stale {
+                last_successful_read_at: Some(123)
+            }
+        );
+    }
+
+    #[test]
+    fn failed_refresh_without_prior_success_is_unavailable() {
+        assert_eq!(
+            failed_refresh_state(SourceReadState::NotChecked),
+            SourceReadState::Unavailable {
+                reason: SourceUnavailableReason::Unknown
+            }
+        );
     }
 }

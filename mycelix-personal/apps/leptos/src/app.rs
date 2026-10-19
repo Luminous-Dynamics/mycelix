@@ -17,7 +17,9 @@ use mycelix_leptos_core::{
     provide_consciousness_context, provide_homeostasis_context, provide_local_identity,
     provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
 };
-use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
+use personal_leptos_types::{
+    ConsentGrantView, CredentialType, SourceReadState, StoredCredentialView,
+};
 
 use crate::context::{
     SymbolRegistry, provide_cultural_context, provide_personal_context, refresh_health_state,
@@ -409,6 +411,8 @@ fn format_relative_micros(timestamp_micros: i64) -> String {
 #[component]
 fn IdentityPage() -> impl IntoView {
     let ctx = use_personal();
+    let keys = ctx.keys;
+    let keys_source_state = ctx.keys_source_state;
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
@@ -461,7 +465,12 @@ fn IdentityPage() -> impl IntoView {
                 }
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![
+                    SourceStatusItem { label: "Profile", state: ctx.profile_source_state },
+                    SourceStatusItem { label: "Identity keys", state: ctx.keys_source_state },
+                ]
+            />
 
             <div class="two-up">
                 <section class="vault-card">
@@ -502,9 +511,14 @@ fn IdentityPage() -> impl IntoView {
                     <SectionTitle title="Key posture" />
                     <div class="key-list">
                         <For
-                            each=move || ctx.keys.get()
+                            each=move || keys.get()
                             key=|key| format!("{}-{}", key.label, key.purpose)
                             children=move |key| view! { <KeyCard key_data=key /> }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Identity keys"
+                            state=keys_source_state
+                            has_records=move || !keys.get().is_empty()
                         />
                     </div>
                 </section>
@@ -516,6 +530,8 @@ fn IdentityPage() -> impl IntoView {
 #[component]
 fn WalletPage() -> impl IntoView {
     let ctx = use_personal();
+    let credentials = ctx.credentials;
+    let credentials_source_state = ctx.credentials_source_state;
 
     view! {
         <div class="stack-page">
@@ -525,15 +541,25 @@ fn WalletPage() -> impl IntoView {
                 summary="Stored credentials, proof posture, and trust-bearing materials live here.".to_string()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![SourceStatusItem {
+                    label: "Credentials",
+                    state: ctx.credentials_source_state,
+                }]
+            />
 
             <section class="vault-card">
                 <SectionTitle title="Credentials" />
                 <div class="credential-grid">
                     <For
-                        each=move || ctx.credentials.get()
+                        each=move || credentials.get()
                         key=|cred| cred.hash.clone()
                         children=move |cred| view! { <CredentialCard credential=cred /> }
+                    />
+                    <SourceCollectionEmptyState
+                        label="Credentials"
+                        state=credentials_source_state
+                        has_records=move || !credentials.get().is_empty()
                     />
                 </div>
             </section>
@@ -544,6 +570,13 @@ fn WalletPage() -> impl IntoView {
 #[component]
 fn HealthPage() -> impl IntoView {
     let ctx = use_personal();
+    let biometrics = ctx.biometrics;
+    let biometrics_source_state = ctx.biometrics_source_state;
+    let consents = ctx.consents;
+    let consents_source_state = ctx.consents_source_state;
+    let health_record_count = ctx.health_record_count;
+    let health_records_source_state = ctx.health_records_source_state;
+    let has_health_records = move || health_record_count.get() > 0;
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
@@ -601,14 +634,32 @@ fn HealthPage() -> impl IntoView {
                 summary="Personal owns posture and disclosure. Health owns deeper medical workflows.".to_string()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![
+                    SourceStatusItem { label: "Biometrics", state: ctx.biometrics_source_state },
+                    SourceStatusItem { label: "Consent grants", state: ctx.consents_source_state },
+                    SourceStatusItem { label: "Health records", state: ctx.health_records_source_state },
+                ]
+            />
+
+            <section class="vault-card health-record-summary">
+                <SectionTitle title="Health record inventory" />
+                <p class="supporting-copy">
+                    "Record count: " {move || health_record_count.get().to_string()}
+                </p>
+                <SourceCollectionEmptyState
+                    label="Health records"
+                    state=health_records_source_state
+                    has_records=has_health_records
+                />
+            </section>
 
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Recent biometrics" />
                     <div class="biometric-list">
                         <For
-                            each=move || ctx.biometrics.get()
+                            each=move || biometrics.get()
                             key=|item| item.hash.clone()
                             children=move |item| view! {
                                 <div class="metric-row">
@@ -616,6 +667,11 @@ fn HealthPage() -> impl IntoView {
                                     <span class="metric-value">{format!("{} {}", item.value, item.unit)}</span>
                                 </div>
                             }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Biometrics"
+                            state=biometrics_source_state
+                            has_records=move || !biometrics.get().is_empty()
                         />
                     </div>
                 </section>
@@ -645,9 +701,14 @@ fn HealthPage() -> impl IntoView {
                     </form>
                     <div class="consent-list">
                         <For
-                            each=move || ctx.consents.get()
+                            each=move || consents.get()
                             key=|grant| grant.hash.clone()
                             children=move |grant| view! { <ConsentCard grant=grant /> }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Consent grants"
+                            state=consents_source_state
+                            has_records=move || !consents.get().is_empty()
                         />
                     </div>
                 </section>
@@ -659,6 +720,10 @@ fn HealthPage() -> impl IntoView {
 #[component]
 fn PreferencesPage() -> impl IntoView {
     let ctx = use_personal();
+    let preferences = ctx.preferences;
+    let preferences_source_state = ctx.preferences_source_state;
+    let preference_log = ctx.preference_log;
+    let preference_log_source_state = ctx.preference_log_source_state;
 
     view! {
         <div class="stack-page">
@@ -668,16 +733,26 @@ fn PreferencesPage() -> impl IntoView {
                 summary=ctx.status_note.get_untracked()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![
+                    SourceStatusItem { label: "Sharing preferences", state: ctx.preferences_source_state },
+                    SourceStatusItem { label: "Preference history", state: ctx.preference_log_source_state },
+                ]
+            />
 
             <div class="two-up">
                 <section class="vault-card">
                     <SectionTitle title="Domain posture" />
                     <div class="preference-list">
                         <For
-                            each=move || ctx.preferences.get()
+                            each=move || preferences.get()
                             key=|pref| format!("{}-{}", pref.source_cluster, pref.target_cluster)
                             children=move |pref| view! { <PreferenceCard pref=pref /> }
+                        />
+                        <SourceCollectionEmptyState
+                            label="Sharing preferences"
+                            state=preferences_source_state
+                            has_records=move || !preferences.get().is_empty()
                         />
                     </div>
                 </section>
@@ -686,7 +761,7 @@ fn PreferencesPage() -> impl IntoView {
                     <SectionTitle title="Change log" />
                     <div class="preference-list">
                         <For
-                            each=move || ctx.preference_log.get()
+                            each=move || preference_log.get()
                             key=|log| format!("{}-{}-{}", log.source_cluster, log.target_cluster, log.changed_at)
                             children=move |log| view! {
                                 <div class="mini-card">
@@ -702,6 +777,11 @@ fn PreferencesPage() -> impl IntoView {
                                 </div>
                             }
                         />
+                        <SourceCollectionEmptyState
+                            label="Preference history"
+                            state=preference_log_source_state
+                            has_records=move || !preference_log.get().is_empty()
+                        />
                     </div>
                 </section>
             </div>
@@ -712,6 +792,8 @@ fn PreferencesPage() -> impl IntoView {
 #[component]
 fn ActivityPage() -> impl IntoView {
     let ctx = use_personal();
+    let activity = ctx.activity;
+    let activity_source_state = ctx.activity_source_state;
 
     view! {
         <div class="stack-page">
@@ -721,16 +803,26 @@ fn ActivityPage() -> impl IntoView {
                 summary="This page will eventually reflect bridge queries, events, and disclosures directly.".to_string()
             />
 
-            <PersonalSourceNotice />
+            <PersonalSourceNotice
+                sources=vec![SourceStatusItem {
+                    label: "Activity history",
+                    state: ctx.activity_source_state,
+                }]
+            />
             <section class="vault-card">
                 <SectionTitle title="Disclosure and handoff log" />
                 <ul class="activity-list">
                     <For
-                        each=move || ctx.activity.get()
+                        each=move || activity.get()
                         key=|entry| entry.id.clone()
                         children=move |entry| view! { <ActivityItemCard item=entry wide=true /> }
                     />
                 </ul>
+                <SourceCollectionEmptyState
+                    label="Activity history"
+                    state=activity_source_state
+                    has_records=move || !activity.get().is_empty()
+                />
             </section>
         </div>
     }
@@ -755,14 +847,126 @@ fn UnlockPage() -> impl IntoView {
     }
 }
 
+#[derive(Clone)]
+struct SourceStatusItem {
+    label: &'static str,
+    state: RwSignal<SourceReadState>,
+}
+
+fn source_empty_message(label: &str, state: SourceReadState) -> String {
+    match state {
+        SourceReadState::NotChecked => {
+            format!("{label}: this source has not been checked, so record absence is unknown.")
+        }
+        SourceReadState::Loading => format!("{label}: checking the source."),
+        SourceReadState::LiveWithRecords { .. } => format!(
+            "{label}: the source reported records, but this view contains none. Recheck the adapter."
+        ),
+        SourceReadState::LiveConfirmedEmpty { .. } => format!(
+            "{label}: the source returned no records at the last successful check. This does not establish what other systems may hold."
+        ),
+        SourceReadState::Unavailable { reason } => format!(
+            "{label}: source unavailable ({reason:?}); no conclusion about record absence can be drawn."
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: Some(checked_at),
+        } => format!(
+            "{label}: no current read is available; previous successful read {}. Recheck before relying on this data.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: None,
+        } => {
+            format!("{label}: source state is stale and no successful-read timestamp is available.")
+        }
+        SourceReadState::Demo => format!(
+            "{label}: this demo view has no synthetic examples; no live source was queried."
+        ),
+        SourceReadState::Conflict => {
+            format!("{label}: evidence conflicts; no automatic resolution is safe.")
+        }
+        SourceReadState::Unsupported => format!("{label}: no source adapter is integrated."),
+    }
+}
+
 #[component]
-fn PersonalSourceNotice() -> impl IntoView {
-    let ctx = use_personal();
+fn SourceCollectionEmptyState<F>(
+    label: &'static str,
+    state: RwSignal<SourceReadState>,
+    has_records: F,
+) -> impl IntoView
+where
+    F: Fn() -> bool + Send + Sync + 'static,
+{
     view! {
-        <section class="vault-card source-status-card">
-            <p class="supporting-copy" role="status" aria-live="polite">
-                {move || ctx.status_note.get()}
-            </p>
+        {move || {
+            if has_records() {
+                ().into_any()
+            } else {
+                let message = source_empty_message(label, state.get());
+                view! {
+                    <p class="source-empty-copy" role="status" aria-live="polite">
+                        {message}
+                    </p>
+                }
+                .into_any()
+            }
+        }}
+    }
+}
+
+fn source_state_summary(state: SourceReadState) -> String {
+    match state {
+        SourceReadState::NotChecked => "Not checked; absence is unknown.".into(),
+        SourceReadState::Loading => "Checking source; absence is unknown.".into(),
+        SourceReadState::LiveWithRecords { checked_at } => format!(
+            "Live read returned records; checked {}.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::LiveConfirmedEmpty { checked_at } => format!(
+            "Live read confirmed no records at {}.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::Unavailable { reason } => {
+            format!("Unavailable ({reason:?}); this does not confirm that records are absent.")
+        }
+        SourceReadState::Stale {
+            last_successful_read_at: Some(checked_at),
+        } => format!(
+            "Stale; last successful read {}. Recheck before relying on this data.",
+            format_relative_micros(checked_at)
+        ),
+        SourceReadState::Stale {
+            last_successful_read_at: None,
+        } => "Stale; no successful-read timestamp is available.".into(),
+        SourceReadState::Demo => "Demo data; synthetic examples, not live records.".into(),
+        SourceReadState::Conflict => "Conflicting evidence; no automatic resolution.".into(),
+        SourceReadState::Unsupported => "Not integrated; no source adapter is connected.".into(),
+    }
+}
+
+#[component]
+fn PersonalSourceNotice(sources: Vec<SourceStatusItem>) -> impl IntoView {
+    view! {
+        <section class="vault-card source-status-card" aria-label="Source status">
+            <div class="source-status-list">
+                <For
+                    each=move || sources.clone()
+                    key=|source| source.label
+                    children=move |source| {
+                        let label = source.label;
+                        let state = source.state;
+                        view! {
+                            <div class="source-status-row">
+                                <strong>{label}</strong>
+                                <span role="status" aria-live="polite">
+                                    {move || source_state_summary(state.get())}
+                                </span>
+                            </div>
+                        }
+                    }
+                />
+            </div>
         </section>
     }
 }
@@ -1043,5 +1247,50 @@ fn ActivityItemCard(item: personal_leptos_types::ActivityItemView, wide: bool) -
             </div>
             <p class="mini-card-meta">{item.detail}</p>
         </li>
+    }
+}
+
+#[cfg(test)]
+mod source_empty_message_tests {
+    use super::source_empty_message;
+    use personal_leptos_types::{SourceReadState, SourceUnavailableReason};
+
+    #[test]
+    fn live_empty_and_unavailable_messages_are_not_conflated() {
+        let empty = source_empty_message(
+            "Credentials",
+            SourceReadState::LiveConfirmedEmpty { checked_at: 123 },
+        );
+        let unavailable = source_empty_message(
+            "Credentials",
+            SourceReadState::Unavailable {
+                reason: SourceUnavailableReason::Network,
+            },
+        );
+
+        assert!(empty.contains("returned no records"));
+        assert!(empty.contains("Credentials"));
+        assert!(unavailable.contains("unavailable"));
+        assert!(unavailable.contains("no conclusion"));
+        assert!(!unavailable.contains("returned no records"));
+    }
+
+    #[test]
+    fn demo_and_conflict_messages_do_not_assert_live_truth() {
+        let demo = source_empty_message("Identity keys", SourceReadState::Demo);
+        let conflict = source_empty_message("Property", SourceReadState::Conflict);
+
+        assert!(demo.contains("synthetic examples"));
+        assert!(demo.contains("no live source"));
+        assert!(conflict.contains("evidence conflicts"));
+        assert!(conflict.contains("no automatic resolution"));
+    }
+
+    #[test]
+    fn unsupported_source_is_not_displayed_as_empty() {
+        let unsupported = source_empty_message("Vehicle recalls", SourceReadState::Unsupported);
+
+        assert!(unsupported.contains("no source adapter is integrated"));
+        assert!(!unsupported.contains("returned no records"));
     }
 }
