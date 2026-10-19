@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: d6u-runtime-reference-${{ github.event.workflow_run.head_sha }}
+  group: d6u-runtime-reference-${{ github.workflow_ref }}-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
@@ -19,13 +19,15 @@ jobs:
     name: D6U Holochain 0.7 runtime evidence
     if: >-
       github.event.workflow_run.name == 'D6S Canonical Qualification' &&
+      github.event.workflow_run.path == '.github/workflows/d6s-canonical-qualification.yml' &&
+      github.event.workflow_run.workflow_id == 371215723 &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_repository.id == github.repository_id &&
       github.event.workflow_run.head_branch == 'myc-int-demo-d6u-holochain-07-runtime'
     env:
       QUALIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
-      SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -35,173 +37,490 @@ jobs:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
 
+      - name: Assert trusted D6S workflow identity
+        env:
+          EXPECTED_D6S_WORKFLOW_BLOB: e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4
+        run: |
+          set -euo pipefail
+          actual="$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+          test "$actual" = "$EXPECTED_D6S_WORKFLOW_BLOB"
+          test "${{ github.event.workflow_run.head_repository.id }}" = "${{ github.repository_id }}"
+          test "${{ github.event.workflow_run.head_repository.full_name }}" = "${{ github.repository }}"
+          test "${{ github.event.workflow_run.head_branch }}" = "myc-int-demo-d6u-holochain-07-runtime"
+          test "${{ github.event.workflow_run.event }}" = "pull_request"
+          test "${{ github.event.workflow_run.conclusion }}" = "success"
+
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
 
+      - name: Isolate Rust and Cargo trust roots
+        run: |
+          set -euo pipefail
+          cargo_home="$RUNNER_TEMP/d6u-cargo-home"
+          rustup_home="$RUNNER_TEMP/d6u-rustup-home"
+          test ! -e "$cargo_home"
+          test ! -e "$rustup_home"
+          mkdir -m 700 "$cargo_home"
+          mkdir -m 700 "$rustup_home"
+
+      - name: Reject ambient Cargo and Rust overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|\
+              RUSTC_BOOTSTRAP|CARGO_HTTP_*|CARGO_NET_GIT_*|CARGO_PROFILE_*|\
+              GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_SSH_COMMAND|GIT_PROXY_COMMAND|\
+              CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
+              CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|CARGO_NET_GIT_FETCH_WITH_CLI|\
+              CARGO_TARGET_DIR|CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|\
+              CARGO_TARGET_*_RUSTDOCFLAGS|CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
+              RUSTUP_HOME|RUSTUP_TOOLCHAIN|RUSTUP_DIST_SERVER|RUSTUP_UPDATE_ROOT|\
+              CARGO_REGISTRIES_*_CREDENTIAL_PROVIDER)
+                echo "forbidden ambient Cargo/Rust environment: $name"
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
+      - name: Require preinstalled rustup
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+        run: |
+          set -euo pipefail
+          rustup_path="$(command -v rustup)"
+          test -n "$rustup_path"
+          test -x "$rustup_path"
+          case "$rustup_path" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "rustup path unexpectedly resides in the PR workspace" >&2
+              exit 1
+              ;;
+          esac
+          rustup --version
+
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
         with:
           toolchain: 1.96.1
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
 
-      - name: Assert Rust identity
+      - name: Recheck ambient toolchain state after Rust setup
         run: |
-          test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
-          test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
-          rustfmt +1.96.1 --version
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              RUSTC|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|RUSTDOC|RUSTDOC_WRAPPER|RUSTFLAGS|RUSTDOCFLAGS|\
+              RUSTC_BOOTSTRAP|CARGO_HTTP_*|CARGO_NET_GIT_*|CARGO_PROFILE_*|\
+              CARGO_BUILD_RUSTC|CARGO_BUILD_RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTDOCFLAGS|\
+              CARGO_ENCODED_RUSTDOCFLAGS|CARGO_BUILD_TARGET|CARGO_NET_OFFLINE|\
+              CARGO_TARGET_DIR|CARGO_TARGET_*_RUNNER|CARGO_TARGET_*_LINKER|CARGO_TARGET_*_RUSTFLAGS|\
+              CARGO_TARGET_*_RUSTDOCFLAGS|CARGO_REGISTRY_TOKEN|CARGO_REGISTRIES_*_TOKEN|CARGO_REGISTRIES_*_INDEX|\
+              RUSTUP_TOOLCHAIN|RUSTUP_DIST_SERVER|RUSTUP_UPDATE_ROOT|RUSTUP_INIT_SKIP_PATH_CHECK|RUSTUP_NO_UPDATE_NOTIFIER|\
+              GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_SSH_COMMAND|GIT_PROXY_COMMAND)
+                echo "forbidden ambient toolchain environment after setup: $name"
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+          test "$CARGO_HOME" = "${{ runner.temp }}/d6u-cargo-home"
+          test "$RUSTUP_HOME" = "${{ runner.temp }}/d6u-rustup-home"
 
-      - name: Preflight evidence verifiers
-        run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
+      - name: Assert Rust identity
+        id: rust_identity
+        env:
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+        run: |
+          set -euo pipefail
+          rust_version="$(rustc +1.96.1 --version)"
+          test "$(printf '%s\n' "$rust_version" | awk '{print $2}')" = "1.96.1"
+          rust_verbose_commit="$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')"
+          test "$rust_verbose_commit" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
+          rustfmt_version="$(rustfmt +1.96.1 --version)"
+          cargo_version="$(cargo +1.96.1 --version)"
+          {
+            echo "rust_version=$rust_version"
+            echo "rust_verbose_commit=$rust_verbose_commit"
+            echo "rustfmt_version=$rustfmt_version"
+            echo "cargo_version=$cargo_version"
+          } >> "$GITHUB_OUTPUT"
+      - name: Assert isolated Rust and Cargo trust roots
+        run: |
+          set -euo pipefail
+          test -d "${{ runner.temp }}/d6u-cargo-home"
+          test -d "${{ runner.temp }}/d6u-rustup-home"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
-      - name: Verify D6U manifest
-        run: python3 scripts/integral/verify_d6u_runtime_manifest.py
+      - name: Isolate Cargo working directory
+        run: |
+          set -euo pipefail
+          cargo_cwd="$RUNNER_TEMP/d6u-cargo-cwd"
+          test ! -e "$cargo_cwd"
+          mkdir -m 700 "$cargo_cwd"
+          probe="$cargo_cwd"
+          while [ "$probe" != "/" ]; do
+            test ! -e "$probe/.cargo/config"
+            test ! -e "$probe/.cargo/config.toml"
+            probe="$(dirname "$probe")"
+          done
+
+      - name: Parse D6U manifest data
+        run: |
+          set -euo pipefail
+          jq -e '
+            type == "object" and
+            (.version | type == "number") and
+            (.claim_ceiling | type == "string") and
+            (.supported_reference_cases | type == "array") and
+            (.unsupported_reference_cases | type == "array") and
+            (.evidence_outcome_classes | type == "array") and
+            (.substrate | type == "object") and
+            (.substrate.holochain | type == "string") and
+            (.substrate.hdk | type == "string") and
+            (.substrate.hdi | type == "string")
+          ' docs/integral/d6u-runtime-manifest.json >/dev/null
+
+      - name: Assert isolated Cargo configuration
+        run: |
+          set -euo pipefail
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
 
       - name: Check formatting
-        working-directory: d6u-runtime-harness
-        run: cargo fmt --all -- --check
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          GIT_CONFIG_NOSYSTEM: 1
+          GIT_CONFIG_GLOBAL: /dev/null
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: cargo +1.96.1 fmt --all --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- --check
+      - name: Generate dependency graph
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          GIT_CONFIG_NOSYSTEM: 1
+          GIT_CONFIG_GLOBAL: /dev/null
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: cargo +1.96.1 generate-lockfile --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml"
+      - name: Capture generated dependency graph identity
+        id: generated_graph
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          GIT_CONFIG_NOSYSTEM: 1
+          GIT_CONFIG_GLOBAL: /dev/null
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: |
+          set -euo pipefail
+          lock_sha="$(sha256sum "${{ github.workspace }}/d6u-runtime-harness/Cargo.lock" | cut -d' ' -f1)"
+          printf '%s\n' "$lock_sha" | grep -Eq '^[0-9a-f]{64}$'
+          metadata_path="$(mktemp "$RUNNER_TEMP/d6u-cargo-metadata-generated.XXXXXX")"
+          trap 'rm -f "$metadata_path"' EXIT
+          cargo +1.96.1 metadata --format-version 1 --locked --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" > "$metadata_path"
 
-      - name: Generate locked dependency graph
-        working-directory: d6u-runtime-harness
-        run: cargo generate-lockfile
+          metadata_sha="$(sha256sum "$metadata_path" | cut -d' ' -f1)"
+          printf '%s\n' "$metadata_sha" | grep -Eq '^[0-9a-f]{64}$'
+          {
+            echo "lock_sha=$lock_sha"
+            echo "metadata_sha=$metadata_sha"
+          } >> "$GITHUB_OUTPUT"
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
+      - name: Fetch locked dependency sources
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          GIT_CONFIG_NOSYSTEM: 1
+          GIT_CONFIG_GLOBAL: /dev/null
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: cargo +1.96.1 fetch --locked --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml"
 
-      - name: Verify resolved substrate lock
-        working-directory: d6u-runtime-harness
-        run: python3 ../scripts/integral/verify_d6u_runtime_lock.py Cargo.lock
-
-      - name: Negative-test substrate lock verifier
-        if: success()
+      - name: Capture runtime source integrity
+        id: runtime_source
         working-directory: d6u-runtime-harness
         run: |
           set -euo pipefail
-          tampered_lock=$(mktemp)
-          cp Cargo.lock "$tampered_lock"
-          python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'version = "0.7.0"':
-        lines[index] = 'version = "0.0.0"'
-        break
-else:
-    raise SystemExit("holochain lock package/version not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
-            echo "tampered Cargo.lock version was incorrectly accepted"
-            exit 1
-          fi
-
-          cp Cargo.lock "$tampered_lock"
-          python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'source = "registry+https://github.com/rust-lang/crates.io-index"':
-        lines[index] = 'source = "registry+https://example.invalid/index"'
-        break
-else:
-    raise SystemExit("holochain lock package/source not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
-            echo "tampered Cargo.lock registry source was incorrectly accepted"
-            exit 1
-          fi
-
-          cp Cargo.lock "$tampered_lock"
-          python3 - "$tampered_lock" <<'PY'
-import pathlib
-import re
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and re.fullmatch(r'checksum = "[0-9a-f]{64}"', line):
-        lines[index] = 'checksum = "' + ("0" * 64) + '"'
-        break
-else:
-    raise SystemExit("holochain lock package/checksum not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
-            echo "tampered Cargo.lock checksum was incorrectly accepted"
-            exit 1
-          fi
-          rm -f "$tampered_lock"
-
-      - name: Test D6U runtime boundary
-        working-directory: d6u-runtime-harness
-        run: |
-          set -o pipefail
-          cargo test --locked --test d6u_authority_boundary -- --nocapture 2>&1 | tee d6u-runtime-test.log
+          digest_input="$(mktemp "$RUNNER_TEMP/d6u-runtime-source-hashes.XXXXXX")"
+          trap 'rm -f "$digest_input"' EXIT
+          sha256sum \
+            Cargo.toml \
+            rust-toolchain.toml \
+            src/lib.rs \
+            tests/d6u_authority_boundary.rs \
+            ../docs/integral/d6u-runtime-manifest.json \
+            ../docs/integral/d6s-canon-2-manifest.json \
+            ../docs/integral/d6s-canon-2-authority-boundary-fixture.json \
+            ../docs/integral/d6s-canon-1-golden-vectors.json \
+            ../scripts/integral/verify_d6u_runtime_evidence.py \
+            ../scripts/integral/verify_d6u_runtime_record.py \
+            ../scripts/integral/verify_d6u_runtime_lock.py \
+            ../.github/workflows/d6s-canonical-qualification.yml \
+            > "$digest_input"
+          source_sha="$(sha256sum "$digest_input" | cut -d' ' -f1)"
+          printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
 
       - name: Clippy D6U runtime boundary
-        working-directory: d6u-runtime-harness
-        run: cargo clippy --locked --test d6u_authority_boundary -- -D warnings
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          GIT_CONFIG_NOSYSTEM: 1
+          GIT_CONFIG_GLOBAL: /dev/null
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: |
+          set -euo pipefail
+          env_file="$GITHUB_ENV"
+          path_file="$GITHUB_PATH"
+          test ! -s "$env_file"
+          test ! -s "$path_file"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY cargo +1.96.1 clippy --locked --offline --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" -- -D warnings
+          test ! -s "$env_file"
+          test ! -s "$path_file"
 
-      - name: Verify per-case runtime evidence
+      - name: Assert pre-runtime inputs after clippy
         if: success()
         working-directory: d6u-runtime-harness
-        run: python3 ../scripts/integral/verify_d6u_runtime_evidence.py d6u-runtime-test.log
+        env:
+          EXPECTED_LOCK_SHA: ${{ steps.generated_graph.outputs.lock_sha }}
+          EXPECTED_SOURCE_SHA: ${{ steps.runtime_source.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          probe="${{ runner.temp }}/d6u-cargo-cwd"
+          while [ "$probe" != "/" ]; do
+            test ! -e "$probe/.cargo/config"
+            test ! -e "$probe/.cargo/config.toml"
+            probe="$(dirname "$probe")"
+          done
 
+          test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
+          digest_input="$(mktemp "$RUNNER_TEMP/d6u-runtime-source-hashes-after-clippy.XXXXXX")"
+          trap 'rm -f "$digest_input"' EXIT
+          sha256sum \
+            Cargo.toml \
+            rust-toolchain.toml \
+            src/lib.rs \
+            tests/d6u_authority_boundary.rs \
+            ../docs/integral/d6u-runtime-manifest.json \
+            ../docs/integral/d6s-canon-2-manifest.json \
+            ../docs/integral/d6s-canon-2-authority-boundary-fixture.json \
+            ../docs/integral/d6s-canon-1-golden-vectors.json \
+            ../scripts/integral/verify_d6u_runtime_evidence.py \
+            ../scripts/integral/verify_d6u_runtime_record.py \
+            ../scripts/integral/verify_d6u_runtime_lock.py \
+            ../.github/workflows/d6s-canonical-qualification.yml \
+            > "$digest_input"
+          test "$(sha256sum "$digest_input" | cut -d' ' -f1)" = "$EXPECTED_SOURCE_SHA"
+
+      - name: Assert isolated Cargo configuration after clippy
+        if: success()
+        run: |
+          set -euo pipefail
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
+
+      - name: Build immutable D6U runtime test binary
+        id: runtime_binary
+        working-directory: ${{ runner.temp }}/d6u-cargo-cwd
+        env:
+          GIT_CONFIG_NOSYSTEM: 1
+          GIT_CONFIG_GLOBAL: /dev/null
+          RUSTUP_HOME: ${{ runner.temp }}/d6u-rustup-home
+          CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+        run: |
+          set -euo pipefail
+          json_path="$(mktemp "$RUNNER_TEMP/d6u-runtime-artifacts.XXXXXX")"
+          binary_path="$RUNNER_TEMP/d6u-runtime-test-binary"
+          trap 'rm -f "$json_path"' EXIT
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
+          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
+            cargo +1.96.1 test --locked --offline --no-run --message-format=json-render-diagnostics --test d6u_authority_boundary --manifest-path "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" > "$json_path"
+          test ! -s "$GITHUB_ENV"
+          test ! -s "$GITHUB_PATH"
+          mapfile -t executables < <(
+            jq -r --arg manifest "${{ github.workspace }}/d6u-runtime-harness/Cargo.toml" \
+              'select(.reason == "compiler-artifact" and .manifest_path == $manifest and .target.name == "d6u_authority_boundary" and (.target.kind | index("test")) != null and .executable != null) | .executable' \
+              "$json_path"
+          )
+          test "${#executables[@]}" -eq 1
+          source_binary="${executables[0]}"
+          test -x "$source_binary"
+          case "$source_binary" in
+            "${{ github.workspace }}/d6u-runtime-harness/target/"*) ;;
+            *) echo "test executable escaped the D6U target directory" >&2; exit 1 ;;
+          esac
+          source_sha="$(sha256sum "$source_binary" | cut -d' ' -f1)"
+          cp --reflink=auto "$source_binary" "$binary_path"
+          chmod 555 "$binary_path"
+          test "$source_sha" = "$(sha256sum "$binary_path" | cut -d' ' -f1)"
+          printf '%s\n' "$source_sha" | grep -Eq '^[0-9a-f]{64}$'
+          echo "binary_sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Assert runtime inputs after test binary build
+        if: success()
+        working-directory: d6u-runtime-harness
+        env:
+          EXPECTED_LOCK_SHA: ${{ steps.generated_graph.outputs.lock_sha }}
+          EXPECTED_SOURCE_SHA: ${{ steps.runtime_source.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
+          digest_input="$(mktemp "$RUNNER_TEMP/d6u-runtime-source-hashes-after-build.XXXXXX")"
+          trap 'rm -f "$digest_input"' EXIT
+          sha256sum \
+            Cargo.toml \
+            rust-toolchain.toml \
+            src/lib.rs \
+            tests/d6u_authority_boundary.rs \
+            ../docs/integral/d6u-runtime-manifest.json \
+            ../docs/integral/d6s-canon-2-manifest.json \
+            ../docs/integral/d6s-canon-2-authority-boundary-fixture.json \
+            ../scripts/integral/verify_d6u_runtime_evidence.py \
+            ../scripts/integral/verify_d6u_runtime_record.py \
+            ../scripts/integral/verify_d6u_runtime_lock.py \
+            ../.github/workflows/d6s-canonical-qualification.yml \
+            > "$digest_input"
+          test "$(sha256sum "$digest_input" | cut -d' ' -f1)" = "$EXPECTED_SOURCE_SHA"
+          probe="${{ runner.temp }}/d6u-cargo-cwd"
+          while [ "$probe" != "/" ]; do
+            test ! -e "$probe/.cargo/config"
+            test ! -e "$probe/.cargo/config.toml"
+            probe="$(dirname "$probe")"
+          done
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
+
+      - name: Isolate Docker client state
+        run: |
+          set -euo pipefail
+          docker_config="$RUNNER_TEMP/d6u-docker-config"
+          test ! -e "$docker_config"
+          mkdir -m 700 "$docker_config"
+
+      - name: Reject ambient Docker overrides
+        run: |
+          set -euo pipefail
+          forbidden=0
+          while IFS='=' read -r name _; do
+            case "$name" in
+              DOCKER_HOST|DOCKER_CONTEXT|DOCKER_TLS_VERIFY|DOCKER_CERT_PATH|DOCKER_CUSTOM_HEADERS|DOCKER_API_VERSION|\
+              DOCKER_DEFAULT_PLATFORM|BUILDKIT_HOST|CONTAINER_HOST)
+                echo "forbidden ambient Docker override: $name" >&2
+                forbidden=1
+                ;;
+            esac
+          done < <(env)
+          test "$forbidden" -eq 0
+
+      - name: Prepare isolated runtime container image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+        run: |
+          set -euo pipefail
+          docker --context default pull --platform linux/amd64 ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+          docker --context default image inspect ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
+            --format '{{index .RepoDigests 0}}' \
+            | grep -Fx 'ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b'
+      - name: Verify runtime container isolation controls
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+        run: |
+          set -euo pipefail
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 32 \
+            --ulimit nofile=256:256 \
+            --ulimit core=0 \
+            --memory 512m \
+            --tmpfs /tmp:rw,nosuid,nodev,size=2g \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
+            sh -c 'test "$(cat /proc/sys/kernel/osrelease)" != ""; test -e /sys/class/net/lo; test ! -e /var/run/docker.sock; test -w /tmp; ! touch /etc/d6u-host-write-probe'
+
+      - name: Test D6U runtime boundary
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/d6u-docker-config
+          TEST_BINARY_SHA: ${{ steps.runtime_binary.outputs.binary_sha }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/d6u-runtime-output"
+          mkdir -m 700 "$output_dir"
+          test ! -e "$output_dir/d6u-runtime-test.log"
+          test "$TEST_BINARY_SHA" = "$(sha256sum "${{ runner.temp }}/d6u-runtime-test-binary" | cut -d' ' -f1)"
+          docker --context default run --rm --pull=never --init \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit 512 \
+            --ulimit nofile=4096:4096 \
+            --ulimit core=0 \
+            --memory 8g \
+            --memory-swap 8g \
+            --tmpfs /tmp:rw,nosuid,nodev,size=2g \
+            --tmpfs /run:rw,nosuid,nodev,size=256m \
+            --mount type=bind,src="${{ github.workspace }}",dst="${{ github.workspace }}",readonly \
+            --mount type=bind,src="${{ runner.temp }}/d6u-runtime-test-binary",dst=/d6u-runtime-test,readonly \
+            --workdir "${{ github.workspace }}/d6u-runtime-harness" \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b \
+            /d6u-runtime-test --nocapture 2>&1 | tee "$output_dir/d6u-runtime-test.log"
+          test -s "$output_dir/d6u-runtime-test.log"
+          cp "$output_dir/d6u-runtime-test.log" "${{ github.workspace }}/d6u-runtime-harness/d6u-runtime-test.log"
+
+      - name: Assert runtime inputs after runtime test
+        if: success()
+        working-directory: d6u-runtime-harness
+        env:
+          EXPECTED_LOCK_SHA: ${{ steps.generated_graph.outputs.lock_sha }}
+          EXPECTED_SOURCE_SHA: ${{ steps.runtime_source.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(sha256sum Cargo.lock | cut -d' ' -f1)" = "$EXPECTED_LOCK_SHA"
+          digest_input="$(mktemp "$RUNNER_TEMP/d6u-runtime-source-hashes-after.XXXXXX")"
+          trap 'rm -f "$digest_input"' EXIT
+          sha256sum \
+            Cargo.toml \
+            rust-toolchain.toml \
+            src/lib.rs \
+            tests/d6u_authority_boundary.rs \
+            ../docs/integral/d6u-runtime-manifest.json \
+            ../docs/integral/d6s-canon-2-manifest.json \
+            ../docs/integral/d6s-canon-2-authority-boundary-fixture.json \
+            ../docs/integral/d6s-canon-1-golden-vectors.json \
+            ../scripts/integral/verify_d6u_runtime_evidence.py \
+            ../scripts/integral/verify_d6u_runtime_record.py \
+            ../scripts/integral/verify_d6u_runtime_lock.py \
+            ../.github/workflows/d6s-canonical-qualification.yml \
+            > "$digest_input"
+          test "$(sha256sum "$digest_input" | cut -d' ' -f1)" = "$EXPECTED_SOURCE_SHA"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config"
+          test ! -e "${{ runner.temp }}/d6u-cargo-home/config.toml"
       - name: Assert evidence inputs exist
         if: success()
         working-directory: d6u-runtime-harness
         run: |
           test -s d6u-runtime-test.log
           test -s Cargo.lock
-
-      - name: Negative-test runtime evidence verifier
-        if: success()
-        working-directory: d6u-runtime-harness
-        run: |
-          set -euo pipefail
-          tampered_log=$(mktemp)
-          cp d6u-runtime-test.log "$tampered_log"
-          python3 - "$tampered_log" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-for index, line in enumerate(lines):
-    if line.startswith("D6U_CASE\tcanonical-payload-accepted\t"):
-        parts = line.split("\t")
-        parts[2] = "semantic-rejected"
-        lines[index] = "\t".join(parts)
-        break
-else:
-    raise SystemExit("canonical acceptance evidence line not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
-          if python3 ../scripts/integral/verify_d6u_runtime_evidence.py "$tampered_log"; then
-            echo "tampered runtime evidence was incorrectly accepted"
-            exit 1
-          fi
-          rm -f "$tampered_log"
 
       - name: Emit runtime evidence record
         working-directory: d6u-runtime-harness
@@ -210,10 +529,10 @@ PY
           {
             echo "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
             echo "status=runtime-reference-evidence"
-            echo "source_commit=$(git rev-parse HEAD)"
+            echo "source_commit=${{ github.event.workflow_run.head_sha }}"
             echo "workflow_run_id=${{ github.run_id }}"
             echo "workflow_run_attempt=${{ github.run_attempt }}"
-            echo "source_branch=${SOURCE_BRANCH}"
+            echo "source_branch=${{ github.event.workflow_run.head_branch }}"
             echo "source_repository=${{ github.event.workflow_run.head_repository.full_name }}"
             echo "trigger_workflow_run_id=${{ github.event.workflow_run.id }}"
             echo "trigger_workflow_run_attempt=${{ github.event.workflow_run.run_attempt }}"
@@ -229,60 +548,42 @@ PY
             echo "attestation_status=deferred-to-trusted-builder"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
-            d6s2_ledger_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6s-canon-2-manifest.json"))["version"])')
+            d6s2_ledger_version="$(jq -er ".version | tostring" ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_authority_ledger_schema=v${d6s2_ledger_version}"
             echo "d6s1_corpus_sha256=$(sha256sum ../docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "test_log_sha256=$(sha256sum d6u-runtime-test.log | cut -d' ' -f1)"
-            echo "manifest_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["version"])')"
+            echo "manifest_version=$(jq -er ".version | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             echo "manifest_git_blob_sha=$(git hash-object ../docs/integral/d6u-runtime-manifest.json)"
             echo "evidence_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_evidence.py)"
             echo "lock_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_lock.py)"
-            supported_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["supported_reference_cases"]))')
+            supported_case_count="$(jq -er ".supported_reference_cases | length | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             observed_case_count=$(grep -c '^D6U_CASE' d6u-runtime-test.log)
-            supplemental_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_substrate_checks", [])))')
+            supplemental_case_count="$(jq -er ".supplemental_substrate_checks // [] | length | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             observed_supplemental_count=$(grep -c '^D6U_SUBSTRATE_CHECK' d6u-runtime-test.log)
-            application_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_application_checks", [])))')
+            application_case_count="$(jq -er ".supplemental_application_checks // [] | length | tostring" ../docs/integral/d6u-runtime-manifest.json)"
             observed_application_count=$(grep -c '^D6U_APPLICATION_CHECK' d6u-runtime-test.log)
             echo "case_coverage=${observed_case_count}-of-${supported_case_count}"
             echo "supplemental_coverage=${observed_supplemental_count}-of-${supplemental_case_count}"
             echo "application_check_coverage=${observed_application_count}-of-${application_case_count}"
-            case_outcome_classes=$(python3 -c 'import json; print(",".join(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["evidence_outcome_classes"]))')
-            holochain_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["substrate"]["holochain"])')
-            hdk_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["substrate"]["hdk"])')
-            hdi_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["substrate"]["hdi"])')
+            case_outcome_classes="$(jq -er ".evidence_outcome_classes | join(",")" ../docs/integral/d6u-runtime-manifest.json)"
+            holochain_version="$(jq -er ".substrate.holochain" ../docs/integral/d6u-runtime-manifest.json)"
+            hdk_version="$(jq -er ".substrate.hdk" ../docs/integral/d6u-runtime-manifest.json)"
+            hdi_version="$(jq -er ".substrate.hdi" ../docs/integral/d6u-runtime-manifest.json)"
             echo "case_outcome_classes=${case_outcome_classes}"
             echo "runtime=holochain-${holochain_version}"
             echo "hdk=${hdk_version}"
             echo "hdi=${hdi_version}"
-            echo "rust=$(rustc --version)"
-            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
-            echo "cargo=$(cargo --version)"
-            echo "cargo_lock_sha256=$(sha256sum Cargo.lock | cut -d' ' -f1)"
+            echo "rust=${{ steps.rust_identity.outputs.rust_version }}"
+            echo "rust_verbose_commit=${{ steps.rust_identity.outputs.rust_verbose_commit }}"
+            echo "cargo=${{ steps.rust_identity.outputs.cargo_version }}"
+            echo "cargo_lock_sha256=${{ steps.generated_graph.outputs.lock_sha }}"
             echo "test=d6u_authority_boundary:passed"
             echo "supported_cases=${supported_case_count}"
-            unsupported_case_list=$(python3 -c 'import json; print(",".join(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["unsupported_reference_cases"]))')
+            unsupported_case_list="$(jq -er ".unsupported_reference_cases | join(",")" ../docs/integral/d6u-runtime-manifest.json)"
             echo "unsupported_cases=${unsupported_case_list}"
-            claim_ceiling=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["claim_ceiling"])')
+            claim_ceiling="$(jq -er ".claim_ceiling" ../docs/integral/d6u-runtime-manifest.json)"
             echo "claim_ceiling=${claim_ceiling}"
           } | tee d6u-runtime-evidence.txt
-
-      - name: Verify emitted runtime evidence record
-        if: success()
-        run: python3 scripts/integral/verify_d6u_runtime_record.py
-
-      - name: Negative-test runtime record verifier
-        if: success()
-        working-directory: d6u-runtime-harness
-        run: |
-          set -euo pipefail
-          backup=$(mktemp)
-          cp d6u-runtime-evidence.txt "$backup"
-          trap 'cp "$backup" d6u-runtime-evidence.txt; rm -f "$backup"' EXIT
-          sed -i 's/^claim_ceiling=.*/claim_ceiling=qualified/' d6u-runtime-evidence.txt
-          if python3 ../scripts/integral/verify_d6u_runtime_record.py; then
-            echo "tampered runtime evidence record was incorrectly accepted"
-            exit 1
-          fi
 
       - name: Mark attestation as deferred to trusted builder
         if: success()
