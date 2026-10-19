@@ -11,6 +11,7 @@
 //! - Reward distributions
 
 use hdi::prelude::*;
+use mycelix_finance_types::GovernanceAgentRegistration;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 // =============================================================================
@@ -343,6 +344,8 @@ pub struct RewardAllocation {
     pub merkle_proof: Vec<u8>,
 }
 
+const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
@@ -351,6 +354,8 @@ pub enum EntryTypes {
     CryptoEscrow(CryptoEscrow),
     RewardDistribution(RewardDistribution),
     EscrowSignatureEntry(EscrowSignatureEntry),
+    /// Immutable governance membership witness.
+    GovernanceAgentRegistration(GovernanceAgentRegistration),
 }
 
 #[hdk_link_types]
@@ -371,18 +376,171 @@ pub enum LinkTypes {
     StakeIdToStake,
     /// Escrow ID to escrow entry (O(1) lookup by ID)
     EscrowIdToEscrow,
-    /// Link from governance_agents anchor to authorized agent pubkeys
+    /// Link from governance_agents anchor to immutable registration witnesses
     GovernanceAgents,
     /// Link from escrow signature anchor to individual EscrowSignatureEntry entries
     EscrowToSignatures,
+    /// Versioned governance witness registry; appended to preserve existing link-type indices.
+    GovernanceWitnesses,
 }
 
 /// Validation callback
+
+#[dna_properties]
+pub struct FinanceDnaProperties {
+    #[serde(default)]
+    governance_bootstrap_authority: Option<AgentPubKey>,
+}
+
+fn governance_bootstrap_authority() -> ExternResult<AgentPubKey> {
+    FinanceDnaProperties::try_from_dna_properties()?
+        .governance_bootstrap_authority
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance bootstrap authority is not configured in DNA properties".into(),
+            ))
+        })
+}
+
+/// Decode and validate an immutable governance registration witness from an
+/// addressable DHT record.
+fn decode_governance_registration(record: &Record) -> ExternResult<GovernanceAgentRegistration> {
+    let registration = record
+        .entry()
+        .to_app_option::<GovernanceAgentRegistration>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Governance registration witness decode failed: {:?}",
+                e
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance registration witness entry is missing or private".into(),
+            ))
+        })?;
+
+    registration.validate_shape().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid governance registration witness: {}",
+            e
+        )))
+    })?;
+
+    Ok(registration)
+}
+
+/// Integrity-level proof for a governance registration witness.
+///
+/// A root witness is authorized only by the immutable DNA bootstrap authority.
+/// A non-root witness must reference a valid earlier witness whose registered
+/// agent is exactly the author of this witness.
+fn validate_create_governance_registration(
+    action: Create,
+    registration: GovernanceAgentRegistration,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(e) = registration.validate_shape() {
+        return Ok(ValidateCallbackResult::Invalid(e.into()));
+    }
+
+    let registered_agent = AgentPubKey::from_raw_36(registration.registered_agent.clone());
+
+    match registration.predecessor_registration {
+        None => {
+            let authority = governance_bootstrap_authority()?;
+            if action.author != authority {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Root governance registration must be authored by the configured DNA bootstrap authority"
+                        .into(),
+                ));
+            }
+        }
+        Some(ref predecessor_raw) => {
+            let predecessor = ActionHash::from_raw_36(predecessor_raw.clone());
+            let predecessor_record = must_get_valid_record(predecessor.clone())?;
+            let expected_entry_type =
+                EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
+            if predecessor_record.action().entry_type() != Some(&expected_entry_type) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Governance registration predecessor must be a witness in this integrity zome"
+                        .into(),
+                ));
+            }
+            let predecessor_registration =
+                decode_governance_registration(&predecessor_record)?;
+
+            let predecessor_agent =
+                AgentPubKey::from_raw_36(predecessor_registration.registered_agent);
+
+            if predecessor_agent != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Governance registration predecessor must name the author of the new witness"
+                        .into(),
+                ));
+            }
+        }
+    }
+
+    if registered_agent == action.author && registration.predecessor_registration.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A governance successor must register a distinct agent; self-registration is only valid as the bootstrap root"
+                .into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Integrity-level proof that a GovernanceAgents link points at a valid
+/// registration witness created by its author.
+fn validate_create_governance_link(
+    action: TypedAction,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let expected_base: AnyLinkableHash =
+        hash_entry(&Anchor(GOVERNANCE_AGENTS_ANCHOR.to_string()))?.into();
+    if base_address != expected_base {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registry link must originate from the canonical governance anchor".into(),
+        ));
+    }
+
+    let target = match target_address.clone().into_action_hash() {
+        Some(hash) => hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Governance registry target must be a registration witness ActionHash".into(),
+            ));
+        }
+    };
+
+    let witness_record = must_get_valid_record(target)?;
+    let _witness = decode_governance_registration(&witness_record)?;
+    let expected_entry_type =
+        EntryType::App(UnitEntryTypes::GovernanceAgentRegistration.try_into()?);
+    if witness_record.action().entry_type() != Some(&expected_entry_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registry target must be a GovernanceAgentRegistration entry".into(),
+        ));
+    }
+
+    if witness_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Governance registry link must be created by the registration witness author"
+                .into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::GovernanceAgentRegistration(registration) => validate_create_governance_registration(action, registration),
                 EntryTypes::CollateralStake(stake) => validate_create_stake(action, stake),
                 EntryTypes::SlashingEvent(event) => validate_slashing_event(action, event),
                 EntryTypes::CryptoEscrow(escrow) => validate_escrow(action, escrow),
@@ -394,6 +552,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => match app_entry {
+                    EntryTypes::GovernanceAgentRegistration(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Governance registration witnesses are immutable".into(),
+                    )),
                 EntryTypes::CollateralStake(stake) => validate_update_stake(action, stake),
                 EntryTypes::CryptoEscrow(escrow) => validate_update_escrow(action, escrow),
                 EntryTypes::SlashingEvent(_) => Ok(ValidateCallbackResult::Invalid(
@@ -408,7 +569,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
+        FlatOp::RegisterCreateLink { link_type, base_address, target_address, action, .. } => match link_type {
             LinkTypes::StakerToStake => Ok(ValidateCallbackResult::Valid),
             LinkTypes::StakeToSlashing => Ok(ValidateCallbackResult::Valid),
             LinkTypes::DepositorToEscrow => Ok(ValidateCallbackResult::Valid),
@@ -417,8 +578,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::ActiveStakes => Ok(ValidateCallbackResult::Valid),
             LinkTypes::StakeIdToStake => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EscrowIdToEscrow => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EscrowToSignatures => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                "Legacy GovernanceAgents links are quarantined; use GovernanceWitnesses".into(),
+            )),
+            LinkTypes::GovernanceWitnesses => {
+                validate_create_governance_link(action, base_address, target_address)
+            },
+        },
+        FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
+            LinkTypes::GovernanceAgents | LinkTypes::GovernanceWitnesses => Ok(ValidateCallbackResult::Invalid(
+                "Governance registry links are append-only and cannot be deleted".into(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
