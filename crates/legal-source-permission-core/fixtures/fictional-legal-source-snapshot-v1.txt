@@ -1,0 +1,9 @@
+FICTIONAL LEGAL SOURCE SNAPSHOT v1
+Snapshot ID: snapshot-2026-10
+Component ID: fictional-case-law-collection
+
+This text is invented solely to test source-version and digest binding. It is not legislation, a court judgment, legal advice, or a statement about any real jurisdiction.
+
+Synthetic rule fragment: the fictional institution may answer only when competence is explicitly established, the material fact is present, a current authority snapshot is available, source use is permitted for the requested operation, and no unresolved authority conflict exists.
+
+End of fictional source snapshot.
