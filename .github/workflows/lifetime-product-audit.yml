@@ -14,7 +14,6 @@ on:
     paths:
       - "mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_*.md"
       - "mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_*.json"
-      - "mycelix-workspace/happs/fabrication/docs/LKI_01_*.json"
       - "mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/**"
       - ".github/workflows/lifetime-product-audit.yml"
   workflow_dispatch:
@@ -58,3 +57,9 @@ jobs:
           cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
             --bin repairability_extension_audit -- \
             --corpus mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIRABILITY_BENCHMARK_EXTENSION_V0_4_DRAFT.json
+      - name: Audit repair-trial record contract and example
+        run: |
+          cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
+            --bin repair_trial_record_audit -- \
+            --schema mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_SCHEMA_V0_1_DRAFT.json \
+            --record mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIR_TRIAL_RECORD_EXAMPLE_V0_1_DRAFT.json
