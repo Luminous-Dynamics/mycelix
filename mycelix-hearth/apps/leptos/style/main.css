@@ -2202,3 +2202,133 @@ section h2 {
     align-items: center;
     gap: 0.5rem;
 }
+
+
+/* === Trust-aware data state ===
+   Connection status is not proof that the visible domain data is current. */
+.data-trust-notice {
+    width: min(900px, calc(100% - 2rem));
+    margin: 0.75rem auto 0;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--bond-decaying);
+    border-radius: var(--radius-soft);
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    line-height: 1.55;
+}
+.data-trust-mark {
+    display: inline-flex;
+    flex: 0 0 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    color: var(--bond-decaying);
+    font-weight: 700;
+    line-height: 1;
+}
+.data-trust-copy { min-width: 0; }
+.data-trust-copy strong {
+    display: block;
+    margin-bottom: 0.15rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.data-trust-copy p { color: var(--text-secondary); }
+.data-trust--connecting,
+.data-trust--stale,
+.data-trust--unavailable,
+.data-trust--unverified { border-left-color: var(--bond-decaying); }
+.data-trust--connecting .data-trust-mark { color: var(--bond-decaying); }
+.data-trust--unavailable { border-left-color: var(--bond-neglected); }
+.data-trust--unavailable .data-trust-mark { color: var(--bond-neglected); }
+
+/* Native secondary navigation: no hover-only activation and no JS menu state. */
+.nav-more { position: relative; flex: 0 0 auto; }
+.nav-more > summary {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-pill);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    list-style: none;
+    user-select: none;
+}
+.nav-more > summary::-webkit-details-marker { display: none; }
+.nav-more > summary::after { content: "⌄"; font-size: 0.9rem; }
+.nav-more[open] > summary::after { content: "⌃"; }
+.nav-more > summary:hover,
+.nav-more[open] > summary {
+    background: var(--primary-glow);
+    color: var(--text-primary);
+}
+.nav-more-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 100;
+    display: grid;
+    gap: 0.15rem;
+    width: 16rem;
+    max-width: calc(100vw - 2rem);
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+    padding: 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-soft);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-ambient);
+}
+.nav-more-menu a {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.65rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+.nav-more-menu a:hover,
+.nav-more-menu a:focus-visible {
+    background: var(--primary-glow);
+    color: var(--text-primary);
+}
+.nav-links a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+}
+@media (max-width: 768px) {
+    .nav-more {
+        order: 4;
+        width: 100%;
+    }
+    .nav-more > summary {
+        min-height: 48px;
+        padding-inline: 0.85rem;
+    }
+    .nav-more-menu {
+        left: 0;
+        right: auto;
+        width: min(22rem, calc(100vw - 2rem));
+    }
+    .nav-links a,
+    .nav-more-menu a { min-height: 48px; }
+    .data-trust-notice {
+        width: calc(100% - 1rem);
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+    }
+}
