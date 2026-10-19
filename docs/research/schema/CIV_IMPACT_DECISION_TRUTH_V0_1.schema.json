@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_DECISION_TRUTH_V0_1.schema.json",
+  "title": "CIV-IMPACT Evaluator-Only Hidden Truth",
+  "description": "Evaluator/scorer input only. This artifact must be stored separately from the policy-visible episode and must never be serialized into the policy process.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "episode_id",
+    "latent_facts",
+    "action_outcomes",
+    "evidence_request_outcomes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "latent_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fact_id",
+          "subject_ref",
+          "predicate",
+          "value"
+        ],
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "predicate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "action_outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action_id",
+          "realized_decision_loss_microcredits",
+          "completed_units",
+          "unserved_units",
+          "guardrail_violations"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "realized_decision_loss_microcredits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completed_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unserved_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "guardrail_violations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    "evidence_request_outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_option_id",
+          "disposition",
+          "actual_cost_microcredits",
+          "actual_latency_ms",
+          "returned_observations",
+          "source_family_refs"
+        ],
+        "properties": {
+          "request_option_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "disposition": {
+            "enum": [
+              "provided",
+              "denied",
+              "not_authorized",
+              "budget_exceeded",
+              "timeout",
+              "no_result",
+              "invalid_receipt"
+            ]
+          },
+          "actual_cost_microcredits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "actual_latency_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "returned_observations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "observation_id",
+                "subject_ref",
+                "predicate",
+                "value",
+                "source_ref",
+                "source_family_ref",
+                "provenance_digest_sha256",
+                "age_ms",
+                "freshness_limit_ms",
+                "state",
+                "rights_profile"
+              ],
+              "properties": {
+                "observation_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "subject_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "predicate": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "source_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "source_family_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "provenance_digest_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "age_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "freshness_limit_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "state": {
+                  "enum": [
+                    "observed",
+                    "partial",
+                    "conflicted",
+                    "unknown",
+                    "stale"
+                  ]
+                },
+                "rights_profile": {
+                  "enum": [
+                    "public_permitted",
+                    "authorized_aggregate",
+                    "consented",
+                    "restricted",
+                    "unknown"
+                  ]
+                }
+              }
+            }
+          },
+          "source_family_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  }
+}
