@@ -1,0 +1,45 @@
+name: DeSci Benchmark Manifest
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-desci/src/core/src/scientific_benchmark_manifest.rs"
+      - "mycelix-workspace/mycelix-desci/src/core/src/lib.rs"
+      - "mycelix-workspace/mycelix-desci/src/core/Cargo.toml"
+      - "mycelix-workspace/mycelix-desci/Cargo.toml"
+      - "mycelix-workspace/crates/mycelix-zkp-core/**"
+      - ".github/workflows/desci-benchmark-manifest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desci-benchmark-manifest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  manifest-contract-tests:
+    name: Scientific Benchmark Manifest Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt
+
+      - name: Test scientific benchmark manifest invariants
+        run: cargo test --manifest-path mycelix-workspace/mycelix-desci/Cargo.toml -p mycelix-desci-core scientific_benchmark_manifest::tests
+
+      # Keep compiler/test diagnostics visible even when the edited module has
+      # formatting drift; this remains a required check before merge.
+      - name: Check manifest module formatting
+        if: always()
+        run: rustfmt --edition 2024 --check mycelix-workspace/mycelix-desci/src/core/src/scientific_benchmark_manifest.rs
