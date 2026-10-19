@@ -22,7 +22,7 @@ These observations motivate a testable candidate policy. They are not proof that
 
 ### Time decay
 
-Preserve the existing zero timestamp as a first-observation sentinel: a first valid decay call sets the timestamp watermark but does not apply decay. After initialization:
+Preserve the existing zero timestamp as a first-observation sentinel: a first valid decay call sets the timestamp watermark but does not apply decay. Because the legacy scalar field cannot distinguish an initialized timestamp of exactly zero from the sentinel, reject `current_time == 0` rather than silently skipping decay; a proper production migration should replace this sentinel with `Option<i64>` or an explicit initialization flag. After initialization:
 
 - timestamps are monotone nondecreasing;
 - backward time rejects and never increases trust/confidence or rolls the watermark backward;
@@ -44,7 +44,7 @@ These confidence semantics are a proposed policy to test, not a theorem or an em
 
 ## Frozen fixture and Rust oracle
 
-The v1 corpus has **30 cases: 17 valid transitions and 13 invalid inputs**. It includes first timestamp initialization, same-time and multi-day decay, rate boundaries, backward time, `i64` subtraction overflow, invalid/non-finite state, success/failure evidence, capped and zero/subnormal weights, `f32` maximum finite weight, non-finite weights and `u32` count overflow.
+The v1 corpus has **32 cases: 17 valid transitions and 15 invalid inputs**. It includes first timestamp initialization, same-time and multi-day decay, rate boundaries, backward time, `i64` subtraction overflow, invalid/non-finite state, success/failure evidence, capped and zero/subnormal weights, `f32` maximum finite weight, non-finite weights and `u32` count overflow.
 
 The separate Rust integration oracle validates those examples without invoking `TCDMState`. It also runs a deterministic **100,000-step** sequence of candidate interactions and daily decay, asserting finite bounded trust/confidence throughout. Five mutation controls target backward-time score boosts, negative-weight acceptance, fixed confidence increments for zero weight, unchecked arithmetic and invalid state propagation.
 
@@ -66,7 +66,7 @@ Therefore a standalone-path patch alone cannot support a claim that the full wor
 
 | Measure | Initial target |
 |---|---:|
-| Frozen corpus | 17/17 valid transitions accepted; 13/13 invalid inputs rejected |
+| Frozen corpus | 17/17 valid transitions accepted; 15/15 invalid inputs rejected |
 | Generated invariant run | 100,000 steps; zero NaN/Inf or out-of-range states |
 | Time monotonicity | zero backwards-time boosts and zero watermark regressions |
 | Input mutation | zero negative/non-finite weights accepted |
