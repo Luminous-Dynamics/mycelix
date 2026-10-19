@@ -324,10 +324,18 @@ pub struct TrustCredentialView {
 pub enum SourceReadState {
     NotChecked,
     Loading,
-    LiveWithRecords { checked_at: i64 },
-    LiveConfirmedEmpty { checked_at: i64 },
-    Unavailable { reason: SourceUnavailableReason },
-    Stale { last_successful_read_at: Option<i64> },
+    LiveWithRecords {
+        checked_at: i64,
+    },
+    LiveConfirmedEmpty {
+        checked_at: i64,
+    },
+    Unavailable {
+        reason: SourceUnavailableReason,
+    },
+    Stale {
+        last_successful_read_at: Option<i64>,
+    },
     Demo,
     Conflict,
     Unsupported,
@@ -640,7 +648,10 @@ mod tests {
     #[test]
     fn valid_signature_does_not_imply_current_or_undisputed_claim() {
         let evidence = synthetic_claim_evidence();
-        assert_eq!(evidence.cryptographic_integrity, CryptographicIntegrity::Valid);
+        assert_eq!(
+            evidence.cryptographic_integrity,
+            CryptographicIntegrity::Valid
+        );
         assert_eq!(evidence.lifecycle_status, ClaimLifecycleStatus::Disputed);
         assert_eq!(evidence.freshness, EvidenceFreshness::Stale);
 
@@ -702,5 +713,4 @@ mod tests {
         assert!(!json.contains("Bearer "));
         assert!(json.contains("unauthorized"));
     }
-
 }
