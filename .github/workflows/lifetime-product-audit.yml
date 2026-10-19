@@ -10,7 +10,7 @@ on:
       - "mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/**"
       - ".github/workflows/lifetime-product-audit.yml"
   push:
-    branches: ["main"]
+    branches: ["main", "work/lifetime-product-engineering-contract"]
     paths:
       - "mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_*.md"
       - "mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_*.json"
