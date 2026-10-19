@@ -266,4 +266,60 @@ fn swapping_estimates_and_complementing_omega_is_equivalent() {
         assert!(close(a.mean[axis], b.mean[axis]));
         assert!(close(a.covariance_diag[axis], b.covariance_diag[axis]));
     }
+#[test]
+fn deterministic_10000_case_grid_preserves_ci_properties() {
+    fn next_unit(seed: &mut u64) -> f64 {
+        *seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((*seed >> 11) as f64) / ((1_u64 << 53) as f64)
+    }
+
+    let mut seed = 0x6a09e667f3bcc909_u64;
+    for case_index in 0..10_000 {
+        let mut draw = || next_unit(&mut seed);
+        let mean_a = std::array::from_fn(|_| (draw() * 2.0 - 1.0) * 10_000.0);
+        let mean_b = std::array::from_fn(|_| (draw() * 2.0 - 1.0) * 10_000.0);
+        let covariance_a = std::array::from_fn(|_| 10.0_f64.powf(draw() * 16.0 - 8.0));
+        let covariance_b = std::array::from_fn(|_| 10.0_f64.powf(draw() * 16.0 - 8.0));
+        let omega = draw();
+
+        let a = DiagonalEstimate {
+            mean: mean_a,
+            covariance_diag: covariance_a,
+        };
+        let b = DiagonalEstimate {
+            mean: mean_b,
+            covariance_diag: covariance_b,
+        };
+        let forward = covariance_intersection_reference(&a, &b, omega)
+            .unwrap_or_else(|error| panic!("grid case {case_index}: {error}"));
+        let reverse = covariance_intersection_reference(&b, &a, 1.0 - omega)
+            .unwrap_or_else(|error| panic!("swapped grid case {case_index}: {error}"));
+
+        for axis in 0..3 {
+            let lower = covariance_a[axis].min(covariance_b[axis]);
+            let upper = covariance_a[axis].max(covariance_b[axis]);
+            assert!(forward.covariance_diag[axis].is_finite());
+            assert!(forward.covariance_diag[axis] > 0.0);
+            assert!(
+                forward.covariance_diag[axis] >= lower * (1.0 - ABS_TOL)
+                    && forward.covariance_diag[axis] <= upper * (1.0 + ABS_TOL),
+                "grid case {case_index}, axis {axis}: variance outside CI input bounds"
+            );
+            assert!(
+                close(forward.mean[axis], reverse.mean[axis]),
+                "grid case {case_index}, axis {axis}: swapped-mean invariance failed"
+            );
+            assert!(
+                close(
+                    forward.covariance_diag[axis],
+                    reverse.covariance_diag[axis]
+                ),
+                "grid case {case_index}, axis {axis}: swapped-covariance invariance failed"
+            );
+        }
+    }
+}
+
 }
