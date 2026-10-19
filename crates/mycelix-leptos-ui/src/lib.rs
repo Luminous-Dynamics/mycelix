@@ -476,6 +476,7 @@ pub mod tabs {
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct TabDefinition {
+        /// Stable, valid DOM ID, unique across the rendered page and shared by this tab and its matching TabPanel.
         pub id: String,
         pub label: String,
     }
@@ -489,7 +490,11 @@ pub mod tabs {
         }
     }
 
-    /// Controlled ARIA tab list. The parent owns the selected tab state.
+    /// Controlled horizontal tab list.
+    ///
+    /// The parent owns the selected-tab signal. ArrowLeft/ArrowRight wrap, and
+    /// Home/End jump to the first/last tab. IDs must be unique within the tab
+    /// list and page, and must match IDs supplied to TabPanel. Use a non-empty DOM ID token with no ASCII whitespace.
     #[component]
     pub fn Tabs(
         tabs: Vec<TabDefinition>,
@@ -501,21 +506,75 @@ pub mod tabs {
         } else {
             label
         };
+        let tab_ids = tabs.iter().map(|tab| tab.id.clone()).collect::<Vec<_>>();
+
+        // Keep the composite widget tabbable when callers supply a stale or
+        // otherwise invalid selection. An empty tab list remains empty.
+        if let Some(first_id) = tab_ids.first() {
+            let current_id = active.get_untracked();
+            if !tab_ids.iter().any(|id| id == &current_id) {
+                active.set(first_id.clone());
+            }
+        }
+
+        let tab_refs = (0..tabs.len())
+            .map(|_| NodeRef::<leptos::html::Button>::new())
+            .collect::<Vec<_>>();
+
         view! {
             <div class="mycelix-tabs">
-                <div class="mycelix-tab-list" role="tablist" aria-label=aria_label>
-                    {tabs.into_iter().map(|tab| {
-                        let id = tab.id.clone();
-                        let id_for_click = tab.id.clone();
-                        let selected = move || active.get() == id;
+                <div
+                    class="mycelix-tab-list"
+                    role="tablist"
+                    aria-label=aria_label
+                    aria-orientation="horizontal"
+                >
+                    {tabs.into_iter().enumerate().map(|(index, tab)| {
+                        let tab_id = tab.id;
+                        let selected_id = tab_id.clone();
+                        let tabindex_id = tab_id.clone();
+                        let click_id = tab_id.clone();
+                        let key_id = tab_id.clone();
+                        let dom_id = format!("tab-{tab_id}");
+                        let panel_id = format!("tabpanel-{tab_id}");
+                        let selected = move || active.get() == selected_id;
+                        let tabindex = move || {
+                            if active.get() == tabindex_id { "0" } else { "-1" }
+                        };
+                        let tab_ref = tab_refs[index].clone();
+                        let key_refs = tab_refs.clone();
+                        let key_ids = tab_ids.clone();
+
                         view! {
                             <button
+                                node_ref=tab_ref
                                 type="button"
                                 role="tab"
-                                id=format!("tab-{id_for_click}")
+                                id=dom_id
+                                aria-controls=panel_id
                                 aria-selected=selected
+                                tabindex=tabindex
                                 class="mycelix-tab"
-                                on:click=move |_| active.set(tab.id.clone())
+                                on:click=move |_| active.set(click_id.clone())
+                                on:keydown=move |ev: leptos::ev::KeyboardEvent| {
+                                    let current_index = key_ids
+                                        .iter()
+                                        .position(|candidate| candidate == &key_id)
+                                        .unwrap_or(index);
+                                    if let Some(target_index) =
+                                        tab_key_target(ev.key().as_str(), current_index, key_ids.len())
+                                    {
+                                        ev.prevent_default();
+                                        if let Some(target_id) = key_ids.get(target_index) {
+                                            active.set(target_id.clone());
+                                        }
+                                        if let Some(button) =
+                                            key_refs.get(target_index).and_then(|reference| reference.get())
+                                        {
+                                            let _ = button.focus();
+                                        }
+                                    }
+                                }
                             >{tab.label}</button>
                         }
                     }).collect_view()}
@@ -524,7 +583,24 @@ pub mod tabs {
         }
     }
 
+    /// Return the destination for a recognized horizontal tab-list key.
+    /// No destination means the key is not handled or the list has no tabs.
+    fn tab_key_target(key: &str, current_index: usize, count: usize) -> Option<usize> {
+        if count == 0 {
+            return None;
+        }
+        let current = current_index.min(count - 1);
+        match key {
+            "ArrowRight" => Some((current + 1) % count),
+            "ArrowLeft" => Some(if current == 0 { count - 1 } else { current - 1 }),
+            "Home" => Some(0),
+            "End" => Some(count - 1),
+            _ => None,
+        }
+    }
+
     /// A panel belongs to a selected-tab signal supplied by the parent.
+    /// Its ID must match the TabDefinition ID for the associated tab.
     #[component]
     pub fn TabPanel(id: String, active: RwSignal<String>, children: Children) -> impl IntoView {
         let content = children();
@@ -534,10 +610,48 @@ pub mod tabs {
                 role="tabpanel"
                 id=format!("tabpanel-{id}")
                 aria-labelledby=format!("tab-{id}")
+                tabindex="0"
                 hidden=move || active.get() != id
             >
                 {content}
             </section>
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::tab_key_target;
+
+        #[test]
+        fn horizontal_arrows_wrap_at_both_ends() {
+            assert_eq!(tab_key_target("ArrowRight", 0, 3), Some(1));
+            assert_eq!(tab_key_target("ArrowRight", 2, 3), Some(0));
+            assert_eq!(tab_key_target("ArrowLeft", 2, 3), Some(1));
+            assert_eq!(tab_key_target("ArrowLeft", 0, 3), Some(2));
+        }
+
+        #[test]
+        fn home_and_end_choose_the_boundaries() {
+            assert_eq!(tab_key_target("Home", 2, 3), Some(0));
+            assert_eq!(tab_key_target("End", 0, 3), Some(2));
+        }
+
+        #[test]
+        fn empty_lists_and_unhandled_keys_do_not_change_selection() {
+            assert_eq!(tab_key_target("ArrowRight", 0, 0), None);
+            assert_eq!(tab_key_target("Escape", 1, 3), None);
+        }
+
+        #[test]
+        fn a_single_tab_remains_the_only_target() {
+            assert_eq!(tab_key_target("ArrowRight", 0, 1), Some(0));
+            assert_eq!(tab_key_target("ArrowLeft", 0, 1), Some(0));
+        }
+
+        #[test]
+        fn stale_indices_are_clamped_before_navigation() {
+            assert_eq!(tab_key_target("ArrowRight", 99, 3), Some(0));
+            assert_eq!(tab_key_target("ArrowLeft", 99, 3), Some(1));
         }
     }
 }
