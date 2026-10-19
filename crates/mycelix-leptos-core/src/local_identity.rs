@@ -407,8 +407,36 @@ pub fn is_passphrase_protected() -> bool {
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
-    if passphrase.is_empty() {
+    let signing_key = try_generate_signing_key()?;
+    persist_protected_signing_key(signing_key, passphrase).await
+}
+
+/// Restore a BIP-39 identity directly into protected storage on an empty device.
+///
+/// This intentionally refuses to replace any recognized existing local
+/// identity. Replacement of an existing identity needs a separate, explicit
+/// confirmation flow with an expected-current-identity check.
+pub async fn restore_protected_identity_from_seed_phrase(
+    phrase: &str,
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    let signing_key = signing_key_from_seed_phrase(phrase)?;
+    persist_protected_signing_key(signing_key, passphrase).await
+}
+
+async fn persist_protected_signing_key(
+    signing_key: SigningKey,
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    if passphrase.trim().is_empty() {
         return Err("Passphrase must not be empty".into());
+    }
+
+    if UNLOCKED_KEY.with(|cell| cell.borrow().is_some()) {
+        return Err(
+            "An in-memory identity key already exists; inspect identity posture before creating or restoring."
+                .into(),
+        );
     }
 
     let window = web_sys::window()
@@ -426,35 +454,57 @@ pub async fn create_protected_identity(
         );
     }
 
-    let signing_key = try_generate_signing_key()?;
     let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
     let encrypted_wire = serde_json::to_string(&EncryptedBlobWire::from(&blob))
         .map_err(|_| "Could not serialize the protected identity envelope.".to_string())?;
     let public_b64 = base64_encode(signing_key.verifying_key().as_bytes());
 
+    // Encryption yields to the browser event loop. Recheck before any write so
+    // a second tab cannot silently overwrite a newly created identity.
+    let current = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Browser identity storage became unavailable.".to_string())?;
+    if classify_identity_storage_snapshot(&current) != LocalIdentityStoragePosture::NoIdentity
+        || UNLOCKED_KEY.with(|cell| cell.borrow().is_some())
+    {
+        return Err(
+            "Identity storage changed during creation or recovery. No new identity was written."
+                .into(),
+        );
+    }
+
     if storage
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
         .is_err()
     {
+        // Storage.setItem is atomic by contract, but verify/cleanup fail closed
+        // rather than relying on a reported write result as proof of state.
+        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        if cleanup.is_err() {
+            return Err(
+                "Protected identity write failed and cleanup could not be confirmed; inspect posture before retrying."
+                    .into(),
+            );
+        }
         return Err("Could not persist the protected identity envelope.".into());
     }
     if storage.set_item(IDENTITY_PUBLIC_KEY, &public_b64).is_err() {
-        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
-        if cleanup.is_err() {
+        let encrypted_cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        let public_cleanup = storage.remove_item(IDENTITY_PUBLIC_KEY);
+        if encrypted_cleanup.is_err() || public_cleanup.is_err() {
             return Err(
                 "Identity creation was interrupted and partial storage remains; inspect posture before retrying."
                     .into(),
             );
         }
-        return Err("Could not persist the public-key metadata; no identity was activated.".into());
+        return Err("Could not persist public-key metadata; no identity was activated.".into());
     }
 
     let persisted = read_identity_storage_snapshot_from(&storage);
-    let verified = persisted.as_ref().is_ok_and(|snapshot| {
-        snapshot.secret_b64.is_none()
-            && snapshot.public_b64.as_deref() == Some(public_b64.as_str())
-            && snapshot.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
-            && classify_identity_storage_snapshot(snapshot)
+    let verified = persisted.as_ref().is_ok_and(|stored| {
+        stored.secret_b64.is_none()
+            && stored.public_b64.as_deref() == Some(public_b64.as_str())
+            && stored.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
+            && classify_identity_storage_snapshot(stored)
                 == LocalIdentityStoragePosture::ProtectedLocked
     });
     if !verified {
@@ -1180,6 +1230,37 @@ mod browser_storage_tests {
             .expect("correct passphrase unlocks the protected identity");
         assert!(public_key_matches_signing_key(&public_b64, &signing_key));
         assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+    }
+
+    #[wasm_bindgen_test]
+    async fn mnemonic_restore_writes_only_protected_key_material() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let source_key = SigningKey::from_bytes(&[91u8; 32]);
+        let expected_public = base64_encode(source_key.verifying_key().as_bytes());
+        let phrase = export_seed_phrase(&source_key);
+
+        let posture = restore_protected_identity_from_seed_phrase(
+            &phrase,
+            "synthetic browser test passphrase",
+        )
+        .await
+        .expect("valid mnemonic restores into protected storage on an empty device");
+        assert_eq!(
+            posture,
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(expected_public.as_str())
+        );
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        let restored = unlock_with_passphrase("synthetic browser test passphrase")
+            .await
+            .expect("protected restored identity unlocks");
+        assert!(public_key_matches_signing_key(&expected_public, &restored));
     }
 
     #[wasm_bindgen_test]
