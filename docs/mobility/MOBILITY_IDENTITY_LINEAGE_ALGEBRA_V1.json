@@ -1,0 +1,125 @@
+{
+  "schema_version": "mobility-identity-lineage-algebra-v1",
+  "scope": "semantic-provenance-only",
+  "identity_kinds": [
+    "requirement",
+    "design_revision",
+    "configuration_revision",
+    "component_instance",
+    "manufacturing_event",
+    "physical_artifact",
+    "inspection_record",
+    "test_record",
+    "operational_observation",
+    "maintenance_event",
+    "change_set",
+    "evidence_record"
+  ],
+  "lineage_relations": {
+    "instantiates": [
+      [
+        "physical_artifact",
+        "design_revision"
+      ],
+      [
+        "component_instance",
+        "design_revision"
+      ]
+    ],
+    "configures": [
+      [
+        "configuration_revision",
+        "design_revision"
+      ],
+      [
+        "configuration_revision",
+        "component_instance"
+      ]
+    ],
+    "component_of": [
+      [
+        "component_instance",
+        "physical_artifact"
+      ],
+      [
+        "physical_artifact",
+        "physical_artifact"
+      ]
+    ],
+    "manufactured_from": [
+      [
+        "manufacturing_event",
+        "design_revision"
+      ],
+      [
+        "manufacturing_event",
+        "configuration_revision"
+      ]
+    ],
+    "inspected_as": [
+      [
+        "inspection_record",
+        "physical_artifact"
+      ]
+    ],
+    "tested_as": [
+      [
+        "test_record",
+        "physical_artifact"
+      ]
+    ],
+    "observed_as": [
+      [
+        "operational_observation",
+        "physical_artifact"
+      ]
+    ],
+    "maintained_as": [
+      [
+        "maintenance_event",
+        "physical_artifact"
+      ]
+    ],
+    "repaired_as": [
+      [
+        "maintenance_event",
+        "physical_artifact"
+      ]
+    ],
+    "replaced_by": [
+      [
+        "component_instance",
+        "component_instance"
+      ],
+      [
+        "physical_artifact",
+        "physical_artifact"
+      ]
+    ],
+    "supersedes": [
+      [
+        "design_revision",
+        "design_revision"
+      ],
+      [
+        "configuration_revision",
+        "configuration_revision"
+      ],
+      [
+        "evidence_record",
+        "evidence_record"
+      ]
+    ]
+  },
+  "forbidden_inferences": [
+    "design_revision_is_physical_artifact",
+    "configuration_revision_is_physical_artifact",
+    "same_geometry_implies_same_physical_artifact",
+    "repair_creates_new_physical_artifact_identity",
+    "supersession_implies_physical_replacement",
+    "holochain_hash_is_engineering_identity",
+    "holochain_timestamp_is_engineering_validity_interval",
+    "identity_validation_implies_physical_safety",
+    "identity_validation_implies_certification"
+  ]
+}
