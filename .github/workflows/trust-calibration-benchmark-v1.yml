@@ -1,0 +1,104 @@
+name: Mycelix Trust Calibration Benchmark V1
+
+on:
+  push:
+    branches:
+      - research/matl-trust-calibration-benchmark-v1
+  pull_request:
+    branches: [main, research/matl-beta-trust-posterior-reference-v1]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/trust-calibration-benchmark-v1.yml'
+      - 'Cargo.lock'
+      - 'crates/mycelix-core-types/Cargo.toml'
+      - 'crates/mycelix-core-types/src/trust.rs'
+      - 'crates/mycelix-core-types/tests/trust_calibration_benchmark_v1.rs'
+      - 'crates/mycelix-core-types/tests/beta_trust_posterior_reference_v1.rs'
+      - 'crates/mycelix-core-types/tests/data/trust-calibration-benchmark-v1.json'
+      - 'crates/mycelix-core-types/tests/data/beta-trust-posterior-reference-v1.json'
+      - 'docs/research/MATL_TRUST_CALIBRATION_BENCHMARK_V1_2026-10.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trust-calibration-benchmark-v1-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: /tmp/mycelix-trust-calibration-${{ github.run_id }}-${{ github.run_attempt }}
+  QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  exact-head:
+    name: Exact-head calibration and risk-coverage benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert tested commit and clean checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+          test -z "$(git status --porcelain=v1 -uall)"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
+          cargo +1.96.0 --version
+
+      - name: Check core-type formatting
+        run: cargo +1.96.0 fmt --manifest-path crates/mycelix-core-types/Cargo.toml --all -- --check
+
+      - name: Validate locked package metadata
+        run: cargo +1.96.0 metadata --manifest-path crates/mycelix-core-types/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+
+      - name: Run matched-data calibration benchmark and emit metrics
+        run: cargo +1.96.0 test --manifest-path crates/mycelix-core-types/Cargo.toml --locked --test trust_calibration_benchmark_v1 -- --nocapture
+
+      - name: Recheck Beta posterior reference contract
+        run: cargo +1.96.0 test --manifest-path crates/mycelix-core-types/Cargo.toml --locked --test beta_trust_posterior_reference_v1
+
+      - name: Run core-type library tests
+        run: cargo +1.96.0 test --manifest-path crates/mycelix-core-types/Cargo.toml --locked --lib
+
+      - name: Verify clean postflight and emit evidence
+        run: |
+          test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+          postflight_status="$(git status --porcelain=v1 -uall)"
+          if [ -n "$postflight_status" ]; then
+            echo "Unexpected repository changes after verification:"
+            printf '%s\\n' "$postflight_status"
+            exit 1
+          fi
+          {
+            echo "profile=MatchedSyntheticHoldoutComparisonV1"
+            echo "status=exact-head-qualification-passed"
+            echo "qualified_sha=$QUALIFIED_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "rust_commit=$(rustc +1.96.0 --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo +1.96.0 --version)"
+            echo "rustfmt=$(rustfmt +1.96.0 --version)"
+            echo "benchmark_blob=$(git hash-object crates/mycelix-core-types/tests/trust_calibration_benchmark_v1.rs)"
+            echo "fixture_blob=$(git hash-object crates/mycelix-core-types/tests/data/trust-calibration-benchmark-v1.json)"
+            echo "posterior_fixture_blob=$(git hash-object crates/mycelix-core-types/tests/data/beta-trust-posterior-reference-v1.json)"
+            echo "production_decision_policy=NOT_CHANGED"
+            echo "real_world_calibration=NOT_ESTABLISHED"
+            echo "sybil_and_correlated_source_resistance=NOT_ESTABLISHED"
+            echo "postflight=clean"
+          } >> "$GITHUB_STEP_SUMMARY"
