@@ -6,6 +6,7 @@ use std::{env, fs, process};
 
 const PROFILE_FIXTURE: &str = include_str!("../fixtures/fictional-source-profile-v0.1.json");
 const FICTIONAL_TERMS: &str = include_str!("../fixtures/fictional-publisher-terms-v1.txt");
+const FICTIONAL_SOURCE_SNAPSHOT: &str = include_str!("../fixtures/fictional-legal-source-snapshot-v1.txt");
 const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -161,6 +162,7 @@ struct SourceUseRequest {
     as_of_utc: String,
     requested_retention_seconds: u64,
     observed_terms_sha256: Option<String>,
+    observed_source_sha256: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -186,6 +188,8 @@ struct AdmissionReceipt {
     permission_grant_id: Option<String>,
     expected_terms_sha256: Option<String>,
     observed_terms_sha256: Option<String>,
+    expected_source_sha256: Option<String>,
+    observed_source_sha256: Option<String>,
     request: SourceUseRequest,
     claim_ceiling: &'static str,
 }
@@ -266,6 +270,8 @@ fn run() -> Result<bool, String> {
                 permission_grant_id: decision.grant_id,
                 expected_terms_sha256: profile.terms.terms_sha256.clone(),
                 observed_terms_sha256: request.observed_terms_sha256.clone(),
+                expected_source_sha256: profile.source.content_sha256.clone(),
+                observed_source_sha256: request.observed_source_sha256.clone(),
                 request,
                 claim_ceiling: "Admission-control result only; not a copyright, ownership, license-validity, legal-exception, or lawful-use determination.",
             };
@@ -563,6 +569,13 @@ fn validate_request(request: &SourceUseRequest) -> Result<(), String> {
             );
         }
     }
+    if let Some(digest) = request.observed_source_sha256.as_deref() {
+        if !is_sha256(digest) {
+            errors.push(
+                "observed_source_sha256 must be a lowercase SHA-256 digest or null".to_string(),
+            );
+        }
+    }
     if errors.is_empty() {
         Ok(())
     } else {
@@ -609,6 +622,13 @@ fn evaluate(profile: &SourceUseProfile, request: &SourceUseRequest) -> DecisionR
     if !reviewer_is_approved {
         return unknown("reviewer_approval_not_established");
     }
+    if profile
+        .reviewer
+        .as_ref()
+        .is_some_and(|reviewer| reviewer.reviewed_at_utc > request.as_of_utc)
+    {
+        return unknown("profile_review_after_request_time");
+    }
     if profile.terms.review_status != TermsReviewStatus::Verified {
         return unknown("terms_not_verified");
     }
@@ -621,6 +641,14 @@ fn evaluate(profile: &SourceUseProfile, request: &SourceUseRequest) -> DecisionR
     if expected_terms_sha256 != observed_terms_sha256 {
         return unknown("terms_digest_mismatch_requires_rereview");
     }
+    if profile
+        .terms
+        .verified_at_utc
+        .as_deref()
+        .is_some_and(|verified_at| verified_at > request.as_of_utc)
+    {
+        return unknown("terms_verified_after_request_time");
+    }
     if !interval_contains(
         profile.terms.valid_from_utc.as_deref(),
         profile.terms.valid_until_utc.as_deref(),
@@ -632,6 +660,16 @@ fn evaluate(profile: &SourceUseProfile, request: &SourceUseRequest) -> DecisionR
         || profile.source.version_id != request.source_version_id
     {
         return unknown("source_component_or_version_mismatch");
+    }
+    match (
+        profile.source.content_sha256.as_deref(),
+        request.observed_source_sha256.as_deref(),
+    ) {
+        (Some(expected), Some(observed)) if expected == observed => {}
+        (Some(_), None) => return unknown("observed_source_digest_missing"),
+        (Some(_), Some(_)) => return unknown("source_digest_mismatch"),
+        (None, Some(_)) => return unknown("profile_source_digest_unavailable"),
+        (None, None) => {}
     }
 
     let operation_grants: Vec<&OperationGrant> = profile
@@ -748,6 +786,7 @@ mod tests {
             as_of_utc: "2026-10-19T08:00:00Z".to_string(),
             requested_retention_seconds: 0,
             observed_terms_sha256: profile.terms.terms_sha256,
+            observed_source_sha256: profile.source.content_sha256,
         }
     }
 
@@ -758,10 +797,15 @@ mod tests {
     #[test]
     fn approved_terms_digest_matches_exact_fictional_terms_bytes() {
         let profile = profile();
-        assert_eq!(
-            profile.terms.terms_sha256.as_deref(),
-            Some(sha256_hex(FICTIONAL_TERMS.as_bytes()).as_str())
-        );
+        let expected = sha256_hex(FICTIONAL_TERMS.as_bytes());
+        assert_eq!(profile.terms.terms_sha256.as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn source_digest_matches_exact_fictional_snapshot_bytes() {
+        let profile = profile();
+        let expected = sha256_hex(FICTIONAL_SOURCE_SNAPSHOT.as_bytes());
+        assert_eq!(profile.source.content_sha256.as_deref(), Some(expected.as_str()));
     }
 
     #[test]
@@ -830,6 +874,52 @@ mod tests {
             admission(&request).reason_code,
             "terms_digest_mismatch_requires_rereview"
         );
+    }
+
+    #[test]
+    fn source_digest_mismatch_or_missing_digest_fails_closed() {
+        let mut request = request(
+            Operation::BenchmarkEvaluation,
+            Purpose::BenchmarkEvaluation,
+            ActorClass::InternalReviewer,
+        );
+        request.observed_source_sha256 = Some(
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_string(),
+        );
+        assert_eq!(admission(&request).reason_code, "source_digest_mismatch");
+        request.observed_source_sha256 = None;
+        assert_eq!(admission(&request).reason_code, "observed_source_digest_missing");
+    }
+
+    #[test]
+    fn a_later_profile_review_cannot_be_backdated_to_authorize_an_earlier_request() {
+        let profile = profile();
+        let mut request = request(
+            Operation::BenchmarkEvaluation,
+            Purpose::BenchmarkEvaluation,
+            ActorClass::InternalReviewer,
+        );
+        request.as_of_utc = "2026-10-18T10:15:00Z".to_string();
+        let result = evaluate(&profile, &request);
+        assert_eq!(result.admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(result.reason_code, "profile_review_after_request_time");
+    }
+
+    #[test]
+    fn later_terms_verification_cannot_authorize_an_earlier_request() {
+        let mut profile = profile();
+        profile.reviewer.as_mut().expect("reviewer exists").reviewed_at_utc =
+            "2026-10-16T00:00:00Z".to_string();
+        profile.terms.verified_at_utc = Some("2026-10-18T10:00:00Z".to_string());
+        let mut request = request(
+            Operation::BenchmarkEvaluation,
+            Purpose::BenchmarkEvaluation,
+            ActorClass::InternalReviewer,
+        );
+        request.as_of_utc = "2026-10-17T10:00:00Z".to_string();
+        let result = evaluate(&profile, &request);
+        assert_eq!(result.admission_decision, AdmissionDecision::Unknown);
+        assert_eq!(result.reason_code, "terms_verified_after_request_time");
     }
 
     #[test]
