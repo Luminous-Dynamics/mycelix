@@ -97,11 +97,13 @@ Interface compatibility is not merely matching dimensions. It includes thermal p
 
 ### Draft machine-readable artifacts
 
-- [LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json](./LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json) defines the proposed product record, component/supplier evidence, module interfaces, metrics, release gates, and lifecycle evidence.
+- [LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json](./LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json) defines a proposed aggregate product record, component/supplier evidence snapshots, module interfaces, metrics, release gates, and evidence references.
 - [LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json](./LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json) is an illustrative LKI-01 record with three placeholder BOM entries, two provisional interfaces, and five unpassed release gates.
-- [LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json](./LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json) defines 14 adversarial known-answer scenarios, nine hard invariants, and five proposed software-evaluator metrics covering unsafe compatibility claims, thermal boundaries, stale sourcing evidence, revision integrity, repair damage, invalid energy comparisons, and unsupported lifetime/LCA claims.
+- [LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json](./LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_1_DRAFT.json) defines 14 adversarial known-answer scenarios, nine hard invariants, and five proposed software-evaluator metrics.
+- [LIFETIME_PRODUCT_OWNER_CROSSWALK_DRAFT.md](./LIFETIME_PRODUCT_OWNER_CROSSWALK_DRAFT.md) maps draft fields to existing Mycelix Manufacturing/Supply Chain/product identity/repair owners, plus Symtropy, Symthaea and Sol-Atlas issue owners.
+- [tools/lifetime-product-audit/README.md](../tools/lifetime-product-audit/README.md) documents a standalone Rust audit tool; [src/main.rs](../tools/lifetime-product-audit/src/main.rs) includes schema validation, draft-specific semantic checks, scenario-oracle checks and unit tests.
 
-Both artifacts are drafts for review, not canonical wire contracts or approved manufacturing data. The example intentionally has no supplier records or test evidence; its dimensions and target values are provisional. Schema adoption must include validator tests, migration/version policy, and ownership review against the existing Fabrication/BOM types.
+All artifacts are drafts, not canonical wire contracts or approved manufacturing data. The example has no supplier records or physical-test evidence; dimensions and performance targets are provisional. The BOM and supplier fields are derived snapshots for offline audit, not replacements for Mycelix Manufacturing or Supply Chain. The Rust tool and its tests have **not been compiled or executed in the authoring environment**; run it on a pinned toolchain and commit a generated lockfile before treating its source as verified. A passing audit cannot certify or qualify a physical product.
 
 ## 5. Acceptance targets for the first design programme
 
@@ -207,19 +209,22 @@ This is a shortlist for competent review, not a declaration of compliance. Appli
 - **ISO 14040:2006** — life-cycle assessment principles and framework. ISO reports it was reviewed and confirmed in 2022.
 - **Destination-market building, electrical, fire, worktop, materials, and appliance installation requirements**, identified with qualified local professionals.
 
-The EU refrigerating-appliance ecodesign regulation (EU) 2019/2024 is a useful reference: it specifies at least eight years of availability after the last unit is placed on the market for listed refrigerator components and requires listed parts to be replaceable with commonly available tools without permanent damage. LKI-01's proposed 20-year support target intentionally aims above that reference where feasible, but legal applicability and current consolidated text must be checked for the market and product.
+For ordinary household refrigerating appliances, Commission Regulation (EU) 2019/2019 is the relevant EU ecodesign starting point. Its listed spare-part periods are component-specific: at least seven years for thermostats, temperature sensors, printed circuit boards and light sources for professional repairers; at least seven years for handles, hinges, trays and baskets for repairers/end-users; and at least ten years for door gaskets. Listed parts must be replaceable with commonly available tools without permanent damage. This is not an eight-year universal guarantee for every component. Regulation (EU) 2019/2024 instead concerns refrigerating appliances with a direct-sales function, a different product scope. LKI-01's proposed 20-year parts-support target is an aspirational product-policy goal, not a current supplier commitment or general legal minimum.
+
+As of 19 October 2026, Directive (EU) 2024/1799 is in force, with its repair rules applying from 31 July 2026. Articles 5 and 6 apply only to goods and to the extent that repairability requirements are provided by legal acts listed in Annex II; that Annex includes household washing machines/washer-dryers, household dishwashers and refrigerating appliances, among other groups. Exact duties depend on product scope, the applicable product-specific requirements and national implementation. The directive is an EU-market reference, not automatically a South African requirement and not a substitute for a jurisdiction-specific legal review.
 
 ## 11. First implementation increments
 
-1. Adopt this contract as a proposed design baseline; do not claim that it is already implemented end-to-end.
-2. Define the first machine-readable product and component schema, including units, revisions, evidence status, interface requirements, and safety gate status.
-3. Add a small LKI-01 example BOM with explicit illustrative-only components and quantities; do not insert unverified supplier model numbers as approved parts.
-4. Implement deterministic BOM validation: non-empty IDs, positive quantities, valid units, acyclic subassembly expansion, and reproducible output.
-5. Build Symtropy regression scenarios for clearances, movement limits, access, and removal paths from a versioned geometry fixture.
-6. Establish a Symthaea candidate-comparison fixture with hard constraints, multi-objective outputs, uncertainty, and baseline reproduction.
-7. Add Sol-Atlas sourcing-record schema and stale-evidence checks before live supplier data is treated as procurement-ready.
-8. Assemble one physical prototype using certified, off-the-shelf appliance modules and record the as-built configuration.
-9. Run a repair-time trial and instrumented thermal/energy test; publish only the claims supported by the results.
+1. Keep the existing draft record as an aggregate offline engineering view until the [owner crosswalk](./LIFETIME_PRODUCT_OWNER_CROSSWALK_DRAFT.md) is accepted; do not promote a duplicate BOM, product identity, supplier ledger, repair log, or qualification authority.
+2. Review and reconcile the draft product/component/interface schema against Mycelix's existing design revision, Manufacturing BOM, physical-unit/qualification and ProductiveLoop/repair owners.
+3. Run the standalone tool at [tools/lifetime-product-audit](../tools/lifetime-product-audit/README.md) on a pinned Rust toolchain, fix compiler/test findings, generate and commit Cargo.lock, and retain exact-head output digests. The tool is not yet compiled or executed.
+4. Extend the known-answer suite with deliberate mutations for unresolved references, stale supplier evidence, gate-without-evidence, incompatible substitutes, stale revisions, missing calibration and false lifetime claims. Test through the exact JSON Schema implementation, not only a hand-rolled structural check.
+5. Reuse the existing Mycelix Manufacturing BOM expansion and existing repair/task graph validators; do not duplicate BOM cycle validation, work-order states, repair-task authority, or physical-unit identity.
+6. Build Symtropy regression scenarios for cabinet/module envelopes, movement limits, tool/access clearance, module extraction paths and disassembly from versioned geometry. Keep structural stress, airflow, and thermal transfer in qualified engineering tools.
+7. Establish a Symthaea candidate-comparison fixture with hard safety constraints, a multi-objective frontier, uncertainty and a reproducible baseline. Treat generated candidates as hypotheses until inspected/tested.
+8. Add Sol-Atlas sourcing/context references only through existing material and regional repair-workcell owners; preserve source date, license, uncertainty, spatial scope and stale-data status.
+9. Choose a low-risk first physical validation slice that follows Symtropy's existing appliance pilot sequencing. Do not make the integrated refrigeration-plus-induction kitchen island the first powered prototype.
+10. For a later LKI-01 prototype, document the as-built configuration, qualified appliance installation, module-replacement trials and instrumented energy/temperature/noise tests. Publish only claims supported by exact-revision evidence.
 
 ## 12. Sources
 
@@ -228,6 +233,8 @@ The EU refrigerating-appliance ecodesign regulation (EU) 2019/2024 is a useful r
 - EN 45554:2020 overview, NEN: https://www.nen.nl/en/nen-en-45554-2020-en-270440
 - IEC 62430:2019 catalogue: https://webstore.iec.ch/en/publication/30879
 - ISO 14040:2006 overview: https://www.iso.org/standard/37456.html
-- Commission Regulation (EU) 2019/2024, refrigerating appliance ecodesign requirements: https://eur-lex.europa.eu/legal-content/en/ALL/?uri=CELEX:32019R2024
+- Commission Regulation (EU) 2019/2019, ecodesign for ordinary refrigerating appliances: https://eur-lex.europa.eu/eli/reg/2019/2019/oj/eng
+- Commission Regulation (EU) 2019/2024, ecodesign for refrigerating appliances with a direct-sales function: https://eur-lex.europa.eu/eli/reg/2019/2024/oj/eng
+- Directive (EU) 2024/1799, consolidated 31 July 2026: https://eur-lex.europa.eu/eli/dir/2024/1799/2026-07-31
 
 Standards are often copyrighted and full text may require purchase. The links establish the research starting point; they do not substitute for acquiring the applicable standards, reviewing their normative clauses, or obtaining independent conformity advice.
