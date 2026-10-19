@@ -498,7 +498,8 @@
         "service_clearance_mm",
         "verification_state",
         "bay_clear_envelope_mm",
-        "minimum_fit_clearance_mm"
+        "minimum_fit_clearance_mm",
+        "installation_evidence_refs"
       ],
       "properties": {
         "interface_id": {
@@ -568,7 +569,8 @@
           "items": {
             "type": "string"
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Evidence IDs from the top-level evidence array for measured compatibility tests tied to the exact module/interface revision. A nominal model fit or a free-text note is not a test result."
         },
         "verification_state": {
           "enum": [
@@ -591,6 +593,15 @@
         "minimum_fit_clearance_mm": {
           "$ref": "#/$defs/dimensions",
           "description": "Minimum total dimensional allowance beyond the module envelope on each axis, in mm. The checker requires module envelope + allowance <= bay clear envelope. This does not replace manufacturer ventilation, electrical, thermal, or service clearances."
+        },
+        "installation_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Evidence IDs from the top-level evidence array for the exact manufacturer's installation instructions/datasheet. A filename or arbitrary label is not evidence; each ID must resolve to a source URI and digest."
         }
       },
       "description": "Proposed replaceable-module interface. Dimensional fit is necessary but not sufficient for compatibility, safety, ventilation, thermal performance or certification."
