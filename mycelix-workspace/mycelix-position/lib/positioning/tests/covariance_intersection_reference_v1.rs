@@ -258,7 +258,7 @@ fn covariance_bounds_hold_axis_by_axis() {
 #[test]
 fn swapping_estimates_and_complementing_omega_is_equivalent() {
     let corpus = corpus();
-    let original = case_by_id(cases(&corpus), "CI3D-003-unequal-diagonal-covariance");
+    let original = case_by_id(cases(&corpus), "CI3D-006-asymmetric-weight");
     let swapped = case_by_id(cases(&corpus), "CI3D-007-swapped-input-complement");
     let a = evaluate_case(original).expect("original case is valid");
     let b = evaluate_case(swapped).expect("swapped case is valid");
