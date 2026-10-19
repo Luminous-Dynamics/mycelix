@@ -38,7 +38,8 @@ pub fn AppShell(
                 </span>
             </A>
             <ConnectionBadge />
-        }.into_any()
+        }
+        .into_any()
     };
 
     view! {

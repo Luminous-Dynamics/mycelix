@@ -8,7 +8,7 @@
 //! they don't. Uses CSS display toggling so children are rendered once.
 
 use crate::consciousness::{
-    combined_score, use_consciousness, SovereignDimension, DIMENSION_LABELS,
+    DIMENSION_LABELS, SovereignDimension, combined_score, use_consciousness,
 };
 use leptos::prelude::*;
 use personal_leptos_types::TrustTier;
