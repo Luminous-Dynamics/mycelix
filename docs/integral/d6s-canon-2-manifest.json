@@ -1,0 +1,29 @@
+{
+  "manifest_version": "d6s-canon-2-manifest/1",
+  "fixture_id": "D6S-CANON-2",
+  "fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
+  "fixture_git_blob_sha": "aa30f08be279147cf85ecfd64436d1aa546920ba",
+  "case_count": 7,
+  "required_case_ids": [
+    "production-observation-is-not-itc-mint",
+    "frs-projection-is-not-source-observation",
+    "recommendation-does-not-create-effect",
+    "foreign-recognition-preserves-origin",
+    "qualified-output-is-not-physical-work",
+    "stale-evidence-does-not-satisfy-current-requirement",
+    "unknown-transition-remains-unknown"
+  ],
+  "claim_ceiling": "ReferenceModelOnly: authority-boundary semantics only; no actual ledger mutation, physical execution, or operational authorization.",
+  "formal_obligation_vocabulary": [
+    "COS-FV-001",
+    "COS-FV-002",
+    "COS-FV-003",
+    "COS-FV-004",
+    "COS-FV-005",
+    "COS-FV-006",
+    "COS-FV-007",
+    "COS-FV-008",
+    "COS-FV-009",
+    "COS-FV-010"
+  ]
+}

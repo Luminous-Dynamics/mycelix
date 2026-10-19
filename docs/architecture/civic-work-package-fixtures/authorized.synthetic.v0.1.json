@@ -1,0 +1,532 @@
+{
+  "schema_version": "civic-work-package/0.1",
+  "work_package_id": "joburg-water-leak-response-authorized.synthetic",
+  "revision": 1,
+  "status": "authorized",
+  "scope": {
+    "description": "Synthetic, fully specified contract fixture illustrating the required evidence chain before authorized work.",
+    "service_domains": [
+      "water.reliability"
+    ],
+    "area": {
+      "area_ref": "area:synthetic-ward-001",
+      "public_granularity": "ward",
+      "privacy_classification": "restricted"
+    },
+    "period": {
+      "start_date": "2026-11-01",
+      "end_date": "2027-01-31"
+    }
+  },
+  "linked_records": {
+    "case_refs": [
+      {
+        "system": "sol-atlas",
+        "record_id": "case:SYNTH-001",
+        "revision": 1,
+        "sha256": null
+      }
+    ],
+    "scenario_refs": [
+      {
+        "system": "symtropy",
+        "record_id": "scenario:SYNTH-001",
+        "revision": 1,
+        "sha256": null
+      }
+    ],
+    "analysis_refs": [
+      {
+        "system": "symthaea",
+        "record_id": "analysis:SYNTH-001",
+        "revision": 1,
+        "sha256": null
+      }
+    ],
+    "evidence_refs": []
+  },
+  "deliverables": [
+    {
+      "deliverable_id": "inspection-and-coordination",
+      "description": "Inspect reported synthetic leak cases and coordinate documented next steps.",
+      "acceptance_criteria": [
+        "Every case has a source and observed time.",
+        "No repair is marked verified without independent evidence."
+      ]
+    }
+  ],
+  "commissioning": {
+    "status": "authorized",
+    "commissioning_body_ref": "org:synthetic-commissioner",
+    "payer_ref": "org:synthetic-payer",
+    "authority_basis": "Synthetic authority delegation for test fixture only.",
+    "decision_ref": "evidence:SYNTH-COMMISSIONING-DECISION"
+  },
+  "procurement": {
+    "route": "awarded_contract",
+    "lifecycle_stage": "contracted",
+    "issuer_ref": "org:synthetic-issuer",
+    "process_ref": "contract:SYNTH-AWARD-001",
+    "source_ref": "evidence:SYNTH-CONTRACT",
+    "retrieved_at": "2026-10-14T12:00:00Z",
+    "closing_date": "2026-10-01",
+    "rationale": "Synthetic awarded/contracted record for conformance testing only."
+  },
+  "funding": {
+    "status": "committed",
+    "currency": "ZAR",
+    "price_year": 2026,
+    "whole_period_fully_costed": true,
+    "commitment_evidence_ref": "evidence:SYNTH-FUNDING-COMMITMENT",
+    "funded_period_start": "2026-11-01",
+    "funded_period_end": "2027-01-31",
+    "payer_ref": "org:synthetic-payer",
+    "committed_amount_minor_units": 2610000,
+    "full_period_cost_estimate_minor_units": 2610000,
+    "minor_unit_digits": 2,
+    "cost_breakdown": {
+      "cost_items": [
+        {
+          "line_item_id": "cost-wages",
+          "category": "wages",
+          "description": "Paid field work for the synthetic period",
+          "amount_minor_units": 1200000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-WAGES",
+          "source_refs": [
+            "evidence:SYNTH-WAGES"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-supervision",
+          "category": "supervision",
+          "description": "Site supervision and coordination",
+          "amount_minor_units": 200000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-SUPERVISION",
+          "source_refs": [
+            "evidence:SYNTH-SUPERVISION"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-training",
+          "category": "training",
+          "description": "Role induction and training time",
+          "amount_minor_units": 50000,
+          "basis_method": "published_rate",
+          "basis_ref": "basis:SYNTH-TRAINING",
+          "source_refs": [
+            "evidence:SYNTH-TRAINING"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-tools",
+          "category": "tools_equipment",
+          "description": "Tool hire and equipment usage",
+          "amount_minor_units": 150000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-TOOLS",
+          "source_refs": [
+            "evidence:SYNTH-TOOLS_EQUIPMENT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-ppe",
+          "category": "protective_equipment",
+          "description": "Protective equipment and consumables",
+          "amount_minor_units": 80000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-PPE",
+          "source_refs": [
+            "evidence:SYNTH-PROTECTIVE_EQUIPMENT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-accessibility",
+          "category": "accessibility",
+          "description": "Access accommodations and reasonable adjustments",
+          "amount_minor_units": 20000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-ACCESSIBILITY",
+          "source_refs": [
+            "evidence:SYNTH-ACCESSIBILITY"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-transport",
+          "category": "transport",
+          "description": "Travel for the defined work period",
+          "amount_minor_units": 100000,
+          "basis_method": "published_rate",
+          "basis_ref": "basis:SYNTH-TRANSPORT",
+          "source_refs": [
+            "evidence:SYNTH-TRANSPORT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-insurance",
+          "category": "insurance",
+          "description": "Relevant cover allowance pending real review",
+          "amount_minor_units": 50000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-INSURANCE",
+          "source_refs": [
+            "evidence:SYNTH-INSURANCE"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-materials",
+          "category": "materials",
+          "description": "Repair materials and consumables",
+          "amount_minor_units": 300000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-MATERIALS",
+          "source_refs": [
+            "evidence:SYNTH-MATERIALS"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-maintenance",
+          "category": "maintenance",
+          "description": "Equipment and follow-up maintenance reserve",
+          "amount_minor_units": 80000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-MAINTENANCE",
+          "source_refs": [
+            "evidence:SYNTH-MAINTENANCE"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-verification",
+          "category": "independent_verification",
+          "description": "Independent inspection and evidence capture",
+          "amount_minor_units": 100000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-VERIFICATION",
+          "source_refs": [
+            "evidence:SYNTH-INDEPENDENT_VERIFICATION"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-overheads",
+          "category": "administration_overheads",
+          "description": "Recordkeeping and administration overhead",
+          "amount_minor_units": 100000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-OVERHEADS",
+          "source_refs": [
+            "evidence:SYNTH-ADMINISTRATION_OVERHEADS"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-contingency",
+          "category": "contingency",
+          "description": "Explicit contingency allowance",
+          "amount_minor_units": 60000,
+          "basis_method": "contingency_allowance",
+          "basis_ref": "basis:SYNTH-CONTINGENCY",
+          "source_refs": [
+            "evidence:SYNTH-CONTINGENCY"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-statutory",
+          "category": "employer_statutory_costs",
+          "description": "Employer statutory costs and required contributions",
+          "amount_minor_units": 50000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-STATUTORY",
+          "source_refs": [
+            "evidence:SYNTH-EMPLOYER_STATUTORY_COSTS"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-community",
+          "category": "community_engagement",
+          "description": "Community participation, notices and feedback sessions",
+          "amount_minor_units": 20000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-COMMUNITY",
+          "source_refs": [
+            "evidence:SYNTH-COMMUNITY_ENGAGEMENT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-environment",
+          "category": "environmental_mitigation",
+          "description": "Site protection, waste controls and environmental mitigation",
+          "amount_minor_units": 25000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-ENVIRONMENT",
+          "source_refs": [
+            "evidence:SYNTH-ENVIRONMENTAL_MITIGATION"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-end-life",
+          "category": "end_of_life_disposal",
+          "description": "Safe removal and disposal at work-package close-out",
+          "amount_minor_units": 15000,
+          "basis_method": "published_rate",
+          "basis_ref": "basis:SYNTH-DISPOSAL",
+          "source_refs": [
+            "evidence:SYNTH-END_OF_LIFE_DISPOSAL"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-permits",
+          "category": "permits_taxes_fees",
+          "description": "Permits, applicable taxes and administrative fees",
+          "amount_minor_units": 10000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-PERMITS",
+          "source_refs": [
+            "evidence:SYNTH-PERMITS_TAXES_FEES"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        }
+      ],
+      "category_coverage": [
+        {
+          "category": "wages",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "supervision",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "training",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "tools_equipment",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "protective_equipment",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "accessibility",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "transport",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "insurance",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "materials",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "maintenance",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "independent_verification",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "administration_overheads",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "contingency",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "other",
+          "disposition": "not_applicable",
+          "rationale": "Reviewed for the synthetic scope; no separate amount applies, with no real-world inference."
+        },
+        {
+          "category": "employer_statutory_costs",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "community_engagement",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "environmental_mitigation",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "end_of_life_disposal",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "permits_taxes_fees",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        }
+      ],
+      "reviewed_by_ref": "person:synthetic-cost-reviewer",
+      "reviewed_at": "2026-10-14T12:06:00Z"
+    }
+  },
+  "labor_plan": {
+    "execution_actor_refs": [],
+    "roles": [
+      {
+        "role_id": "field-technician",
+        "arrangement": "cooperative_member",
+        "paid": true,
+        "positions_count": 2,
+        "classification": {
+          "status": "reviewed",
+          "classification_code": "synthetic-classification-only",
+          "wage_basis_ref": "evidence:SYNTH-WAGE-BASIS",
+          "source_ref": "evidence:SYNTH-LEGAL-SOURCE",
+          "reviewer_ref": "person:synthetic-qualified-reviewer",
+          "reviewed_at": "2026-10-14T12:05:00Z"
+        },
+        "terms_ref": "evidence:SYNTH-WRITTEN-TERMS"
+      }
+    ]
+  },
+  "authorization": {
+    "status": "approved",
+    "authorizer_ref": "person:synthetic-authorizer",
+    "authority_basis": "Synthetic delegation; not real-world authorization.",
+    "decision_ref": "evidence:SYNTH-AUTHORIZATION",
+    "decided_at": "2026-10-14T12:10:00Z",
+    "approved_by_human": true,
+    "conditions": [
+      "Synthetic fixture only."
+    ]
+  },
+  "protections": {
+    "written_terms_ref": "evidence:SYNTH-WRITTEN-TERMS",
+    "payment_schedule": "synthetic monthly cadence",
+    "safety_plan_ref": "evidence:SYNTH-SAFETY-PLAN",
+    "grievance_route_ref": "evidence:SYNTH-GRIEVANCE-ROUTE",
+    "accessibility_review_ref": "evidence:SYNTH-ACCESSIBILITY-REVIEW",
+    "no_adverse_automated_decisions": true
+  },
+  "community_review": {
+    "status": "completed",
+    "evidence_ref": "evidence:SYNTH-COMMUNITY-REVIEW",
+    "rationale": "Synthetic review receipt for contract-shape testing only."
+  },
+  "verification": {
+    "status": "defined",
+    "completion_criteria_ref": "criteria:SYNTH-001",
+    "method_ref": "method:SYNTH-independent-inspection",
+    "reviewer_ref": null,
+    "reviewed_at": null,
+    "reviewer_is_independent": false,
+    "evidence": []
+  },
+  "lifecycle_events": [
+    {
+      "event_id": "event:SYNTH-001",
+      "from_status": null,
+      "to_status": "proposed",
+      "actor_ref": "person:synthetic-planner",
+      "actor_kind": "human",
+      "happened_at": "2026-10-14T12:00:00Z",
+      "evidence_refs": [
+        "evidence:SYNTH-DRAFT"
+      ]
+    },
+    {
+      "event_id": "event:SYNTH-002",
+      "from_status": "proposed",
+      "to_status": "classification_review",
+      "actor_ref": "person:synthetic-review-coordinator",
+      "actor_kind": "human",
+      "happened_at": "2026-10-14T12:02:00Z",
+      "evidence_refs": [
+        "evidence:SYNTH-ROLE-REVIEW"
+      ]
+    },
+    {
+      "event_id": "event:SYNTH-003",
+      "from_status": "classification_review",
+      "to_status": "funding_committed",
+      "actor_ref": "person:synthetic-finance-approver",
+      "actor_kind": "human",
+      "happened_at": "2026-10-14T12:08:00Z",
+      "evidence_refs": [
+        "evidence:SYNTH-FUNDING-COMMITMENT"
+      ]
+    },
+    {
+      "event_id": "event:SYNTH-004",
+      "from_status": "funding_committed",
+      "to_status": "authorized",
+      "actor_ref": "person:synthetic-authorizer",
+      "actor_kind": "human",
+      "happened_at": "2026-10-14T12:10:00Z",
+      "evidence_refs": [
+        "evidence:SYNTH-AUTHORIZATION"
+      ]
+    }
+  ],
+  "timestamps": {
+    "created_at": "2026-10-14T12:00:00Z",
+    "updated_at": "2026-10-14T12:10:00Z"
+  },
+  "limitations": [
+    "Entire record is synthetic. It does not establish a real contract, procurement award, legal employment classification, funding commitment, or permission to operate.",
+    "The validator checks structure and internal consistency; it does not authenticate issuers, identities, signatures, evidence bytes, law, or physical outcomes."
+  ]
+}

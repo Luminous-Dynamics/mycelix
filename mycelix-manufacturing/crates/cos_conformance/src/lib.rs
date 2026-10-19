@@ -62,6 +62,9 @@ pub struct Bindings {
     pub plan_consumption: bool,
     pub output_qualification: bool,
     pub foreign_recognition: bool,
+    pub external_dependency_classified: bool,
+    pub local_capability_claim: bool,
+    pub local_origin_claim: bool,
     pub itc_projection: bool,
     pub frs_projection: bool,
     pub recommendation_authorized: bool,
@@ -80,6 +83,9 @@ pub fn bind_assignment_to_observed_work(b: &mut Bindings) { b.assignment_observe
 pub fn bind_plan_to_consumption(b: &mut Bindings) { b.plan_consumption = true; }
 pub fn qualify_output(b: &mut Bindings) { b.output_qualification = true; }
 pub fn recognize_foreign_evidence(b: &mut Bindings) { b.foreign_recognition = true; }
+pub fn classify_external_dependency(b: &mut Bindings) { b.external_dependency_classified = true; }
+pub fn claim_local_capability(b: &mut Bindings) { b.local_capability_claim = true; }
+pub fn claim_local_origin(b: &mut Bindings) { b.local_origin_claim = true; }
 pub fn project_to_itc(b: &mut Bindings) { b.itc_projection = true; }
 pub fn project_to_frs(b: &mut Bindings) { b.frs_projection = true; }
 pub fn authorize_recommendation(b: &mut Bindings) { b.recommendation_authorized = true; }
@@ -110,7 +116,26 @@ pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence
         "COS-N-006" => if b.output_qualification { Decision::Accepted } else { Decision::Rejected },
         "COS-N-007" => if b.general_capability_evidence { Decision::Accepted } else { Decision::Rejected },
         "COS-N-008" => if b.failure_history_preserved { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-009" | "COS-N-013" => if b.foreign_recognition { Decision::Accepted } else { Decision::Rejected },
+        "COS-N-009" => {
+            let foreign_origin = evidence.is_some_and(|e| matches!(&e.origin, Origin::Foreign(_)));
+            if b.local_capability_claim {
+                Decision::Rejected
+            } else if foreign_origin && b.external_dependency_classified && b.foreign_recognition {
+                Decision::Accepted
+            } else {
+                Decision::Rejected
+            }
+        },
+        "COS-N-013" => {
+            let foreign_origin = evidence.is_some_and(|e| matches!(&e.origin, Origin::Foreign(_)));
+            if b.local_origin_claim {
+                Decision::Rejected
+            } else if foreign_origin && b.foreign_recognition {
+                Decision::Accepted
+            } else {
+                Decision::Rejected
+            }
+        },
         "COS-N-010" => if b.source_observation_created { Decision::Accepted } else { Decision::Rejected },
         "COS-N-011" => if b.itc_projection { Decision::Accepted } else { Decision::Rejected },
         "COS-N-012" => if b.physical_work_binding { Decision::Accepted } else { Decision::Rejected },
@@ -156,9 +181,11 @@ pub fn conformance_report_json() -> String {
         actual_negative: Decision,
         expected_positive: Decision,
         actual_positive: Decision,
+        input_evidence_classes: &'a str,
         provenance_origin: &'a str,
         temporal_validity: &'a str,
         refinement_status: &'a str,
+        refinement_subject: &'a str,
         claim_ceiling: &'a str,
     }
     #[derive(Serialize)]
@@ -172,7 +199,7 @@ pub fn conformance_report_json() -> String {
 
     let current = Evidence::current_local("report-current", 100);
     let stale = Evidence::stale("report-stale", 100);
-    let negative = Bindings::default();
+    let foreign = Evidence::current_foreign("report-foreign", "node-b", 100);
     let mut records = Vec::with_capacity(CASES.len());
     for case in CASES.iter() {
         let mut positive = Bindings::default();
@@ -184,7 +211,11 @@ pub fn conformance_report_json() -> String {
             "COS-N-006" | "COS-N-015" => qualify_output(&mut positive),
             "COS-N-007" => bind_general_capability(&mut positive),
             "COS-N-008" => preserve_failure_history(&mut positive),
-            "COS-N-009" | "COS-N-013" => recognize_foreign_evidence(&mut positive),
+            "COS-N-009" => {
+                classify_external_dependency(&mut positive);
+                recognize_foreign_evidence(&mut positive);
+            }
+            "COS-N-013" => recognize_foreign_evidence(&mut positive),
             "COS-N-010" => create_source_observation(&mut positive),
             "COS-N-011" => project_to_itc(&mut positive),
             "COS-N-012" => bind_physical_work(&mut positive),
@@ -192,17 +223,33 @@ pub fn conformance_report_json() -> String {
             "COS-N-016" => positive.denominator_explicit = true,
             _ => unreachable!(),
         }
+        let mut negative = Bindings::default();
+        match case.test_id {
+            "COS-N-009" => claim_local_capability(&mut negative),
+            "COS-N-013" => claim_local_origin(&mut negative),
+            _ => {}
+        }
+        let negative_evidence = match case.test_id {
+            "COS-N-005" => &stale,
+            "COS-N-009" | "COS-N-013" => &foreign,
+            _ => &current,
+        };
         let actual_negative = if case.test_id == "COS-N-005" {
             stale_evidence_is_rejected(&stale, 100)
         } else {
-            evaluate_negative(case.test_id, &negative, Some(&current), 100)
+            evaluate_negative(case.test_id, &negative, Some(negative_evidence), 100)
+        };
+        let positive_evidence = if matches!(case.test_id, "COS-N-009" | "COS-N-013") {
+            &foreign
+        } else {
+            &current
         };
         let actual_positive = if case.test_id == "COS-N-005" {
             if positive.quality_current && stale_evidence_is_rejected(&current, 100) == Decision::Accepted {
                 Decision::Accepted
             } else { Decision::Rejected }
         } else {
-            evaluate_negative(case.test_id, &positive, Some(&current), 100)
+            evaluate_negative(case.test_id, &positive, Some(positive_evidence), 100)
         };
         records.push(Record {
             test_id: case.test_id,
@@ -211,9 +258,47 @@ pub fn conformance_report_json() -> String {
             actual_negative,
             expected_positive: Decision::Accepted,
             actual_positive,
-            provenance_origin: if matches!(case.test_id, "COS-N-009" | "COS-N-013") { "Foreign evidence retained as foreign; recognition does not rewrite origin." } else { "Local reference evidence." },
-            temporal_validity: if case.test_id == "COS-N-005" { "Negative=stale; positive=current." } else { "Current reference fixture." },
+            input_evidence_classes: match case.test_id {
+                "COS-N-001" => "Completed WorkOrder/production plan; observed-work binding absent in negative input.",
+                "COS-N-002" => "Planned BOM/material requirement; observed material-consumption evidence absent.",
+                "COS-N-003" => "Skill credential/capability; current worker availability evidence absent.",
+                "COS-N-004" => "Machine capability/state; current availability observation absent.",
+                "COS-N-005" => "QA/calibration evidence with stale versus current validity profile.",
+                "COS-N-006" => "Useful output/disposition; quality qualification evidence absent.",
+                "COS-N-007" => "Single successful operation; general-capability evidence absent.",
+                "COS-N-008" => "Historical failure/loss plus later outcome; failure-history preservation binding absent.",
+                "COS-N-009" => "Foreign dependency plus local-capability claim versus explicit external-dependency classification.",
+                "COS-N-010" => "FRS projection/finding versus source-observation creation.",
+                "COS-N-011" => "Source-owned production observation versus ITC projection.",
+                "COS-N-012" => "ITC projection and qualified output versus physical-work binding.",
+                "COS-N-013" => "Foreign-origin attestation versus attempted local-origin claim.",
+                "COS-N-014" => "FRS recommendation with authorization and effect-receipt states.",
+                "COS-N-015" => "Distribution handoff versus output quality qualification.",
+                "COS-N-016" => "Throughput/share assertion with versus without explicit denominator.",
+                _ => "Unrecognized case; should not exist in the canonical corpus.",
+            },
+            provenance_origin: if matches!(case.test_id, "COS-N-009" | "COS-N-013") { "Foreign evidence retains foreign origin; recognition does not rewrite origin." } else { "Local reference evidence." },
+            temporal_validity: if case.test_id == "COS-N-005" { "Negative=stale; positive=current." } else { "Current validity profile; see provenance_origin for local/foreign origin." },
             refinement_status: "ReferenceModelOnly",
+            refinement_subject: match case.test_id {
+                "COS-N-001" => "WorkOrder/ProductionPlan -> ObservedWorkEvent",
+                "COS-N-002" => "BOM/MaterialRequirement -> MaterialConsumption",
+                "COS-N-003" => "SkillCredential -> WorkerAvailabilityObservation",
+                "COS-N-004" => "MachineCapability -> MachineAvailabilityObservation",
+                "COS-N-005" => "CalibrationValidity -> Current QA Requirement",
+                "COS-N-006" => "OutputDisposition -> Qualified Output",
+                "COS-N-007" => "Single Operation -> General Capability",
+                "COS-N-008" => "Failure/Loss History -> Later Outcome",
+                "COS-N-009" => "Foreign Dependency -> Local Capability Claim",
+                "COS-N-010" => "FRS Projection -> Source Observation",
+                "COS-N-011" => "Production Observation -> ITC Projection",
+                "COS-N-012" => "ITC Projection -> Physical-Work Evidence",
+                "COS-N-013" => "Foreign Attestation -> Local-Origin Claim",
+                "COS-N-014" => "Recommendation -> Authorized Effect Receipt",
+                "COS-N-015" => "Distribution Handoff -> Quality Qualification",
+                "COS-N-016" => "Throughput/Share Metric -> Explicit Denominator",
+                _ => "Unrecognized case; should not exist in the canonical corpus.",
+            },
             claim_ceiling: case.claim_ceiling,
         });
     }
@@ -267,7 +352,11 @@ mod tests {
                 "COS-N-006" | "COS-N-015" => qualify_output(&mut b),
                 "COS-N-007" => bind_general_capability(&mut b),
                 "COS-N-008" => preserve_failure_history(&mut b),
-                "COS-N-009" | "COS-N-013" => recognize_foreign_evidence(&mut b),
+                "COS-N-009" => {
+                    classify_external_dependency(&mut b);
+                    recognize_foreign_evidence(&mut b);
+                }
+                "COS-N-013" => recognize_foreign_evidence(&mut b),
                 "COS-N-010" => create_source_observation(&mut b),
                 "COS-N-011" => project_to_itc(&mut b),
                 "COS-N-012" => bind_physical_work(&mut b),
@@ -276,11 +365,16 @@ mod tests {
                 _ => unreachable!(),
             }
             let current = fresh();
-            let evidence = Some(&current);
-            let decision = if case.test_id == "COS-N-005" {
-                if b.quality_current && stale_evidence_is_rejected(evidence.unwrap(), now) == Decision::Accepted { Decision::Accepted } else { Decision::Rejected }
+            let foreign = Evidence::current_foreign("positive-foreign", "node-b", now);
+            let evidence = if matches!(case.test_id, "COS-N-009" | "COS-N-013") {
+                &foreign
             } else {
-                evaluate_negative(case.test_id, &b, evidence, now)
+                &current
+            };
+            let decision = if case.test_id == "COS-N-005" {
+                if b.quality_current && stale_evidence_is_rejected(evidence, now) == Decision::Accepted { Decision::Accepted } else { Decision::Rejected }
+            } else {
+                evaluate_negative(case.test_id, &b, Some(evidence), now)
             };
             assert_eq!(decision, Decision::Accepted, "{} positive counterpart did not bind explicitly", case.test_id);
         }
@@ -313,6 +407,47 @@ mod tests {
         assert!(report.contains("\"COS-CONF-001\""));
         assert!(report.contains("no physical, safety, economic, ecological"));
         assert!(!report.contains("verified_score"));
+    }
+
+    #[test]
+    fn foreign_dependency_cannot_be_claimed_as_local_capability() {
+        let foreign = Evidence::current_foreign("imported-part", "node-b", 100);
+        let mut invalid = Bindings::default();
+        classify_external_dependency(&mut invalid);
+        recognize_foreign_evidence(&mut invalid);
+        claim_local_capability(&mut invalid);
+        assert_eq!(
+            evaluate_negative("COS-N-009", &invalid, Some(&foreign), 100),
+            Decision::Rejected
+        );
+
+        let mut valid_external_use = Bindings::default();
+        classify_external_dependency(&mut valid_external_use);
+        recognize_foreign_evidence(&mut valid_external_use);
+        assert_eq!(
+            evaluate_negative("COS-N-009", &valid_external_use, Some(&foreign), 100),
+            Decision::Accepted
+        );
+        assert_eq!(foreign.origin, Origin::Foreign("node-b".to_owned()));
+    }
+
+    #[test]
+    fn foreign_attestation_cannot_be_relabelled_as_local_origin() {
+        let foreign = Evidence::current_foreign("attestation", "node-b", 100);
+        let mut invalid = Bindings::default();
+        claim_local_origin(&mut invalid);
+        assert_eq!(
+            evaluate_negative("COS-N-013", &invalid, Some(&foreign), 100),
+            Decision::Rejected
+        );
+
+        let mut valid_recognition = Bindings::default();
+        recognize_foreign_evidence(&mut valid_recognition);
+        assert_eq!(
+            evaluate_negative("COS-N-013", &valid_recognition, Some(&foreign), 100),
+            Decision::Accepted
+        );
+        assert_eq!(foreign.origin, Origin::Foreign("node-b".to_owned()));
     }
 
     #[test]

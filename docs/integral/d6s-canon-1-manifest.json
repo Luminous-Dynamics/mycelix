@@ -1,0 +1,38 @@
+{
+  "manifest_version": "d6s-canon-1-manifest/1",
+  "corpus_id": "D6S-CANON-1",
+  "corpus_path": "docs/integral/d6s-canon-1-golden-vectors.json",
+  "corpus_git_blob_sha": "419dfc5b5ab8d7aff98502651fd45b6eca4a5dcb",
+  "vector_count": 16,
+  "required_test_ids": [
+    "COS-N-001",
+    "COS-N-002",
+    "COS-N-003",
+    "COS-N-004",
+    "COS-N-005",
+    "COS-N-006",
+    "COS-N-007",
+    "COS-N-008",
+    "COS-N-009",
+    "COS-N-010",
+    "COS-N-011",
+    "COS-N-012",
+    "COS-N-013",
+    "COS-N-014",
+    "COS-N-015",
+    "COS-N-016"
+  ],
+  "required_formal_obligations": [
+    "COS-FV-001",
+    "COS-FV-002",
+    "COS-FV-003",
+    "COS-FV-004",
+    "COS-FV-005",
+    "COS-FV-006",
+    "COS-FV-007",
+    "COS-FV-008",
+    "COS-FV-009",
+    "COS-FV-010"
+  ],
+  "claim_ceiling": "ReferenceModelOnly: semantic conformance of the reference harness only; no physical, safety, economic, ecological, or Integral-validation claim."
+}
