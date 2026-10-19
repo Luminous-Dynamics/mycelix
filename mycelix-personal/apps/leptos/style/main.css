@@ -396,3 +396,30 @@ body {
         max-width: none;
     }
 }
+
+
+/* Per-domain source states: the status belongs to each source, not the page as a whole. */
+.source-status-list {
+    display: grid;
+    gap: var(--space-sm);
+}
+.source-status-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.7fr) minmax(0, 1.8fr);
+    align-items: start;
+    gap: var(--space-md);
+    padding-block: var(--space-sm);
+    border-bottom: 1px solid var(--border);
+}
+.source-status-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.source-status-row strong { font-size: 0.88rem; }
+.source-status-row span {
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+    .source-status-row { grid-template-columns: 1fr; gap: 0.2rem; }
+}
+
