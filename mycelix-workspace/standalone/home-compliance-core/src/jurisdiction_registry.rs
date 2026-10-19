@@ -148,14 +148,27 @@ pub enum CapabilityCardIssue {
     EmptyCoverage,
     DuplicateCoverageDomain(RegulatoryDomain),
     MissingRequiredDomain(RegulatoryDomain),
-    InvalidCoverageModuleId { domain: RegulatoryDomain },
-    InvalidCoverageSourceDigest { domain: RegulatoryDomain },
-    InvalidNotApplicableRationale { domain: RegulatoryDomain },
-    InvalidNotApplicableDecision { domain: RegulatoryDomain },
-    InvalidMissingGapDescription { domain: RegulatoryDomain },
+    InvalidCoverageModuleId {
+        domain: RegulatoryDomain,
+    }
+    InvalidCoverageSourceDigest {
+        domain: RegulatoryDomain,
+    }
+    InvalidNotApplicableRationale {
+        domain: RegulatoryDomain,
+    }
+    InvalidNotApplicableDecision {
+        domain: RegulatoryDomain,
+    }
+    InvalidMissingGapDescription {
+        domain: RegulatoryDomain,
+    }
     DuplicateReview(String),
     AuthorIncludedAsReviewer(String),
-    InvalidReviewMetadata { reviewer_id: String, field: &'static str },
+    InvalidReviewMetadata {
+        reviewer_id: String,
+        field: &'static str,
+    }
     InvalidReviewDigest(String),
     ReviewDigestMismatch(String),
     InsufficientIndependentReviewers,
@@ -200,7 +213,10 @@ pub fn validate_capability_card(
         ("display_name", card.display_name.as_str()),
         ("card_author_id", card.card_author_id.as_str()),
         ("update_policy", card.update_policy.as_str()),
-        ("accountable_maintainer", card.accountable_maintainer.as_str()),
+        (
+            "accountable_maintainer",
+            card.accountable_maintainer.as_str(),
+        ),
     ] {
         if !nonblank(value) {
             issues.push(CapabilityCardIssue::EmptyField(field));
@@ -295,7 +311,9 @@ pub fn validate_capability_card(
         }
     }
     for domain in REQUIRED_REGULATORY_DOMAINS {
-        if !domains.contains(&domain) && card.declared_status == JurisdictionSupportStatus::Supported {
+        if !domains.contains(&domain)
+            && card.declared_status == JurisdictionSupportStatus::Supported
+        {
             issues.push(CapabilityCardIssue::MissingRequiredDomain(domain));
         }
     }
@@ -309,7 +327,9 @@ pub fn validate_capability_card(
             });
         }
         if !reviewer_ids.insert(review.reviewer_id.as_str()) {
-            issues.push(CapabilityCardIssue::DuplicateReview(review.reviewer_id.clone()));
+            issues.push(CapabilityCardIssue::DuplicateReview(
+                review.reviewer_id.clone(),
+            ));
         }
         if review.reviewer_id == card.card_author_id
             || review.reviewer_id == card.accountable_maintainer
@@ -379,7 +399,9 @@ pub fn validate_capability_card(
             JurisdictionSupportStatus::Draft | JurisdictionSupportStatus::Researching => {
                 CapabilityCardValidationStatus::ResearchOnly
             }
-            JurisdictionSupportStatus::Pilot => CapabilityCardValidationStatus::PilotMetadataComplete,
+            JurisdictionSupportStatus::Pilot => {
+                CapabilityCardValidationStatus::PilotMetadataComplete
+            }
             JurisdictionSupportStatus::Supported => {
                 CapabilityCardValidationStatus::SupportedClaimMetadataComplete
             }
@@ -419,11 +441,18 @@ mod tests {
                 })
                 .collect(),
             independent_reviews: vec![
-                review("reviewer-a", CapabilityReviewDisposition::SupportsBoundedSupportClaim),
-                review("reviewer-b", CapabilityReviewDisposition::SupportsBoundedSupportClaim),
+                review(
+                    "reviewer-a",
+                    CapabilityReviewDisposition::SupportsBoundedSupportClaim,
+                ),
+                review(
+                    "reviewer-b",
+                    CapabilityReviewDisposition::SupportsBoundedSupportClaim,
+                ),
             ],
             known_scope_gaps: Vec::new(),
-            update_policy: "Recheck authority sources and fixture suite on every change notice".into(),
+            update_policy: "Recheck authority sources and fixture suite on every change notice"
+                .into(),
             accountable_maintainer: "maintainer:pilot".into(),
             source_registry_checked_on_day: 120,
             registry_as_of_day: 120,
@@ -446,10 +475,7 @@ mod tests {
         }
     }
 
-    fn review(
-        reviewer_id: &str,
-        disposition: CapabilityReviewDisposition,
-    ) -> CapabilityReview {
+    fn review(reviewer_id: &str, disposition: CapabilityReviewDisposition) -> CapabilityReview {
         CapabilityReview {
             reviewer_id: reviewer_id.into(),
             review_scope: "Independent source, test, and scope review".into(),
@@ -474,21 +500,29 @@ mod tests {
     #[test]
     fn a_missing_domain_blocks_supported_claim_but_not_research_card() {
         let mut supported = card(JurisdictionSupportStatus::Supported);
-        supported.coverage.retain(|item| item.domain != RegulatoryDomain::Accessibility);
+        supported
+            .coverage
+            .retain(|item| item.domain != RegulatoryDomain::Accessibility);
         let report = validate_capability_card(&supported, 30);
         assert!(!report.supported_claim_metadata_complete);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::MissingRequiredDomain(RegulatoryDomain::Accessibility)
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::MissingRequiredDomain(
+                    RegulatoryDomain::Accessibility
+                ))
+        );
 
         supported.declared_status = JurisdictionSupportStatus::Researching;
         let research_report = validate_capability_card(&supported, 30);
         assert!(!research_report.supported_claim_metadata_complete);
-        assert!(!research_report
-            .issues
-            .contains(&CapabilityCardIssue::MissingRequiredDomain(
-                RegulatoryDomain::Accessibility
-            )));
+        assert!(
+            !research_report
+                .issues
+                .contains(&CapabilityCardIssue::MissingRequiredDomain(
+                    RegulatoryDomain::Accessibility
+                ))
+        );
     }
 
     #[test]
@@ -499,16 +533,20 @@ mod tests {
             decision_reference: String::new(),
         };
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::InvalidNotApplicableRationale {
-                domain: RegulatoryDomain::ResidentialBuilding
-            }
-        ));
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::InvalidNotApplicableDecision {
-                domain: RegulatoryDomain::ResidentialBuilding
-            }
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::InvalidNotApplicableRationale {
+                    domain: RegulatoryDomain::ResidentialBuilding
+                })
+        );
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::InvalidNotApplicableDecision {
+                    domain: RegulatoryDomain::ResidentialBuilding
+                })
+        );
     }
 
     #[test]
@@ -516,7 +554,11 @@ mod tests {
         let mut value = card(JurisdictionSupportStatus::Supported);
         value.source_registry_checked_on_day = 40;
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(&CapabilityCardIssue::StaleSourceRegistry));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::StaleSourceRegistry)
+        );
     }
 
     #[test]
@@ -525,12 +567,20 @@ mod tests {
         value.independent_reviews[0].reviewed_subject_sha256 = "e".repeat(64);
         value.independent_reviews[1].reviewer_id = value.accountable_maintainer.clone();
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::ReviewDigestMismatch("reviewer-a".into())
-        ));
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::AuthorIncludedAsReviewer("maintainer:pilot".into())
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::ReviewDigestMismatch(
+                    "reviewer-a".into()
+                ))
+        );
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::AuthorIncludedAsReviewer(
+                    "maintainer:pilot".into()
+                ))
+        );
     }
 
     #[test]
@@ -539,9 +589,13 @@ mod tests {
         value.independent_reviews[1].disposition =
             CapabilityReviewDisposition::ChallengesSupportClaim;
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::IndependentReviewerChallengesClaim("reviewer-b".into())
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::IndependentReviewerChallengesClaim(
+                    "reviewer-b".into()
+                ))
+        );
         assert_eq!(
             value.independent_reviews[1].disposition,
             CapabilityReviewDisposition::ChallengesSupportClaim
@@ -553,9 +607,13 @@ mod tests {
         let mut value = card(JurisdictionSupportStatus::Supported);
         value.independent_reviews[1].disposition = CapabilityReviewDisposition::Inconclusive;
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::IndependentReviewerInconclusive("reviewer-b".into())
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::IndependentReviewerInconclusive(
+                    "reviewer-b".into()
+                ))
+        );
         assert!(!report.supported_claim_metadata_complete);
     }
 
@@ -564,9 +622,13 @@ mod tests {
         let mut value = card(JurisdictionSupportStatus::Supported);
         value.independent_reviews[0].reviewer_id = value.card_author_id.clone();
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::AuthorIncludedAsReviewer("author:pilot".into())
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::AuthorIncludedAsReviewer(
+                    "author:pilot".into()
+                ))
+        );
         assert!(!report.supported_claim_metadata_complete);
     }
 
@@ -575,9 +637,11 @@ mod tests {
         let mut value = card(JurisdictionSupportStatus::Researching);
         value.known_scope_gaps.push("  ".into());
         let report = validate_capability_card(&value, 30);
-        assert!(report
-            .issues
-            .contains(&CapabilityCardIssue::KnownGapUndisclosedOrBlank));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::KnownGapUndisclosedOrBlank)
+        );
     }
 
     #[test]
@@ -590,8 +654,12 @@ mod tests {
             *module_ids = vec!["duplicate".into(), "duplicate".into()];
         }
         let report = validate_capability_card(&value, 30);
-        assert!(report.issues.contains(
-            &CapabilityCardIssue::DuplicateCoverageDomain(RegulatoryDomain::ResidentialBuilding)
-        ));
+        assert!(
+            report
+                .issues
+                .contains(&CapabilityCardIssue::DuplicateCoverageDomain(
+                    RegulatoryDomain::ResidentialBuilding
+                ))
+        );
     }
 }
