@@ -1,0 +1,35 @@
+{
+  "schema": "mycelix.economic.finance-source-mapping/v1",
+  "source_revision": "43110125e73b3c2eb51c29d302a98435f5c279de",
+  "scope_issue": 3346,
+  "surfaces": [
+    {"id":"sap.balance","path":"mycelix-finance/zomes/payments/coordinator/src/lib.rs","fabric":"position_observation","preserves":["instrument_identity","subject","raw_quantity","effective_quantity","demurrage_semantics"]},
+    {"id":"sap.initialize","symbol":"initialize_sap_balance","path":"mycelix-finance/zomes/payments/coordinator/src/lib.rs","fabric":"position_initialization","forbidden_promotions":["external_provenance","settlement_finality"]},
+    {"id":"sap.read","symbol":"get_sap_balance","fabric":"position_observation","forbidden_promotions":["issuance_authority","settlement_finality"]},
+    {"id":"sap.credit","symbol":"credit_sap","fabric":"financial_effect_candidate","risk":"broad_mutation_surface","required_followup":"authorized_issuance_or_conservation_preserving_transfer"},
+    {"id":"finance.currency_mint","path":"mycelix-finance/zomes/currency-mint/coordinator/src","fabric":"instrument_issuance_lifecycle"},
+    {"id":"finance.balance","path":"mycelix-finance/zomes/currency-mint/coordinator/src/balances.rs","fabric":"position_projection"},
+    {"id":"finance.demurrage","path":"mycelix-finance/zomes/currency-mint/coordinator/src/demurrage.rs","fabric":"instrument_lifecycle_adjustment"},
+    {"id":"finance.exchange","path":"mycelix-finance/zomes/currency-mint/coordinator/src/exchanges.rs","fabric":"offer_quote_execution_candidate"},
+    {"id":"finance.payments","path":"mycelix-finance/zomes/payments","fabric":"payment_lifecycle"},
+    {"id":"finance.tend","path":"mycelix-finance/zomes/tend","fabric":"mutual_credit_profile"},
+    {"id":"finance.bridge","path":"mycelix-finance/zomes/bridge","fabric":"external_recognition_bridge"},
+    {"id":"finance.price_oracle","path":"mycelix-finance/zomes/price-oracle","fabric":"valuation_observation"},
+    {"id":"finance.lending","path":"mycelix-finance/zomes/lending","fabric":"credit_exposure"},
+    {"id":"finance.credit_scoring","path":"mycelix-finance/zomes/credit_scoring","fabric":"policy_input"},
+    {"id":"finance.treasury","path":"mycelix-finance/zomes/treasury","fabric":"scarce_finance_state"},
+    {"id":"finance.recognition","path":"mycelix-finance/zomes/recognition","fabric":"recognition_attestation"},
+    {"id":"finance.simulation","path":"mycelix-finance/types/src/simulation.rs","fabric":"simulation_instrument_profile"}
+  ],
+  "invariants": [
+    "reputation != currency",
+    "SAP != TEND",
+    "credit_limit != asset_ownership",
+    "entitlement != authorization",
+    "authorization != settlement",
+    "settlement != outcome",
+    "accounting_projection != source_event",
+    "valuation_observation != unit_conversion",
+    "simulation_instrument != physical_world_instrument"
+  ]
+}
