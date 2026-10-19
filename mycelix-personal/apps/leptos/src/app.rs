@@ -19,11 +19,11 @@ use mycelix_leptos_core::{
 };
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
-use crate::continuity::ContinuityPage;
 use crate::context::{
     SymbolRegistry, provide_cultural_context, provide_personal_context, refresh_health_state,
     refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
 };
+use crate::continuity::ContinuityPage;
 use crate::telemetry::ConstellationTelemetry;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
