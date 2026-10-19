@@ -7,7 +7,7 @@
     "canonical_ref": "urn:fictional:law-corpus:collection-1",
     "component_id": "fictional-case-law-collection",
     "version_id": "snapshot-2026-10",
-    "content_sha256": null
+    "content_sha256": "9c1f088251bc0d9e796a3ff5e190df6d9f5b062c1868170df94a1f26981c1724"
   },
   "terms": {
     "terms_ref": "urn:fictional:publisher-terms:v1",
