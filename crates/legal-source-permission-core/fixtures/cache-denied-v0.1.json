@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1.0",
+  "source_component_id": "fictional-case-law-collection",
+  "source_version_id": "snapshot-2026-10",
+  "territory": "ZA",
+  "as_of_utc": "2026-10-19T08:00:00Z",
+  "requested_retention_seconds": 0,
+  "observed_terms_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "operation": "cache",
+  "purpose": "benchmark_evaluation",
+  "actor_class": "automated_service"
+}
