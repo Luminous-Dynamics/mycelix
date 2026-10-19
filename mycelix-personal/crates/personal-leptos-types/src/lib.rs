@@ -303,6 +303,200 @@ pub struct TrustCredentialView {
 }
 
 // ============================================================================
+// Source-aware Life Continuity / Asset Evidence Types
+// ============================================================================
+
+/// State of a read from one source adapter.
+///
+/// These variants are intentionally not interchangeable:
+/// - `LiveConfirmedEmpty` means the source read succeeded and returned no
+///   records at the stated time.
+/// - `Unavailable` means the source could not be read; absence is unknown.
+/// - `Stale` means a previous successful result exists but needs revalidation.
+/// - `Demo` marks synthetic fixture data.
+/// - `Conflict` means evidence disagrees and must not be silently resolved.
+/// - `Unsupported` means no source adapter exists for this domain.
+///
+/// Adapters should emit this state alongside records, rather than manufacture
+/// empty lists when requests fail.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", content = "details", rename_all = "snake_case")]
+pub enum SourceReadState {
+    NotChecked,
+    Loading,
+    LiveWithRecords { checked_at: i64 },
+    LiveConfirmedEmpty { checked_at: i64 },
+    Unavailable { reason: SourceUnavailableReason },
+    Stale { last_successful_read_at: Option<i64> },
+    Demo,
+    Conflict,
+    Unsupported,
+}
+
+/// Sanitized reason code for a failed source read.
+///
+/// Keep raw error bodies, provider responses and credentials out of this type:
+/// they can contain identifiers or sensitive implementation details.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceUnavailableReason {
+    Network,
+    Timeout,
+    Unauthorized,
+    MalformedResponse,
+    Storage,
+    Unknown,
+}
+
+/// How an evidence item entered the system. Origin does not, by itself,
+/// establish truth or legal authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceOrigin {
+    HolderReported,
+    IssuerAttested,
+    ProviderReported,
+    InstrumentObserved,
+    Derived,
+    Unknown,
+}
+
+/// The kind of authority represented by a source.
+///
+/// This is descriptive metadata, not an authorization decision. For example,
+/// a government registry may be authoritative for registration status but not
+/// necessarily for insurance, maintenance quality or every ownership dispute.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceAuthorityClass {
+    HolderAssertion,
+    CredentialIssuer,
+    ServiceProvider,
+    Instrument,
+    GovernmentRegistry,
+    CourtOrAdjudicator,
+    LicensedProfessional,
+    DerivedSystem,
+    Unknown,
+}
+
+/// Cryptographic integrity is kept separate from source trust and claim status.
+///
+/// `Valid` means only that the checked cryptographic proof passed. It does
+/// not mean that the issuer is trusted or the claim is legally authoritative.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CryptographicIntegrity {
+    NotApplicable,
+    NotChecked,
+    Valid,
+    Invalid,
+    Unknown,
+}
+
+/// Current lifecycle assessment of a particular claim, independent of whether
+/// a signature was valid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimLifecycleStatus {
+    Unassessed,
+    Active,
+    Expired,
+    Revoked,
+    Superseded,
+    Disputed,
+    Unknown,
+}
+
+/// Freshness assessment under the source adapter's declared policy.
+/// Timestamps should be preserved so consumers can inspect the basis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceFreshness {
+    FreshAtRead,
+    Stale,
+    Unknown,
+    NotApplicable,
+}
+
+/// Evidence metadata for one claim in a private Personal view.
+///
+/// `source_ref` may itself be sensitive or correlatable. It must not be
+/// copied into public DHT entries or external disclosure payloads by default.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimEvidenceView {
+    pub origin: EvidenceOrigin,
+    pub authority: EvidenceAuthorityClass,
+    pub cryptographic_integrity: CryptographicIntegrity,
+    pub lifecycle_status: ClaimLifecycleStatus,
+    pub freshness: EvidenceFreshness,
+    pub source_label: String,
+    pub source_ref: Option<String>,
+    /// Time the underlying event/assertion occurred, in microseconds when known.
+    pub observed_at: Option<i64>,
+    /// Time this source was last checked successfully, in microseconds.
+    pub checked_at: Option<i64>,
+    /// Source-claimed expiration time, in microseconds.
+    pub valid_until: Option<i64>,
+}
+
+/// Broad category of real-world asset represented in a personal workspace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LifeAssetKind {
+    Vehicle,
+    Property,
+    Equipment,
+    Appliance,
+    Electronics,
+    EnergySystem,
+    Other(String),
+}
+
+/// A claim category is deliberately more granular than a generic
+/// "verified/unverified" asset status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LifeAssetClaimCategory {
+    Identity,
+    Provenance,
+    Ownership,
+    Registration,
+    Custody,
+    LienOrEncumbrance,
+    Insurance,
+    Condition,
+    Maintenance,
+    Recall,
+    Inspection,
+    Warranty,
+    Other(String),
+}
+
+/// One display-safe claim projection with its evidence metadata.
+///
+/// The summary belongs to the private UI model; it is not a portable credential
+/// or a statement that Mycelix has independently established legal truth.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LifeAssetClaimView {
+    pub category: LifeAssetClaimCategory,
+    pub summary: String,
+    pub evidence: ClaimEvidenceView,
+}
+
+/// Read-model for an asset passport. It composes sourced claims; it is not a
+/// replacement for a title registry, registration certificate, insurer record,
+/// inspection authority or manufacturer record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LifeAssetPassportSummaryView {
+    /// Opaque reference scoped to the local/private Personal app.
+    pub local_asset_ref: String,
+    pub kind: LifeAssetKind,
+    pub display_name: String,
+    pub claims: Vec<LifeAssetClaimView>,
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
