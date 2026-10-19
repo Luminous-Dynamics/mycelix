@@ -846,25 +846,21 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         );
     }
 
-    if storage
+    let write_succeeded = storage
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &next_wire)
-        .is_err()
-    {
-        return Err(
-            "Could not persist the rotated passphrase envelope; the previous envelope remains authoritative."
-                .into(),
-        );
-    }
-    let readback = storage
-        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
-        .map_err(|_| "Could not verify the rotated identity envelope.".to_string())?;
-    if readback.as_deref() == Some(next_wire.as_str())
+        .is_ok();
+    let readback = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    if write_succeeded
+        && readback
+            .as_ref()
+            .is_ok_and(|value| value.as_deref() == Some(next_wire.as_str()))
         && encrypted_blob_is_structurally_valid(&next_wire)
     {
         return Ok(());
     }
 
-    // Restore the previous envelope if the new one cannot be verified.
+    // If write/read-back verification is ambiguous, restore and verify the old
+    // envelope. Never claim rotation success from a successful setItem alone.
     if storage
         .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &previous_wire)
         .is_err()
@@ -874,10 +870,11 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
                 .into(),
         );
     }
-    let restored = storage
-        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
-        .map_err(|_| "Previous envelope restore could not be verified.".to_string())?;
-    if restored.as_deref() == Some(previous_wire.as_str()) {
+    let restored = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    if restored
+        .as_ref()
+        .is_ok_and(|value| value.as_deref() == Some(previous_wire.as_str()))
+    {
         Err("Passphrase rotation failed verification; the previous passphrase remains active.".into())
     } else {
         Err(
@@ -1612,11 +1609,11 @@ mod browser_storage_tests {
             .unwrap()
             .is_some());
 
-        let posture = protect_existing_identity("synthetic browser test passphrase")
+        protect_with_passphrase("synthetic browser test passphrase")
             .await
-            .expect("existing identity is protected without changing its key");
+            .expect("public protection API safely protects the existing identity");
         assert_eq!(
-            posture,
+            inspect_local_identity_posture(),
             LocalIdentityStoragePosture::ProtectedUnlockedInSession
         );
 
@@ -1631,6 +1628,34 @@ mod browser_storage_tests {
             .await
             .expect("migrated protected identity unlocks");
         assert!(public_key_matches_signing_key(&expected_public, &protected_key));
+    }
+
+    #[wasm_bindgen_test]
+    async fn public_protection_api_rotates_passphrase_without_plaintext_storage() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic initial passphrase")
+            .await
+            .expect("initial protected identity creation succeeds");
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let original_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("public key is present");
+
+        protect_with_passphrase("synthetic rotated passphrase")
+            .await
+            .expect("public protection API rotates a currently unlocked identity");
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+
+        assert!(unlock_with_passphrase("synthetic initial passphrase")
+            .await
+            .is_err());
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+        let rotated = unlock_with_passphrase("synthetic rotated passphrase")
+            .await
+            .expect("rotated passphrase unlocks the same identity");
+        assert!(public_key_matches_signing_key(&original_public, &rotated));
     }
 
     #[wasm_bindgen_test]
