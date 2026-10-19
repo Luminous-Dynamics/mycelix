@@ -110,6 +110,7 @@ pub struct NumericConstraintConflict {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NumericConstraintIssue {
+    EmptyInput,
     EmptyRequirementId,
     EmptySourceField {
         statement_id: String,
@@ -139,6 +140,10 @@ pub struct NumericConstraintCompositionReport {
 pub fn compose_conjunctive_numeric_constraints(
     assertions: &[NumericConstraintAssertion],
 ) -> Result<NumericConstraintCompositionReport, Vec<NumericConstraintIssue>> {
+    if assertions.is_empty() {
+        return Err(vec![NumericConstraintIssue::EmptyInput]);
+    }
+
     let mut issues = Vec::new();
     let mut statement_ids = HashSet::new();
     let mut grouped: BTreeMap<String, Vec<NumericConstraintAssertion>> = BTreeMap::new();
@@ -402,10 +407,32 @@ mod tests {
     }
 
     #[test]
+    fn empty_input_fails_closed() {
+        assert_eq!(
+            compose_conjunctive_numeric_constraints(&[]).unwrap_err(),
+            vec![NumericConstraintIssue::EmptyInput]
+        );
+    }
+
+    #[test]
     fn compatible_minimums_compose_to_the_strongest_bound() {
         let assertions = vec![
-            assertion("national", "n:length", "door.clear_width", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtLeast, 800_000),
-            assertion("municipal", "m:length", "door.clear_width", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtLeast, 900_000),
+            assertion(
+                "national",
+                "n:length",
+                "door.clear_width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                800_000,
+            ),
+            assertion(
+                "municipal",
+                "m:length",
+                "door.clear_width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                900_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
         assert!(result.conflicts.is_empty());
@@ -418,18 +445,52 @@ mod tests {
     #[test]
     fn compatible_upper_bounds_compose_to_the_strongest_upper_limit() {
         let assertions = vec![
-            assertion("a", "a:max", "travel.distance", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtMost, 30_000_000),
-            assertion("b", "b:max", "travel.distance", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtMost, 25_000_000),
+            assertion(
+                "a",
+                "a:max",
+                "travel.distance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtMost,
+                30_000_000,
+            ),
+            assertion(
+                "b",
+                "b:max",
+                "travel.distance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtMost,
+                25_000_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
-        assert_eq!(result.effective_constraints[0].upper_bound.unwrap().value_micro_units, 25_000_000);
+        assert_eq!(
+            result.effective_constraints[0]
+                .upper_bound
+                .unwrap()
+                .value_micro_units,
+            25_000_000
+        );
     }
 
     #[test]
     fn strict_endpoint_wins_when_values_are_equal() {
         let assertions = vec![
-            assertion("a", "a:min", "clearance", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtLeast, 1_000_000),
-            assertion("b", "b:min", "clearance", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::GreaterThan, 1_000_000),
+            assertion(
+                "a",
+                "a:min",
+                "clearance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                1_000_000,
+            ),
+            assertion(
+                "b",
+                "b:min",
+                "clearance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::GreaterThan,
+                1_000_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
         let lower = result.effective_constraints[0].lower_bound.unwrap();
@@ -438,61 +499,216 @@ mod tests {
     }
 
     #[test]
+    fn agreeing_strongest_bounds_preserve_both_sources_deterministically() {
+        let assertions = vec![
+            assertion(
+                "b",
+                "b:min",
+                "clearance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                1_000_000,
+            ),
+            assertion(
+                "a",
+                "a:min",
+                "clearance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                1_000_000,
+            ),
+        ];
+        let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
+        let sources = &result.effective_constraints[0].lower_bound_sources;
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].module_id, "a");
+        assert_eq!(sources[1].module_id, "b");
+    }
+
+    #[test]
     fn disjoint_ranges_remain_a_conflict() {
         let assertions = vec![
-            assertion("a", "a:min", "opening.width", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtLeast, 1_000_000),
-            assertion("b", "b:max", "opening.width", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtMost, 900_000),
+            assertion(
+                "a",
+                "a:min",
+                "opening.width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                1_000_000,
+            ),
+            assertion(
+                "b",
+                "b:max",
+                "opening.width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtMost,
+                900_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
         assert!(result.effective_constraints.is_empty());
-        assert_eq!(result.conflicts[0].reason, NumericConflictReason::EmptyIntersection);
+        assert_eq!(
+            result.conflicts[0].reason,
+            NumericConflictReason::EmptyIntersection
+        );
         assert_eq!(result.conflicts[0].assertions.len(), 2);
     }
 
     #[test]
     fn exclusive_equal_endpoints_make_an_empty_range() {
         let assertions = vec![
-            assertion("a", "a:min", "clearance", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::GreaterThan, 1_000_000),
-            assertion("b", "b:max", "clearance", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtMost, 1_000_000),
+            assertion(
+                "a",
+                "a:min",
+                "clearance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::GreaterThan,
+                1_000_000,
+            ),
+            assertion(
+                "b",
+                "b:max",
+                "clearance",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtMost,
+                1_000_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
-        assert_eq!(result.conflicts[0].reason, NumericConflictReason::EmptyIntersection);
+        assert_eq!(
+            result.conflicts[0].reason,
+            NumericConflictReason::EmptyIntersection
+        );
     }
 
     #[test]
     fn exact_value_must_satisfy_every_bound() {
         let assertions = vec![
-            assertion("a", "a:exact", "opening.width", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::Exactly, 900_000),
-            assertion("b", "b:min", "opening.width", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtLeast, 1_000_000),
+            assertion(
+                "a",
+                "a:exact",
+                "opening.width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::Exactly,
+                900_000,
+            ),
+            assertion(
+                "b",
+                "b:min",
+                "opening.width",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                1_000_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
-        assert_eq!(result.conflicts[0].reason, NumericConflictReason::ExactValueOutsideBounds);
+        assert_eq!(
+            result.conflicts[0].reason,
+            NumericConflictReason::ExactValueOutsideBounds
+        );
+    }
+
+    #[test]
+    fn exact_value_inside_bounds_remains_explicit() {
+        let assertions = vec![
+            assertion(
+                "a",
+                "a:min",
+                "room.height",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                2_000_000,
+            ),
+            assertion(
+                "b",
+                "b:exact",
+                "room.height",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::Exactly,
+                2_400_000,
+            ),
+            assertion(
+                "c",
+                "c:max",
+                "room.height",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtMost,
+                3_000_000,
+            ),
+        ];
+        let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
+        assert!(result.conflicts.is_empty());
+        assert_eq!(
+            result.effective_constraints[0].exact_value_micro_units,
+            Some(2_400_000)
+        );
     }
 
     #[test]
     fn distinct_exact_values_conflict_and_preserve_sources() {
         let assertions = vec![
-            assertion("a", "a:exact", "room.height", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::Exactly, 2_400_000),
-            assertion("b", "b:exact", "room.height", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::Exactly, 2_600_000),
+            assertion(
+                "a",
+                "a:exact",
+                "room.height",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::Exactly,
+                2_400_000,
+            ),
+            assertion(
+                "b",
+                "b:exact",
+                "room.height",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::Exactly,
+                2_600_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
-        assert_eq!(result.conflicts[0].reason, NumericConflictReason::MultipleExactValues);
+        assert_eq!(
+            result.conflicts[0].reason,
+            NumericConflictReason::MultipleExactValues
+        );
         assert_eq!(result.conflicts[0].assertions.len(), 2);
     }
 
     #[test]
     fn different_quantity_dimensions_never_compare_as_numbers() {
         let assertions = vec![
-            assertion("a", "a:value", "same-id", CanonicalQuantityKind::LengthMetres, NumericConstraintOperator::AtLeast, 2_000_000),
-            assertion("b", "b:value", "same-id", CanonicalQuantityKind::AreaSquareMetres, NumericConstraintOperator::AtLeast, 2_000_000),
+            assertion(
+                "a",
+                "a:value",
+                "same-id",
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::AtLeast,
+                2_000_000,
+            ),
+            assertion(
+                "b",
+                "b:value",
+                "same-id",
+                CanonicalQuantityKind::AreaSquareMetres,
+                NumericConstraintOperator::AtLeast,
+                2_000_000,
+            ),
         ];
         let result = compose_conjunctive_numeric_constraints(&assertions).unwrap();
-        assert_eq!(result.conflicts[0].reason, NumericConflictReason::MixedQuantityKinds);
+        assert_eq!(
+            result.conflicts[0].reason,
+            NumericConflictReason::MixedQuantityKinds
+        );
     }
 
     #[test]
     fn unresolved_legal_or_alternative_relationship_is_not_intersected() {
-        let mut item = assertion("a", "a:rule", "ventilation", CanonicalQuantityKind::AirflowCubicMetresPerSecond, NumericConstraintOperator::AtLeast, 500_000);
+        let mut item = assertion(
+            "a",
+            "a:rule",
+            "ventilation",
+            CanonicalQuantityKind::AirflowCubicMetresPerSecond,
+            NumericConstraintOperator::AtLeast,
+            500_000,
+        );
         item.relationship = NumericConstraintRelationship::Unresolved;
         let result = compose_conjunctive_numeric_constraints(&[item]).unwrap();
         assert_eq!(
@@ -503,7 +719,14 @@ mod tests {
 
     #[test]
     fn non_applicable_sources_block_numeric_composition() {
-        let mut item = assertion("a", "a:proposal", "ventilation", CanonicalQuantityKind::AirflowCubicMetresPerSecond, NumericConstraintOperator::AtLeast, 500_000);
+        let mut item = assertion(
+            "a",
+            "a:proposal",
+            "ventilation",
+            CanonicalQuantityKind::AirflowCubicMetresPerSecond,
+            NumericConstraintOperator::AtLeast,
+            500_000,
+        );
         item.source_applicability =
             SourceApplicability::NonBinding(NonBindingReason::Proposal);
         let issues = compose_conjunctive_numeric_constraints(&[item]).unwrap_err();
@@ -512,4 +735,5 @@ mod tests {
             [NumericConstraintIssue::SourceNotApplicable { .. }]
         ));
     }
+
 }
