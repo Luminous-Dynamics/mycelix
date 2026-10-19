@@ -1,0 +1,81 @@
+name: IG-007S0 Threshold Signing Authority Profile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/threshold-signing-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py"
+      - "mycelix-governance/docs/IG_007S0_THRESHOLD_SIGNING_AUTHORITY_PROFILE.md"
+      - ".github/workflows/ig-007s0-threshold-signing-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-threshold-signing-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SHA256: c15dfd860b759747938af2a13129d729fa0af1e75284418c9ea6b9c172f643ac
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact checkout and source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+          test "$(git hash-object mycelix-governance/zomes/threshold-signing/coordinator/src/lib.rs)" = "3449df8b03a4dd1774a5f22756d06931c72855b2"
+          test "$(git hash-object mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs)" = "3fec8344635600c044a494fa72bbbfe408fbe5ec"
+          test "$(git hash-object mycelix-governance/zomes/proposals/coordinator/src/lib.rs)" = "eb8358353ee259ef9c3b46617a61d3439f1c714c"
+          test "$(git hash-object mycelix-governance/zomes/execution/coordinator/src/lib.rs)" = "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef"
+
+      - name: Syntax compile validator
+        run: python -m py_compile mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py
+
+      - name: Validate twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/threshold-signing-fca2c107-v1.json
+          python mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py --profile "$PROFILE" --self-test > /tmp/ig007s0-1.json
+          python mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py --profile "$PROFILE" --self-test > /tmp/ig007s0-2.json
+          cmp /tmp/ig007s0-1.json /tmp/ig007s0-2.json
+
+      - name: Assert frozen profile identity and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007s0-1.json', encoding='utf-8') as f:
+              result = json.load(f)
+          assert result['validated'] is True
+          assert result['self_test'] is True
+          assert result['authority_class'] == 'ObservedSourceBound'
+          assert result['profile_id'] == 'mycelix-threshold-signing-observed-fca2c107-v1'
+          assert result['profile_content_sha256'] == 'c15dfd860b759747938af2a13129d729fa0af1e75284418c9ea6b9c172f643ac'
+          assert result['known_gap_issues'] == [959, 960]
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
