@@ -1,0 +1,6 @@
+[package]
+name = "mycelix-business-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Transport-neutral institutional composition contracts for Mycelix Business"

@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-business-terminal-expectation"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Instance-specific terminal expectation provenance for Mycelix Business closure proofs"
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-qualification = { path = "../mycelix-business-qualification" }
+mycelix-business-terminal-qualification = { path = "../mycelix-business-terminal-qualification" }
