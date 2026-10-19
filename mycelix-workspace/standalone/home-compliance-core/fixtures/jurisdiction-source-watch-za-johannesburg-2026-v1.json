@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_notice": "Research-only source watch captured 2026-10-19. URLs are official publisher locators discovered during research; source bytes were not materialized and hashed in this fixture, legal applicability has not been independently reviewed, and no binding rule modules are emitted. The amendment bill is a proposal for public comment, not an enacted replacement.",
+  "jurisdiction_id": "ZA/GP/Johannesburg",
+  "display_name": "Johannesburg, Gauteng, South Africa",
+  "captured_on": "2026-10-19",
+  "declared_support_status": "researching",
+  "source_bytes_verified": false,
+  "legal_applicability_evaluated": false,
+  "binding_rules_emitted": false,
+  "source_records": [
+    {
+      "source_id": "za-act-103-1977-official-locator",
+      "title": "National Building Regulations and Building Standards Act 103 of 1977",
+      "official_locator": "https://www.gov.za/documents/national-building-regulations-and-building-standards-act-16-apr-2015-1302",
+      "issuer": "South African Government",
+      "source_role": "existing_act_locator",
+      "registry_status": "locator_only_unverified",
+      "legal_effect_assessment": "not_evaluated",
+      "consultation_deadline": "",
+      "source_sha256": "",
+      "source_bytes_verified": false,
+      "binding_claim_emitted": false,
+      "observed_on": "2026-10-19",
+      "status_note": "Official source locator for the Act title. The current consolidated text, amendments, subordinate regulations, applicable standards editions, and project-specific applicability still need independent verification before deriving rules."
+    },
+    {
+      "source_id": "za-amendment-bill-2026-public-comment",
+      "title": "National Building Regulations and Building Standards Amendment Bill, 2026: Public Comment",
+      "official_locator": "https://www.gov.za/documents/notices/national-building-regulations-and-building-standards-act-publication-national",
+      "issuer": "South African Government",
+      "source_role": "draft_bill_public_comment",
+      "registry_status": "proposal_for_public_comment",
+      "legal_effect_assessment": "not_evaluated",
+      "consultation_deadline": "2026-11-12",
+      "source_sha256": "",
+      "source_bytes_verified": false,
+      "binding_claim_emitted": false,
+      "observed_on": "2026-10-19",
+      "status_note": "The Bill was published for public participation. Treat it as a proposed amendment, not an in-force replacement. The deadline here is carried from the separate official extension notice, which supersedes the earlier date for consultation planning."
+    },
+    {
+      "source_id": "za-amendment-bill-2026-comment-extension",
+      "title": "Extension of Submission Period for Public Comment on the National Building Regulations and Building Standards Amendment Bill, 2026",
+      "official_locator": "https://www.gov.za/documents/notices/national-building-regulations-and-building-standards-act-extension-submission",
+      "issuer": "South African Government",
+      "source_role": "comment_deadline_extension_notice",
+      "registry_status": "consultation_deadline_notice",
+      "legal_effect_assessment": "not_evaluated",
+      "consultation_deadline": "2026-11-12",
+      "source_sha256": "",
+      "source_bytes_verified": false,
+      "binding_claim_emitted": false,
+      "observed_on": "2026-10-19",
+      "status_note": "Official extension notice lists Thursday 12 November 2026 as the public-comment deadline. This is a process deadline, not evidence that the proposed Bill has been enacted."
+    },
+    {
+      "source_id": "za-cabinet-2026-05-06-building-bill-process",
+      "title": "Statement on the Cabinet meeting of 6 May 2026",
+      "official_locator": "https://www.gov.za/news/cabinet-statements/statement-cabinet-meeting-6-may-2026-07-may-2026",
+      "issuer": "South African Government",
+      "source_role": "cabinet_process_statement",
+      "registry_status": "publication_for_consultation_statement",
+      "legal_effect_assessment": "not_evaluated",
+      "consultation_deadline": "",
+      "source_sha256": "",
+      "source_bytes_verified": false,
+      "binding_claim_emitted": false,
+      "observed_on": "2026-10-19",
+      "status_note": "Government statement says Cabinet approved publication of the draft Bill for public participation. This supports the consultation-process history, not a claim of legislative enactment or current project-specific applicability."
+    }
+  ],
+  "next_actions": [
+    "Download and preserve the exact official HTML/PDF bytes; record content SHA-256, retrieval timestamp, canonical URL, and media type.",
+    "Retrieve the currently consolidated Act and independently enumerate amendments, commencement notices, national regulations, and any relevant transitional provisions.",
+    "Confirm the official status and consultation timetable of the 2026 Bill against the latest gazette notice and the competent department before accepting a submission workflow deadline.",
+    "Inventory applicable SANS 10400 parts and edition/adoption status through authorized sources; do not assume a source title or catalog entry supplies licensed standard text.",
+    "Map Johannesburg planning, land-use, fire, heritage, site, water, electrical, permit, and inspection requirements with municipal/authority source references.",
+    "Keep every uncovered domain explicitly marked missing, retain uncertainties and conflicts, and require independent local professional review before a profile can advance from research-only status.",
+    "Publish accessible, evidence-linked public consultation submissions when supported by reviewed evidence; do not let a source-watch fixture mutate active binding rule packs."
+  ]
+}

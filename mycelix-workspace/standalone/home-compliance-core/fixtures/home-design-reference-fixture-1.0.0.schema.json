@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:schema:home-design-reference-fixture:1.0.0",
+  "title": "Luminous Dynamics Home Design Reference Fixture",
+  "description": "Versioned synthetic scenario contract. Validity against this schema does not establish building safety, regulatory status, or professional approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "scenario_id",
+    "label",
+    "status",
+    "jurisdiction_profile",
+    "owner_brief",
+    "candidate_style_families",
+    "candidate_construction_families",
+    "stable_artifact_ids",
+    "dependency_edges",
+    "change_scenarios",
+    "evidence_boundary"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "org.luminousdynamics.home-design-reference-fixture"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^home\\.[a-z0-9.-]+$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "software_fixture_only_not_regulatory_or_engineering_evidence"
+    },
+    "jurisdiction_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority_verified",
+        "rule_pack_verified",
+        "coordinates",
+        "note"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_verified": {
+          "const": false
+        },
+        "rule_pack_verified": {
+          "const": false
+        },
+        "coordinates": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "latitude",
+            "longitude"
+          ],
+          "properties": {
+            "latitude": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "longitude": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            }
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "owner_brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "building_type",
+        "household_size_initial",
+        "household_size_future_range",
+        "floor_area_target_m2",
+        "affordability",
+        "priorities",
+        "constraints_not_yet_verified"
+      ],
+      "properties": {
+        "building_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "household_size_initial": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "household_size_future_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "integer",
+              "minimum": 1
+            }
+          ],
+          "items": false
+        },
+        "floor_area_target_m2": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          ],
+          "items": false
+        },
+        "affordability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priorities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "constraints_not_yet_verified": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "candidate_style_families": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "intent",
+          "must_not_assume"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "must_not_assume": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "candidate_construction_families": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "required_evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "candidate_only",
+              "experimental_until_locally_verified"
+            ]
+          },
+          "required_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "stable_artifact_ids": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "dependency_edges": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "prefixItems": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          }
+        ],
+        "items": false
+      }
+    },
+    "change_scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "changed_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_to_invalidate": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected_to_remain_current_until_other_change": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected_not_to_invalidate": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected_rule_status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_behavior": {
+            "type": "string",
+            "minLength": 1
+          },
+          "changed_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "changed_id"
+            ]
+          },
+          {
+            "required": [
+              "expected_behavior"
+            ]
+          },
+          {
+            "required": [
+              "changed_ids"
+            ]
+          }
+        ]
+      }
+    },
+    "evidence_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_files_are_synthetic",
+        "design_geometry_included",
+        "IFC_file_included",
+        "engineering_solvers_included",
+        "legal_rule_pack_included",
+        "code_compliance_claim",
+        "automatic_construction_or_device_execution"
+      ],
+      "properties": {
+        "source_files_are_synthetic": {
+          "const": true
+        },
+        "design_geometry_included": {
+          "const": false
+        },
+        "IFC_file_included": {
+          "const": false
+        },
+        "engineering_solvers_included": {
+          "const": false
+        },
+        "legal_rule_pack_included": {
+          "const": false
+        },
+        "code_compliance_claim": {
+          "const": false
+        },
+        "automatic_construction_or_device_execution": {
+          "const": false
+        }
+      }
+    }
+  }
+}

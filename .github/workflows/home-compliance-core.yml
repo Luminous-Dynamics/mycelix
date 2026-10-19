@@ -1,0 +1,51 @@
+name: Home Compliance Core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/standalone/home-compliance-core/**"
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/standalone/home-compliance-core/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-compliance-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Format, tests, and Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Validate the versioned reference-home fixture
+        run: python3 mycelix-workspace/standalone/home-compliance-core/tests/validate_home_fixture.py
+
+      - name: Format check
+        working-directory: mycelix-workspace/standalone/home-compliance-core
+        run: cargo fmt --all --check
+
+      - name: Offline unit tests
+        working-directory: mycelix-workspace/standalone/home-compliance-core
+        run: cargo test --offline
+
+      - name: Compile dependency-impact benchmark (do not enforce timing in CI)
+        working-directory: mycelix-workspace/standalone/home-compliance-core
+        run: cargo bench --offline --bench dependency_impact --no-run
+
+      - name: Offline Clippy
+        working-directory: mycelix-workspace/standalone/home-compliance-core
+        run: cargo clippy --offline --all-targets -- -D warnings
