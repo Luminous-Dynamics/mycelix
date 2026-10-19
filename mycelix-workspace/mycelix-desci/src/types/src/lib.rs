@@ -18,6 +18,8 @@
 pub mod claims;
 pub mod error;
 pub mod storage;
+pub mod rights;
+
 
 // Core claim types
 pub use claims::{
@@ -41,3 +43,9 @@ pub use claims::EpistemicFingerprint;
 
 pub use error::{Error, Result};
 pub use storage::{IpfsStorage, MemoryStorage, StorageBackend};
+pub use rights::{
+    evaluate_reuse, DigestVerificationStatus, EvidenceSnapshotRefV1, LicenseReviewStatus,
+    OperationPermission, PermissionDisposition, ReuseBlockerCode, ReuseCaveatCode,
+    ReuseDecisionV1, ReuseOperation, RightsAndLicenseAssessmentV1,
+    RIGHTS_ASSESSMENT_SCHEMA_V1, SOURCE_SNAPSHOT_SCHEMA_V1,
+};

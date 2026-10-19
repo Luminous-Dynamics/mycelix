@@ -1,0 +1,96 @@
+name: DeSci Source Rights Contract
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - ".github/workflows/desci-source-rights-contract.yml"
+      - "mycelix-workspace/mycelix-desci/Cargo.toml"
+      - "mycelix-workspace/mycelix-desci/Cargo.lock"
+      - "mycelix-workspace/mycelix-desci/src/types/Cargo.toml"
+      - "mycelix-workspace/mycelix-desci/src/types/src/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desci-source-rights-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-source-rights-contract:
+    name: Exact-head source-rights contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      MANIFEST_PATH: mycelix-workspace/mycelix-desci/Cargo.toml
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Assert toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          cargo +1.96.0 --version
+          rustfmt +1.96.0 --version
+          cargo clippy --version
+
+      - name: Format the exact package
+        run: cargo fmt --manifest-path "$MANIFEST_PATH" --package mycelix-desci-types -- --check
+
+      - name: Validate locked dependency metadata
+        run: cargo metadata --manifest-path "$MANIFEST_PATH" --locked --format-version 1 --no-deps > /dev/null
+
+      - name: Test source-rights contract
+        run: cargo test --manifest-path "$MANIFEST_PATH" --locked -p mycelix-desci-types
+
+      - name: Clippy source-rights contract
+        run: cargo clippy --manifest-path "$MANIFEST_PATH" --locked -p mycelix-desci-types --all-targets -- -D warnings
+
+      - name: Build crate documentation
+        run: cargo doc --manifest-path "$MANIFEST_PATH" --locked -p mycelix-desci-types --no-deps
+
+      - name: Record exact-head qualification identity
+        if: always()
+        run: |
+          {
+            echo "subject_sha=$QUALIFIED_SHA"
+            echo "workflow_sha=$(git hash-object .github/workflows/desci-source-rights-contract.yml)"
+            echo "types_manifest_blob=$(git hash-object mycelix-workspace/mycelix-desci/src/types/Cargo.toml)"
+            echo "types_source_blob=$(git hash-object mycelix-workspace/mycelix-desci/src/types/src/rights.rs)"
+            echo "types_lib_blob=$(git hash-object mycelix-workspace/mycelix-desci/src/types/src/lib.rs)"
+            echo "desci_manifest_blob=$(git hash-object mycelix-workspace/mycelix-desci/Cargo.toml)"
+            echo "desci_lock_sha256=$(sha256sum mycelix-workspace/mycelix-desci/Cargo.lock | cut -d' ' -f1)"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "rust=$(rustc --version)"
+            echo "rust_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo --version)"
+            echo "result_source_rights_contract=requires_prior_steps_to_pass"
+          } | tee desci-source-rights-qualification.txt
+
+      - name: Upload qualification identity record
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desci-source-rights-${{ env.QUALIFIED_SHA }}
+          path: desci-source-rights-qualification.txt
+          if-no-files-found: error
