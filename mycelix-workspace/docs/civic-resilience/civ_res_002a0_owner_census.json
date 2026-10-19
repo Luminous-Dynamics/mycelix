@@ -1,0 +1,575 @@
+{
+  "schema": "mycelix.civic-resilience.service-request-owner-census.v1",
+  "program": "CIV-RES-002A0",
+  "observed_at": "2026-10-13",
+  "source_snapshot": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "branch": "main",
+    "commit_sha": "f16c41b5264c632ca3efa32c78b37bfc21bcfe68",
+    "scope": "Scoped current-main path and source census. Candidate PR branches are recorded separately and are not treated as merged or qualified.",
+    "duplicate_workspace_note": "The repository contains top-level and mycelix-workspace copies of several projects. Inspected support-ticket and civic files in those copies had identical blob SHAs; this census does not infer which copy is the future canonical build root."
+  },
+  "classification_vocabulary": [
+    "AuthoritativeOwner",
+    "OperationalOwner",
+    "ProcedureOwner",
+    "EvidenceOwner",
+    "ExternalSourceAdapter",
+    "PresentationOnly",
+    "HistoricalOrSuperseded",
+    "NotApplicable",
+    "Missing"
+  ],
+  "candidates": [
+    {
+      "candidate_id": "commons_support_ticket",
+      "semantic_concern": "Mycelix-internal operational support ticket schema",
+      "classification": "OperationalOwner",
+      "path": "mycelix-commons/zomes/support-tickets/integrity/src/lib.rs",
+      "blob_sha": "c66ff344f6f3c0a43533d9370c887f2f200619fd",
+      "scope_limit": "Generic Mycelix support tickets; not a Johannesburg Water or City CRM record.",
+      "finding": "Fields include title, description, generic category/priority/status, requester, optional assignee and timestamps; no municipal source reference, utility work-order identity, or independently verified physical-repair state."
+    },
+    {
+      "candidate_id": "commons_support_coordinator",
+      "semantic_concern": "Mycelix-internal ticket creation, update and close operations",
+      "classification": "OperationalOwner",
+      "path": "mycelix-commons/zomes/support-tickets/coordinator/src/lib.rs",
+      "blob_sha": "e04fdd61227aa485a801a9e2dfe39087d3953e7d",
+      "scope_limit": "Internal Holochain support-ticket lifecycle only.",
+      "finding": "Creates/updates entries, links requester/status/category, emits an internal bridge signal and exposes close_ticket; closing a ticket is not evidence of physical service restoration."
+    },
+    {
+      "candidate_id": "commons_support_types",
+      "semantic_concern": "Generic support status/category/priority vocabulary",
+      "classification": "OperationalOwner",
+      "path": "mycelix-commons/crates/support-types/src/lib.rs",
+      "blob_sha": "bfb405e6d8f9f0afbc30cf33fabbfbe1f2197654",
+      "scope_limit": "General support domain vocabulary; not a municipal service taxonomy or SLA registry.",
+      "finding": "TicketStatus and TicketPriority exist, but do not define utility-specific response clocks, field dispatch states or source-system currentness."
+    },
+    {
+      "candidate_id": "civic_evidence_types",
+      "semantic_concern": "Shared justice/media evidence and custody concepts",
+      "classification": "EvidenceOwner",
+      "path": "mycelix-civic/crates/civic-types/src/evidence.rs",
+      "blob_sha": "f128a6c4bdab409208ddb4c26127736f03101c8e",
+      "scope_limit": "General evidence types; not a Johannesburg municipal repair-verification implementation.",
+      "finding": "Evidence and custody structures exist, but an attested evidence record is not by itself proof that a repair occurred or that service was restored."
+    },
+    {
+      "candidate_id": "justice_case_model",
+      "semantic_concern": "Formal justice/dispute case lifecycle",
+      "classification": "NotApplicable",
+      "path": "mycelix-civic/zomes/justice-cases/integrity/src/lib.rs",
+      "blob_sha": "041b56c7d21ab1cfc92d3a72363c8d3c817ee2f6",
+      "scope_limit": "Formal dispute procedure, not routine municipal service request intake or work-order tracking.",
+      "finding": "Case phases/statuses represent disputes, mediation/arbitration and enforcement; repurposing these would conflate service operations and adjudication."
+    },
+    {
+      "candidate_id": "commons_bridge",
+      "semantic_concern": "Cross-domain dispatch and event/query transport inside Commons",
+      "classification": "NotApplicable",
+      "path": "mycelix-commons/zomes/commons-bridge/coordinator/src/lib.rs",
+      "blob_sha": "93f0fa08937637f0441308c43cffe295a2e6935d",
+      "scope_limit": "Internal Mycelix cluster bridge; no Johannesburg provider/API adapter established.",
+      "finding": "The bridge routes among Commons domains and broadcasts internal events; this does not establish external City API access, acceptance semantics, authentication, currentness or idempotent provider submission."
+    },
+    {
+      "candidate_id": "community_water_ui",
+      "semantic_concern": "Community water systems presentation",
+      "classification": "PresentationOnly",
+      "path": "mycelix-commons/apps/leptos/src/pages/water.rs",
+      "blob_sha": "a8e9007b7f26b4ae11f6e8fece3ee2dfbe8dd9bd",
+      "scope_limit": "Displays Mycelix community water-system capacity/fill/steward data; not municipal resident intake.",
+      "finding": "A display page is not proof of an operational case intake, utility fault-routing or repair-closure workflow."
+    },
+    {
+      "candidate_id": "water_resource_model",
+      "semantic_concern": "Water harvesting, storage and stewardship domain",
+      "classification": "NotApplicable",
+      "path": "mycelix-workspace/mycelix-water/zomes/capture/integrity/src/lib.rs",
+      "blob_sha": "5d926aab5171cffff3e4f5eb2ffef4bcabf8af79",
+      "scope_limit": "Resource/capture records, not municipal fault/request lifecycle.",
+      "finding": "Models harvesting systems, tanks and capture/recharge records; it is not a utility pipe-break repair queue."
+    },
+    {
+      "candidate_id": "manufacturing_work_order",
+      "semantic_concern": "Manufacturing product work orders",
+      "classification": "NotApplicable",
+      "path": "mycelix-workspace/mycelix-manufacturing/zomes/workorders/integrity/src/lib.rs",
+      "blob_sha": "ae10f3f85613f83ab4ac31cd059e8041032ba3b8",
+      "scope_limit": "Product/BOM/routing work orders; not municipal service requests.",
+      "finding": "Has manufacturing-specific work order/status transition types. Its presence does not justify reusing it as a municipal ticket owner."
+    },
+    {
+      "candidate_id": "municipal_service_issue_owner",
+      "semantic_concern": "Stable municipal service-issue identity and end-to-end operational state",
+      "classification": "Missing",
+      "path": null,
+      "blob_sha": null,
+      "scope_limit": "No suitable authoritative municipal service-issue runtime identified in the scoped current-main census.",
+      "finding": "Do not infer global absence from scoped search; current main did not expose an approved municipal runtime or adapter. Existing generic ActionHash/revision identity is not a municipal logical identity contract."
+    },
+    {
+      "candidate_id": "city_provider_adapter",
+      "semantic_concern": "Authorised City/utility source-system adapter and currentness mapping",
+      "classification": "Missing",
+      "path": null,
+      "blob_sha": null,
+      "scope_limit": "No provider contract, API access grant or City integration established.",
+      "finding": "City/utility reference numbers must remain external references; successful local persistence or submission must not be interpreted as municipal acceptance or current status."
+    },
+    {
+      "candidate_id": "service_level_registry",
+      "semantic_concern": "Versioned municipal service-level definitions and SLA clocks",
+      "classification": "Missing",
+      "path": null,
+      "blob_sha": null,
+      "scope_limit": "No current approved Joburg-specific SLA registry found in the inspected current-main implementation.",
+      "finding": "The City document index lists 2026/27 planning documents and a 2025/26 service-standards charter. The charter is a reference baseline only until the current adopted target, clock semantics and effective dates are verified."
+    },
+    {
+      "candidate_id": "municipal_completion_verifier",
+      "semantic_concern": "Municipal completion-claim, evidence and independent verification adapter",
+      "classification": "Missing",
+      "path": null,
+      "blob_sha": null,
+      "scope_limit": "No municipal repair-closure verification implementation identified in the inspected current-main surfaces.",
+      "finding": "Ticket status, an official-looking receipt, a contractor claim and a verified physical outcome are distinct artifacts."
+    },
+    {
+      "candidate_id": "administrative_procedure_owner",
+      "semantic_concern": "Administrative procedure for rights-affecting government decisions",
+      "classification": "Missing",
+      "path": null,
+      "blob_sha": null,
+      "scope_limit": "No exact ADMIN-001/002/003 path identified by the scoped current-main census; broader absence is not asserted.",
+      "finding": "Routine service resolution must not become an AI-made benefits, entitlement, billing-dispute, disconnection or licensing decision."
+    },
+    {
+      "candidate_id": "external_idempotency_adapter",
+      "semantic_concern": "External source submission, retry and offline/idempotency contract",
+      "classification": "Missing",
+      "path": null,
+      "blob_sha": null,
+      "scope_limit": "No City provider adapter or external idempotency contract identified.",
+      "finding": "A retry after a timeout must not silently create duplicate City requests; do not promise at-most-once or exactly-once behavior without provider semantics and tests."
+    }
+  ],
+  "owner_matrix": [
+    {
+      "concern_id": "stable_service_issue_identity",
+      "candidate_id": "municipal_service_issue_owner",
+      "classification": "Missing",
+      "decision": "Block implementation. Current-main generic ticket ActionHash/revision identity does not establish the stable municipal issue identity; SUP-CIV-001A is an open branch-only proposal."
+    },
+    {
+      "concern_id": "immutable_intake_lineage",
+      "candidate_id": "commons_support_coordinator",
+      "classification": "OperationalOwner",
+      "decision": "Useful internal create/update history exists, but there is no verified linkage to a City/utility-originated intake record or source currentness."
+    },
+    {
+      "concern_id": "operational_status_and_external_currentness",
+      "candidate_id": "commons_support_ticket",
+      "classification": "OperationalOwner",
+      "decision": "The internal status enum is only local Mycelix state; external currentness remains unimplemented and must be sourced from an authorised provider."
+    },
+    {
+      "concern_id": "assignment_and_dispatch",
+      "candidate_id": "commons_support_ticket",
+      "classification": "OperationalOwner",
+      "decision": "An optional internal assignee exists; a municipal team/vehicle/spares/dispatch contract was not identified. Keep Symthaea output advisory."
+    },
+    {
+      "concern_id": "resident_intake_presentation",
+      "candidate_id": "community_water_ui",
+      "classification": "PresentationOnly",
+      "decision": "Existing water UI is a resource dashboard, not evidence of resident fault intake or accessible multi-channel municipal reporting."
+    },
+    {
+      "concern_id": "evidence_and_attachment_custody",
+      "candidate_id": "civic_evidence_types",
+      "classification": "EvidenceOwner",
+      "decision": "Reuse evidence concepts only after the adapter defines protected storage/reference policy; evidence creation does not imply verification."
+    },
+    {
+      "concern_id": "rights_affecting_administrative_procedure",
+      "candidate_id": "administrative_procedure_owner",
+      "classification": "Missing",
+      "decision": "Do not implement or automate consequential resident decisions until the legitimate procedure/authority owner is identified and bound."
+    },
+    {
+      "concern_id": "external_city_reference_and_source_currentness",
+      "candidate_id": "city_provider_adapter",
+      "classification": "Missing",
+      "decision": "Preserve the City/utility reference as a typed external source reference; do not mint it locally or treat a mirror as current."
+    },
+    {
+      "concern_id": "completion_claim_and_independent_verification",
+      "candidate_id": "municipal_completion_verifier",
+      "classification": "Missing",
+      "decision": "Keep commitment, completion claim, evidence bundle, predicate verification and downstream outcome as distinct artifacts."
+    },
+    {
+      "concern_id": "service_level_contract_and_clock",
+      "candidate_id": "service_level_registry",
+      "classification": "Missing",
+      "decision": "No SLA math until official target source/version, clock start/stop, pauses/exclusions, denominator and reopen treatment are explicit."
+    },
+    {
+      "concern_id": "offline_retry_and_idempotency",
+      "candidate_id": "external_idempotency_adapter",
+      "classification": "Missing",
+      "decision": "No live provider retry path without a qualified idempotency key, timeout reconciliation, duplicate-submission behavior and stale/offline rules."
+    },
+    {
+      "concern_id": "physical_water_service_resolution",
+      "candidate_id": "water_resource_model",
+      "classification": "NotApplicable",
+      "decision": "Water capture/stewardship models are not municipal repair operations."
+    },
+    {
+      "concern_id": "municipal_work_order_lifecycle",
+      "candidate_id": "manufacturing_work_order",
+      "classification": "NotApplicable",
+      "decision": "Manufacturing work orders must not be promoted into a public-works owner based on structural similarity."
+    },
+    {
+      "concern_id": "formal_dispute_procedure",
+      "candidate_id": "justice_case_model",
+      "classification": "NotApplicable",
+      "decision": "Keep routine service tickets distinct from legal or quasi-judicial cases."
+    },
+    {
+      "concern_id": "external_provider_transport",
+      "candidate_id": "commons_bridge",
+      "classification": "NotApplicable",
+      "decision": "Internal cross-domain event/query routing is not proof of an authorised external municipal integration."
+    },
+    {
+      "concern_id": "symthaea_action_authority",
+      "candidate_id": "municipal_service_issue_owner",
+      "classification": "Missing",
+      "decision": "Symthaea may propose grouping, urgency and routing only; it must not create municipal authority or trigger state-changing actions."
+    }
+  ],
+  "branch_only_proposals": [
+    {
+      "program": "CIV-RES-000A",
+      "pr": 2009,
+      "branch": "docs/civ-res-000a-composition-boundary-v1",
+      "head_sha": "c6a96d40895e71642292b0e2c433b13cc58ecd4d",
+      "state_at_snapshot": "open_unmerged",
+      "scope_note": "Composition boundary is a documentation/manifest/validator proposal; not merged authority."
+    },
+    {
+      "program": "CIV-RES-000B",
+      "pr": 2014,
+      "branch": "docs/civ-res-000b-johannesburg-profile-v1",
+      "head_sha": "a06cd096d66e0d17b1aea32f7777b5604a28b525",
+      "state_at_snapshot": "open_unmerged",
+      "scope_note": "Johannesburg threat/privacy profile template; real-world processing disabled."
+    },
+    {
+      "program": "CIV-RES-001C",
+      "pr": 2026,
+      "branch": "docs/civ-res-001c-completion-verification-v1",
+      "head_sha": "fc71bb6f713865a3e2b4cbe5e6c3382951450951",
+      "state_at_snapshot": "open_unmerged",
+      "scope_note": "Completion evidence/verification/outcome separation contract; no qualification inheritance."
+    },
+    {
+      "program": "SUP-CIV-001A",
+      "pr": 2045,
+      "branch": "sup-civ-001a-stable-ticket-identity",
+      "head_sha": "9a5148b9927c630d4073d486f464824fb429d8c6",
+      "state_at_snapshot": "open_unmerged",
+      "scope_note": "Stable support-ticket identity proposal; not part of main at the census snapshot."
+    },
+    {
+      "program": "SUP-CIV-002A",
+      "pr": 2146,
+      "branch": "sup-civ-002a-typed-ticket-transitions",
+      "head_sha": "1733cb6d6e281e16530335c118d951ad939d45d7",
+      "state_at_snapshot": "open_unmerged",
+      "scope_note": "Typed ticket mutation contract stacked on SUP-CIV-001A; inherits no qualification until its own gates pass."
+    },
+    {
+      "program": "AC-015",
+      "pr": 1082,
+      "branch": "ac-015-adversarial-municipal-fixture",
+      "head_sha": null,
+      "state_at_snapshot": "open_unmerged",
+      "scope_note": "Adversarial municipal procurement fixture, not a service-request owner and not merged into main."
+    }
+  ],
+  "source_anchors": [
+    {
+      "id": "COJ_SDBIP_IDP_DOCUMENT_INDEX",
+      "url": "https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP%20IDP%20and%20Budget/SDBIP-IDP-And-Budget.aspx",
+      "purpose": "Official source index for the 2026/27 IDP/SDBIP and service-level standards documents; listing is not evidence of an integration grant."
+    },
+    {
+      "id": "POPIA_ACT_4_2013",
+      "url": "https://www.justice.gov.za/legislation/acts/2013-004.pdf",
+      "purpose": "Statutory review anchor; legal review triggers are not legal conclusions."
+    },
+    {
+      "id": "JOBCONNECT_CHANNEL",
+      "url": "https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx",
+      "purpose": "Existing City contact/service channel reference; does not expose or authorize a machine interface."
+    }
+  ],
+  "municipal_sla_source_posture": {
+    "latest_city_service_level_charter_listed_by_official_index": "2025/26 Institutional Service Level Standards Charter",
+    "current_planning_documents_listed": "2026/27 IDP, SDBIP, final IDP and business plans",
+    "adopted_2026_27_water_sla_bound_into_this_census": false,
+    "rule": "Do not use a previous-year charter as an adopted current SLA without confirming the current approved source, effective period, clock definitions, denominator and exclusions."
+  },
+  "decision": {
+    "direction": "NoNewServiceIssueOwner;ExternalSourceAdapterOnlyAfterGates",
+    "internal_candidate": "Commons Support ticket creation/status/assignment may be evaluated as an internal coordination substrate only; it is not designated the canonical municipal service issue.",
+    "authoritative_source": "The City or utility remains the external authority for its own reference number and current operational status, once the relevant source system and authorised interface are identified.",
+    "new_generic_service_issue_runtime_authorized": false,
+    "provider_integration_authorized": false,
+    "live_resident_data_processing_authorized": false,
+    "production_side_effects_authorized": false,
+    "symthaea_mode": "AdvisoryOnly",
+    "build_gate": "BLOCKED",
+    "required_preconditions": [
+      "Resolve the owner/adaptor census with reviewers and confirm path/build-root authority.",
+      "Qualify stable internal issue identity; do not assume the unmerged SUP-CIV-001A branch is active.",
+      "Identify the actual City/utility system owner, provider contract, lawful access route and source-currentness semantics.",
+      "Bind current approved service-standard source and exact clock/start/stop/reopen rules.",
+      "Define data minimisation, protected storage, retention, access/deletion, legal and privacy review.",
+      "Qualify idempotent retry/offline behaviour and preserve each original report and its own SLA clock.",
+      "Keep completion claim, submitted evidence, independent predicate verification and downstream outcome distinct.",
+      "Run synthetic/replay and then shadow evaluation before any restricted operational trial."
+    ]
+  },
+  "invariants": [
+    "City/utility reference number != Mycelix stable service issue ID.",
+    "Local mirror != authoritative current City/utility status.",
+    "Successful local submission != municipal acceptance.",
+    "Municipal acceptance != physical repair or service restoration.",
+    "Ticket closed != verified repair.",
+    "Completion claim != completion evidence != independent verification != outcome improvement.",
+    "Deduplication must never erase reports, identities, timestamps or individual service clocks.",
+    "Symthaea recommendation != approval, execution capability, civic authority or legal decision.",
+    "A signed receipt proves a bounded attestation/provenance statement, not physical truth by itself.",
+    "An open branch or queued check != merged code, qualified contract or passed evidence."
+  ],
+  "required_gate_flags": [
+    "source_access_authorized",
+    "external_reference_preserved",
+    "external_currentness_verified",
+    "stable_mapping_explicitly_approved",
+    "idempotency_contract_qualified",
+    "privacy_and_legal_review_bound",
+    "human_approval_required",
+    "symthaea_advisory_only",
+    "per_report_sla_clocks_preserved",
+    "completion_verification_separate",
+    "service_level_source_pinned",
+    "production_side_effects_disabled"
+  ],
+  "unsafe_flags": [
+    "city_reference_used_as_internal_identity",
+    "municipal_acceptance_treated_as_physical_resolution",
+    "ticket_closed_treated_as_physical_resolution",
+    "symthaea_recommendation_exercises_authority",
+    "unmerged_branch_assumed_qualified",
+    "duplicate_merge_resets_individual_sla_clock",
+    "protected_resident_data_written_to_public_dht"
+  ],
+  "probe_cases": [
+    {
+      "case_id": "city-reference-overpromotion",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "city_reference_used_as_internal_identity": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "municipal-acceptance-is-not-repair",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "municipal_acceptance_treated_as_physical_resolution": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "ticket-close-is-not-restoration",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "ticket_closed_treated_as_physical_resolution": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "model-recommendation-is-not-authority",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "symthaea_recommendation_exercises_authority": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "open-pr-does-not-inherit-qualification",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "unmerged_branch_assumed_qualified": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "dedup-must-preserve-each-clock",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "duplicate_merge_resets_individual_sla_clock": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "stale-or-unverified-external-state",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": false,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "unqualified-provider-retry",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": false,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "no-authorised-source-contract",
+      "facts": {
+        "production_side_effects_disabled": true,
+        "symthaea_advisory_only": true
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "all-shadow-preconditions-explicit",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true
+      },
+      "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
+    }
+  ],
+  "nonclaims": {
+    "canonical_municipal_service_owner_absence_proven": false,
+    "city_provider_api_available_or_authorized": false,
+    "city_adoption_or_endorsement": false,
+    "municipal_authority_granted": false,
+    "popia_compliance_established": false,
+    "current_2026_27_water_sla_adopted": false,
+    "production_ready": false,
+    "real_world_processing_authorized": false
+  }
+}

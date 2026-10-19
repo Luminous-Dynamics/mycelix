@@ -1,0 +1,67 @@
+name: CIV-RES-002A0 Service-Request Owner Census
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/CIV_RES_002A0_SERVICE_REQUEST_OWNER_CENSUS_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/civ_res_002a0_owner_census.json'
+      - 'scripts/qualification/civ_res_002a0_service_request_owner_census_v1.py'
+      - '.github/workflows/civ-res-002a0-service-request-owner-census.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-res-002a0-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-parent owner census and semantic probes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f16c41b5264c632ca3efa32c78b37bfc21bcfe68'
+          OBSERVED_HEAD="$(git rev-parse HEAD)"
+          OBSERVED_PARENT="$(git rev-parse HEAD^)"
+          OBSERVED_TREE="$(git rev-parse HEAD^{tree})"
+          printf 'head=%s\nparent=%s\ntree=%s\n' "$OBSERVED_HEAD" "$OBSERVED_PARENT" "$OBSERVED_TREE"
+          test "$OBSERVED_PARENT" = "$EXPECTED_PARENT"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f16c41b5264c632ca3efa32c78b37bfc21bcfe68'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = "1"
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/civ-res-002a0-service-request-owner-census.yml'
+            'mycelix-workspace/docs/civic-resilience/CIV_RES_002A0_SERVICE_REQUEST_OWNER_CENSUS_V1.md'
+            'mycelix-workspace/docs/civic-resilience/civ_res_002a0_owner_census.json'
+            'scripts/qualification/civ_res_002a0_service_request_owner_census_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf "%s\n" "${expected[@]}" | sort)
+          diff -u <(printf "%s\n" "${expected_sorted[@]}") <(printf "%s\n" "${changed[@]}")
+          if printf "%s\n" "${changed[@]}" | grep -E "\.(rs|toml|lock)$"; then
+            echo 'CIV-RES-002A0 is a documentation/manifest/validator/workflow-only tranche' >&2
+            exit 1
+          fi
+
+      - name: Validate census, provenance pins and fail-closed probes
+        run: python3 scripts/qualification/civ_res_002a0_service_request_owner_census_v1.py
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
