@@ -23,7 +23,7 @@
     "interpretation": "Uniform Beta(1,1); no historical evidence. Jeffreys Beta(0.5,0.5) appears as a separate sensitivity case."
   },
   "default_tail_probability": "0.05",
-  "case_count": 20,
+  "case_count": 22,
   "cases": [
     {
       "id": "BTP-001-uniform-prior-no-evidence",
@@ -377,6 +377,28 @@
       "prior_beta": "1",
       "observations": [],
       "tail_probability": "NaN",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-108-posterior-sum-overflow",
+      "prior_alpha": "1e308",
+      "prior_beta": "1e308",
+      "observations": [],
+      "tail_probability": "0.05",
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "BTP-109-non-boolean-observation",
+      "prior_alpha": "1",
+      "prior_beta": "1",
+      "observations": [
+        "success"
+      ],
+      "tail_probability": "0.05",
       "expected": {
         "valid": false
       }
