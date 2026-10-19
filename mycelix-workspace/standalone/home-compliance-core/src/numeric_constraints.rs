@@ -779,8 +779,8 @@ mod tests {
                 "municipal",
                 "municipal:min",
                 "door.clear_width",
-                CanonicalQuantityKind::GreaterThan,
-                NumericConstraintOperator::AtLeast,
+                CanonicalQuantityKind::LengthMetres,
+                NumericConstraintOperator::GreaterThan,
                 900_000,
             ),
             assertion(
