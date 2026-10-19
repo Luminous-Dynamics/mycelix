@@ -59,8 +59,16 @@ fn parse_args() -> Result<Option<(PathBuf, PathBuf, PathBuf)>, String> {
                 );
                 return Ok(None);
             }
-            "--schema" => schema = Some(PathBuf::from(args.next().ok_or("--schema requires a path")?)),
-            "--record" => record = Some(PathBuf::from(args.next().ok_or("--record requires a path")?)),
+            "--schema" => {
+                schema = Some(PathBuf::from(
+                    args.next().ok_or("--schema requires a path")?,
+                ))
+            }
+            "--record" => {
+                record = Some(PathBuf::from(
+                    args.next().ok_or("--record requires a path")?,
+                ))
+            }
             "--benchmark" => {
                 benchmark = Some(PathBuf::from(args.next().ok_or("--benchmark requires a path")?))
             }
@@ -80,7 +88,11 @@ fn read_json(path: &Path) -> Result<Value, String> {
         .map_err(|error| format!("invalid JSON in {}: {error}", path.display()))
 }
 
-fn audit_files(schema_path: &Path, record_path: &Path, benchmark_path: &Path) -> Result<Value, String> {
+fn audit_files(
+    schema_path: &Path,
+    record_path: &Path,
+    benchmark_path: &Path,
+) -> Result<Value, String> {
     let schema = read_json(schema_path)?;
     let record = read_json(record_path)?;
     let benchmark = read_json(benchmark_path)?;
@@ -302,11 +314,14 @@ fn audit_benchmark(benchmark: &Value) -> Value {
             issues.push(format!("BENCHMARK_SCENARIO_DUPLICATE:{id}"));
         }
         let expected = scenario.get("expected_outcome").and_then(Value::as_str).unwrap_or("");
-        let observed = evaluate_scenario(scenario).unwrap_or_else(|| "INVALID_SCENARIO".to_string());
+        let observed =
+            evaluate_scenario(scenario).unwrap_or_else(|| "INVALID_SCENARIO".to_string());
         if observed == expected {
             matched += 1;
         } else {
-            issues.push(format!("BENCHMARK_ORACLE_MISMATCH:{id}:expected={expected}:observed={observed}"));
+            issues.push(format!(
+                "BENCHMARK_ORACLE_MISMATCH:{id}:expected={expected}:observed={observed}"
+            ));
         }
     }
     if scenarios.is_empty() {
@@ -427,15 +442,19 @@ mod tests {
     }
 
     fn example_record() -> Value {
-        serde_json::from_str(&repo_file("../../docs/LKI_01_SERVICE_ENVELOPE_EXAMPLE_V0_1_DRAFT.json"))
-            .unwrap()
+        serde_json::from_str(&repo_file(
+            "../../docs/LKI_01_SERVICE_ENVELOPE_EXAMPLE_V0_1_DRAFT.json",
+        ))
+        .unwrap()
     }
 
     #[test]
     fn schema_and_example_validate_but_never_claim_physical_fit_qualification() {
         let schema: Value =
-            serde_json::from_str(&repo_file("../../docs/LKI_01_SERVICE_ENVELOPE_SCHEMA_V0_1_DRAFT.json"))
-                .unwrap();
+            serde_json::from_str(&repo_file(
+                "../../docs/LKI_01_SERVICE_ENVELOPE_SCHEMA_V0_1_DRAFT.json",
+            ))
+            .unwrap();
         let record = example_record();
         assert!(draft202012::meta::validate(&schema).is_ok());
         let validator = draft202012::options()
@@ -450,8 +469,10 @@ mod tests {
     #[test]
     fn frozen_known_answer_corpus_matches_every_expected_outcome() {
         let benchmark: Value =
-            serde_json::from_str(&repo_file("../../docs/LKI_01_SERVICE_ENVELOPE_BENCHMARK_V0_1_DRAFT.json"))
-                .unwrap();
+            serde_json::from_str(&repo_file(
+                "../../docs/LKI_01_SERVICE_ENVELOPE_BENCHMARK_V0_1_DRAFT.json",
+            ))
+            .unwrap();
         let report = audit_benchmark(&benchmark);
         assert_eq!(benchmark["scenarios"].as_array().unwrap().len(), 10);
         assert_eq!(report["status"], "PASS");
