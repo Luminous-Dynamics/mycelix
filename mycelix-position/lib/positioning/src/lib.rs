@@ -35,8 +35,8 @@ pub use bodies::{CelestialBody, Earth, Mars, Moon};
 pub use coverage::{CoveragePoint, gdop, pdop};
 pub use dead_reckoning::{PdrConfig, PedestrianDeadReckoning, barometric_altitude};
 pub use fusion::{
-    covariance_intersection_3d, FusionError, FusionInput, GaussianEstimate3D, PeerEstimate3D,
-    PeerFusion3D, PublishableEstimate3D,
+    FusionError, FusionInput, GaussianEstimate3D, PeerEstimate3D, PeerFusion3D,
+    PublishableEstimate3D, covariance_intersection_3d,
 };
 pub use kalman::{FilterConfig, FilterState, PositionFilter};
 pub use measurements::{
