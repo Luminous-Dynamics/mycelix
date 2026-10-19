@@ -1,0 +1,158 @@
+{
+  "manifest_id": "MYC-INT-ASSURE-001-MATRIX-001",
+  "version": "1.1.0",
+  "source_basis": [
+    {
+      "source": "Integral Development Guide v0.1",
+      "status": "public_draft",
+      "url": "https://integralcollective.io/documents/integral_devguide_v01.pdf"
+    },
+    {
+      "source": "Integral Technical Specifications v0.1",
+      "status": "public_draft",
+      "url": "https://integralcollective.io/"
+    }
+  ],
+  "source_status_rule": "white-paper concept != DevelopmentGuide proposal != public draft schema != ratified specification != implementation != conformance evidence",
+  "research_correction": "The reviewed public Development Guide explicitly defines Assurance and Validation Flows, Viability Envelopes, Coordination Envelopes, federation origin/recognition concepts, FRS evidence references/confidence, and non-executive recommendations. Therefore these are not treated as absent architecture. The remaining engineering opportunity is executable, provenance-preserving, adversarially testable, formally refinable, and runtime-portable realization.",
+  "classification": [
+    "Explicit",
+    "Partial",
+    "Deferred",
+    "NotExplicit",
+    "ExternalNormative",
+    "MycelixReuse",
+    "GapCandidate"
+  ],
+  "systems": ["CDS", "OAD", "ITC", "COS", "FRS"],
+  "dimensions": [
+    {
+      "dimension": "assurance_validation_flows",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "Development Guide federation reciprocity primitive explicitly includes certification results, safety data, provenance proofs, and reliability histories.",
+      "mycelix_opportunity": "Executable AssuranceFlow transition contract"
+    },
+    {
+      "dimension": "viability_envelope",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "Development Guide defines Viability Envelope as a node self-regulation stability range.",
+      "mycelix_opportunity": "Current-evidence threshold evaluator with explicit scope and validity"
+    },
+    {
+      "dimension": "coordination_envelope",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "Development Guide defines automatic Coordination Envelope instantiation on cross-node scope mismatch, bounded scope, affected nodes, decision scope, and dissolution.",
+      "mycelix_opportunity": "Scope-monotone, expiring, auditable CE state machine"
+    },
+    {
+      "dimension": "frs_evidence_confidence",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "FRS DiagnosticFinding includes confidence, evidence references, indicators, severity, scope, and persistence.",
+      "mycelix_opportunity": "Evidence binding and calibrated-confidence boundary"
+    },
+    {
+      "dimension": "recommendation_nonexecutive_boundary",
+      "classification": {"CDS": "Explicit", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "Development Guide defines Recommendation as non-executive; receiving system may accept, reject, modify, or escalate.",
+      "mycelix_opportunity": "Recommendation -> decision -> authorization -> effect receipt transitions"
+    },
+    {
+      "dimension": "evidence_provenance",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "Public architecture names provenance proofs and evidence references, but a single ratified cross-system evidence-envelope schema is not present in the reviewed draft.",
+      "mycelix_opportunity": "EvidenceEnvelope"
+    },
+    {
+      "dimension": "temporal_validity",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "Versioning, lineage, persistence, thresholds, and reliability histories are described, but a universal validity-window contract is not ratified in the reviewed material.",
+      "mycelix_opportunity": "ValidityWindow + freshness policy"
+    },
+    {
+      "dimension": "uncertainty_conflict",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "FRS exposes confidence and evidence references; a universal cross-system conflict-state algebra is not ratified in the reviewed material.",
+      "mycelix_opportunity": "Explicit epistemic state"
+    },
+    {
+      "dimension": "claim_ceiling",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "System boundaries and non-executive recommendation semantics are explicit, while a universal claim-ceiling field is not identified in the reviewed draft.",
+      "mycelix_opportunity": "ClaimCeiling"
+    },
+    {
+      "dimension": "observation_interpretation_separation",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "FRS findings and recommendations are distinct from source-system data; a universal transition algebra remains a candidate engineering layer.",
+      "mycelix_opportunity": "EpistemicTransition"
+    },
+    {
+      "dimension": "decision_authorization_effect",
+      "classification": {"CDS": "Explicit", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "Production Mandate is explicitly a CDS decision authorizing COS production; FRS recommendations are explicitly non-executive.",
+      "mycelix_opportunity": "Authority/effect receipts"
+    },
+    {
+      "dimension": "capability_qualification_availability",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "Capability/capacity flows and production coordination are described, but a universal qualification-vs-current-availability algebra is not ratified.",
+      "mycelix_opportunity": "ProductiveLoop + capability graph"
+    },
+    {
+      "dimension": "dependency_replacement",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Explicit", "FRS": "Explicit"},
+      "source_basis": "Public architecture explicitly models dependency-linked production domains and dependency stress; lifecycle/maintainability and replacement semantics are described in OAD/COS materials.",
+      "mycelix_opportunity": "Dependency/replacement closure"
+    },
+    {
+      "dimension": "failure_history_learning",
+      "classification": {"CDS": "Partial", "OAD": "Explicit", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "OAD maintains design lineage history; FRS is designed to learn from operational feedback and reliability histories.",
+      "mycelix_opportunity": "Immutable lineage"
+    },
+    {
+      "dimension": "federation_origin_recognition",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "Federation architecture distinguishes autonomous nodes and Assurance/Validation Flows; cryptographic integrity and universal recognition rules remain implementation/deferred details.",
+      "mycelix_opportunity": "FederationRecognition preserving origin"
+    },
+    {
+      "dimension": "formal_reproducible_assurance",
+      "classification": {"CDS": "NotExplicit", "OAD": "NotExplicit", "ITC": "NotExplicit", "COS": "NotExplicit", "FRS": "NotExplicit"},
+      "source_basis": "Reviewed public draft names verification/oracle concerns but does not provide a ratified formal-proof/refinement/receipt contract.",
+      "mycelix_opportunity": "AssuranceReceipt + proof/refinement manifest"
+    },
+    {
+      "dimension": "prediction_counterfactual_boundary",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "FRS performs diagnostic/forecasting-style analytical work, while recommendations remain non-executive; explicit observation-predicate exclusion for predictions is a candidate engineering refinement.",
+      "mycelix_opportunity": "Non-authoritative analysis"
+    },
+    {
+      "dimension": "emergency_bounded_authority",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "Public research discusses bounded emergency protocols and coordination envelopes; exact emergency authorization contract remains unresolved in the reviewed draft.",
+      "mycelix_opportunity": "Expiring authorization"
+    },
+    {
+      "dimension": "dispute_review_correction",
+      "classification": {"CDS": "Partial", "OAD": "Explicit", "ITC": "Partial", "COS": "Partial", "FRS": "Explicit"},
+      "source_basis": "OAD lineage and FRS feedback/review are explicit; a universal correction/supersession protocol is not ratified.",
+      "mycelix_opportunity": "Correction/supersession lineage"
+    },
+    {
+      "dimension": "physical_outcome_antioracle",
+      "classification": {"CDS": "Partial", "OAD": "Partial", "ITC": "Partial", "COS": "Partial", "FRS": "Partial"},
+      "source_basis": "The public guide explicitly identifies verification/oracle problems, physical triangulation, outcome-based verification, and strategic misrepresentation as design concerns; implementation remains unresolved.",
+      "mycelix_opportunity": "Evidence binding + triangulation"
+    }
+  ],
+  "claim_ceiling": "Research/engineering baseline only; classifications describe the reviewed public draft and do not establish absence from the full Integral design.",
+  "nonclaims": [
+    "Integral endorsement/adoption/ratification",
+    "completeness of Integral architecture",
+    "real-world productivity/safety/fairness/ecological outcomes",
+    "Mycelix as preferred implementation",
+    "formal closure of any ASSURE-FV obligation"
+  ]
+}
