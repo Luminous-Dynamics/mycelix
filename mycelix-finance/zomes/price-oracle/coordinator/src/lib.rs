@@ -17,10 +17,7 @@
 //! required for price reporting. Prevents sybil attacks.
 
 use hdk::prelude::*;
-use mycelix_finance_shared::{
-    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, rate_limit_anchor_key,
-    verify_governance_or_bootstrap_from_links,
-};
+use mycelix_finance_shared::{anchor_hash, follow_update_chain, rate_limit_anchor_key};
 use mycelix_zome_helpers as _;
 
 pub use price_oracle_integrity::*;
@@ -293,41 +290,46 @@ fn weighted_median(entries: &mut [(f64, f64)]) -> Option<f64> {
 /// - reputation_score >= 0.10 (some community participation)
 ///
 /// This is checked via cross-zome call to the identity cluster.
-/// Falls back to governance agent check if identity cluster unavailable.
+/// Identity qualification failure is fail-closed; governance/bootstrap is
+/// deliberately not a substitute for the reporter gate.
+fn enforce_citizen_tier_result(result: Result<bool, String>) -> ExternResult<()> {
+    match result {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(
+            "Citizen+ tier required for price reporting (identity >= 0.25, reputation >= 0.10)"
+                .into(),
+        ))),
+        Err(error) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Identity qualification unavailable; price report rejected: {error}"
+        )))),
+    }
+}
+
 fn verify_citizen_tier() -> ExternResult<()> {
-    // Try cross-zome consciousness check first
-    match call(
+    // Reserve-relevant oracle observations must fail closed when the identity
+    // service cannot establish Citizen+ status. Governance/bootstrap is not a
+    // substitute because it would let an outage manufacture trusted reports.
+    let result = match call(
         CallTargetCell::OtherRole("identity".into()),
         ZomeName::from("consciousness_gating"),
         FunctionName::from("check_citizen_tier"),
         None,
         (),
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => {
-            let passed = result.decode::<bool>().unwrap_or(false);
-            if passed {
-                Ok(())
-            } else {
-                Err(wasm_error!(WasmErrorInner::Guest(
-                    "Citizen+ tier required for price reporting (identity >= 0.25, reputation >= 0.10)"
-                        .into()
-                )))
-            }
-        }
-        // Identity cluster unavailable — fall back to governance agent check
-        _ => verify_governance_or_bootstrap(),
-    }
-}
+        Ok(ZomeCallResponse::Ok(result)) => result
+            .decode::<bool>()
+            .map_err(|e| format!("Identity qualification response decode failed: {e:?}")),
+        Ok(other) => Err(format!(
+            "Identity qualification returned an unexpected response: {:?}",
+            other
+        )),
+        Err(e) => Err(format!(
+            "Identity qualification call failed: {:?}",
+            e
+        )),
+    };
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    let gov_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-            LinkTypes::AnchorLinks,
-        )?,
-        GetStrategy::default(),
-    )?;
-    verify_governance_or_bootstrap_from_links(gov_links)
+    enforce_citizen_tier_result(result)
 }
 
 // =============================================================================
@@ -374,7 +376,7 @@ pub fn report_price(input: ReportPriceInput) -> ExternResult<Record> {
         )));
     }
 
-    let my_did = format!("did:holo:{}", my_info.agent_initial_pubkey);
+    let my_did = format!("did:mycelix:{}", my_info.agent_initial_pubkey);
 
     let report = PriceReport {
         item: item.clone(),
@@ -1742,4 +1744,20 @@ mod tests {
         assert_eq!(results[1].id, "c"); // 200
         assert_eq!(results[2].id, "a"); // 100 — oldest
     }
+    #[test]
+    fn test_citizen_gate_accepts_verified_citizen() {
+        assert!(enforce_citizen_tier_result(Ok(true)).is_ok());
+    }
+
+    #[test]
+    fn test_citizen_gate_rejects_failed_qualification() {
+        assert!(enforce_citizen_tier_result(Ok(false)).is_err());
+    }
+
+    #[test]
+    fn test_citizen_gate_rejects_unavailable_identity() {
+        assert!(enforce_citizen_tier_result(Err("network unavailable".into())).is_err());
+    }
+
+
 }
