@@ -1,0 +1,386 @@
+{
+  "spec_version": "civ-013-conformance-v1",
+  "source_model_commit": "5c4b0c8b2c8ea2f66b97e9741c32b01c7a294ce7",
+  "encoding": {
+    "digest": "SHA-256",
+    "integer_encoding": "unsigned big-endian",
+    "length_prefix": "u64 byte length, big-endian",
+    "optional_digest": "0x00 for None; 0x01 followed by exactly 32 digest bytes for Some",
+    "record_domain_hex": "6d7963656c69782d6369763031332d7769746e6573732d7265636f72642d763100",
+    "commit_domain_hex": "6d7963656c69782d6369763031332d636f6d6d69742d6d61726b65722d763100",
+    "fork_domain_hex": "6d7963656c69782d6369763031332d666f726b2d65766964656e63652d763100"
+  },
+  "vectors": [
+    {
+      "id": "V001-bootstrap-valid",
+      "kind": "record",
+      "expected_outcome": "ACCEPT",
+      "record": {
+        "protocol_version": 1,
+        "generation": 1,
+        "log_id": "civ013-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b",
+        "receipt_sequence": 0,
+        "receipt_digest": null,
+        "previous_record_digest": null,
+        "digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b"
+      },
+      "commit_marker": {
+        "generation": 1,
+        "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+        "digest": "ffd4eb2e1cd61aac467f63895026e313559b95844ad011723e39c2b26e58d47e"
+      },
+      "trusted_bootstrap_anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b"
+    },
+    {
+      "id": "V002-successor-valid",
+      "kind": "record",
+      "expected_outcome": "ACCEPT",
+      "requires_predecessor": "V001-bootstrap-valid",
+      "record": {
+        "protocol_version": 1,
+        "generation": 2,
+        "log_id": "civ013-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "a024398b9672844d656025705196d8b8fd3067c8edcc87c5362a7a15e90b8b35",
+        "receipt_sequence": 1,
+        "receipt_digest": "fea5396a7f4325c408b1b65b33a4d77ba5486ceba941804d8889a8546cfbab96",
+        "previous_record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+        "digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+      },
+      "commit_marker": {
+        "generation": 2,
+        "record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+        "digest": "c65ea0b65ec10ae34bff0f7e55efbabdbaf7c5201c28bb1d95dbac58e909e2d7"
+      }
+    },
+    {
+      "id": "V003-stale-predecessor",
+      "kind": "transition",
+      "expected_outcome": "REJECT_STALE_PREDECESSOR",
+      "current_generation": 2,
+      "current_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_generation": 3,
+      "candidate_previous_record_digest": "0c1d4e87e16d7e3422308048e1a6d98b23ce5ab529c6f4416bc2c99fc7e0340a"
+    },
+    {
+      "id": "V004-generation-gap",
+      "kind": "transition",
+      "expected_outcome": "REJECT_GENERATION_GAP",
+      "current_generation": 2,
+      "candidate_generation": 4,
+      "candidate_previous_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+    },
+    {
+      "id": "V005-rollback-anchor-ahead",
+      "kind": "recovery",
+      "expected_outcome": "REJECT_ROLLBACK_DETECTED",
+      "local_generation": 2,
+      "external_generation": 3,
+      "external_record_digest": "4c9ebc97b4b54aa6bb29d218081f3aeeb40bc29b716307be10d01a74e6ac3746"
+    },
+    {
+      "id": "V006-anchor-unavailable",
+      "kind": "recovery",
+      "expected_outcome": "REJECT_ANCHOR_UNAVAILABLE",
+      "local_generation": 2,
+      "external_anchor": null
+    },
+    {
+      "id": "V007-commit-marker-tampered",
+      "kind": "marker_negative",
+      "expected_outcome": "REJECT_BAD_MARKER",
+      "generation": 2,
+      "record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "marker_digest": "1494fafa276c4c7f5a23eab89c74d07ca0862853e3663e732e014d1a03b3e982"
+    },
+    {
+      "id": "V008-record-digest-tampered",
+      "kind": "record_negative",
+      "expected_outcome": "REJECT_BAD_RECORD_DIGEST",
+      "record": {
+        "protocol_version": 1,
+        "generation": 2,
+        "log_id": "civ013-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "a024398b9672844d656025705196d8b8fd3067c8edcc87c5362a7a15e90b8b35",
+        "receipt_sequence": 1,
+        "receipt_digest": "fea5396a7f4325c408b1b65b33a4d77ba5486ceba941804d8889a8546cfbab96",
+        "previous_record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+        "digest": "53813d94d8acdf6b763d637aa4b7e0140d49edaf98bdb2d56226e026301a11cf"
+      }
+    },
+    {
+      "id": "V009-fork-evidence-valid",
+      "kind": "fork_evidence",
+      "expected_outcome": "ACCEPT_EVIDENCE_ONLY",
+      "evidence": {
+        "generation": 2,
+        "first_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+        "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+        "previous_evidence_digest": null,
+        "digest": "9edf738b45d9a24dbd31b3c8bd6f67dd4dd9f89fbf861bb3096800f7736477e1"
+      }
+    },
+    {
+      "id": "V010-fork-evidence-reordered",
+      "kind": "fork_chain_negative",
+      "expected_outcome": "REJECT_REORDERED_FORK_CHAIN",
+      "evidence_chain": [
+        {
+          "generation": 2,
+          "first_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9edf738b45d9a24dbd31b3c8bd6f67dd4dd9f89fbf861bb3096800f7736477e1"
+        },
+        {
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9edf738b45d9a24dbd31b3c8bd6f67dd4dd9f89fbf861bb3096800f7736477e1",
+          "digest": "388a942321e3a5e198f7dc55e6072eaa490ac97ea54c854d596ce74fdae0fb7e"
+        }
+      ],
+      "order": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": "V011-identical-retry",
+      "kind": "transition",
+      "expected_outcome": "IDEMPOTENT_SAME_RECEIPT",
+      "current_generation": 2,
+      "current_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_generation": 2,
+      "candidate_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_previous_record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b"
+    },
+    {
+      "id": "V012-competing-successor",
+      "kind": "transition",
+      "expected_outcome": "REJECT_CAS_LOST",
+      "current_generation": 3,
+      "current_record_digest": "82042c1572a66948b97ca03727f9b4b5a59032c7e56becfb0975b75afcecaf27",
+      "candidate_generation": 3,
+      "candidate_record_digest": "d5ef2c0f2805aefaa0ca733dc6406446bde9b81e6b092540f232deb64d73435e",
+      "candidate_previous_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+    },
+    {
+      "id": "V013-transition-receipt-rollback",
+      "kind": "transition",
+      "expected_outcome": "REJECT_RECEIPT_ROLLBACK",
+      "current_generation": 2,
+      "current_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "current_receipt_sequence": 5,
+      "current_receipt_digest": "773eed15b7ca54b93d71087afca777b4799522bd0fd04050d42e38f7df9726f3",
+      "candidate_generation": 3,
+      "candidate_previous_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_receipt_sequence": 4,
+      "candidate_receipt_digest": "587cea0a135e192d5bfb141f573edd4b9b8b41d594269bad8a6c0f644189f413"
+    },
+    {
+      "id": "V014-transition-same-sequence-equivocation",
+      "kind": "transition",
+      "expected_outcome": "REJECT_RECEIPT_TAIL_EQUIVOCATION",
+      "current_generation": 2,
+      "current_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "current_receipt_sequence": 5,
+      "current_receipt_digest": "773eed15b7ca54b93d71087afca777b4799522bd0fd04050d42e38f7df9726f3",
+      "candidate_generation": 3,
+      "candidate_previous_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_receipt_sequence": 5,
+      "candidate_receipt_digest": "c4d2bb786998461c7ca717864976388fa354d41caaa410c7fb84c5aee16ef533"
+    },
+    {
+      "id": "V015-cross-log-successor",
+      "kind": "record",
+      "expected_outcome": "REJECT_LOG_ID_MISMATCH",
+      "requires_predecessor": "V001-bootstrap-valid",
+      "record": {
+        "protocol_version": 1,
+        "generation": 2,
+        "log_id": "civ013-other-log-002",
+        "policy_version": "policy-v1",
+        "anchor_digest": "3632e309361bb4514471d468b551d7e949b5b99b832d741431f9e2f54dbe8b76",
+        "receipt_sequence": 2,
+        "receipt_digest": "e1dd9aebc05d7b04b5feae57597a3bb505c0455124ff681733e1c16f3f9f1c4f",
+        "previous_record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+        "digest": "7d49fd4423c5f3c09ed39868072c42edb2861279b6c94100f793250c5636e1dc"
+      },
+      "commit_marker": {
+        "generation": 2,
+        "record_digest": "7d49fd4423c5f3c09ed39868072c42edb2861279b6c94100f793250c5636e1dc",
+        "digest": "bef736004ee65851fbc2ed195fd69019b7ce67f273c70929dcf88d9b7a01ecd5"
+      }
+    },
+    {
+      "id": "V016-history-receipt-regression",
+      "kind": "history_chain_negative",
+      "expected_outcome": "REJECT_RECEIPT_TAIL_HISTORY_INVALID",
+      "records": [
+        {
+          "protocol_version": 1,
+          "generation": 1,
+          "log_id": "civ013-history-regression",
+          "policy_version": "policy-v1",
+          "anchor_digest": "f94530a214cb9f36daef24ff45259db3117a1ca5aa30d81ef54a667037087829",
+          "receipt_sequence": 4,
+          "receipt_digest": "155d2f188cf97a09e16597552367fb4da10c49053e68b15d1b65a2090a66755b",
+          "previous_record_digest": null,
+          "digest": "e8f214997489d916e7aabd2c6dbc3219d46a1eacf62dc1420bb0c6382ab890a4"
+        },
+        {
+          "protocol_version": 1,
+          "generation": 2,
+          "log_id": "civ013-history-regression",
+          "policy_version": "policy-v1",
+          "anchor_digest": "8699407aedb64b68c7588af8d36ec5d3af7181691dff50c1665ef951493d0cbd",
+          "receipt_sequence": 3,
+          "receipt_digest": "b479cc131446774c21063ffe7636c14520e7b098f1736bcbd7e7294b9c9be9f8",
+          "previous_record_digest": "e8f214997489d916e7aabd2c6dbc3219d46a1eacf62dc1420bb0c6382ab890a4",
+          "digest": "75ee68aa1e6910768f492577feafcbf9f8ac7247cc5c2dc904162828b41b638b"
+        }
+      ],
+      "commit_markers": [
+        {
+          "generation": 1,
+          "record_digest": "e8f214997489d916e7aabd2c6dbc3219d46a1eacf62dc1420bb0c6382ab890a4",
+          "digest": "537ba7aed1cd14c4c2dc635f03e0164aad1a43f25c25a947175d7554bbad193a"
+        },
+        {
+          "generation": 2,
+          "record_digest": "75ee68aa1e6910768f492577feafcbf9f8ac7247cc5c2dc904162828b41b638b",
+          "digest": "11279e6f6e34b436ccd6b34643d4c895a749cdaeeed9ef4b03ba9cdf70d5be87"
+        }
+      ]
+    },
+    {
+      "id": "V017-history-same-sequence-equivocation",
+      "kind": "history_chain_negative",
+      "expected_outcome": "REJECT_RECEIPT_TAIL_HISTORY_INVALID",
+      "records": [
+        {
+          "protocol_version": 1,
+          "generation": 1,
+          "log_id": "civ013-history-equivocation",
+          "policy_version": "policy-v1",
+          "anchor_digest": "e006ed2761b54fc09eb04e68a10f166d361b74c9802c69b88a48496cf82df694",
+          "receipt_sequence": 4,
+          "receipt_digest": "2531a6156c99e96875de13d29b6c9273c844138808dc7fdbeaf156cf52e4ffce",
+          "previous_record_digest": null,
+          "digest": "6b3b7533fbfd19c022a5fc44813c1203654cfbaa84912bd7bd91c37dc1c2d22b"
+        },
+        {
+          "protocol_version": 1,
+          "generation": 2,
+          "log_id": "civ013-history-equivocation",
+          "policy_version": "policy-v1",
+          "anchor_digest": "e32bd1d8adc87fb642ccb94d98c7d94fe5e1ab7e27573747c734846a92bbcc27",
+          "receipt_sequence": 4,
+          "receipt_digest": "a01b078db06759bec145512c836161b890c0a2f2e3930ca8df9816691445ff68",
+          "previous_record_digest": "6b3b7533fbfd19c022a5fc44813c1203654cfbaa84912bd7bd91c37dc1c2d22b",
+          "digest": "6a4097ba256ac7a250aa2feb8bbbe7b04a28832b33ff10b393386d4780d31275"
+        }
+      ],
+      "commit_markers": [
+        {
+          "generation": 1,
+          "record_digest": "6b3b7533fbfd19c022a5fc44813c1203654cfbaa84912bd7bd91c37dc1c2d22b",
+          "digest": "d71de357409a34233b35848929b0173804efa1c28d7f2cd2a26a5a470eb46c59"
+        },
+        {
+          "generation": 2,
+          "record_digest": "6a4097ba256ac7a250aa2feb8bbbe7b04a28832b33ff10b393386d4780d31275",
+          "digest": "46d9b9021bc2756c8b4945269592de9b04fa794aac418c13f71fa4c8beddf2a2"
+        }
+      ]
+    },
+    {
+      "id": "V018-transition-invalid-tail-shape",
+      "kind": "transition",
+      "expected_outcome": "REJECT_BAD_RECEIPT_TAIL",
+      "current_generation": 2,
+      "current_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "current_receipt_sequence": 5,
+      "current_receipt_digest": "fea5396a7f4325c408b1b65b33a4d77ba5486ceba941804d8889a8546cfbab96",
+      "candidate_generation": 3,
+      "candidate_previous_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_receipt_sequence": 0,
+      "candidate_receipt_digest": "b8b75f14cfeebfd3e761c0b4c5a6dd70f6dc4c6c814dfaf873e54e0d6bfc77aa"
+    },
+    {
+      "id": "V019-untrusted-bootstrap-anchor",
+      "kind": "bootstrap_negative",
+      "expected_outcome": "REJECT_UNTRUSTED_BOOTSTRAP",
+      "trusted_bootstrap_anchor_digest": "cbaf3f8f3a95b2a2d1e5c8a5d4b73d9f0b2e6c7a1f5d8e3b9a4c6f0d2e7b1c5a",
+      "record": {
+        "protocol_version": 1,
+        "generation": 1,
+        "log_id": "civ013-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b",
+        "receipt_sequence": 0,
+        "receipt_digest": null,
+        "previous_record_digest": null,
+        "digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b"
+      },
+      "commit_marker": {
+        "generation": 1,
+        "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+        "digest": "ffd4eb2e1cd61aac467f63895026e313559b95844ad011723e39c2b26e58d47e"
+      }
+    },
+    {
+      "id": "V020-anchor-same-generation-digest-mismatch",
+      "kind": "recovery",
+      "expected_outcome": "REJECT_EXTERNAL_ANCHOR_MISMATCH",
+      "local_generation": 2,
+      "local_log_id": "civ013-fixture-log-001",
+      "local_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_generation": 2,
+      "external_log_id": "civ013-fixture-log-001",
+      "external_record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+      "external_anchor": {
+        "log_id": "civ013-fixture-log-001",
+        "generation": 2,
+        "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b"
+      }
+    },
+    {
+      "id": "V021-local-commit-awaiting-anchor",
+      "kind": "recovery",
+      "expected_outcome": "PENDING_EXTERNAL_ANCHOR",
+      "local_generation": 3,
+      "local_log_id": "civ013-fixture-log-001",
+      "local_record_digest": "8e0f9e6a4eb1c5fa9cde1f23de7837c3d6aaf7b2c3f8a1e4d9e7b6c5a4f30129",
+      "external_generation": 2,
+      "external_log_id": "civ013-fixture-log-001",
+      "external_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_anchor": {
+        "log_id": "civ013-fixture-log-001",
+        "generation": 2,
+        "record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+      }
+    },
+    {
+      "id": "V022-anchor-wrong-log",
+      "kind": "recovery",
+      "expected_outcome": "REJECT_EXTERNAL_ANCHOR_MISMATCH",
+      "local_generation": 2,
+      "local_log_id": "civ013-fixture-log-001",
+      "local_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_generation": 2,
+      "external_log_id": "civ013-different-log",
+      "external_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_anchor": {
+        "log_id": "civ013-different-log",
+        "generation": 2,
+        "record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+      }
+    }
+  ],
+  "claim_ceiling": "Reference conformance vectors only. These vectors do not establish filesystem crash consistency, genuine signatures, operational witness independence, quorum safety, or production anti-rollback."
+}
