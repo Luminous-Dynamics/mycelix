@@ -1,0 +1,152 @@
+name: MYC-CONST-001R1 Exact Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/myc-const-001-r1-exact-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001-r1-exact-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  CARGO_INCREMENTAL: '0'
+  EXPECTED_QUAL_PARENT: '62d9fc51e506c2fbc0b8e08be348c02c31b5edeb'
+  EXPECTED_PRODUCT_SHA: 'd15ea01f428f7bc0a17d35eca73de5910768ec84'
+  EXPECTED_PRODUCT_PARENT: '26b0ac1c6dbd1ba28f75371e40a623876d107536'
+  EXPECTED_FOUNDATION_PARENT: '180dd19af7cb6377d41be7570a42787a35f3416f'
+  WORKFLOW: '.github/workflows/myc-const-001-r1-exact-qualification.yml'
+  WORKSPACE_MANIFEST: 'mycelix-governance/Cargo.toml'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  SOURCE: 'mycelix-governance/crates/constitutional-authority/src/lib.rs'
+  SEPARATION_TEST: 'mycelix-governance/crates/constitutional-authority/tests/separation.rs'
+  PROFILE: 'mycelix-governance/docs/CONSTITUTIONAL_AUTHORITY_V0_1.md'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  EXPECTED_SOURCE_BLOB: '998f7343b1e844d8d6625c2cd3478d1fc6620924'
+  EXPECTED_SEPARATION_BLOB: '0eafd5a9b11d59a59c6c6466226a97541eee9f1d'
+  EXPECTED_PROFILE_BLOB: '42f32f0e26f332591c876b180e0acb40527abcad'
+  EXPECTED_CRATE_MANIFEST_BLOB: 'cdc855da0ddddf57eae595bc14c1ec1907437e4f'
+  EXPECTED_WORKSPACE_MANIFEST_BLOB: '85d09991a5467612a25bffa76dfe342caa1f605c'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only review shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_QUAL_PARENT"
+          mapfile -d '' changed < <(git diff --name-only -z "$EXPECTED_QUAL_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout repaired MYC-CONST-001 product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_PRODUCT_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove exact repair ancestry, scope, and frozen semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_FOUNDATION_PARENT"
+          python3 - <<'PY'
+          import os, subprocess
+          expected = sorted([os.environ['SOURCE'], os.environ['SEPARATION_TEST']])
+          actual = subprocess.run(
+              ['git','diff','--name-only',os.environ['EXPECTED_PRODUCT_PARENT'],os.environ['EXPECTED_PRODUCT_SHA']],
+              check=True,capture_output=True,text=True,
+          ).stdout.splitlines()
+          if sorted(actual) != expected:
+              raise SystemExit(f'repair scope mismatch: expected={expected!r} actual={sorted(actual)!r}')
+          PY
+          test "$(git rev-parse "HEAD:$SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse "HEAD:$SEPARATION_TEST")" = "$EXPECTED_SEPARATION_BLOB"
+          test "$(git rev-parse "HEAD:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          test "$(git rev-parse "HEAD:$CRATE_MANIFEST")" = "$EXPECTED_CRATE_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$WORKSPACE_MANIFEST")" = "$EXPECTED_WORKSPACE_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD^:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          test "$(git rev-parse "HEAD^:$CRATE_MANIFEST")" = "$EXPECTED_CRATE_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD^:$WORKSPACE_MANIFEST")" = "$EXPECTED_WORKSPACE_MANIFEST_BLOB"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture exact repair capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\nrunner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$SOURCE" "$SEPARATION_TEST" "$PROFILE" "$CRATE_MANIFEST" "$WORKSPACE_MANIFEST" "$LOCKFILE"
+          git rev-parse "HEAD:$SOURCE" "HEAD:$SEPARATION_TEST" "HEAD:$PROFILE" "HEAD:$CRATE_MANIFEST" "HEAD:$LOCKFILE"
+
+      - name: Prove repair equals Rust 1.96 formatter output of parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/myc-const-rustfmt
+          git show "$EXPECTED_PRODUCT_PARENT:$SOURCE" > /tmp/myc-const-rustfmt/lib.rs
+          git show "$EXPECTED_PRODUCT_PARENT:$SEPARATION_TEST" > /tmp/myc-const-rustfmt/separation.rs
+          rustfmt --edition 2024 /tmp/myc-const-rustfmt/lib.rs /tmp/myc-const-rustfmt/separation.rs
+          cmp /tmp/myc-const-rustfmt/lib.rs "$SOURCE"
+          cmp /tmp/myc-const-rustfmt/separation.rs "$SEPARATION_TEST"
+          printf 'formatter_equivalence=PASS\n'
+
+      - name: Check Rust 1.96 formatting
+        run: cargo fmt --manifest-path "$CRATE_MANIFEST" -- --check
+
+      - name: Compile repaired foundation suite
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked --no-run
+
+      - name: Execute repaired foundation suite
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path "$CRATE_MANIFEST" --all-targets --locked -- -D warnings
+
+      - name: Refuse qualification-time mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit postflight facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'parent_sha=%s\n' "$EXPECTED_PRODUCT_PARENT"
+          printf 'source_blob=%s\n' "$(git rev-parse "HEAD:$SOURCE")"
+          printf 'separation_blob=%s\n' "$(git rev-parse "HEAD:$SEPARATION_TEST")"
+          printf 'rust_toolchain=%s\n' "$RUST_TOOLCHAIN"
+          printf 'claim=exact MYC-CONST-001 Rust 1.96 formatter-equivalent repair compiled, tested, and linted under this profile\n'
+          printf 'nonclaim=MYC-CONST-001B semantics, runtime enforcement, legal/constitutional validity, production readiness\n'
