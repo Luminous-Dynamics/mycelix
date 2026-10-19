@@ -17,6 +17,7 @@
 
 pub mod claims;
 pub mod error;
+pub mod research_funding;
 pub mod storage;
 
 // Core claim types
@@ -38,6 +39,13 @@ pub use claims::MATLTrust;
 
 // Unified Fingerprint
 pub use claims::EpistemicFingerprint;
+
+// Research-funding semantic boundary
+pub use research_funding::{
+    AwardResourceKind, AwardResourceRef, FundingApplicationId, FundingApplicationVersionRef,
+    FundingAuthorityRef, FundingAwardId, FundingDecisionId, FundingOpportunityId, FundingReviewId,
+    ScientificMilestoneCriterion, ScientificMilestoneKind,
+};
 
 pub use error::{Error, Result};
 pub use storage::{IpfsStorage, MemoryStorage, StorageBackend};
