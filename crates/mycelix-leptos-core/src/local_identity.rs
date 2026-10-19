@@ -305,21 +305,23 @@ fn public_key_matches_signing_key(public_b64: &str, signing_key: &SigningKey) ->
     public_bytes.as_slice() == signing_key.verifying_key().as_bytes()
 }
 
-fn public_key_matches_secret(secret_b64: &str, public_b64: &str) -> bool {
-    let Some(secret_bytes) = base64_decode(secret_b64) else {
-        return false;
-    };
-    let Ok(secret_array): Result<[u8; 32], _> = secret_bytes.try_into() else {
-        return false;
-    };
-    let Some(public_bytes) = base64_decode(public_b64) else {
-        return false;
-    };
-    if public_bytes.len() != 32 {
-        return false;
-    }
+fn signing_key_from_secret_b64(secret_b64: &str) -> Result<SigningKey, String> {
+    let mut secret_bytes =
+        base64_decode(secret_b64).ok_or_else(|| "Stored secret key is malformed.".to_string())?;
+    let secret_array_result: Result<[u8; 32], _> = secret_bytes.as_slice().try_into();
+    secret_bytes.zeroize();
+    let mut secret_array = secret_array_result
+        .map_err(|_| "Stored secret key has the wrong length.".to_string())?;
     let signing_key = SigningKey::from_bytes(&secret_array);
-    public_bytes.as_slice() == signing_key.verifying_key().as_bytes()
+    secret_array.zeroize();
+    Ok(signing_key)
+}
+
+fn public_key_matches_secret(secret_b64: &str, public_b64: &str) -> bool {
+    let Ok(signing_key) = signing_key_from_secret_b64(secret_b64) else {
+        return false;
+    };
+    public_key_matches_signing_key(public_b64, &signing_key)
 }
 
 fn encrypted_blob_is_structurally_valid(encoded: &str) -> bool {
@@ -541,6 +543,163 @@ async fn persist_protected_signing_key(
             "Identity storage verification failed; the new identity was not activated.".into(),
         );
     }
+
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
+    Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
+}
+
+/// Protect an existing, structurally consistent plaintext identity in place.
+///
+/// This is separate from the legacy protect_with_passphrase API because the
+/// latter uses best-effort storage helpers. This path checks every write and
+/// read-back, only removes the prior plaintext secret after the encrypted
+/// envelope has been read back successfully, and attempts to restore the
+/// unprotected state if the final protected-state verification fails.
+pub async fn protect_existing_identity(
+    passphrase: &str,
+) -> Result<LocalIdentityStoragePosture, String> {
+    validate_new_identity_passphrase(passphrase)?;
+
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser window is unavailable; identity was not changed.".to_string())?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser identity storage is unavailable.".to_string())?
+        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let mut snapshot = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Browser identity storage could not be inspected.".to_string())?;
+    if classify_identity_storage_snapshot(&snapshot)
+        != LocalIdentityStoragePosture::UnprotectedIdentity
+    {
+        return Err(
+            "Only a consistent unprotected identity can be protected by this operation; no storage was changed."
+                .into(),
+        );
+    }
+
+    let mut prior_secret_b64 = snapshot
+        .secret_b64
+        .take()
+        .ok_or_else(|| "Existing plaintext secret is missing.".to_string())?;
+    let public_b64 = snapshot
+        .public_b64
+        .clone()
+        .ok_or_else(|| "Existing public-key metadata is missing.".to_string())?;
+    let signing_key = signing_key_from_secret_b64(&prior_secret_b64)?;
+    prior_secret_b64.zeroize();
+
+    if !public_key_matches_signing_key(&public_b64, &signing_key) {
+        return Err("Existing identity secret/public key binding is inconsistent.".into());
+    }
+    if UNLOCKED_KEY.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .is_some_and(|cached| cached.verifying_key() != signing_key.verifying_key())
+    }) {
+        return Err("An in-session key does not match the stored identity; no storage was changed.".into());
+    }
+
+    let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
+    let encrypted_wire = serde_json::to_string(&EncryptedBlobWire::from(&blob))
+        .map_err(|_| "Could not serialize the protected identity envelope.".to_string())?;
+
+    // Encryption yields to the browser event loop; recheck that this is still
+    // the same unprotected key before writing any new state.
+    let current = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Browser identity storage became unavailable.".to_string())?;
+    if classify_identity_storage_snapshot(&current)
+        != LocalIdentityStoragePosture::UnprotectedIdentity
+        || current.public_b64.as_deref() != Some(public_b64.as_str())
+        || !current
+            .secret_b64
+            .as_deref()
+            .is_some_and(|secret| public_key_matches_secret(secret, &public_b64))
+    {
+        return Err(
+            "Identity storage changed during protection. No storage was modified by this operation."
+                .into(),
+        );
+    }
+
+    if storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &encrypted_wire)
+        .is_err()
+    {
+        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        if cleanup.is_err() {
+            return Err(
+                "Protected write failed and cleanup could not be confirmed; inspect posture before retrying."
+                    .into(),
+            );
+        }
+        return Err("Could not persist the protected identity envelope.".into());
+    }
+
+    let stored_with_both = read_identity_storage_snapshot_from(&storage);
+    let envelope_verified = stored_with_both.as_ref().is_ok_and(|stored| {
+        stored.secret_b64.is_some()
+            && stored.public_b64.as_deref() == Some(public_b64.as_str())
+            && stored.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
+            && public_key_matches_signing_key(&public_b64, &signing_key)
+            && encrypted_blob_is_structurally_valid(&encrypted_wire)
+    });
+    if !envelope_verified {
+        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        if cleanup.is_err() {
+            return Err(
+                "Envelope verification failed and cleanup was incomplete; inspect posture before retrying."
+                    .into(),
+            );
+        }
+        return Err(
+            "Envelope verification failed; the original unprotected identity remains in storage."
+                .into(),
+        );
+    }
+
+    // Keep a short-lived rollback value in memory only until the final state
+    // has been checked. It is zeroized on either exit path.
+    let mut plaintext_rollback = base64_encode(signing_key.as_bytes());
+    if storage.remove_item(IDENTITY_SECRET_KEY).is_err() {
+        let cleanup = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        plaintext_rollback.zeroize();
+        if cleanup.is_err() {
+            return Err(
+                "Plaintext removal failed and encrypted-envelope cleanup was incomplete; inspect posture before retrying."
+                    .into(),
+            );
+        }
+        return Err(
+            "Could not remove the plaintext key; the protected transition was rolled back."
+                .into(),
+        );
+    }
+
+    let final_snapshot = read_identity_storage_snapshot_from(&storage);
+    let protected_verified = final_snapshot.as_ref().is_ok_and(|stored| {
+        stored.secret_b64.is_none()
+            && stored.public_b64.as_deref() == Some(public_b64.as_str())
+            && stored.encrypted_wire.as_deref() == Some(encrypted_wire.as_str())
+            && classify_identity_storage_snapshot(stored)
+                == LocalIdentityStoragePosture::ProtectedLocked
+    });
+    if !protected_verified {
+        let restore_plaintext = storage.set_item(IDENTITY_SECRET_KEY, &plaintext_rollback);
+        let remove_envelope = storage.remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+        plaintext_rollback.zeroize();
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        if restore_plaintext.is_err() || remove_envelope.is_err() {
+            return Err(
+                "Protected-state verification failed and rollback was incomplete; inspect posture before retrying."
+                    .into(),
+            );
+        }
+        return Err(
+            "Protected-state verification failed; the prior unprotected key was restored."
+                .into(),
+        );
+    }
+    plaintext_rollback.zeroize();
 
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
     Ok(LocalIdentityStoragePosture::ProtectedUnlockedInSession)
@@ -1282,6 +1441,41 @@ mod browser_storage_tests {
             .await
             .expect("protected restored identity unlocks");
         assert!(public_key_matches_signing_key(&expected_public, &restored));
+    }
+
+    #[wasm_bindgen_test]
+    async fn protecting_existing_identity_removes_plaintext_after_verification() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let original = ensure_keypair();
+        let expected_public = base64_encode(original.verifying_key().as_bytes());
+        assert!(web_sys::window()
+            .unwrap()
+            .local_storage()
+            .unwrap()
+            .unwrap()
+            .get_item(IDENTITY_SECRET_KEY)
+            .unwrap()
+            .is_some());
+
+        let posture = protect_existing_identity("synthetic browser test passphrase")
+            .await
+            .expect("existing identity is protected without changing its key");
+        assert_eq!(
+            posture,
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert_eq!(
+            storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
+            Some(expected_public.as_str())
+        );
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        let protected_key = unlock_with_passphrase("synthetic browser test passphrase")
+            .await
+            .expect("migrated protected identity unlocks");
+        assert!(public_key_matches_signing_key(&expected_public, &protected_key));
     }
 
     #[wasm_bindgen_test]
