@@ -46,6 +46,7 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 # OsRng, so no extra getrandom backend wiring is needed for this crate.
 ed25519-dalek = "2.1"
 base64 = "0.22"
+zeroize = "1"
 
 # Step 3 of the recoverable-identity roadmap (local_identity.rs): standards-
 # correct BIP-39 seed phrase export/import for manual/offline backup — the
