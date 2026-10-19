@@ -11,9 +11,7 @@
 //! reviewed jurisdiction adapters. Evidence bytes are checked through the same
 //! trusted artifact-store boundary as the home compliance gate.
 
-use crate::{
-    EvidenceRef, EvidenceVerification, EvidenceVerifier,
-};
+use crate::{EvidenceRef, EvidenceVerification, EvidenceVerifier};
 use std::collections::{HashMap, HashSet};
 
 fn nonblank(value: &str) -> bool {
@@ -163,20 +161,44 @@ pub enum AlternativeCaseBlocker {
     DuplicateAssessment(String),
     MissingAssessment(String),
     AssessmentHasUnknownCriterion(String),
-    InvalidCriterionMetadata { criterion_id: String, field: &'static str },
-    InvalidAssessmentMetadata { criterion_id: String, field: &'static str },
+    InvalidCriterionMetadata {
+        criterion_id: String,
+        field: &'static str,
+    },
+    InvalidAssessmentMetadata {
+        criterion_id: String,
+        field: &'static str,
+    },
     EvidenceNotSupplied(String),
     DuplicateEvidenceId(String),
-    EvidenceIdNotFound { criterion_id: String, evidence_id: String },
-    EvidenceDigestInvalid { criterion_id: String, evidence_id: String },
-    EvidenceArtifactNotFound { criterion_id: String, evidence_id: String },
-    EvidenceDigestMismatch { criterion_id: String, evidence_id: String },
-    EvidenceVerificationUnavailable { criterion_id: String, evidence_id: String },
+    EvidenceIdNotFound {
+        criterion_id: String,
+        evidence_id: String,
+    },
+    EvidenceDigestInvalid {
+        criterion_id: String,
+        evidence_id: String,
+    },
+    EvidenceArtifactNotFound {
+        criterion_id: String,
+        evidence_id: String,
+    },
+    EvidenceDigestMismatch {
+        criterion_id: String,
+        evidence_id: String,
+    },
+    EvidenceVerificationUnavailable {
+        criterion_id: String,
+        evidence_id: String,
+    },
     CriterionFailed(String),
     CriterionUnknown(String),
     DuplicateReviewer(String),
     ReviewerIsAuthor(String),
-    InvalidReviewMetadata { reviewer_id: String, field: &'static str },
+    InvalidReviewMetadata {
+        reviewer_id: String,
+        field: &'static str,
+    },
     ReviewPinsDifferentCaseRevision(String),
     ReviewPinsDifferentDesignRevision(String),
     FewerThanTwoIndependentReviewers,
@@ -234,14 +256,32 @@ where
         ("rule_module_id", case.rule_module_id.as_str()),
         ("rule_statement_id", case.rule_statement_id.as_str()),
         ("author_id", case.author_id.as_str()),
-        ("design_intent_and_rationale", case.design_intent_and_rationale.as_str()),
-        ("prescriptive_path_comparison", case.prescriptive_path_comparison.as_str()),
-        ("alternatives_considered", case.alternatives_considered.as_str()),
+        (
+            "design_intent_and_rationale",
+            case.design_intent_and_rationale.as_str(),
+        ),
+        (
+            "prescriptive_path_comparison",
+            case.prescriptive_path_comparison.as_str(),
+        ),
+        (
+            "alternatives_considered",
+            case.alternatives_considered.as_str(),
+        ),
         ("expected_benefits", case.expected_benefits.as_str()),
-        ("foreseeable_harms_and_tradeoffs", case.foreseeable_harms_and_tradeoffs.as_str()),
-        ("affected_group_impacts", case.affected_group_impacts.as_str()),
+        (
+            "foreseeable_harms_and_tradeoffs",
+            case.foreseeable_harms_and_tradeoffs.as_str(),
+        ),
+        (
+            "affected_group_impacts",
+            case.affected_group_impacts.as_str(),
+        ),
         ("uncertainty_register", case.uncertainty_register.as_str()),
-        ("counterevidence_search_summary", case.counterevidence_search_summary.as_str()),
+        (
+            "counterevidence_search_summary",
+            case.counterevidence_search_summary.as_str(),
+        ),
     ] {
         if !nonblank(value) {
             blockers.push(AlternativeCaseBlocker::EmptyField(field));
@@ -273,7 +313,10 @@ where
             blockers.push(AlternativeCaseBlocker::EmptyField("criterion_id"));
             continue;
         }
-        if criteria.insert(criterion.criterion_id.as_str(), criterion).is_some() {
+        if criteria
+            .insert(criterion.criterion_id.as_str(), criterion)
+            .is_some()
+        {
             blockers.push(AlternativeCaseBlocker::DuplicateCriterion(
                 criterion.criterion_id.clone(),
             ));
@@ -321,8 +364,14 @@ where
             ("method_version", assessment.method_version.as_str()),
             ("evaluator_version", assessment.evaluator_version.as_str()),
             ("result_summary", assessment.result_summary.as_str()),
-            ("uncertainty_and_limitations", assessment.uncertainty_and_limitations.as_str()),
-            ("counterevidence_summary", assessment.counterevidence_summary.as_str()),
+            (
+                "uncertainty_and_limitations",
+                assessment.uncertainty_and_limitations.as_str(),
+            ),
+            (
+                "counterevidence_summary",
+                assessment.counterevidence_summary.as_str(),
+            ),
         ] {
             if !nonblank(value) {
                 blockers.push(AlternativeCaseBlocker::InvalidAssessmentMetadata {
@@ -357,7 +406,10 @@ where
                 ));
             }
             if evidence_digests
-                .insert(evidence.artifact_id.as_str(), evidence.artifact_sha256.as_str())
+                .insert(
+                    evidence.artifact_id.as_str(),
+                    evidence.artifact_sha256.as_str(),
+                )
                 .is_some_and(|existing_digest| existing_digest != evidence.artifact_sha256.as_str())
             {
                 blockers.push(AlternativeCaseBlocker::DuplicateEvidenceId(
@@ -443,7 +495,10 @@ where
         for (field, value) in [
             ("expertise_scope", review.expertise_scope.as_str()),
             ("rationale", review.rationale.as_str()),
-            ("conflict_of_interest_disclosure", review.conflict_of_interest_disclosure.as_str()),
+            (
+                "conflict_of_interest_disclosure",
+                review.conflict_of_interest_disclosure.as_str(),
+            ),
         ] {
             if !nonblank(value) {
                 blockers.push(AlternativeCaseBlocker::InvalidReviewMetadata {
@@ -599,12 +654,7 @@ mod tests {
         }
     }
 
-    fn path_available(
-        _: &str,
-        _: &str,
-        _: &str,
-        _: AlternativePathway,
-    ) -> PathwayEligibility {
+    fn path_available(_: &str, _: &str, _: &str, _: AlternativePathway) -> PathwayEligibility {
         PathwayEligibility::AvailableForSubmission
     }
 
@@ -616,7 +666,10 @@ mod tests {
     fn complete_alternative_is_ready_for_authority_submission_not_approval() {
         let report =
             evaluate_alternative_solution_case(&case(), &path_available, &evidence_verified);
-        assert_eq!(report.status, AlternativeSolutionStatus::ReadyForAuthoritySubmission);
+        assert_eq!(
+            report.status,
+            AlternativeSolutionStatus::ReadyForAuthoritySubmission
+        );
         assert!(report.blockers.is_empty());
         assert_eq!(report.criteria_passed, 2);
     }
@@ -630,7 +683,9 @@ mod tests {
         assert!(
             report
                 .blockers
-                .contains(&AlternativeCaseBlocker::CriterionFailed("egress-outcome".into()))
+                .contains(&AlternativeCaseBlocker::CriterionFailed(
+                    "egress-outcome".into()
+                ))
         );
     }
 
@@ -642,17 +697,18 @@ mod tests {
         assert!(
             report
                 .blockers
-                .contains(&AlternativeCaseBlocker::CriterionUnknown("egress-outcome".into()))
+                .contains(&AlternativeCaseBlocker::CriterionUnknown(
+                    "egress-outcome".into()
+                ))
         );
     }
 
     #[test]
     fn missing_evidence_bytes_block_submission() {
-        let report = evaluate_alternative_solution_case(
-            &case(),
-            &path_available,
-            &|_: &EvidenceRef| EvidenceVerification::ArtifactNotFound,
-        );
+        let report =
+            evaluate_alternative_solution_case(&case(), &path_available, &|_: &EvidenceRef| {
+                EvidenceVerification::ArtifactNotFound
+            });
         assert!(report.blockers.iter().any(|blocker| {
             matches!(
                 blocker,
@@ -663,13 +719,15 @@ mod tests {
 
     #[test]
     fn digest_mismatch_blocks_submission() {
-        let report = evaluate_alternative_solution_case(
-            &case(),
-            &path_available,
-            &|_: &EvidenceRef| EvidenceVerification::DigestMismatch,
-        );
+        let report =
+            evaluate_alternative_solution_case(&case(), &path_available, &|_: &EvidenceRef| {
+                EvidenceVerification::DigestMismatch
+            });
         assert!(report.blockers.iter().any(|blocker| {
-            matches!(blocker, AlternativeCaseBlocker::EvidenceDigestMismatch { .. })
+            matches!(
+                blocker,
+                AlternativeCaseBlocker::EvidenceDigestMismatch { .. }
+            )
         }));
     }
 
@@ -680,13 +738,21 @@ mod tests {
             &|_, _, _, _| PathwayEligibility::NotAvailable,
             &evidence_verified,
         );
-        assert!(unavailable.blockers.contains(&AlternativeCaseBlocker::PathwayNotAvailable));
+        assert!(
+            unavailable
+                .blockers
+                .contains(&AlternativeCaseBlocker::PathwayNotAvailable)
+        );
         let unknown = evaluate_alternative_solution_case(
             &case(),
             &|_, _, _, _| PathwayEligibility::Unknown,
             &evidence_verified,
         );
-        assert!(unknown.blockers.contains(&AlternativeCaseBlocker::PathwayEligibilityUnknown));
+        assert!(
+            unknown
+                .blockers
+                .contains(&AlternativeCaseBlocker::PathwayEligibilityUnknown)
+        );
     }
 
     #[test]
@@ -694,13 +760,9 @@ mod tests {
         let mut case = case();
         case.independent_reviews[0].reviewed_design_revision_id = "house:model:rev6".into();
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
-        assert!(
-            report
-                .blockers
-                .contains(&AlternativeCaseBlocker::ReviewPinsDifferentDesignRevision(
-                    "reviewer:a".into()
-                ))
-        );
+        assert!(report.blockers.contains(
+            &AlternativeCaseBlocker::ReviewPinsDifferentDesignRevision("reviewer:a".into())
+        ));
     }
 
     #[test]
@@ -711,7 +773,9 @@ mod tests {
         assert!(
             report
                 .blockers
-                .contains(&AlternativeCaseBlocker::ReviewerIsAuthor("designer:1".into()))
+                .contains(&AlternativeCaseBlocker::ReviewerIsAuthor(
+                    "designer:1".into()
+                ))
         );
     }
 
@@ -721,16 +785,21 @@ mod tests {
         case.independent_reviews[1].disposition =
             AlternativeReviewDisposition::ChallengesSubmission;
         let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
-        assert_eq!(report.status, AlternativeSolutionStatus::ReadyForAuthoritySubmission);
-        assert_eq!(report.preserved_dissenting_reviewers, vec!["reviewer:b".to_owned()]);
+        assert_eq!(
+            report.status,
+            AlternativeSolutionStatus::ReadyForAuthoritySubmission
+        );
+        assert_eq!(
+            report.preserved_dissenting_reviewers,
+            vec!["reviewer:b".to_owned()]
+        );
     }
 
     #[test]
     fn noncritical_failed_outcome_remains_explorable_but_not_submission_ready() {
         let mut case = case();
         case.assessments[1].outcome = CriterionOutcome::Fail;
-        let report =
-            evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
+        let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
         assert_eq!(
             report.status,
             AlternativeSolutionStatus::ReadyForIndependentReview
@@ -743,15 +812,16 @@ mod tests {
     fn one_immutable_evidence_artifact_can_support_multiple_criteria() {
         let mut case = case();
         case.assessments[1].evidence = case.assessments[0].evidence.clone();
-        let report =
-            evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
+        let report = evaluate_alternative_solution_case(&case, &path_available, &evidence_verified);
         assert_eq!(
             report.status,
             AlternativeSolutionStatus::ReadyForAuthoritySubmission
         );
-        assert!(!report.blockers.iter().any(|blocker| {
-            matches!(blocker, AlternativeCaseBlocker::DuplicateEvidenceId(_))
-        }));
+        assert!(
+            !report.blockers.iter().any(|blocker| {
+                matches!(blocker, AlternativeCaseBlocker::DuplicateEvidenceId(_))
+            })
+        );
     }
 
     #[test]
@@ -762,7 +832,9 @@ mod tests {
         assert!(
             report
                 .blockers
-                .contains(&AlternativeCaseBlocker::MissingAssessment("maintainability".into()))
+                .contains(&AlternativeCaseBlocker::MissingAssessment(
+                    "maintainability".into()
+                ))
         );
     }
 }
