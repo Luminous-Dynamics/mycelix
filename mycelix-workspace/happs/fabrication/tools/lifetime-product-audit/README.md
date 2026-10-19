@@ -1,49 +1,43 @@
 # Lifetime Product Audit (draft)
 
-A standalone, offline Rust validator for the proposed LKI-01 Lifetime Product Record, its illustrative example, and the frozen adversarial benchmark corpus.
+Offline Rust audit tools for the proposed LKI-01 Lifetime Product Record and its versioned synthetic benchmark suites.
 
-This tool is a **draft engineering aid**. A passing report establishes only that these local draft artifacts satisfy this tool's checks; it does not establish physical safety, appliance conformity, supplier qualification, buildability, durability, or whole-life superiority.
+These tools are **draft engineering aids**. Software passes establish only that checked artifacts match local schemas, semantics and frozen synthetic oracles. They do not establish physical safety, appliance conformity, supplier qualification, user accessibility, buildability, durability, or whole-life superiority.
 
 ## Run from the Mycelix repository root
 
 ```bash
-# Dependencies are pinned by the committed Cargo.lock; use --locked for repeatable resolution.
+# Dependencies are pinned by Cargo.lock; use --locked for repeatable dependency resolution.
 cargo test --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml --all-targets
 
+# Frozen v0.3 record/schema baseline.
 cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml -- \
   --schema mycelix-workspace/happs/fabrication/docs/LIFETIME_PRODUCT_RECORD_SCHEMA_V1_DRAFT.json \
   --record mycelix-workspace/happs/fabrication/docs/LKI_01_PRODUCT_RECORD_EXAMPLE_DRAFT.json \
   --benchmark mycelix-workspace/happs/fabrication/docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json \
   --as-of 2026-10-19
+
+# Additive v0.4 repairability extension; it does not replace or mutate v0.3.
+cargo run --locked --manifest-path mycelix-workspace/happs/fabrication/tools/lifetime-product-audit/Cargo.toml \
+  --bin repairability_extension_audit -- \
+  --corpus mycelix-workspace/happs/fabrication/docs/LKI_01_REPAIRABILITY_BENCHMARK_EXTENSION_V0_4_DRAFT.json
 ```
 
-Pass an explicit `--as-of YYYY-MM-DD` so time-sensitive supplier checks are reproducible. `--freshness-days` defaults to `30` and adjusts warnings for stale records marked `availability_confirmed`. The frozen SUP-002 known-answer case intentionally retains its own 30-day scenario rule and expired-quote negative control.
-
-The tool writes a JSON report to stdout and exits:
-- `0` when there are no errors (warnings may still be present);
-- `1` when schema, record semantics, or benchmark checks fail;
-- `2` for command-line, file, or JSON parsing failures.
-
-The report includes SHA-256 digests of the exact schema, record, and benchmark bytes. Canonical reproducibility claims should also pin the tool version, dependency lock, Rust toolchain, and complete execution environment.
+Pass an explicit `--as-of YYYY-MM-DD` to the v0.3 audit so supplier-evidence freshness checks are reproducible. Its `--freshness-days` defaults to `30` and adjusts warnings for stale records marked `availability_confirmed`. The frozen SUP-002 case retains its own 30-day negative control.
 
 ## Current checks
 
-- Require module envelope + minimum fit allowance to fit within the actual bay clear envelope on width, depth and height; this is a basic dimensional check, not full CAD interference or service-path analysis.
+- v0.3: JSON Schema Draft 2020-12 meta-validation, example-record validation, component/interface ID and reference integrity, module-fit arithmetic, supplier evidence freshness, release-gate semantics, measured-metric evidence, and 17 frozen known-answer scenarios.
+- v0.4 extension: pinned parent/version metadata, shape checks, duplicate/unknown scenario rejection, 11 deterministic known-answer outcomes, and five explicit software benchmark targets.
+- Repairability semantics: observed human-facing opening and fault-identification tasks are not inferred from a calculated index; repair timing separates diagnosis, active labour, parts/tool wait, verification, rework and total downtime; a repair requires scoped post-repair verification; recurrence and parts-continuity claims remain bounded by evidence.
+- Both tools retain the distinction between target, calculation, simulation, measurement, independent review, and physical safety/conformity.
 
-- Validate the schema itself against JSON Schema Draft 2020-12 meta-schema.
-- Validate the product record against that schema with format assertions enabled.
-- Reject duplicate/empty component or interface IDs and unresolved interface references.
-- Reject a component marked qualified without a qualification/sample-inspection record.
-- Disclose future-dated supplier checks, stale availability confirmation, and expired quotes.
-- Reject passing release gates without evidence; reject "not applicable" gates without a rationale; prevent records with unsatisfied gates from being marked released.
-- Require evidence references for measured/bench-tested/independently verified metrics.
-- Check the 17 frozen v0.3 known-answer scenario oracles against explicit deterministic rules.
-- Retain the distinction between simulation, measurement, qualification, and physical product safety.
+The reports include SHA-256 digests of audited input bytes. Canonical reproducibility claims should also pin the source revision, tool version, committed lockfile, Rust toolchain, and complete execution environment.
 
 ## Deliberate limitations
 
-- The benchmark corpus is not itself a physical test suite.
-- The evaluator covers the named frozen v0.3 scenarios; unknown scenarios fail closed instead of being skipped.
-- The tool is not a purchasing system and never fetches supplier pages or promotes a marketing claim into verified inventory.
-- The current schema is a draft and must be reconciled with existing Mycelix product revision, manufactured-unit, qualification, BOM, and repair/restoration owners before becoming canonical.
-- Hosted Rust 1.96.0 run [39210363080](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39210363080) compiled the prior formatted revision, passed all 16 tests, and returned PASS with 17 v0.3 scenarios and zero errors/warnings. Subsequent workflow/documentation changes must be validated on the exact current head. Do not treat a prior-head pass as evidence for a newer SHA. The lockfile is now committed; the exact-head workflow must pass with --locked before claiming lockfile-pinned reproducibility.
+- Neither benchmark file is a physical test suite.
+- v0.3 remains a frozen baseline; v0.4 is an additive extension with its own evaluator. Unknown extension scenarios fail closed rather than being skipped.
+- The tools are offline and do not fetch supplier pages or promote marketing claims into verified inventory.
+- The product schema remains a draft and must be reconciled with Mycelix's existing product revision, manufactured-unit, qualification, BOM, and repair/restoration owners before becoming canonical.
+- Physical service trials, user studies, current South African parts availability, appliance safety/conformity, 50-year life, and whole-life environmental superiority remain unestablished. Passing synthetic software cases is not evidence of any of those claims.
