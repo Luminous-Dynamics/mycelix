@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
-const CORPUS_VERSION: &str = "0.2.0-draft";
+const CORPUS_VERSION: &str = "0.3.0-draft";
 const VALID_OUTCOMES: [&str; 4] = [
     "PASS_SCOPED_GATE",
     "BLOCK_UNQUALIFIED",
@@ -574,10 +574,10 @@ fn validate_benchmark(benchmark: &Value, issues: &mut Vec<Issue>) -> usize {
             return 0;
         }
     };
-    if scenarios.len() != 15 {
+    if scenarios.len() != 17 {
         push_issue(
-            issues, "error", "BENCHMARK_V0_2_SCENARIO_COUNT_CHANGED", "$benchmark.scenarios",
-            format!("Frozen v0.2 corpus expects 15 scenarios; found {}. Revise the corpus version when adding/removing cases.", scenarios.len()),
+            issues, "error", "BENCHMARK_V0_3_SCENARIO_COUNT_CHANGED", "$benchmark.scenarios",
+            format!("Frozen v0.3 corpus expects 17 scenarios; found {}. Revise the corpus version when adding/removing cases.", scenarios.len()),
         );
     }
 
@@ -700,6 +700,32 @@ fn evaluate_scenario(scenario: &Value) -> Option<&'static str> {
                 Some("PASS_SCOPED_GATE")
             } else {
                 Some("FAIL_HARD_GATE")
+            }
+        }
+        "INTERFACE-001" => {
+            let qualified = s("verification_state") == Some("qualified");
+            let evidence_complete = b("installation_evidence_resolves") == Some(true)
+                && b("installation_evidence_digest_valid") == Some(true)
+                && b("compatibility_test_resolves") == Some(true)
+                && b("compatibility_test_digest_valid") == Some(true)
+                && b("compatibility_test_independently_verified") == Some(true);
+            if qualified && evidence_complete {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("BLOCK_UNQUALIFIED")
+            }
+        }
+        "INTERFACE-002" => {
+            let verified = s("verification_state") == Some("physically_verified");
+            let install_evidence = b("installation_evidence_resolves") == Some(true)
+                && b("installation_evidence_digest_valid") == Some(true);
+            let test_evidence = b("compatibility_test_resolves") == Some(true)
+                && b("compatibility_test_digest_valid") == Some(true)
+                && matches!(s("compatibility_test_status"), Some("measured") | Some("independently_verified") | Some("field_observed"));
+            if verified && install_evidence && test_evidence {
+                Some("PASS_SCOPED_GATE")
+            } else {
+                Some("BLOCK_UNQUALIFIED")
             }
         }
         "THERM-001" => {
@@ -852,9 +878,9 @@ mod tests {
 
     #[test]
     fn benchmark_corpus_known_answers_match() {
-        let benchmark: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_2_DRAFT.json")).unwrap();
+        let benchmark: Value = serde_json::from_str(&repo_file("../../docs/LKI_01_LIFETIME_BENCHMARK_CORPUS_V0_3_DRAFT.json")).unwrap();
         let scenarios = benchmark.get("scenarios").and_then(Value::as_array).unwrap();
-        assert_eq!(scenarios.len(), 15);
+        assert_eq!(scenarios.len(), 17);
         assert_eq!(benchmark["benchmark_version"].as_str(), Some(CORPUS_VERSION));
         for scenario in scenarios {
             let expected = scenario["expected_outcome"].as_str().unwrap();
@@ -932,6 +958,39 @@ mod tests {
             }
         });
         assert_eq!(evaluate_scenario(&scenario), Some("FAIL_HARD_GATE"));
+    }
+
+    #[test]
+    fn a_qualified_interface_without_resolvable_evidence_is_blocked() {
+        let scenario = json!({
+            "scenario_id":"INTERFACE-001",
+            "setup":{
+                "verification_state":"qualified",
+                "installation_evidence_resolves":false,
+                "installation_evidence_digest_valid":false,
+                "compatibility_test_resolves":false,
+                "compatibility_test_digest_valid":false,
+                "compatibility_test_independently_verified":false
+            }
+        });
+        assert_eq!(evaluate_scenario(&scenario), Some("BLOCK_UNQUALIFIED"));
+    }
+
+    #[test]
+    fn a_physically_verified_interface_requires_digest_bound_install_and_test_evidence() {
+        let scenario = json!({
+            "scenario_id":"INTERFACE-002",
+            "setup":{
+                "verification_state":"physically_verified",
+                "installation_evidence_resolves":true,
+                "installation_evidence_digest_valid":true,
+                "compatibility_test_resolves":true,
+                "compatibility_test_digest_valid":true,
+                "compatibility_test_status":"measured",
+                "compatibility_test_independently_verified":false
+            }
+        });
+        assert_eq!(evaluate_scenario(&scenario), Some("PASS_SCOPED_GATE"));
     }
 
     #[test]
