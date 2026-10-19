@@ -3,18 +3,18 @@
 
 use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
-use leptos_router::components::{Route, Router, Routes, A};
+use leptos_router::components::{A, Route, Router, Routes};
 use leptos_router::hooks::use_location;
 use leptos_router::path;
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::{
-    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_local_identity, provide_theme_context, provide_thermodynamic_context,
-    provide_toast_context, use_toasts, ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState,
-    AvailabilityStateKind, ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel,
-    HolochainProviderAuto, HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
+    ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
+    ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
+    HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind, init_consciousness_ui,
+    provide_consciousness_context, provide_homeostasis_context, provide_local_identity,
+    provide_theme_context, provide_thermodynamic_context, provide_toast_context, use_toasts,
 };
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
