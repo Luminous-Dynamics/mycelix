@@ -249,7 +249,8 @@ fn regulatory_source(
         edition: value_edition.into(),
         source_uri: format!("https://example.invalid/{source_id}"),
         source_sha256: "d".repeat(64),
-        applicability_scope: home_compliance_core::regulatory::JurisdictionApplicabilityScope::ExactJurisdiction,
+        applicability_scope:
+            home_compliance_core::regulatory::JurisdictionApplicabilityScope::ExactJurisdiction,
         legal_status,
         published_on_day: 180,
         effective_from_day: if legal_status == LegalSourceStatus::InForce {
