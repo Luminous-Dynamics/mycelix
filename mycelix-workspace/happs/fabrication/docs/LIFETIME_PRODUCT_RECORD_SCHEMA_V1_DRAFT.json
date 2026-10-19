@@ -28,7 +28,8 @@
     },
     "product_id": {
       "type": "string",
-      "pattern": "^[A-Z0-9][A-Z0-9-]{2,63}$"
+      "pattern": "^[A-Z0-9][A-Z0-9-]{2,63}$",
+      "description": "Stable product-family/model identity for this draft only. It is not a manufactured-unit serial, qualification receipt, or repair-event identity; production integration must reference the existing Mycelix physical-product/design owner."
     },
     "revision": {
       "type": "string",
@@ -155,15 +156,18 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/component"
-          }
+          },
+          "description": "Illustrative component snapshot used by the offline draft audit. Manufacturing remains authoritative for released BOM records and subassembly relationships."
         }
-      }
+      },
+      "description": "Derived read-only BOM snapshot for offline engineering-contract evaluation. The authoritative BOM and subassembly explosion remain owned by Mycelix Manufacturing. Production integration must resolve canonical BOM identity/revision and preserve its exact source digest rather than creating a competing BOM ledger."
     },
     "interfaces": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/interface"
-      }
+      },
+      "description": "Proposed product/module interface declarations. Geometry fit is not electrical, thermal, serviceability, conformity, or safety qualification."
     },
     "service_policy": {
       "type": "object",
@@ -222,13 +226,15 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/gate"
-      }
+      },
+      "description": "Local draft gate statuses only. A pass must link to evidence; this structure cannot issue appliance certification or replace competent review."
     },
     "evidence": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/evidence"
-      }
+      },
+      "description": "References to evidence artifacts scoped to this draft aggregate view. This array does not create a new evidence store, qualification authority, or physical-test certification."
     },
     "change_record": {
       "type": "object",
