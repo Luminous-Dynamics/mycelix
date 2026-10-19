@@ -89,7 +89,9 @@ fn source_covers_jurisdiction(
                     return Err(IndeterminateReason::InvalidJurisdictionScope);
                 }
             }
-            Ok(targets.iter().any(|target| target == requested_jurisdiction))
+            Ok(targets
+                .iter()
+                .any(|target| target == requested_jurisdiction))
         }
     }
 }
@@ -646,8 +648,7 @@ mod tests {
             SourceApplicability::OutOfScope(ScopeExclusionReason::JurisdictionMismatch)
         );
 
-        value.applicability_scope =
-            JurisdictionApplicabilityScope::JurisdictionAndDescendants;
+        value.applicability_scope = JurisdictionApplicabilityScope::JurisdictionAndDescendants;
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
             SourceApplicability::Applicable
@@ -674,11 +675,10 @@ mod tests {
     fn explicit_jurisdiction_set_is_exact_and_does_not_expand_automatically() {
         let mut value = source(LegalSourceStatus::InForce);
         value.jurisdiction = "ZA".into();
-        value.applicability_scope =
-            JurisdictionApplicabilityScope::ExplicitJurisdictions(vec![
-                "ZA/GP/Johannesburg".into(),
-                "ZA/GP/Tshwane".into(),
-            ]);
+        value.applicability_scope = JurisdictionApplicabilityScope::ExplicitJurisdictions(vec![
+            "ZA/GP/Johannesburg".into(),
+            "ZA/GP/Tshwane".into(),
+        ]);
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
             SourceApplicability::Applicable
@@ -692,11 +692,10 @@ mod tests {
     #[test]
     fn malformed_or_duplicate_explicit_scope_fails_closed() {
         let mut value = source(LegalSourceStatus::InForce);
-        value.applicability_scope =
-            JurisdictionApplicabilityScope::ExplicitJurisdictions(vec![
-                "ZA/GP/Johannesburg".into(),
-                "ZA/GP/Johannesburg".into(),
-            ]);
+        value.applicability_scope = JurisdictionApplicabilityScope::ExplicitJurisdictions(vec![
+            "ZA/GP/Johannesburg".into(),
+            "ZA/GP/Johannesburg".into(),
+        ]);
         assert_eq!(
             evaluate_source_applicability(&value, "ZA/GP/Johannesburg", 60, 60, 30),
             SourceApplicability::Indeterminate(IndeterminateReason::InvalidJurisdictionScope)
