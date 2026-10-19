@@ -51,11 +51,11 @@ A version-1 `ProcessRunReceipt` includes:
 - optional measurement system, instrument, observation IDs and raw-artifact hashes, observed time, and a separate calibration claim with calibration-record digest and validity interval;
 - review disposition (`not_reviewed`, `pass`, `fail`, `indeterminate`), a reviewer identity/version, exact reviewed-report digest, review time, and optional parent/superseded receipt hashes.
 
-All SHA-256 fields are required to be 64-character lower-case hexadecimal strings. The validator checks syntax; it does not recompute any digest or establish that the referenced bytes are available.
+All SHA-256 fields are required to be 64-character lower-case hexadecimal strings. The validator checks syntax; it does not recompute any digest or establish that the referenced bytes are available. Use `decode_and_validate_process_run_receipt_json` for raw JSON so duplicate struct fields and unknown fields are rejected before the record is consumed.
 
 ## Fail-closed invariants
 
-1. Unsupported schema versions, unknown JSON fields, blank/oversized required identities, malformed digests, invalid Git commit identifiers, duplicate artifact/observation/assumption entries, and excessive list sizes are rejected.
+1. The raw-JSON decode-and-validate entry point rejects malformed JSON, duplicate struct fields, unknown JSON fields and unsupported schema versions. Blank/oversized required identities, malformed digests, invalid Git commit identifiers, duplicate artifact/observation/assumption entries, and excessive list sizes are also rejected. Use the raw decoder before consuming JSON; converting to a generic map first may discard duplicate keys.
 2. Synthetic and simulated receipts cannot carry instrument observations or calibration claims.
 3. Instrument-observed receipts require measurement-system and instrument IDs, observed time, observation IDs, and exactly one raw-artifact digest per observation ID.
 4. A claim that calibration was current at observation requires an instrument-observed origin, calibration-record digest, an ordered validity interval, and an observation timestamp inside that interval. This validates temporal consistency only; it does not authenticate the calibration record.
