@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      furniture_compiler: ${{ steps.filter.outputs.furniture_compiler }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,10 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            furniture_compiler:
+              - 'mycelix-manufacturing/crates/furniture_compiler/**'
+              - 'mycelix-manufacturing/Cargo.toml'
+              - 'mycelix-manufacturing/Cargo.lock'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -110,6 +115,7 @@ jobs:
           done
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler -- --check || status=1
           exit $status
 
   # Per-cluster test jobs
@@ -132,6 +138,76 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+
+  test-furniture-compiler:
+    name: Furniture compiler (Rust)
+    needs: changes
+    if: needs.changes.outputs.furniture_compiler == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned Rust toolchain action
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Assert Rust toolchain identity
+        run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+      - name: Test bounded compiler and adversarial cases
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler 2>&1 | tee /tmp/furniture-test-output.txt
+      - name: Compile the example twice and compare exact output
+        run: |
+          cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile < mycelix-manufacturing/crates/furniture_compiler/examples/desk-input.json > /tmp/furniture-packet-a.json
+          cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile < mycelix-manufacturing/crates/furniture_compiler/examples/desk-input.json > /tmp/furniture-packet-b.json
+          cmp /tmp/furniture-packet-a.json /tmp/furniture-packet-b.json
+      - name: Assert output remains blocked from production release
+        run: jq -e '.core.release_gate.release_eligible == false and (.core.release_gate.blockers | length > 0) and (.packet_digest | length == 64)' /tmp/furniture-packet-a.json > /dev/null
+      - name: Verify the packet in a separate CLI invocation
+        run: |
+          cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile -- --verify < /tmp/furniture-packet-a.json > /tmp/furniture-verification.json
+          jq -e --slurpfile packet /tmp/furniture-packet-a.json '.integrity_verified == true and .packet_digest == $packet[0].packet_digest' /tmp/furniture-verification.json > /dev/null
+      - name: Reject a tampered production gate
+        run: |
+          jq '.core.release_gate.release_eligible = true' /tmp/furniture-packet-a.json > /tmp/furniture-packet-tampered.json
+          if cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile -- --verify < /tmp/furniture-packet-tampered.json > /dev/null 2>&1; then
+            echo "verifier accepted a tampered release gate" >&2
+            exit 1
+          fi
+
+      - name: Capture exact-head software evidence
+        if: always()
+        run: |
+          mkdir -p /tmp/furniture-evidence
+          {
+            echo "evidence_kind=furniture-compiler-software-reference"
+            echo "qualified_sha=$QUALIFIED_SHA"
+            echo "checked_out_sha=$(git rev-parse HEAD)"
+            echo "rust=$(rustc --version 2>&1 || true)"
+            echo "cargo=$(cargo --version 2>&1 || true)"
+            echo "test_status_from_step=see furniture-test-output.txt and workflow result"
+          } > /tmp/furniture-evidence/qualification-record.txt
+          for file in /tmp/furniture-test-output.txt /tmp/furniture-packet-a.json /tmp/furniture-packet-b.json /tmp/furniture-verification.json /tmp/furniture-packet-tampered.json; do
+            if [ -f "$file" ]; then cp "$file" /tmp/furniture-evidence/; fi
+          done
+          if [ -f /tmp/furniture-packet-a.json ]; then
+            sha256sum /tmp/furniture-packet-a.json >> /tmp/furniture-evidence/qualification-record.txt
+          fi
+      - name: Upload exact-head software evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: furniture-compiler-evidence-${{ env.QUALIFIED_SHA }}
+          path: /tmp/furniture-evidence/
+          if-no-files-found: error
+          retention-days: 30
 
   test-commons:
     needs: changes
@@ -440,6 +516,7 @@ jobs:
     needs:
       - format
       - test-cos-conformance
+      - test-furniture-compiler
       - test-commons
       - test-civic
       - test-hearth
@@ -458,6 +535,7 @@ jobs:
         run: |
           echo "Format: ${{ needs.format.result }}"
           echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "Furniture compiler: ${{ needs.test-furniture-compiler.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
@@ -474,7 +552,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-furniture-compiler.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
