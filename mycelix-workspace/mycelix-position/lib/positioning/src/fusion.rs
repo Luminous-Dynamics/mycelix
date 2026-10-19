@@ -234,6 +234,6 @@ mod tests {
         let b = GaussianEstimate3D::new([3.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
         let c = covariance_intersection_3d(&a, &b, 0.5);
         assert!((c.mean[0] - 2.0).abs() < 0.01);
-        assert!(c.covariance_diag[0] < 1.0);
+        assert_eq!(c.covariance_diag, [1.0, 1.0, 1.0]);
     }
 }
