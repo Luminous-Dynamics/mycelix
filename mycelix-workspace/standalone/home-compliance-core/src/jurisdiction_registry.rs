@@ -150,25 +150,25 @@ pub enum CapabilityCardIssue {
     MissingRequiredDomain(RegulatoryDomain),
     InvalidCoverageModuleId {
         domain: RegulatoryDomain,
-    }
+    },
     InvalidCoverageSourceDigest {
         domain: RegulatoryDomain,
-    }
+    },
     InvalidNotApplicableRationale {
         domain: RegulatoryDomain,
-    }
+    },
     InvalidNotApplicableDecision {
         domain: RegulatoryDomain,
-    }
+    },
     InvalidMissingGapDescription {
         domain: RegulatoryDomain,
-    }
+    },
     DuplicateReview(String),
     AuthorIncludedAsReviewer(String),
     InvalidReviewMetadata {
         reviewer_id: String,
         field: &'static str,
-    }
+    },
     InvalidReviewDigest(String),
     ReviewDigestMismatch(String),
     InsufficientIndependentReviewers,
