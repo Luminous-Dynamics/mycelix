@@ -203,10 +203,9 @@ pub fn evaluate_source_applicability(
     if let (Some(start), Some(end)) = (
         source.effective_from_day,
         source.effective_until_day_exclusive,
-    ) {
-        if end <= start {
-            return SourceApplicability::Indeterminate(IndeterminateReason::InvalidValidityWindow);
-        }
+    ) && end <= start
+    {
+        return SourceApplicability::Indeterminate(IndeterminateReason::InvalidValidityWindow);
     }
 
     let covers = match source_covers_jurisdiction(source, requested_jurisdiction) {
