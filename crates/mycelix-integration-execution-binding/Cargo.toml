@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-integration-execution-binding"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Exact-attempt provider-profile binding for Mycelix integration execution admission"
+
+[dependencies]
+ed25519-dalek = "2.1"
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+thiserror = "2.0"
