@@ -35,7 +35,10 @@ Every CLI admission receipt includes:
 - profile and evaluator versions;
 - requested component/version, operation, purpose, actor, territory, as-of timestamp and retention;
 - expected and observed terms digests;
+- expected and observed source-content digests when available under the declared source profile;
 - selected grant (when one applies), permission decision, admission decision, and reason code.
+
+The evaluator will not let a later review timestamp authorize a request as-of an earlier time. If the profile declares a source content digest, the request must provide the same digest; missing or different bytes return `unknown`. When a lawful content digest is not available, both profile and request must state that absence explicitly rather than borrowing a digest from another snapshot.
 
 A digest establishes identity of the bytes that were hashed. It does not authenticate the publisher, establish the truth of a source, prove the legal validity of terms, or establish that a source is authoritative.
 
