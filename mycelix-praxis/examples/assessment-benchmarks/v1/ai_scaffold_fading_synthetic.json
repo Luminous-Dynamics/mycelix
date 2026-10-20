@@ -7,17 +7,27 @@
     {
       "arm_id": "active_retrieval",
       "intervention": "time-matched-active-baseline",
-      "description": "Independent baseline and practice with retrieval prompts and feedback; no AI answer generation."
+      "description": "Independent baseline and practice with retrieval prompts and feedback; no AI answer generation.",
+      "allowed_practice_assistance": [
+        "unaided"
+      ]
     },
     {
       "arm_id": "ai_hint_fade",
       "intervention": "hint-first-scaffold-fading",
-      "description": "Practice provides hints and feedback, then fades assistance; all anchor assessments are unaided."
+      "description": "Practice provides hints and feedback, then fades assistance; all anchor assessments are unaided.",
+      "allowed_practice_assistance": [
+        "hint",
+        "scaffolded"
+      ]
     },
     {
       "arm_id": "ai_direct_answer",
       "intervention": "direct-answer-ai",
-      "description": "Practice provides direct-answer assistance; all anchor assessments are unaided."
+      "description": "Practice provides direct-answer assistance; all anchor assessments are unaided.",
+      "allowed_practice_assistance": [
+        "direct_answer"
+      ]
     }
   ],
   "episodes": [
