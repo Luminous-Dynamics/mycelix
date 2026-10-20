@@ -263,10 +263,7 @@ fn validate_evaluator_pair(
 /// computed as the entropy of joint outcome signatures under a uniform
 /// hypothesis prior. Unlike realized reduction, this does not depend on which
 /// synthetic world happened to be selected for this fixture.
-fn joint_information_gain_milli_bits(
-    hypotheses: &[String],
-    outcomes: &[&RequestOutcome],
-) -> u32 {
+fn joint_information_gain_milli_bits(hypotheses: &[String], outcomes: &[&RequestOutcome]) -> u32 {
     if hypotheses.len() < 2 || outcomes.is_empty() {
         return 0;
     }
@@ -606,8 +603,7 @@ fn oracle_information_gain_per_cost_trace(
                     .expect("pair validation covers all request IDs")
             })
             .collect::<Vec<_>>();
-        let gain =
-            joint_information_gain_milli_bits(&scenario.hypotheses, &selected_outcomes);
+        let gain = joint_information_gain_milli_bits(&scenario.hypotheses, &selected_outcomes);
 
         let better = match best.as_ref() {
             None => true,
