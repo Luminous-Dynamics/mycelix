@@ -2354,10 +2354,7 @@ mod browser_storage_tests {
             .unwrap()
             .expect("restored public key is present");
         assert_eq!(restored_public, original_public);
-        assert!(storage
-            .get_item(IDENTITY_SECRET_KEY)
-            .unwrap()
-            .is_none());
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
         assert!(
             storage
                 .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
