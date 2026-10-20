@@ -1,0 +1,51 @@
+{
+  "profile": "mycelix:web-target-admission-test:v1",
+  "candidate_dependencies": {
+    "web_locator_test_001": {"pr":2652,"head":"113c72bd2bbe5f6c3c7b76f80605682081ac8033"},
+    "web_domain_policy_test_001": {"pr":2663,"head":"d118567508c5f3cc6dba9c544756438c6a0a63d4"},
+    "web_net_registry_test_001": {"pr":2664,"head":"18d3d1f81de8f29dccb96e24fef787b4f90588e2"},
+    "web_dns_test_001": {"pr":2666,"head":"417e5fd3f3f9c442083e0a029dd89eb049ffa717"}
+  },
+  "admission_profile": {
+    "id": "mycelix:ordinary-public-target-admission:v1",
+    "one_shot": true,
+    "proxy": "disabled",
+    "userinfo": "refuse",
+    "allowed_effective_ports": [443],
+    "mixed_endpoint_set": "refuse",
+    "resolution_reuse": "same_exact_observation_only",
+    "redirects": "fresh_admission_required",
+    "connected_peer": "must_be_member_of_admitted_set"
+  },
+  "cases": [
+    {"id":"https-domain-single-safe","origin":{"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/report"},"domain_policy":"eligible","resolution":["8.8.8.8"],"endpoint_policy":["eligible"],"attempt":"A1","expected":"admit_single_attempt","admitted_endpoints":["8.8.8.8:443"]},
+    {"id":"https-domain-dual-safe","origin":{"scheme":"https","host":"dual.public-synthetic.invalidtld","port":443,"target":"/"},"domain_policy":"eligible","resolution":["8.8.8.8","2001:4860:4860::8888"],"endpoint_policy":["eligible","eligible"],"attempt":"A2","expected":"admit_single_attempt","admitted_endpoints":["8.8.8.8:443","[2001:4860:4860::8888]:443"]},
+    {"id":"https-domain-mixed-refuse","origin":{"scheme":"https","host":"mixed.public-synthetic.invalidtld","port":443,"target":"/"},"domain_policy":"eligible","resolution":["8.8.8.8","127.0.0.1"],"endpoint_policy":["eligible","refuse"],"attempt":"A3","expected":"refuse_mixed_endpoint_set"},
+    {"id":"special-use-domain-refuse-before-dns","origin":{"scheme":"https","host":"foo.localhost","port":443,"target":"/"},"domain_policy":"refuse_special_use","resolution":null,"attempt":"A4","expected":"refuse_domain_policy"},
+    {"id":"userinfo-refuse","origin":{"scheme":"https","host":"evil.test","port":443,"target":"/","userinfo_present":true},"attempt":"A5","expected":"refuse_userinfo"},
+    {"id":"port-refuse","origin":{"scheme":"https","host":"www.public-synthetic.invalidtld","port":8443,"target":"/"},"attempt":"A6","expected":"refuse_port_before_resolution"},
+    {"id":"direct-ip-special-refuse","origin":{"scheme":"https","host":"127.0.0.1","host_kind":"ipv4","port":443,"target":"/"},"endpoint_policy":["refuse"],"attempt":"A7","expected":"refuse_endpoint_policy"},
+    {"id":"direct-ip-ordinary-admit-value-only","origin":{"scheme":"https","host":"8.8.8.8","host_kind":"ipv4","port":443,"target":"/"},"endpoint_policy":["eligible"],"attempt":"A8","expected":"admit_single_attempt","network_io":false},
+    {"id":"nxdomain-refuse","origin":{"scheme":"https","host":"missing.public-synthetic.invalidtld","port":443,"target":"/"},"domain_policy":"eligible","resolution_status":"nxdomain","attempt":"A9","expected":"refuse_resolution"},
+    {"id":"partial-family-indeterminate","origin":{"scheme":"https","host":"partial.public-synthetic.invalidtld","port":443,"target":"/"},"domain_policy":"eligible","resolution_status":"partial_family_result","attempt":"A10","expected":"indeterminate_or_refuse"},
+    {"id":"nonce-replay-refuse","admission_ref":"A1-admission","attempt":"A1","consumption":2,"expected":"refuse_replay"},
+    {"id":"redirect-fresh-admission","source_admission":"A1-admission","location":"https://next.public-synthetic.invalidtld/new","expected":"new_locator_and_fresh_admission_required"},
+    {"id":"peer-match","admission_ref":"A1-admission","selected_endpoint":"8.8.8.8:443","observed_peer":"8.8.8.8:443","expected":"connected_peer_matches_only"},
+    {"id":"peer-mismatch","admission_ref":"A1-admission","selected_endpoint":"8.8.8.8:443","observed_peer":"127.0.0.1:443","expected":"connection_invalid"},
+    {"id":"origin-endpoint-split","origin":{"scheme":"https","host":"www.public-synthetic.invalidtld","port":443},"transport_endpoint":"8.8.8.8:443","expected_tls_server_name":"www.public-synthetic.invalidtld","expected_http_authority":"www.public-synthetic.invalidtld","expected":"preserve_split"},
+    {"id":"ambient-proxy-refuse","origin":{"scheme":"https","host":"www.public-synthetic.invalidtld","port":443},"environment":{"HTTPS_PROXY":"http://127.0.0.1:8080"},"expected":"ignore_or_refuse_ambient_proxy_under_direct_profile"}
+  ],
+  "invariants": [
+    "origin_authority_is_not_transport_endpoint",
+    "admission_is_one_shot",
+    "redirect_requires_fresh_admission",
+    "hostname_is_not_re_resolved_after_admission",
+    "connected_peer_must_be_in_exact_admitted_set",
+    "mixed_endpoint_set_refuses",
+    "proxy_environment_does_not_widen_authority",
+    "admission_is_not_connection",
+    "connection_is_not_tls_authentication",
+    "admission_is_not_evidence_truth_or_action_authority",
+    "no_network_io"
+  ]
+}
