@@ -482,6 +482,103 @@ mod tests {
         assert_eq!(left, right);
     }
 
+    fn next_random(seed: &mut u64) -> u64 {
+        *seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        *seed
+    }
+
+    fn selected_set<T: Clone + Ord>(values: &[T], seed: &mut u64) -> BTreeSet<T> {
+        let mut result = values
+            .iter()
+            .filter(|_| next_random(seed) & 1 == 1)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if result.is_empty() {
+            let index = (next_random(seed) as usize) % values.len();
+            result.insert(values[index].clone());
+        }
+        result
+    }
+
+    fn generated_ceiling(seed: &mut u64) -> ClaimCeilingV1 {
+        let atoms = [
+            atom(ClaimPredicate::Measurement, EvidenceClass::InstrumentMeasurement, DerivationKind::Direct, IntendedUse::Research),
+            atom(ClaimPredicate::Forecast, EvidenceClass::ForecastOutput, DerivationKind::StatisticalInference, IntendedUse::Planning),
+            atom(ClaimPredicate::CausalClaim, EvidenceClass::CausalIdentification, DerivationKind::StatisticalInference, IntendedUse::DecisionSupport),
+            atom(ClaimPredicate::FormalProperty, EvidenceClass::FormalProof, DerivationKind::FormalVerification, IntendedUse::Research),
+        ];
+        let subjects = ["asset-1", "asset-2", "asset-3", "asset-4"]
+            .map(str::to_owned);
+        let contexts = ["zone-a", "zone-b", "zone-c"].map(str::to_owned);
+        let actions = ["publish-report", "plan-repair", "operate-asset"].map(str::to_owned);
+        let qualifications = ["qualified-source", "calibrated-tool", "reviewed-method"].map(str::to_owned);
+        let controls = [
+            IndependenceControl::DistinctRecord,
+            IndependenceControl::DistinctAcquisition,
+            IndependenceControl::IndependentOrigin,
+            IndependenceControl::IndependentVerifier,
+        ];
+        let provenance = [
+            ProvenanceRequirement::SourceAttribution,
+            ProvenanceRequirement::ExactArtifactDigest,
+            ProvenanceRequirement::TrustedTimeEvidence,
+            ProvenanceRequirement::DependencyClosure,
+        ];
+        let start = (next_random(seed) % 1_000) as i64;
+        let duration = (next_random(seed) % 100 + 1) as i64;
+        ClaimCeilingV1 {
+            claim_atoms: selected_set(&atoms, seed),
+            subject_ids: selected_set(&subjects, seed),
+            context_ids: selected_set(&contexts, seed),
+            valid_time: TimeWindow {
+                start_unix_seconds: start,
+                end_unix_seconds_exclusive: start + duration,
+            },
+            action_scopes: actions
+                .iter()
+                .filter(|_| next_random(seed) & 1 == 1)
+                .cloned()
+                .collect(),
+            required_qualifications: qualifications
+                .iter()
+                .filter(|_| next_random(seed) & 1 == 1)
+                .cloned()
+                .collect(),
+            required_independence_controls: selected_set(&controls, seed),
+            required_provenance: selected_set(&provenance, seed),
+        }
+    }
+
+    #[test]
+    fn deterministic_10k_property_sweep_finds_no_lattice_violation() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
+        for iteration in 0..10_000 {
+            let a = generated_ceiling(&mut seed);
+            let b = generated_ceiling(&mut seed);
+            let c = generated_ceiling(&mut seed);
+
+            let ab = meet(&a, &b).1;
+            let ba = meet(&b, &a).1;
+            assert_eq!(ab, ba, "commutativity failed on pair {iteration}");
+
+            if let Some(result) = &ab {
+                assert!(is_no_broader_than(result, &a), "left non-amplification failed on pair {iteration}");
+                assert!(is_no_broader_than(result, &b), "right non-amplification failed on pair {iteration}");
+            }
+            assert_eq!(meet(&a, &a).1.as_ref(), Some(&a), "idempotence failed on item {iteration}");
+
+            let left_associated = ab.and_then(|first| meet(&first, &c).1);
+            let bc = meet(&b, &c).1;
+            let right_associated = bc.and_then(|second| meet(&a, &second).1);
+            assert_eq!(
+                left_associated, right_associated,
+                "associativity failed on triple {iteration}"
+            );
+        }
+    }
+
     #[test]
     fn disjoint_subjects_produce_bottom_without_a_fake_ceiling() {
         let mut left = base_ceiling();
