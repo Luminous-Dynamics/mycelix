@@ -58,7 +58,6 @@ by_id = {item["id"]: item for item in mutations}
 expected_outcomes = {
     "planned_input_is_not_consumption": ("Rejected", "Accepted"),
     "finding_is_not_source_observation": ("Rejected", "Accepted"),
-    "recommendation_needs_authorization_and_effect": ("Unauthorized", "Accepted"),
     "foreign_origin_survives_recognition": ("Rejected", "Accepted"),
     "qualification_does_not_prove_physical_work": ("Rejected", "Accepted"),
     "availability_requires_temporal_binding": ("Rejected", "Accepted"),
@@ -69,6 +68,10 @@ for case_id, expected in expected_outcomes.items():
     if (item.get("expected_without_binding"), item.get("expected_with_binding")) != expected:
         raise SystemExit(f"{case_id}: frozen transition expectation mismatch")
 recommendation = by_id["recommendation_needs_authorization_and_effect"]
+if recommendation.get("expected_without_binding") != "Unauthorized":
+    raise SystemExit("recommendation without authorization/effect must remain Unauthorized")
+if recommendation.get("expected_with_authorization_and_effect") != "Accepted":
+    raise SystemExit("recommendation requires both authorization and effect evidence")
 if recommendation.get("expected_authorization_only") != "Unauthorized":
     raise SystemExit("authorization alone must not imply an operational effect")
 if by_id["unknown_delivery_is_not_failure"].get("expected_without_binding") != "Unknown":
