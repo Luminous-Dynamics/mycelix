@@ -25,6 +25,12 @@ const CATALOG_V1_SCHEMA: &str =
     include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json");
 const EVALUATOR_V1_SCHEMA: &str =
     include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.schema.json");
+const PREREG_TEMPLATE_JSON: &str = include_str!(
+    "../../../examples/cyber-evidence-efficiency/v2/qualification-protocol.template.json"
+);
+const PREREG_SCHEMA_JSON: &str = include_str!(
+    "../../../examples/cyber-evidence-efficiency/v2/qualification-protocol.schema.json"
+);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1378,3 +1384,59 @@ fn metadata_only_baseline_never_selects_a_request_above_its_authority() {
             .any(|request_id| request_id == "privileged-token-use-audit")
     );
 }
+
+
+#[test]
+fn preregistration_template_is_schema_valid_but_not_eligible_to_report_a_score() {
+    let schema: serde_json::Value =
+        serde_json::from_str(PREREG_SCHEMA_JSON).expect("preregistration schema parses");
+    let template: serde_json::Value =
+        serde_json::from_str(PREREG_TEMPLATE_JSON).expect("preregistration template parses");
+    assert!(jsonschema::draft202012::meta::is_valid(&schema));
+    let validator = jsonschema::draft202012::new(&schema).expect("schema compiles");
+    assert!(validator.is_valid(&template));
+    assert_eq!(template["status"], "template_only_not_preregistered");
+    assert_eq!(template["eligibility"], "NOT_ELIGIBLE_FOR_COMPARATIVE_SCORE");
+    assert_eq!(template["minimum_held_out_cases"], 50);
+    assert_eq!(template["data_split"]["public_conformance_excluded"], true);
+    assert_eq!(template["safety_gates"]["unauthorized_actions_accepted"], 0);
+    assert_eq!(
+        template["safety_gates"]["aggregate_score_may_compensate_for_safety_failure"],
+        false
+    );
+
+    let mut falsely_registered = template.clone();
+    falsely_registered["status"] = serde_json::Value::String("registered".into());
+    assert!(
+        !validator.is_valid(&falsely_registered),
+        "a template cannot self-promote to a registered protocol"
+    );
+    let mut undersized = template.clone();
+    undersized["minimum_held_out_cases"] = serde_json::Value::from(12);
+    assert!(
+        !validator.is_valid(&undersized),
+        "the frozen protocol must preserve the minimum held-out case count"
+    );
+    let mut unsafe_gate = template;
+    unsafe_gate["safety_gates"]["unauthorized_actions_accepted"] = serde_json::Value::from(1);
+    assert!(
+        !validator.is_valid(&unsafe_gate),
+        "the preregistration schema must reject a non-zero safety acceptance target"
+    );
+}
+
+#[test]
+fn preregistration_policy_arms_label_the_evaluator_oracle_as_non_competitive() {
+    let template: serde_json::Value =
+        serde_json::from_str(PREREG_TEMPLATE_JSON).expect("preregistration template parses");
+    let arms = template["policy_arms"].as_array().expect("policy arms array");
+    let oracle = arms
+        .iter()
+        .find(|arm| arm["id"] == "non_adaptive_oracle_upper_bound")
+        .expect("oracle arm exists");
+    assert_eq!(oracle["uses_evaluator_only_data"], true);
+    assert_eq!(oracle["comparative_competitor"], false);
+    assert!(arms.iter().any(|arm| arm["id"] == "human_analyst_reference"));
+    assert!(arms.iter().any(|arm| arm["id"] == "ai_tool_policy"));
+}
+
