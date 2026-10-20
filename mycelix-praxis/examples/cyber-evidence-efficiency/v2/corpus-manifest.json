@@ -29,6 +29,6 @@
   "qualification_protocol_template_file": "qualification-protocol.template.json",
   "qualification_protocol_schema_file": "qualification-protocol.schema.json",
   "qualification_protocol_template_git_blob_sha": "232f7af6ec87c14189768706e7ce14b13c1dd79f",
-  "qualification_protocol_schema_git_blob_sha": "d8d12304fe0b59a5de4c86b9f81694661a977a6a",
+  "qualification_protocol_schema_git_blob_sha": "9aa1d78ce93c7ba4b2f16bf12742b3e572ad1532",
   "qualification_protocol_note": "This is a deliberately ineligible template; do not count the public synthetic corpus as held-out evaluation or claim a registered comparison until the null pre-registration fields have been completed, independently reviewed, and frozen before held-out access."
 }
