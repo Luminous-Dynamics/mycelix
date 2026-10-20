@@ -1,0 +1,780 @@
+{
+  "metadata": {
+    "title": "Praxis Essential Capabilities — cross-domain adult foundation",
+    "framework": "PraxisEssentialCapabilities",
+    "source": "Custom synthesis; see essential_capabilities_v1.md for references, limits, and assessment proposal.",
+    "grade_level": "Adult",
+    "subject_area": "Technology",
+    "domain": "Essential Capabilities",
+    "version": "1.0-draft",
+    "total_standards": 19,
+    "domains": [
+      "Epistemic literacy",
+      "Quantitative literacy",
+      "Scientific literacy",
+      "Systems literacy",
+      "Personal finance",
+      "Digital literacy",
+      "Health literacy",
+      "Civic literacy",
+      "Communication",
+      "Learning literacy",
+      "Safety and resilience",
+      "Environmental literacy",
+      "Work and economic agency",
+      "Practical agency"
+    ],
+    "created_at": "2026-10-20",
+    "notes": "Jurisdiction-neutral working seed, not an official standards framework or credential policy. Estimated hours are orientation/practice estimates, not mastery guarantees. Demonstrations are embedded in node descriptions. No formal standards alignment is claimed."
+  },
+  "nodes": [
+    {
+      "id": "EK-EPI-001",
+      "title": "Separate observation, interpretation, and assumption",
+      "description": "Capability: distinguish what was directly observed, what was inferred, which assumptions connect them, and what remains unknown. Demonstration: annotate a short case into observations, interpretations, assumptions, and open questions; revise the annotation when new evidence is supplied.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Epistemic literacy",
+      "subdomain": "Evidence and inference",
+      "tags": [
+        "essential-capability-v1",
+        "evidence",
+        "inference",
+        "uncertainty"
+      ],
+      "estimated_hours": 3,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "EnglishLanguageArts",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-EPI-002",
+      "title": "Evaluate sources and trace information provenance",
+      "description": "Capability: assess who produced a claim, when and why it was produced, what evidence supports it, whether primary sources are available, and whether independent sources genuinely corroborate it. Demonstration: compare two conflicting claims and produce a short source trail that distinguishes primary evidence, reporting, opinion, and unsupported assertion.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Epistemic literacy",
+      "subdomain": "Information and media literacy",
+      "tags": [
+        "essential-capability-v1",
+        "source-evaluation",
+        "provenance",
+        "media-literacy"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Evaluate",
+      "subject_area": "EnglishLanguageArts",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-MATH-001",
+      "title": "Use numeracy, ratios, units, and estimation",
+      "description": "Capability: calculate and sanity-check percentages, ratios, rates, unit conversions, orders of magnitude, and estimates used in everyday choices. Demonstration: estimate before calculating, show units and assumptions, then explain whether the result is plausible.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Quantitative literacy",
+      "subdomain": "Numeracy and measurement",
+      "tags": [
+        "essential-capability-v1",
+        "numeracy",
+        "units",
+        "estimation"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "Mathematics",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-DATA-001",
+      "title": "Interpret statistics, charts, and everyday risk",
+      "description": "Capability: read axes and denominators, distinguish absolute from relative change, understand base rates and sample limitations, and avoid treating correlation as causation. Demonstration: explain a chart or risk statement in plain language, identify a plausible misleading interpretation, and state what extra information would change the conclusion.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Quantitative literacy",
+      "subdomain": "Data and probability",
+      "tags": [
+        "essential-capability-v1",
+        "statistics",
+        "probability",
+        "base-rates",
+        "risk"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Analyze",
+      "subject_area": "Mathematics",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-EPI-003",
+      "title": "Represent uncertainty and update beliefs proportionately",
+      "description": "Capability: express confidence at a useful level of precision, separate confidence from importance, seek disconfirming evidence, and update a claim without pretending that uncertainty has disappeared. Demonstration: record a prediction with a reason and confidence level, list a possible disconfirmation, then explain a later update.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Epistemic literacy",
+      "subdomain": "Calibration and belief revision",
+      "tags": [
+        "essential-capability-v1",
+        "calibration",
+        "belief-updating",
+        "falsification"
+      ],
+      "estimated_hours": 3,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Evaluate",
+      "subject_area": "Science",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-SCI-001",
+      "title": "Reason scientifically about mechanisms and causes",
+      "description": "Capability: formulate answerable questions, propose competing explanations, distinguish observation from intervention, make testable predictions, and describe limits of a result. Demonstration: design a small ethical, low-risk test with a comparison, a measurable outcome, and a stated alternative explanation; do not generalize beyond its evidence.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Scientific literacy",
+      "subdomain": "Investigation and causal reasoning",
+      "tags": [
+        "essential-capability-v1",
+        "scientific-method",
+        "causality",
+        "models"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Create",
+      "subject_area": "Science",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-SYS-001",
+      "title": "Recognize systems, feedback, stocks, and unintended effects",
+      "description": "Capability: map components, flows, delays, constraints, feedback loops, and externalities in a real process. Demonstration: draw a small causal-loop or stock-and-flow sketch for a household, service, or community problem and identify a feedback loop plus one possible unintended consequence.",
+      "node_type": "Concept",
+      "difficulty": "Intermediate",
+      "domain": "Systems literacy",
+      "subdomain": "Feedback and resilience",
+      "tags": [
+        "essential-capability-v1",
+        "systems-thinking",
+        "feedback",
+        "resilience"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Analyze",
+      "subject_area": "Science",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-FIN-001",
+      "title": "Make informed personal cash-flow and borrowing decisions",
+      "description": "Capability: distinguish income, recurring and irregular costs, assets, liabilities, interest, fees, inflation, and emergency buffers. Demonstration: build a realistic monthly cash-flow example and compare two borrowing or saving scenarios using total cost, time, and explicit assumptions; this is education, not personalized financial advice.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Personal finance",
+      "subdomain": "Cash flow and time value",
+      "tags": [
+        "essential-capability-v1",
+        "budgeting",
+        "interest",
+        "inflation",
+        "financial-literacy"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "Mathematics",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-FIN-002",
+      "title": "Evaluate consumer offers, contracts, and fraud risks",
+      "description": "Capability: compare total cost and exit conditions, identify pressure tactics and common fraud signals, protect identity documents, and know where to seek independent local consumer advice. Demonstration: review a fictional offer and identify missing terms, fees, risks, verification steps, and questions to ask before committing.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Personal finance",
+      "subdomain": "Consumer decisions and fraud",
+      "tags": [
+        "essential-capability-v1",
+        "consumer-literacy",
+        "contracts",
+        "fraud-prevention"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Evaluate",
+      "subject_area": "SocialStudies",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-DIG-001",
+      "title": "Protect accounts, devices, privacy, and consent",
+      "description": "Capability: use unique passwords or a password manager, multifactor authentication where available, timely updates, recovery methods, backups, and deliberate sharing permissions; recognize and report suspicious requests. Demonstration: complete a non-invasive personal security checklist and explain how to recover one account without sharing secrets with an assessor.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Digital literacy",
+      "subdomain": "Cybersecurity and privacy",
+      "tags": [
+        "essential-capability-v1",
+        "cybersecurity",
+        "privacy",
+        "account-recovery"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "Technology",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-AI-001",
+      "title": "Use AI systems critically and safely",
+      "description": "Capability: identify when AI output is a hypothesis rather than a source, verify consequential claims against independent evidence, disclose meaningful assistance where required, and protect confidential data. For code or automation, test in a bounded environment and require human review before consequential actions. Demonstration: audit a deliberately flawed AI answer, trace two claims to sources, and describe what must not be delegated.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Digital literacy",
+      "subdomain": "AI and automation literacy",
+      "tags": [
+        "essential-capability-v1",
+        "ai-literacy",
+        "verification",
+        "automation-safety"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Evaluate",
+      "subject_area": "Technology",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-HEALTH-001",
+      "title": "Navigate health information and care decisions",
+      "description": "Capability: find relevant, current health information; distinguish general education from diagnosis; prepare clear questions for qualified professionals; compare stated benefits, risks, alternatives, and uncertainty; and recognize when local urgent or emergency services should be consulted. Demonstration: create a question list for a fictional appointment and trace a health claim to an appropriate authoritative source. This module does not diagnose or replace clinical care.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Health literacy",
+      "subdomain": "Information and care navigation",
+      "tags": [
+        "essential-capability-v1",
+        "health-literacy",
+        "source-evaluation",
+        "informed-decisions"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "Science",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-CIVIC-001",
+      "title": "Understand civic institutions and participate with evidence",
+      "description": "Capability: identify which local institution or process is responsible for an issue, distinguish law or official policy from commentary, compare arguments fairly, and find a legitimate participation or appeal route. Demonstration: trace a fictional public claim to the relevant primary document and map the responsible institution; legal details must be localized to the learner's jurisdiction.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Civic literacy",
+      "subdomain": "Institutions and participation",
+      "tags": [
+        "essential-capability-v1",
+        "civic-literacy",
+        "institutions",
+        "primary-sources"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Analyze",
+      "subject_area": "SocialStudies",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-COMMS-001",
+      "title": "Communicate clearly and work through disagreement",
+      "description": "Capability: state goals and constraints, listen for the other person's model of the situation, distinguish impact from intent, ask clarifying questions, negotiate workable next steps, and record shared decisions. Demonstration: use a scenario to produce a neutral issue summary, at least two competing interpretations, a fair question, and an observable next action.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Communication",
+      "subdomain": "Collaboration and conflict",
+      "tags": [
+        "essential-capability-v1",
+        "communication",
+        "collaboration",
+        "conflict-resolution"
+      ],
+      "estimated_hours": 3,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "EnglishLanguageArts",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-LEARN-001",
+      "title": "Design a self-directed learning loop",
+      "description": "Capability: define a specific learning outcome, test prior knowledge, practice retrieving information without looking, space reviews over time, seek corrective feedback, and apply learning in a new context. Demonstration: create a short learning plan with a baseline task, practice schedule, retrieval prompts, feedback source, and delayed transfer check. Presentation preferences may be respected but do not by themselves prove a learning advantage.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Learning literacy",
+      "subdomain": "Self-regulated lifelong learning",
+      "tags": [
+        "essential-capability-v1",
+        "retrieval-practice",
+        "spaced-practice",
+        "transfer",
+        "metacognition"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Create",
+      "subject_area": "SocialStudies",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-EMERG-001",
+      "title": "Prepare for local emergencies and act within limits",
+      "description": "Capability: locate official local alerts and emergency contacts, plan household communication and evacuation, prepare context-appropriate essential supplies, and recognize when to seek qualified help rather than improvise. Demonstration: complete a household or individual plan for one plausible hazard and walk through a scenario using official local guidance; first-aid skills require appropriate practical instruction.",
+      "node_type": "Skill",
+      "difficulty": "Beginner",
+      "domain": "Safety and resilience",
+      "subdomain": "Preparedness and escalation",
+      "tags": [
+        "essential-capability-v1",
+        "preparedness",
+        "risk",
+        "localization"
+      ],
+      "estimated_hours": 3,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "Science",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-ECO-001",
+      "title": "Understand everyday energy, water, and material systems",
+      "description": "Capability: identify major inputs, outputs, losses, maintenance needs, and environmental trade-offs in a household or community system. Demonstration: estimate one meaningful resource flow, state the measurement basis, and compare two interventions including cost, reliability, rebound effects, and who bears the impacts.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Environmental literacy",
+      "subdomain": "Resource flows and trade-offs",
+      "tags": [
+        "essential-capability-v1",
+        "energy",
+        "water",
+        "materials",
+        "sustainability"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Analyze",
+      "subject_area": "Science",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-PROJ-001",
+      "title": "Plan, execute, and improve a useful project",
+      "description": "Capability: translate a problem into a testable goal, define scope and acceptance criteria, identify dependencies and risks, make progress visible, test the result, and run a blameless after-action review. Demonstration: deliver a small artifact or service, show evidence against its acceptance criteria, and document one failed assumption and the resulting change.",
+      "node_type": "Project",
+      "difficulty": "Intermediate",
+      "domain": "Practical agency",
+      "subdomain": "Project delivery and troubleshooting",
+      "tags": [
+        "essential-capability-v1",
+        "project-planning",
+        "debugging",
+        "continuous-improvement"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Create",
+      "subject_area": "Technology",
+      "academic_standards": []
+    },
+    {
+      "id": "EK-WORK-001",
+      "title": "Navigate work, collaboration, and career development",
+      "description": "Capability: understand role expectations, deliverables, feedback, fair agreements, basic pay documentation, workplace safety, skill evidence, and how employment rules vary by jurisdiction. Demonstration: turn a fictional role description into an evidence-backed skills gap plan, work sample, questions about terms, and a next-step learning plan.",
+      "node_type": "Skill",
+      "difficulty": "Intermediate",
+      "domain": "Work and economic agency",
+      "subdomain": "Employability and skill development",
+      "tags": [
+        "essential-capability-v1",
+        "workplace-literacy",
+        "career-development",
+        "skills-evidence"
+      ],
+      "estimated_hours": 4,
+      "grade_levels": [
+        "Adult"
+      ],
+      "bloom_level": "Apply",
+      "subject_area": "SocialStudies",
+      "academic_standards": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "EK-EPI-001",
+      "to": "EK-EPI-002",
+      "edge_type": "Requires",
+      "strength_permille": 900,
+      "rationale": "Source assessment is clearer when observations, interpretations, and assumptions are separated."
+    },
+    {
+      "from": "EK-MATH-001",
+      "to": "EK-DATA-001",
+      "edge_type": "Requires",
+      "strength_permille": 900,
+      "rationale": "Interpreting denominators, rates, and scale depends on basic numeracy."
+    },
+    {
+      "from": "EK-EPI-001",
+      "to": "EK-DATA-001",
+      "edge_type": "Recommends",
+      "strength_permille": 750,
+      "rationale": "Separating data from interpretation reduces overclaiming."
+    },
+    {
+      "from": "EK-MATH-001",
+      "to": "EK-EPI-003",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Numerical estimates can make uncertainty more explicit where quantification is useful."
+    },
+    {
+      "from": "EK-DATA-001",
+      "to": "EK-EPI-003",
+      "edge_type": "Requires",
+      "strength_permille": 850,
+      "rationale": "Base rates and sample limitations support calibrated uncertainty."
+    },
+    {
+      "from": "EK-EPI-001",
+      "to": "EK-SCI-001",
+      "edge_type": "Requires",
+      "strength_permille": 850,
+      "rationale": "Scientific inquiry depends on distinguishing observations from explanations."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-SCI-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Source evaluation helps judge background evidence."
+    },
+    {
+      "from": "EK-DATA-001",
+      "to": "EK-SCI-001",
+      "edge_type": "Requires",
+      "strength_permille": 800,
+      "rationale": "Investigations require interpretable measures and data."
+    },
+    {
+      "from": "EK-EPI-003",
+      "to": "EK-SCI-001",
+      "edge_type": "Recommends",
+      "strength_permille": 800,
+      "rationale": "Predictions, alternatives, and updates strengthen test design."
+    },
+    {
+      "from": "EK-DATA-001",
+      "to": "EK-SYS-001",
+      "edge_type": "Requires",
+      "strength_permille": 800,
+      "rationale": "System maps need quantitative attention to rates, stocks, and delays."
+    },
+    {
+      "from": "EK-SCI-001",
+      "to": "EK-SYS-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Models and alternative explanations support systems analysis."
+    },
+    {
+      "from": "EK-MATH-001",
+      "to": "EK-FIN-001",
+      "edge_type": "Requires",
+      "strength_permille": 900,
+      "rationale": "Cash-flow, rates, and total-cost comparisons depend on numeracy."
+    },
+    {
+      "from": "EK-DATA-001",
+      "to": "EK-FIN-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Risk and rate literacy improve financial comparisons."
+    },
+    {
+      "from": "EK-FIN-001",
+      "to": "EK-FIN-002",
+      "edge_type": "Requires",
+      "strength_permille": 800,
+      "rationale": "Consumer-offer comparison builds on understanding total cost and time."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-FIN-002",
+      "edge_type": "Recommends",
+      "strength_permille": 800,
+      "rationale": "Independent source checks help identify fraudulent or misleading offers."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-DIG-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Source verification is useful when handling suspicious digital requests."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-AI-001",
+      "edge_type": "Requires",
+      "strength_permille": 900,
+      "rationale": "Critical AI use depends on source and claim verification."
+    },
+    {
+      "from": "EK-DIG-001",
+      "to": "EK-AI-001",
+      "edge_type": "Recommends",
+      "strength_permille": 850,
+      "rationale": "Privacy and access-control habits constrain safe use of AI tools."
+    },
+    {
+      "from": "EK-EPI-001",
+      "to": "EK-HEALTH-001",
+      "edge_type": "Requires",
+      "strength_permille": 800,
+      "rationale": "Health-information navigation requires separating claim, evidence, and interpretation."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-HEALTH-001",
+      "edge_type": "Requires",
+      "strength_permille": 900,
+      "rationale": "Health claims require careful source selection and provenance."
+    },
+    {
+      "from": "EK-DATA-001",
+      "to": "EK-HEALTH-001",
+      "edge_type": "Recommends",
+      "strength_permille": 750,
+      "rationale": "Basic risk and denominator literacy helps interpret health statistics."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-CIVIC-001",
+      "edge_type": "Requires",
+      "strength_permille": 850,
+      "rationale": "Civic claims should be traced to primary documents and accountable institutions."
+    },
+    {
+      "from": "EK-SYS-001",
+      "to": "EK-ECO-001",
+      "edge_type": "Requires",
+      "strength_permille": 850,
+      "rationale": "Resource trade-offs depend on flows, constraints, feedback, and externalities."
+    },
+    {
+      "from": "EK-MATH-001",
+      "to": "EK-ECO-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Resource comparisons depend on units and scale."
+    },
+    {
+      "from": "EK-EPI-001",
+      "to": "EK-COMMS-001",
+      "edge_type": "Recommends",
+      "strength_permille": 650,
+      "rationale": "Distinguishing observation from interpretation can reduce avoidable conflict."
+    },
+    {
+      "from": "EK-COMMS-001",
+      "to": "EK-WORK-001",
+      "edge_type": "Requires",
+      "strength_permille": 750,
+      "rationale": "Workplace coordination depends on clear communication and shared expectations."
+    },
+    {
+      "from": "EK-FIN-001",
+      "to": "EK-WORK-001",
+      "edge_type": "Recommends",
+      "strength_permille": 650,
+      "rationale": "Understanding pay and cash flow helps formulate practical work-related questions."
+    },
+    {
+      "from": "EK-EPI-001",
+      "to": "EK-LEARN-001",
+      "edge_type": "Recommends",
+      "strength_permille": 650,
+      "rationale": "Self-directed learning benefits from distinguishing current knowledge from assumption."
+    },
+    {
+      "from": "EK-EPI-003",
+      "to": "EK-LEARN-001",
+      "edge_type": "Recommends",
+      "strength_permille": 750,
+      "rationale": "Confidence calibration helps learners decide what to review."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-EMERG-001",
+      "edge_type": "Requires",
+      "strength_permille": 750,
+      "rationale": "Emergency plans should rely on verified, locally authoritative information."
+    },
+    {
+      "from": "EK-SYS-001",
+      "to": "EK-EMERG-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Preparedness improves when dependencies, bottlenecks, and cascading failures are considered."
+    },
+    {
+      "from": "EK-CIVIC-001",
+      "to": "EK-EMERG-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Knowing local institutions helps locate official alerts and assistance."
+    },
+    {
+      "from": "EK-SYS-001",
+      "to": "EK-PROJ-001",
+      "edge_type": "Requires",
+      "strength_permille": 750,
+      "rationale": "Delivery plans improve when dependencies and feedback are visible."
+    },
+    {
+      "from": "EK-COMMS-001",
+      "to": "EK-PROJ-001",
+      "edge_type": "Requires",
+      "strength_permille": 750,
+      "rationale": "Projects need clear handoffs, scope, and shared acceptance criteria."
+    },
+    {
+      "from": "EK-EPI-003",
+      "to": "EK-PROJ-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Explicit assumptions and review points help projects adapt to new evidence."
+    },
+    {
+      "from": "EK-LEARN-001",
+      "to": "EK-PROJ-001",
+      "edge_type": "Recommends",
+      "strength_permille": 700,
+      "rationale": "Feedback and reflection support iterative project improvement."
+    },
+    {
+      "from": "EK-EPI-002",
+      "to": "EK-WORK-001",
+      "edge_type": "Recommends",
+      "strength_permille": 650,
+      "rationale": "Evidence-backed skill claims and agreement review require source discipline."
+    }
+  ],
+  "learning_paths": [
+    {
+      "title": "Reasoning Under Uncertainty",
+      "description": "A compact foundation for checking claims, reading data, representing uncertainty, and doing testable investigations.",
+      "sequence": [
+        "EK-EPI-001",
+        "EK-EPI-002",
+        "EK-MATH-001",
+        "EK-DATA-001",
+        "EK-EPI-003",
+        "EK-SCI-001"
+      ],
+      "total_hours": 22
+    },
+    {
+      "title": "Sovereign Digital Participation",
+      "description": "Protect accounts and data, evaluate AI output, and trace civic claims to accountable primary sources.",
+      "sequence": [
+        "EK-EPI-001",
+        "EK-EPI-002",
+        "EK-DIG-001",
+        "EK-AI-001",
+        "EK-CIVIC-001"
+      ],
+      "total_hours": 19
+    },
+    {
+      "title": "Personal Resilience and Agency",
+      "description": "Build practical capability for financial choices, health-information navigation, local preparedness, work, and project delivery.",
+      "sequence": [
+        "EK-MATH-001",
+        "EK-FIN-001",
+        "EK-FIN-002",
+        "EK-HEALTH-001",
+        "EK-EMERG-001",
+        "EK-WORK-001",
+        "EK-PROJ-001"
+      ],
+      "total_hours": 27
+    },
+    {
+      "title": "Self-Directed Lifelong Learning",
+      "description": "Set a goal, calibrate current understanding, use evidence-informed practice, and test transfer in a useful project.",
+      "sequence": [
+        "EK-EPI-001",
+        "EK-EPI-003",
+        "EK-LEARN-001",
+        "EK-PROJ-001"
+      ],
+      "total_hours": 14
+    },
+    {
+      "title": "Understand and Improve Living Systems",
+      "description": "Combine data, scientific inquiry, systems models, resource literacy, and iterative intervention.",
+      "sequence": [
+        "EK-MATH-001",
+        "EK-DATA-001",
+        "EK-SCI-001",
+        "EK-SYS-001",
+        "EK-ECO-001",
+        "EK-PROJ-001"
+      ],
+      "total_hours": 24
+    }
+  ]
+}
