@@ -40,29 +40,8 @@ fn decode_agent_pubkey(pubkey: &str) -> ExternResult<AgentPubKey> {
 /// Create a health record on the agent's source chain.
 #[hdk_extern]
 pub fn create_health_record(record: HealthRecord) -> ExternResult<Record> {
-    let action_hash = create_entry(&EntryTypes::HealthRecord(record.clone()))?;
-    let agent = agent_info()?.agent_initial_pubkey;
-    create_link(
-        agent.clone(),
-        action_hash.clone(),
-        LinkTypes::AgentToRecords,
-        (),
-    )?;
-
-    let type_anchor_hash = hash_entry(&EntryTypes::HealthRecord(HealthRecord {
-        record_type: record.record_type.clone(),
-        data: String::new(),
-        source: String::new(),
-        event_date: Timestamp::from_micros(0),
-        updated_at: Timestamp::from_micros(0),
-    }))?;
-    let _ = create_link(
-        agent,
-        type_anchor_hash,
-        LinkTypes::RecordTypeToRecord,
-        record.record_type.as_bytes().to_vec(),
-    );
-
+    // HealthRecord is private; do not publish owner or record-type index links.
+    let action_hash = create_entry(&EntryTypes::HealthRecord(record))?;
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created health record".into()
     )))
@@ -71,9 +50,8 @@ pub fn create_health_record(record: HealthRecord) -> ExternResult<Record> {
 /// Store a biometric measurement.
 #[hdk_extern]
 pub fn record_biometric(biometric: Biometric) -> ExternResult<Record> {
+    // Biometric is private; avoid publishing a link that exposes an indexed measurement.
     let action_hash = create_entry(&EntryTypes::Biometric(biometric))?;
-    let agent = agent_info()?.agent_initial_pubkey;
-    create_link(agent, action_hash.clone(), LinkTypes::AgentToBiometrics, ())?;
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created biometric".into()
     )))
@@ -82,9 +60,8 @@ pub fn record_biometric(biometric: Biometric) -> ExternResult<Record> {
 /// Grant consent for a specific agent to read health records.
 #[hdk_extern]
 pub fn grant_consent(consent: ConsentGrant) -> ExternResult<Record> {
+    // Consent grants are private source-chain state, not public DHT relationship metadata.
     let action_hash = create_entry(&EntryTypes::ConsentGrant(consent))?;
-    let agent = agent_info()?.agent_initial_pubkey;
-    create_link(agent, action_hash.clone(), LinkTypes::AgentToConsents, ())?;
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created consent".into()
     )))
@@ -128,12 +105,7 @@ pub fn revoke_consent(grant_hash: ActionHash) -> ExternResult<Record> {
     let revocation_hash = create_entry(&EntryTypes::ConsentRevocation(ConsentRevocation {
         grant_hash,
     }))?;
-    create_link(
-        owner,
-        revocation_hash.clone(),
-        LinkTypes::AgentToConsentRevocations,
-        (),
-    )?;
+    // Revocation history is private and queried locally; do not publish a DHT link.
     get(revocation_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created consent revocation".into()
     )))
@@ -163,24 +135,11 @@ pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<Record> 
 /// Get all health records for this agent.
 #[hdk_extern]
 pub fn get_my_records(_: ()) -> ExternResult<Vec<Record>> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToRecords)?,
-        GetStrategy::Local,
-    )?;
-    let mut records = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid link target: {:?}",
-                e
-            )))
-        })?;
-        if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
-        }
-    }
-    Ok(records)
+    // ChainQueryFilter reads this cell's source chain; include the private entry content.
+    let filter = ChainQueryFilter::new()
+        .entry_type(EntryType::App(AppEntryDef::try_from(UnitEntryTypes::HealthRecord)?))
+        .include_entries(true);
+    query(filter)
 }
 
 #[hdk_extern]
@@ -209,24 +168,10 @@ pub fn get_my_records_view(_: ()) -> ExternResult<Vec<HealthRecordView>> {
 /// Get all biometric measurements for this agent.
 #[hdk_extern]
 pub fn get_my_biometrics(_: ()) -> ExternResult<Vec<Record>> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToBiometrics)?,
-        GetStrategy::Local,
-    )?;
-    let mut records = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid link target: {:?}",
-                e
-            )))
-        })?;
-        if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
-        }
-    }
-    Ok(records)
+    let filter = ChainQueryFilter::new()
+        .entry_type(EntryType::App(AppEntryDef::try_from(UnitEntryTypes::Biometric)?))
+        .include_entries(true);
+    query(filter)
 }
 
 #[hdk_extern]
@@ -278,30 +223,19 @@ fn consent_is_revoked(grant_hash: &ActionHash, revocations: &[ConsentRevocation]
 /// Load revocation events linked by their authoring owner.
 /// The creation action is the immutable source of the event timestamp.
 fn get_my_consent_revocation_records() -> ExternResult<Vec<(Record, ConsentRevocation)>> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToConsentRevocations)?,
-        GetStrategy::Local,
-    )?;
+    let filter = ChainQueryFilter::new()
+        .entry_type(EntryType::App(AppEntryDef::try_from(
+            UnitEntryTypes::ConsentRevocation,
+        )?))
+        .include_entries(true);
     let mut events = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid revocation link target: {:?}",
-                e
-            )))
-        })?;
-        if let Some(record) = get(target, GetOptions::default())? {
-            if record.action().author() != &agent {
-                continue;
-            }
-            if let Some(event) = record
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            {
-                events.push((record, event));
-            }
+    for record in query(filter)? {
+        if let Some(event) = record
+            .entry()
+            .to_app_option::<ConsentRevocation>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        {
+            events.push((record, event));
         }
     }
     Ok(events)
@@ -310,36 +244,23 @@ fn get_my_consent_revocation_records() -> ExternResult<Vec<(Record, ConsentRevoc
 /// Fetch the current-effective grants using one evaluation timestamp.
 /// This is a source-local listing projection, not a grantee read-authorization gate.
 fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
-    let agent = agent_info()?.agent_initial_pubkey;
     let revocations: Vec<ConsentRevocation> = get_my_consent_revocation_records()?
         .into_iter()
         .map(|(_, event)| event)
         .collect();
-    let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToConsents)?,
-        GetStrategy::Local,
-    )?;
+    let filter = ChainQueryFilter::new()
+        .entry_type(EntryType::App(AppEntryDef::try_from(UnitEntryTypes::ConsentGrant)?))
+        .include_entries(true);
     let mut records = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid link target: {:?}",
-                e
-            )))
-        })?;
-        if let Some(record) = get(target.clone(), GetOptions::default())? {
-            // Ignore foreign grants even if an older validator accepted a forged owner link.
-            if record.action().author() != &agent {
-                continue;
-            }
-            let consent = record
-                .entry()
-                .to_app_option::<ConsentGrant>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-            if let Some(consent) = consent {
-                if consent_is_effective_at(&target, &consent, now, &revocations) {
-                    records.push(record);
-                }
+    for record in query(filter)? {
+        let target = record.action_address().clone();
+        if let Some(consent) = record
+            .entry()
+            .to_app_option::<ConsentGrant>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        {
+            if consent_is_effective_at(&target, &consent, now, &revocations) {
+                records.push(record);
             }
         }
     }
