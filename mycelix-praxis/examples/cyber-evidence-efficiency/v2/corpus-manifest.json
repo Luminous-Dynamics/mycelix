@@ -28,7 +28,7 @@
   "git_blob_sha_note": "Git blob identities are checked against the exact repository checkout. They bind file bytes within this revision; they are not signatures, independent attestations, calibrated incident probabilities, or real-world evidence.",
   "qualification_protocol_template_file": "qualification-protocol.template.json",
   "qualification_protocol_schema_file": "qualification-protocol.schema.json",
-  "qualification_protocol_template_git_blob_sha": "232f7af6ec87c14189768706e7ce14b13c1dd79f",
+  "qualification_protocol_template_git_blob_sha": "7c893e644b62aada91039dcf171cdeef2d8db86c",
   "qualification_protocol_schema_git_blob_sha": "9aa1d78ce93c7ba4b2f16bf12742b3e572ad1532",
   "qualification_protocol_note": "This is a deliberately ineligible template; do not count the public synthetic corpus as held-out evaluation or claim a registered comparison until the null pre-registration fields have been completed, independently reviewed, and frozen before held-out access."
 }
