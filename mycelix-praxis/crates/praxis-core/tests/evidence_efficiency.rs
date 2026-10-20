@@ -674,6 +674,7 @@ fn valid_catalog_and_evaluator_have_complete_cross_file_mappings() {
     let catalog = catalog_fixture();
     let evaluator = evaluator_fixture();
     assert_eq!(catalog.benchmark_id, EVIDENCE_EFFICIENCY_BENCHMARK_ID);
+    assert_eq!(catalog.scenarios[0].domain, CyberDomain::IdentityAccess);
     assert_eq!(catalog.schema_version, 2);
     assert_eq!(catalog.benchmark_version, "0.2.0");
     validate_request_catalog(&catalog).unwrap();
@@ -963,7 +964,10 @@ fn privileged_followup_resolves_partial_support_with_authority() {
         1000
     );
     assert_eq!(report.realized_information_gain_milli_bits, 2000);
-    assert_eq!(report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        report.remaining_hypotheses,
+        vec!["compromised_session", "stale_sensor_false_alarm"]
+    );
     assert_eq!(report.full_support_responses, 1);
     assert_eq!(report.partial_support_responses, 1);
     assert_eq!(report.total_cost_units, 6);
@@ -1058,7 +1062,7 @@ fn budget_blocks_expensive_requests_but_allows_a_later_feasible_request() {
     assert_eq!(report.requests_executed, 1);
     assert_eq!(report.total_cost_units, 2);
     assert_eq!(report.latency_bound_minutes, 3);
-    assert_eq!(report.remaining_hypotheses.len(), 1);
+    assert_eq!(report.remaining_hypotheses.len(), 2);
 }
 
 #[test]
