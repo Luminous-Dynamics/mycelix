@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "model": "PulseDelivery",
+  "scope": "bounded specification and qualification planning; not a production proof",
+  "claim_status": "not_run",
+  "properties": [
+    {
+      "id": "PULSE-DEL-001",
+      "name": "delivered_requires_verified_receipt",
+      "class": "safety",
+      "requirement": "Delivered is permitted only when receipt evidence has been re-verified and is bound to the exact logical message, recipient, envelope commitment, and protocol context.",
+      "starter_model_mapping": "DeliveredRequiresReceipt",
+      "starter_model_coverage": "partial",
+      "gap": "The starter models receipt evidence as a Boolean; receipt bytes, cryptographic verification, and message/recipient/commitment binding are not modeled.",
+      "negative_control": "Allow delivered to become true without receiptEvidence, or drop the inboxCommitted conjunct; checker must find a violation.",
+      "implementation_mapping": "candidate: mycelix-workspace/mycelix-pulse/crates/pulse-transport-core/src/delivery_state.rs",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-002",
+      "name": "one_logical_inbox_commit_per_idempotency_key",
+      "class": "safety",
+      "requirement": "At most one application-visible inbox item may commit for a logical message/recipient idempotency key, including duplicate concurrent handlers and cross-route retries.",
+      "starter_model_mapping": null,
+      "starter_model_coverage": "not_modeled",
+      "gap": "The starter has one Boolean inboxCommitted and cannot represent duplicate keys, concurrent commits, or conflicting payloads.",
+      "negative_control": "Permit two distinct inbox commits for the same key; checker must find a violation.",
+      "implementation_mapping": "receiver persistence/application-acceptance boundary; exact implementation path requires repository mapping",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-003",
+      "name": "durable_accepted_outbox_does_not_disappear",
+      "class": "safety",
+      "requirement": "An accepted, unexpired durable outbox item cannot silently disappear under the declared storage durability assumptions.",
+      "starter_model_mapping": null,
+      "starter_model_coverage": "not_modeled",
+      "gap": "Crash/restart models worker availability and recovery classification, but no durable/non-durable record layers, torn writes, lost writes, or storage recovery rules are represented.",
+      "negative_control": "Erase an accepted outbox item during recovery; checker must find a violation.",
+      "implementation_mapping": "durable outbox/storage boundary; backend intentionally unspecified",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-004",
+      "name": "stale_worker_epoch_cannot_authorize_send",
+      "class": "safety",
+      "requirement": "A worker whose lease epoch differs from the authoritative worker epoch cannot authorize a new send or commit authoritative state.",
+      "starter_model_mapping": "AuthorizeSend guard: leaseEpoch = workerEpoch",
+      "starter_model_coverage": "partial",
+      "gap": "The model has one epoch pair and no concurrent worker-local state or stale worker commit after a newer epoch acquires the lease.",
+      "negative_control": "Remove the epoch-equality guard; checker must find a stale-worker authorization.",
+      "implementation_mapping": "candidate worker lease/fencing contract",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-005",
+      "name": "no_new_send_after_expiry_or_revocation",
+      "class": "safety",
+      "requirement": "A new send authorization is impossible at or after expiry or after the applicable consent/policy generation is revoked. Outcomes of already in-flight attempts may still be recorded truthfully.",
+      "starter_model_mapping": "AuthorizeSend guards: ~revoked and ~expired",
+      "starter_model_coverage": "partial",
+      "gap": "Expiry is Boolean rather than time-based; policy generation and the race between final authorization and transport invocation are not modeled.",
+      "negative_control": "Remove either authorization guard; checker must find a violating send authorization.",
+      "implementation_mapping": "candidate send-authorization/policy boundary",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-006",
+      "name": "conflicting_identity_reuse_fails_closed",
+      "class": "safety",
+      "requirement": "Reusing a message, event, attempt, or idempotency identity with conflicting committed content or context produces an explicit conflict, never silent replacement or success.",
+      "starter_model_mapping": null,
+      "starter_model_coverage": "not_modeled",
+      "gap": "No identity/content commitment map or Conflict state exists in the starter.",
+      "negative_control": "Allow the same identity to map to two commitments; checker must find a violation.",
+      "implementation_mapping": "event journal and receiver inbox identity boundary",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-007",
+      "name": "replay_is_deterministic_and_idempotent",
+      "class": "safety",
+      "requirement": "Applying the same valid event history once or repeatedly yields the same authoritative state; gaps, malformed history, unsupported versions, and tampering cannot silently yield trusted state.",
+      "starter_model_mapping": null,
+      "starter_model_coverage": "not_modeled",
+      "gap": "The starter has no event log, revision sequence, replay function, or schema/version validation.",
+      "negative_control": "Let replay order alter trusted terminal state or accept a revision gap; checker must find a violation.",
+      "implementation_mapping": "delivery journal/replay reducer boundary",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-008",
+      "name": "retry_and_history_resources_are_bounded",
+      "class": "safety",
+      "requirement": "Attempts, retry history, and journal growth remain within declared limits at both the exact limit and limit+1; overflow fails closed or compacts under a separately specified safe rule.",
+      "starter_model_mapping": null,
+      "starter_model_coverage": "not_modeled",
+      "gap": "Only worker epoch is currently bounded; retry and history resources are absent.",
+      "negative_control": "Allow limit+1 entries without an explicit overflow/compaction decision; checker must find a violation.",
+      "implementation_mapping": "journal/retry budgets and bounded-history contract",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-009",
+      "name": "ambiguous_transport_outcome_never_becomes_success_by_inference",
+      "class": "safety",
+      "requirement": "A timeout, link/gateway acknowledgment, or lost response cannot be promoted to verified recipient delivery without the required receipt evidence.",
+      "starter_model_mapping": "RecoverInterruptedAttempt and UnknownIsNotDelivered model only the interrupted-attempt unknown state",
+      "starter_model_coverage": "partial",
+      "gap": "Only recovery from an interrupted attempt maps to unknown; no explicit DefinitelyNotSent/PossiblySent/TransportAccepted taxonomy, lost-response state, or gateway acknowledgment class is modeled.",
+      "negative_control": "Map a timeout or transport acknowledgment directly to Delivered; checker must find a violation.",
+      "implementation_mapping": "transport adapter outcome normalization and delivery-state reducer",
+      "rust_regression": "not_yet_mapped"
+    },
+    {
+      "id": "PULSE-DEL-010",
+      "name": "liveness_is_conditional_and_non_vacuous",
+      "class": "liveness",
+      "requirement": "Under stated fairness, durable-storage availability, permission, unexpired lifetime, working route, and responsive recipient assumptions, eligible work eventually reaches a documented evidence-backed or terminal state.",
+      "starter_model_mapping": null,
+      "starter_model_coverage": "not_modeled",
+      "gap": "No liveness property or environmental fairness assumptions are checked; the finite worker-epoch bound permits runs to stop without eventual recovery.",
+      "negative_control": "Suppress all progress actions while claiming eventual progress; the liveness checker must reject the mutant under declared fairness assumptions.",
+      "implementation_mapping": "scheduler/retry/recovery progress contract",
+      "rust_regression": "not_yet_mapped"
+    }
+  ],
+  "execution_record": {
+    "tlc": "not_run",
+    "rust_tests": "not_run_here",
+    "ci": "not_passed",
+    "commit_binding": "must be added by a reproducible qualification run",
+    "note": "A starter-model mapping is not a checker result. Every property requires syntax validation, non-vacuity review, and mutant sensitivity before any PASS claim."
+  }
+}
