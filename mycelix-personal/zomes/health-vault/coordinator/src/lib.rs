@@ -195,7 +195,7 @@ pub fn get_my_biometrics_view(_: ()) -> ExternResult<Vec<BiometricView>> {
 
 /// A grant is effective at `now` only when active and not expired.
 /// Equality at the expiry boundary is expired (fail closed).
-fn consent_is_effective_at(consent: &ConsentGrant, now: Timestamp) -> bool {
+fn consent_is_effective_at(consent: &ConsentGrant, now: &Timestamp) -> bool {
     consent.active
         && consent
             .expires_at
@@ -206,7 +206,7 @@ fn consent_is_effective_at(consent: &ConsentGrant, now: Timestamp) -> bool {
 
 /// Fetch the current-effective grants using one evaluation timestamp.
 /// This is a source-local listing projection, not a grantee read-authorization gate.
-fn get_my_consents_at(now: Timestamp) -> ExternResult<Vec<Record>> {
+fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
         LinkQuery::try_new(agent, LinkTypes::AgentToConsents)?,
@@ -226,7 +226,7 @@ fn get_my_consents_at(now: Timestamp) -> ExternResult<Vec<Record>> {
                 .to_app_option::<ConsentGrant>()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
             if let Some(consent) = consent {
-                if consent_is_effective_at(&consent, now) {
+                if consent_is_effective_at(&consent, &now) {
                     records.push(record);
                 }
             }
@@ -239,13 +239,14 @@ fn get_my_consents_at(now: Timestamp) -> ExternResult<Vec<Record>> {
 /// Expired, inactive, missing, and non-consent link targets are not returned.
 #[hdk_extern]
 pub fn get_my_consents(_: ()) -> ExternResult<Vec<Record>> {
-    get_my_consents_at(sys_time()?)
+    let now = sys_time()?;
+    get_my_consents_at(&now)
 }
 
 #[hdk_extern]
 pub fn get_my_consents_view(_: ()) -> ExternResult<Vec<ConsentGrantView>> {
     let now = sys_time()?;
-    let records = get_my_consents_at(now)?;
+    let records = get_my_consents_at(&now)?;
     let mut views = Vec::new();
     for record in records {
         if let Some(entry) = record
@@ -258,7 +259,7 @@ pub fn get_my_consents_view(_: ()) -> ExternResult<Vec<ConsentGrantView>> {
                 grantee: entry.grantee.to_string(),
                 record_types: entry.record_types,
                 expires_at: entry.expires_at.map(|ts| ts.as_micros()),
-                active: consent_is_effective_at(&entry, now),
+                active: consent_is_effective_at(&entry, &now),
                 created_at: entry.created_at.as_micros(),
             });
         }
@@ -288,13 +289,13 @@ mod tests {
             created_at: Timestamp::from_micros(0),
         };
 
-        assert!(consent_is_effective_at(&consent, now));
+        assert!(consent_is_effective_at(&consent, &now));
 
         consent.expires_at = Some(Timestamp::from_micros(100));
-        assert!(!consent_is_effective_at(&consent, now));
+        assert!(!consent_is_effective_at(&consent, &now));
 
         consent.expires_at = Some(Timestamp::from_micros(99));
-        assert!(!consent_is_effective_at(&consent, now));
+        assert!(!consent_is_effective_at(&consent, &now));
     }
 
     #[test]
@@ -308,9 +309,9 @@ mod tests {
             created_at: Timestamp::from_micros(0),
         };
 
-        assert!(consent_is_effective_at(&consent, now));
+        assert!(consent_is_effective_at(&consent, &now));
         consent.active = false;
-        assert!(!consent_is_effective_at(&consent, now));
+        assert!(!consent_is_effective_at(&consent, &now));
     }
 
     #[test]
