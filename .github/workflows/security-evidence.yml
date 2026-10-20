@@ -1,0 +1,43 @@
+name: Mycelix Security Evidence Qualification
+
+on:
+  push:
+    branches:
+      - main
+      - 'security/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  security-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+
+      - name: Run platform Evidence contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f docs/security/mycelix-platform-evidence-capture-v0.1.json
+          test -f scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+          python3 -c 'import json, pathlib; p=pathlib.Path("docs/security/mycelix-platform-evidence-capture-v0.1.json"); d=json.loads(p.read_text()); assert d["profile_id"] == "mycelix.security.platform.evidence.capture"; assert len(d["vectors"]) == 22; assert d["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"'
+          python3 -m py_compile scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+          python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
+          grep -q 'ReferenceModelOnly' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+          grep -q 'TPM PLATFORM CAPTURE: NOT EXECUTED' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+          grep -q 'tpm2_checkquote' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+
+      - name: Run independent PCR reconstruction contract when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f docs/security/mycelix-pc-client-eventlog-reconstruction-v0.1.json; then
+            test -f scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py
+            python3 -c 'import json, pathlib; p=pathlib.Path("docs/security/mycelix-pc-client-eventlog-reconstruction-v0.1.json"); d=json.loads(p.read_text()); assert d["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"; assert len(d["vectors"]) == 22'
+            python3 -m py_compile scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py
+            python3 scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py --self-test
+          else
+            echo "Reconstruction contract not present in this feature stack; separate PR."
+          fi
