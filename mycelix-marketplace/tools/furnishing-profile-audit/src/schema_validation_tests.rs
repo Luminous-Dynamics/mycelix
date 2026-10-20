@@ -5,8 +5,10 @@ mod schema_validation_tests {
 
     fn read_json(relative: &str) -> Value {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative);
-        let bytes = fs::read(&path).unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
-        serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("invalid JSON in {}: {error}", path.display()))
+        let bytes = fs::read(&path)
+            .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
+        serde_json::from_slice(&bytes)
+            .unwrap_or_else(|error| panic!("invalid JSON in {}: {error}", path.display()))
     }
 
     fn profile_validator() -> jsonschema::Validator {
@@ -36,7 +38,10 @@ mod schema_validation_tests {
                 failures.push(format!("profiles[{index}]: {error}"));
             }
         }
-        assert!(failures.is_empty(), "JSON Schema validation failed: {failures:#?}");
+        assert!(
+            failures.is_empty(),
+            "JSON Schema validation failed: {failures:#?}"
+        );
     }
 
     #[test]
@@ -47,20 +52,27 @@ mod schema_validation_tests {
             .iter_errors(&fixture)
             .map(|error| format!("{error}"))
             .collect();
-        assert!(failures.is_empty(), "request schema validation failed: {failures:#?}");
+        assert!(
+            failures.is_empty(),
+            "request schema validation failed: {failures:#?}"
+        );
     }
 
     #[test]
     fn missing_profile_dimension_fails_json_schema() {
         let fixture = read_json("../../contracts/fixtures/furnishing-catalog-profile-v0.1.json");
         let mut profile = fixture["profiles"][0].clone();
-        profile["catalog_item"]["geometry"].as_object_mut().unwrap().remove("width");
+        profile["catalog_item"]["geometry"]
+            .as_object_mut()
+            .unwrap()
+            .remove("width");
         assert!(!profile_validator().is_valid(&profile));
     }
 
     #[test]
     fn unauthorized_effect_fails_request_json_schema() {
-        let mut request = read_json("../../contracts/fixtures/furnishing-adapter-request-v0.1.json");
+        let mut request =
+            read_json("../../contracts/fixtures/furnishing-adapter-request-v0.1.json");
         request["effects"]["reserve_stock"] = Value::Bool(true);
         assert!(!request_validator().is_valid(&request));
     }
