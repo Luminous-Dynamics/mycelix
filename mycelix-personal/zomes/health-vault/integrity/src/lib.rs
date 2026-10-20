@@ -127,17 +127,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapClaim { action, .. }
                 | OpUpdate::CapGrant { action, .. } => action,
             };
-            let original = must_get_valid_record(action.original_action_address.clone())?;
-            if original
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .is_some()
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Consent revocation events are immutable".into(),
-                ));
-            }
+            // Private entries publish action metadata, not their payload. Author
+            // binding only needs the original signed action, not the hidden entry.
+            let original = must_get_action(action.original_action_address.clone())?;
             if !action_authors_match(original.action().author(), &action.author) {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the original entry author can update health-vault entries".into(),
@@ -161,20 +153,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDelete(OpDelete { action }) => {
-            let original = must_get_valid_record(action.deletes_address.clone())?;
-            if original
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .is_some()
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Consent revocation events cannot be deleted".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
-        }
+        // No delete endpoint currently exists. Keep source-chain history append-only;
+        // a future erasure feature must be an explicit, separately reviewed lifecycle.
+        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Health Vault entries are append-only; deletion requires an explicit reviewed lifecycle".into(),
+        )),
         FlatOp::RegisterDeleteLink {
             link_type,
             original_action,
