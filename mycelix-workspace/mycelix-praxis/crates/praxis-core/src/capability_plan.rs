@@ -54,8 +54,35 @@ pub struct PracticeOption {
     pub task_version: String,
     pub rubric_id: String,
     pub rubric_version: String,
+    /// Curator-authored ordering, not a prediction of learning efficacy.
+    /// Lower values are preferred unless the learner chooses an eligible option.
+    pub route_priority: u16,
+    /// Human-readable rationale for including this practice option.
+    pub rationale: String,
     pub estimated_minutes: u32,
     pub delivery_mode: DeliveryMode,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PracticeOptionRef {
+    pub task_id: String,
+    pub task_version: String,
+    pub rubric_id: String,
+    pub rubric_version: String,
+    pub delivery_mode: DeliveryMode,
+}
+
+impl From<&PracticeOption> for PracticeOptionRef {
+    fn from(option: &PracticeOption) -> Self {
+        Self {
+            task_id: option.task_id.clone(),
+            task_version: option.task_version.clone(),
+            rubric_id: option.rubric_id.clone(),
+            rubric_version: option.rubric_version.clone(),
+            delivery_mode: option.delivery_mode.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,6 +120,16 @@ pub struct GoalPlanRequest {
     pub request_id: String,
     pub target_capability: CapabilityId,
     pub constraints: GoalPlanConstraints,
+    /// Learner-selected options keyed by capability. Each choice is checked against
+    /// the versioned graph and all request constraints.
+    pub preferred_practice: BTreeMap<CapabilityId, PracticeOptionRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PracticeSelectionBasis {
+    CuratorPriority,
+    LearnerPreference,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,7 +141,11 @@ pub struct GoalPlanStep {
     pub title: String,
     /// Direct prerequisites, sorted by stable capability ID.
     pub prerequisites: Vec<CapabilityId>,
-    pub selected_practice: PracticeOption,
+    /// Proposed option, not a silently accepted learner choice.
+    pub proposed_practice: PracticeOption,
+    /// Other eligible options remain visible to support learner choice.
+    pub eligible_alternatives: Vec<PracticeOption>,
+    pub selection_basis: PracticeSelectionBasis,
 }
 
 /// An advisory route from a learner-selected goal to versioned practice tasks.
@@ -164,6 +205,10 @@ pub enum GoalPlanError {
     DependencyCycle { capability_id: String },
     #[error("no practice option satisfies the constraints for capability: {capability_id}")]
     NoEligiblePracticeOption { capability_id: String },
+    #[error("preferred capability {capability_id} is outside the target prerequisite closure")]
+    PreferenceOutsideGoalClosure { capability_id: String },
+    #[error("preferred practice option {task_id} is not eligible for capability {capability_id}")]
+    PreferredPracticeNotEligible { capability_id: String, task_id: String },
     #[error("requested_at/generated_at must be nonnegative: {timestamp}")]
     NegativeTimestamp { timestamp: i64 },
     #[error("estimated duration overflowed the supported integer range")]
@@ -210,6 +255,13 @@ pub fn compile_goal_plan(
     }
 
     let closure = dependency_closure(&request.target_capability, &nodes);
+    for capability_id in request.preferred_practice.keys() {
+        if !closure.contains(capability_id) {
+            return Err(GoalPlanError::PreferenceOutsideGoalClosure {
+                capability_id: capability_id.0.clone(),
+            });
+        }
+    }
     let ordered_ids = topological_order(&closure, &nodes)?;
 
     let mut steps = Vec::with_capacity(ordered_ids.len());
@@ -302,6 +354,13 @@ fn validate_request(request: &GoalPlanRequest) -> Result<(), GoalPlanError> {
         return Err(GoalPlanError::InvalidField {
             field: "max_total_minutes",
         });
+    }
+    for (capability_id, option) in &request.preferred_practice {
+        validate_identifier(&capability_id.0, "preferred_capability_id")?;
+        validate_identifier(&option.task_id, "preferred_task_id")?;
+        validate_identifier(&option.task_version, "preferred_task_version")?;
+        validate_identifier(&option.rubric_id, "preferred_rubric_id")?;
+        validate_identifier(&option.rubric_version, "preferred_rubric_version")?;
     }
     Ok(())
 }
@@ -518,8 +577,8 @@ fn canonicalize_graph(mut graph: CapabilityGraph) -> CapabilityGraph {
 }
 
 fn practice_option_order(left: &PracticeOption, right: &PracticeOption) -> Ordering {
-    left.estimated_minutes
-        .cmp(&right.estimated_minutes)
+    left.route_priority
+        .cmp(&right.route_priority)
         .then_with(|| left.task_id.cmp(&right.task_id))
         .then_with(|| left.task_version.cmp(&right.task_version))
         .then_with(|| left.rubric_id.cmp(&right.rubric_id))
@@ -548,6 +607,8 @@ mod tests {
             task_version: task_version.to_string(),
             rubric_id: rubric.to_string(),
             rubric_version: rubric_version.to_string(),
+            route_priority: 100,
+            rationale: format!("Fixture rationale for {task}; efficacy not measured"),
             estimated_minutes: minutes,
             delivery_mode: mode,
         }
@@ -585,6 +646,7 @@ mod tests {
                 max_task_minutes: max_task,
                 max_total_minutes: total,
             },
+            preferred_practice: BTreeMap::new(),
         }
     }
 
@@ -631,7 +693,7 @@ mod tests {
         let ids: Vec<&str> = plan.steps.iter().map(|step| step.capability_id.0.as_str()).collect();
         assert_eq!(ids, vec!["cap-ip-basics", "cap-observation", "cap-net-debug"]);
         assert_eq!(plan.estimated_total_minutes, 60);
-        assert_eq!(plan.steps.last().unwrap().selected_practice.task_id, "task-network-lab");
+        assert_eq!(plan.steps.last().unwrap().proposed_practice.task_id, "task-network-lab");
         assert!(plan.input_digest.starts_with("blake3:"));
         assert_eq!(plan.compiler_version, CAPABILITY_PLAN_COMPILER_VERSION);
     }
@@ -694,10 +756,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            plan.steps.last().unwrap().selected_practice.delivery_mode,
+            plan.steps.last().unwrap().proposed_practice.delivery_mode,
             DeliveryMode::SupervisedPractical
         );
-        assert_eq!(plan.steps.last().unwrap().selected_practice.estimated_minutes, 50);
+        assert_eq!(plan.steps.last().unwrap().proposed_practice.estimated_minutes, 50);
     }
 
     #[test]
@@ -789,7 +851,7 @@ mod tests {
                 100,
             ),
             Err(GoalPlanError::NoEligiblePracticeOption {
-                capability_id: "cap-observation".into()
+                capability_id: "cap-ip-basics".into()
             })
         );
     }
