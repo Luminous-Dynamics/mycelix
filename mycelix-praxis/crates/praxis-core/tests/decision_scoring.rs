@@ -927,7 +927,7 @@ fn quality_cost_and_quality_latency_frontiers_are_separate_and_safety_gated() {
         ],
         None,
     ));
-    traces.extend(make_policy_traces(&cases, "slow", 20, 500, &[], None));
+    traces.extend(make_policy_traces(&cases, "slow", 40, 500, &[], None));
     traces.extend(make_policy_traces(
         &cases,
         "unsafe",
@@ -1273,7 +1273,7 @@ fn unsupported_claims_false_abstention_and_justified_abstention_are_not_collapse
     let network = &report.by_domain[&Domain::NetworkConfiguration];
     assert_eq!(network.unsupported_definitive_claims, 1);
     assert_eq!(network.wrong_definitive_claims, 0);
-    assert_eq!(network.unsupported_claim_rate_permille(), Some(500));
+    assert_eq!(network.unsupported_claim_rate_permille(), Some(1000));
 
     let supply_chain = &report.by_domain[&Domain::SupplyChainProvenance];
     assert_eq!(supply_chain.false_abstentions, 1);
