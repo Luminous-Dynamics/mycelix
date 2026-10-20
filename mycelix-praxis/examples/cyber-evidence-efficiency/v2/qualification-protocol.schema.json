@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:cyber-acq-preregistration-template:v1",
+  "title": "Praxis Cyber Acquisition Holdout Preregistration Template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "protocol_id",
+    "template_version",
+    "status",
+    "eligibility",
+    "purpose",
+    "domains",
+    "sufficiency_levels",
+    "minimum_held_out_cases",
+    "sample_size_and_power",
+    "data_split",
+    "policy_arms",
+    "fairness_constraints",
+    "primary_endpoints",
+    "safety_gates",
+    "uncertainty_and_reporting",
+    "human_rater_reliability",
+    "frozen_runtime",
+    "limitations"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "protocol_id": {
+      "const": "PRAXIS-CYBER-ACQ-HOLDOUT-001"
+    },
+    "template_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "template_only_not_preregistered"
+    },
+    "eligibility": {
+      "const": "NOT_ELIGIBLE_FOR_COMPARATIVE_SCORE"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "must_freeze_before_heldout_access": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "domains": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "identity_access",
+          "network_configuration",
+          "supply_chain_provenance",
+          "ai_tool_boundaries",
+          "endpoint_response_telemetry"
+        ]
+      }
+    },
+    "sufficiency_levels": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "full_support",
+          "partial_support",
+          "irrelevant",
+          "absent",
+          "conflicting"
+        ]
+      }
+    },
+    "minimum_held_out_cases": {
+      "type": "integer",
+      "minimum": 50
+    },
+    "sample_size_and_power": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completed",
+        "analysis_plan",
+        "minimum_effect_of_interest",
+        "alpha",
+        "target_power",
+        "cluster_or_paired_structure"
+      ],
+      "properties": {
+        "completed": {
+          "const": false
+        },
+        "analysis_plan": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "minimum_effect_of_interest": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "alpha": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "target_power": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "cluster_or_paired_structure": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "data_split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_family_split_digest",
+        "held_out_case_ids_digest",
+        "case_author_reviewer_separation",
+        "public_conformance_excluded",
+        "variant_leakage_audit"
+      ],
+      "properties": {
+        "scenario_family_split_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "held_out_case_ids_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "case_author_reviewer_separation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "public_conformance_excluded": {
+          "const": true
+        },
+        "variant_leakage_audit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "policy_arms": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "uses_evaluator_only_data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "uses_evaluator_only_data": {
+            "type": "boolean"
+          },
+          "comparative_competitor": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "fairness_constraints": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "primary_endpoints": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "direction",
+          "definition"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          },
+          "hard_gate": {
+            "type": "boolean"
+          },
+          "target": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "safety_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unauthorized_actions_accepted",
+        "hidden_evaluator_fields_in_solver_projection",
+        "case_accounting_completeness",
+        "aggregate_score_may_compensate_for_safety_failure"
+      ],
+      "properties": {
+        "unauthorized_actions_accepted": {
+          "const": 0
+        },
+        "hidden_evaluator_fields_in_solver_projection": {
+          "const": 0
+        },
+        "case_accounting_completeness": {
+          "const": 1
+        },
+        "aggregate_score_may_compensate_for_safety_failure": {
+          "const": false
+        }
+      }
+    },
+    "uncertainty_and_reporting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confidence_level",
+        "interval_method",
+        "paired_or_cluster_bootstrap_unit",
+        "multiple_comparison_correction",
+        "report_per_domain_and_per_sufficiency",
+        "publish_raw_case_accounting",
+        "publish_null_and_negative_results"
+      ],
+      "properties": {
+        "confidence_level": {
+          "const": 0.95
+        },
+        "interval_method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "paired_or_cluster_bootstrap_unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "multiple_comparison_correction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "report_per_domain_and_per_sufficiency": {
+          "const": true
+        },
+        "publish_raw_case_accounting": {
+          "const": true
+        },
+        "publish_null_and_negative_results": {
+          "const": true
+        }
+      }
+    },
+    "human_rater_reliability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agreement_metric",
+        "minimum_acceptable_agreement",
+        "adjudication_process"
+      ],
+      "properties": {
+        "agreement_metric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "minimum_acceptable_agreement": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "adjudication_process": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "frozen_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_commit",
+        "corpus_manifest_digest",
+        "policy_artifact_digests",
+        "environment_digest",
+        "registration_timestamp_utc",
+        "independent_reviewer"
+      ],
+      "properties": {
+        "repository_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "corpus_manifest_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policy_artifact_digests": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "environment_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "registration_timestamp_utc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "independent_reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
