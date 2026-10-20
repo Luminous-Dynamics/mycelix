@@ -9,8 +9,8 @@ use crate::{ClientError, MarketplaceClient, TransportKind, ZomeTransport};
 use async_trait::async_trait;
 use marketplace_domain::{
     ActionHash, AgentPubKey, EmpiricalLevel, ListingCatalogCoverage, ListingCatalogSnapshotV1,
-    ListingCategory, ListingOutput, ListingResolutionReason,
-    ListingResolutionState, ListingStatus, ListingsResponse,
+    ListingCategory, ListingOutput, ListingResolutionReason, ListingResolutionState, ListingStatus,
+    ListingsResponse,
 };
 use std::collections::HashSet;
 
