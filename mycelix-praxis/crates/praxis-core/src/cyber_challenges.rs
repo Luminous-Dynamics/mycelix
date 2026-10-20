@@ -146,7 +146,10 @@ pub fn validate_solver_corpus(
             &mut issues,
             "unexpected_corpus_id",
             "$.corpus_id",
-            format!("expected {:?}, got {:?}", CYBER_CHALLENGE_CORPUS_ID, corpus.corpus_id),
+            format!(
+                "expected {:?}, got {:?}",
+                CYBER_CHALLENGE_CORPUS_ID, corpus.corpus_id
+            ),
         );
     }
     if corpus.corpus_version.trim().is_empty() {
