@@ -21,11 +21,11 @@ All authoritative amounts and fee calculations use integer minor units and check
 
 ```text
 variable_fee = ceil(volume_minor * fee_bps / 10_000)
-modeled_cost = leg_count * fixed_fee_per_leg + variable_fee
+modeled_cost = leg_count * fixed fee per leg + rounded variable fee per leg + optional batch fee + optional netting overhead
 modeled_savings = direct_cost_estimate - net_cost_estimate
 ```
 
-The comparison assumes one direct settlement leg per eligible obligation versus one leg for each deterministic matched net debtor/creditor pair. The fee model is only as realistic as its parameters. Real rails may charge for batches, account maintenance, liquidity, minimum amounts, failed attempts and exceptions; add those terms before interpreting a particular route.
+The comparison assumes one direct settlement leg per eligible obligation versus one leg for each deterministic matched net debtor/creditor pair. The cost model represents per-leg fixed and variable fees, minimum and optional maximum variable fees, batch fees and a netting-only overhead. The fee model is only as realistic as its parameters. Real rails may also charge for account maintenance, liquidity, minimum amounts, failed attempts and exceptions; those are not yet modeled and must be added before interpreting a particular route.
 
 ## Worked synthetic examples
 
@@ -48,7 +48,7 @@ Alice -> Bob   100 units
 Bob   -> Carol  60 units
 ```
 
-Net positions are Alice +100 payable, Bob -40 receivable, and Carol -60 receivable. The deterministic modeled legs are Alice -> Bob 40 and Alice -> Carol 60. Gross volume is 160; net settlement volume is 100. In the same synthetic fee model, gross modeled cost is 202 and net modeled cost is 201 minor units. This particular parameterization yields only one minor unit of modeled savings despite a 37.5% volume reduction—an important reminder that volume reduction and total fee reduction are different benchmarks.
+Net positions are Alice +100 payable, Bob -40 receivable, and Carol -60 receivable. The deterministic modeled legs are Alice -> Bob 40 and Alice -> Carol 60. Gross volume is 160; net settlement volume is 100. In the same synthetic fee model, with the 1% component rounded up independently for each leg, gross modeled cost is 202 and net modeled cost is also 202 minor units. This parameterization yields no modeled savings despite a 37.5% volume reduction—an important reminder that volume reduction and total fee reduction are different benchmarks.
 
 These values are illustrative test inputs, not observed costs or a claim about any bank/PSP route.
 
@@ -65,7 +65,7 @@ These values are illustrative test inputs, not observed costs or a claim about a
 
 ## Test and benchmark plan
 
-The crate currently includes 13 deterministic unit tests for a closed cycle, offsetting receivable, reciprocal obligations, duplicate observation, conflicting duplicate, disputed obligation, wrong asset, input-order invariance, exposure limit, fee rounding, zero/self obligations, missing scope/member identity, and a 500-obligation order-invariance/conservation stress corpus.
+The crate currently includes 17 deterministic unit tests for a closed cycle, offsetting receivable, reciprocal obligations, duplicate observation, conflicting duplicate, disputed obligation, wrong asset, input-order invariance, exposure limit, fee rounding, zero/self obligations, missing scope/member identity, and a 500-obligation order-invariance/conservation stress corpus. Fee-model tests cover minimum-per-leg fees, batch charges, fee caps, invalid fee floors, and netting overhead large enough to make netting more expensive than direct settlement.
 
 The local environment used to prepare this change did not provide `rustc`/Cargo, so these tests have been authored but **not executed here**. Do not interpret their presence as a passing test result. Exact-head CI/local Rust execution is still required.
 
