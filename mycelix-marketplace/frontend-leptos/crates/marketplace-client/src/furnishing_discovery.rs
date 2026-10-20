@@ -263,12 +263,27 @@ mod tests {
         assert_eq!(candidate.listing_hash, original_hash);
         assert_eq!(candidate.observed_price_cents, 12_500);
         assert_eq!(candidate.observed_quantity_available, 2);
-        assert_eq!(candidate.observed_empirical_class, ObservedEmpiricalClass::SellerTestimonial);
-        assert_eq!(candidate.furniture_identity, FurnitureIdentity::NeedsItemTypeConfirmation);
-        assert_eq!(candidate.geometry_evidence, GeometryEvidence::NotPresentInListingContract);
+        assert_eq!(
+            candidate.observed_empirical_class,
+            ObservedEmpiricalClass::SellerTestimonial
+        );
+        assert_eq!(
+            candidate.furniture_identity,
+            FurnitureIdentity::NeedsItemTypeConfirmation
+        );
+        assert_eq!(
+            candidate.geometry_evidence,
+            GeometryEvidence::NotPresentInListingContract
+        );
         assert_eq!(candidate.compatibility, CompatibilityState::NotEvaluated);
-        assert_eq!(candidate.revision_freshness, RevisionFreshness::LatestRevisionUnproven);
-        assert_eq!(candidate.review_disposition, ReviewDisposition::ManualReviewOnly);
+        assert_eq!(
+            candidate.revision_freshness,
+            RevisionFreshness::LatestRevisionUnproven
+        );
+        assert_eq!(
+            candidate.review_disposition,
+            ReviewDisposition::ManualReviewOnly
+        );
         assert!(!snapshot.can_claim_complete_current_furniture_offers());
     }
 
@@ -289,7 +304,10 @@ mod tests {
             snapshot.listings[0].observed_empirical_class,
             ObservedEmpiricalClass::PublicReproducibilityClassified
         );
-        assert_eq!(snapshot.listings[0].review_disposition, ReviewDisposition::ManualReviewOnly);
+        assert_eq!(
+            snapshot.listings[0].review_disposition,
+            ReviewDisposition::ManualReviewOnly
+        );
     }
 
     #[test]
@@ -315,7 +333,10 @@ mod tests {
     #[test]
     fn empty_result_does_not_claim_live_empty_or_complete_catalogue() {
         let snapshot = project_listing_snapshot(ListingsResponse { listings: vec![] });
-        assert_eq!(snapshot.result, SnapshotResult::NoHomeGardenListingsReturned);
+        assert_eq!(
+            snapshot.result,
+            SnapshotResult::NoHomeGardenListingsReturned
+        );
         assert_eq!(snapshot.coverage, SnapshotCoverage::UnknownUnpaginatedRead);
         assert_eq!(
             snapshot.transport_provenance,
@@ -350,9 +371,18 @@ mod tests {
     #[test]
     fn all_empirical_levels_remain_metadata_not_product_truth() {
         let levels = [
-            (EmpiricalLevel::E0Null, ObservedEmpiricalClass::NoneSpecified),
-            (EmpiricalLevel::E1Testimonial, ObservedEmpiricalClass::SellerTestimonial),
-            (EmpiricalLevel::E2PrivateVerify, ObservedEmpiricalClass::PrivateVerificationClaimed),
+            (
+                EmpiricalLevel::E0Null,
+                ObservedEmpiricalClass::NoneSpecified,
+            ),
+            (
+                EmpiricalLevel::E1Testimonial,
+                ObservedEmpiricalClass::SellerTestimonial,
+            ),
+            (
+                EmpiricalLevel::E2PrivateVerify,
+                ObservedEmpiricalClass::PrivateVerificationClaimed,
+            ),
             (
                 EmpiricalLevel::E3Cryptographic,
                 ObservedEmpiricalClass::CryptographicClaimClassified,
