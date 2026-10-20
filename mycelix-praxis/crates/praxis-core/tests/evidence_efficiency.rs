@@ -3,24 +3,20 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use praxis_core::evidence_efficiency::{
-    EVIDENCE_EFFICIENCY_BENCHMARK_ID, EvidenceRequestCatalog, EvidenceSourceKind,
-    RequestAuthority, validate_request_catalog,
+    EVIDENCE_EFFICIENCY_BENCHMARK_ID, EvidenceRequestCatalog, EvidenceSourceKind, RequestAuthority,
+    validate_request_catalog,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-const CATALOG_JSON: &str = include_str!(
-    "../../../examples/cyber-evidence-efficiency/v1/request-catalog.json"
-);
-const EVALUATOR_JSON: &str = include_str!(
-    "../../../examples/cyber-evidence-efficiency/v1/evaluator-only.json"
-);
-const CATALOG_SCHEMA: &str = include_str!(
-    "../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json"
-);
-const EVALUATOR_SCHEMA: &str = include_str!(
-    "../../../examples/cyber-evidence-efficiency/v1/evaluator-only.schema.json"
-);
+const CATALOG_JSON: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.json");
+const EVALUATOR_JSON: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.json");
+const CATALOG_SCHEMA: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/request-catalog.schema.json");
+const EVALUATOR_SCHEMA: &str =
+    include_str!("../../../examples/cyber-evidence-efficiency/v1/evaluator-only.schema.json");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -266,8 +262,7 @@ fn expected_information_gain_milli_bits(
             probability * (*partition_size as f64).log2()
         })
         .sum::<f64>();
-    ((prior_entropy_bits - expected_posterior_entropy_bits).max(0.0) * 1000.0).round()
-        as u32
+    ((prior_entropy_bits - expected_posterior_entropy_bits).max(0.0) * 1000.0).round() as u32
 }
 
 /// Deterministic synthetic reference evaluator for integration tests and qualification.
@@ -280,9 +275,8 @@ fn evaluate_policy(
     authorized_authorities: &[RequestAuthority],
     budget: EvaluationBudget,
 ) -> Result<EfficiencyReport, String> {
-    validate_request_catalog(catalog).map_err(|issues| {
-        format!("invalid request catalog: {}", issues[0].message)
-    })?;
+    validate_request_catalog(catalog)
+        .map_err(|issues| format!("invalid request catalog: {}", issues[0].message))?;
     validate_evaluator_pair(catalog, evaluator)
         .map_err(|issues| format!("invalid evaluator pair: {}", issues[0]))?;
     let scenario = catalog
@@ -337,7 +331,10 @@ fn evaluate_policy(
             });
             continue;
         }
-        if request.cost_units > budget.max_cost_units.saturating_sub(report.total_cost_units)
+        if request.cost_units
+            > budget
+                .max_cost_units
+                .saturating_sub(report.total_cost_units)
             || request.latency_bound_minutes
                 > budget
                     .max_latency_bound_minutes
@@ -364,8 +361,7 @@ fn evaluate_policy(
         let mut request_gain = 0;
         match outcome.quality {
             EvidenceQuality::Current => {
-                request_gain =
-                    expected_information_gain_milli_bits(&remaining_hypotheses, outcome);
+                request_gain = expected_information_gain_milli_bits(&remaining_hypotheses, outcome);
                 report.expected_information_gain_milli_bits += request_gain;
                 if request_gain == 0 {
                     report.zero_gain_current_requests += 1;
@@ -379,9 +375,8 @@ fn evaluate_policy(
                     .get(evaluator_scenario.world_hypothesis_id.as_str())
                     .expect("pair validation binds the world hypothesis");
                 let before = remaining_hypotheses.len();
-                remaining_hypotheses.retain(|hypothesis| {
-                    labels.get(hypothesis.as_str()) == Some(observed_label)
-                });
+                remaining_hypotheses
+                    .retain(|hypothesis| labels.get(hypothesis.as_str()) == Some(observed_label));
                 let after = remaining_hypotheses.len();
                 if after > 0 && after < before {
                     report.realized_information_gain_milli_bits +=
@@ -405,7 +400,6 @@ fn evaluate_policy(
     debug_assert!(report.remaining_hypotheses.len() <= initial_hypotheses);
     Ok(report)
 }
-
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum BaselinePolicy {
@@ -560,7 +554,10 @@ fn request_after_resolution_is_measured_as_zero_incremental_gain() {
     )
     .unwrap();
     assert_eq!(report.expected_information_gain_milli_bits, 2000);
-    assert_eq!(report.request_results[1].expected_information_gain_milli_bits, 0);
+    assert_eq!(
+        report.request_results[1].expected_information_gain_milli_bits,
+        0
+    );
     assert_eq!(report.zero_gain_current_requests, 1);
     assert_eq!(report.total_cost_units, 3);
 }
@@ -639,7 +636,10 @@ fn budget_blocks_expensive_requests_but_allows_a_later_feasible_request() {
         &evaluator,
         "CYB-ACQ-001",
         &["privileged-token-use-audit", "session-issuance-audit"],
-        &[RequestAuthority::IncidentCommander, RequestAuthority::ReadOnlyTelemetry],
+        &[
+            RequestAuthority::IncidentCommander,
+            RequestAuthority::ReadOnlyTelemetry,
+        ],
         EvaluationBudget {
             max_cost_units: 2,
             max_latency_bound_minutes: 3,
@@ -682,26 +682,30 @@ fn duplicate_and_unknown_request_attempts_are_rejected() {
         max_cost_units: 10,
         max_latency_bound_minutes: 20,
     };
-    assert!(evaluate_policy(
-        &catalog,
-        &evaluator,
-        "CYB-ACQ-001",
-        &["session-issuance-audit", "session-issuance-audit"],
-        &[RequestAuthority::ReadOnlyTelemetry],
-        budget,
-    )
-    .unwrap_err()
-    .contains("duplicate request"));
-    assert!(evaluate_policy(
-        &catalog,
-        &evaluator,
-        "CYB-ACQ-001",
-        &["not-a-request"],
-        &[RequestAuthority::ReadOnlyTelemetry],
-        budget,
-    )
-    .unwrap_err()
-    .contains("unknown request ID"));
+    assert!(
+        evaluate_policy(
+            &catalog,
+            &evaluator,
+            "CYB-ACQ-001",
+            &["session-issuance-audit", "session-issuance-audit"],
+            &[RequestAuthority::ReadOnlyTelemetry],
+            budget,
+        )
+        .unwrap_err()
+        .contains("duplicate request")
+    );
+    assert!(
+        evaluate_policy(
+            &catalog,
+            &evaluator,
+            "CYB-ACQ-001",
+            &["not-a-request"],
+            &[RequestAuthority::ReadOnlyTelemetry],
+            budget,
+        )
+        .unwrap_err()
+        .contains("unknown request ID")
+    );
 }
 
 #[test]
@@ -711,10 +715,12 @@ fn semantic_validator_rejects_missing_hypothesis_outcome_and_unknown_world() {
     evaluator.scenarios[0].request_outcomes[0]
         .labels_by_hypothesis
         .pop();
-    assert!(validate_evaluator_pair(&catalog, &evaluator)
-        .unwrap_err()
-        .iter()
-        .any(|message| message.contains("must cover every catalog hypothesis")));
+    assert!(
+        validate_evaluator_pair(&catalog, &evaluator)
+            .unwrap_err()
+            .iter()
+            .any(|message| message.contains("must cover every catalog hypothesis"))
+    );
 
     let mut evaluator = evaluator_fixture();
     evaluator.scenarios[0].world_hypothesis_id = "not-a-hypothesis".into();
@@ -731,7 +737,11 @@ fn request_catalog_rejects_duplicate_request_ids_and_free_requests() {
     catalog.scenarios[0].requests[1].request_id = first_request_id;
     catalog.scenarios[0].requests[2].cost_units = 0;
     let issues = validate_request_catalog(&catalog).unwrap_err();
-    assert!(issues.iter().any(|issue| issue.code == "duplicate_request_id"));
+    assert!(
+        issues
+            .iter()
+            .any(|issue| issue.code == "duplicate_request_id")
+    );
     assert!(issues.iter().any(|issue| issue.code == "zero_cost"));
 }
 
@@ -739,7 +749,11 @@ fn request_catalog_rejects_duplicate_request_ids_and_free_requests() {
 fn hidden_world_and_outcome_labels_are_absent_from_solver_projection() {
     let catalog: serde_json::Value = serde_json::from_str(CATALOG_JSON).unwrap();
     let rendered = catalog.to_string().to_ascii_lowercase();
-    for secret in ["world_hypothesis_id", "labels_by_hypothesis", "expected_disposition"] {
+    for secret in [
+        "world_hypothesis_id",
+        "labels_by_hypothesis",
+        "expected_disposition",
+    ] {
         assert!(!rendered.contains(secret), "solver catalog leaked {secret}");
     }
 }
@@ -834,7 +848,10 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(fixed_report.total_cost_units, 4);
     assert_eq!(fixed_report.latency_bound_minutes, 6);
     assert_eq!(fixed_report.expected_information_gain_milli_bits, 2396);
-    assert_eq!(fixed_report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        fixed_report.remaining_hypotheses,
+        vec!["compromised_session"]
+    );
 
     let cheapest = baseline_trace(
         &catalog,
@@ -865,7 +882,10 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(cheapest_report.total_cost_units, 5);
     assert_eq!(cheapest_report.latency_bound_minutes, 7);
     assert_eq!(cheapest_report.expected_information_gain_milli_bits, 2396);
-    assert_eq!(cheapest_report.remaining_hypotheses, vec!["compromised_session"]);
+    assert_eq!(
+        cheapest_report.remaining_hypotheses,
+        vec!["compromised_session"]
+    );
 
     // Neither policy runner accepts evaluator state; a catalog permutation
     // must not change the metadata-only request order.
@@ -893,5 +913,9 @@ fn metadata_only_baseline_never_selects_a_request_above_its_authority() {
         BaselinePolicy::CheapestAuthorizedFirst,
     )
     .unwrap();
-    assert!(!trace.iter().any(|request_id| request_id == "privileged-token-use-audit"));
+    assert!(
+        !trace
+            .iter()
+            .any(|request_id| request_id == "privileged-token-use-audit")
+    );
 }
