@@ -1857,7 +1857,12 @@ mod browser_storage_tests {
             storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().as_deref(),
             Some(existing_public.as_str())
         );
-        assert!(storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[wasm_bindgen_test]
