@@ -335,7 +335,10 @@ fn summarize_latency_samples(samples: &mut [f64]) -> Result<(f64, f64, f64), &'s
     if samples.is_empty() {
         return Err("latency sample set is empty");
     }
-    if samples.iter().any(|sample| !sample.is_finite() || *sample < 0.0) {
+    if samples
+        .iter()
+        .any(|sample| !sample.is_finite() || *sample < 0.0)
+    {
         return Err("latency samples must be finite and non-negative");
     }
 
@@ -523,7 +526,11 @@ mod benchmark_statistics_tests {
 
     #[test]
     fn rejects_non_finite_or_negative_timings() {
-        for mut samples in [vec![1.0, f64::NAN], vec![1.0, f64::INFINITY], vec![1.0, -0.1]] {
+        for mut samples in [
+            vec![1.0, f64::NAN],
+            vec![1.0, f64::INFINITY],
+            vec![1.0, -0.1],
+        ] {
             assert_eq!(
                 summarize_latency_samples(&mut samples),
                 Err("latency samples must be finite and non-negative")
