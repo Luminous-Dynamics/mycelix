@@ -150,7 +150,9 @@ Candidate target after baseline measurement: p95 encrypted direct handoff below 
 
 ### Industry comparison
 
-Use Holochain Assigned-capability semantics as the access-control baseline; use the Holochain keystore-backed encryption APIs as the cryptographic building blocks. Compare to the current manual-secret handoff on the same harness, not to unrelated vendor marketing numbers. HL7 FHIR Consent remains a future interoperability vocabulary reference, not evidence that this minimal grant schema is FHIR-complete.
+Use Holochain Assigned-capability semantics as the access-control baseline; use the Holochain keystore-backed encryption APIs as the cryptographic building blocks. Compare to the current manual-secret handoff on the same harness, not to unrelated vendor marketing numbers.
+
+HL7 FHIR R5 Consent is a useful interoperability reference because its policy representation includes actors, permitted/denied decisions, purpose-of-use and time-bounded provisions. SMART App Launch v2.2 provides a separate OAuth-based resource-scope and launch-context model. These standards solve adjacent, not identical, problems: a Holochain capability controls access to one zome function, while a consent policy describes who may do what, for what purpose, and during which period. The current Mycelix grant schema lacks purpose and field-level restrictions, so the adapter must not silently widen a FHIR policy into a broader Holochain grant. Unsupported rules should return an explicit non-representable/deny result. Before claiming interoperability, freeze a mapping corpus and test round-trip preservation for all supported fields plus loss detection for purpose, deny exceptions, security labels and fine-grained resource filters. Sources: https://hl7.org/fhir/R5/consent.html and https://build.fhir.org/ig/HL7/smart-app-launch/app-launch.html.
 
 A superiority claim requires (1) the same adversarial fixtures, (2) no weaker security policy, (3) reproducible latency/size results, (4) explicit failure and metadata accounting, and (5) exact-head receipts. Until then, state targets and gaps, not “better than SOTA.”
 
