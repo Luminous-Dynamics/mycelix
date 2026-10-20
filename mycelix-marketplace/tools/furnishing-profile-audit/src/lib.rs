@@ -32,7 +32,11 @@ fn positive_finite(value: Option<&Value>) -> bool {
         .is_some_and(|number| number.is_finite() && number > 0.0)
 }
 
-fn string_set(items: Option<&Vec<Value>>, label: &str, errors: &mut Vec<String>) -> BTreeSet<String> {
+fn string_set(
+    items: Option<&Vec<Value>>,
+    label: &str,
+    errors: &mut Vec<String>,
+) -> BTreeSet<String> {
     let mut result = BTreeSet::new();
     let Some(items) = items else {
         errors.push(format!("{label}: missing array"));
@@ -74,7 +78,9 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         errors.push(format!("{label}: unsupported schema_version"));
     }
     if text(profile, "status") != Some(SYNTHETIC_PROFILE_STATUS) {
-        errors.push(format!("{label}: this fixture corpus only accepts synthetic_fixture status"));
+        errors.push(format!(
+            "{label}: this fixture corpus only accepts synthetic_fixture status"
+        ));
     }
 
     let Some(item) = field(profile, "catalog_item") else {
@@ -95,23 +101,33 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
             }
         }
         if field(geometry, "geometry_digest_sha256").is_some_and(|value| !value.is_null()) {
-            errors.push(format!("{label}: unknown dimensions cannot carry a geometry digest"));
+            errors.push(format!(
+                "{label}: unknown dimensions cannot carry a geometry digest"
+            ));
         }
         if array(geometry, "geometry_evidence_refs").is_some_and(|refs| !refs.is_empty()) {
-            errors.push(format!("{label}: unknown dimensions cannot claim geometry evidence references"));
+            errors.push(format!(
+                "{label}: unknown dimensions cannot claim geometry evidence references"
+            ));
         }
     } else {
         for name in dimensions {
             if !positive_finite(field(geometry, name)) {
-                errors.push(format!("{label}: {dimension_state} geometry needs a positive finite {name}"));
+                errors.push(format!(
+                    "{label}: {dimension_state} geometry needs a positive finite {name}"
+                ));
             }
         }
         match text(geometry, "geometry_digest_sha256") {
             Some(digest) if is_sha256(digest) => {}
-            _ => errors.push(format!("{label}: measured/specified geometry needs a SHA-256 digest")),
+            _ => errors.push(format!(
+                "{label}: measured/specified geometry needs a SHA-256 digest"
+            )),
         }
         if array(geometry, "geometry_evidence_refs").is_none_or(Vec::is_empty) {
-            errors.push(format!("{label}: known dimensions need at least one geometry evidence reference"));
+            errors.push(format!(
+                "{label}: known dimensions need at least one geometry evidence reference"
+            ));
         }
     }
 
@@ -136,7 +152,9 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
             }
             if let Some(digest) = field(record, "source_digest_sha256").and_then(Value::as_str) {
                 if !is_sha256(digest) {
-                    errors.push(format!("{label}.evidence[{index}]: malformed source SHA-256"));
+                    errors.push(format!(
+                        "{label}.evidence[{index}]: malformed source SHA-256"
+                    ));
                 }
             }
         }
@@ -146,19 +164,27 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
 
     for reference in &geometry_refs {
         let Some(record) = evidence_by_id.get(reference) else {
-            errors.push(format!("{label}: unresolved geometry evidence reference {reference:?}"));
+            errors.push(format!(
+                "{label}: unresolved geometry evidence reference {reference:?}"
+            ));
             continue;
         };
         if text(record, "claim_kind") != Some("geometry") {
-            errors.push(format!("{label}: geometry reference {reference:?} is not geometry evidence"));
+            errors.push(format!(
+                "{label}: geometry reference {reference:?} is not geometry evidence"
+            ));
         }
         if text(record, "validity_state") != Some("valid_for_scoped_claim") {
-            errors.push(format!("{label}: geometry evidence {reference:?} is not valid for its scoped claim"));
+            errors.push(format!(
+                "{label}: geometry evidence {reference:?} is not valid for its scoped claim"
+            ));
         }
         let item_digest = text(geometry, "geometry_digest_sha256");
         let evidence_digest = text(record, "source_digest_sha256");
         if item_digest.is_none() || item_digest != evidence_digest {
-            errors.push(format!("{label}: geometry/evidence digest mismatch for {reference:?}"));
+            errors.push(format!(
+                "{label}: geometry/evidence digest mismatch for {reference:?}"
+            ));
         }
     }
 
@@ -185,19 +211,34 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         .unwrap_or("not_checked");
     if compatibility == "compatible_for_declared_checks" {
         if dimension_state == "unknown" {
-            errors.push(format!("{label}: unknown geometry cannot be marked compatible"));
+            errors.push(format!(
+                "{label}: unknown geometry cannot be marked compatible"
+            ));
         }
         if geometry_license != LAYOUT_LICENSE {
-            errors.push(format!("{label}: geometry-use rights do not permit layout compatibility"));
+            errors.push(format!(
+                "{label}: geometry-use rights do not permit layout compatibility"
+            ));
         }
         if geometry_refs.is_empty() {
-            errors.push(format!("{label}: compatibility requires scoped geometry evidence"));
+            errors.push(format!(
+                "{label}: compatibility requires scoped geometry evidence"
+            ));
         }
-        let results = field(profile, "design_compatibility").and_then(|value| array(value, "hard_constraint_results"));
+        let results = field(profile, "design_compatibility")
+            .and_then(|value| array(value, "hard_constraint_results"));
         if results.is_none_or(Vec::is_empty) {
-            errors.push(format!("{label}: compatibility needs explicit hard-constraint results"));
-        } else if results.is_some_and(|items| items.iter().any(|value| text(value, "outcome") != Some("pass"))) {
-            errors.push(format!("{label}: compatible result contradicts a failed or indeterminate hard constraint"));
+            errors.push(format!(
+                "{label}: compatibility needs explicit hard-constraint results"
+            ));
+        } else if results.is_some_and(|items| {
+            items
+                .iter()
+                .any(|value| text(value, "outcome") != Some("pass"))
+        }) {
+            errors.push(format!(
+                "{label}: compatible result contradicts a failed or indeterminate hard constraint"
+            ));
         }
     }
 
@@ -207,7 +248,11 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         if text(offer, "observed_state") == Some("fixture") {
             for (key, forbidden, description) in [
                 ("price_state", "quoted", "live quote"),
-                ("availability_state", "available_confirmed", "confirmed live availability"),
+                (
+                    "availability_state",
+                    "available_confirmed",
+                    "confirmed live availability",
+                ),
                 ("delivery_state", "delivery_quoted", "delivery quote"),
             ] {
                 if text(offer, key) == Some(forbidden) {
@@ -218,7 +263,9 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         if text(offer, "availability_state") == Some("available_confirmed")
             && text(offer, "observed_state") != Some("live_read")
         {
-            errors.push(format!("{label}: confirmed availability requires a live source read"));
+            errors.push(format!(
+                "{label}: confirmed availability requires a live source read"
+            ));
         }
         if text(offer, "price_state") == Some("quoted")
             && text(offer, "observed_state") != Some("live_read")
@@ -228,7 +275,9 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         if text(offer, "delivery_state") == Some("delivery_quoted")
             && text(offer, "observed_state") != Some("live_read")
         {
-            errors.push(format!("{label}: delivery quote requires a live source read"));
+            errors.push(format!(
+                "{label}: delivery quote requires a live source read"
+            ));
         }
     }
 }
@@ -236,7 +285,9 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
 pub fn validate_fixture(document: &Value) -> Vec<String> {
     let mut errors = Vec::new();
     if text(document, "fixture_status") != Some(ROOT_FIXTURE_STATUS) {
-        errors.push(format!("root.fixture_status must equal {ROOT_FIXTURE_STATUS:?}"));
+        errors.push(format!(
+            "root.fixture_status must equal {ROOT_FIXTURE_STATUS:?}"
+        ));
     }
     if text(document, "fixture_status").is_some_and(|status| status != ROOT_FIXTURE_STATUS) {
         errors.push("refusing to treat this corpus as live marketplace data".to_owned());
@@ -294,7 +345,9 @@ mod tests {
             let first = doc["profiles"][0].clone();
             doc["profiles"].as_array_mut().unwrap().push(first);
         });
-        assert!(errors.iter().any(|error| error.contains("duplicate profile_id")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("duplicate profile_id")));
     }
 
     #[test]
@@ -303,7 +356,9 @@ mod tests {
             doc["profiles"][2]["design_compatibility"]["compatibility_state"] =
                 Value::String("compatible_for_declared_checks".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("unknown geometry cannot be marked compatible")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unknown geometry cannot be marked compatible")));
     }
 
     #[test]
@@ -312,21 +367,27 @@ mod tests {
             doc["profiles"][1]["design_compatibility"]["compatibility_state"] =
                 Value::String("compatible_for_declared_checks".to_owned());
             for result in doc["profiles"][1]["design_compatibility"]["hard_constraint_results"]
-                .as_array_mut().unwrap()
+                .as_array_mut()
+                .unwrap()
             {
                 result["outcome"] = Value::String("pass".to_owned());
             }
         });
-        assert!(errors.iter().any(|error| error.contains("geometry-use rights do not permit layout compatibility")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("geometry-use rights do not permit layout compatibility")));
     }
 
     #[test]
     fn geometry_digest_substitution_is_rejected() {
         let errors = errors_after(baseline(), |doc| {
-            doc["profiles"][0]["evidence"][0]["source_digest_sha256"] =
-                Value::String("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_owned());
+            doc["profiles"][0]["evidence"][0]["source_digest_sha256"] = Value::String(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_owned(),
+            );
         });
-        assert!(errors.iter().any(|error| error.contains("geometry/evidence digest mismatch")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("geometry/evidence digest mismatch")));
     }
 
     #[test]
@@ -335,7 +396,9 @@ mod tests {
             doc["profiles"][0]["marketplace_offer"]["availability_state"] =
                 Value::String("available_confirmed".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("confirmed availability requires a live source read")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("confirmed availability requires a live source read")));
     }
 
     #[test]
@@ -344,7 +407,9 @@ mod tests {
             doc["profiles"][0]["marketplace_offer"]["price_state"] =
                 Value::String("quoted".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("quoted price requires a live source read")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("quoted price requires a live source read")));
     }
 
     #[test]
@@ -353,7 +418,9 @@ mod tests {
             doc["profiles"][0]["catalog_item"]["geometry"]["geometry_evidence_refs"][0] =
                 Value::String("missing-evidence".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("unresolved geometry evidence reference")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unresolved geometry evidence reference")));
     }
 
     #[test]
@@ -362,7 +429,8 @@ mod tests {
             doc["profiles"][0]["design_compatibility"]["hard_constraint_results"][0]["outcome"] =
                 Value::String("fail".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("compatible result contradicts a failed or indeterminate hard constraint")));
+        assert!(errors.iter().any(|error| error
+            .contains("compatible result contradicts a failed or indeterminate hard constraint")));
     }
 
     #[test]
@@ -371,7 +439,9 @@ mod tests {
             doc["profiles"][0]["catalog_item"]["geometry"]["geometry_digest_sha256"] =
                 Value::String("not-a-digest".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("needs a SHA-256 digest")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("needs a SHA-256 digest")));
     }
 
     #[test]
@@ -379,19 +449,22 @@ mod tests {
         let errors = errors_after(baseline(), |doc| {
             doc["fixture_status"] = Value::String("live_marketplace_data".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("refusing to treat this corpus as live marketplace data")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("refusing to treat this corpus as live marketplace data")));
     }
 
     #[test]
     fn unresolved_constraint_evidence_is_rejected() {
         let errors = errors_after(baseline(), |doc| {
-            doc["profiles"][0]["design_compatibility"]["hard_constraint_results"][0]["evidence_refs"][0] =
-                Value::String("evidence-never-defined".to_owned());
+            doc["profiles"][0]["design_compatibility"]["hard_constraint_results"][0]
+                ["evidence_refs"][0] = Value::String("evidence-never-defined".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("unresolved evidence reference")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("unresolved evidence reference")));
     }
 }
-
 
 /// Validate an adapter request that is explicitly discovery-only. Every
 /// externally visible or commercial side effect must remain false until a
@@ -413,7 +486,10 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
         errors.push("request: design dimensions must be expressed in metres".to_owned());
     }
     if text(snapshot, "spatial_evaluation_location") != Some("local_or_trusted_private_client") {
-        errors.push("request: spatial evaluation must remain local or in a trusted private client".to_owned());
+        errors.push(
+            "request: spatial evaluation must remain local or in a trusted private client"
+                .to_owned(),
+        );
     }
     if field(snapshot, "full_geometry_transmission").and_then(Value::as_bool) != Some(false) {
         errors.push("request: full geometry transmission must be false".to_owned());
@@ -456,7 +532,9 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
                 continue;
             };
             if !ALLOWED_QUERY_FIELDS.contains(&name) {
-                errors.push(format!("request: query field {name:?} exceeds the allowlist"));
+                errors.push(format!(
+                    "request: query field {name:?} exceeds the allowlist"
+                ));
             }
             if !seen.insert(name) {
                 errors.push(format!("request: duplicate query field {name:?}"));
@@ -480,16 +558,22 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
         "commit_transaction",
     ] {
         if field(effects, forbidden).and_then(Value::as_bool) != Some(false) {
-            errors.push(format!("request: effect {forbidden} must be false in discovery-only mode"));
+            errors.push(format!(
+                "request: effect {forbidden} must be false in discovery-only mode"
+            ));
         }
     }
 
     if let Some(authorization) = field(document, "authorization") {
-        if field(authorization, "resident_selection_required").and_then(Value::as_bool) != Some(true) {
+        if field(authorization, "resident_selection_required").and_then(Value::as_bool)
+            != Some(true)
+        {
             errors.push("request: resident_selection_required must be true".to_owned());
         }
         if text(authorization, "purchase_authorization_state") != Some("not_requested") {
-            errors.push("request: purchase authorization must not be requested during discovery".to_owned());
+            errors.push(
+                "request: purchase authorization must not be requested during discovery".to_owned(),
+            );
         }
     } else {
         errors.push("request: missing authorization".to_owned());
@@ -503,7 +587,9 @@ pub fn validate_discovery_request(document: &Value) -> Vec<String> {
         if let Some(dimensions) = field(query, "minimum_dimensions_m") {
             for name in ["width", "depth", "height"] {
                 if !positive_finite(field(dimensions, name)) {
-                    errors.push(format!("request: minimum_dimensions_m.{name} must be positive and finite"));
+                    errors.push(format!(
+                        "request: minimum_dimensions_m.{name} must be positive and finite"
+                    ));
                 }
             }
         } else {
