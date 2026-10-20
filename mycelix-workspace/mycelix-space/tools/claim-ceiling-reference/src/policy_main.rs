@@ -41,7 +41,9 @@ fn parse_args(args: &[String]) -> Result<CliArgs, String> {
             name,
             "--input" | "--policy" | "--expected-policy-sha256" | "--source-commit"
         ) {
-            return Err(format!("unknown option or positional argument {name:?}; {USAGE}"));
+            return Err(format!(
+                "unknown option or positional argument {name:?}; {USAGE}"
+            ));
         }
 
         let value = args
@@ -49,7 +51,9 @@ fn parse_args(args: &[String]) -> Result<CliArgs, String> {
             .map(String::as_str)
             .ok_or_else(|| format!("argument {name} requires a value; {USAGE}"))?;
         if value.is_empty() || value.starts_with("--") {
-            return Err(format!("argument {name} requires a non-empty value; {USAGE}"));
+            return Err(format!(
+                "argument {name} requires a non-empty value; {USAGE}"
+            ));
         }
         if options.insert(name, value).is_some() {
             return Err(format!("argument {name} must not be repeated; {USAGE}"));
@@ -80,8 +84,8 @@ fn parse_args(args: &[String]) -> Result<CliArgs, String> {
 /// Read no more than limit + 1 bytes, so a growing/replaced file cannot cause an
 /// unbounded read between a metadata check and the actual read.
 fn read_bounded(path: &str, label: &str, limit: usize) -> Result<Vec<u8>, String> {
-    let file = fs::File::open(path)
-        .map_err(|error| format!("cannot open {label} {path}: {error}"))?;
+    let file =
+        fs::File::open(path).map_err(|error| format!("cannot open {label} {path}: {error}"))?;
     let mut bytes = Vec::new();
     file.take((limit + 1) as u64)
         .read_to_end(&mut bytes)
