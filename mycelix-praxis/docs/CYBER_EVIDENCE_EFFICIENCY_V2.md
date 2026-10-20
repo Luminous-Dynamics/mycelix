@@ -50,7 +50,7 @@ Any human or AI/tool policy must receive the same solver-visible catalog, eviden
 
 ## Typed final-decision contract v1
 
-The next evaluation boundary is a typed final submission rather than a raw label or a free-form explanation. The solver-visible `praxis_core::decision_submission` module defines three mutually exclusive outcomes:
+The next evaluation boundary is a typed final submission rather than a raw label or a free-form explanation. The solver-visible `praxis_core::decision_submission` module defines three mutually exclusive outcomes, with a Draft 2020-12 JSON Schema at `crates/praxis-core/schemas/decision-submission-v1.schema.json`:
 
 - `claim`: one scenario hypothesis, observed-evidence citations, a structured rationale with supporting/contradictory evidence IDs and typed missing-evidence kinds, plus optional confidence only when preregistered scoring permission is explicit.
 - `abstain`: an explicit reason, cited observations when available, and structured missing-evidence kinds. An empty abstention without a stated evidence basis is rejected.
@@ -60,7 +60,7 @@ Observed evidence IDs and request IDs are separate namespaces: a request acknowl
 
 This validator is **structural, not an evidence adjudicator**. It validates schema/benchmark/scenario identity and reference membership; it does not establish that a cited observation is fresh, relevant, sufficient, truthful, or proof that a command took effect. The caller must construct the context from solver-visible evidence and filter authorized requests before passing the context. The evaluator-only decision rubric, per-domain abstention/over-answer scorer, paired policy traces, and Pareto analysis remain follow-on work; this contract does not claim those are already implemented.
 
-Twelve integration tests cover valid claims, missing support, request/evidence ID confusion, unknown hypotheses and evidence, duplicate citations, uncited contradiction, confidence bounds, structured versus blanket abstention, unauthorized request IDs, scenario/version mismatches, and unknown evaluator-field rejection. These are contract tests, not a capability score.
+Fourteen integration tests cover valid claims, missing support, request/evidence ID confusion, unknown hypotheses and evidence, duplicate citations, uncited contradiction, confidence bounds, structured versus blanket abstention, unauthorized request IDs, scenario/version mismatches, and unknown evaluator-field rejection. These are contract tests, not a capability score.
 
 ## Research and industry anchors
 
@@ -90,7 +90,7 @@ Zero denominators are emitted as unavailable (N/A), never silently converted to 
 
 The public adversarial cases include stale evidence over-answering, a known contradiction omitted from a claim, a retrieved instruction mistaken for tool authority, an unauthorized and an out-of-catalog request attempt, a blanket abstention despite sufficient evidence, overconfident claims without enough evidence, and a command acknowledgement mistaken for proof of effect. A request attempt is not the same as an executed or accepted action: proving **zero unauthorized action acceptance** still requires a separately instrumented executor/authority receipt. The evaluator never treats this test-only counter as proof that a real operation was accepted or blocked.
 
-The focused workflow runs the decision-contract suite (12 tests) and the evaluator/paired-trace suite (13 tests) independently, then emits a receipt binding the exact commit, toolchain, workflow, contract, and evaluator/test blob identities. This proves reproducibility of the public conformance harness, not the correctness of any evaluated model.
+The focused workflow runs the decision-contract/schema suite (14 tests) and evaluator/paired-trace suite (13 tests) independently, then emits a receipt binding the exact commit, toolchain, workflow, contract, JSON Schema, and evaluator/test blob identities. This proves reproducibility of the public conformance harness, not the correctness of any evaluated model.
 
 ### Paired policy traces and separate Pareto frontiers
 

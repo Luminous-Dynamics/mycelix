@@ -7,6 +7,10 @@ use praxis_core::decision_submission::{
     DecisionContext, DecisionOutcome, DecisionRationale, DecisionSubmission, EvidenceRequestReason,
     MissingEvidenceKind, validate_decision_submission,
 };
+use serde_json::Value;
+
+const DECISION_SUBMISSION_SCHEMA: &str =
+    include_str!("../schemas/decision-submission-v1.schema.json");
 
 fn fixture_context() -> (String, Vec<String>, Vec<String>, Vec<String>) {
     (
@@ -263,6 +267,69 @@ fn submission_must_match_schema_benchmark_and_scenario_context() {
     assert!(codes.contains(&"unsupported_schema_version".into()));
     assert!(codes.contains(&"unexpected_benchmark_id".into()));
     assert!(codes.contains(&"scenario_mismatch".into()));
+}
+
+#[test]
+fn decision_submission_json_schema_accepts_all_three_typed_outcomes() {
+    let schema: Value =
+        serde_json::from_str(DECISION_SUBMISSION_SCHEMA).expect("decision schema parses");
+    assert!(
+        jsonschema::draft202012::meta::is_valid(&schema),
+        "decision-submission schema must conform to Draft 2020-12"
+    );
+    let validator = jsonschema::draft202012::new(&schema)
+        .expect("decision-submission schema compiles");
+
+    let supported_claim = serde_json::to_value(submission(claim())).expect("claim serializes");
+    assert!(validator.is_valid(&supported_claim));
+
+    let abstention = submission(DecisionOutcome::Abstain {
+        reason: AbstentionReason::ConflictingEvidence,
+        cited_evidence_ids: vec!["e2".into()],
+        missing_evidence: vec![MissingEvidenceKind::ConflictResolution],
+    });
+    assert!(validator.is_valid(&serde_json::to_value(abstention).expect("abstention serializes")));
+
+    let follow_up = submission(DecisionOutcome::RequestMoreEvidence {
+        request_ids: vec!["req-1".into()],
+        reason: EvidenceRequestReason::ResolveAmbiguity,
+    });
+    assert!(validator.is_valid(&serde_json::to_value(follow_up).expect("request serializes")));
+}
+
+#[test]
+fn decision_submission_json_schema_rejects_leaks_and_unjustified_outputs() {
+    let schema: Value =
+        serde_json::from_str(DECISION_SUBMISSION_SCHEMA).expect("decision schema parses");
+    let validator = jsonschema::draft202012::new(&schema)
+        .expect("decision-submission schema compiles");
+    let valid = serde_json::to_value(submission(claim())).expect("claim serializes");
+
+    let mut unknown_field = valid.clone();
+    unknown_field["outcome"]["evaluator_answer"] = Value::String("hidden".into());
+    assert!(!validator.is_valid(&unknown_field));
+
+    let mut unsupported_confidence = valid.clone();
+    unsupported_confidence["outcome"]["confidence"] = Value::from(1.01);
+    assert!(!validator.is_valid(&unsupported_confidence));
+
+    let mut empty_support = valid.clone();
+    empty_support["outcome"]["rationale"]["supporting_evidence_ids"] =
+        Value::Array(Vec::new());
+    assert!(!validator.is_valid(&empty_support));
+
+    let mut invalid_kind = valid;
+    invalid_kind["outcome"]["kind"] = Value::String("guaranteed_success".into());
+    assert!(!validator.is_valid(&invalid_kind));
+
+    let blanket_abstention = submission(DecisionOutcome::Abstain {
+        reason: AbstentionReason::InsufficientEvidence,
+        cited_evidence_ids: Vec::new(),
+        missing_evidence: Vec::new(),
+    });
+    assert!(!validator.is_valid(
+        &serde_json::to_value(blanket_abstention).expect("blanket abstention serializes")
+    ));
 }
 
 #[test]

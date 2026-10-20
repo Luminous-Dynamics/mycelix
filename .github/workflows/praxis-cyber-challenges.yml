@@ -206,6 +206,7 @@ jobs:
             --arg cargo "$(cargo +1.96.0 --version)" \
             --arg contract "$(git hash-object mycelix-praxis/crates/praxis-core/src/decision_submission.rs)" \
             --arg tests "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_submission.rs)" \
+            --arg schema "$(git hash-object mycelix-praxis/crates/praxis-core/schemas/decision-submission-v1.schema.json)" \
             --arg scorer "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_scoring.rs)" \
             --arg workflow "$(git hash-object .github/workflows/praxis-cyber-challenges.yml)" \
             '{
@@ -217,6 +218,7 @@ jobs:
               git_blob_sha1: {
                 decision_submission_contract: $contract,
                 adversarial_tests: $tests,
+                decision_submission_schema: $schema,
                 evaluator_only_decision_scorer: $scorer,
                 workflow: $workflow
               },

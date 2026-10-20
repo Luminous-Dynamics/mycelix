@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/mycelix-praxis/schemas/decision-submission-v1.schema.json",
+  "title": "Praxis Cyber Decision Submission v1",
+  "description": "Solver-visible wire contract. Structural conformance does not establish evidence truth or claim sufficiency.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "benchmark_id", "scenario_id", "outcome"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "benchmark_id": { "const": "PRAXIS-CYBER-DECISION-001" },
+    "scenario_id": { "$ref": "#/$defs/NonBlankId" },
+    "outcome": {
+      "oneOf": [
+        { "$ref": "#/$defs/Claim" },
+        { "$ref": "#/$defs/Abstain" },
+        { "$ref": "#/$defs/RequestMoreEvidence" }
+      ]
+    }
+  },
+  "$defs": {
+    "NonBlankId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "IdList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/NonBlankId" },
+      "uniqueItems": true
+    },
+    "MissingEvidenceKind": {
+      "type": "string",
+      "enum": [
+        "independent_corroboration",
+        "freshness_verification",
+        "conflict_resolution",
+        "source_coverage",
+        "effect_receipt",
+        "authority_confirmation"
+      ]
+    },
+    "DecisionRationale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supporting_evidence_ids",
+        "contradictory_evidence_ids",
+        "missing_evidence"
+      ],
+      "properties": {
+        "supporting_evidence_ids": {
+          "allOf": [
+            { "$ref": "#/$defs/IdList" },
+            { "minItems": 1 }
+          ]
+        },
+        "contradictory_evidence_ids": { "$ref": "#/$defs/IdList" },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MissingEvidenceKind" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "Claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "hypothesis_id",
+        "cited_evidence_ids",
+        "confidence",
+        "rationale"
+      ],
+      "properties": {
+        "kind": { "const": "claim" },
+        "hypothesis_id": { "$ref": "#/$defs/NonBlankId" },
+        "cited_evidence_ids": {
+          "allOf": [
+            { "$ref": "#/$defs/IdList" },
+            { "minItems": 1 }
+          ]
+        },
+        "confidence": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rationale": { "$ref": "#/$defs/DecisionRationale" }
+      }
+    },
+    "AbstentionReason": {
+      "type": "string",
+      "enum": [
+        "insufficient_evidence",
+        "conflicting_evidence",
+        "stale_evidence",
+        "unavailable_evidence",
+        "ambiguous_evidence"
+      ]
+    },
+    "Abstain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reason",
+        "cited_evidence_ids",
+        "missing_evidence"
+      ],
+      "properties": {
+        "kind": { "const": "abstain" },
+        "reason": { "$ref": "#/$defs/AbstentionReason" },
+        "cited_evidence_ids": { "$ref": "#/$defs/IdList" },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MissingEvidenceKind" },
+          "uniqueItems": true
+        }
+      },
+      "anyOf": [
+        { "properties": { "cited_evidence_ids": { "minItems": 1 } } },
+        { "properties": { "missing_evidence": { "minItems": 1 } } }
+      ]
+    },
+    "EvidenceRequestReason": {
+      "type": "string",
+      "enum": [
+        "resolve_ambiguity",
+        "verify_freshness",
+        "resolve_conflict",
+        "fill_coverage_gap",
+        "confirm_effect_receipt",
+        "seek_independent_corroboration"
+      ]
+    },
+    "RequestMoreEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "request_ids", "reason"],
+      "properties": {
+        "kind": { "const": "request_more_evidence" },
+        "request_ids": {
+          "allOf": [
+            { "$ref": "#/$defs/IdList" },
+            { "minItems": 1 }
+          ]
+        },
+        "reason": { "$ref": "#/$defs/EvidenceRequestReason" }
+      }
+    }
+  }
+}
