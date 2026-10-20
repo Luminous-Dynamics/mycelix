@@ -1446,4 +1446,3 @@ fn preregistration_policy_arms_label_the_evaluator_oracle_as_non_competitive() {
     );
     assert!(arms.iter().any(|arm| arm["id"] == "ai_tool_policy"));
 }
-
