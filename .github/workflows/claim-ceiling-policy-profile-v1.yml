@@ -14,6 +14,7 @@ on:
       - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
       - "mycelix-workspace/mycelix-space/Cargo.toml"
       - "mycelix-workspace/Cargo.toml"
+      - "docs/research/CLAIM_CEILING_POLICY_ADMISSIBILITY_V1_2026-10.md"
       - ".github/workflows/claim-ceiling-policy-profile-v1.yml"
 
 permissions:
@@ -54,6 +55,7 @@ jobs:
           request_schema="$root/schemas/claim-ceiling-policy-request-v1.schema.json"
           policy_schema="$root/schemas/claim-ceiling-policy-profile-v1.schema.json"
           receipt_schema="$root/schemas/claim-ceiling-policy-receipt-v1.schema.json"
+          oracle="$root/tests/independent_policy_profile_verifier.jq"
           source_sha="$(git rev-parse HEAD)"
           allowed_sha="$(sha256sum "$allowed" | cut -d ' ' -f 1)"
           rejected_sha="$(sha256sum "$rejected" | cut -d ' ' -f 1)"
@@ -65,48 +67,46 @@ jobs:
           cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$allowed" --policy "$policy" --expected-policy-sha256 "$policy_sha" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-allowed-1.json"
           cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$allowed" --policy "$policy" --expected-policy-sha256 "$policy_sha" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-allowed-2.json"
           cmp "$RUNNER_TEMP/policy-allowed-1.json" "$RUNNER_TEMP/policy-allowed-2.json"
-          jq -e --arg source "$source_sha" --arg input "$allowed_sha" --arg policy "$policy_sha" --arg req_schema "$request_schema_sha" --arg pol_schema "$policy_schema_sha" --arg rec_schema "$receipt_schema_sha" '
-            .source_commit == $source and .source_commit_pinned == true
-            and .input_sha256 == $input
-            and .policy_profile_sha256 == $policy
-            and .expected_policy_profile_sha256 == $policy
-            and .policy_profile_pinned == true
-            and .request_schema_sha256 == $req_schema
-            and .policy_profile_schema_sha256 == $pol_schema
-            and .receipt_schema_sha256 == $rec_schema
-            and .disposition == "admissible_within_profile"
-            and .violations == []
-            and .policy_admissibility_only == true
-            and .action_authority_granted == false
-          ' "$RUNNER_TEMP/policy-allowed-1.json" > /dev/null
+          jq -e \
+            --arg source "$source_sha" \
+            --arg input_sha256 "$allowed_sha" \
+            --arg actual_policy_sha256 "$policy_sha" \
+            --arg expected_policy_sha256 "$policy_sha" \
+            --arg request_schema_sha256 "$request_schema_sha" \
+            --arg policy_profile_schema_sha256 "$policy_schema_sha" \
+            --arg receipt_schema_sha256 "$receipt_schema_sha" \
+            --slurpfile request "$allowed" \
+            --slurpfile profile "$policy" \
+            -f "$oracle" "$RUNNER_TEMP/policy-allowed-1.json" > /dev/null
 
           cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$rejected" --policy "$policy" --expected-policy-sha256 "$policy_sha" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-rejected.json"
-          jq -e --arg source "$source_sha" --arg input "$rejected_sha" --arg policy "$policy_sha" --arg req_schema "$request_schema_sha" --arg pol_schema "$policy_schema_sha" --arg rec_schema "$receipt_schema_sha" '
-            .source_commit == $source and .source_commit_pinned == true
-            and .input_sha256 == $input
-            and .policy_profile_sha256 == $policy
-            and .expected_policy_profile_sha256 == $policy
-            and .policy_profile_pinned == true
-            and .request_schema_sha256 == $req_schema
-            and .policy_profile_schema_sha256 == $pol_schema
-            and .receipt_schema_sha256 == $rec_schema
-            and .disposition == "rejected_by_profile"
-            and .policy_admissibility_only == true
-            and .action_authority_granted == false
-            and ((([ "claim_atom_not_allowed", "subject_outside_policy", "context_outside_policy", "time_window_outside_policy", "action_scope_not_allowed", "required_qualification_missing", "required_independence_control_missing", "required_provenance_missing" ] - [.violations[].code]) | length) == 0)
-          ' "$RUNNER_TEMP/policy-rejected.json" > /dev/null
+          jq -e \
+            --arg source "$source_sha" \
+            --arg input_sha256 "$rejected_sha" \
+            --arg actual_policy_sha256 "$policy_sha" \
+            --arg expected_policy_sha256 "$policy_sha" \
+            --arg request_schema_sha256 "$request_schema_sha" \
+            --arg policy_profile_schema_sha256 "$policy_schema_sha" \
+            --arg receipt_schema_sha256 "$receipt_schema_sha" \
+            --slurpfile request "$rejected" \
+            --slurpfile profile "$policy" \
+            -f "$oracle" "$RUNNER_TEMP/policy-rejected.json" > /dev/null
 
           # A structurally valid but differently pinned policy must never return PASS.
           jq '.profile_id = "mycelix.policy.altered-profile.v1"' "$policy" > "$RUNNER_TEMP/policy-altered.json"
+          altered_policy_sha="$(sha256sum "$RUNNER_TEMP/policy-altered.json" | cut -d ' ' -f 1)"
           cargo run --locked --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-policy-check -- --input "$allowed" --policy "$RUNNER_TEMP/policy-altered.json" --expected-policy-sha256 "$policy_sha" --source-commit "$source_sha" > "$RUNNER_TEMP/policy-digest-mismatch.json"
-          jq -e --arg policy "$policy_sha" '
-            .expected_policy_profile_sha256 == $policy
-            and .policy_profile_sha256 != $policy
-            and .policy_profile_pinned == false
-            and .disposition == "rejected_by_profile"
-            and .violations[0].code == "policy_profile_digest_mismatch"
-            and .action_authority_granted == false
-          ' "$RUNNER_TEMP/policy-digest-mismatch.json" > /dev/null
+          jq -e \
+            --arg source "$source_sha" \
+            --arg input_sha256 "$allowed_sha" \
+            --arg actual_policy_sha256 "$altered_policy_sha" \
+            --arg expected_policy_sha256 "$policy_sha" \
+            --arg request_schema_sha256 "$request_schema_sha" \
+            --arg policy_profile_schema_sha256 "$policy_schema_sha" \
+            --arg receipt_schema_sha256 "$receipt_schema_sha" \
+            --slurpfile request "$allowed" \
+            --slurpfile profile "$RUNNER_TEMP/policy-altered.json" \
+            -f "$oracle" "$RUNNER_TEMP/policy-digest-mismatch.json" > /dev/null
           echo "CLAIM_CEILING_POLICY_PROFILE_V1_PASS"
       - name: Require clean tracked source after policy checks
         run: git diff --exit-code -- . ':!Cargo.lock'
