@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-AI-001",
+  "lesson": {
+    "standard_code": "EK-AI-001",
+    "title": "Use AI Systems Critically and Safely",
+    "grade_level": "Adult",
+    "bloom_level": "Evaluate",
+    "explanation": "AI tools can speed up drafting and exploration, but fluent output is not proof of correctness. Identify which claims are consequential, verify them against independent primary sources, test calculations and code, and disclose assistance where required. Avoid sending confidential, personal, or regulated data into tools whose retention and use you do not understand. For automation, constrain permissions, sandbox tests, preserve logs, and require human review for irreversible or high-impact actions.",
+    "examples": [
+      {
+        "problem": "An AI assistant states that a safety standard requires a specific threshold but provides no source.",
+        "steps": [
+          {
+            "instruction": "Treat the statement as an unverified claim.",
+            "result": "Do not use it to approve a design or make a consequential decision."
+          },
+          {
+            "instruction": "Find the applicable primary standard and exact edition.",
+            "result": "Verify the clause, scope, date, and whether qualified review is required."
+          }
+        ],
+        "answer": "Use AI to help locate questions and organize evidence, not as the authority for a safety decision."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "An AI-generated citation looks plausible but the article title cannot be found. What next?",
+        "answer": "Search the publisher or trusted bibliographic source, verify that the work exists and supports the claim, and label or remove the citation if it cannot be verified.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Generated references can be fabricated or mismatched.",
+        "distractors": [
+          "Assume the citation is real.",
+          "Cite the AI as proof of the article.",
+          "Invent a URL."
+        ]
+      },
+      {
+        "question": "Before letting an agent delete files automatically, what safeguards should be added?",
+        "answer": "Limit permissions, test in a sandbox/dry-run, scope the target set, require approval before destructive action, and retain recoverable backups/logs.",
+        "difficulty_permille": 450,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Automation can amplify mistakes rapidly.",
+        "distractors": [
+          "Give it administrator access immediately.",
+          "Disable logs.",
+          "Test first on irreplaceable production data."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Grounding",
+        "definition": "Connecting an output to inspectable source evidence or data.",
+        "example_usage": "A factual answer links to a specific source passage."
+      },
+      {
+        "term": "Human-in-the-loop",
+        "definition": "A workflow in which a person reviews or authorizes a consequential action.",
+        "example_usage": "A reviewer approves a proposed deletion before execution."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A confident AI answer is more reliable because it sounds certain.",
+        "correction": "Fluency is a presentation property, not a validated measure of truth.",
+        "why_students_think_this": "Language generation can produce plausible but unsupported details."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Grounding",
+      "back": "Connecting an output to inspectable source evidence or data."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Before letting an agent delete files automatically, what safeguards should be added?"
+    }
+  ]
+}
