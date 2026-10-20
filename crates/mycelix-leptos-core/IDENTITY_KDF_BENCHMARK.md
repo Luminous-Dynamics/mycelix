@@ -14,7 +14,7 @@ Install the repository-pinned `wasm-pack` version and ensure Chrome/Chromium plu
 wasm-pack test --headless --chrome crates/mycelix-leptos-core --lib --locked --features production-kdf-benchmark production_kdf_latency_benchmark -- --nocapture
 ```
 
-The test uses the browser's monotonic `performance.now()` timer, performs one warm-up encrypt/decrypt pair, and then collects 20 paired samples on a synthetic 32-byte test secret and a synthetic passphrase. It emits one machine-readable `IDENTITY_KDF_BENCHMARK` line. Do not supply actual user credentials, use a real mnemonic, or add secret-derived output.
+The test uses the browser's monotonic `performance.now()` timer, performs one warm-up encrypt/decrypt pair, then collects 20 samples for each of: PBKDF2 `deriveBits` alone, encryption, and unlock/decryption. The PBKDF2 base password key is imported once outside the derive-only timing loop so the `derive_bits_ms_*` fields measure the native WebCrypto derivation rather than setup. It emits one machine-readable `IDENTITY_KDF_BENCHMARK` line. Do not supply actual user credentials, use a real mnemonic, or add secret-derived output.
 
 The percentile/statistics helper is tested independently on native Rust without invoking WebCrypto:
 
@@ -27,6 +27,7 @@ The exact-head CI workflow additionally records the Chrome/Chromium and ChromeDr
 
 ## What is measured
 
+- `derive_bits_ms`: PBKDF2-HMAC-SHA256 KDF-only path via WebCrypto `deriveBits`; the password key is imported before samples and each derivation returns 32 bytes.
 - `encrypt_ms`: browser WebCrypto encrypt operation including salt/IV generation, PBKDF2 derivation, and AES-GCM encryption.
 - `unlock_decrypt_ms`: browser WebCrypto decrypt operation including PBKDF2 derivation and authenticated AES-GCM decryption. This isolates the expensive cryptographic path; it does not include the full Personal startup, localStorage inspection, DOM rendering, or Holochain conductor connection.
 - `p50`: nearest-rank 50th percentile of the 20 samples (lower-middle observation for this even sample count).
@@ -36,12 +37,14 @@ The exact-head CI workflow additionally records the Chrome/Chromium and ChromeDr
 ## Interpretation / decision rules
 
 1. A GitHub-hosted Chrome measurement is useful as a reproducible CI baseline, not as a proxy for every low-end Android device or desktop.
-2. Record device/browser/OS and cold/warm conditions when collecting manual target-device measurements. Compare p50/p95, retry rate, and successful recovery—not only one fast benchmark.
-3. Initial product hypothesis: p95 decrypt/unlock cryptographic work under 1.5 seconds on a declared reference device. This is a target to test, not a measured result or security standard. Revise only with user/device evidence and an explicit security trade-off.
-4. Never reduce the production work factor just to meet a latency target. If target devices cannot meet the target, evaluate a reviewed, versioned alternative KDF and its WASM footprint instead.
-5. OWASP prefers Argon2id when compatible; PBKDF2-HMAC-SHA256 at 600,000 iterations is its stated FIPS-oriented fallback recommendation. The sibling feature-gated `ARGON2ID_BROWSER_BENCHMARK.md` now measures the RustCrypto Argon2id WASM implementation separately. It does **not** change production envelope parsing or select Argon2id for stored identities. Any future production implementation must use a reviewed library, fixed/bounded parameter policy, explicit envelope version/identifier, authenticated metadata, migration tests, and target-device measurements.
-6. Evaluate WebAuthn/passkeys as optional user verification or key-wrapping input in a separate prototype. A passkey credential must not be treated as the Mycelix Ed25519 signing key, and it must not replace the independent offline recovery backup without a protocol-level recovery analysis.
-7. Passphrase-wrapped local storage does not defend a live unlocked page from active XSS, malicious extensions, or a compromised browser profile.
+2. For KDF-only comparison, compare `derive_bits_ms_*` against the sibling `argon2id-browser-benchmark` feature's `derive_ms_*`. PBKDF2 runs in native WebCrypto and Argon2id runs as pure Rust/WASM, so this compares realistic browser implementations, not algorithm speed in an identical runtime.
+3.
+4. Record device/browser/OS and cold/warm conditions when collecting manual target-device measurements. Compare p50/p95, retry rate, and successful recovery—not only one fast benchmark.
+5. Initial product hypothesis: p95 decrypt/unlock cryptographic work under 1.5 seconds on a declared reference device. This is a target to test, not a measured result or security standard. Revise only with user/device evidence and an explicit security trade-off.
+6. Never reduce the production work factor just to meet a latency target. If target devices cannot meet the target, evaluate a reviewed, versioned alternative KDF and its WASM footprint instead.
+7. OWASP prefers Argon2id when compatible; PBKDF2-HMAC-SHA256 at 600,000 iterations is its stated FIPS-oriented fallback recommendation. The sibling feature-gated `ARGON2ID_BROWSER_BENCHMARK.md` now measures the RustCrypto Argon2id WASM implementation separately. It does **not** change production envelope parsing or select Argon2id for stored identities. Any future production implementation must use a reviewed library, fixed/bounded parameter policy, explicit envelope version/identifier, authenticated metadata, migration tests, and target-device measurements.
+8. Evaluate WebAuthn/passkeys as optional user verification or key-wrapping input in a separate prototype. A passkey credential must not be treated as the Mycelix Ed25519 signing key, and it must not replace the independent offline recovery backup without a protocol-level recovery analysis.
+9. Passphrase-wrapped local storage does not defend a live unlocked page from active XSS, malicious extensions, or a compromised browser profile.
 
 ## Standards and references checked 2026-10-20
 
