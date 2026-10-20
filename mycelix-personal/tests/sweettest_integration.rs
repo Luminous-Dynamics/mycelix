@@ -482,6 +482,55 @@ async fn test_health_create_and_get_records() {
     assert_eq!(records.len(), 2);
 }
 
+/// Private health records remain queryable by their owner but are not
+/// present in another agent's local source-chain query.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_health_private_entries_are_owner_local() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&personal_dna_path()).await.unwrap();
+
+    let alice_app = conductor.setup_app("alice", &[dna_file.clone()]).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob_app = conductor.setup_app("bob", &[dna_file]).await.unwrap();
+    let bob = bob_app.cells()[0].clone();
+
+    assert_ne!(alice.agent_pubkey(), bob.agent_pubkey());
+
+    let secret_marker = "owner-local-health-record-marker-9df21";
+    let record = HealthRecord {
+        record_type: "allergy".to_string(),
+        data: format!(r#"{{"marker":"{secret_marker}"}}"#),
+        source: "self".to_string(),
+        event_date: Timestamp::now(),
+        updated_at: Timestamp::now(),
+    };
+
+    let created: Record = conductor
+        .call(&alice.zome("health_vault"), "create_health_record", record)
+        .await;
+    assert_eq!(created.action().author(), alice.agent_pubkey());
+
+    let alice_records: Vec<Record> = conductor
+        .call(&alice.zome("health_vault"), "get_my_records", ())
+        .await;
+    assert_eq!(alice_records.len(), 1);
+    let owner_record: HealthRecord = alice_records[0]
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .expect("owner query should include private entry content");
+    assert!(owner_record.data.contains(secret_marker));
+
+    let bob_records: Vec<Record> = conductor
+        .call(&bob.zome("health_vault"), "get_my_records", ())
+        .await;
+    assert!(
+        bob_records.is_empty(),
+        "another agent's local source-chain query must not return the owner's health records"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_health_record_biometric() {
