@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
 concurrency:
   group: invariant-verification-targeted-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -23,6 +26,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@stable
