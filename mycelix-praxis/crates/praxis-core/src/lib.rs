@@ -16,6 +16,7 @@
 
 mod benchmarks;
 pub mod contracts;
+pub mod assessment_evidence;
 pub mod crypto;
 pub mod errors;
 pub mod export_formats;
