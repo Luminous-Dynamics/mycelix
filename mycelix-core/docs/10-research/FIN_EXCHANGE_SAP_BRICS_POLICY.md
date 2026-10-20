@@ -121,7 +121,7 @@ The 2025 Rio de Janeiro BRICS Leaders' Declaration instructed continued work on 
 Useful source references:
 
 - [2025 Rio de Janeiro Leaders' Declaration, paragraphs 49–50](https://brics.br/en/documents/presidency-documents/250705-brics-leaders-declaration-en.pdf/%40%40download/file)
-- [2026 New Delhi Declaration — public copy](https://ebs.publicnow.com/view/322C608779C3EE82D80D8869B7D797096FDC352E)
+- [2026 New Delhi Declaration — public copy](https://www.pmindia.gov.in/en/news_updates/brics-new-delhi-declaration-building-for-resilience-innovation-cooperation-and-sustainability-september-12-2026/)
 - [BIS Project Rialto](https://www.bis.org/publications/project-rialto-improving-instant-cross-border-payments-using-central-bank-money-settlement-technical-report) — a technical experiment linking payment systems, tokenised FX and central-bank-money settlement.
 - [BIS Project Mandala](https://www.bis.org/project/mandala) — research on encoding jurisdiction-specific compliance checks and privacy-preserving proofs.
 - [BIS FX settlement risk analysis, June 2026](https://www.bis.org/publications/qr-202606/uncovering-fx-settlement-risk-new-measures-2025-bis-triennial-survey).
@@ -229,7 +229,7 @@ Build a provider-neutral, corridor-aware protocol that can serve BRICS local-cur
 - [BIS — Project Rialto](https://www.bis.org/publications/project-rialto-improving-instant-cross-border-payments-using-central-bank-money-settlement-technical-report)
 - [BIS — Project Mandala](https://www.bis.org/project/mandala)
 - [BRICS — Rio de Janeiro Leaders' Declaration (2025)](https://brics.br/en/documents/presidency-documents/250705-brics-leaders-declaration-en.pdf/%40%40download/file)
-- [BRICS — New Delhi Declaration (2026, public copy)](https://ebs.publicnow.com/view/322C608779C3EE82D80D8869B7D797096FDC352E)
+- [BRICS — New Delhi Declaration (12 September 2026, Government of India)](https://www.pmindia.gov.in/en/news_updates/brics-new-delhi-declaration-building-for-resilience-innovation-cooperation-and-sustainability-september-12-2026/)
 
 ---
 
