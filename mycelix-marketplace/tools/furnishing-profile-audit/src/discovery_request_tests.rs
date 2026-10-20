@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod discovery_request_tests {
-    use super::super::validate_discovery_request;
+    use super::validate_discovery_request;
     use serde_json::Value;
     use std::path::PathBuf;
 
