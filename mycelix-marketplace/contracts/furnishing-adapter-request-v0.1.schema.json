@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-marketplace/contracts/furnishing-adapter-request-v0.1.schema.json",
+  "title": "Effects-disabled furnishing discovery request v0.1",
+  "description": "A narrowly scoped request contract for querying Marketplace offer references while keeping detailed floor plans and transaction effects out of discovery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "mode",
+    "design_snapshot",
+    "query",
+    "data_minimization",
+    "effects",
+    "authorization",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "const": "discovery_only"
+    },
+    "design_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "design_revision",
+        "design_context_digest_sha256",
+        "dimensions_unit",
+        "spatial_evaluation_location",
+        "full_geometry_transmission"
+      ],
+      "properties": {
+        "design_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "design_context_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "dimensions_unit": {
+          "const": "m"
+        },
+        "spatial_evaluation_location": {
+          "const": "local_or_trusted_private_client"
+        },
+        "full_geometry_transmission": {
+          "const": false
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "minimum_dimensions_m",
+        "condition_preferences",
+        "delivery_region_code",
+        "query_digest_sha256"
+      ],
+      "properties": {
+        "category": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "minimum_dimensions_m": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "depth",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "depth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "condition_preferences": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "new",
+              "used",
+              "repaired",
+              "refurbished",
+              "remanufactured",
+              "reclaimed_material",
+              "made_to_order"
+            ]
+          }
+        },
+        "delivery_region_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "query_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      }
+    },
+    "data_minimization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fields_permitted_for_query",
+        "exact_address_transmitted",
+        "occupant_profile_transmitted",
+        "floor_plan_transmitted",
+        "household_preferences_transmitted"
+      ],
+      "properties": {
+        "fields_permitted_for_query": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "category",
+              "bounding_dimensions_m",
+              "condition_preference",
+              "coarse_delivery_region",
+              "evidence_completeness",
+              "repairability_claim_state",
+              "geometry_use_rights"
+            ]
+          }
+        },
+        "exact_address_transmitted": {
+          "const": false
+        },
+        "occupant_profile_transmitted": {
+          "const": false
+        },
+        "floor_plan_transmitted": {
+          "const": false
+        },
+        "household_preferences_transmitted": {
+          "const": false
+        }
+      }
+    },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "create_order",
+        "reserve_stock",
+        "create_payment",
+        "contact_seller",
+        "upload_floor_plan",
+        "transmit_exact_address",
+        "commit_transaction"
+      ],
+      "properties": {
+        "create_order": {
+          "const": false
+        },
+        "reserve_stock": {
+          "const": false
+        },
+        "create_payment": {
+          "const": false
+        },
+        "contact_seller": {
+          "const": false
+        },
+        "upload_floor_plan": {
+          "const": false
+        },
+        "transmit_exact_address": {
+          "const": false
+        },
+        "commit_transaction": {
+          "const": false
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resident_selection_required",
+        "purchase_authorization_state"
+      ],
+      "properties": {
+        "resident_selection_required": {
+          "const": true
+        },
+        "purchase_authorization_state": {
+          "const": "not_requested"
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
