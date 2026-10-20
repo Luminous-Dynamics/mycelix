@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "benchmark_id": "PRAXIS-CYBER-ACQ-001",
+  "benchmark_version": "0.2.0",
+  "classification": "public_synthetic_conformance",
+  "solver_visible_file": "request-catalog.json",
+  "evaluator_only_file": "evaluator-only.json",
+  "solver_schema_file": "request-catalog.schema.json",
+  "evaluator_schema_file": "evaluator-only.schema.json",
+  "required_domain_coverage": [
+    "identity_access",
+    "network_configuration",
+    "supply_chain_provenance",
+    "ai_tool_boundaries",
+    "endpoint_response_telemetry"
+  ],
+  "required_sufficiency_levels": [
+    "full_support",
+    "partial_support",
+    "irrelevant",
+    "absent",
+    "conflicting"
+  ],
+  "solver_visible_git_blob_sha": "a0a3c94b4719a2f9e42f6ad38283bb8e92d7e78e",
+  "evaluator_only_git_blob_sha": "c99bd8e0d4cbc4fff3b70db78a980d8be78de352",
+  "solver_schema_git_blob_sha": "7399d730db4f7b4acd6fe041e6df71df0c2caaa6",
+  "evaluator_schema_git_blob_sha": "8f66537408ab3855e4e0c0d83005d7eaabbaca81",
+  "git_blob_sha_note": "Git blob identities are checked against the exact repository checkout. They bind file bytes within this revision; they are not signatures, independent attestations, calibrated incident probabilities, or real-world evidence.",
+  "qualification_protocol_template_file": "qualification-protocol.template.json",
+  "qualification_protocol_schema_file": "qualification-protocol.schema.json",
+  "qualification_protocol_template_git_blob_sha": "232f7af6ec87c14189768706e7ce14b13c1dd79f",
+  "qualification_protocol_schema_git_blob_sha": "9aa1d78ce93c7ba4b2f16bf12742b3e572ad1532",
+  "qualification_protocol_note": "This is a deliberately ineligible template; do not count the public synthetic corpus as held-out evaluation or claim a registered comparison until the null pre-registration fields have been completed, independently reviewed, and frozen before held-out access."
+}
