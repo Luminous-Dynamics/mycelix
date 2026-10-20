@@ -24,6 +24,27 @@ use mycelix_zome_helpers as _;
 
 const FINANCE_HAPP_ID: &str = "mycelix-finance";
 
+/// Require an ID index to resolve to exactly one root.
+/// Link retrieval order is not protocol identity; ambiguity is corruption and fails closed.
+fn exact_one_index_link(
+    links: Vec<Link>,
+    index_type: &str,
+    identifier: &str,
+) -> ExternResult<Link> {
+    let mut links = links.into_iter();
+    let Some(link) = links.next() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index has no entry for {identifier}"
+        ))));
+    };
+    if links.next().is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}"
+        ))));
+    }
+    Ok(link)
+}
+
 /// When true, cross-cluster bridge calls that fail to reach the governance
 /// cluster will return errors instead of permissive defaults.
 ///
@@ -105,6 +126,204 @@ pub fn verify_payment_status_remote(
     verify_payment_status(input)
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ReconcilePaymentSettlementInput {
+    pub source_happ: String,
+    pub reference: String,
+}
+
+#[hdk_extern]
+pub fn reconcile_payment_settlement(
+    input: ReconcilePaymentSettlementInput,
+) -> ExternResult<Record> {
+    validate_payment_lookup_key(&input.source_happ, &input.reference)?;
+
+    let payment_record = find_payment_by_reference(&input.source_happ, &input.reference)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Cross-hApp payment not found",
+        )))?;
+
+    let payment = decode_cross_happ_payment(&payment_record)?;
+    let caller_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+    if caller_did != payment.from_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the payment source-chain author may finalize cross-hApp settlement".into()
+        )));
+    }
+
+    if payment.status == PaymentStatus::Completed {
+        return Ok(payment_record);
+    }
+
+    if payment.status != PaymentStatus::Processing {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Payment must be Processing before settlement reconciliation; current state is {:?}",
+            payment.status
+        ))));
+    }
+
+    let transfer_id = cross_happ_transfer_id(&payment.source_happ, &payment.reference);
+
+    #[derive(Serialize, Debug)]
+    struct GetSapTransferClaimPayload {
+        transfer_id: String,
+    }
+
+    let claim_result = call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("get_sap_transfer_claim"),
+        None,
+        GetSapTransferClaimPayload {
+            transfer_id: transfer_id.clone(),
+        },
+    );
+
+    let claim_record = match claim_result {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer claim lookup result: {:?}",
+                e
+            )))
+        })?,
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer claim lookup returned unexpected response: {:?}",
+                other
+            ))));
+        }
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer claim lookup unavailable: {:?}",
+                e
+            ))));
+        }
+    };
+
+    let Some(claim_record) = claim_record else {
+        // Still Processing: absence of recipient claim is not evidence of failure.
+        return Ok(payment_record);
+    };
+
+    #[derive(Serialize, Debug)]
+    struct GetSapTransferIntentPayload {
+        transfer_id: String,
+    }
+
+    let intent_result = call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("get_sap_transfer_intent"),
+        None,
+        GetSapTransferIntentPayload {
+            transfer_id: transfer_id.clone(),
+        },
+    );
+
+    let intent_record = match intent_result {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer intent lookup result: {:?}",
+                e
+            )))
+        })?,
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer intent lookup returned unexpected response: {:?}",
+                other
+            ))));
+        }
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer intent lookup unavailable: {:?}",
+                e
+            ))));
+        }
+    };
+
+    let Some(intent_record) = intent_record else {
+        return Ok(payment_record);
+    };
+
+    #[derive(Deserialize)]
+    struct TransferIntentView {
+        id: String,
+        from_did: String,
+        to_did: String,
+        amount: u64,
+    }
+    let intent = intent_record
+        .entry()
+        .to_app_option::<TransferIntentView>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer intent: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP transfer intent record is missing or malformed",
+        )))?;
+
+    #[derive(Deserialize)]
+    struct TransferClaimView {
+        transfer_id: String,
+        intent_action_hash: ActionHash,
+        recipient_did: String,
+        amount: u64,
+    }
+    let claim = claim_record
+        .entry()
+        .to_app_option::<TransferClaimView>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer claim: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP transfer claim record is missing or malformed",
+        )))?;
+
+    if intent.id != transfer_id
+        || intent.from_did != payment.from_did
+        || intent.to_did != payment.to_did
+        || intent.amount != payment.amount
+        || claim.transfer_id != transfer_id
+        || claim.intent_action_hash != intent_record.action_address().clone()
+        || claim.recipient_did != payment.to_did
+        || claim.amount != payment.amount
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Observed SAP intent/claim does not exactly match the cross-hApp payment"
+                .into(),
+        )));
+    }
+
+    let completed_at = sys_time()?;
+    let completed_record = update_payment_status(
+        &payment_record,
+        payment,
+        PaymentStatus::Completed,
+        Some(completed_at),
+    )?;
+
+    broadcast_finance_event(BroadcastFinanceEventInput {
+        event_type: FinanceEventType::PaymentCompleted,
+        subject_did: caller_did,
+        amount: Some(claim.amount),
+        payload: serde_json::json!({
+            "source_happ": input.source_happ,
+            "reference": input.reference,
+            "transfer_id": transfer_id,
+            "settlement_state": "Completed",
+        })
+        .to_string(),
+    })?;
+
+    Ok(completed_record)
+}
+
 #[hdk_extern]
 pub fn verify_payment_status(input: VerifyPaymentStatusInput) -> ExternResult<Option<Record>> {
     validate_payment_lookup_key(&input.source_happ, &input.reference)?;
@@ -137,6 +356,22 @@ fn validate_payment_lookup_key(source_happ: &str, reference: &str) -> ExternResu
 
 fn payment_reference_key(source_happ: &str, reference: &str) -> String {
     format!("cross-happ-payment:{source_happ}:{reference}")
+}
+
+fn cross_happ_transfer_id(source_happ: &str, reference: &str) -> String {
+    let mut bytes = b"mycelix.cross-happ.sap-transfer.v1".to_vec();
+    bytes.extend_from_slice(&(source_happ.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(source_happ.as_bytes());
+    bytes.extend_from_slice(&(reference.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(reference.as_bytes());
+
+    let digest = holo_hash::blake2b_256(&bytes);
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut hex, "{byte:02x}");
+    }
+    format!("xfer:{hex}")
 }
 
 fn decode_cross_happ_payment(record: &Record) -> ExternResult<CrossHappPayment> {
@@ -331,6 +566,7 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
         from_did: String,
         to_did: String,
         amount: u64,
+        transfer_id: Option<String>,
     }
     let transfer_result = call(
         CallTargetCell::Local,
@@ -341,6 +577,10 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
             from_did: input.from_did.clone(),
             to_did: input.to_did.clone(),
             amount: input.amount,
+            transfer_id: Some(cross_happ_transfer_id(
+                &input.source_happ,
+                &input.reference,
+            )),
         },
     );
 
@@ -374,29 +614,26 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
         }
     }
 
-    let completed_at = sys_time()?;
-    let completed_record = update_payment_status(
-        &processing_record,
-        processing,
-        PaymentStatus::Completed,
-        Some(completed_at),
-    )?;
+    // AC-099 makes SAP settlement asynchronous: this successful call proves only
+    // that the sender-side transfer intent/debit committed. The recipient must
+    // separately claim the intent before the cross-hApp payment becomes final.
+    let awaiting_record = processing_record;
 
-    // Notification failure cannot roll value back. A retry returns the existing
-    // Completed record and therefore cannot transfer a second time.
     broadcast_finance_event(BroadcastFinanceEventInput {
-        event_type: FinanceEventType::PaymentCompleted,
-        subject_did: input.from_did,
+        event_type: FinanceEventType::PaymentAwaitingRecipientClaim,
+        subject_did: input.from_did.clone(),
         amount: Some(input.amount),
         payload: serde_json::json!({
             "to": input.to_did,
             "currency": input.currency,
             "reference": input.reference,
+            "transfer_id": cross_happ_transfer_id(&input.source_happ, &input.reference),
+            "settlement_state": "AwaitingRecipientClaim",
         })
         .to_string(),
     })?;
 
-    Ok(completed_record)
+    Ok(awaiting_record)
 }
 
 /// Register collateral from another hApp
@@ -715,9 +952,11 @@ pub fn confirm_deposit(deposit_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(anchor_hash(&deposit_id)?, LinkTypes::DepositIdToDeposit)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Deposit not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "DepositIdToDeposit",
+        &deposit_id,
+    )?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -770,9 +1009,11 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(anchor_hash(&deposit_id)?, LinkTypes::DepositIdToDeposit)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Deposit not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "DepositIdToDeposit",
+        &deposit_id,
+    )?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1627,9 +1868,11 @@ pub fn release_covenant(covenant_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(anchor_hash(&covenant_id)?, LinkTypes::CovenantIdToCovenant)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Covenant not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "CovenantIdToCovenant",
+        &covenant_id,
+    )?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -2688,5 +2931,34 @@ mod tests {
             map_wire_asset_type(finance_wire_types::AssetType::Other("bamboo".into())),
             AssetType::Other("bamboo".into())
         );
+    }
+}
+
+
+#[cfg(test)]
+mod ac116_tests {
+    use super::*;
+
+    #[test]
+    fn cross_happ_transfer_id_is_bounded_and_deterministic() {
+        let id = cross_happ_transfer_id(
+            "source-happ",
+            &"r".repeat(1024),
+        );
+        let again = cross_happ_transfer_id(
+            "source-happ",
+            &"r".repeat(1024),
+        );
+
+        assert_eq!(id, again);
+        assert_eq!(id.len(), 69);
+        assert!(id.starts_with("xfer:"));
+    }
+
+    #[test]
+    fn cross_happ_transfer_id_binds_source_and_reference() {
+        let base = cross_happ_transfer_id("source-happ", "reference");
+        assert_ne!(base, cross_happ_transfer_id("other-happ", "reference"));
+        assert_ne!(base, cross_happ_transfer_id("source-happ", "other"));
     }
 }
