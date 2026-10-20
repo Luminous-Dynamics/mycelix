@@ -823,9 +823,9 @@ pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
             "A legacy identity label needs explicit migration or recovery; no key was generated."
                 .into(),
         ),
-        LocalIdentityStoragePosture::StorageUnavailable => Err(
-            "Identity storage is unavailable; no identity was created or changed.".into(),
-        ),
+        LocalIdentityStoragePosture::StorageUnavailable => {
+            Err("Identity storage is unavailable; no identity was created or changed.".into())
+        }
         LocalIdentityStoragePosture::CorruptOrInconsistent => Err(
             "Identity storage is inconsistent; inspect or recover it before changing protection."
                 .into(),
@@ -918,7 +918,10 @@ async fn rewrap_protected_identity(passphrase: &str) -> Result<(), String> {
         .as_ref()
         .is_ok_and(|value| value.as_deref() == Some(previous_wire.as_str()))
     {
-        Err("Passphrase rotation failed verification; the previous passphrase remains active.".into())
+        Err(
+            "Passphrase rotation failed verification; the previous passphrase remains active."
+                .into(),
+        )
     } else {
         Err(
             "Passphrase rotation and rollback could not be verified; inspect identity posture before retrying."
