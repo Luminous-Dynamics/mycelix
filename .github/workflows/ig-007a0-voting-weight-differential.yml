@@ -1,0 +1,119 @@
+name: IG-007A0 Voting Weight Differential
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/scripts/ig007a0_voting_weight_differential.py"
+      - "mycelix-governance/docs/IG_007A0_VOTING_WEIGHT_DIFFERENTIAL.md"
+      - ".github/workflows/ig-007a0-voting-weight-differential.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind observed production source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/voting/coordinator/src/lib.rs)" = "969b845e6186cbcad507c742a718060844f82eb2"
+          test "$(git hash-object mycelix-governance/zomes/voting/integrity/src/lib.rs)" = "658562c8dfaf6a2f1b97a7bfd5cf0fc8a5ab6e66"
+
+      - name: Syntax compile independent oracle
+        run: python -m py_compile mycelix-governance/scripts/ig007a0_voting_weight_differential.py
+
+      - name: Execute self-test twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a0_voting_weight_differential.py --self-test > /tmp/ig007a0-self-1.json
+          python mycelix-governance/scripts/ig007a0_voting_weight_differential.py --self-test > /tmp/ig007a0-self-2.json
+          cmp /tmp/ig007a0-self-1.json /tmp/ig007a0-self-2.json
+
+      - name: Execute full finite census twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a0_voting_weight_differential.py --report > /tmp/ig007a0-report-1.json
+          python mycelix-governance/scripts/ig007a0_voting_weight_differential.py --report > /tmp/ig007a0-report-2.json
+          cmp /tmp/ig007a0-report-1.json /tmp/ig007a0-report-2.json
+
+      - name: Assert frozen census commitments
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+
+          with open('/tmp/ig007a0-self-1.json', encoding='utf-8') as f:
+              self_test = json.load(f)
+          with open('/tmp/ig007a0-report-1.json', encoding='utf-8') as f:
+              report = json.load(f)
+
+          assert self_test['all_self_tests_passed'] is True
+          assert self_test['authority'] == 'MeasurementOnly'
+          assert self_test['profile_count'] == 3125
+          assert self_test['strict_rank_inversions'] == 992545
+          assert self_test['result_sha256'] == '848db4981afa6d438096bf1942cc8eebc177fb99331b7df7c0f6f318e4bdd7f1'
+
+          assert report['result_sha256'] == self_test['result_sha256']
+          assert report['source_binding']['coordinator_blob'] == '969b845e6186cbcad507c742a718060844f82eb2'
+          assert report['source_binding']['integrity_blob'] == '658562c8dfaf6a2f1b97a7bfd5cf0fc8a5ab6e66'
+          assert report['attested_difference']['multiplicative_floor_count'] == 1250
+          assert report['attested_difference']['multiplicative_cap_count'] == 0
+          assert report['attested_difference']['pairwise_order']['strict_comparable_pairs'] == 4018036
+          assert report['attested_difference']['pairwise_order']['strict_rank_inversions'] == 992545
+          assert report['attested_difference']['pairwise_order']['tie_disagreements'] == 845518
+
+          unavailable = report['unavailable_phi']
+          assert unavailable['multiplicative_phi_independent'] is True
+          assert abs(unavailable['mean_signed_m_minus_a'] - 0.09964765625) < 1e-15
+          assert abs(unavailable['mean_absolute'] - 0.257330925) < 1e-15
+          unavailable_order = unavailable['pairwise_order_zero_phi_additive_vs_neutral_multiplicative']
+          assert unavailable_order['strict_comparable_pairs'] == 3992000
+          assert unavailable_order['strict_rank_inversions'] == 718000
+          assert unavailable_order['tie_disagreements'] == 859350
+
+          for model in report['monotonicity'].values():
+              assert all(axis['violations'] == 0 for axis in model.values())
+          assert report['non_claims'] == [
+              'no_normative_preference_between_formulas',
+              'no_sybil_resistance_claim',
+              'no_fairness_claim',
+              'no_policy_migration_authority',
+          ]
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
