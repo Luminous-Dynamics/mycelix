@@ -32,7 +32,10 @@
           "geometry_evidence_refs": [
             "geom-001"
           ],
-          "geometry_use_license": "redisplay_and_layout_allowed"
+          "geometry_use_license": "redisplay_and_layout_allowed",
+          "geometry_license_evidence_refs": [
+            "rights-001"
+          ]
         },
         "task_envelopes": [
           {
@@ -150,6 +153,17 @@
           "source_digest_sha256": null,
           "validity_state": "unknown",
           "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "rights-001",
+          "claim_kind": "geometry_use_rights",
+          "claimant_or_issuer": "Synthetic rights-holder",
+          "claim_state": "asserted",
+          "scope": "Synthetic rights statement allowing local layout evaluation and redistribution of this synthetic geometry fixture.",
+          "geometry_use_license": "redisplay_and_layout_allowed",
+          "source_digest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
         }
       ],
       "claim_ceiling": [
@@ -187,7 +201,10 @@
           "geometry_evidence_refs": [
             "geom-002"
           ],
-          "geometry_use_license": "redisplay_only"
+          "geometry_use_license": "redisplay_only",
+          "geometry_license_evidence_refs": [
+            "rights-002"
+          ]
         },
         "task_envelopes": [
           {
@@ -287,6 +304,17 @@
           "source_digest_sha256": null,
           "validity_state": "unknown",
           "rights_state": "link_only"
+        },
+        {
+          "evidence_ref": "rights-002",
+          "claim_kind": "geometry_use_rights",
+          "claimant_or_issuer": "Synthetic manufacturer",
+          "claim_state": "manufacturer_declared",
+          "scope": "Synthetic rights statement permits product-page redisplay only and does not grant use of the geometry asset in layout evaluation.",
+          "geometry_use_license": "redisplay_only",
+          "source_digest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "validity_state": "valid_for_scoped_claim",
+          "rights_state": "redistribution_permitted"
         }
       ],
       "claim_ceiling": [
