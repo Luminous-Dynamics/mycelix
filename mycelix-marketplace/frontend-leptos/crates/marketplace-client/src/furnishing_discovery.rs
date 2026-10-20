@@ -7,6 +7,7 @@
 
 use crate::{ClientError, MarketplaceClient, TransportKind, ZomeTransport};
 use async_trait::async_trait;
+use std::collections::HashSet;
 use marketplace_domain::{
     ActionHash, AgentPubKey, EmpiricalLevel, ListingCatalogCoverage, ListingCatalogSnapshotV1,
     ListingCategory, ListingOutput, ListingResolution, ListingResolutionReason,
@@ -291,7 +292,7 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
         return Err(invalid("observed link count is smaller than unique listing count"));
     }
 
-    let mut roots = Vec::with_capacity(snapshot.listings.len());
+    let mut roots = HashSet::with_capacity(snapshot.listings.len());
     let mut single_count = 0_u32;
     let mut conflict_count = 0_u32;
     for resolution in &snapshot.listings {
@@ -303,20 +304,18 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
         {
             return Err(invalid("unexpected listing observation scope"));
         }
-        if roots.contains(&resolution.root_listing_hash) {
+        if !roots.insert(resolution.root_listing_hash.clone()) {
             return Err(invalid("duplicate stable listing root"));
         }
-        roots.push(resolution.root_listing_hash.clone());
         if resolution.revision_count < u32::try_from(resolution.heads.len()).unwrap_or(u32::MAX) {
             return Err(invalid("revision count is smaller than the observed head count"));
         }
 
-        let mut hashes = Vec::with_capacity(resolution.heads.len());
+        let mut hashes = HashSet::with_capacity(resolution.heads.len());
         for head in &resolution.heads {
-            if hashes.contains(&head.listing_hash) {
+            if !hashes.insert(head.listing_hash.clone()) {
                 return Err(invalid("duplicate action hash in observed heads"));
             }
-            hashes.push(head.listing_hash.clone());
         }
 
         match &resolution.state {
