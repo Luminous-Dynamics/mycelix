@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-FIN-001",
+  "lesson": {
+    "standard_code": "EK-FIN-001",
+    "title": "Make Informed Cash-Flow and Borrowing Decisions",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "A practical financial picture distinguishes income, regular costs, irregular costs, assets, debts, interest, fees, and the timing of cash flows. Total cost over time can differ greatly from a monthly payment. Compare options with stated assumptions and consider uncertainty, access, penalties, and emergency reserves. Financial products and tax rules differ by jurisdiction; this lesson teaches comparison methods, not individualized investment, debt, or tax advice.",
+    "examples": [
+      {
+        "problem": "You can save 100 units of currency each month for 12 months, before interest or fees. How much will you set aside?",
+        "steps": [
+          {
+            "instruction": "Multiply the monthly amount by the number of months.",
+            "result": "100 × 12 = 1,200."
+          },
+          {
+            "instruction": "State the assumptions.",
+            "result": "The total excludes interest, fees, tax, missed deposits, and inflation."
+          }
+        ],
+        "answer": "1,200 units before any interest, fees, tax, or inflation adjustment."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A product costs 30 per month for 24 months, plus a one-time 40 fee. What is the total nominal cost?",
+        "answer": "30 × 24 + 40 = 760 units of currency.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Multiply the recurring charge by the term, then add the one-time fee.",
+        "distractors": [
+          "720 units including the fee.",
+          "340 units.",
+          "30 units."
+        ]
+      },
+      {
+        "question": "Two loans have the same monthly payment but different terms and fees. What else do you need before comparing them?",
+        "answer": "Principal, interest rate/APR where applicable, term, every fee, repayment rules, penalties, and total repayment amount.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "A payment alone does not state the full cost or risk.",
+        "distractors": [
+          "Only the monthly payment.",
+          "Only the advertisement's headline rate.",
+          "Only the lender's logo."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Cash flow",
+        "definition": "Money entering and leaving during a defined period.",
+        "example_usage": "A monthly budget tracks timing as well as totals."
+      },
+      {
+        "term": "Compounding",
+        "definition": "Interest or growth applied to a balance that includes prior growth.",
+        "example_usage": "The amount can grow faster over longer periods, depending on the rate and terms."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "The lowest monthly payment is always cheapest.",
+        "correction": "Compare total cost, term, fees, penalties, and flexibility in addition to monthly payment.",
+        "why_students_think_this": "Marketing emphasizes the number that looks smallest."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Cash flow",
+      "back": "Money entering and leaving during a defined period."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Two loans have the same monthly payment but different terms and fees. What else do you need before comparing them?"
+    }
+  ]
+}
