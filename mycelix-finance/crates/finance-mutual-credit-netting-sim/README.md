@@ -20,8 +20,9 @@ participate in the hypothetical netting calculation. Proposed, disputed, cancell
 All authoritative amounts and fee calculations use integer minor units and checked arithmetic. Variable provider/rail cost uses integer basis points with ceiling rounding:
 
 ```text
-variable_fee = ceil(volume_minor * fee_bps / 10_000)
-modeled_cost = leg_count * fixed fee per leg + rounded variable fee per leg + optional batch fee + optional netting overhead
+variable_fee_for_leg = min(max(ceil(leg_amount_minor * fee_bps / 10_000), minimum_leg_fee), optional_maximum_leg_fee)
+batch_fee = ceil(leg_count / batch_capacity_legs) * batch_fee_per_batch
+modeled_cost = leg_count * fixed_fee_per_leg + sum(variable_fee_for_leg) + batch_fee + optional_netting_overhead
 modeled_savings = direct_cost_estimate - net_cost_estimate
 ```
 
@@ -37,7 +38,7 @@ Bob   -> Carol 100 units
 Carol -> Alice 100 units
 ```
 
-Gross volume is 300 units. Each participant's receivable exactly offsets their payable, so theoretical net settlement volume is zero. Under the test fee model (100 minor units fixed per direct leg and 100 bps variable), gross modeled cost is 303 minor units, and net modeled cost is zero.
+Gross volume is 300 units. Each participant's receivable exactly offsets their payable, so theoretical net settlement volume is zero. Under the test fee model (100 minor units fixed per direct leg and 100 basis points variable, rounded up independently per leg), gross modeled cost is 303 minor units, and net modeled cost is zero when netting overhead is zero. If the netting operation itself incurs an overhead, that cost is added even if there are no final settlement legs.
 
 This is a mathematical netting result only. It does not establish that the obligations are contractually set-off capable, that all obligations were supplied, or that an external settlement event occurred.
 
@@ -51,6 +52,8 @@ Bob   -> Carol  60 units
 Net positions are Alice +100 payable, Bob -40 receivable, and Carol -60 receivable. The deterministic modeled legs are Alice -> Bob 40 and Alice -> Carol 60. Gross volume is 160; net settlement volume is 100. In the same synthetic fee model, with the 1% component rounded up independently for each leg, gross modeled cost is 202 and net modeled cost is also 202 minor units. This parameterization yields no modeled savings despite a 37.5% volume reduction—an important reminder that volume reduction and total fee reduction are different benchmarks.
 
 These values are illustrative test inputs, not observed costs or a claim about any bank/PSP route.
+
+A separate test sets the direct closed-cycle cost to 3 minor units and netting overhead to 10. The net plan then costs 10, producing modeled savings of -7. The simulator therefore does not assume that netting is always cheaper; the strategy must use measured costs and risk.
 
 ## Safety properties
 
@@ -68,6 +71,13 @@ These values are illustrative test inputs, not observed costs or a claim about a
 The crate currently includes 17 deterministic unit tests for a closed cycle, offsetting receivable, reciprocal obligations, duplicate observation, conflicting duplicate, disputed obligation, wrong asset, input-order invariance, exposure limit, fee rounding, zero/self obligations, missing scope/member identity, and a 500-obligation order-invariance/conservation stress corpus. Fee-model tests cover minimum-per-leg fees, batch charges, fee caps, invalid fee floors, and netting overhead large enough to make netting more expensive than direct settlement.
 
 The local environment used to prepare this change did not provide `rustc`/Cargo, so these tests have been authored but **not executed here**. Do not interpret their presence as a passing test result. Exact-head CI/local Rust execution is still required.
+
+## Industry and research grounding
+
+- BIS Project Nexus describes a route to lower cross-border friction by connecting domestic instant-payment systems, while emphasizing participant governance, operating models and incentives: https://www.bis.org/publications/nexus-enabling-instant-cross-border-payments
+- The CPMI/BIS Principles for Financial Market Infrastructures require a clear legal basis, defined settlement finality and appropriate risk controls. Exact net positions alone do not establish legal discharge or final settlement: https://www.bis.org/committees/cpmi/pfmi/overview
+- CPMI analysis of multilateral platforms cautions that governance, costs, jurisdictional differences and risk require a proper cost-benefit analysis; a new platform is not automatically more efficient: https://www.bis.org/publications/can-multilateral-platforms-improve-cross-border-payments
+- Firm-level research on mutual-credit systems found nuanced results: benefits to small firms became more positive during economic turbulence, while membership could impose costs during stable periods. That supports measuring actual workloads and conditions rather than claiming universal superiority: https://doi.org/10.1016/j.jebo.2024.106861
 
 Follow-on benchmark work should freeze the input corpus, Rust version, hardware, compiler profile and cost model. Exercise 10, 100, 1,000, 10,000 and 100,000 obligation profiles within configured bounds, plus input-order permutations and adversarial duplicates/conflicts. Report throughput and memory as measurements, plus gross/net amount, count of legs, fixed/variable/total modeled cost, unresolved-obligation coverage and all failures. Compare against direct incumbent settlement with matched parameter assumptions. Do not claim a production cost reduction without matched real quote and settlement data.
 
