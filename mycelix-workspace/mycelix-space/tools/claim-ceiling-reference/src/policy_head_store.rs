@@ -679,6 +679,62 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_competing_versions_never_leave_an_older_head_installed() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = store_path(&temp);
+        let expected_profile_id = expected_profile_id();
+        let context = test_context();
+        let profile = PROFILE_BYTES.to_vec();
+        let expected_a = expected_profile_id.clone();
+        let expected_b = expected_profile_id;
+        let context_a = context.clone();
+        let context_b = context;
+        let store_a = PolicyHeadStore::open(path.clone()).unwrap();
+        let store_b = PolicyHeadStore::open(path.clone()).unwrap();
+
+        let lower = thread::spawn(move || {
+            store_a.promote_release(
+                &release_bytes(1),
+                &profile,
+                &expected_a,
+                &context_a,
+                BootstrapModeV1::ExplicitlyAuthorizedBootstrap,
+            )
+        });
+        let higher = thread::spawn(move || {
+            store_b.promote_release(
+                &release_bytes(2),
+                PROFILE_BYTES,
+                &expected_b,
+                &context_b,
+                BootstrapModeV1::ExplicitlyAuthorizedBootstrap,
+            )
+        });
+
+        let lower_outcome = lower.join().unwrap().unwrap();
+        let higher_outcome = higher.join().unwrap().unwrap();
+        assert_eq!(
+            higher_outcome.lifecycle_receipt.disposition,
+            PolicyLifecycleDispositionV1::AcceptedNewRelease
+        );
+        assert!(
+            lower_outcome.lifecycle_receipt.disposition
+                == PolicyLifecycleDispositionV1::AcceptedNewRelease
+                || lower_outcome.lifecycle_receipt.disposition
+                    == PolicyLifecycleDispositionV1::Rejected
+        );
+        assert!(!lower_outcome.lifecycle_receipt.evidence_admission_granted);
+        assert!(!lower_outcome.lifecycle_receipt.action_authority_granted);
+        assert!(!higher_outcome.lifecycle_receipt.evidence_admission_granted);
+        assert!(!higher_outcome.lifecycle_receipt.action_authority_granted);
+
+        let reopened = PolicyHeadStore::open(path).unwrap();
+        let current = reopened.read_current_state().unwrap();
+        assert_eq!(current.head.as_ref().unwrap().version, 2);
+        assert!(current.generation >= 1 && current.generation <= 2);
+    }
+
+    #[test]
     fn concurrent_exact_bootstrap_is_serialized_and_idempotent() {
         let temp = tempfile::tempdir().unwrap();
         let path = store_path(&temp);
