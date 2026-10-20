@@ -121,7 +121,7 @@
               "outcome_label": "shared_egress_activity"
             }
           ],
-          "sufficiency": "irrelevant"
+          "sufficiency": "partial_support"
         }
       ]
     },
@@ -172,6 +172,29 @@
             {
               "hypothesis_id": "stale_policy_snapshot",
               "outcome_label": "deployment_receipt_revision_unverified"
+            }
+          ]
+        },
+        {
+          "request_id": "policy-source-crosscheck",
+          "quality": "conflicting",
+          "sufficiency": "conflicting",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_segmentation",
+              "outcome_label": "reviewed_policy_record_a"
+            },
+            {
+              "hypothesis_id": "intended_policy_exception",
+              "outcome_label": "reviewed_policy_record_b"
+            },
+            {
+              "hypothesis_id": "route_scope_leakage",
+              "outcome_label": "deployment_record_a"
+            },
+            {
+              "hypothesis_id": "stale_policy_snapshot",
+              "outcome_label": "stale_policy_record_b"
             }
           ]
         }
@@ -226,6 +249,29 @@
               "outcome_label": "attestation_matches_build_with_documented_rebuild_drift"
             }
           ]
+        },
+        {
+          "request_id": "registry-snapshot-freshness",
+          "quality": "stale",
+          "sufficiency": "absent",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "approved_artifact",
+              "outcome_label": "snapshot_age_unknown"
+            },
+            {
+              "hypothesis_id": "malicious_substitution",
+              "outcome_label": "snapshot_age_unknown"
+            },
+            {
+              "hypothesis_id": "stale_registry_snapshot",
+              "outcome_label": "snapshot_age_unknown"
+            },
+            {
+              "hypothesis_id": "benign_reproducible_build_drift",
+              "outcome_label": "snapshot_age_unknown"
+            }
+          ]
         }
       ]
     },
@@ -276,6 +322,29 @@
             {
               "hypothesis_id": "data_export_completed",
               "outcome_label": "export_invocation_recorded"
+            }
+          ]
+        },
+        {
+          "request_id": "export-effect-receipt",
+          "quality": "unavailable",
+          "sufficiency": "absent",
+          "labels_by_hypothesis": [
+            {
+              "hypothesis_id": "benign_reference_text",
+              "outcome_label": "receipt_source_unavailable"
+            },
+            {
+              "hypothesis_id": "prompt_injection_blocked",
+              "outcome_label": "receipt_source_unavailable"
+            },
+            {
+              "hypothesis_id": "unauthorized_tool_attempt",
+              "outcome_label": "receipt_source_unavailable"
+            },
+            {
+              "hypothesis_id": "data_export_completed",
+              "outcome_label": "receipt_source_unavailable"
             }
           ]
         }
