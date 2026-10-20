@@ -374,7 +374,6 @@ pub struct Action {
     pub timestamp: u64,
 }
 
-
 /// Construct a failed invariant result for violated or insufficient evidence.
 fn failed_evidence(
     invariant: &Invariant,
@@ -607,7 +606,6 @@ impl VerificationEngine {
                 (holds, violation)
             }
 
-            
 
             InvariantType::ByzantineTolerance {
                 max_byzantine_fraction,
@@ -652,7 +650,6 @@ impl VerificationEngine {
                 }
             }
 
-            
 
             InvariantType::SlashingBounds { max_slash_fraction } => {
                 if !max_slash_fraction.is_finite()
@@ -698,7 +695,6 @@ impl VerificationEngine {
                 (true, None)
             }
 
-            
 
             InvariantType::KVectorBounds {
                 dimension,
@@ -747,7 +743,6 @@ impl VerificationEngine {
                 (true, None)
             }
 
-            
 
             InvariantType::Monotonicity {
                 property,
@@ -815,7 +810,6 @@ impl VerificationEngine {
                 (true, None)
             }
 
-            
 
             InvariantType::Conservation {
                 property,
@@ -887,7 +881,6 @@ impl VerificationEngine {
                 (true, None)
             }
 
-            
 
             InvariantType::Custom { predicate } => {
                 match state.variables.get(predicate).map(String::as_str) {
@@ -909,14 +902,6 @@ impl VerificationEngine {
                         );
                     }
                 }
-            }
-
-            
-
-                    };
-                    }
-                }
-                (true, None)
             }
         };
 
@@ -1175,7 +1160,6 @@ mod tests {
             panic!("Expected Always formula");
         }
     }
-
 
     #[test]
     fn test_non_finite_trust_score_fails_closed() {
