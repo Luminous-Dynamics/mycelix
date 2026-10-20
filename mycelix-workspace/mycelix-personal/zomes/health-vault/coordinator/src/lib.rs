@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn link_types_exist() {
         let _records = LinkTypes::AgentToRecords;
-        let _bio = LinkTypes::Biometric;
+        let _bio = LinkTypes::AgentToBiometrics;
         let _consents = LinkTypes::AgentToConsents;
         let _type_to_record = LinkTypes::RecordTypeToRecord;
     }
