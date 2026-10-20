@@ -39,6 +39,12 @@ Before deployment:
 
 ## Frozen qualification plan
 
+The mirrored ignored Sweettest suite now includes:
+- `test_health_private_entries_are_owner_local`: owner creates and reads private content; another agent's own source-chain query returns no owner records.
+- `test_health_consent_revocation_is_idempotent_and_regrant_is_new`: grant -> revoke -> repeated revoke returns the same event -> effective list excludes the old grant -> an explicit new grant creates a distinct effective action.
+
+These tests have been added but **not executed** in this authoring session. The locality test checks source-chain query isolation; it is not a direct remote-DHT fetch test and must not be described as one.
+
 - Confirm all four sensitive entry definitions declare private visibility.
 - Native tests prove the coordinator selectors use the local chain and private entries are decodable by the owner.
 - Native integrity tests reject all legacy index-link create/delete actions and reject updates/deletes that would change a grant or erase revocation evidence.
