@@ -1,0 +1,109 @@
+{
+  "schema_version": "beverage-provenance-scenarios-v1",
+  "status": "synthetic_negative_and_positive_controls_not_real_batch_evidence",
+  "scenarios": [
+    {
+      "id": "BP-001",
+      "name": "valid_batch_to_packaged_lot_lineage",
+      "expected_disposition": "ELIGIBLE_FOR_CLAIM_REVIEW",
+      "guards": [
+        "unique_ids",
+        "acyclic_transformation_graph",
+        "all_evidence_refs_resolve"
+      ],
+      "claim_ceiling": "Eligibility for review is not an authenticity verdict."
+    },
+    {
+      "id": "BP-002",
+      "name": "duplicate_event_identity",
+      "expected_disposition": "REJECT",
+      "guards": [
+        "event_ids_unique"
+      ],
+      "claim_ceiling": "Synthetic ID-integrity case."
+    },
+    {
+      "id": "BP-003",
+      "name": "broken_parent_child_transformation",
+      "expected_disposition": "REJECT",
+      "guards": [
+        "all_batch_edges_resolve",
+        "transform_inputs_outputs_recorded"
+      ],
+      "claim_ceiling": "Declared graph consistency does not prove the physical transfer occurred."
+    },
+    {
+      "id": "BP-004",
+      "name": "cycle_in_batch_lineage",
+      "expected_disposition": "REJECT",
+      "guards": [
+        "lineage_graph_acyclic"
+      ],
+      "claim_ceiling": "Synthetic graph-validation case."
+    },
+    {
+      "id": "BP-005",
+      "name": "tampered_evidence_bytes",
+      "expected_disposition": "REJECT_INTEGRITY",
+      "guards": [
+        "recompute_artifact_sha256",
+        "exact_subject_binding"
+      ],
+      "claim_ceiling": "A digest mismatch invalidates integrity for those bytes."
+    },
+    {
+      "id": "BP-006",
+      "name": "simulated_result_as_measured_lab_claim",
+      "expected_disposition": "REJECT_CLAIM",
+      "guards": [
+        "claim_requires_measured",
+        "evidence_class_not_upgraded"
+      ],
+      "claim_ceiling": "No schema can make simulated data into a measurement."
+    },
+    {
+      "id": "BP-007",
+      "name": "expired_or_revoked_lab_attestation",
+      "expected_disposition": "INELIGIBLE",
+      "guards": [
+        "issued_at_before_evaluation",
+        "not_expired",
+        "not_revoked",
+        "issuer_scope_valid"
+      ],
+      "claim_ceiling": "A signature without current valid scope may not support the claim."
+    },
+    {
+      "id": "BP-008",
+      "name": "unknown_data_rights",
+      "expected_disposition": "INELIGIBLE_FOR_REUSE_OR_DISCLOSURE",
+      "guards": [
+        "rights_status_explicit",
+        "permission_and_attribution_respected"
+      ],
+      "claim_ceiling": "Data availability does not imply permission."
+    },
+    {
+      "id": "BP-009",
+      "name": "trade_secret_hidden_from_public_claim",
+      "expected_disposition": "SELECTIVE_DISCLOSURE_ONLY",
+      "guards": [
+        "audience_authorized",
+        "minimum_disclosure",
+        "recipe_fields_not_public"
+      ],
+      "claim_ceiling": "Selective disclosure does not make the hidden recipe independently verified."
+    },
+    {
+      "id": "BP-010",
+      "name": "jurisdiction_rule_not_pinned",
+      "expected_disposition": "REGULATORY_CLAIM_INDETERMINATE",
+      "guards": [
+        "official_source",
+        "edition_effective_date",
+        "jurisdiction_and_market_scope"
+      ],
+      "claim_ceiling": "This envelope does not itself establish legal compliance."
+    }
+  ]
+}
