@@ -33,6 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/policy-performance"
           baseline_sha="902d5b0896ce500e886b61db08d8160ba786bd3c"
           candidate_root="$GITHUB_WORKSPACE/mycelix-workspace/mycelix-space/tools/claim-ceiling-reference"
           baseline_root="$RUNNER_TEMP/policy-baseline"
