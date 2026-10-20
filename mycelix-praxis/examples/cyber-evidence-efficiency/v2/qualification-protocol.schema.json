@@ -11,6 +11,7 @@
     "status",
     "eligibility",
     "purpose",
+    "must_freeze_before_heldout_access",
     "domains",
     "sufficiency_levels",
     "minimum_held_out_cases",
