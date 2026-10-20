@@ -209,7 +209,7 @@ pub fn simulate_netting(
     let mut gross_volume_minor = 0_u128;
 
     for obligation in canonical.values() {
-        match obligation.status {
+        match &obligation.status {
             ObligationStatus::Accepted => {
                 let amount = i128::from(obligation.amount_minor);
                 let payer_position = positions
@@ -240,7 +240,7 @@ pub fn simulate_netting(
             status => excluded_obligations.push(ExcludedObligation {
                 canonical_id: obligation.canonical_id.clone(),
                 amount_minor: obligation.amount_minor,
-                reason: excluded_reason(&status)?,
+                reason: excluded_reason(status)?,
             }),
         }
     }
