@@ -247,16 +247,32 @@ mod identity_bootstrap_backup_tests {
     #[test]
     fn backup_challenge_rejects_duplicate_or_out_of_range_positions() {
         let words = words();
-        let answers = ["word1".to_string(), "word1".to_string(), "word24".to_string()];
+        let answers = [
+            "word1".to_string(),
+            "word1".to_string(),
+            "word24".to_string(),
+        ];
         assert!(!recovery_confirmation_matches(&words, [1, 1, 24], &answers));
-        assert!(!recovery_confirmation_matches(&words, [0, 11, 24], &answers));
-        assert!(!recovery_confirmation_matches(&words, [1, 11, 25], &answers));
+        assert!(!recovery_confirmation_matches(
+            &words,
+            [0, 11, 24],
+            &answers
+        ));
+        assert!(!recovery_confirmation_matches(
+            &words,
+            [1, 11, 25],
+            &answers
+        ));
     }
 
     #[test]
     fn backup_challenge_rejects_non_24_word_material() {
         let words = vec!["word1".to_string(); 12];
-        let answers = ["word1".to_string(), "word1".to_string(), "word1".to_string()];
+        let answers = [
+            "word1".to_string(),
+            "word1".to_string(),
+            "word1".to_string(),
+        ];
         assert!(!recovery_confirmation_matches(&words, [1, 5, 12], &answers));
     }
 }
