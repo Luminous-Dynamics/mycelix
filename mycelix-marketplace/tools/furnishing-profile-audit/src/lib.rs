@@ -104,9 +104,7 @@ fn validate_revision_observation(offer: &Value, label: &str, errors: &mut Vec<St
     }
     let revision_count = field(receipt, "revision_count").and_then(Value::as_u64);
     if revision_count.is_none_or(|count| count == 0 || count > 128) {
-        errors.push(format!(
-            "{label}: revision_count must be between 1 and 128"
-        ));
+        errors.push(format!("{label}: revision_count must be between 1 and 128"));
     } else if revision_count.is_some_and(|count| count < head_ids.len() as u64) {
         errors.push(format!(
             "{label}: revision_count is smaller than observed head count"
@@ -151,8 +149,7 @@ fn validate_revision_observation(offer: &Value, label: &str, errors: &mut Vec<St
                     "{label}: concurrent-head receipt needs at least two distinct heads"
                 ));
             }
-            if field(receipt, "sole_observed_head_action_hash")
-                .is_none_or(|value| !value.is_null())
+            if field(receipt, "sole_observed_head_action_hash").is_none_or(|value| !value.is_null())
             {
                 errors.push(format!(
                     "{label}: concurrent heads must not select a sole observed head"
