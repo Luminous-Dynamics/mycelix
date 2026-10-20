@@ -4,54 +4,348 @@
   "title": "Mycelix Claim Ceiling Meet Receipt V1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "request_id", "source_commit", "source_commit_pinned", "input_sha256", "request_schema_sha256", "receipt_schema_sha256", "disposition", "ceiling", "empty_dimensions", "non_amplification", "claim_ceiling_only", "nonclaims"],
+  "required": [
+    "schema_version",
+    "request_id",
+    "source_commit",
+    "source_commit_pinned",
+    "input_sha256",
+    "request_schema_sha256",
+    "receipt_schema_sha256",
+    "disposition",
+    "ceiling",
+    "empty_dimensions",
+    "non_amplification",
+    "claim_ceiling_only",
+    "nonclaims"
+  ],
   "properties": {
-    "schema_version": { "const": "mycelix.claim-ceiling-meet.receipt.v1" },
-    "request_id": { "type": "string", "minLength": 1 },
-    "source_commit": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|UNPINNED_LOCAL_RUN)$" },
-    "source_commit_pinned": { "type": "boolean" },
-    "input_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "request_schema_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "receipt_schema_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "disposition": { "enum": ["usable_intersection", "bottom_no_common_permitted_claim"] },
-    "ceiling": { "oneOf": [{ "$ref": "#/$defs/ceiling" }, { "type": "null" }] },
-    "empty_dimensions": { "type": "array", "uniqueItems": true, "items": { "enum": ["claim_atoms", "subject_ids", "context_ids", "time_window"] } },
-    "non_amplification": {
-      "type": "object", "additionalProperties": false,
-      "required": ["no_broader_than_left", "no_broader_than_right"],
-      "properties": { "no_broader_than_left": { "const": true }, "no_broader_than_right": { "const": true } }
+    "schema_version": {
+      "const": "mycelix.claim-ceiling-meet.receipt.v1"
     },
-    "claim_ceiling_only": { "const": true },
-    "nonclaims": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|UNPINNED_LOCAL_RUN)$"
+    },
+    "source_commit_pinned": {
+      "type": "boolean"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "request_schema_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "receipt_schema_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "disposition": {
+      "enum": [
+        "usable_intersection",
+        "bottom_no_common_permitted_claim"
+      ]
+    },
+    "ceiling": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ceiling"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "empty_dimensions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "claim_atoms",
+          "subject_ids",
+          "context_ids",
+          "time_window"
+        ]
+      }
+    },
+    "non_amplification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_broader_than_left",
+        "no_broader_than_right"
+      ],
+      "properties": {
+        "no_broader_than_left": {
+          "const": true
+        },
+        "no_broader_than_right": {
+          "const": true
+        }
+      }
+    },
+    "claim_ceiling_only": {
+      "const": true
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
   },
   "$defs": {
     "claim_atom": {
-      "type": "object", "additionalProperties": false,
-      "required": ["predicate", "evidence_class", "derivation", "intended_use"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predicate",
+        "evidence_class",
+        "derivation",
+        "intended_use"
+      ],
       "properties": {
-        "predicate": { "enum": ["observation", "measurement", "model_estimate", "simulation_result", "forecast", "formal_property", "causal_claim", "ownership_claim", "authorization_claim"] },
-        "evidence_class": { "enum": ["direct_observation", "instrument_measurement", "model_output", "simulation_output", "forecast_output", "formal_proof", "independent_replication", "source_assertion", "correlational_analysis", "causal_identification"] },
-        "derivation": { "enum": ["direct", "deterministic_transform", "statistical_inference", "simulation", "formal_verification", "cross_source_synthesis"] },
-        "intended_use": { "enum": ["research", "display", "planning", "decision_support", "operational_execution"] }
+        "predicate": {
+          "enum": [
+            "observation",
+            "measurement",
+            "model_estimate",
+            "simulation_result",
+            "forecast",
+            "formal_property",
+            "causal_claim",
+            "ownership_claim",
+            "authorization_claim"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "direct_observation",
+            "instrument_measurement",
+            "model_output",
+            "simulation_output",
+            "forecast_output",
+            "formal_proof",
+            "independent_replication",
+            "source_assertion",
+            "correlational_analysis",
+            "causal_identification"
+          ]
+        },
+        "derivation": {
+          "enum": [
+            "direct",
+            "deterministic_transform",
+            "statistical_inference",
+            "simulation",
+            "formal_verification",
+            "cross_source_synthesis"
+          ]
+        },
+        "intended_use": {
+          "enum": [
+            "research",
+            "display",
+            "planning",
+            "decision_support",
+            "operational_execution"
+          ]
+        }
       }
     },
     "ceiling": {
-      "type": "object", "additionalProperties": false,
-      "required": ["claim_atoms", "subject_ids", "context_ids", "valid_time", "action_scopes", "required_qualifications", "required_independence_controls", "required_provenance"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_atoms",
+        "subject_ids",
+        "context_ids",
+        "valid_time",
+        "action_scopes",
+        "required_qualifications",
+        "required_independence_controls",
+        "required_provenance"
+      ],
       "properties": {
-        "claim_atoms": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/claim_atom" } },
-        "subject_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "context_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "valid_time": {
-          "type": "object", "additionalProperties": false,
-          "required": ["start_unix_seconds", "end_unix_seconds_exclusive"],
-          "properties": { "start_unix_seconds": { "type": "integer" }, "end_unix_seconds_exclusive": { "type": "integer" } }
+        "claim_atoms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/claim_atom"
+          }
         },
-        "action_scopes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "required_qualifications": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "required_independence_controls": { "type": "array", "uniqueItems": true, "items": { "enum": ["distinct_record", "distinct_acquisition", "independent_origin", "independent_measurement", "independent_verifier"] } },
-        "required_provenance": { "type": "array", "uniqueItems": true, "items": { "enum": ["source_attribution", "exact_artifact_digest", "trusted_time_evidence", "measurement_calibration", "toolchain_identity", "dependency_closure", "external_witness"] } }
+        "subject_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "context_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "valid_time": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_unix_seconds",
+            "end_unix_seconds_exclusive"
+          ],
+          "properties": {
+            "start_unix_seconds": {
+              "type": "integer"
+            },
+            "end_unix_seconds_exclusive": {
+              "type": "integer"
+            }
+          }
+        },
+        "action_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_qualifications": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_independence_controls": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "distinct_record",
+              "distinct_acquisition",
+              "independent_origin",
+              "independent_measurement",
+              "independent_verifier"
+            ]
+          }
+        },
+        "required_provenance": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_attribution",
+              "exact_artifact_digest",
+              "trusted_time_evidence",
+              "measurement_calibration",
+              "toolchain_identity",
+              "dependency_closure",
+              "external_witness"
+            ]
+          }
+        }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_commit": {
+            "const": "UNPINNED_LOCAL_RUN"
+          }
+        },
+        "required": [
+          "source_commit"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_commit_pinned": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_commit": {
+            "pattern": "^[0-9a-f]{40}$"
+          }
+        },
+        "required": [
+          "source_commit"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_commit_pinned": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "usable_intersection"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ceiling": {
+            "type": "object"
+          },
+          "empty_dimensions": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "bottom_no_common_permitted_claim"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ceiling": {
+            "type": "null"
+          },
+          "empty_dimensions": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
 }
