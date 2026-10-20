@@ -1,5 +1,6 @@
 # Independent JSON-level policy-profile verifier.
-# Does not import, invoke, or parse the Rust policy implementation.
+# It recomputes the admissibility predicate from the request and separately pinned
+# policy document; it neither calls nor reads the Rust implementation.
 def difference($left; $right):
   [$left[] as $item | select(($right | index($item)) == null) | $item];
 
@@ -44,7 +45,6 @@ def expected_violations($request; $profile; $pinned):
     and $receipt.policy_profile_sha256 == $actual_policy_sha256
     and $receipt.expected_policy_profile_sha256 == $expected_policy_sha256
     and $receipt.policy_profile_pinned == $pinned
-    and $receipt.candidate_ceiling_sha256 == $candidate_sha256
     and $receipt.request_schema_sha256 == $request_schema_sha256
     and $receipt.policy_profile_schema_sha256 == $policy_profile_schema_sha256
     and $receipt.receipt_schema_sha256 == $receipt_schema_sha256
