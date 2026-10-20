@@ -943,22 +943,55 @@ mod tests {
     }
 
     #[test]
-    fn min_cost_flow_matches_exhaustive_integer_oracle_on_small_graph() {
+    fn min_cost_flow_matches_exhaustive_integer_oracle_on_small_graphs() {
         let positions = vec![
             participant("A", 2, 2),
             participant("B", 2, 2),
             participant("C", -2, 0),
             participant("D", -2, 0),
         ];
-        let routes = vec![
-            route("a-c", "A", "C", 2, 1),
-            route("a-d", "A", "D", 2, 2),
-            route("b-c", "B", "C", 2, 2),
-            route("b-d", "B", "D", 2, 10),
-        ];
-        let oracle = brute_force_best(&routes, &positions);
-        let result = optimize(&context(), &positions, &routes).unwrap();
-        assert_eq!(result.total_allocated_minor, oracle.0);
-        assert_eq!(result.total_modeled_cost_units, oracle.1);
+
+        // Explore many tiny integer-capacity graphs so the flow solver is checked
+        // against exhaustive enumeration, including routes with zero capacity.
+        for seed in 0..64_usize {
+            let routes = vec![
+                route(
+                    "a-c",
+                    "A",
+                    "C",
+                    ((seed * 3 + 1) % 3) as u64,
+                    ((seed * 7 + 2) % 11 + 1) as u64,
+                ),
+                route(
+                    "a-d",
+                    "A",
+                    "D",
+                    ((seed * 5 + 2) % 3) as u64,
+                    ((seed * 11 + 3) % 13 + 1) as u64,
+                ),
+                route(
+                    "b-c",
+                    "B",
+                    "C",
+                    ((seed * 7 + 1) % 3) as u64,
+                    ((seed * 13 + 4) % 17 + 1) as u64,
+                ),
+                route(
+                    "b-d",
+                    "B",
+                    "D",
+                    ((seed * 11 + 2) % 3) as u64,
+                    ((seed * 17 + 5) % 19 + 1) as u64,
+                ),
+            ];
+            let oracle = brute_force_best(&routes, &positions);
+            let result = optimize(&context(), &positions, &routes).unwrap();
+            assert_eq!(result.total_allocated_minor, oracle.0, "flow mismatch, seed={seed}");
+            assert_eq!(
+                result.total_modeled_cost_units,
+                oracle.1,
+                "cost mismatch, seed={seed}"
+            );
+        }
     }
 }
