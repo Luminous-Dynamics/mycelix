@@ -21,7 +21,7 @@ use hdk::prelude::*;
 use mycelix_finance_shared::{
     DEFAULT_RATE_LIMIT_PER_MINUTE, GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain,
     pick_race_winner, rate_limit_anchor_key, verify_governance_or_bootstrap_from_links,
-    verify_participant_tier,
+    verify_governance_registration_from_links, verify_participant_tier,
 };
 use mycelix_zome_helpers as _;
 
@@ -32,7 +32,7 @@ pub use tend_integrity::*;
 // GOVERNANCE AGENT AUTHORIZATION
 // =============================================================================
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -43,11 +43,23 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
     verify_governance_or_bootstrap_from_links(gov_links)
 }
 
+fn verify_governance_registration_authority() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    verify_governance_registration_from_links(gov_links)
+}
+
+
 /// Register a governance agent. Only existing governance agents can register
 /// new ones (or anyone during bootstrap when no agents exist yet).
 #[hdk_extern]
 pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    verify_governance_or_bootstrap()?;
+    verify_governance_registration_authority()?;
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
         agent,
@@ -60,7 +72,7 @@ pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash>
 /// Returns Ok(()) if authorized, Err if not.
 #[hdk_extern]
 pub fn verify_governance_agent(_: ()) -> ExternResult<()> {
-    verify_governance_or_bootstrap()
+    verify_governance()
 }
 
 // =============================================================================
@@ -228,7 +240,7 @@ fn is_in_hibernation() -> ExternResult<bool> {
 /// Update the oracle state with total yield (Loop 3).
 #[hdk_extern]
 pub fn update_oracle_state(input: UpdateOracleInput) -> ExternResult<OracleState> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
 
     let now = sys_time()?;
     let tier = OracleState::tier_from_vitality(input.vitality);
@@ -2736,7 +2748,7 @@ pub struct RecordCrossDAOExchangeInput {
 pub fn record_cross_dao_exchange(
     input: RecordCrossDAOExchangeInput,
 ) -> ExternResult<BilateralBalance> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     if input.provider_dao_did == input.receiver_dao_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Cross-DAO exchange requires two different DAOs".into()
@@ -2884,7 +2896,7 @@ pub struct SettleBilateralInput {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn settle_bilateral_balance(input: SettleBilateralInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     let (dao_a, dao_b) = if input.dao_a_did < input.dao_b_did {
         (input.dao_a_did.clone(), input.dao_b_did.clone())
     } else {
@@ -3062,7 +3074,7 @@ pub fn get_tend_reputation_input(input: GetBalanceInput) -> ExternResult<f32> {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     if member_did.is_empty() || member_did.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Member DID must be 1-256 characters".into()
@@ -3134,7 +3146,7 @@ pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
 /// Returns the number of adjustments that were recovered.
 #[hdk_extern]
 pub fn recover_pending_adjustments(currency_id: String) -> ExternResult<u32> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
 
     if currency_id.is_empty() || currency_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
