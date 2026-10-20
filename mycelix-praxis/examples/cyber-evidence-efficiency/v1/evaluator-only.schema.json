@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:cyber-evidence-evaluator-fixture:v1",
+  "title": "Praxis Cyber Evidence Evaluator Fixture v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "benchmark_version",
+    "disclosure",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "benchmark_id": {
+      "const": "PRAXIS-CYBER-ACQ-001"
+    },
+    "benchmark_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "disclosure": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Scenario"
+      }
+    }
+  },
+  "$defs": {
+    "Quality": {
+      "type": "string",
+      "enum": [
+        "current",
+        "stale",
+        "conflicting",
+        "unavailable"
+      ]
+    },
+    "Scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "world_hypothesis_id",
+        "request_outcomes"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "world_hypothesis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/RequestOutcome"
+          }
+        }
+      }
+    },
+    "RequestOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "quality",
+        "labels_by_hypothesis"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "labels_by_hypothesis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/HypothesisOutcome"
+          }
+        }
+      }
+    },
+    "HypothesisOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_id",
+        "outcome_label"
+      ],
+      "properties": {
+        "hypothesis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome_label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
