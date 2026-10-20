@@ -109,6 +109,15 @@ for (const edge of data.edges) {
 }
 ```
 
+## Essential Capabilities seed (adult lifelong learning)
+
+- **Data:** [`essential_capabilities_v1.json`](essential_capabilities_v1.json) — 19 cross-domain capability nodes, 37 relationship edges, and five suggested learning paths.
+- **Design and assessment notes:** [`essential_capabilities_v1.md`](essential_capabilities_v1.md) — observable demonstrations, evidence boundaries, localization cautions, references, and a proposed pilot benchmark plan.
+
+This is a jurisdiction-neutral draft, not an official universal standard. Descriptions contain demonstration prompts. It claims no formal standards alignment, and mastery hours or curriculum completion are not proof of competence. Before deployment, localize law, emergency, consumer, employment, and health-system content, and have educators and learners review accessibility and omissions.
+
+The seed was checked for valid JSON, unique node IDs, resolvable edge/path references, recognized enum values, consistent path-hour totals, and cycles in strict `Requires` edges. These are structural checks only; they do not validate instructional effectiveness or make this seed a credential standard.
+
 ## Standards Source
 
 Common Core State Standards for Mathematics:
