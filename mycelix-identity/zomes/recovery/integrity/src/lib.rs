@@ -117,6 +117,7 @@ pub enum VerificationAnchor {
 /// Minimum self-recovery time lock: 72 hours (vs 24h for social recovery).
 /// Longer because no humans are independently verifying the request.
 pub const SELF_RECOVERY_MIN_TIME_LOCK: u64 = 72 * 3600;
+const _: () = assert!(SELF_RECOVERY_MIN_TIME_LOCK > 86400);
 
 /// Default time lock: 7 days (conservative for zero-anchor configs).
 pub const SELF_RECOVERY_DEFAULT_TIME_LOCK: u64 = 7 * 24 * 3600;
@@ -235,9 +236,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(_) => Ok(ValidateCallbackResult::Invalid(
                     "Recovery votes cannot be updated".into(),
                 )),
-                EntryTypes::SelfRecoveryConfig(_) => {
-                    // Updates allowed (adding/removing anchors, marking superseded)
-                    Ok(ValidateCallbackResult::Valid)
+                EntryTypes::SelfRecoveryConfig(config) => {
+                    validate_update_self_recovery_config(action, config)
                 }
                 EntryTypes::SelfRecoveryRequest(request) => {
                     validate_update_self_recovery_request(action, request)
@@ -302,6 +302,26 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// DID:mycelix identifiers are derived from the initial agent public key.
+/// Recovery configuration creation must not let an author publish trusted
+/// recovery policy beneath another agent's DID link.
+fn recovery_config_did_matches_owner(did: &str, owner: &AgentPubKey) -> bool {
+    did == format!("did:mycelix:{owner}")
+}
+
+fn require_recovery_config_did_matches_owner(
+    did: &str,
+    owner: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if recovery_config_did_matches_owner(did, owner) {
+        ValidateCallbackResult::Valid
+    } else {
+        ValidateCallbackResult::Invalid(
+            "Recovery config DID must correspond to its committing owner".into(),
+        )
+    }
+}
+
 /// Validate recovery config creation
 fn validate_create_recovery_config(
     action: EntryCreationAction,
@@ -319,6 +339,15 @@ fn validate_create_recovery_config(
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be the author".into(),
         ));
+    }
+
+    // The DID identifier is derived from the initial agent public key. Do
+    // not let an agent publish their own recovery policy under another DID's
+    // link, where it could shadow the real owner's configuration.
+    if let ValidateCallbackResult::Invalid(reason) =
+        require_recovery_config_did_matches_owner(&config.did, &config.owner)
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
     }
 
     // Validate trustee count (3-7)
@@ -414,6 +443,14 @@ fn validate_update_recovery_config(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original recovery config not found".into()
         )))?;
+
+    // Existing records may predate this invariant. Refuse updates to a
+    // recovery config whose DID/owner binding is inconsistent.
+    if let ValidateCallbackResult::Invalid(reason) =
+        require_recovery_config_did_matches_owner(&config.did, &config.owner)
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
 
     // Immutable fields
     if config.did != original.did {
@@ -620,6 +657,11 @@ fn validate_create_self_recovery_config(
             "Owner must be the author".into(),
         ));
     }
+    if let ValidateCallbackResult::Invalid(reason) =
+        require_recovery_config_did_matches_owner(&config.did, &config.owner)
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
     // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
     if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -634,6 +676,73 @@ fn validate_create_self_recovery_config(
             "Anchor threshold cannot exceed anchor count".into(),
         ));
     }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate self-recovery config updates. Author-binding is separately
+/// enforced by the universal RegisterUpdate handler above. DID, owner and
+/// creation time are immutable; a config cannot be retargeted after creation.
+fn validate_update_self_recovery_config(
+    action: Update,
+    config: SelfRecoveryConfig,
+) -> ExternResult<ValidateCallbackResult> {
+    if !config.did.starts_with("did:mycelix:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID must start with 'did:mycelix:'".into(),
+        ));
+    }
+    if config.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config owner must remain the committing agent".into(),
+        ));
+    }
+    if let ValidateCallbackResult::Invalid(reason) =
+        require_recovery_config_did_matches_owner(&config.did, &config.owner)
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Anchor threshold cannot exceed anchor count".into(),
+        ));
+    }
+    if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Self-recovery time lock must be at least {} seconds (72 hours)",
+            SELF_RECOVERY_MIN_TIME_LOCK
+        )));
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: SelfRecoveryConfig = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original self-recovery config not found".into()
+        )))?;
+
+    if config.did != original.did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config DID cannot be changed".into(),
+        ));
+    }
+    if config.owner != original.owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config owner cannot be changed".into(),
+        ));
+    }
+    if config.created != original.created {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config created timestamp cannot be changed".into(),
+        ));
+    }
+    if config.updated <= original.updated {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config updated timestamp must advance".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -818,12 +927,12 @@ mod tests {
                 RecoveryStatus::Cancelled,
             ];
             for terminal in &terminals {
-                let valid = match (terminal, &target) {
+                let valid = matches!(
+                    (terminal, &target),
                     (RecoveryStatus::Completed, RecoveryStatus::Completed)
-                    | (RecoveryStatus::Rejected, RecoveryStatus::Rejected)
-                    | (RecoveryStatus::Cancelled, RecoveryStatus::Cancelled) => true,
-                    _ => false,
-                };
+                        | (RecoveryStatus::Rejected, RecoveryStatus::Rejected)
+                        | (RecoveryStatus::Cancelled, RecoveryStatus::Cancelled)
+                );
                 if terminal != &target {
                     prop_assert!(!valid, "Terminal {:?} should not transition to {:?}", terminal, target);
                 }
@@ -872,12 +981,6 @@ mod tests {
     #[test]
     fn self_recovery_default_time_lock_is_7_days() {
         assert_eq!(SELF_RECOVERY_DEFAULT_TIME_LOCK, 7 * 24 * 3600);
-    }
-
-    #[test]
-    fn self_recovery_default_longer_than_social() {
-        // Self-recovery (72h) must be longer than social recovery (24h)
-        assert!(SELF_RECOVERY_MIN_TIME_LOCK > 86400);
     }
 
     #[test]
@@ -990,6 +1093,98 @@ mod author_binding_tests {
 
     fn other_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_social_config(did: String, owner: AgentPubKey) -> RecoveryConfig {
+        RecoveryConfig {
+            did,
+            owner,
+            trustees: vec![
+                "did:example:trustee-1".into(),
+                "did:example:trustee-2".into(),
+                "did:example:trustee-3".into(),
+            ],
+            threshold: 2,
+            time_lock: 86_400,
+            active: true,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    fn valid_self_config(did: String, owner: AgentPubKey) -> SelfRecoveryConfig {
+        SelfRecoveryConfig {
+            did,
+            owner,
+            anchors: vec![],
+            anchor_threshold: 1,
+            time_lock: SELF_RECOVERY_MIN_TIME_LOCK,
+            active: true,
+            superseded_by_social: false,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn recovery_config_must_target_the_committing_owner_did() {
+        let owner = me();
+        let did = format!("did:mycelix:{owner}");
+        let config = valid_social_config(did, owner.clone());
+        let result = validate_create_recovery_config(
+            EntryCreationAction::Create(test_action(owner.clone())),
+            config,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+
+        let attacker = other_agent();
+        let poisoned = valid_social_config(format!("did:mycelix:{owner}"), attacker.clone());
+        let result = validate_create_recovery_config(
+            EntryCreationAction::Create(test_action(attacker)),
+            poisoned,
+        )
+        .unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("correspond")),
+            "configuration for another owner's DID must be rejected"
+        );
+    }
+
+    #[test]
+    fn self_recovery_config_must_target_the_committing_owner_did() {
+        let owner = me();
+        let did = format!("did:mycelix:{owner}");
+        let config = valid_self_config(did, owner.clone());
+        let result = validate_create_self_recovery_config(
+            EntryCreationAction::Create(test_action(owner.clone())),
+            config,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+
+        let attacker = other_agent();
+        let poisoned = valid_self_config(format!("did:mycelix:{owner}"), attacker.clone());
+        let result = validate_create_self_recovery_config(
+            EntryCreationAction::Create(test_action(attacker)),
+            poisoned,
+        )
+        .unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("correspond")),
+            "self-recovery config for another owner's DID must be rejected"
+        );
+    }
+
+    #[test]
+    fn recovery_config_did_owner_binding_is_not_a_ui_only_rule() {
+        let owner = me();
+        let expected = format!("did:mycelix:{owner}");
+        assert!(recovery_config_did_matches_owner(&expected, &owner));
+        assert!(!recovery_config_did_matches_owner(
+            "did:mycelix:some-other-agent",
+            &owner
+        ));
     }
 
     fn valid_request(initiated_by: String) -> RecoveryRequest {
