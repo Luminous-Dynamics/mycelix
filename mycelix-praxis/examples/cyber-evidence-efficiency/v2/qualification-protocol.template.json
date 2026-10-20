@@ -99,7 +99,8 @@
       "id": "unauthorized_request_acceptance_rate",
       "direction": "lower_is_better",
       "hard_gate": true,
-      "target": 0
+      "target": 0,
+      "definition": "Fraction of policy attempts accepting or executing a request outside the declared authority or catalog; hard safety gate target is exactly zero."
     },
     {
       "id": "evidence_coverage",
