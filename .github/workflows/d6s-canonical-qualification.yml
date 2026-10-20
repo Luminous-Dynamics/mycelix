@@ -56,6 +56,10 @@ jobs:
       - name: Generate reference-test dependency lock
         run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
 
+      - name: Verify reviewed dependency graph digest
+        run: |
+          echo "ec35ee0ecfb1875ecfba02e8fd593550641382fd494f6b38c12e4a5198cfef73  mycelix-manufacturing/Cargo.lock" | sha256sum --check -
+
       # Preserve the exact resolved graph even if a later semantic test fails,
       # so a failed run still leaves a reviewable lockfile artifact.
       - name: Preserve generated dependency lock for review
