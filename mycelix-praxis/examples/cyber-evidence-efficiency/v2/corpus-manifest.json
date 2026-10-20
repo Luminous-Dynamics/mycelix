@@ -21,8 +21,8 @@
     "absent",
     "conflicting"
   ],
-  "solver_visible_git_blob_sha": "3c65deae232eeff0d4e7a22e0b38b0f4e4813296",
-  "evaluator_only_git_blob_sha": "4142f52fc8461a0752a19e622827fa941ac5b04c",
+  "solver_visible_git_blob_sha": "a0a3c94b4719a2f9e42f6ad38283bb8e92d7e78e",
+  "evaluator_only_git_blob_sha": "c99bd8e0d4cbc4fff3b70db78a980d8be78de352",
   "solver_schema_git_blob_sha": "7399d730db4f7b4acd6fe041e6df71df0c2caaa6",
   "evaluator_schema_git_blob_sha": "8f66537408ab3855e4e0c0d83005d7eaabbaca81",
   "git_blob_sha_note": "Git blob identities are checked against the exact repository checkout. They bind file bytes within this revision; they are not signatures, independent attestations, calibrated incident probabilities, or real-world evidence."
