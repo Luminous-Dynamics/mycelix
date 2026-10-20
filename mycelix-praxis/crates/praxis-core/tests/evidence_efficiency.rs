@@ -1309,6 +1309,7 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(fixed_report.total_cost_units, 4);
     assert_eq!(fixed_report.latency_bound_minutes, 6);
     assert_eq!(fixed_report.expected_information_gain_milli_bits, 1500);
+    assert_eq!(fixed_report.realized_information_gain_milli_bits, 1000);
     assert_eq!(
         fixed_report.remaining_hypotheses,
         vec!["compromised_session", "stale_sensor_false_alarm"]
@@ -1343,6 +1344,7 @@ fn metadata_only_baselines_are_deterministic_and_use_equal_constraints() {
     assert_eq!(cheapest_report.total_cost_units, 5);
     assert_eq!(cheapest_report.latency_bound_minutes, 7);
     assert_eq!(cheapest_report.expected_information_gain_milli_bits, 1500);
+    assert_eq!(cheapest_report.realized_information_gain_milli_bits, 1000);
     assert_eq!(
         cheapest_report.remaining_hypotheses,
         vec!["compromised_session", "stale_sensor_false_alarm"]
