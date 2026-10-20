@@ -60,6 +60,9 @@ def expected_codes($vector; $actual_profile_sha256):
            and ($head.version == 0 or (($head.target_profile_sha256 | digest_valid) | not))
        then "installed_state_invalid" else empty end),
       (if valid_head_scope($head; $context)
+           and $release.revocation_epoch < $head.revocation_epoch
+       then "policy_revocation_epoch_rollback" else empty end),
+      (if valid_head_scope($head; $context)
            and $release.version < $head.version
        then "policy_version_rollback" else empty end),
       (if valid_head_scope($head; $context)
@@ -90,7 +93,7 @@ def expected_disposition($vector; $codes):
 (. as $ignored)
 | $corpus[0] as $fixture
 | ($fixture.schema_version == "mycelix.claim-policy-lifecycle.golden.v1"
-   and ($fixture.cases | length) == 19) as $corpus_is_frozen
+   and ($fixture.cases | length) == 20) as $corpus_is_frozen
 | $fixture.cases[$index] as $vector
 | expected_codes($vector; $actual_profile_sha256) as $codes
 | expected_disposition($vector; $codes) as $disposition
