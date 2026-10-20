@@ -1385,7 +1385,6 @@ fn metadata_only_baseline_never_selects_a_request_above_its_authority() {
     );
 }
 
-
 #[test]
 fn preregistration_template_is_schema_valid_but_not_eligible_to_report_a_score() {
     let schema: serde_json::Value =
@@ -1396,7 +1395,10 @@ fn preregistration_template_is_schema_valid_but_not_eligible_to_report_a_score()
     let validator = jsonschema::draft202012::new(&schema).expect("schema compiles");
     assert!(validator.is_valid(&template));
     assert_eq!(template["status"], "template_only_not_preregistered");
-    assert_eq!(template["eligibility"], "NOT_ELIGIBLE_FOR_COMPARATIVE_SCORE");
+    assert_eq!(
+        template["eligibility"],
+        "NOT_ELIGIBLE_FOR_COMPARATIVE_SCORE"
+    );
     assert_eq!(template["minimum_held_out_cases"], 50);
     assert_eq!(template["data_split"]["public_conformance_excluded"], true);
     assert_eq!(template["safety_gates"]["unauthorized_actions_accepted"], 0);
@@ -1429,14 +1431,19 @@ fn preregistration_template_is_schema_valid_but_not_eligible_to_report_a_score()
 fn preregistration_policy_arms_label_the_evaluator_oracle_as_non_competitive() {
     let template: serde_json::Value =
         serde_json::from_str(PREREG_TEMPLATE_JSON).expect("preregistration template parses");
-    let arms = template["policy_arms"].as_array().expect("policy arms array");
+    let arms = template["policy_arms"]
+        .as_array()
+        .expect("policy arms array");
     let oracle = arms
         .iter()
         .find(|arm| arm["id"] == "non_adaptive_oracle_upper_bound")
         .expect("oracle arm exists");
     assert_eq!(oracle["uses_evaluator_only_data"], true);
     assert_eq!(oracle["comparative_competitor"], false);
-    assert!(arms.iter().any(|arm| arm["id"] == "human_analyst_reference"));
+    assert!(
+        arms.iter()
+            .any(|arm| arm["id"] == "human_analyst_reference")
+    );
     assert!(arms.iter().any(|arm| arm["id"] == "ai_tool_policy"));
 }
 
