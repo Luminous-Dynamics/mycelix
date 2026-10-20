@@ -380,20 +380,19 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         GetStrategy::default(),
     )?;
     for link in &request_links {
-        if let Ok(action_hash) = ActionHash::try_from(link.target.clone()) {
-            if let Ok(Some(record)) = get(action_hash, GetOptions::default()) {
-                if let Ok(Some(req)) = record.entry().to_app_option::<RecoveryRequest>() {
-                    match req.status {
-                        RecoveryStatus::Pending
-                        | RecoveryStatus::Approved
-                        | RecoveryStatus::ReadyToExecute => {
-                            return Err(wasm_error!(WasmErrorInner::Guest(
-                                "An active recovery request already exists for this DID. Cancel it first.".into()
-                            )));
-                        }
-                        _ => {} // Completed/Rejected/Cancelled — allow new request
-                    }
+        if let Ok(action_hash) = ActionHash::try_from(link.target.clone())
+            && let Ok(Some(record)) = get(action_hash, GetOptions::default())
+            && let Ok(Some(req)) = record.entry().to_app_option::<RecoveryRequest>()
+        {
+            match req.status {
+                RecoveryStatus::Pending
+                | RecoveryStatus::Approved
+                | RecoveryStatus::ReadyToExecute => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "An active recovery request already exists for this DID.".into()
+                    )));
                 }
+                _ => {} // Completed/Rejected/Cancelled — allow new request
             }
         }
     }
@@ -558,12 +557,12 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
             "Trustee DID must be 1-256 characters".into()
         )));
     }
-    if let Some(ref comment) = input.comment {
-        if comment.len() > 2048 {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Comment must be under 2048 characters".into()
-            )));
-        }
+    if let Some(ref comment) = input.comment
+        && comment.len() > 2048
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Comment must be under 2048 characters".into()
+        )));
     }
 
     // Verify caller is the claimed trustee
@@ -589,13 +588,12 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
             .entry()
             .to_app_option::<RecoveryVote>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            && existing_vote.trustee == input.trustee_did
         {
-            if existing_vote.trustee == input.trustee_did {
-                return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Trustee {} has already voted on this recovery request",
-                    input.trustee_did
-                ))));
-            }
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Trustee {} has already voted on this recovery request",
+                input.trustee_did
+            ))));
         }
     }
 
@@ -933,11 +931,10 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             .entry()
             .to_app_option::<RecoveryRequest>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            && req.id == request_id
         {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
+            // Keep iterating — update_entry appends newer versions later in the chain
+            request_record = Some(record);
         }
     }
 
@@ -1135,11 +1132,10 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
             .entry()
             .to_app_option::<RecoveryRequest>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            && req.id == request_id
         {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                found = Some(record);
-            }
+            // Keep iterating — update_entry appends newer versions later in the chain
+            found = Some(record);
         }
     }
 
