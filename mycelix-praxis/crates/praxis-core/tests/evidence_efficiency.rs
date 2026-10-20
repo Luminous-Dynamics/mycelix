@@ -572,7 +572,6 @@ fn oracle_information_gain_per_cost_trace(
         return Err("exact oracle limited to 16 candidate requests per scenario".into());
     }
 
-    let hypothesis_count = scenario.hypotheses.len() as f64;
     let mut best: Option<(u32, u32, u32, Vec<String>)> = None;
     for mask in 0u64..(1u64 << candidates.len()) {
         let ids = candidates
@@ -596,34 +595,19 @@ fn oracle_information_gain_per_cost_trace(
             continue;
         }
 
-        // Joint outcome signatures form the final hypothesis partition for a
-        // non-adaptive subset. Its entropy is expected information gain.
-        let mut partitions = BTreeMap::<Vec<String>, usize>::new();
-        for hypothesis in &scenario.hypotheses {
-            let mut signature = Vec::with_capacity(ids.len());
-            for id in &ids {
-                let outcome = evaluator_scenario
+        // Use the same joint-partition objective as the policy report.
+        let selected_outcomes = ids
+            .iter()
+            .map(|id| {
+                evaluator_scenario
                     .request_outcomes
                     .iter()
                     .find(|outcome| outcome.request_id == *id)
-                    .expect("pair validation covers all request IDs");
-                let label = outcome
-                    .labels_by_hypothesis
-                    .iter()
-                    .find(|entry| entry.hypothesis_id == *hypothesis)
-                    .expect("pair validation covers every hypothesis");
-                signature.push(label.outcome_label.clone());
-            }
-            *partitions.entry(signature).or_default() += 1;
-        }
-        let posterior_entropy = partitions
-            .values()
-            .map(|size| {
-                let probability = *size as f64 / hypothesis_count;
-                probability * (*size as f64).log2()
+                    .expect("pair validation covers all request IDs")
             })
-            .sum::<f64>();
-        let gain = ((hypothesis_count.log2() - posterior_entropy).max(0.0) * 1000.0).round() as u32;
+            .collect::<Vec<_>>();
+        let gain =
+            joint_information_gain_milli_bits(&scenario.hypotheses, &selected_outcomes);
 
         let better = match best.as_ref() {
             None => true,
