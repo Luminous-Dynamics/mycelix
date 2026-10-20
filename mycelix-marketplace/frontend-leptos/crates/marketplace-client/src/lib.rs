@@ -1,6 +1,11 @@
 //! Typed Marketplace coordinator client over an injected transport.
 
 pub mod contract;
+pub mod furnishing_discovery;
+pub use furnishing_discovery::{
+    FurnishingDiscoveryAdapter, FurnishingDiscoverySnapshot, ListingReadPort,
+    project_listing_snapshot,
+};
 
 use async_trait::async_trait;
 use marketplace_domain::{
