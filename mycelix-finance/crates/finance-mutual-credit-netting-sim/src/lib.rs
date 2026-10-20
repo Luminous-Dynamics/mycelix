@@ -117,8 +117,9 @@ pub struct NettingReport {
     pub excluded_obligations: Vec<ExcludedObligation>,
     /// Number of additional identical physical observations removed by canonical ID.
     pub duplicate_observation_count: u64,
-    /// False whenever any supplied obligation remains unresolved or ineligible.
-    pub input_coverage_complete: bool,
+    /// True only when every supplied canonical obligation is eligible; does not prove the
+    /// upstream obligation census is complete.
+    pub all_supplied_obligations_eligible: bool,
     pub gross_obligation_count: usize,
     pub gross_volume_minor: u128,
     pub net_positions: Vec<NetPosition>,
@@ -328,7 +329,7 @@ pub fn simulate_netting(
         asset_profile_id: profile.asset_profile_id.clone(),
         netting_set_id: profile.netting_set_id.clone(),
         policy_digest: profile.policy_digest.clone(),
-        input_coverage_complete: excluded_obligations.is_empty(),
+        all_supplied_obligations_eligible: excluded_obligations.is_empty(),
         gross_obligation_count: included_obligation_ids.len(),
         gross_volume_minor,
         included_obligation_ids,
@@ -623,7 +624,7 @@ mod tests {
         assert!(report.net_settlement_legs.is_empty());
         assert_eq!(report.net_cost_estimate.total_cost_minor, 0);
         assert_eq!(report.modeled_savings_minor, 303);
-        assert!(report.input_coverage_complete);
+        assert!(report.all_supplied_obligations_eligible);
         assert!(!report.settlement_executed);
     }
 
