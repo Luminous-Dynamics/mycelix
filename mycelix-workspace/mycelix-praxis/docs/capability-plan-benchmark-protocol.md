@@ -72,3 +72,9 @@ The core test suite now includes a dependency-free deterministic generated-DAG o
 
 The generator only emits acyclic dependencies by referencing earlier-indexed nodes. It is a useful bounded oracle, not exhaustive proof, mutation testing, adversarial parser coverage, or a substitute for randomized DAGs with shrinking. If the catalogue and graph generator become more complex, consider adding Rust `proptest` with an independently defined strategy and retained/shrunk regression cases; do not add a test dependency without checking the workspace's existing dependency policy first.
 
+A second deterministic unit-test oracle exercises 64 generated budget-constrained prerequisite chains. Cases alternate between:
+- provably infeasible budgets, which must return `TotalBudgetExceeded` with an independently computed minimum-duration lower bound; and
+- feasible budgets at or just above the lower bound, which test whether the planner retains the best-ranked option that leaves enough time for the minimum-cost suffix.
+
+For feasible cases the test independently recalculates suffix minima, validates the chosen option against the priority/identity ordering, verifies the declared selection-basis reason, checks the exact eligible-alternative set under the current lower-bound policy, independently sums durations, and checks the global budget. Together with the 64 generated-DAG cases, this is 128 deterministic generated test cases per test invocation—not a statistical performance result and not an exhaustive proof.
+
