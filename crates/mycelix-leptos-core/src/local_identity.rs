@@ -534,8 +534,8 @@ pub fn is_passphrase_protected() -> bool {
 /// person copied the phrase, not cryptographic proof that an offline backup
 /// will remain available later.
 pub fn recovery_phrase_challenge_positions() -> Result<[usize; 3], String> {
-    let window = web_sys::window()
-        .ok_or_else(|| "Browser Web Crypto is unavailable.".to_string())?;
+    let window =
+        web_sys::window().ok_or_else(|| "Browser Web Crypto is unavailable.".to_string())?;
     let crypto = window
         .crypto()
         .map_err(|_| "Browser Web Crypto is unavailable.".to_string())?;
