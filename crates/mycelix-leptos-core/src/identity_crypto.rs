@@ -357,7 +357,7 @@ mod tests {
         let warmup_plaintext = decrypt(passphrase, &warmup)
             .await
             .expect("production KDF warm-up decrypt succeeds");
-        assert_eq!(warmup_plaintext, secret);
+        assert_eq!(warmup_plaintext.as_slice(), &secret[..]);
 
         let mut encrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
         let mut decrypt_ms = Vec::with_capacity(SAMPLE_COUNT);
@@ -373,7 +373,7 @@ mod tests {
                 .await
                 .expect("production KDF benchmark decrypt succeeds");
             decrypt_ms.push(js_sys::Date::now() - start);
-            assert_eq!(recovered, secret);
+            assert_eq!(recovered.as_slice(), &secret[..]);
         }
 
         fn summarize(samples: &mut [f64]) -> (f64, f64, f64) {
@@ -388,7 +388,11 @@ mod tests {
         let (encrypt_p50, encrypt_p95, encrypt_max) = summarize(&mut encrypt_ms);
         let (decrypt_p50, decrypt_p95, decrypt_max) = summarize(&mut decrypt_ms);
         let report = format!(
-            "IDENTITY_KDF_BENCHMARK kdf={} iterations={} samples={}              encrypt_ms_p50={:.1} encrypt_ms_p95={:.1} encrypt_ms_max={:.1}              unlock_decrypt_ms_p50={:.1} unlock_decrypt_ms_p95={:.1} unlock_decrypt_ms_max={:.1}",
+            concat!(
+                "IDENTITY_KDF_BENCHMARK kdf={} iterations={} samples={} ",
+                "encrypt_ms_p50={:.1} encrypt_ms_p95={:.1} encrypt_ms_max={:.1} ",
+                "unlock_decrypt_ms_p50={:.1} unlock_decrypt_ms_p95={:.1} unlock_decrypt_ms_max={:.1}"
+            ),
             KDF_IDENTIFIER,
             PBKDF2_ITERATIONS,
             SAMPLE_COUNT,
