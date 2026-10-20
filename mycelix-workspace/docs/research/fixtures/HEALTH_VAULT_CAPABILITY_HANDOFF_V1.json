@@ -1,0 +1,495 @@
+{
+  "schema_version": "mycelix.health-vault.capability-handoff-fixtures.v1",
+  "status": "synthetic_fixture_contract",
+  "claim_ceiling": "Synthetic conformance fixtures; not runtime qualification or evidence of achieved security/performance.",
+  "invariants": [
+    "No plaintext capability secret across the UI/transport boundary.",
+    "Negative controls return zero protected health payload bytes.",
+    "Offer decryption/ingestion never overrides owner-side current consent, scope, expiry, revocation, or capability state.",
+    "Unavailable authorization evidence is never converted to success.",
+    "Repeated delivery is idempotent."
+  ],
+  "fixtures": [
+    {
+      "id": "HCH-001",
+      "title": "Correct owner, recipient binding and current offer",
+      "operation": "offer_ingest",
+      "category": "positive_control",
+      "setup": [
+        "sender_binding=valid",
+        "recipient_binding=valid",
+        "grant_state=current",
+        "offer_state=unexpired"
+      ],
+      "expected": {
+        "protocol_result": "success",
+        "failure_code": null,
+        "effective_claim_delta": 1,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "decrypt_ms",
+        "claim_ingest_ms"
+      ]
+    },
+    {
+      "id": "HCH-002",
+      "title": "Copy ciphertext to a different agent key",
+      "operation": "offer_ingest",
+      "category": "recipient_isolation",
+      "setup": [
+        "recipient_agent=mismatch",
+        "recipient_private_key=attacker"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "wrong_recipient",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "decrypt_ms"
+      ]
+    },
+    {
+      "id": "HCH-003",
+      "title": "Substitute recipient encryption public key",
+      "operation": "offer_validate",
+      "category": "key_substitution",
+      "setup": [
+        "offer_recipient_key_id=registered_key",
+        "presented_key_binding=mismatched"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "recipient_binding_mismatch",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-004",
+      "title": "Sender encryption key is not bound to owner identity",
+      "operation": "offer_validate",
+      "category": "sender_authentication",
+      "setup": [
+        "sender_key_binding=absent",
+        "claimed_owner=owner"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "sender_binding_invalid",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-005",
+      "title": "Alter signed offer metadata after signing",
+      "operation": "offer_validate",
+      "category": "integrity",
+      "setup": [
+        "signed_subject=original",
+        "presented_subject=mutated"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "offer_authentication_failed",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-006",
+      "title": "Alter or truncate authenticated ciphertext",
+      "operation": "offer_decrypt",
+      "category": "integrity",
+      "setup": [
+        "ciphertext=modified_or_truncated"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "ciphertext_authentication_failed",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "decrypt_ms"
+      ]
+    },
+    {
+      "id": "HCH-007",
+      "title": "Submit unknown protocol version; downgrade forbidden",
+      "operation": "offer_validate",
+      "category": "versioning",
+      "setup": [
+        "protocol_version=unknown",
+        "fallback=forbidden"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "unsupported_version",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-008",
+      "title": "Substitute update hash or unrelated grant hash",
+      "operation": "offer_ingest",
+      "category": "grant_binding",
+      "setup": [
+        "grant_hash=not_original_create_action"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "grant_binding_mismatch",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-009",
+      "title": "Deliver the same valid offer twice",
+      "operation": "offer_ingest",
+      "category": "idempotence",
+      "setup": [
+        "offer_id=same",
+        "offer_contents=identical",
+        "first_claim=already_present"
+      ],
+      "expected": {
+        "protocol_result": "success",
+        "failure_code": null,
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "claim_ingest_ms"
+      ]
+    },
+    {
+      "id": "HCH-010",
+      "title": "Redeem an expired envelope",
+      "operation": "offer_ingest",
+      "category": "expiry",
+      "setup": [
+        "offer_expiry=at_or_before_now"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "offer_expired",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-011",
+      "title": "Grant expires after offer creation but before read",
+      "operation": "shared_read",
+      "category": "live_authorization",
+      "setup": [
+        "offer_created=before_expiry",
+        "read_time=at_or_after_grant_expiry"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "grant_expired",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "authorization_ms"
+      ]
+    },
+    {
+      "id": "HCH-012",
+      "title": "Grant revoked before redemption or read",
+      "operation": "shared_read",
+      "category": "revocation",
+      "setup": [
+        "grant_state=revoked",
+        "capability_state=deleted_or_stale"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "grant_revoked",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "revoke_to_denial_ms"
+      ]
+    },
+    {
+      "id": "HCH-013",
+      "title": "Revocation commit precedes read authorization decision",
+      "operation": "shared_read",
+      "category": "concurrency",
+      "setup": [
+        "revoke_commit=before_authorization_decision"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "grant_revoked",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "revoke_to_denial_ms"
+      ]
+    },
+    {
+      "id": "HCH-014",
+      "title": "Recipient key rotated and old offer superseded",
+      "operation": "offer_ingest",
+      "category": "key_rotation",
+      "setup": [
+        "offer_recipient_key=old_key",
+        "binding_state=superseded"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "recipient_key_superseded",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-015",
+      "title": "Recipient encryption key is lost",
+      "operation": "offer_ingest",
+      "category": "recovery",
+      "setup": [
+        "recipient_private_key=unavailable",
+        "plaintext_fallback=forbidden"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "recipient_key_unavailable",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-016",
+      "title": "Owner source is offline or partitioned",
+      "operation": "shared_read",
+      "category": "availability",
+      "setup": [
+        "owner_reachable=false",
+        "cached_authorization=stale"
+      ],
+      "expected": {
+        "protocol_result": "unavailable",
+        "failure_code": "source_unavailable",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "failed_request_ms",
+        "recovery_ms"
+      ]
+    },
+    {
+      "id": "HCH-017",
+      "title": "Interrupted delivery is retried or reordered",
+      "operation": "offer_delivery",
+      "category": "retry",
+      "setup": [
+        "delivery=interrupted_or_reordered",
+        "claim_previously_absent=true"
+      ],
+      "expected": {
+        "protocol_result": "retryable",
+        "failure_code": "delivery_incomplete",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "delivery_completion_ms",
+        "retry_count"
+      ]
+    },
+    {
+      "id": "HCH-018",
+      "title": "Scan app entries, DHT plaintext and transport surfaces for secret leakage",
+      "operation": "secret_sink_scan",
+      "category": "confidentiality",
+      "setup": [
+        "synthetic_secret_canary=enabled",
+        "surfaces=all_declared_sinks"
+      ],
+      "expected": {
+        "protocol_result": "success",
+        "failure_code": null,
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "scan_duration_ms",
+        "leak_count"
+      ]
+    },
+    {
+      "id": "HCH-019",
+      "title": "Submit malformed or oversized envelope",
+      "operation": "offer_validate",
+      "category": "input_bounds",
+      "setup": [
+        "serialization=malformed_or_oversized"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "invalid_or_oversized_envelope",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms",
+        "peak_memory_bytes"
+      ]
+    },
+    {
+      "id": "HCH-020",
+      "title": "Attempt use after Assigned capability deletion",
+      "operation": "shared_read",
+      "category": "capability_revocation",
+      "setup": [
+        "capability_grant=deleted",
+        "consent_state=revoked"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "capability_revoked",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "revoke_to_denial_ms"
+      ]
+    },
+    {
+      "id": "HCH-021",
+      "title": "Present a legacy unencrypted offer to v1 handler",
+      "operation": "offer_ingest",
+      "category": "migration",
+      "setup": [
+        "offer_version=legacy_unencrypted",
+        "implicit_upgrade=forbidden"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "unsupported_legacy_offer",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-022",
+      "title": "Use a superseded sender encryption-key binding",
+      "operation": "offer_validate",
+      "category": "key_rotation",
+      "setup": [
+        "sender_key_binding=superseded",
+        "historical_key_policy=not_current"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "sender_key_binding_superseded",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "validation_ms"
+      ]
+    },
+    {
+      "id": "HCH-023",
+      "title": "Register duplicate active recipient key IDs",
+      "operation": "key_enrollment",
+      "category": "ambiguity",
+      "setup": [
+        "active_key_id_count=2",
+        "selected_key_id=ambiguous"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "ambiguous_recipient_key",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "enrollment_ms"
+      ]
+    },
+    {
+      "id": "HCH-024",
+      "title": "Delivery ack is lost after successful claim; client retries",
+      "operation": "offer_ingest",
+      "category": "idempotence",
+      "setup": [
+        "claim_already_created=true",
+        "acknowledgement=lost",
+        "retry=same_offer"
+      ],
+      "expected": {
+        "protocol_result": "success",
+        "failure_code": null,
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "claim_ingest_ms",
+        "duplicate_claim_count"
+      ]
+    },
+    {
+      "id": "HCH-025",
+      "title": "Leak detector catches a secret canary planted in logs, errors or telemetry (negative control)",
+      "operation": "secret_sink_scan",
+      "category": "confidentiality",
+      "setup": [
+        "test_mutation=plant_synthetic_secret_canary_in_logs_errors_telemetry",
+        "scanner_must_detect_leak=true"
+      ],
+      "expected": {
+        "protocol_result": "denied",
+        "failure_code": "secret_leak_detected",
+        "effective_claim_delta": 0,
+        "protected_payload_bytes_returned": 0
+      },
+      "measurements": [
+        "scan_duration_ms",
+        "leak_count"
+      ]
+    }
+  ]
+}
