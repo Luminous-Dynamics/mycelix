@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           lock_before="$(sha256sum crates/mycelix-leptos-core/Cargo.lock | cut -d ' ' -f1)"
-          wasm-pack test --headless --chrome crates/mycelix-leptos-core
+          wasm-pack test --headless --chrome crates/mycelix-leptos-core --lib --locked
           lock_after="$(sha256sum crates/mycelix-leptos-core/Cargo.lock | cut -d ' ' -f1)"
           if [[ "$lock_before" != "$lock_after" ]]; then
             echo "Browser test changed the generated dependency lockfile" >&2
