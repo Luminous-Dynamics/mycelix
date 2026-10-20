@@ -2265,6 +2265,21 @@ pub fn create_multi_collateral_position(
 // Phase 2f: Fiat Bridge Deposits
 // ---------------------------------------------------------------------------
 
+// The fiat-to-SAP on-ramp is disabled by default. Re-enabling it requires a
+// separate reviewed decision after external settlement proof, exact arithmetic,
+// and typed issuance authorization are qualified.
+const FIAT_TO_SAP_BRIDGE_ENABLED: bool = false;
+
+fn require_fiat_to_sap_bridge_enabled() -> ExternResult<()> {
+    if FIAT_TO_SAP_BRIDGE_ENABLED {
+        Ok(())
+    } else {
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Fiat-to-SAP bridge is disabled pending qualified external settlement evidence and explicit product/legal approval".into()
+        )))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DepositFiatInput {
     pub depositor_did: String,
@@ -2278,6 +2293,7 @@ pub struct DepositFiatInput {
 /// Create a fiat bridge deposit (inbound: fiat -> SAP). Requires Citizen+ tier verifier.
 #[hdk_extern]
 pub fn deposit_fiat(input: DepositFiatInput) -> ExternResult<Record> {
+    require_fiat_to_sap_bridge_enabled()?;
     verify_citizen_tier()?;
     verify_caller_is_did(&input.verifier_did)?;
     let now = sys_time()?;
@@ -2359,6 +2375,7 @@ pub struct VerifyFiatDepositInput {
 /// Verify a pending fiat deposit and mint SAP. Requires Citizen+ tier.
 #[hdk_extern]
 pub fn verify_fiat_deposit(input: VerifyFiatDepositInput) -> ExternResult<Record> {
+    require_fiat_to_sap_bridge_enabled()?;
     verify_citizen_tier()?;
 
     // --- CELLULAR MEMBRANE AUDIT (Vector 3) ---
@@ -2689,4 +2706,10 @@ mod tests {
             AssetType::Other("bamboo".into())
         );
     }
+    #[test]
+    fn fiat_to_sap_bridge_is_disabled_by_default() {
+        assert!(!FIAT_TO_SAP_BRIDGE_ENABLED);
+        assert!(require_fiat_to_sap_bridge_enabled().is_err());
+    }
+
 }
