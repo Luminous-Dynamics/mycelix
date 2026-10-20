@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:cyber-evidence-request-catalog:v1",
+  "title": "Praxis Cyber Evidence Request Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "benchmark_version",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "benchmark_id": {
+      "const": "PRAXIS-CYBER-ACQ-001"
+    },
+    "benchmark_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Scenario"
+      }
+    }
+  },
+  "$defs": {
+    "Authority": {
+      "type": "string",
+      "enum": [
+        "read_only_telemetry",
+        "incident_commander"
+      ]
+    },
+    "SourceKind": {
+      "type": "string",
+      "enum": [
+        "identity_session_audit",
+        "endpoint_context",
+        "token_use_audit",
+        "sensor_health",
+        "shared_egress_summary"
+      ]
+    },
+    "Scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "hypotheses",
+        "requests"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hypotheses": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "requests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Request"
+          }
+        }
+      }
+    },
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "source_kind",
+        "purpose",
+        "required_authority",
+        "cost_units",
+        "latency_bound_minutes"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_authority": {
+          "$ref": "#/$defs/Authority"
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "latency_bound_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
