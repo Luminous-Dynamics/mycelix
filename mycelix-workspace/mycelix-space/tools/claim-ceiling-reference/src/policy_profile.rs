@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 const POLICY_REQUEST_SCHEMA: &[u8] =
     include_bytes!("../schemas/claim-ceiling-policy-request-v1.schema.json");
+const POLICY_PROFILE_SCHEMA: &[u8] =
+    include_bytes!("../schemas/claim-ceiling-policy-profile-v1.schema.json");
 const POLICY_RECEIPT_SCHEMA: &[u8] =
     include_bytes!("../schemas/claim-ceiling-policy-receipt-v1.schema.json");
 
@@ -33,7 +35,6 @@ pub struct ClaimPolicyProfileV1 {
 pub struct PolicyRequestV1 {
     pub schema_version: String,
     pub request_id: String,
-    pub policy_profile: ClaimPolicyProfileV1,
     pub candidate_ceiling: ClaimCeilingV1,
 }
 
@@ -61,9 +62,14 @@ pub struct PolicyReceiptV1 {
     pub source_commit: String,
     pub source_commit_pinned: bool,
     pub input_sha256: String,
+    /// SHA-256 of exact policy-profile file bytes, not a reserialized object.
     pub policy_profile_sha256: String,
+    /// Digest supplied through a separate trusted invocation/configuration channel.
+    pub expected_policy_profile_sha256: String,
+    pub policy_profile_pinned: bool,
     pub candidate_ceiling_sha256: String,
     pub request_schema_sha256: String,
+    pub policy_profile_schema_sha256: String,
     pub receipt_schema_sha256: String,
     pub disposition: PolicyDisposition,
     pub violations: Vec<PolicyViolation>,
@@ -174,12 +180,17 @@ fn assess_candidate(candidate: &ClaimCeilingV1, maximum: &ClaimCeilingV1) -> Vec
 /// still yield an inadmissible combination if both inputs encode a forbidden atom.
 pub fn evaluate_policy_request_bytes(
     input: &[u8],
+    policy_bytes: &[u8],
+    expected_policy_profile_sha256: &str,
     source_commit: &str,
 ) -> Result<PolicyReceiptV1, String> {
     let source_commit_pinned = validate_source_commit(source_commit)?;
     validate_json_against_schema(POLICY_REQUEST_SCHEMA, input, "policy request")?;
+    validate_json_against_schema(POLICY_PROFILE_SCHEMA, policy_bytes, "policy profile")?;
     let request: PolicyRequestV1 = serde_json::from_slice(input)
         .map_err(|error| format!("policy request deserialization failed: {error}"))?;
+    let policy_profile: ClaimPolicyProfileV1 = serde_json::from_slice(policy_bytes)
+        .map_err(|error| format!("policy profile deserialization failed: {error}"))?;
 
     if request.schema_version != POLICY_REQUEST_SCHEMA_VERSION {
         return Err(format!(
@@ -190,40 +201,58 @@ pub fn evaluate_policy_request_bytes(
     if request.request_id.trim().is_empty() {
         return Err("request_id must not be empty".to_owned());
     }
-    validate_profile(&request.policy_profile)?;
+    if !valid_sha256(expected_policy_profile_sha256) {
+        return Err("expected policy-profile SHA-256 must be 64 lowercase hexadecimal characters".to_owned());
+    }
+    validate_profile(&policy_profile)?;
     validate_ceiling("candidate_ceiling", &request.candidate_ceiling)?;
 
-    let mut violations = assess_candidate(
-        &request.candidate_ceiling,
-        &request.policy_profile.maximum_ceiling,
-    );
-    // Defence in depth: the dimension-level explanation and the shared partial-order
-    // predicate must agree. A disagreement is an implementation error, never PASS.
-    let no_broader = is_no_broader_than(
-        &request.candidate_ceiling,
-        &request.policy_profile.maximum_ceiling,
-    );
-    if no_broader != violations.is_empty() {
-        return Err(
-            "policy assessment invariant mismatch between dimension audit and no-broader predicate"
-                .to_owned(),
+    let actual_policy_profile_sha256 = sha256(policy_bytes);
+    let policy_profile_pinned = actual_policy_profile_sha256 == expected_policy_profile_sha256;
+    let mut violations = if policy_profile_pinned {
+        assess_candidate(
+            &request.candidate_ceiling,
+            &policy_profile.maximum_ceiling,
+        )
+    } else {
+        vec![violation(
+            "policy_profile_digest_mismatch",
+            format!(
+                "expected {expected_policy_profile_sha256}, found {actual_policy_profile_sha256}"
+            ),
+        )]
+    };
+
+    if policy_profile_pinned {
+        // Defence in depth: the dimension-level explanation and the shared partial-order
+        // predicate must agree. A disagreement is an implementation error, never PASS.
+        let no_broader = is_no_broader_than(
+            &request.candidate_ceiling,
+            &policy_profile.maximum_ceiling,
         );
+        if no_broader != violations.is_empty() {
+            return Err(
+                "policy assessment invariant mismatch between dimension audit and no-broader predicate"
+                    .to_owned(),
+            );
+        }
     }
 
-    let profile_bytes = serde_json::to_vec(&request.policy_profile)
-        .map_err(|error| format!("policy profile serialization failed: {error}"))?;
     let candidate_bytes = serde_json::to_vec(&request.candidate_ceiling)
         .map_err(|error| format!("candidate ceiling serialization failed: {error}"))?;
     let receipt = PolicyReceiptV1 {
         schema_version: POLICY_RECEIPT_SCHEMA_VERSION.to_owned(),
         request_id: request.request_id,
-        profile_id: request.policy_profile.profile_id,
+        profile_id: policy_profile.profile_id,
         source_commit: source_commit.to_owned(),
         source_commit_pinned,
         input_sha256: sha256(input),
-        policy_profile_sha256: sha256(&profile_bytes),
+        policy_profile_sha256: actual_policy_profile_sha256,
+        expected_policy_profile_sha256: expected_policy_profile_sha256.to_owned(),
+        policy_profile_pinned,
         candidate_ceiling_sha256: sha256(&candidate_bytes),
         request_schema_sha256: sha256(POLICY_REQUEST_SCHEMA),
+        policy_profile_schema_sha256: sha256(POLICY_PROFILE_SCHEMA),
         receipt_schema_sha256: sha256(POLICY_RECEIPT_SCHEMA),
         disposition: if violations.is_empty() {
             PolicyDisposition::AdmissibleWithinProfile
@@ -239,6 +268,13 @@ pub fn evaluate_policy_request_bytes(
         .map_err(|error| format!("policy receipt serialization failed: {error}"))?;
     validate_json_against_schema(POLICY_RECEIPT_SCHEMA, &receipt_bytes, "policy receipt")?;
     Ok(receipt)
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 #[cfg(test)]
