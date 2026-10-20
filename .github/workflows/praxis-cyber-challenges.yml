@@ -127,8 +127,6 @@ jobs:
                 evaluator_only_fixture: $evaluator,
                 solver_schema: $catalog_schema,
                 evaluator_schema: $evaluator_schema,
-                qualification_protocol_template: $prereg_template,
-                qualification_protocol_schema: $prereg_schema,
                 workflow: $workflow
               },
               claim_ceiling: "Contract and public-fixture conformance only; not live incident truth, held-out capability, learning efficacy, or production readiness."
@@ -174,6 +172,8 @@ jobs:
                 evaluator_only_fixture: $evaluator,
                 solver_schema: $catalog_schema,
                 evaluator_schema: $evaluator_schema,
+                qualification_protocol_template: $prereg_template,
+                qualification_protocol_schema: $prereg_schema,
                 workflow: $workflow
               },
               claim_ceiling: "Contract and public synthetic fixture conformance only; not held-out cyber capability, live incident truth, learning efficacy, SOTA, or production readiness."
