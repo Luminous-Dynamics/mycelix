@@ -5,6 +5,12 @@ use hdk::prelude::*;
 use listings_integrity::*;
 use mycelix_common::{bridge, error_handling, link_queries, time};
 
+mod resolution;
+pub use resolution::{
+    LISTING_RESOLUTION_POLICY_VERSION, ListingCatalogCoverage, ListingCatalogSnapshotV1,
+    ListingObservationScope, ListingResolution, ListingResolutionReason, ListingResolutionState,
+};
+
 /// Create a new listing
 ///
 /// This function:
@@ -127,9 +133,9 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
     )?;
 
     Ok(ListingOutput {
-        listing_hash: action_hash.into(),
+        listing_hash: action_hash,
         listing,
-        seller_agent_id: agent_info.agent_initial_pubkey.into(),
+        seller_agent_id: agent_info.agent_initial_pubkey,
     })
 }
 
@@ -144,13 +150,93 @@ pub fn get_listing(listing_hash: ActionHash) -> ExternResult<Option<ListingOutpu
             let listing: Listing = error_handling::deserialize_entry(&record)?;
 
             Ok(Some(ListingOutput {
-                listing_hash: listing_hash.into(),
+                listing_hash,
                 listing,
-                seller_agent_id: record.action().author().clone().into(),
+                seller_agent_id: record.action().author().clone(),
             }))
         }
         None => Ok(None),
     }
+}
+
+/// Resolve the locally observed update graph for any known listing Create/Update action.
+///
+/// Unlike the legacy `get_listing`, this endpoint does not assume that the
+/// action hash supplied by the caller is the current revision. A single returned
+/// head means only "sole observed head in this conductor's local graph", not global
+/// currentness. Concurrent update branches are returned as conflicted, with no
+/// sole observed head.
+#[hdk_extern]
+pub fn get_listing_revision_state_v1(
+    listing_hash: ActionHash,
+) -> ExternResult<Option<ListingResolution>> {
+    resolution::resolve_listing(listing_hash)
+}
+
+/// Read the locally observed catalogue link set with per-listing revision-state projections.
+///
+/// The snapshot explicitly does not claim a globally complete or converged DHT
+/// view. A conflicting listing revision remains present as a conflict; deleted
+/// single-head listings remain present with their resolved Deleted status so
+/// callers cannot silently reinterpret older linked actions as active offers.
+#[hdk_extern]
+pub fn get_all_listings_revision_state_v1(_: ()) -> ExternResult<ListingCatalogSnapshotV1> {
+    let path = Path::from("all_listings");
+    let links = link_queries::get_links_local(path.path_entry_hash()?, LinkTypes::AllListings)?;
+    let observed_link_count = u32::try_from(links.len()).unwrap_or(u32::MAX);
+
+    let mut linked_actions = Vec::with_capacity(links.len());
+    for link in links {
+        let Some(action_hash) = link.target.into_action_hash() else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Catalogue link target is not an ActionHash; refusing partial snapshot".into()
+            )));
+        };
+        linked_actions.push(action_hash);
+    }
+    linked_actions.sort_by_key(ToString::to_string);
+    linked_actions.dedup();
+
+    let mut listings = Vec::new();
+    let mut roots = Vec::new();
+    for linked_action in linked_actions {
+        let Some(resolution) = resolution::resolve_listing(linked_action)? else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Catalogue link references an unavailable listing revision; refusing partial snapshot".into()
+            )));
+        };
+        if roots.contains(&resolution.root_listing_hash) {
+            continue;
+        }
+        roots.push(resolution.root_listing_hash.clone());
+        listings.push(resolution);
+    }
+    listings.sort_by_key(|listing| listing.root_listing_hash.to_string());
+
+    let single_observed_head_count = u32::try_from(
+        listings
+            .iter()
+            .filter(|listing| listing.state == ListingResolutionState::SingleObservedHead)
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+    let concurrent_head_listing_count = u32::try_from(
+        listings
+            .iter()
+            .filter(|listing| listing.state == ListingResolutionState::ConcurrentHeads)
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+
+    Ok(ListingCatalogSnapshotV1 {
+        policy_version: LISTING_RESOLUTION_POLICY_VERSION,
+        coverage: ListingCatalogCoverage::LocalObservedLinksOnly,
+        observed_link_count,
+        unique_listing_count: u32::try_from(listings.len()).unwrap_or(u32::MAX),
+        single_observed_head_count,
+        concurrent_head_listing_count,
+        listings,
+    })
 }
 
 /// Get all listings in the marketplace
@@ -163,13 +249,11 @@ pub fn get_all_listings(_: ()) -> ExternResult<ListingsResponse> {
     let mut listings = Vec::new();
 
     for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(listing_output) = get_listing(action_hash)? {
-                // Filter out deleted/inactive if needed
-                if listing_output.listing.status != ListingStatus::Deleted {
-                    listings.push(listing_output);
-                }
-            }
+        if let Some(action_hash) = link.target.into_action_hash()
+            && let Some(listing_output) = get_listing(action_hash)?
+            && listing_output.listing.status != ListingStatus::Deleted
+        {
+            listings.push(listing_output);
         }
     }
 
@@ -185,10 +269,10 @@ pub fn get_listings_by_seller(agent_id: AgentPubKey) -> ExternResult<ListingsRes
     let mut listings = Vec::new();
 
     for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(listing_output) = get_listing(action_hash)? {
-                listings.push(listing_output);
-            }
+        if let Some(action_hash) = link.target.into_action_hash()
+            && let Some(listing_output) = get_listing(action_hash)?
+        {
+            listings.push(listing_output);
         }
     }
 
@@ -213,10 +297,10 @@ pub fn get_listings_by_category(category: ListingCategory) -> ExternResult<Listi
     let mut listings = Vec::new();
 
     for link in links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(listing_output) = get_listing(action_hash)? {
-                listings.push(listing_output);
-            }
+        if let Some(action_hash) = link.target.into_action_hash()
+            && let Some(listing_output) = get_listing(action_hash)?
+        {
+            listings.push(listing_output);
         }
     }
 
@@ -271,9 +355,9 @@ pub fn update_listing(input: UpdateListingInput) -> ExternResult<ListingOutput> 
     let action_hash = update_entry(input.listing_hash, &EntryTypes::Listing(listing.clone()))?;
 
     Ok(ListingOutput {
-        listing_hash: action_hash.into(),
+        listing_hash: action_hash,
         listing,
-        seller_agent_id: agent_info.agent_initial_pubkey.into(),
+        seller_agent_id: agent_info.agent_initial_pubkey,
     })
 }
 
