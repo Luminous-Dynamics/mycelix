@@ -1198,7 +1198,9 @@ mod tests {
             name: "K-vector".into(),
             description: "Dimension must be bounded".into(),
             invariant_type: InvariantType::KVectorBounds {
-                dimension: "k_r".into(), min: 0.0, max: 1.0,
+                dimension: "k_r".into(),
+                min: 0.0,
+                max: 1.0,
             },
             severity: ViolationSeverity::Critical,
         };
@@ -1219,7 +1221,9 @@ mod tests {
             invariant_id: "byzantine".into(),
             name: "Byzantine threshold".into(),
             description: "Byzantine count must be consistent".into(),
-            invariant_type: InvariantType::ByzantineTolerance { max_byzantine_fraction: 0.34 },
+            invariant_type: InvariantType::ByzantineTolerance {
+                max_byzantine_fraction: 0.34,
+            },
             severity: ViolationSeverity::Fatal,
         };
         assert!(!engine.check_invariant(&invariant, &state, 1000).holds);
@@ -1264,7 +1268,8 @@ mod tests {
             name: "Conservation".into(),
             description: "Requires current and prior totals".into(),
             invariant_type: InvariantType::Conservation {
-                property: "mass".into(), tolerance: 1e-9,
+                property: "mass".into(),
+                tolerance: 1e-9,
             },
             severity: ViolationSeverity::Critical,
         };
