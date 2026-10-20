@@ -4,7 +4,7 @@
 
 This seed proposes a small, cross-domain foundation for adult learning: capabilities that help a person reason about claims, make everyday decisions, protect their agency, collaborate, respond to risk, and keep learning. It is a **curated starting point, not a universal canon**. Learners and communities should be able to extend, contest, localize, or omit material without having a single global score imposed on them.
 
-The machine-readable seed is [`essential_capabilities_v1.json`](essential_capabilities_v1.json). It contains 19 nodes, 37 prerequisite/relationship edges, and five suggested learning paths. Its current graph metadata is a working proposal; it does not claim formal alignment to a national standard.
+The machine-readable seed is [`essential_capabilities_v1.json`](essential_capabilities_v1.json). It contains 20 nodes, 39 prerequisite/relationship edges, and six suggested learning paths. Its current graph metadata is a working proposal; it does not claim formal alignment to a national standard.
 
 ## Design choices
 
@@ -113,6 +113,23 @@ The differentiator should be the quality and portability of this loop, not an AI
 8. **Anti-gaming:** include novel variants, realistic case tasks, delayed checks, and documented assistance. Treat speed, streaks, time-on-page, AI-authorship guesses, and error patterns as weak signals—not proof of mastery or dishonesty.
 
 **Initial target hypotheses (not results):** seek ≥0.20 SD improvement on prespecified transfer outcomes or ≥15% less time-to-retained-competency against a credible active baseline, without a meaningful drop in delayed retention or accessibility. Preregister the study and sample-size plan, report negative/null results, and do not claim superiority until independently replicated. The targets should be revised if pilot reliability, feasibility, or learner harms make them inappropriate.
+
+## AI-supported learning: evaluate independence, not just assisted throughput
+
+Recent findings warn that assisted performance can differ from durable independent skill. In a 2025 field experiment with nearly 1,000 high-school mathematics students, GPT-4 access improved practice performance, but performance fell below the no-AI comparison for learners using the less-guarded tutor when access was removed; the hint-oriented, learning-protective design mitigated much of this negative effect ([Bastani et al., PNAS, 2025](https://doi.org/10.1073/pnas.2422633122)). A separate 2025 randomized trial with 120 undergraduates learning AI concepts reported lower correct responses on a surprise 45-day retention test for the unrestricted ChatGPT-assisted group than for traditional-study participants ([Barcaui, 2025](https://doi.org/10.1016/j.ssaho.2025.102287)). These studies have bounded populations and domains; they do not prove all AI assistance harms learning. They do establish a research requirement: **measure performance with assistance and without it**.
+
+For each material AI tutoring policy, measure separately:
+
+- **Supported task success:** correctness and time while the prescribed support is available.
+- **Independent transfer:** performance on a novel but comparable task without the tutor.
+- **Delayed independent retention:** performance after a predeclared delay, without reusing the exact training items.
+- **Scaffold cost:** hint count, direct-answer reveals, learner's own initial attempt, and how much support was used.
+- **Source reliability and safety:** proportion of consequential factual claims properly verified, invalid citations, unsafe recommendations, and appropriate escalation.
+- **Learner explanation:** whether the learner can explain the method, identify its limits, and correct a plausible error.
+
+Compare at minimum (a) current instruction plus retrieval practice, (b) direct-answer AI, and (c) hint-first support with scaffold fading, keeping tasks, time, and feedback as comparable as possible. Randomize or counterbalance when feasible and ethical, preserve a pre-analysis plan, and assess with an independent tool-free task. The teaching policy should prefer a learner attempt, then a small hint, then feedback, and only then a worked answer when pedagogically justified. Fading should be adaptive and recorded, not a hidden manipulation.
+
+**Guardrail target:** do not ship an AI-learning optimization based only on immediate scores or completion speed. A reasonable pilot success criterion is no material degradation in independent delayed transfer versus a strong active baseline, plus measurable benefit in at least one predeclared primary outcome. If speed improves but tool-free learning worsens, report that as a regression.
 
 ## Known gaps / next steps
 
