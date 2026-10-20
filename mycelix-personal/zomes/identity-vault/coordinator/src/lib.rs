@@ -3,8 +3,9 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Identity Vault Coordinator Zome
 //!
-//! CRUD operations for the agent's private identity data.
-//! All entries are stored on the source chain (private by default).
+//! CRUD operations for the agent's owner-private identity data.
+//! Entry payload visibility is explicit in the integrity zome. Public discovery
+//! or selective disclosure must use a separately reviewed capability-bound path.
 
 use hdk::prelude::*;
 use identity_vault_integrity::*;
@@ -74,22 +75,15 @@ pub fn submit_tier_proof(input: SubmitTierProofInput) -> ExternResult<ActionHash
         committed_at: sys_time()?,
     };
 
-    let action_hash = create_entry(&EntryTypes::TierMembershipProof(entry))?;
-    let agent = agent_info()?.agent_initial_pubkey;
-    create_link(agent, action_hash.clone(), LinkTypes::AgentToProof, ())?;
-
-    Ok(action_hash)
+    // The proof bytes stay owner-private; verifiers require an explicit presentation path.
+    create_entry(&EntryTypes::TierMembershipProof(entry))
 }
 
-/// Create or update the agent's profile.
-///
-/// Stores the profile on the source chain and creates a link from the
-/// agent's pubkey for retrieval. If a profile already exists, it is updated.
+/// Append a private profile revision to this agent's source chain.
+/// No public DHT link is created for private profile content.
 #[hdk_extern]
 pub fn set_profile(profile: Profile) -> ExternResult<Record> {
-    let action_hash = create_entry(&EntryTypes::Profile(profile.clone()))?;
-    let agent = agent_info()?.agent_initial_pubkey;
-    create_link(agent, action_hash.clone(), LinkTypes::AgentToProfile, ())?;
+    let action_hash = create_entry(&EntryTypes::Profile(profile))?;
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created profile".into()
     )))
@@ -107,25 +101,19 @@ pub fn set_profile_view(profile: ProfileView) -> ExternResult<Record> {
     })
 }
 
-/// Get the agent's current profile.
+/// Get the newest profile revision from this agent's private source chain.
 #[hdk_extern]
 pub fn get_my_profile(_: ()) -> ExternResult<Option<Record>> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToProfile)?,
-        GetStrategy::Local,
+    let records = query(
+        ChainQueryFilter::new()
+            .entry_type(EntryType::App(AppEntryDef::try_from(
+                UnitEntryTypes::Profile,
+            )?))
+            .action_type(ActionType::Create)
+            .include_entries(true)
+            .descending(),
     )?;
-    if let Some(link) = links.last() {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid link target: {:?}",
-                e
-            )))
-        })?;
-        get(target, GetOptions::default())
-    } else {
-        Ok(None)
-    }
+    Ok(records.into_iter().next())
 }
 
 #[hdk_extern]
@@ -153,38 +141,27 @@ pub fn get_my_profile_view(_: ()) -> ExternResult<Option<ProfileView>> {
     }
 }
 
-/// Register a master key for this agent.
+/// Store a generic key record privately on this agent's source chain.
+/// This registry does not qualify a peer-discoverable X25519 binding.
 #[hdk_extern]
 pub fn register_key(key: MasterKey) -> ExternResult<Record> {
     let action_hash = create_entry(&EntryTypes::MasterKey(key))?;
-    let agent = agent_info()?.agent_initial_pubkey;
-    create_link(agent, action_hash.clone(), LinkTypes::AgentToKeys, ())?;
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created key".into()
     )))
 }
 
-/// List all registered keys for this agent.
+/// List generic key records from this agent's private source chain.
 #[hdk_extern]
 pub fn get_my_keys(_: ()) -> ExternResult<Vec<Record>> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToKeys)?,
-        GetStrategy::Local,
-    )?;
-    let mut records = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid link target: {:?}",
-                e
-            )))
-        })?;
-        if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
-        }
-    }
-    Ok(records)
+    query(
+        ChainQueryFilter::new()
+            .entry_type(EntryType::App(AppEntryDef::try_from(
+                UnitEntryTypes::MasterKey,
+            )?))
+            .action_type(ActionType::Create)
+            .include_entries(true),
+    )
 }
 
 #[hdk_extern]

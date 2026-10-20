@@ -253,6 +253,71 @@ fn personal_dna_path() -> PathBuf {
 // ============================================================================
 // Identity Vault Tests
 // ============================================================================
+/// Newly written Identity Vault profiles and generic keys stay owner-local;
+/// the UI-facing owner queries read source-chain entries rather than public links.
+/// This does not claim that legacy public entries or their action metadata are erased.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor and built personal DNA (nix develop)"]
+async fn test_identity_private_profile_and_keys_are_owner_local() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&personal_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("identity-private-alice", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = conductor
+        .setup_app("identity-private-bob", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let profile = Profile {
+        display_name: "Synthetic private profile".to_string(),
+        avatar: None,
+        bio: Some("Private fixture; no real personal data".to_string()),
+        metadata: HashMap::new(),
+        updated_at: Timestamp::now(),
+    };
+    let created: Record = conductor
+        .call(&alice.zome("identity_vault"), "set_profile", profile)
+        .await;
+    assert_eq!(created.action().author(), alice.agent_pubkey());
+
+    let alice_profile: Option<Record> = conductor
+        .call(&alice.zome("identity_vault"), "get_my_profile", ())
+        .await;
+    assert!(alice_profile.is_some(), "owner must read their private profile");
+
+    let bob_profile: Option<Record> = conductor
+        .call(&bob.zome("identity_vault"), "get_my_profile", ())
+        .await;
+    assert!(bob_profile.is_none(), "another agent must not read the owner's local profile");
+
+    let key = MasterKey {
+        label: "synthetic-encryption-key".to_string(),
+        purpose: "encryption".to_string(),
+        public_key_hex: "not-a-peer-binding-fixture".to_string(),
+        active: true,
+        created_at: Timestamp::now(),
+    };
+    let _: Record = conductor
+        .call(&alice.zome("identity_vault"), "register_key", key)
+        .await;
+
+    let alice_keys: Vec<Record> = conductor
+        .call(&alice.zome("identity_vault"), "get_my_keys", ())
+        .await;
+    assert_eq!(alice_keys.len(), 1, "owner must query their own private key records");
+
+    let bob_keys: Vec<Record> = conductor
+        .call(&bob.zome("identity_vault"), "get_my_keys", ())
+        .await;
+    assert!(bob_keys.is_empty(), "another agent must not receive private key records");
+}
+
+
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
