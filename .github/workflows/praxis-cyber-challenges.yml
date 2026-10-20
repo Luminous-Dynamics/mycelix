@@ -2,7 +2,7 @@ name: Praxis Cyber Challenge Contract
 
 on:
   pull_request:
-    branches: [main, praxis/cyber-evidence-challenges-v1, praxis/cyber-evidence-acquisition-v0-1]
+    branches: [main, praxis/cyber-evidence-challenges-v1, praxis/cyber-evidence-acquisition-v0-1, praxis/cyber-evidence-sufficiency-v1-clean]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "mycelix-praxis/crates/praxis-core/**"
@@ -87,6 +87,9 @@ jobs:
       - name: Run evidence-acquisition evaluator and adversarial tests
         if: hashFiles('mycelix-praxis/crates/praxis-core/tests/evidence_efficiency.rs') != ''
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test evidence_efficiency -- --nocapture
+
+      - name: Run typed decision-submission contract tests
+        run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test decision_submission -- --nocapture
 
       - name: Verify evidence-acquisition fixture identities
         if: hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v1/corpus-manifest.json') != ''
@@ -186,5 +189,41 @@ jobs:
         with:
           name: praxis-cyber-evidence-sufficiency-v2
           path: praxis-cyber-evidence-sufficiency-v2-receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Emit exact-head decision-submission receipt
+        if: success()
+        shell: bash
+        run: |
+          receipt=praxis-cyber-decision-submission-receipt.json
+          jq -n \
+            --arg commit "$CHECKED_SHA" \
+            --arg rustc "$(rustc +1.96.0 --version)" \
+            --arg cargo "$(cargo +1.96.0 --version)" \
+            --arg contract "$(git hash-object mycelix-praxis/crates/praxis-core/src/decision_submission.rs)" \
+            --arg tests "$(git hash-object mycelix-praxis/crates/praxis-core/tests/decision_submission.rs)" \
+            --arg workflow "$(git hash-object .github/workflows/praxis-cyber-challenges.yml)" \
+            '{
+              schema_version: 1,
+              qualification_type: "public_synthetic_decision_submission_contract_conformance",
+              result: "PASS",
+              subject_commit: $commit,
+              toolchain: {rustc: $rustc, cargo: $cargo},
+              git_blob_sha1: {
+                decision_submission_contract: $contract,
+                adversarial_tests: $tests,
+                workflow: $workflow
+              },
+              claim_ceiling: "Structural decision-contract and adversarial-test conformance only; not evidence truth, scorer correctness, held-out cyber capability, SOTA, or production readiness."
+            }' > "$receipt"
+          cat "$receipt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact-head decision-submission receipt
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: praxis-cyber-decision-submission
+          path: praxis-cyber-decision-submission-receipt.json
           if-no-files-found: error
           retention-days: 30

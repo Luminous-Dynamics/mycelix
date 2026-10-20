@@ -18,6 +18,7 @@ mod benchmarks;
 pub mod contracts;
 pub mod crypto;
 pub mod cyber_challenges;
+pub mod decision_submission;
 pub mod errors;
 pub mod evidence_efficiency;
 pub mod export_formats;
