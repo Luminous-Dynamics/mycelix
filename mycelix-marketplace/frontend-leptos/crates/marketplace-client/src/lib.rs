@@ -12,13 +12,13 @@ use marketplace_domain::{
     ActionHash, AgentPubKey, ApplyArbitrationTransactionConflictInput,
     ApproveTransactionConflictInput, ArbitrationResultOutput, ArbitrationVoteOutput,
     ArbitrationVotesResponse, CreateListingInput, CreateTransactionInput, DerivedReputation,
-    ListingCatalogSnapshotV1, ListingResolution,
     DisputeOutput, DisputeResolution, DisputesResponse, FileDisputeInput,
-    FinalizeBilateralTransactionConflictInput, ListingOutput, ListingsResponse, MarkShippedInput,
-    OpenDisputeInput, OpenDisputeOutput, ReputationEventOutput, ReputationEventsResponse,
-    SubmitArbitrationVoteInput, TransactionConflictApprovalOutput,
-    TransactionConflictResolutionOutput, TransactionOutput, TransactionResolution,
-    TransactionResolutionsResponse, TransactionSettlementResult, TransactionsResponse,
+    FinalizeBilateralTransactionConflictInput, ListingCatalogSnapshotV1, ListingOutput,
+    ListingResolution, ListingsResponse, MarkShippedInput, OpenDisputeInput, OpenDisputeOutput,
+    ReputationEventOutput, ReputationEventsResponse, SubmitArbitrationVoteInput,
+    TransactionConflictApprovalOutput, TransactionConflictResolutionOutput, TransactionOutput,
+    TransactionResolution, TransactionResolutionsResponse, TransactionSettlementResult,
+    TransactionsResponse,
 };
 use serde::{Serialize, de::DeserializeOwned};
 

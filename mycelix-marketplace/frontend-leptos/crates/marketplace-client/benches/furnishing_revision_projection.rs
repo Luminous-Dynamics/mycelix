@@ -6,13 +6,11 @@
 //! This measures local validation/projection only. Catalogue construction and
 //! all remote/conductor work are outside the timed region.
 
-use marketplace_client::furnishing_discovery::{
-    TransportProvenance, project_revision_snapshot,
-};
+use marketplace_client::furnishing_discovery::{TransportProvenance, project_revision_snapshot};
 use marketplace_domain::{
-    ActionHash, AgentPubKey, EmpiricalLevel, EpistemicClassification, Listing, ListingCategory,
-    ListingCatalogCoverage, ListingCatalogSnapshotV1, ListingObservationScope, ListingOutput,
-    ListingResolution, ListingResolutionReason, ListingResolutionState, ListingStatus,
+    ActionHash, AgentPubKey, EmpiricalLevel, EpistemicClassification, Listing,
+    ListingCatalogCoverage, ListingCatalogSnapshotV1, ListingCategory, ListingObservationScope,
+    ListingOutput, ListingResolution, ListingResolutionReason, ListingResolutionState, ListingStatus,
     MaterialityLevel, NormativeLevel, TimestampMicros,
 };
 use std::{
@@ -87,9 +85,13 @@ fn resolution(index: usize) -> ListingResolution {
 
 fn corpus(size: usize) -> ListingCatalogSnapshotV1 {
     let listings = (0..size).map(resolution).collect::<Vec<_>>();
-    let concurrent = u32::try_from(listings.iter().filter(|row| {
-        row.state == ListingResolutionState::ConcurrentHeads
-    }).count()).unwrap_or(u32::MAX);
+    let concurrent = u32::try_from(
+        listings
+            .iter()
+            .filter(|row| row.state == ListingResolutionState::ConcurrentHeads)
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
     let count = u32::try_from(size).unwrap_or(u32::MAX);
     ListingCatalogSnapshotV1 {
         policy_version: 1,

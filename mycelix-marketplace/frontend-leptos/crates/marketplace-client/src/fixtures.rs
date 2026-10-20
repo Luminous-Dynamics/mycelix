@@ -4,15 +4,15 @@ use marketplace_domain::{
     ActionHash, AgentPubKey, ArbitrationResult, ArbitrationResultOutput, ArbitrationVote,
     ArbitrationVoteOutput, ArbitrationVotesResponse, CreateTransactionInput, DerivedReputation,
     Dispute, DisputeOutput, DisputeResolution, DisputeResolutionState, DisputeStatus,
-    DisputesResponse, EmpiricalLevel, EpistemicClassification, Listing, ListingCategory,
-    ListingOutput, ListingStatus, ListingsResponse, MarkShippedInput, MaterialityLevel,
-    NormativeLevel, OpenDisputeInput, OpenDisputeOutput, ReputationEvent, ReputationEventKind,
-    ReputationEventOutput, ReputationEventsResponse, SubmitArbitrationVoteInput, TimestampMicros,
-    Transaction, TransactionOutput, TransactionResolution, TransactionResolutionReason,
-    TransactionResolutionState, TransactionResolutionsResponse, TransactionSettlementResult,
-    TransactionSettlementState, TransactionStatus, TransactionsResponse,
-    ListingCatalogCoverage, ListingCatalogSnapshotV1, ListingObservationScope, ListingResolution,
-    ListingResolutionReason, ListingResolutionState,
+    DisputesResponse, EmpiricalLevel, EpistemicClassification, Listing, ListingCatalogCoverage,
+    ListingCatalogSnapshotV1, ListingCategory, ListingObservationScope, ListingOutput,
+    ListingResolution, ListingResolutionReason, ListingResolutionState, ListingStatus,
+    ListingsResponse, MarkShippedInput, MaterialityLevel, NormativeLevel, OpenDisputeInput,
+    OpenDisputeOutput, ReputationEvent, ReputationEventKind, ReputationEventOutput,
+    ReputationEventsResponse, SubmitArbitrationVoteInput, TimestampMicros, Transaction,
+    TransactionOutput, TransactionResolution, TransactionResolutionReason, TransactionResolutionState,
+    TransactionResolutionsResponse, TransactionSettlementResult, TransactionSettlementState,
+    TransactionStatus, TransactionsResponse,
 };
 use serde::Serialize;
 use std::{cell::RefCell, rc::Rc};
@@ -1039,14 +1039,10 @@ impl ZomeTransport for FixtureTransport {
                     listings: fixture_listings(),
                 })
             }
-            (
-                contract::listings::ZOME,
-                contract::listings::GET_ALL_LISTINGS_REVISION_STATE_V1,
-            ) => encode_fixture(&fixture_listing_revision_snapshot()),
-            (
-                contract::listings::ZOME,
-                contract::listings::GET_LISTING_REVISION_STATE_V1,
-            ) => {
+            (contract::listings::ZOME, contract::listings::GET_ALL_LISTINGS_REVISION_STATE_V1) => {
+                encode_fixture(&fixture_listing_revision_snapshot())
+            }
+            (contract::listings::ZOME, contract::listings::GET_LISTING_REVISION_STATE_V1) => {
                 let requested: ActionHash = rmp_serde::from_slice(&payload)
                     .map_err(|error| ClientError::Decode(error.to_string()))?;
                 let resolution = fixture_listings()

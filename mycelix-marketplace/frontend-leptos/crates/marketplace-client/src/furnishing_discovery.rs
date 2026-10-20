@@ -7,12 +7,12 @@
 
 use crate::{ClientError, MarketplaceClient, TransportKind, ZomeTransport};
 use async_trait::async_trait;
-use std::collections::HashSet;
 use marketplace_domain::{
     ActionHash, AgentPubKey, EmpiricalLevel, ListingCatalogCoverage, ListingCatalogSnapshotV1,
     ListingCategory, ListingOutput, ListingResolution, ListingResolutionReason,
     ListingResolutionState, ListingStatus, ListingsResponse,
 };
+use std::collections::HashSet;
 
 /// Minimal read capability required by the discovery adapter.
 ///
@@ -252,10 +252,12 @@ pub fn project_revision_snapshot(
             }
         }
     }
-    listings.sort_by_key(|candidate| (
-        candidate.root_listing_hash.to_holochain_b64(),
-        candidate.listing_hash.to_holochain_b64(),
-    ));
+    listings.sort_by_key(|candidate| {
+        (
+            candidate.root_listing_hash.to_holochain_b64(),
+            candidate.listing_hash.to_holochain_b64(),
+        )
+    });
 
     let result = if listings.is_empty() {
         SnapshotResult::NoHomeGardenListingsObserved
@@ -276,9 +278,8 @@ pub fn project_revision_snapshot(
 }
 
 fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(), ClientError> {
-    let invalid = |reason: &str| {
-        ClientError::Decode(format!("invalid listing revision snapshot: {reason}"))
-    };
+    let invalid =
+        |reason: &str| ClientError::Decode(format!("invalid listing revision snapshot: {reason}"));
     if snapshot.policy_version != 1 {
         return Err(invalid("unsupported catalogue policy version"));
     }
@@ -286,10 +287,14 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
         return Err(invalid("unexpected catalogue coverage claim"));
     }
     if snapshot.unique_listing_count as usize != snapshot.listings.len() {
-        return Err(invalid("unique listing count does not match returned records"));
+        return Err(invalid(
+            "unique listing count does not match returned records",
+        ));
     }
     if snapshot.observed_link_count < snapshot.unique_listing_count {
-        return Err(invalid("observed link count is smaller than unique listing count"));
+        return Err(invalid(
+            "observed link count is smaller than unique listing count",
+        ));
     }
 
     let mut roots = HashSet::with_capacity(snapshot.listings.len());
@@ -308,7 +313,9 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
             return Err(invalid("duplicate stable listing root"));
         }
         if resolution.revision_count < u32::try_from(resolution.heads.len()).unwrap_or(u32::MAX) {
-            return Err(invalid("revision count is smaller than the observed head count"));
+            return Err(invalid(
+                "revision count is smaller than the observed head count",
+            ));
         }
 
         let mut hashes = HashSet::with_capacity(resolution.heads.len());
@@ -345,10 +352,14 @@ fn validate_revision_snapshot(snapshot: &ListingCatalogSnapshotV1) -> Result<(),
     }
 
     if single_count != snapshot.single_observed_head_count {
-        return Err(invalid("single-head count does not match per-listing states"));
+        return Err(invalid(
+            "single-head count does not match per-listing states",
+        ));
     }
     if conflict_count != snapshot.concurrent_head_listing_count {
-        return Err(invalid("concurrent-head count does not match per-listing states"));
+        return Err(invalid(
+            "concurrent-head count does not match per-listing states",
+        ));
     }
     Ok(())
 }
@@ -450,14 +461,25 @@ mod tests {
         }
     }
 
-    fn catalog_snapshot(listings: Vec<ListingResolution>, observed_links: u32) -> ListingCatalogSnapshotV1 {
+    fn catalog_snapshot(
+        listings: Vec<ListingResolution>,
+        observed_links: u32,
+    ) -> ListingCatalogSnapshotV1 {
         let unique = u32::try_from(listings.len()).unwrap_or(u32::MAX);
         let single = u32::try_from(
-            listings.iter().filter(|row| row.state == ListingResolutionState::SingleObservedHead).count()
-        ).unwrap_or(u32::MAX);
+            listings
+                .iter()
+                .filter(|row| row.state == ListingResolutionState::SingleObservedHead)
+                .count(),
+        )
+        .unwrap_or(u32::MAX);
         let concurrent = u32::try_from(
-            listings.iter().filter(|row| row.state == ListingResolutionState::ConcurrentHeads).count()
-        ).unwrap_or(u32::MAX);
+            listings
+                .iter()
+                .filter(|row| row.state == ListingResolutionState::ConcurrentHeads)
+                .count(),
+        )
+        .unwrap_or(u32::MAX);
         ListingCatalogSnapshotV1 {
             policy_version: 1,
             coverage: ListingCatalogCoverage::LocalObservedLinksOnly,
@@ -490,7 +512,9 @@ mod tests {
             state: ListingResolutionState::ConcurrentHeads,
             reason: ListingResolutionReason::ConcurrentObservedHeads,
             sole_observed_head: None,
-            revision_count: u32::try_from(heads.len()).unwrap_or(u32::MAX).saturating_add(1),
+            revision_count: u32::try_from(heads.len())
+                .unwrap_or(u32::MAX)
+                .saturating_add(1),
             heads,
         }
     }
@@ -511,9 +535,13 @@ mod tests {
         let root = ActionHash::new(vec![0x80; 39]);
 
         let snapshot = project_revision_snapshot(
-            catalog_snapshot(vec![concurrent_resolution(root.clone(), vec![second, first])], 1),
+            catalog_snapshot(
+                vec![concurrent_resolution(root.clone(), vec![second, first])],
+                1,
+            ),
             TransportProvenance::ConfiguredJsBridgeTransport,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(snapshot.coverage, SnapshotCoverage::LocalObservedLinksOnly);
         assert_eq!(snapshot.concurrent_head_listing_count, Some(1));
@@ -524,7 +552,10 @@ mod tests {
                 && candidate.revision_freshness == RevisionFreshness::LatestRevisionUnproven
                 && candidate.review_disposition == ReviewDisposition::ManualReviewOnly
         }));
-        assert_ne!(snapshot.listings[0].observed_price_cents, snapshot.listings[1].observed_price_cents);
+        assert_ne!(
+            snapshot.listings[0].observed_price_cents,
+            snapshot.listings[1].observed_price_cents
+        );
         assert!(!snapshot.can_claim_complete_current_furniture_offers());
     }
 
@@ -559,8 +590,12 @@ mod tests {
         let snapshot = project_revision_snapshot(
             catalog_snapshot(vec![], 0),
             TransportProvenance::ConfiguredJsBridgeTransport,
-        ).unwrap();
-        assert_eq!(snapshot.result, SnapshotResult::NoHomeGardenListingsObserved);
+        )
+        .unwrap();
+        assert_eq!(
+            snapshot.result,
+            SnapshotResult::NoHomeGardenListingsObserved
+        );
         assert_eq!(snapshot.coverage, SnapshotCoverage::LocalObservedLinksOnly);
         assert_eq!(snapshot.observed_link_count, Some(0));
         assert!(!snapshot.can_claim_complete_current_furniture_offers());

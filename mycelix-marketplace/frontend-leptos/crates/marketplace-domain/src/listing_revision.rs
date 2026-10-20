@@ -56,7 +56,6 @@ pub struct ListingCatalogSnapshotV1 {
     pub listings: Vec<ListingResolution>,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
