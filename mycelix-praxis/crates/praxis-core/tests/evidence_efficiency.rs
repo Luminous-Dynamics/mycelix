@@ -461,7 +461,6 @@ fn baseline_trace(
     }
 }
 
-
 /// Evaluator-informed information-gain-per-cost oracle. This function is
 /// deliberately test-only and receives the hidden evaluator. It is an
 /// upper-bound reference, never a fair solver/human/AI baseline.
@@ -501,7 +500,9 @@ fn oracle_information_gain_per_cost_trace(
                 || !authorized_authorities.contains(&request.required_authority)
                 || request.cost_units > budget.max_cost_units.saturating_sub(spent_cost)
                 || request.latency_bound_minutes
-                    > budget.max_latency_bound_minutes.saturating_sub(spent_latency)
+                    > budget
+                        .max_latency_bound_minutes
+                        .saturating_sub(spent_latency)
             {
                 continue;
             }
