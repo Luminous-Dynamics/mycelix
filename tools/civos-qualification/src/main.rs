@@ -48,9 +48,45 @@ fn git_output(source_root: &Path, args: &[&str]) -> Result<String, String> {
         .map_err(|error| format!("git returned non-UTF-8 output: {error}"))
 }
 
+fn normalize_repository_id(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    let without_host = value
+        .strip_prefix("https://github.com/")
+        .or_else(|| value.strip_prefix("http://github.com/"))
+        .or_else(|| value.strip_prefix("ssh://git@github.com/"))
+        .or_else(|| value.strip_prefix("git@github.com:"))
+        .unwrap_or(value);
+    let without_git = without_host.trim_end_matches('/').strip_suffix(".git")
+        .unwrap_or(without_host.trim_end_matches('/'));
+    let parts: Vec<&str> = without_git.split('/').collect();
+    if parts.len() != 2 || parts.iter().any(|part| part.trim().is_empty()) {
+        return Err(format!(
+            "repository identity must be owner/repository or a GitHub remote URL, got {value}"
+        ));
+    }
+    Ok(format!(
+        "{}/{}",
+        parts[0].to_ascii_lowercase(),
+        parts[1].to_ascii_lowercase()
+    ))
+}
+
 fn verify_receipt_checkout(receipt_text: &str, source_root: &Path) -> Result<(), String> {
     let receipt: serde_json::Value = serde_json::from_str(receipt_text)
         .map_err(|error| format!("qualification receipt is not valid JSON: {error}"))?;
+    let declared_repository = receipt
+        .pointer("/source/repository")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "receipt is missing source.repository".to_string())?;
+    let actual_remote = git_output(source_root, &["remote", "get-url", "origin"])?;
+    let declared_repository_id = normalize_repository_id(declared_repository)?;
+    let actual_repository_id = normalize_repository_id(&actual_remote)?;
+    if declared_repository_id != actual_repository_id {
+        return Err(format!(
+            "receipt repository {declared_repository_id} does not match origin remote {actual_repository_id}"
+        ));
+    }
+
     let declared_commit = receipt
         .pointer("/source/commit")
         .and_then(serde_json::Value::as_str)
@@ -81,6 +117,39 @@ fn verify_receipt_checkout(receipt_text: &str, source_root: &Path) -> Result<(),
         ),
         "clean" | "dirty" | "unknown" => Ok(()),
         other => Err(format!("unknown source tree state {other}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_repository_id;
+
+    #[test]
+    fn repository_identity_normalizes_common_github_remote_forms() {
+        let expected = "luminous-dynamics/mycelix";
+        assert_eq!(
+            normalize_repository_id("Luminous-Dynamics/mycelix").unwrap(),
+            expected
+        );
+        assert_eq!(
+            normalize_repository_id("https://github.com/Luminous-Dynamics/mycelix.git").unwrap(),
+            expected
+        );
+        assert_eq!(
+            normalize_repository_id("git@github.com:Luminous-Dynamics/mycelix.git").unwrap(),
+            expected
+        );
+        assert_eq!(
+            normalize_repository_id("ssh://git@github.com/Luminous-Dynamics/mycelix").unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn repository_identity_rejects_other_hosts_and_ambiguous_paths() {
+        assert!(normalize_repository_id("https://example.com/owner/repo").is_err());
+        assert!(normalize_repository_id("owner/repo/extra").is_err());
+        assert!(normalize_repository_id("").is_err());
     }
 }
 
