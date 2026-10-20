@@ -76,6 +76,11 @@ pub struct ConsentGrant {
     pub created_at: Timestamp,
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ConsentRevocation {
+    pub grant_hash: ActionHash,
+}
+
 // --- credential-wallet ---
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
