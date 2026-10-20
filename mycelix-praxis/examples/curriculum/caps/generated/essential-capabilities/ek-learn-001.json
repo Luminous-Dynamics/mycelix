@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-LEARN-001",
+  "lesson": {
+    "standard_code": "EK-LEARN-001",
+    "title": "Design a Self-Directed Learning Loop",
+    "grade_level": "Adult",
+    "bloom_level": "Create",
+    "explanation": "Learning is more durable when it includes effortful retrieval, timely feedback, spaced opportunities to revisit material, and use in a different context. Start with a concrete outcome and a baseline task, then alternate study with closed-book practice. Track errors to choose what to review, not to label yourself incapable. A delayed check is more informative than immediate fluency alone. Accessibility and presentation preferences should be respected, while claims about instructional effectiveness should be judged by measured outcomes.",
+    "examples": [
+      {
+        "problem": "You want to learn a technical command but keep recognizing it in notes and forgetting it later.",
+        "steps": [
+          {
+            "instruction": "Write the command's purpose and attempt to recall it without looking.",
+            "result": "Expose the specific gap rather than rereading passively."
+          },
+          {
+            "instruction": "Practice again after a delay and use a changed scenario.",
+            "result": "Schedule a later retrieval and test whether the command works on a new case."
+          }
+        ],
+        "answer": "Combine retrieval, spaced review, feedback, and transfer; adjust the plan based on actual performance."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Which gives stronger evidence of recall: rereading a page or answering a question without looking and then checking feedback?",
+        "answer": "Answering from memory and checking feedback provides direct retrieval practice; rereading can support learning but may create familiarity without recall.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Familiarity and ability to retrieve are not identical.",
+        "distractors": [
+          "Only rereading.",
+          "Looking at the answer while responding.",
+          "Counting minutes without measuring an outcome."
+        ]
+      },
+      {
+        "question": "What should a useful learning plan record?",
+        "answer": "A skill outcome, baseline, practice tasks, feedback, review dates, accommodations, and a delayed task in a new context.",
+        "difficulty_permille": 450,
+        "bloom_level": "Create",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "A plan should connect action to observable learning and revision.",
+        "distractors": [
+          "Only a streak count.",
+          "Only a preferred media format.",
+          "Only a final grade with no task evidence."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Retrieval practice",
+        "definition": "Trying to recall information or perform a skill before looking at the answer.",
+        "example_usage": "Solve a problem from memory, then check feedback."
+      },
+      {
+        "term": "Transfer",
+        "definition": "Applying learning to a situation that differs from the original practice.",
+        "example_usage": "Use a debugging method on a new program rather than the same example."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Feeling fluent during study proves long-term learning.",
+        "correction": "Immediate familiarity can overstate durable recall; test again after a delay.",
+        "why_students_think_this": "Repeated exposure can feel easy without ensuring retrieval or transfer."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Retrieval practice",
+      "back": "Trying to recall information or perform a skill before looking at the answer."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "What should a useful learning plan record?"
+    }
+  ]
+}
