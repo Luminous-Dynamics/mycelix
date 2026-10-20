@@ -97,7 +97,10 @@ fn assert_schema_fields_match(schema_properties: &serde_json::Value, instance: &
         .keys()
         .cloned()
         .collect::<BTreeSet<_>>();
-    assert_eq!(schema_fields, instance_fields, "Rust/JSON Schema field drift");
+    assert_eq!(
+        schema_fields, instance_fields,
+        "Rust/JSON Schema field drift"
+    );
 }
 
 fn solver_fixture() -> SolverVisibleCyberCorpus {
