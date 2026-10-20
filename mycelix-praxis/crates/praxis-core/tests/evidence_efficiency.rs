@@ -509,9 +509,10 @@ fn baseline_trace(
     }
 }
 
-/// Evaluator-informed information-gain-per-cost oracle. This function is
-/// deliberately test-only and receives the hidden evaluator. It is an
-/// upper-bound reference, never a fair solver/human/AI baseline.
+/// Exact non-adaptive oracle upper bound under the uniform synthetic prior.
+/// It sees evaluator partitions unavailable to solvers; this is not a fair
+/// baseline. It exhaustively chooses the authorized request subset maximizing
+/// expected hypothesis information under the declared cost/latency budget.
 fn oracle_information_gain_per_cost_trace(
     catalog: &EvidenceRequestCatalog,
     evaluator: &EvaluatorCorpus,
@@ -534,89 +535,103 @@ fn oracle_information_gain_per_cost_trace(
         .find(|scenario| scenario.scenario_id == scenario_id)
         .ok_or_else(|| format!("unknown evaluator scenario: {scenario_id}"))?;
 
-    let mut remaining = scenario.hypotheses.clone();
-    remaining.sort();
-    let mut selected = Vec::new();
-    let mut spent_cost = 0u32;
-    let mut spent_latency = 0u32;
-
-    loop {
-        // (request_id, gain_milli_bits, cost_units, latency_bound_minutes)
-        let mut best: Option<(String, u32, u32, u32)> = None;
-        for request in &scenario.requests {
-            if selected.iter().any(|id| id == &request.request_id)
-                || !authorized_authorities.contains(&request.required_authority)
-                || request.cost_units > budget.max_cost_units.saturating_sub(spent_cost)
-                || request.latency_bound_minutes
-                    > budget
-                        .max_latency_bound_minutes
-                        .saturating_sub(spent_latency)
-            {
-                continue;
-            }
+    let mut candidates = scenario
+        .requests
+        .iter()
+        .filter(|request| authorized_authorities.contains(&request.required_authority))
+        .filter(|request| {
             let outcome = evaluator_scenario
                 .request_outcomes
                 .iter()
                 .find(|outcome| outcome.request_id == request.request_id)
-                .expect("pair validation covers each catalog request");
-            if outcome.quality != EvidenceQuality::Current {
-                continue;
-            }
-            let gain = expected_information_gain_milli_bits(&remaining, outcome);
-            if gain == 0 {
-                continue;
-            }
-
-            let replace = match best.as_ref() {
-                None => true,
-                Some((best_id, best_gain, best_cost, best_latency)) => {
-                    // Compare ratios exactly; avoid float-based tie instability.
-                    let candidate_ratio = u64::from(gain) * u64::from(*best_cost);
-                    let best_ratio = u64::from(*best_gain) * u64::from(request.cost_units);
-                    candidate_ratio > best_ratio
-                        || (candidate_ratio == best_ratio
-                            && request.latency_bound_minutes < *best_latency)
-                        || (candidate_ratio == best_ratio
-                            && request.latency_bound_minutes == *best_latency
-                            && request.request_id < *best_id)
-                }
-            };
-            if replace {
-                best = Some((
-                    request.request_id.clone(),
-                    gain,
-                    request.cost_units,
-                    request.latency_bound_minutes,
-                ));
-            }
-        }
-
-        let Some((request_id, _, cost, latency)) = best else {
-            break;
-        };
-        let outcome = evaluator_scenario
-            .request_outcomes
-            .iter()
-            .find(|outcome| outcome.request_id == request_id)
-            .expect("selected candidate must have an evaluator outcome");
-        let labels = outcome
-            .labels_by_hypothesis
-            .iter()
-            .map(|item| (item.hypothesis_id.as_str(), item.outcome_label.as_str()))
-            .collect::<BTreeMap<_, _>>();
-        let observed_label = labels
-            .get(evaluator_scenario.world_hypothesis_id.as_str())
-            .expect("pair validation binds the world hypothesis");
-        remaining.retain(|hypothesis| labels.get(hypothesis.as_str()) == Some(observed_label));
-        if remaining.is_empty() {
-            return Err("oracle observation eliminated every declared hypothesis".into());
-        }
-
-        selected.push(request_id);
-        spent_cost += cost;
-        spent_latency += latency;
+                .expect("pair validation covers all request IDs");
+            outcome.quality == EvidenceQuality::Current
+                && matches!(
+                    outcome.sufficiency,
+                    EvidenceSufficiency::FullSupport | EvidenceSufficiency::PartialSupport
+                )
+                && request.cost_units <= budget.max_cost_units
+                && request.latency_bound_minutes <= budget.max_latency_bound_minutes
+        })
+        .map(|request| request.request_id.as_str())
+        .collect::<Vec<_>>();
+    candidates.sort_unstable();
+    if candidates.len() > 16 {
+        return Err("exact oracle limited to 16 candidate requests per scenario".into());
     }
-    Ok(selected)
+
+    let hypothesis_count = scenario.hypotheses.len() as f64;
+    let mut best: Option<(u32, u32, u32, Vec<String>)> = None;
+    for mask in 0u64..(1u64 << candidates.len()) {
+        let ids = candidates
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| mask & (1u64 << index) != 0)
+            .map(|(_, id)| (*id).to_string())
+            .collect::<Vec<_>>();
+        let mut cost = 0u32;
+        let mut latency = 0u32;
+        for id in &ids {
+            let request = scenario
+                .requests
+                .iter()
+                .find(|request| request.request_id == *id)
+                .expect("candidate is drawn from catalog");
+            cost = cost.saturating_add(request.cost_units);
+            latency = latency.saturating_add(request.latency_bound_minutes);
+        }
+        if cost > budget.max_cost_units || latency > budget.max_latency_bound_minutes {
+            continue;
+        }
+
+        // Joint outcome signatures form the final hypothesis partition for a
+        // non-adaptive subset. Its entropy is expected information gain.
+        let mut partitions = BTreeMap::<Vec<String>, usize>::new();
+        for hypothesis in &scenario.hypotheses {
+            let mut signature = Vec::with_capacity(ids.len());
+            for id in &ids {
+                let outcome = evaluator_scenario
+                    .request_outcomes
+                    .iter()
+                    .find(|outcome| outcome.request_id == *id)
+                    .expect("pair validation covers all request IDs");
+                let label = outcome
+                    .labels_by_hypothesis
+                    .iter()
+                    .find(|entry| entry.hypothesis_id == *hypothesis)
+                    .expect("pair validation covers every hypothesis");
+                signature.push(label.outcome_label.clone());
+            }
+            *partitions.entry(signature).or_default() += 1;
+        }
+        let posterior_entropy = partitions
+            .values()
+            .map(|size| {
+                let probability = *size as f64 / hypothesis_count;
+                probability * (*size as f64).log2()
+            })
+            .sum::<f64>();
+        let gain = ((hypothesis_count.log2() - posterior_entropy).max(0.0) * 1000.0)
+            .round() as u32;
+
+        let better = match best.as_ref() {
+            None => true,
+            Some((best_gain, best_cost, best_latency, best_ids)) => {
+                gain > *best_gain
+                    || (gain == *best_gain && cost < *best_cost)
+                    || (gain == *best_gain && cost == *best_cost && latency < *best_latency)
+                    || (gain == *best_gain
+                        && cost == *best_cost
+                        && latency == *best_latency
+                        && ids < *best_ids)
+            }
+        };
+        if better {
+            best = Some((gain, cost, latency, ids));
+        }
+    }
+
+    Ok(best.map(|(_, _, _, ids)| ids).unwrap_or_default())
 }
 
 #[test]
