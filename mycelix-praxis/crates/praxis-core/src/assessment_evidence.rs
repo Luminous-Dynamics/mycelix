@@ -285,13 +285,13 @@ pub fn validate_assessment_benchmark(
             }
         }
         if let (Some(last), Some(retention)) = (last_practice, retention14) {
-            if retention.completed_at_unix_seconds - last.completed_at_unix_seconds < 14 * DAY_SECONDS {
+            if !elapsed_at_least(retention.completed_at_unix_seconds, last.completed_at_unix_seconds, 14) {
                 issue(&mut issues, "retention_too_early", format!("{base}.attempts"),
                     "14-day retention must be at least 14 days after final practice");
             }
         }
         if let (Some(last), Some(retention)) = (last_practice, retention30) {
-            if retention.completed_at_unix_seconds - last.completed_at_unix_seconds < 30 * DAY_SECONDS {
+            if !elapsed_at_least(retention.completed_at_unix_seconds, last.completed_at_unix_seconds, 30) {
                 issue(&mut issues, "retention_too_early", format!("{base}.attempts"),
                     "30-day retention must be at least 30 days after final practice");
             }
@@ -314,6 +314,11 @@ pub fn validate_assessment_benchmark(
     } else {
         Err(issues)
     }
+}
+
+fn elapsed_at_least(later: i64, earlier: i64, days: i64) -> bool {
+    later.checked_sub(earlier)
+        .is_some_and(|elapsed| elapsed >= days * DAY_SECONDS)
 }
 
 fn requires_unaided(phase: AssessmentPhase) -> bool {
@@ -395,6 +400,16 @@ mod tests {
             .find(|a| a.phase == AssessmentPhase::Retention14Day).unwrap();
         retention.completed_at_unix_seconds = last + 13 * DAY_SECONDS;
         retention.score_permille = 1000;
+        assert!(has_code(validate_assessment_benchmark(&run), "retention_too_early"));
+    }
+
+    #[test]
+    fn malformed_negative_timestamp_is_rejected_without_panicking() {
+        let mut run = fixture();
+        run.episodes[0].attempts.iter_mut()
+            .find(|a| a.phase == AssessmentPhase::Retention14Day).unwrap()
+            .completed_at_unix_seconds = i64::MIN;
+        assert!(has_code(validate_assessment_benchmark(&run), "invalid_timestamp"));
         assert!(has_code(validate_assessment_benchmark(&run), "retention_too_early"));
     }
 
