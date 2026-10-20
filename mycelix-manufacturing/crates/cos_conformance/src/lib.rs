@@ -10,6 +10,17 @@ pub mod productive_loop;
 pub mod source_refinement;
 pub mod seam_profile;
 pub mod seam_scenario;
+pub mod archive_continuity;
+pub mod canonical_derivation_receipt;
+pub mod d6s_raw_json;
+pub mod effect_finality;
+pub mod contestable_finality;
+pub mod no_resurrection;
+pub mod observer_lifecycle;
+pub mod stable_frontier;
+pub mod substitution_continuity;
+pub mod evidence_claim_graph;
+pub mod finality_eligibility_composition;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
@@ -121,7 +132,7 @@ pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Case {
     pub test_id: &'static str,
     pub formal_obligations: &'static [&'static str],
