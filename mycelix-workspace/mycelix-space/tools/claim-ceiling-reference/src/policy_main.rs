@@ -31,20 +31,19 @@ fn run() -> Result<(), String> {
         "usage: claim-ceiling-policy-check --input REQUEST.json --policy PROFILE.json --expected-policy-sha256 SHA256 [--source-commit SHA]".to_owned()
     })?;
     let expected_policy_sha256 = option_value(&args, "--expected-policy-sha256")?
-        .ok_or_else(|| "--expected-policy-sha256 is required; pin the profile through a separate trusted channel".to_owned())?;
-    let source_commit = option_value(&args, "--source-commit")?
-        .unwrap_or_else(|| UNPINNED_LOCAL_RUN.to_owned());
+        .ok_or_else(|| {
+            "--expected-policy-sha256 is required; pin the profile through a separate trusted channel"
+                .to_owned()
+        })?;
+    let source_commit =
+        option_value(&args, "--source-commit")?.unwrap_or_else(|| UNPINNED_LOCAL_RUN.to_owned());
 
     let input = fs::read(&input_path)
         .map_err(|error| format!("cannot read policy request {input_path}: {error}"))?;
     let policy = fs::read(&policy_path)
         .map_err(|error| format!("cannot read policy profile {policy_path}: {error}"))?;
-    let receipt = evaluate_policy_request_bytes(
-        &input,
-        &policy,
-        &expected_policy_sha256,
-        &source_commit,
-    )?;
+    let receipt =
+        evaluate_policy_request_bytes(&input, &policy, &expected_policy_sha256, &source_commit)?;
     println!(
         "{}",
         serde_json::to_string_pretty(&receipt)
