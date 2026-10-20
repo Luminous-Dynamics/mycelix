@@ -11,8 +11,7 @@ use crate::process_registry::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-pub const PROCESS_EXECUTION_EVIDENCE_SCHEMA_V1: &str =
-    "mycelix-process-execution-evidence/1";
+pub const PROCESS_EXECUTION_EVIDENCE_SCHEMA_V1: &str = "mycelix-process-execution-evidence/1";
 
 /// The kind of source graph object targeted by an opaque, revision-bound reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -158,10 +157,7 @@ fn validate_ref_group(
     Ok(())
 }
 
-fn validate_token(
-    value: &str,
-    path: &str,
-) -> Result<(), ProcessReferenceValidationError> {
+fn validate_token(value: &str, path: &str) -> Result<(), ProcessReferenceValidationError> {
     if value.is_empty() {
         return Err(ProcessReferenceValidationError::new(
             "graph_ref.empty_field",
@@ -234,10 +230,26 @@ mod tests {
             schema_version: PROCESS_EXECUTION_EVIDENCE_SCHEMA_V1.to_owned(),
             execution_event_ref: graph_ref(GraphEntityKindV1::Event, "event:execution-1", 'c'),
             routing_step_ref: routing_step(),
-            input_resource_refs: vec![graph_ref(GraphEntityKindV1::Resource, "resource:stock-1", 'd')],
-            output_resource_refs: vec![graph_ref(GraphEntityKindV1::Resource, "resource:part-1", 'e')],
-            supporting_event_refs: vec![graph_ref(GraphEntityKindV1::Event, "event:inspection-1", 'f')],
-            conformity_claim_refs: vec![graph_ref(GraphEntityKindV1::Claim, "claim:inspection-1", '1')],
+            input_resource_refs: vec![graph_ref(
+                GraphEntityKindV1::Resource,
+                "resource:stock-1",
+                'd',
+            )],
+            output_resource_refs: vec![graph_ref(
+                GraphEntityKindV1::Resource,
+                "resource:part-1",
+                'e',
+            )],
+            supporting_event_refs: vec![graph_ref(
+                GraphEntityKindV1::Event,
+                "event:inspection-1",
+                'f',
+            )],
+            conformity_claim_refs: vec![graph_ref(
+                GraphEntityKindV1::Claim,
+                "claim:inspection-1",
+                '1',
+            )],
         }
     }
 
@@ -250,17 +262,17 @@ mod tests {
             serde_json::from_str(&encoded).expect("deserialize");
         assert_eq!(decoded, original);
         assert_eq!(decoded.routing_step_ref.source_routing_revision, "rev-7");
-        assert_eq!(decoded.input_resource_refs[0].entity_ref, "resource:stock-1");
+        assert_eq!(
+            decoded.input_resource_refs[0].entity_ref,
+            "resource:stock-1"
+        );
     }
 
     #[test]
     fn execution_must_reference_an_event() {
         let mut value = bundle();
         value.execution_event_ref.entity_kind = GraphEntityKindV1::Resource;
-        assert_eq!(
-            value.validate().unwrap_err().code,
-            "graph_ref.wrong_kind"
-        );
+        assert_eq!(value.validate().unwrap_err().code, "graph_ref.wrong_kind");
     }
 
     #[test]
@@ -287,10 +299,7 @@ mod tests {
         duplicate.revision = "rev-2".to_owned();
         duplicate.content_digest = digest('9');
         value.input_resource_refs.push(duplicate);
-        assert_eq!(
-            value.validate().unwrap_err().code,
-            "graph_ref.duplicate"
-        );
+        assert_eq!(value.validate().unwrap_err().code, "graph_ref.duplicate");
     }
 
     #[test]
@@ -304,10 +313,7 @@ mod tests {
 
         let mut value = bundle();
         value.execution_event_ref.content_digest.hex = "abcd".to_owned();
-        assert_eq!(
-            value.validate().unwrap_err().code,
-            "digest.invalid_length"
-        );
+        assert_eq!(value.validate().unwrap_err().code, "digest.invalid_length");
     }
 
     #[test]
@@ -342,7 +348,9 @@ mod tests {
     #[test]
     fn duplicate_supporting_events_are_rejected() {
         let mut value = bundle();
-        value.supporting_event_refs.push(value.supporting_event_refs[0].clone());
+        value
+            .supporting_event_refs
+            .push(value.supporting_event_refs[0].clone());
         assert_eq!(
             value.validate().unwrap_err().code,
             "graph_ref.duplicate"
