@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.luminousdynamics.io/schemas/claim-policy-lifecycle-receipt-v1.schema.json",
+  "title": "Mycelix Claim Policy Lifecycle Receipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "audience",
+    "release_descriptor_sha256",
+    "release_descriptor_schema_sha256",
+    "actual_profile_sha256",
+    "trusted_context_sha256",
+    "installed_head_before",
+    "proposed_next_head",
+    "distribution_status",
+    "disposition",
+    "violations",
+    "policy_lifecycle_only",
+    "evidence_admission_granted",
+    "action_authority_granted",
+    "nonclaims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.claim-policy-lifecycle.receipt.v1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    },
+    "audience": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    },
+    "release_descriptor_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "release_descriptor_schema_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actual_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trusted_context_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "installed_head_before": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/installedHead"
+        }
+      ]
+    },
+    "proposed_next_head": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/installedHead"
+        }
+      ]
+    },
+    "distribution_status": {
+      "enum": [
+        "verified_current",
+        "invalid_signature",
+        "unknown_publisher_key",
+        "revoked_publisher_key",
+        "metadata_expired",
+        "metadata_stale",
+        "rollback_detected",
+        "mix_and_match_detected",
+        "signature_threshold_not_met"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "accepted_new_release",
+        "already_current",
+        "rejected"
+      ]
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "value"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policy_lifecycle_only": {
+      "const": true
+    },
+    "evidence_admission_granted": {
+      "const": false
+    },
+    "action_authority_granted": {
+      "const": false
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "installedHead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "audience",
+        "version",
+        "target_profile_sha256",
+        "revocation_epoch"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "target_profile_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "revocation_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}
