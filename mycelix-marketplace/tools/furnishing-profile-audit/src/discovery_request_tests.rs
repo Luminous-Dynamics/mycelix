@@ -28,7 +28,9 @@ mod discovery_request_tests {
         let errors = errors_after(baseline(), |doc| {
             doc["effects"]["reserve_stock"] = Value::Bool(true);
         });
-        assert!(errors.iter().any(|error| error.contains("effect reserve_stock must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("effect reserve_stock must be false")));
     }
 
     #[test]
@@ -36,7 +38,9 @@ mod discovery_request_tests {
         let errors = errors_after(baseline(), |doc| {
             doc["effects"]["create_order"] = Value::Bool(true);
         });
-        assert!(errors.iter().any(|error| error.contains("effect create_order must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("effect create_order must be false")));
     }
 
     #[test]
@@ -45,8 +49,12 @@ mod discovery_request_tests {
             doc["data_minimization"]["exact_address_transmitted"] = Value::Bool(true);
             doc["effects"]["transmit_exact_address"] = Value::Bool(true);
         });
-        assert!(errors.iter().any(|error| error.contains("exact_address_transmitted must be false")));
-        assert!(errors.iter().any(|error| error.contains("effect transmit_exact_address must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exact_address_transmitted must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("effect transmit_exact_address must be false")));
     }
 
     #[test]
@@ -56,9 +64,15 @@ mod discovery_request_tests {
             doc["data_minimization"]["floor_plan_transmitted"] = Value::Bool(true);
             doc["effects"]["upload_floor_plan"] = Value::Bool(true);
         });
-        assert!(errors.iter().any(|error| error.contains("full geometry transmission must be false")));
-        assert!(errors.iter().any(|error| error.contains("floor_plan_transmitted must be false")));
-        assert!(errors.iter().any(|error| error.contains("effect upload_floor_plan must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("full geometry transmission must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("floor_plan_transmitted must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("effect upload_floor_plan must be false")));
     }
 
     #[test]
@@ -67,17 +81,22 @@ mod discovery_request_tests {
             doc["authorization"]["purchase_authorization_state"] =
                 Value::String("authorized".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("purchase authorization must not be requested")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("purchase authorization must not be requested")));
     }
 
     #[test]
     fn unknown_query_fields_fail_closed() {
         let errors = errors_after(baseline(), |doc| {
             doc["data_minimization"]["fields_permitted_for_query"]
-                .as_array_mut().unwrap()
+                .as_array_mut()
+                .unwrap()
                 .push(Value::String("exact_residential_address".to_owned()));
         });
-        assert!(errors.iter().any(|error| error.contains("exceeds the allowlist")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("exceeds the allowlist")));
     }
 
     #[test]
@@ -86,8 +105,12 @@ mod discovery_request_tests {
             doc["data_minimization"]["design_context_digest_transmitted"] = Value::Bool(true);
             doc["data_minimization"]["query_digest_transmitted"] = Value::Bool(true);
         });
-        assert!(errors.iter().any(|error| error.contains("design_context_digest_transmitted must be false")));
-        assert!(errors.iter().any(|error| error.contains("query_digest_transmitted must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("design_context_digest_transmitted must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("query_digest_transmitted must be false")));
     }
 
     #[test]
@@ -96,7 +119,9 @@ mod discovery_request_tests {
             doc["design_snapshot"]["design_context_digest_sha256"] =
                 Value::String("short".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("malformed design_context_digest_sha256")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("malformed design_context_digest_sha256")));
     }
 
     #[test]
@@ -104,7 +129,9 @@ mod discovery_request_tests {
         let errors = errors_after(baseline(), |doc| {
             doc["design_snapshot"]["dimensions_unit"] = Value::String("feet".to_owned());
         });
-        assert!(errors.iter().any(|error| error.contains("dimensions must be expressed in metres")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("dimensions must be expressed in metres")));
     }
 
     #[test]
@@ -112,6 +139,8 @@ mod discovery_request_tests {
         let errors = errors_after(baseline(), |doc| {
             doc["effects"]["contact_seller"] = Value::Bool(true);
         });
-        assert!(errors.iter().any(|error| error.contains("effect contact_seller must be false")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("effect contact_seller must be false")));
     }
 }
