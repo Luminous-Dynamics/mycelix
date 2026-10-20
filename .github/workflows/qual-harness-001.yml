@@ -1,0 +1,113 @@
+name: QUAL-HARNESS-001 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/qualification/QUALIFICATION_HARNESS_V1.md'
+      - 'docs/qualification/qual_harness_001_manifest.json'
+      - 'scripts/qualify_exact_scope.py'
+      - '.github/workflows/qual-harness-001.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qual-harness-001-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_PARENT: '62d9fc51e506c2fbc0b8e08be348c02c31b5edeb'
+      EVENT_NAME: '${{ github.event_name }}'
+      EXPECTED_HEAD: '${{ github.event.pull_request.head.sha || github.sha }}'
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Scope preflight through candidate harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/qualify_exact_scope.py \
+            --expected-parent "$EXPECTED_PARENT" \
+            --expected-head "$EXPECTED_HEAD" \
+            --expected-commit-count 1 \
+            --expected-path '.github/workflows/qual-harness-001.yml' \
+            --expected-path 'docs/qualification/QUALIFICATION_HARNESS_V1.md' \
+            --expected-path 'docs/qualification/qual_harness_001_manifest.json' \
+            --expected-path 'scripts/qualify_exact_scope.py' \
+            --allowed-status A \
+            --expected-mode '.github/workflows/qual-harness-001.yml=100644' \
+            --expected-mode 'docs/qualification/QUALIFICATION_HARNESS_V1.md=100644' \
+            --expected-mode 'docs/qualification/qual_harness_001_manifest.json=100644' \
+            --expected-mode 'scripts/qualify_exact_scope.py=100755' \
+            --event-name "$EVENT_NAME" \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --require-clean-tree \
+            --output /tmp/qual-harness-preflight.json
+
+      - name: Run adversarial self-test corpus
+        run: >-
+          python3 scripts/qualify_exact_scope.py
+          --self-test docs/qualification/qual_harness_001_manifest.json
+          --output /tmp/qual-harness-selftest.json
+
+      - name: Independent non-overclaim audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("docs/qualification/QUALIFICATION_HARNESS_V1.md").read_text(encoding="utf-8")
+          norm = re.sub(r"\s+", " ", text.replace("`", "").casefold()).strip()
+          required = [
+              "scopeharnesspass != domain semantic pass",
+              "a caller must run its domain validator separately",
+              "the harness performs no network fetch",
+              "those facts establish repository identity/scope only",
+          ]
+          forbidden = [
+              "scopeharnesspass establishes domain semantic correctness",
+              "scope harness pass proves security",
+              "scope harness pass proves production readiness",
+          ]
+          for phrase in required:
+              if phrase not in norm:
+                  raise SystemExit(f"missing required boundary: {phrase}")
+          for phrase in forbidden:
+              if phrase in norm:
+                  raise SystemExit(f"forbidden overclaim present: {phrase}")
+          PY
+
+      - name: Scope postflight and immutable receipt equality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/qualify_exact_scope.py \
+            --expected-parent "$EXPECTED_PARENT" \
+            --expected-head "$EXPECTED_HEAD" \
+            --expected-commit-count 1 \
+            --expected-path '.github/workflows/qual-harness-001.yml' \
+            --expected-path 'docs/qualification/QUALIFICATION_HARNESS_V1.md' \
+            --expected-path 'docs/qualification/qual_harness_001_manifest.json' \
+            --expected-path 'scripts/qualify_exact_scope.py' \
+            --allowed-status A \
+            --expected-mode '.github/workflows/qual-harness-001.yml=100644' \
+            --expected-mode 'docs/qualification/QUALIFICATION_HARNESS_V1.md=100644' \
+            --expected-mode 'docs/qualification/qual_harness_001_manifest.json=100644' \
+            --expected-mode 'scripts/qualify_exact_scope.py=100755' \
+            --event-name "$EVENT_NAME" \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --require-clean-tree \
+            --output /tmp/qual-harness-postflight.json
+          diff -u /tmp/qual-harness-preflight.json /tmp/qual-harness-postflight.json
+          echo "QUAL-HARNESS-001 exact-subject qualification completed."

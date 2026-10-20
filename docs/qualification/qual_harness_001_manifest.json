@@ -1,0 +1,105 @@
+{
+  "profile": "mycelix-qualification-harness-v1",
+  "frozen_parent": "62d9fc51e506c2fbc0b8e08be348c02c31b5edeb",
+  "governing_theorem": "ScopeHarnessPass != domain semantic PASS",
+  "invariants": [
+    {"id":"QH-001","name":"authored-head-not-synthetic-merge-ref"},
+    {"id":"QH-002","name":"exact-parent"},
+    {"id":"QH-003","name":"explicit-commit-count-policy"},
+    {"id":"QH-004","name":"exact-changed-path-set"},
+    {"id":"QH-005","name":"change-kinds-fail-closed"},
+    {"id":"QH-006","name":"file-modes-optionally-exact"},
+    {"id":"QH-007","name":"history-insufficiency-explicit"},
+    {"id":"QH-008","name":"working-tree-immutability"},
+    {"id":"QH-009","name":"event-data-parsed-not-shell-code"},
+    {"id":"QH-010","name":"scope-receipt-is-typed-evidence-only"}
+  ],
+  "default_allowed_statuses": ["A", "M"],
+  "receipt_facts": [
+    "HeadVerified",
+    "ParentVerified",
+    "CommitCountVerified",
+    "PathSetVerified",
+    "ModeSetVerified",
+    "WorkingTreeImmutable",
+    "ScopeHarnessPass"
+  ],
+  "self_tests": [
+    {
+      "id":"happy-path",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"a.txt","status":"A","mode":"100644"},{"path":"b.sh","status":"M","mode":"100755"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt","b.sh"],"allowed_statuses":["A","M"],"modes":{"a.txt":"100644","b.sh":"100755"},"require_clean":true},
+      "result":"PASS"
+    },
+    {
+      "id":"synthetic-merge-or-wrong-head",
+      "snapshot":{"history_available":true,"head":"merge","parent":"p","commit_count":1,"changed":[{"path":"a.txt","status":"A","mode":"100644"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"HeadMismatch"
+    },
+    {
+      "id":"wrong-parent",
+      "snapshot":{"history_available":true,"head":"h","parent":"other","commit_count":1,"changed":[{"path":"a.txt","status":"A","mode":"100644"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"ParentMismatch"
+    },
+    {
+      "id":"two-commits",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":2,"changed":[{"path":"a.txt","status":"A","mode":"100644"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"CommitCountMismatch"
+    },
+    {
+      "id":"unexpected-extra-path",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"a.txt","status":"A","mode":"100644"},{"path":".hidden","status":"A","mode":"100644"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"PathSetMismatch"
+    },
+    {
+      "id":"disallowed-delete",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"a.txt","status":"D","mode":"000000"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"DisallowedChangeStatus"
+    },
+    {
+      "id":"mode-mismatch",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"tool.sh","status":"A","mode":"100644"}],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["tool.sh"],"allowed_statuses":["A","M"],"modes":{"tool.sh":"100755"},"require_clean":true},
+      "result":"ModeMismatch"
+    },
+    {
+      "id":"dirty-tree",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"a.txt","status":"A","mode":"100644"}],"dirty":true,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"WorkingTreeDirty"
+    },
+    {
+      "id":"history-insufficient",
+      "snapshot":{"history_available":false,"head":"h","parent":"p","commit_count":1,"changed":[],"dirty":false,"event_name":"pull_request","event_head":"h"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":[],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"HistoryInsufficient"
+    },
+    {
+      "id":"event-head-mismatch",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"a.txt","status":"A","mode":"100644"}],"dirty":false,"event_name":"pull_request","event_head":"different"},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["a.txt"],"allowed_statuses":["A","M"],"modes":{},"require_clean":true},
+      "result":"EventHeadMismatch"
+    },
+    {
+      "id":"newline-path-safe",
+      "snapshot":{"history_available":true,"head":"h","parent":"p","commit_count":1,"changed":[{"path":"odd name\nsecond-line.txt","status":"A","mode":"100644"}],"dirty":false,"event_name":"workflow_dispatch","event_head":null},
+      "expected":{"parent":"p","head":"h","commit_count":1,"paths":["odd name\nsecond-line.txt"],"allowed_statuses":["A","M"],"modes":{"odd name\nsecond-line.txt":"100644"},"require_clean":true},
+      "result":"PASS"
+    }
+  ],
+  "mandatory_nonclaims": [
+    "domain semantic correctness",
+    "code correctness",
+    "cybersecurity or supply-chain security",
+    "scientific validity",
+    "legal validity or compliance",
+    "policy legitimacy",
+    "external-standard conformance",
+    "production readiness"
+  ]
+}
