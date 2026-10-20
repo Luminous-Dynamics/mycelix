@@ -2374,6 +2374,54 @@ mod browser_storage_tests {
     }
 
     #[wasm_bindgen_test]
+    async fn backup_confirmation_marker_is_invalidated_when_identity_key_changes() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        create_protected_identity("synthetic first identity passphrase")
+            .await
+            .expect("first protected identity creation succeeds");
+        mark_recovery_backup_confirmed()
+            .expect("first identity backup marker is recorded");
+        assert!(!recovery_backup_confirmation_needed());
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let first_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("first public key is present");
+        assert_eq!(
+            storage
+                .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+                .unwrap()
+                .as_deref(),
+            Some(first_public.as_str())
+        );
+
+        // Simulate an identity reset that accidentally leaves the harmless
+        // confirmation marker behind. A newly created key must not inherit it.
+        for key in [
+            LEGACY_DID_KEY,
+            IDENTITY_SECRET_KEY,
+            IDENTITY_PUBLIC_KEY,
+            IDENTITY_SECRET_ENCRYPTED_KEY,
+        ] {
+            storage
+                .remove_item(key)
+                .expect("identity reset succeeds");
+        }
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        create_protected_identity("synthetic second identity passphrase")
+            .await
+            .expect("second protected identity creation succeeds");
+
+        let second_public = storage
+            .get_item(IDENTITY_PUBLIC_KEY)
+            .unwrap()
+            .expect("second public key is present");
+        assert_ne!(second_public, first_public);
+        assert!(recovery_backup_confirmation_needed());
+    }
+
+    #[wasm_bindgen_test]
     async fn unlock_rejects_tampered_public_key_without_caching_decrypted_key() {
         let _backup = IdentityStorageBackup::new_and_clear();
         create_protected_identity("synthetic browser test passphrase")
