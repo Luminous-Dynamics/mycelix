@@ -9,7 +9,6 @@ use super::{
     validate_json_against_schema, validate_source_commit,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
 const POLICY_REQUEST_SCHEMA: &[u8] =
     include_bytes!("../schemas/claim-ceiling-policy-request-v1.schema.json");
