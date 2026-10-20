@@ -1,0 +1,253 @@
+{
+  "contract_id": "CIVOS-MACQ-001",
+  "version": "0.1.0",
+  "status": "proposed-unmeasured",
+  "source_baseline": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "commit": "dbc883566ea937ee8a273c1d33d153cc6262dd9b",
+    "purpose": "provenance anchor only; not a qualification receipt"
+  },
+  "fixture_policy": {
+    "data_class": "synthetic-only",
+    "wall_clock": "fixed or injected; no uncontrolled sleeps as an oracle",
+    "randomness": "deterministic seed recorded per run",
+    "unknown_applicability": "report as uncovered or not-applicable-with-reason; never pass",
+    "global_score": "none; critical safety failures veto release qualification"
+  },
+  "scenarios": [
+    {
+      "id": "CIV-AUTH-001",
+      "title": "Unauthorized mutation is rejected",
+      "targets": ["identity", "finance", "commons", "governance"],
+      "class": "hard_gate",
+      "setup": ["Create an owner, an authorized delegate, and an unrelated agent using synthetic identities."],
+      "actions": ["Submit a mutation as the unrelated agent.", "Read the authoritative state and audit evidence."],
+      "expected": ["The unauthorized mutation is rejected by the relevant validation/authorization boundary.", "No protected state changes.", "The result does not imply authorization because the actor is merely known or trusted socially."],
+      "negative_controls": ["Replace the authorized actor with an unrelated actor.", "Remove the required capability or scope."],
+      "observables": ["decision", "state_digest_before_after", "actor_binding", "reason_code"]
+    },
+    {
+      "id": "CIV-DHT-001",
+      "title": "Authoring and peer visibility are distinct",
+      "targets": ["commons", "finance", "governance", "identity"],
+      "class": "behavioral",
+      "setup": ["Provision at least three independently keyed agents.", "Start from a fresh test DNA and record the runtime tuple."],
+      "actions": ["Agent A authors a valid record.", "Observe authoring result.", "Wait on the declared DHT synchronization condition.", "Query from agents B and C."],
+      "expected": ["The record is not reported as peer-visible solely because authoring succeeded.", "After the declared sync condition, the intended readers discover the record or return an explicit documented unavailable/conflict result."],
+      "negative_controls": ["Suppress synchronization or make the peer unavailable.", "Assert against immediate visibility without a synchronization condition."],
+      "observables": ["authoring_latency", "peer_visibility_latency", "visibility_state", "timeout_count"]
+    },
+    {
+      "id": "CIV-IDEM-001",
+      "title": "Retrying the same request has one logical effect",
+      "targets": ["finance", "commons", "attribution", "manufacturing"],
+      "class": "hard_gate",
+      "setup": ["Create a mutation with a stable operation/idempotency identifier."],
+      "actions": ["Submit it.", "Retry identical bytes before response, after response, and after client restart."],
+      "expected": ["Exactly one logical effect exists.", "Retries return the original result or an explicit duplicate result that refers to it.", "No second payment, allocation, contribution, or completion is created."],
+      "negative_controls": ["Repeat the same request multiple times across independent client instances."],
+      "observables": ["logical_effect_count", "receipt_ids", "state_digest"]
+    },
+    {
+      "id": "CIV-IDEM-002",
+      "title": "An operation identifier cannot be reused for different intent",
+      "targets": ["finance", "commons", "attribution"],
+      "class": "hard_gate",
+      "setup": ["Prepare two different payloads with the same idempotency identifier."],
+      "actions": ["Submit payload A.", "Submit payload B with the same identifier but different amount, actor, target, or purpose."],
+      "expected": ["Payload B is rejected as a key/payload conflict.", "It is not silently treated as a retry or as a second valid operation."],
+      "negative_controls": ["Change one security-relevant field while preserving the operation identifier."],
+      "observables": ["decision", "payload_digest_binding", "logical_effect_count"]
+    },
+    {
+      "id": "CIV-CAP-001",
+      "title": "Concurrent allocation cannot finalize beyond capacity",
+      "targets": ["finance", "commons", "supplychain", "manufacturing"],
+      "class": "hard_gate",
+      "setup": ["Declare a finite resource/capacity of N.", "Create independent agents whose simultaneous requests would exceed N if all finalized."],
+      "actions": ["Synchronize simultaneous allocation attempts.", "Vary delivery order and retry timing.", "Inspect finalized and pending allocations from independent peers."],
+      "expected": ["Finalized allocations never exceed N under the declared allocation protocol.", "Losers are rejected or remain explicitly pending/conflicted until resolved.", "No UI/API describes unresolved competing claims as confirmed allocation."],
+      "negative_controls": ["Race requests from different agents against the final capacity unit.", "Deliver duplicate and reordered updates."],
+      "observables": ["allocated_total", "capacity", "finalized_count", "pending_conflict_count", "decision_latency"],
+      "notes": "This is not an assumption that an eventually consistent DHT provides serializable transactions. The implementation must use and test its actual allocation/ownership protocol."
+    },
+    {
+      "id": "CIV-CONFLICT-001",
+      "title": "Concurrent updates do not silently overwrite each other",
+      "targets": ["commons", "finance", "governance", "personal"],
+      "class": "hard_gate",
+      "setup": ["Create a record version V1 visible to two independent writers."],
+      "actions": ["Both writers derive a change from V1.", "Submit both changes under controlled orderings.", "Read the resulting history and current-state projection."],
+      "expected": ["The documented conflict policy is followed.", "Both histories remain inspectable where required.", "A stale writer is rejected, merged according to a qualified rule, or surfaced as conflict; it is not silently presented as an uncontested update."],
+      "negative_controls": ["Reverse writer order.", "Delay one writer until after the other commits."],
+      "observables": ["accepted_versions", "conflict_state", "current_projection_digest"]
+    },
+    {
+      "id": "CIV-VAL-001",
+      "title": "Invalid DHT operation fails at the integrity boundary",
+      "targets": ["identity", "commons", "governance", "finance"],
+      "class": "hard_gate",
+      "setup": ["Freeze valid and invalid action fixtures for one real integrity zome."],
+      "actions": ["Submit each fixture through the real validation path where supported.", "Inspect authored/peer-visible state."],
+      "expected": ["Invalid operations are rejected according to the integrity rules.", "The test does not count a coordinator-only check as DHT validation coverage."],
+      "negative_controls": ["Mutate author, link target, entry type, required field, or authorization-related reference."],
+      "observables": ["validation_result", "rejection_reason", "peer_visible_invalid_record"]
+    },
+    {
+      "id": "CIV-SOURCE-001",
+      "title": "Unavailable source is not a confirmed-empty source",
+      "targets": ["personal", "identity", "health", "commons"],
+      "class": "hard_gate",
+      "setup": ["Prepare source adapters for a non-empty source, confirmed-empty source, and unavailable source."],
+      "actions": ["Query each adapter and render the resulting API/UI state."],
+      "expected": ["LiveWithRecords, LiveConfirmedEmpty, Unavailable, Stale, Demo, Conflict, and Unsupported remain distinguishable where supported.", "An adapter error does not erase previously known data or become an empty successful response."],
+      "negative_controls": ["Force an initial read failure.", "Force a refresh failure after a successful read."],
+      "observables": ["source_state", "last_success_timestamp", "sanitized_error_category", "rendered_claim"]
+    },
+    {
+      "id": "CIV-STALE-001",
+      "title": "Stale evidence is never presented as current verification",
+      "targets": ["personal", "identity", "commons", "governance"],
+      "class": "hard_gate",
+      "setup": ["Create an evidence item with known revision and freshness policy."],
+      "actions": ["Advance injected time beyond freshness bounds or make a newer revision available.", "Query each reader and downstream projection."],
+      "expected": ["The old item is marked stale, superseded, or indeterminate as appropriate.", "Freshness is not equated with truth or legal authority."],
+      "negative_controls": ["Hold a stale cache while updating the upstream revision.", "Remove the last-refresh record."],
+      "observables": ["source_revision", "observed_at", "freshness_state", "rendered_claim"]
+    },
+    {
+      "id": "CIV-CONSENT-001",
+      "title": "Expired or revoked grant no longer authorizes a new disclosure",
+      "targets": ["personal", "identity", "health", "attribution"],
+      "class": "hard_gate",
+      "setup": ["Create a purpose-bound, recipient-bound, field-scoped synthetic grant."],
+      "actions": ["Perform an allowed request while valid.", "Expire or revoke the grant.", "Repeat the same request and a broader request."],
+      "expected": ["The new request is denied or explicitly indeterminate when authoritative status cannot be checked.", "A previous authorization is not reused for a new operation after expiry/revocation.", "The decision records which policy/status revision was checked."],
+      "negative_controls": ["Use the grant for a different purpose, recipient, field, or later time."],
+      "observables": ["decision", "grant_id", "purpose", "scope", "status_revision"]
+    },
+    {
+      "id": "CIV-DISC-001",
+      "title": "Selective disclosure reveals only requested authorized fields",
+      "targets": ["personal", "identity", "health"],
+      "class": "hard_gate",
+      "setup": ["Create a synthetic record containing public, authorized, and forbidden fields."],
+      "actions": ["Request existence-only disclosure.", "Request a small allowed field set.", "Request forbidden fields without a matching grant."],
+      "expected": ["Output is limited to the authorized disclosure scope.", "Default disclosure is none.", "Logs, URLs, telemetry and error messages do not leak omitted field values."],
+      "negative_controls": ["Ask for all fields after granting one field.", "Trigger an error while building the presentation."],
+      "observables": ["field_set_requested", "field_set_returned", "unexpected_disclosure_count"]
+    },
+    {
+      "id": "CIV-RECEIPT-001",
+      "title": "Unauthenticated or untrusted evidence receipt is rejected",
+      "targets": ["attribution", "identity", "governance", "cross-project"],
+      "class": "hard_gate",
+      "requires_capability": "authenticated, versioned receipt format and verifier",
+      "setup": ["Configure an independently trusted test key and a separate untrusted key."],
+      "actions": ["Verify a valid receipt.", "Verify receipts signed by an untrusted or unknown key.", "Tamper with payload bytes without updating the signature."],
+      "expected": ["Only receipts satisfying the configured trust policy verify.", "A key included only in the receipt does not establish trust.", "Unsigned digest-only audit receipts are not labeled authenticated."],
+      "negative_controls": ["Unknown key, wrong key, payload mutation, truncated signature, unsupported algorithm."],
+      "observables": ["signature_result", "trust_policy_version", "issuer_key_id", "decision"]
+    },
+    {
+      "id": "CIV-RECEIPT-002",
+      "title": "Receipt cannot be transplanted to another request or scope",
+      "targets": ["attribution", "identity", "governance", "cross-project"],
+      "class": "hard_gate",
+      "requires_capability": "authenticated, request-bound receipt format and verifier",
+      "setup": ["Create a valid receipt bound to a specific request, profile revision, actor, purpose and operation."],
+      "actions": ["Verify in its original context.", "Swap one context field and re-verify."],
+      "expected": ["Original context verifies.", "Any changed bound field fails verification or policy admission."],
+      "negative_controls": ["Swap target actor, purpose, operation, profile digest, source digest, expiry, or evaluator version."],
+      "observables": ["context_digest", "verification_result", "decision"]
+    },
+    {
+      "id": "CIV-STATUS-001",
+      "title": "Offline status lookup yields unknown, not assumed valid",
+      "targets": ["identity", "personal", "attribution"],
+      "class": "hard_gate",
+      "setup": ["Create a signed synthetic credential with a status reference and a cached prior status."],
+      "actions": ["Make the authoritative status service unavailable.", "Attempt a high-impact operation that requires current status."],
+      "expected": ["The verifier applies a documented freshness policy.", "A missing current status result is not silently treated as non-revoked.", "The product distinguishes fail-closed denial from an unavailable/indeterminate result."],
+      "negative_controls": ["Use an expired status cache.", "Provide a malformed or wrong-issuer status response."],
+      "observables": ["status_age", "status_state", "decision", "availability_outcome"]
+    },
+    {
+      "id": "CIV-CRASH-001",
+      "title": "Retry after response loss does not duplicate a committed action",
+      "targets": ["finance", "commons", "attribution", "manufacturing"],
+      "class": "hard_gate",
+      "setup": ["Use an idempotent operation and an instrumented client."],
+      "actions": ["Commit the action.", "Drop the response after commit.", "Restart the client and retry."],
+      "expected": ["The client can determine the original outcome or an explicit unknown/pending state.", "A retry does not create a second logical effect."],
+      "negative_controls": ["Crash between request submission and client receipt with both commit and non-commit outcomes scheduled."],
+      "observables": ["logical_effect_count", "commit_boundary", "recovery_result"]
+    },
+    {
+      "id": "CIV-PART-001",
+      "title": "Network partition preserves explicit pending and conflict states",
+      "targets": ["commons", "finance", "governance", "identity"],
+      "class": "behavioral",
+      "setup": ["Provision peers and define which message paths are interrupted."],
+      "actions": ["Partition selected peers.", "Submit independent and competing actions.", "Restore connectivity and wait for the declared sync condition."],
+      "expected": ["The product does not equate local acceptance with global visibility.", "After reconnection, documented validation and conflict policy determines the outcome.", "No conflicting state is hidden by an unqualified success banner."],
+      "negative_controls": ["Restore peers in reverse order.", "Repeat with delayed and duplicate messages."],
+      "observables": ["local_acceptance", "peer_visibility", "conflict_state", "recovery_latency"]
+    },
+    {
+      "id": "CIV-RESTART-001",
+      "title": "Restart preserves the documented durability boundary",
+      "targets": ["identity", "finance", "commons", "governance"],
+      "class": "hard_gate",
+      "setup": ["Create committed, pending, and failed operations."],
+      "actions": ["Terminate and restart conductor/client at scheduled boundaries.", "Read back state and operation receipts."],
+      "expected": ["Committed actions remain discoverable according to the declared storage model.", "Pending/failed work is not upgraded to committed by replay.", "Identity recovery does not silently generate a replacement key."],
+      "negative_controls": ["Restart after commit-before-response and before commit."],
+      "observables": ["operation_state", "receipt_chain", "identity_binding", "recovery_time"]
+    },
+    {
+      "id": "CIV-BRIDGE-001",
+      "title": "Cross-cluster bridge preserves the calling authority boundary",
+      "targets": ["bridge", "commons", "finance", "governance", "attribution"],
+      "class": "hard_gate",
+      "setup": ["Create caller, target zome, valid permission and unauthorized target context."],
+      "actions": ["Call a permitted cross-cluster operation.", "Repeat with forged actor context or broader target scope."],
+      "expected": ["The callee derives/validates authority from the actual authenticated call context and applicable grant.", "The caller cannot elevate privileges by supplying arbitrary identity fields in payload."],
+      "negative_controls": ["Change payload actor while retaining caller identity.", "Route request to a target not in permitted scope."],
+      "observables": ["authenticated_caller", "payload_actor", "target_scope", "decision"]
+    },
+    {
+      "id": "CIV-SCHEMA-001",
+      "title": "Unsupported or downgraded schema is explicit",
+      "targets": ["identity", "attribution", "commons", "governance", "cross-project"],
+      "class": "hard_gate",
+      "setup": ["Freeze supported and unsupported schema versions with synthetic payloads."],
+      "actions": ["Submit supported version.", "Submit newer unsupported version and old version after a policy-breaking change."],
+      "expected": ["Supported vectors follow expected behavior.", "Unsupported/incompatible records are not silently interpreted using a lossy fallback."],
+      "negative_controls": ["Remove a required version field.", "Change enum meaning without changing version."],
+      "observables": ["schema_version", "compatibility_decision", "lossy_fallback_used"]
+    },
+    {
+      "id": "CIV-ID-CORRUPT-001",
+      "title": "Inconsistent identity storage never triggers silent key minting",
+      "targets": ["identity", "personal"],
+      "class": "hard_gate",
+      "setup": ["Prepare empty, protected-valid, protected-locked, unprotected-legacy, inaccessible and corrupt/inconsistent storage states."],
+      "actions": ["Boot Personal for each state.", "Attempt unlock or recovery only when the state permits it."],
+      "expected": ["Corrupt/inaccessible states are distinct from no identity.", "Identity-dependent routes remain gated unless posture is verified.", "Existing recognized identity state is not overwritten automatically."],
+      "negative_controls": ["Make stored public key disagree with decrypted private key.", "Fail a storage read.", "Present malformed envelope bytes."],
+      "observables": ["posture_state", "route_gate", "storage_mutations", "active_did"]
+    },
+    {
+      "id": "CIV-PARITY-001",
+      "title": "Equivalent validators return equivalent judgments",
+      "targets": ["all adapters", "cross-project"],
+      "class": "hard_gate",
+      "setup": ["Freeze a small corpus of valid and invalid semantic vectors with an independently reviewed oracle."],
+      "actions": ["Run the same vector set through each claimed verifier implementation and supported schema version."],
+      "expected": ["All implementations agree on accept/reject/unknown and stable reason category for the declared contract.", "Differences are surfaced as counterexamples, not hidden by normalizing all errors into failure."],
+      "negative_controls": ["Mutation-test every authority-, scope-, version- and digest-bearing field."],
+      "observables": ["oracle_version", "verifier_version", "decision_parity", "counterexamples"]
+    }
+  ]
+}
