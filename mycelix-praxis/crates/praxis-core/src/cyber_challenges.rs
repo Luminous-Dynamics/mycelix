@@ -61,6 +61,7 @@ pub struct EvidenceObservation {
     pub evidence_id: String,
     pub source_kind: EvidenceSourceKind,
     pub freshness: EvidenceFreshness,
+    pub conflict_status: EvidenceConflictStatus,
     /// Minutes relative to the scenario reference time; negative means older.
     pub observed_at_offset_minutes: i64,
     pub observation: String,
@@ -88,8 +89,17 @@ pub enum EvidenceSourceKind {
 pub enum EvidenceFreshness {
     Current,
     Stale,
-    Conflicting,
     Unknown,
+}
+
+/// Conflict status is independent from freshness: two fresh sources can disagree,
+/// while a stale source can be consistent with all other evidence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceConflictStatus {
+    NoKnownConflict,
+    ConflictsWithOtherEvidence,
+    NotAssessed,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
