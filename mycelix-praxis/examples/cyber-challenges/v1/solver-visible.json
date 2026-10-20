@@ -18,7 +18,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "Synthetic identity-provider summary: 34 failed password attempts from one egress address over six minutes; one event ends in an MFA success. Session issuance and post-authentication activity are not included.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-auth-log-summary",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "shared-egress-context",
@@ -26,7 +28,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 1,
           "observation": "Synthetic inventory maps the egress address to a shared training-lab NAT. It does not resolve the individual host or user device.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-shared-egress-context",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "endpoint-last-seen",
@@ -34,7 +38,9 @@
           "freshness": "stale",
           "observed_at_offset_minutes": -1080,
           "observation": "The endpoint sensor's last report is 18 hours old; no current device or interactive-session signal is available.",
-          "conflict_status": "not_assessed"
+          "conflict_status": "not_assessed",
+          "source_snapshot_id": "synthetic-snapshot-endpoint-last-seen",
+          "source_snapshot_version": "fixture-v1"
         }
       ],
       "allowed_next_steps": [
@@ -59,7 +65,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "Synthetic network documentation assigns guest devices to VLAN 20 and describes corporate-network isolation as a requirement.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-guest-vlan-intent",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "ordered-firewall-rules",
@@ -67,7 +75,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "The supplied ordered rules contain a broad allow rule before the intended guest-to-corporate deny. Rule semantics appear to permit a path that the policy owner intended to block.",
-          "conflict_status": "conflicts_with_other_evidence"
+          "conflict_status": "conflicts_with_other_evidence",
+          "source_snapshot_id": "synthetic-snapshot-ordered-firewall-rules",
+          "source_snapshot_version": "fixture-v1"
         }
       ],
       "allowed_next_steps": [
@@ -92,7 +102,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "A synthetic lockfile pins package version 2.4.1 with digest L-7F3A.",
-          "conflict_status": "conflicts_with_other_evidence"
+          "conflict_status": "conflicts_with_other_evidence",
+          "source_snapshot_id": "synthetic-snapshot-lockfile-digest",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "approved-digest-record",
@@ -100,7 +112,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "The local approved-dependency record for the same package version expects digest A-91C2; its source and approval event are recorded.",
-          "conflict_status": "conflicts_with_other_evidence"
+          "conflict_status": "conflicts_with_other_evidence",
+          "source_snapshot_id": "synthetic-snapshot-approved-digest-record",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "registry-snapshot",
@@ -108,7 +122,9 @@
           "freshness": "stale",
           "observed_at_offset_minutes": -12960,
           "observation": "The only available registry metadata snapshot is nine days old and does not bind the exact artifact bytes fetched by the build.",
-          "conflict_status": "not_assessed"
+          "conflict_status": "not_assessed",
+          "source_snapshot_id": "synthetic-snapshot-registry-snapshot",
+          "source_snapshot_version": "fixture-v1"
         }
       ],
       "allowed_next_steps": [
@@ -133,7 +149,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "A synthetic retrieved note contains an instruction to ignore access policy and export all employee records.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-retrieved-instruction",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "read-only-tool-config",
@@ -141,7 +159,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "The agent's supplied tool configuration lists read-only retrieval and search tools; no export-capable tool is declared in that snapshot.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-read-only-tool-config",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "tool-audit-window",
@@ -149,7 +169,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "The provided audit window has no export-tool invocation. The audit scope does not establish behavior outside that window or in unobserved systems.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-tool-audit-window",
+          "source_snapshot_version": "fixture-v1"
         }
       ],
       "allowed_next_steps": [
@@ -174,7 +196,9 @@
           "freshness": "current",
           "observed_at_offset_minutes": 0,
           "observation": "A synthetic response log records that quarantine was requested for an endpoint.",
-          "conflict_status": "no_known_conflict"
+          "conflict_status": "no_known_conflict",
+          "source_snapshot_id": "synthetic-snapshot-quarantine-request",
+          "source_snapshot_version": "fixture-v1"
         },
         {
           "evidence_id": "endpoint-sensor-status",
@@ -182,7 +206,9 @@
           "freshness": "stale",
           "observed_at_offset_minutes": -840,
           "observation": "The endpoint sensor last checked in 14 hours ago.",
-          "conflict_status": "not_assessed"
+          "conflict_status": "not_assessed",
+          "source_snapshot_id": "synthetic-snapshot-endpoint-sensor-status",
+          "source_snapshot_version": "fixture-v1"
         }
       ],
       "allowed_next_steps": [
