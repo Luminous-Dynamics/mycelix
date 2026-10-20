@@ -39,9 +39,25 @@ jobs:
         with:
           toolchain: 1.94.0
           components: rustfmt, clippy
+      - name: Generate standalone dependency lockfile
+        run: cargo generate-lockfile --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml -- --check
       - name: Run profile and adversarial policy tests
         run: cargo test --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml
       - name: Run Clippy
         run: cargo clippy --manifest-path mycelix-marketplace/tools/furnishing-profile-audit/Cargo.toml --all-targets -- -D warnings
+
+      - name: Emit temporary lockfile for repository bootstrap
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock="mycelix-marketplace/tools/furnishing-profile-audit/Cargo.lock"
+          if test -f "$lock"; then
+            printf 'FURNISHING_LOCKFILE_B64_BEGIN\n'
+            base64 -w 0 "$lock"
+            printf '\nFURNISHING_LOCKFILE_B64_END\n'
+          else
+            echo "FURNISHING_LOCKFILE_MISSING"
+          fi
