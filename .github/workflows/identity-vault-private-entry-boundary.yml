@@ -77,6 +77,17 @@ jobs:
             printf 'mirror_equal.%s=%s\n' "$right" "$(git rev-parse "HEAD:$right")"
           done
 
+      - name: Diagnose transitive Holochain crypto pre-release selection
+        continue-on-error: true
+        run: |
+          set -u
+          printf '%s\n' '--- ed25519-dalek 3.0.0-pre.1 reverse dependency tree ---'
+          cargo +1.96.0 tree --manifest-path mycelix-personal/tests/Cargo.toml -i ed25519-dalek@3.0.0-pre.1 -e features
+          printf '%s\n' '--- curve25519-dalek 5.0.0-pre.1 reverse dependency tree ---'
+          cargo +1.96.0 tree --manifest-path mycelix-personal/tests/Cargo.toml -i curve25519-dalek@5.0.0-pre.1 -e features
+          printf '%s\n' '--- resolved crypto package versions ---'
+          cargo +1.96.0 tree --manifest-path mycelix-personal/tests/Cargo.toml | grep -E '(^| )(iroh-base|ed25519-dalek|curve25519-dalek|pkcs8) v' || true
+
       - name: Run Identity Vault integrity unit tests
         run: cargo +1.96.0 test --manifest-path mycelix-personal/Cargo.toml -p identity_vault_integrity
 
