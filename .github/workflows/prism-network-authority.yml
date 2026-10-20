@@ -1,0 +1,23 @@
+name: Prism Network Authority
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-prism/**"
+      - ".github/workflows/prism-network-authority.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-prism/**"
+      - ".github/workflows/prism-network-authority.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  authority-shape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check centralized network authority
+        run: bash mycelix-workspace/mycelix-prism/scripts/check-network-authority.sh

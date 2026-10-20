@@ -13,6 +13,7 @@
 use prism_common::{ContentZone, SafetyLevel};
 use prism_dom::parse_html;
 use prism_privacy::ConsentStore;
+use prism_net::SafeFetchClient;
 use prism_reflex::ReflexArc;
 use prism_search::SearchEngine;
 use serde::{Deserialize, Serialize};
@@ -23,7 +24,7 @@ use tauri::State;
 struct PrismState {
     search: SearchEngine,
     reflex: ReflexArc,
-    client: reqwest::Client,
+    client: SafeFetchClient,
 }
 
 /// Result of fetching and analyzing a URL.
@@ -54,28 +55,21 @@ async fn fetch_url(
     url: String,
     state: State<'_, Mutex<PrismState>>,
 ) -> Result<FetchResult, String> {
-    // Clone the client before dropping the lock (reqwest::Client is cheaply cloneable)
     let client = {
         let s = state.lock().map_err(|e| format!("Lock error: {}", e))?;
         s.client.clone()
     };
 
-    let response = client
-        .get(&url)
-        .send()
+    let page = client
+        .fetch_page(&url)
         .await
         .map_err(|e| format!("Fetch failed: {}", e))?;
 
-    let html = response
-        .text()
-        .await
-        .map_err(|e| format!("Read failed: {}", e))?;
+    let html = page.html;
+    let parsed_url = page.metadata.url.clone();
 
-    // Sanitize
+    // Sanitize only after the exact bounded transport result is retained.
     let clean = ammonia::clean(&html);
-
-    // Security analysis (re-acquire lock for reflex arc)
-    let parsed_url = url::Url::parse(&url).map_err(|e| format!("Bad URL: {}", e))?;
     let dom = parse_html(&html);
     let title = dom.title().unwrap_or_else(|| "Untitled".to_string());
 
@@ -137,12 +131,7 @@ fn main() {
     let prism_state = PrismState {
         search: SearchEngine::new(), // empty — loads fast
         reflex: ReflexArc::new(),
-        client: reqwest::Client::builder()
-            .user_agent("Prism/0.3 (Tauri; +https://mycelix.net)")
-            .redirect(reqwest::redirect::Policy::limited(10))
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .expect("HTTP client"),
+        client: SafeFetchClient::new(),
     };
 
     log::info!("Prism desktop starting (indexing in background)");

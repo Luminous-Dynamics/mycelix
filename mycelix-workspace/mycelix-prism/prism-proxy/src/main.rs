@@ -13,6 +13,7 @@
 
 use axum::{Router, extract::Query, http::StatusCode, response::IntoResponse, routing::get};
 use prism_common::ssrf::validate_proxy_url;
+use prism_net::SafeFetchClient;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
@@ -21,10 +22,10 @@ const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 // `prism_common::ssrf` so `prism-proxy` and `prism-serve` share a single
 // implementation — see that module for rationale and tests.
 
-fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
+fn build_provider_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(user_agent)
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(timeout_secs))
         .build()
         .expect("HTTP client TLS init failed")
@@ -116,7 +117,7 @@ async fn ddg_handler(Query(params): Query<DdgParams>) -> impl IntoResponse {
     );
     log::info!("DDG proxy: {}", params.q);
 
-    let client = build_client("Prism/0.2 (ddg-proxy)", 10);
+    let client = build_provider_client("Prism/0.2 (ddg-proxy)", 10);
 
     match client.get(&url).send().await {
         Ok(resp) => {
@@ -152,7 +153,7 @@ async fn brave_handler(
     );
     log::info!("Brave proxy: {}", params.q);
 
-    let client = build_client("Prism/0.2 (brave-proxy)", 15);
+    let client = build_provider_client("Prism/0.2 (brave-proxy)", 15);
 
     match client
         .get(&url)
@@ -190,7 +191,7 @@ async fn perplexity_handler(
 
     log::info!("Perplexity proxy request");
 
-    let client = build_client("Prism/0.2 (perplexity-proxy)", 30);
+    let client = build_provider_client("Prism/0.2 (perplexity-proxy)", 30);
 
     match client
         .post("https://api.perplexity.ai/chat/completions")
