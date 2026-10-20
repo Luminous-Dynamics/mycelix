@@ -1,0 +1,76 @@
+name: Claim Ceiling Meet Reference V1
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/Cargo.toml"
+      - "docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md"
+      - ".github/workflows/claim-ceiling-meet-reference-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
+      - "mycelix-workspace/Cargo.toml"
+      - "docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md"
+      - ".github/workflows/claim-ceiling-meet-reference-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  claim-ceiling-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Check package formatting
+        run: cargo fmt --manifest-path "$PACKAGE" -p claim-ceiling-reference -- --check
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run algebra, schema, golden-vector and mutation tests
+        run: cargo test --manifest-path "$PACKAGE" -p claim-ceiling-reference
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path "$PACKAGE" -p claim-ceiling-reference --all-targets -- -D warnings
+        env:
+          PACKAGE: mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml
+      - name: Run pinned CLI twice and verify deterministic receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml"
+          input="mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-meet-request-v1.json"
+          source_sha="$(git rev-parse HEAD)"
+          expected_input_sha="$(sha256sum "$input" | cut -d ' ' -f 1)"
+          cargo run --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-meet -- --input "$input" --source-commit "$source_sha" > "$RUNNER_TEMP/receipt-1.json"
+          cargo run --manifest-path "$package" -p claim-ceiling-reference --bin claim-ceiling-meet -- --input "$input" --source-commit "$source_sha" > "$RUNNER_TEMP/receipt-2.json"
+          cmp "$RUNNER_TEMP/receipt-1.json" "$RUNNER_TEMP/receipt-2.json"
+          jq -e --arg source "$source_sha" --arg input "$expected_input_sha" '
+            .schema_version == "mycelix.claim-ceiling-meet.receipt.v1" and
+            .source_commit == $source and
+            .source_commit_pinned == true and
+            .input_sha256 == $input and
+            .claim_ceiling_only == true and
+            .disposition == "usable_intersection" and
+            .non_amplification.no_broader_than_left == true and
+            .non_amplification.no_broader_than_right == true
+          ' "$RUNNER_TEMP/receipt-1.json"
+      - name: Ensure tracked source did not mutate
+        run: git diff --exit-code HEAD -- mycelix-workspace/mycelix-space/tools/claim-ceiling-reference docs/research/CLAIM_CEILING_MEET_REFERENCE_V1_2026-10.md
+      - name: Upload exact-source receipt and frozen input
+        uses: actions/upload-artifact@v4
+        with:
+          name: claim-ceiling-reference-v1-${{ github.sha }}
+          path: |
+            mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-meet-request-v1.json
+            mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-meet-golden-v1.json
+            ${{ runner.temp }}/receipt-1.json
+          if-no-files-found: error
+          retention-days: 30
