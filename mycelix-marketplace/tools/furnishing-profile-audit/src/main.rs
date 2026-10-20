@@ -1,4 +1,4 @@
-use furnishing_profile_audit::validate_fixture;
+use furnishing_profile_audit::{validate_discovery_request, validate_fixture};
 use serde_json::Value;
 use std::{env, fs, path::PathBuf, process::ExitCode};
 
@@ -22,14 +22,20 @@ fn main() -> ExitCode {
         }
     };
 
-    let errors = validate_fixture(&document);
+    let is_profile_corpus = document.get("profiles").is_some();
+    let errors = if is_profile_corpus {
+        validate_fixture(&document)
+    } else {
+        validate_discovery_request(&document)
+    };
     if errors.is_empty() {
-        println!("PASS: synthetic furnishing profile semantic audit");
+        let label = if is_profile_corpus { "synthetic furnishing profile semantic audit" } else { "effects-disabled discovery request audit" };
+        println!("PASS: {label}");
         println!("Input: {}", path.display());
         println!("Scope: contract invariants only; not product verification or JSON Schema validation");
         ExitCode::SUCCESS
     } else {
-        eprintln!("FAIL: {} furnishing profile audit finding(s)", errors.len());
+        eprintln!("FAIL: {} furnishing audit finding(s)", errors.len());
         for error in errors {
             eprintln!(" - {error}");
         }
