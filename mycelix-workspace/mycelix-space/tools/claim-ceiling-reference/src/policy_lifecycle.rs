@@ -345,6 +345,16 @@ pub fn evaluate_policy_release_bytes(
             );
             installed_scope_valid = false;
         }
+        if installed_scope_valid && release.revocation_epoch < installed.revocation_epoch {
+            add_violation(
+                &mut violations,
+                "policy_revocation_epoch_rollback",
+                format!(
+                    "installed revocation epoch {}, candidate epoch {}",
+                    installed.revocation_epoch, release.revocation_epoch
+                ),
+            );
+        }
         if installed_scope_valid && release.version < installed.version {
             add_violation(
                 &mut violations,
@@ -630,6 +640,24 @@ mod tests {
                 .iter()
                 .any(|v| v.code == "trusted_time_unavailable")
         );
+    }
+
+    #[test]
+    fn rejects_higher_version_with_older_revocation_epoch() {
+        let mut candidate = release();
+        candidate.version = 3;
+        candidate.revocation_epoch = 2;
+        let mut ctx = context();
+        ctx.minimum_revocation_epoch = 2;
+        ctx.installed_head.as_mut().unwrap().version = 1;
+        ctx.installed_head.as_mut().unwrap().revocation_epoch = 3;
+
+        let receipt = evaluate(candidate, ctx, PROFILE_BYTES);
+        assert_eq!(receipt.disposition, PolicyLifecycleDispositionV1::Rejected);
+        assert!(receipt.violations.iter().any(|item| {
+            item.code == "policy_revocation_epoch_rollback"
+        }));
+        assert!(receipt.proposed_next_head.is_none());
     }
 
     #[test]
