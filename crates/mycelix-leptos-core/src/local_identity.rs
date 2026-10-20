@@ -288,6 +288,14 @@ struct IdentityStorageSnapshot {
     encrypted_wire: Option<String>,
 }
 
+impl Drop for IdentityStorageSnapshot {
+    fn drop(&mut self) {
+        if let Some(secret_b64) = self.secret_b64.as_mut() {
+            secret_b64.zeroize();
+        }
+    }
+}
+
 /// Inspect browser identity storage without generating, unlocking, replacing,
 /// or writing any key material.
 ///
