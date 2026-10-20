@@ -772,6 +772,52 @@ mod tests {
     }
 
     #[test]
+    fn deterministic_500_obligation_stress_corpus_preserves_conservation() {
+        let mut p = profile();
+        p.max_input_obligations = 1_000;
+        let members = ["alice", "bob", "carol", "dave"];
+        let mut inputs = Vec::new();
+
+        for i in 0_u64..500 {
+            let payer_index = (i as usize) % members.len();
+            let payee_index = (payer_index + 1 + (i as usize % 3)) % members.len();
+            let amount = (i.wrapping_mul(37) % 1_000) + 1;
+            inputs.push(obligation(
+                &format!("stress-{i:04}"),
+                members[payer_index],
+                members[payee_index],
+                amount,
+            ));
+        }
+
+        let first = simulate_netting(&p, &inputs).unwrap();
+        let mut reversed = inputs;
+        reversed.reverse();
+        let second = simulate_netting(&p, &reversed).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first.gross_obligation_count, 500);
+        assert_eq!(
+            first
+                .net_positions
+                .iter()
+                .map(|position| position.net_position_minor)
+                .sum::<i128>(),
+            0
+        );
+        assert_eq!(
+            first
+                .net_settlement_legs
+                .iter()
+                .map(|leg| u128::from(leg.amount_minor))
+                .sum::<u128>(),
+            first.net_settlement_volume_minor
+        );
+        assert!(first.all_supplied_obligations_eligible);
+        assert!(!first.settlement_executed);
+    }
+
+    #[test]
     fn scoped_policy_and_member_set_are_mandatory() {
         let mut p = profile();
         p.netting_set_id.clear();
