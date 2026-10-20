@@ -1,6 +1,7 @@
 //! D6S-CANON-2 authority/provenance negative controls.
 //! These are model-level mutations; they do not test plant actuation.
 
+use cos_conformance::source_refinement::{mrp_to_observed_work, mrp_to_scheduled_operation};
 use cos_conformance::{
     authorize_recommendation, bind_general_capability, bind_physical_work,
     bind_plan_to_consumption, bind_requirement_to_availability, conformance_report_json,
@@ -8,7 +9,28 @@ use cos_conformance::{
     project_to_itc, qualify_output, recognize_foreign_evidence, record_effect, Bindings,
     Decision, Evidence, Origin,
 };
+use hdi::prelude::Timestamp;
+use manufacturing_common::{MrpResult, ScheduledOperation};
 use serde_json::Value;
+
+fn mrp_fixture() -> MrpResult {
+    let at = Timestamp::from_micros(1_700_000_000_000_000);
+    MrpResult {
+        planned_orders: vec![],
+        scheduled_operations: vec![ScheduledOperation {
+            work_order_id: "D6S-WO-001".into(),
+            operation_name: "Mill".into(),
+            machine_id: "D6S-CNC-001".into(),
+            start_time: at,
+            end_time: at,
+            setup_minutes: 5,
+            run_minutes: 20,
+        }],
+        capacity_warnings: vec![],
+        material_shortages: vec![],
+        feasible: true,
+    }
+}
 
 const FIXTURE: &str =
     include_str!("../../../../docs/integral/d6s-canon-2-authority-boundary-fixture.json");
@@ -69,12 +91,11 @@ fn scheduling_never_implicitly_creates_observed_work() {
     let f = case("scheduled_operation_is_not_observed_work");
     assert_eq!(f["expected_without_binding"], "Rejected");
     assert_eq!(f["expected_with_binding"], "NotAutomaticallyPromoted");
-    // Existing source_refinement integration tests separately exercise the
-    // source adapter directly; the invariant here is that planning alone does
-    // not provide the missing observed-work binding.
-    let bindings = Bindings::default();
-    let evidence = Evidence::current_local("d6s-planned-work", 100);
-    assert_eq!(evaluate_negative("COS-N-001", &bindings, Some(&evidence), 100), Decision::Rejected);
+    // A schedule is valid planning evidence but the adapter must never
+    // promote it to observed work merely because an operation was scheduled.
+    let planned = mrp_fixture();
+    assert_eq!(mrp_to_scheduled_operation(&planned).decision, Decision::Accepted);
+    assert_eq!(mrp_to_observed_work(&planned).decision, Decision::Rejected);
 }
 
 #[test]
