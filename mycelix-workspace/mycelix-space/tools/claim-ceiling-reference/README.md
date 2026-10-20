@@ -37,3 +37,15 @@ There is no scalar trust score, confidence multiplier, wildcard scope, or implic
 - A deterministic CLI receipt binds the raw input bytes and both schema byte strings by SHA-256.
 
 The vectors are synthetic contract examples, not evidence that any real source, qualification, independence claim, or action permission is valid. This first slice is not yet integrated into production Mycelix admission, Symthaea, Symtropy, or Sol-Atlas consumers.
+
+## Separate policy-profile admissibility gate
+
+The meet computes an intersection; it does not establish that the surviving atoms are permitted by policy. The `claim-ceiling-policy-check` binary compares a candidate against a versioned, explicit `maximum_ceiling` and rejects out-of-profile claim atoms, scopes, time windows, action scopes, or dropped mandatory controls.
+
+```bash
+cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/Cargo.toml \
+  -p claim-ceiling-reference --bin claim-ceiling-policy-check -- \
+  --input mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/fixtures/claim-ceiling-policy-allowed-v1.json
+```
+
+Use `fixtures/claim-ceiling-policy-rejected-v1.json` to inspect a multi-dimension rejection receipt. The gate is a policy-fit check only; a passing receipt grants no evidence-admission or action authority. See [the research contract](../../../../docs/research/CLAIM_CEILING_POLICY_ADMISSIBILITY_V1_2026-10.md).
