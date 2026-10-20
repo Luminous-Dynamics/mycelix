@@ -614,7 +614,10 @@ impl VerificationEngine {
                     return failed_evidence(
                         invariant,
                         timestamp,
-                        format!("byzantine_count={} known_agents={}", state.byzantine_count, total),
+                        format!(
+                            "byzantine_count={} known_agents={}",
+                            state.byzantine_count, total
+                        ),
                         "a non-empty known-agent set and byzantine_count <= known_agents",
                     );
                 }
@@ -624,7 +627,10 @@ impl VerificationEngine {
                     return failed_evidence(
                         invariant,
                         timestamp,
-                        format!("invalid maximum Byzantine fraction: {}", max_byzantine_fraction),
+                        format!(
+                            "invalid maximum Byzantine fraction: {}",
+                            max_byzantine_fraction
+                        ),
                         "a finite fraction in [0, 1]",
                     );
                 }
@@ -650,9 +656,7 @@ impl VerificationEngine {
             }
 
             InvariantType::SlashingBounds { max_slash_fraction } => {
-                if !max_slash_fraction.is_finite()
-                    || !(0.0..=1.0).contains(max_slash_fraction)
-                {
+                if !max_slash_fraction.is_finite() || !(0.0..=1.0).contains(max_slash_fraction) {
                     return failed_evidence(
                         invariant,
                         timestamp,
@@ -869,7 +873,10 @@ impl VerificationEngine {
                     return failed_evidence(
                         invariant,
                         timestamp,
-                        format!("{} changed by {} (tolerance: {})", property, diff, tolerance),
+                        format!(
+                            "{} changed by {} (tolerance: {})",
+                            property, diff, tolerance
+                        ),
                         format!("change ≤ {}", tolerance),
                     );
                 }
@@ -1028,8 +1035,16 @@ mod tests {
         let mut variables = HashMap::new();
         variables.insert("last_slash_fraction".to_string(), "0.0".to_string());
         for dimension in [
-            "k_r", "k_a", "k_i", "k_p", "k_m",
-            "k_s", "k_h", "k_topo", "k_v", "k_coherence",
+            "k_r",
+            "k_a",
+            "k_i",
+            "k_p",
+            "k_m",
+            "k_s",
+            "k_h",
+            "k_topo",
+            "k_v",
+            "k_coherence",
         ] {
             variables.insert(format!("kvector_{}", dimension), "0.5".to_string());
         }
@@ -1186,11 +1201,15 @@ mod tests {
             invariant_id: "slashing".into(),
             name: "Slashing".into(),
             description: "Slash must be bounded".into(),
-            invariant_type: InvariantType::SlashingBounds { max_slash_fraction: 0.5 },
+            invariant_type: InvariantType::SlashingBounds {
+                max_slash_fraction: 0.5,
+            },
             severity: ViolationSeverity::Critical,
         };
         assert!(!engine.check_invariant(&slashing, &state, 1000).holds);
-        state.variables.insert("last_slash_fraction".into(), "NaN".into());
+        state
+            .variables
+            .insert("last_slash_fraction".into(), "NaN".into());
         assert!(!engine.check_invariant(&slashing, &state, 1000).holds);
 
         let kvector = Invariant {
@@ -1236,14 +1255,20 @@ mod tests {
             invariant_id: "custom".into(),
             name: "Custom predicate".into(),
             description: "Explicit true is required".into(),
-            invariant_type: InvariantType::Custom { predicate: "predicate_result".into() },
+            invariant_type: InvariantType::Custom {
+                predicate: "predicate_result".into(),
+            },
             severity: ViolationSeverity::Critical,
         };
         let mut state = create_test_state();
         assert!(!engine.check_invariant(&invariant, &state, 1000).holds);
-        state.variables.insert("predicate_result".into(), "unknown".into());
+        state
+            .variables
+            .insert("predicate_result".into(), "unknown".into());
         assert!(!engine.check_invariant(&invariant, &state, 1000).holds);
-        state.variables.insert("predicate_result".into(), "true".into());
+        state
+            .variables
+            .insert("predicate_result".into(), "true".into());
         assert!(engine.check_invariant(&invariant, &state, 1000).holds);
     }
 
