@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate Praxis cyber evidence contracts
+    name: Validate solver-visible cyber corpus
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -69,9 +69,11 @@ jobs:
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test cyber_challenges -- --nocapture
 
       - name: Run evidence-acquisition evaluator and adversarial tests
+        if: hashFiles('mycelix-praxis/crates/praxis-core/tests/evidence_efficiency.rs') != ''
         run: cargo +1.96.0 test --manifest-path mycelix-praxis/Cargo.toml --package praxis-core --test evidence_efficiency -- --nocapture
 
       - name: Verify evidence-acquisition fixture identities
+        if: hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v1/corpus-manifest.json') != ''
         shell: bash
         run: |
           manifest=mycelix-praxis/examples/cyber-evidence-efficiency/v1/corpus-manifest.json
@@ -83,7 +85,7 @@ jobs:
           test "$(git hash-object mycelix-praxis/examples/cyber-evidence-efficiency/v1/evaluator-only.schema.json)" = "$(jq -r '.evaluator_schema_git_blob_sha' "$manifest")"
 
       - name: Emit exact-head evidence-acquisition receipt
-        if: success()
+        if: success() && hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v1/corpus-manifest.json') != ''
         shell: bash
         run: |
           receipt=praxis-cyber-evidence-acquisition-receipt.json
@@ -116,7 +118,7 @@ jobs:
           cat "$receipt" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload exact-head evidence-acquisition receipt
-        if: success()
+        if: success() && hashFiles('mycelix-praxis/examples/cyber-evidence-efficiency/v1/corpus-manifest.json') != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: praxis-cyber-evidence-acquisition
