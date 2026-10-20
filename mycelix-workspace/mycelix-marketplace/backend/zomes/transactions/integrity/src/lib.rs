@@ -6,6 +6,21 @@ use hdi::prelude::*;
 mod conflicts;
 pub use conflicts::*;
 
+mod reservation;
+pub use reservation::{
+    ApplyOutcome, Reservation, ReservationError, ReservationEvent, ReservationLedger,
+    ReservationState,
+};
+
+mod reservation_certificate;
+pub use reservation_certificate::{
+    CertificateError, FrontierEvent, FrontierStateTransition, IntentError, InventoryFrontier,
+    PurchaseIntent, ReservationCapacityEvidence, ReservationCertificate, ReservationFrontierState,
+    ReservationTerminalEvidence, ReservationTerminalOutcome, validate_create_purchase_intent,
+    validate_create_reservation_capacity, validate_create_reservation_certificate,
+    validate_create_reservation_terminal, validate_transaction_reservation_binding,
+};
+
 /// Transaction entry - represents a purchase in the marketplace
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -18,6 +33,10 @@ pub struct Transaction {
 
     /// Listing being purchased
     pub listing_hash: ActionHash,
+
+    /// Seller-issued reservation admission certificate. Every transaction must
+    /// bind to the exact certificate that authorized its inventory reservation.
+    pub reservation_certificate_hash: ActionHash,
 
     /// Quantity purchased
     pub quantity: u32,
@@ -125,6 +144,10 @@ pub enum EntryTypes {
     Transaction(Transaction),
     TransactionConflictApproval(TransactionConflictApproval),
     TransactionConflictResolution(TransactionConflictResolutionEntry),
+    PurchaseIntent(PurchaseIntent),
+    ReservationCertificate(ReservationCertificate),
+    ReservationTerminalEvidence(ReservationTerminalEvidence),
+    ReservationCapacityEvidence(ReservationCapacityEvidence),
 }
 
 #[hdk_extern]
@@ -141,6 +164,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::TransactionConflictResolution(resolution) => {
                     validate_create_conflict_resolution(&resolution, &action)
                 }
+                EntryTypes::PurchaseIntent(intent) => {
+                    validate_create_purchase_intent(&intent, &action)
+                }
+                EntryTypes::ReservationCertificate(certificate) => {
+                    validate_create_reservation_certificate(&certificate, &action)
+                }
+                EntryTypes::ReservationTerminalEvidence(evidence) => {
+                    validate_create_reservation_terminal(&evidence, &action)
+                }
+                EntryTypes::ReservationCapacityEvidence(evidence) => {
+                    validate_create_reservation_capacity(&evidence, &action)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -153,6 +188,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::TransactionConflictResolution(_) => Ok(ValidateCallbackResult::Invalid(
                     "Transaction conflict resolutions are immutable".into(),
+                )),
+                EntryTypes::PurchaseIntent(_) => Ok(ValidateCallbackResult::Invalid(
+                    "PurchaseIntent records are immutable".into(),
+                )),
+                EntryTypes::ReservationCertificate(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ReservationCertificate records are immutable".into(),
+                )),
+                EntryTypes::ReservationTerminalEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation terminal evidence is immutable".into(),
+                )),
+                EntryTypes::ReservationCapacityEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation capacity evidence is immutable".into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -167,6 +214,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::TransactionConflictResolution(_) => Ok(ValidateCallbackResult::Invalid(
                     "Transaction conflict resolutions are immutable".into(),
+                )),
+                EntryTypes::PurchaseIntent(_) => Ok(ValidateCallbackResult::Invalid(
+                    "PurchaseIntent records are immutable".into(),
+                )),
+                EntryTypes::ReservationCertificate(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ReservationCertificate records are immutable".into(),
+                )),
+                EntryTypes::ReservationTerminalEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation terminal evidence is immutable".into(),
+                )),
+                EntryTypes::ReservationCapacityEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation capacity evidence is immutable".into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -211,6 +270,33 @@ fn validate_create_transaction(
     if let Err(reason) = validate_create_transaction_fields(transaction, &action.author) {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
+
+    let certificate_record =
+        must_get_valid_record(transaction.reservation_certificate_hash.clone())?;
+    let certificate = certificate_record
+        .entry()
+        .to_app_option::<ReservationCertificate>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Could not decode reservation certificate: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Transaction reservation dependency is not a ReservationCertificate".into(),
+            ))
+        })?;
+
+    if let Err(reason) = validate_transaction_reservation_binding(transaction, &certificate) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    if certificate_record.action().author() != &transaction.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation certificate is not seller-authored".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -222,6 +308,9 @@ fn validate_create_transaction_fields(
 
     if author != &transaction.buyer {
         return Err("Transaction creation must be authored by the buyer".into());
+    }
+    if transaction.reservation_certificate_hash == transaction.listing_hash {
+        return Err("Reservation certificate must be distinct from the listing hash".into());
     }
     if transaction.status != TransactionStatus::Pending {
         return Err("New transactions must start in Pending status".into());
@@ -282,6 +371,7 @@ fn validate_transaction_update_fields(
     if updated.buyer != original.buyer
         || updated.seller != original.seller
         || updated.listing_hash != original.listing_hash
+        || updated.reservation_certificate_hash != original.reservation_certificate_hash
         || updated.quantity != original.quantity
         || updated.total_price_cents != original.total_price_cents
         || updated.created_at != original.created_at
@@ -383,6 +473,7 @@ mod tests {
             buyer: mock_agent(1),
             seller: mock_agent(2),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 1,
             total_price_cents: 1999,
             status: TransactionStatus::Pending,

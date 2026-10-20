@@ -1,0 +1,12 @@
+[package]
+name = "listings_types"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "listings_types"
+
+[dependencies]
+hdi.workspace = true
+serde.workspace = true
+holochain_serialized_bytes.workspace = true

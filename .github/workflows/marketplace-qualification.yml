@@ -1,0 +1,118 @@
+name: Marketplace Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-marketplace/**'
+      - '.github/workflows/marketplace-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Keep semantic tests independent from the formatting gate.
+concurrency:
+  group: marketplace-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Marketplace formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Check changed Rust formatting
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune --depth=1 origin "$BASE_SHA"
+          mapfile -t rust_files < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '*.rs')
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo 'No changed Rust files.'
+            exit 0
+          fi
+          for file in "${rust_files[@]}"; do
+            rustfmt --edition 2024 --check "$file"
+          done
+
+      - name: Report backend-wide formatting baseline
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        shell: bash
+        run: |
+          set +e
+          cargo fmt --all --check 2>&1 | tee /tmp/marketplace-format.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "## Backend-wide formatting baseline"
+            echo
+            echo "This is diagnostic only; changed Rust formatting above remains strict."
+            echo
+            echo "----- formatter output -----"
+            cat /tmp/marketplace-format.log
+            echo "----- end formatter output -----"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  tests:
+    name: Marketplace tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Test transaction integrity algebra
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        shell: bash
+        run: |
+          set +e
+          cargo test -p transactions_integrity 2>&1 | tee /tmp/transactions-integrity.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "## transactions_integrity"
+            echo
+            echo "----- test output -----"
+            cat /tmp/transactions-integrity.log
+            echo "----- end test output -----"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Test marketplace backend workspace
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        shell: bash
+        run: |
+          set +e
+          cargo test --workspace 2>&1 | tee /tmp/marketplace-workspace.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "## Marketplace workspace"
+            echo
+            echo "----- workspace output -----"
+            cat /tmp/marketplace-workspace.log
+            echo "----- end workspace output -----"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
