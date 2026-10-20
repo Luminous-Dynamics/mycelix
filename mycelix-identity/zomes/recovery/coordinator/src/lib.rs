@@ -410,6 +410,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid recovery config".into()
         )))?;
+    let config_action_hash = config_record.action_address().clone();
 
     // Verify initiator is a trustee (constant-time to prevent timing side-channel)
     let is_trustee = config.trustees.iter().fold(0u8, |acc, trustee| {
@@ -459,6 +460,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         status: RecoveryStatus::Pending,
         created: now,
         time_lock_expires: None,
+        config_action_hash: Some(config_action_hash.clone()),
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryRequest(request))?;
@@ -481,12 +483,14 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         vote: VoteDecision::Approve,
         comment: Some("Initiated recovery".to_string()),
         voted_at: now,
+        request_action_hash: Some(action_hash.clone()),
+        config_action_hash: Some(config_action_hash.clone()),
     };
 
     let vote_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
 
     create_link(
-        action_hash.clone(),
+        string_to_entry_hash(&request_id_for_event),
         vote_hash,
         LinkTypes::RequestToVotes,
         (),
@@ -545,6 +549,44 @@ pub struct InitiateRecoveryInput {
     pub reason: String,
 }
 
+fn did_from_recovery_request_id(request_id: &str) -> Option<String> {
+    let suffix = request_id.strip_prefix("recovery:")?;
+    let (did, timestamp) = suffix.rsplit_once(':')?;
+    if !did.starts_with("did:mycelix:") || timestamp.parse::<i64>().is_err() {
+        return None;
+    }
+    Some(did.to_string())
+}
+
+fn get_recovery_request_record_by_id(request_id: &str) -> ExternResult<Option<Record>> {
+    let Some(did) = did_from_recovery_request_id(request_id) else {
+        return Ok(None);
+    };
+    let links = get_links(
+        LinkQuery::try_new(string_to_entry_hash(&did), LinkTypes::DidToRecoveryRequest)?,
+        GetStrategy::default(),
+    )?;
+    let mut matches: Vec<(Timestamp, Record)> = Vec::new();
+    for link in links {
+        let Ok(action_hash) = ActionHash::try_from(link.target.clone()) else {
+            continue;
+        };
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            let request = record
+                .entry()
+                .to_app_option::<RecoveryRequest>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if request.as_ref().is_some_and(|request| request.id == request_id) {
+                matches.push((link.timestamp, record));
+            }
+        }
+    }
+    Ok(matches
+        .into_iter()
+        .max_by_key(|(timestamp, _)| *timestamp)
+        .map(|(_, record)| record))
+}
+
 /// Vote on a recovery request
 #[hdk_extern]
 pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
@@ -582,6 +624,46 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         )));
     }
 
+    let request_record = get_recovery_request_record_by_id(&input.request_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request ID was not found or is malformed".into()
+        )))?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request entry could not be decoded".into()
+        )))?;
+    if request.id != input.request_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request ID does not match the referenced request".into()
+        )));
+    }
+    let request_action_hash = request_record.action_address().clone();
+    let config_action_hash = request.config_action_hash.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Legacy recovery request has no pinned configuration and cannot accept new votes".into()
+        )
+    ))?;
+    let config_record = get(config_action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Pinned recovery config could not be loaded".into())
+    ))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Pinned recovery config could not be decoded".into()
+        )))?;
+    if config.did != request.did
+        || !config.trustees.iter().any(|trustee| trustee == &input.trustee_did)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only a trustee in this request's pinned configuration may vote".into()
+        )));
+    }
+
     // Prevent duplicate votes: check if this trustee already voted on this request
     let existing_votes = get_recovery_votes(input.request_id.clone())?;
     for record in &existing_votes {
@@ -606,6 +688,8 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         vote: input.vote,
         comment: input.comment,
         voted_at: now,
+        request_action_hash: Some(request_action_hash),
+        config_action_hash: Some(config_action_hash),
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
@@ -748,6 +832,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
             status: RecoveryStatus::Approved,
             created: current_request.created,
             time_lock_expires: Some(time_lock_expires),
+            config_action_hash: current_request.config_action_hash.clone(),
         };
 
         update_entry(
@@ -765,6 +850,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
             status: RecoveryStatus::Rejected,
             created: current_request.created,
             time_lock_expires: None,
+            config_action_hash: current_request.config_action_hash.clone(),
         };
 
         update_entry(
@@ -841,6 +927,16 @@ mod tests {
             &format!("did:mycelix:{other}"),
             &self_config
         ));
+    }
+
+    #[test]
+    fn recovery_request_id_parser_preserves_colons_inside_did() {
+        assert_eq!(
+            did_from_recovery_request_id("recovery:did:mycelix:agentkey:12345").as_deref(),
+            Some("did:mycelix:agentkey")
+        );
+        assert!(did_from_recovery_request_id("recovery:did:mycelix:agentkey:not-a-timestamp").is_none());
+        assert!(did_from_recovery_request_id("arbitrary-id").is_none());
     }
 
     #[test]
@@ -996,6 +1092,7 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         status: RecoveryStatus::Completed,
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
+        config_action_hash: current_request.config_action_hash.clone(),
     };
 
     let action_hash = update_entry(
