@@ -1518,6 +1518,7 @@ struct ConsentCapabilityOffer {
     grant_hash: ActionHash,
     capability_grant_hash: ActionHash,
     capability_secret: CapSecret,
+    expires_at: Option<Timestamp>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1525,6 +1526,7 @@ struct GrantConsentWithRemoteCapabilityInput {
     grantee: AgentPubKey,
     record_types: Vec<String>,
     expires_at: Option<Timestamp>,
+    allow_indefinite: bool,
     active: bool,
 }
 
@@ -1601,11 +1603,16 @@ async fn test_consent_remote_read_scope_stolen_secret_and_revocation() {
                 grantee: grantee.agent_pubkey().clone(),
                 record_types: vec!["vaccination".to_string()],
                 expires_at: None,
+                allow_indefinite: false,
                 active: true,
             },
         )
         .await;
     assert_eq!(&offer.owner, owner.agent_pubkey());
+    assert!(
+        offer.expires_at.is_some(),
+        "remote capability must default to a bounded expiry"
+    );
     assert_eq!(&offer.grantee, grantee.agent_pubkey());
 
     let claim_input = StoreConsentCapabilityInput {
