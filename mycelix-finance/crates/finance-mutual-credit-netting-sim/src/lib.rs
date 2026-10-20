@@ -708,7 +708,7 @@ mod tests {
         assert_eq!(report.gross_obligation_count, 1);
         assert_eq!(report.excluded_obligations.len(), 1);
         assert_eq!(report.excluded_obligations[0].reason, ExcludedReason::Disputed);
-        assert!(!report.input_coverage_complete);
+        assert!(!report.all_supplied_obligations_eligible);
         assert!(!report.settlement_executed);
     }
 
