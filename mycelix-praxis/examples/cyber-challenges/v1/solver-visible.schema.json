@@ -105,12 +105,7 @@
           "minLength": 1
         },
         "conflict_status": {
-          "type": "string",
-          "enum": [
-            "no_known_conflict",
-            "conflicts_with_other_evidence",
-            "not_assessed"
-          ]
+          "$ref": "#/$defs/EvidenceConflictStatus"
         },
         "source_snapshot_id": {
           "type": "string",
@@ -183,6 +178,14 @@
           "minLength": 1
         }
       }
+    },
+    "EvidenceConflictStatus": {
+      "type": "string",
+      "enum": [
+        "no_known_conflict",
+        "conflicts_with_other_evidence",
+        "not_assessed"
+      ]
     }
   }
 }
