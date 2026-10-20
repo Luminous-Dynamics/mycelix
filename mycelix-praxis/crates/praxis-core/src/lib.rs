@@ -19,6 +19,7 @@ pub mod contracts;
 pub mod crypto;
 pub mod cyber_challenges;
 pub mod errors;
+pub mod evidence_efficiency;
 pub mod export_formats;
 pub mod proof_of_learning;
 pub mod provenance;
