@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.example/schemas/constitutional-event-admission-crosswalk.v1.schema.json",
+  "title": "Mycelix Constitutional Event Admission Crosswalk v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "crosswalk_id",
+    "version",
+    "status",
+    "activation_status",
+    "activation_allowed",
+    "provider_lane",
+    "observed_at_utc",
+    "source_bindings",
+    "qualification_dependencies",
+    "identity_mapping",
+    "claim_binding_requirements",
+    "integrity_boundary_requirements",
+    "activation_gates",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-event-admission-crosswalk.v1"},
+    "crosswalk_id": {"const": "MYC-CONST-003D1D-E1A"},
+    "version": {"type": "string", "minLength": 1},
+    "status": {"enum": ["PendingQualifiedCrosswalk", "QualifiedCrosswalk"]},
+    "activation_status": {"enum": ["Blocked", "EligibleForE1Activation"]},
+    "activation_allowed": {"type": "boolean"},
+    "provider_lane": {"const": "EmitEvent"},
+    "observed_at_utc": {"type": "string", "minLength": 1},
+    "source_bindings": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "commit", "path", "git_blob_sha1", "role"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "path": {"type": "string", "minLength": 1},
+          "git_blob_sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "role": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "qualification_dependencies": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "semantic_head", "verifier_head", "qualification_run_id", "observed_state", "qualification_receipt"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "verifier_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "qualification_run_id": {"type": "integer", "minimum": 1},
+          "observed_state": {"enum": ["queued", "pending", "failed", "cancelled", "qualified"]},
+          "qualification_receipt": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "identity_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "proposal_id",
+        "action_id",
+        "action_commitment",
+        "claim_binding_reference",
+        "provider_key",
+        "provider_key_regeneration_allowed",
+        "operation_id_regeneration_allowed",
+        "action_commitment_regeneration_allowed",
+        "qualification_inheritance_allowed",
+        "status"
+      ],
+      "properties": {
+        "operation_id": {"type": "string"},
+        "proposal_id": {"type": "string"},
+        "action_id": {"type": "string"},
+        "action_commitment": {"type": "string"},
+        "claim_binding_reference": {"type": "string"},
+        "provider_key": {"type": "string"},
+        "provider_key_regeneration_allowed": {"type": "boolean"},
+        "operation_id_regeneration_allowed": {"type": "boolean"},
+        "action_commitment_regeneration_allowed": {"type": "boolean"},
+        "qualification_inheritance_allowed": {"type": "boolean"},
+        "status": {"enum": ["LocallySourceBound", "QualifiedCrosswalk"]}
+      }
+    },
+    "claim_binding_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_b4_security_fields_required", "target_relationship", "payload_relationship", "claim_binding_commitment_relationship"],
+      "properties": {
+        "all_b4_security_fields_required": {"type": "array", "minItems": 10, "items": {"type": "string"}},
+        "target_relationship": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "required_relation", "descriptor"],
+          "properties": {
+            "status": {"enum": ["PendingQualifiedCrosswalk", "QualifiedCrosswalk"]},
+            "required_relation": {"type": "string"},
+            "descriptor": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["domain_separator", "encoding", "digest", "ordered_fields", "provider_lane_constant"],
+              "properties": {
+                "domain_separator": {"type": "string"},
+                "encoding": {"type": "string"},
+                "digest": {"type": "string"},
+                "ordered_fields": {"type": "array", "minItems": 5, "items": {"type": "string"}},
+                "provider_lane_constant": {"const": "EmitEvent"}
+              }
+            }
+          }
+        },
+        "payload_relationship": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "required_relation", "payload_source", "payload_commitment_encoding"],
+          "properties": {
+            "status": {"enum": ["PendingQualifiedCrosswalk", "QualifiedCrosswalk"]},
+            "required_relation": {"type": "string"},
+            "payload_source": {"type": "string"},
+            "payload_commitment_encoding": {"type": "string"}
+          }
+        },
+        "claim_binding_commitment_relationship": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "required_relation", "algorithm_selection"],
+          "properties": {
+            "status": {"enum": ["PendingQualifiedCrosswalk", "QualifiedCrosswalk"]},
+            "required_relation": {"type": "string"},
+            "algorithm_selection": {"type": "string"}
+          }
+        }
+      }
+    },
+    "integrity_boundary_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publisher_must_equal_dht_action_author_did",
+        "coordinator_only_authorization_is_sufficient",
+        "event_entry_must_be_immutable",
+        "action_key_link_must_be_integrity_validated",
+        "action_key_link_delete_allowed",
+        "same_action_same_semantics",
+        "same_action_conflicting_semantics",
+        "conflicting_same_action_last_write_wins_allowed",
+        "signal_projection_can_define_constitutional_completion"
+      ],
+      "properties": {
+        "publisher_must_equal_dht_action_author_did": {"type": "boolean"},
+        "coordinator_only_authorization_is_sufficient": {"type": "boolean"},
+        "event_entry_must_be_immutable": {"type": "boolean"},
+        "action_key_link_must_be_integrity_validated": {"type": "boolean"},
+        "action_key_link_delete_allowed": {"type": "boolean"},
+        "same_action_same_semantics": {"enum": ["ExistingSame"]},
+        "same_action_conflicting_semantics": {"enum": ["IntegrityConflict"]},
+        "conflicting_same_action_last_write_wins_allowed": {"type": "boolean"},
+        "signal_projection_can_define_constitutional_completion": {"type": "boolean"}
+      }
+    },
+    "activation_gates": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "non_claims": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

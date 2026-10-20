@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-effect-provider-conformance.v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "profile_revision",
+    "authority_class",
+    "source_binding",
+    "provider_lanes",
+    "required_adapter_contract",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-effect-provider-conformance.v1"},
+    "profile_id": {"type": "string", "minLength": 1},
+    "profile_revision": {"type": "integer", "minimum": 1},
+    "authority_class": {"const": "ObservedSourceBound"},
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "runtime_subject_sha", "d1c_semantic_parent", "files"],
+      "properties": {
+        "repository": {"const": "Luminous-Dynamics/mycelix"},
+        "runtime_subject_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "d1c_semantic_parent": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "git_blob_sha1", "role"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "git_blob_sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+              "role": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "provider_lanes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action_type",
+          "lane_id",
+          "current_dispatch_target",
+          "conformance",
+          "request_contract",
+          "stable_effect_identity",
+          "idempotency",
+          "authoritative_outcome_query",
+          "receipt_verification",
+          "provider_atomicity",
+          "authorization_binding",
+          "observations",
+          "repair_prerequisites"
+        ],
+        "properties": {
+          "action_type": {"enum": ["TransferCredits", "UpdateParameter", "EmitEvent"]},
+          "lane_id": {"type": "string", "minLength": 1},
+          "current_dispatch_target": {"type": "string", "minLength": 1},
+          "conformance": {"enum": ["Compatible", "Incompatible", "NotEstablished", "ProjectionOnly"]},
+          "request_contract": {"type": "string", "minLength": 1},
+          "stable_effect_identity": {"enum": ["Established", "Partial", "NotEstablished", "NotApplicableToProjection"]},
+          "idempotency": {"enum": ["Established", "Partial", "NotEstablished", "NotApplicableToProjection"]},
+          "authoritative_outcome_query": {"enum": ["Established", "Partial", "NotEstablished", "NotApplicableToProjection"]},
+          "receipt_verification": {"enum": ["Established", "Partial", "NotEstablished", "NotApplicableToProjection"]},
+          "provider_atomicity": {"enum": ["Established", "Partial", "NotEstablished", "NotApplicableToProjection"]},
+          "authorization_binding": {"enum": ["Established", "Partial", "Incompatible", "NotEstablished", "NotApplicableToProjection"]},
+          "observations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "repair_prerequisites": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "required_adapter_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_schema_compatible_with_provider",
+        "authorization_must_hold_at_integrity_boundary",
+        "stable_action_identity_before_effect",
+        "durable_intent_before_effect",
+        "known_no_effect_requires_authoritative_provider_evidence",
+        "timeout_or_transport_error_is_unknown_outcome",
+        "repeat_same_action_identity_cannot_repeat_physical_effect_unless_qualified_replay_safe",
+        "machine_readable_receipt_or_query_evidence",
+        "derived_projections_cannot_define_constitutional_completion"
+      ],
+      "properties": {
+        "request_schema_compatible_with_provider": {"const": true},
+        "authorization_must_hold_at_integrity_boundary": {"const": true},
+        "stable_action_identity_before_effect": {"const": true},
+        "durable_intent_before_effect": {"const": true},
+        "known_no_effect_requires_authoritative_provider_evidence": {"const": true},
+        "timeout_or_transport_error_is_unknown_outcome": {"const": true},
+        "repeat_same_action_identity_cannot_repeat_physical_effect_unless_qualified_replay_safe": {"const": true},
+        "machine_readable_receipt_or_query_evidence": {"const": true},
+        "derived_projections_cannot_define_constitutional_completion": {"const": true}
+      }
+    },
+    "non_claims": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+  }
+}

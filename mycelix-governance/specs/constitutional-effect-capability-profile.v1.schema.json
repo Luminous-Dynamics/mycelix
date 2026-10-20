@@ -1,0 +1,92 @@
+{
+  "$id": "urn:mycelix:schema:constitutional-effect-capability-profile:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {"minLength": 1, "type": "string"},
+          "compensation": {"enum": ["Unknown", "Compensatable", "Irreversible"]},
+          "effect_boundary": {"enum": ["LocalSignal", "CrossZomeCall", "ExternalProvider", "Unknown"]},
+          "eligible_for_claimed_atomic_batch": {"type": "boolean"},
+          "outcome_observability": {"enum": ["Unknown", "AuthoritativeQuery", "DurableReceipt", "AckOnly", "Opaque"]},
+          "provider_batch_atomicity": {"enum": ["NoneObserved", "ProviderAtomic", "LocalAtomic", "Unknown"]},
+          "replay_safety": {"enum": ["Unknown", "StableKeyIdempotent", "ProviderTokenIdempotent", "NonIdempotent"]},
+          "safe_retry_without_reconciliation": {"type": "boolean"},
+          "target": {"minLength": 1, "type": "string"}
+        },
+        "required": ["action_type", "effect_boundary", "target", "replay_safety", "outcome_observability", "compensation", "provider_batch_atomicity", "safe_retry_without_reconciliation", "eligible_for_claimed_atomic_batch"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "authority_class": {"const": "ObservedSourceBound"},
+    "batch_observation": {
+      "additionalProperties": false,
+      "properties": {
+        "dispatch_order": {"enum": ["Sequential", "ProviderAtomic", "Unknown"]},
+        "durable_execution_record_timing": {"enum": ["BeforeDispatch", "AfterDispatch", "Unknown"]},
+        "execution_identity_timing": {"enum": ["BeforeDispatch", "AfterDispatch", "Unknown"]},
+        "partial_completion_representation": {"enum": ["Explicit", "CollapsedToFailed", "Unknown"]},
+        "physical_batch_atomicity": {"enum": ["NoneObserved", "ProviderAtomic", "LocalAtomic", "Unknown"]},
+        "structured_result_compatibility": {"enum": ["Compatible", "MismatchObserved", "Unknown"]}
+      },
+      "required": ["dispatch_order", "durable_execution_record_timing", "execution_identity_timing", "physical_batch_atomicity", "partial_completion_representation", "structured_result_compatibility"],
+      "type": "object"
+    },
+    "non_claims": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "pending_dependencies": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "profile_id": {"minLength": 1, "type": "string"},
+    "profile_revision": {"const": 1},
+    "required_runtime_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "compensation_is_new_forward_effect": {"const": true},
+        "durable_operation_before_first_effect": {"const": true},
+        "durable_ordered_action_intents_before_first_effect": {"const": true},
+        "machine_readable_observations": {"const": true},
+        "non_replay_safe_retry_requires_reconciled_no_effect": {"const": true},
+        "physical_batch_atomicity_requires_explicit_provider_evidence": {"const": true},
+        "stable_action_identity_before_attempt": {"const": true},
+        "stable_operation_identity_before_first_effect": {"const": true},
+        "successful_prefix_must_not_be_plain_failed": {"const": true},
+        "unknown_outcome_blocks_later_actions": {"const": true}
+      },
+      "required": ["durable_operation_before_first_effect", "durable_ordered_action_intents_before_first_effect", "stable_operation_identity_before_first_effect", "stable_action_identity_before_attempt", "unknown_outcome_blocks_later_actions", "non_replay_safe_retry_requires_reconciled_no_effect", "successful_prefix_must_not_be_plain_failed", "machine_readable_observations", "compensation_is_new_forward_effect", "physical_batch_atomicity_requires_explicit_provider_evidence"],
+      "type": "object"
+    },
+    "runtime_findings": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "schema": {"const": "mycelix.constitutional-effect-capability-profile.v1"},
+    "source_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "d1a_semantic_head": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "files": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "git_blob_sha1": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+              "path": {"type": "string"},
+              "role": {"enum": ["execution_coordinator", "execution_integrity"]}
+            },
+            "required": ["path", "git_blob_sha1", "role"],
+            "type": "object"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "repository": {"const": "Luminous-Dynamics/mycelix"},
+        "runtime_subject_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["repository", "runtime_subject_sha", "d1a_semantic_head", "files"],
+      "type": "object"
+    }
+  },
+  "required": ["schema", "profile_id", "profile_revision", "authority_class", "source_binding", "batch_observation", "actions", "runtime_findings", "required_runtime_contract", "pending_dependencies", "non_claims"],
+  "title": "Mycelix Constitutional Effect Capability Profile v1",
+  "type": "object"
+}
