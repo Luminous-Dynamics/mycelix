@@ -408,10 +408,12 @@ pub fn evaluate_receipt(
             .and_then(Value::as_object)
             .is_some_and(|measurements| !measurements.is_empty());
 
-        let execution_status = if applicability == "not_applicable" {
-            "not_applicable"
-        } else if outcome == "failed" || has_check_failure {
+        // An observed failure must never be hidden by marking the scenario
+        // not applicable. Contradictory reports are conservatively failures.
+        let execution_status = if outcome == "failed" || has_check_failure {
             "failed"
+        } else if applicability == "not_applicable" {
+            "not_applicable"
         } else if !source_is_clean {
             "incomplete"
         } else if outcome == "passed"
@@ -661,6 +663,24 @@ mod tests {
             .iter_mut()
             .find(|item| item["scenario_id"] == "CIV-CAP-001")
             .unwrap();
+        entry["outcome"] = json!("failed");
+        let report = evaluate(&receipt).unwrap();
+        assert_eq!(report["status"], "FAILED");
+        assert_eq!(report["safety_gate_status"], "FAILED");
+        assert_eq!(report["release_qualified"], false);
+    }
+
+    #[test]
+    fn not_applicable_cannot_mask_an_observed_hard_gate_failure() {
+        let mut receipt = valid_receipt("finance");
+        let entry = receipt["executions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["scenario_id"] == "CIV-CAP-001")
+            .unwrap();
+        entry["applicability"] = json!("not_applicable");
+        entry["applicability_reason"] = json!("contradictory synthetic report");
         entry["outcome"] = json!("failed");
         let report = evaluate(&receipt).unwrap();
         assert_eq!(report["status"], "FAILED");
