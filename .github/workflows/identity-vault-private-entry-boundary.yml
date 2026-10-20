@@ -1,0 +1,116 @@
+name: Identity Vault Private Entry Boundary
+
+on:
+  push:
+    branches:
+      - fix/identity-vault-private-entry-boundary-v0
+    paths:
+      - .github/workflows/identity-vault-private-entry-boundary.yml
+      - mycelix-personal/zomes/identity-vault/integrity/src/lib.rs
+      - mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs
+      - mycelix-personal/tests/sweettest_integration.rs
+      - mycelix-workspace/mycelix-personal/zomes/identity-vault/integrity/src/lib.rs
+      - mycelix-workspace/mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs
+      - mycelix-workspace/mycelix-personal/tests/sweettest_integration.rs
+      - docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md
+      - mycelix-workspace/docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md
+  pull_request:
+    paths:
+      - .github/workflows/identity-vault-private-entry-boundary.yml
+      - mycelix-personal/zomes/identity-vault/integrity/src/lib.rs
+      - mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs
+      - mycelix-personal/tests/sweettest_integration.rs
+      - mycelix-workspace/mycelix-personal/zomes/identity-vault/integrity/src/lib.rs
+      - mycelix-workspace/mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs
+      - mycelix-workspace/mycelix-personal/tests/sweettest_integration.rs
+      - docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md
+      - mycelix-workspace/docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-vault-private-entry-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-contract:
+    name: Identity Vault native checks and Sweettest compile (not conductor pass)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install pinned Rust
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup target add wasm32-unknown-unknown --toolchain 1.96.0
+          rustc +1.96.0 --version
+          cargo +1.96.0 --version
+
+      - name: Assert exact checked source SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          printf 'qualification_source_sha=%s\n' "$actual"
+
+      - name: Assert required root/workspace mirror parity
+        run: |
+          set -euo pipefail
+          pairs=(
+            "mycelix-personal/zomes/identity-vault/integrity/src/lib.rs mycelix-workspace/mycelix-personal/zomes/identity-vault/integrity/src/lib.rs"
+            "mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs mycelix-workspace/mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs"
+            "mycelix-personal/tests/sweettest_integration.rs mycelix-workspace/mycelix-personal/tests/sweettest_integration.rs"
+            "docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md mycelix-workspace/docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md"
+          )
+          for pair in "${pairs[@]}"; do
+            read -r left right <<< "$pair"
+            cmp --silent "$left" "$right"
+            printf 'mirror_equal.%s=%s\n' "$left" "$(git rev-parse "HEAD:$left")"
+            printf 'mirror_equal.%s=%s\n' "$right" "$(git rev-parse "HEAD:$right")"
+          done
+
+      - name: Run Identity Vault integrity unit tests
+        run: cargo +1.96.0 test --manifest-path mycelix-personal/Cargo.toml -p identity_vault_integrity
+
+      - name: Run Identity Vault coordinator unit tests
+        run: cargo +1.96.0 test --manifest-path mycelix-personal/Cargo.toml -p identity_vault
+
+      - name: Compile Personal Sweettest integration binary
+        run: cargo +1.96.0 test --manifest-path mycelix-personal/tests/Cargo.toml --test sweettest_integration --no-run
+
+      - name: Emit exact-source qualification receipt
+        if: success()
+        run: |
+          set -euo pipefail
+          receipt=identity-vault-private-entry-receipt.txt
+          {
+            printf 'receipt_schema=identity-vault-private-entry-v1\n'
+            printf 'source_commit=%s\n' "$(git rev-parse HEAD)"
+            printf 'rustc=%s\n' "$(rustc +1.96.0 --version)"
+            printf 'cargo=%s\n' "$(cargo +1.96.0 --version)"
+            for path in \
+              mycelix-personal/zomes/identity-vault/integrity/src/lib.rs \
+              mycelix-personal/zomes/identity-vault/coordinator/src/lib.rs \
+              mycelix-personal/tests/sweettest_integration.rs \
+              docs/research/IDENTITY_VAULT_PRIVATE_ENTRY_BOUNDARY_V0.md; do
+              printf 'git_blob.%s=%s\n' "$path" "$(git rev-parse "HEAD:$path")"
+              printf 'sha256.%s=%s\n' "$path" "$(sha256sum "$path" | cut -d ' ' -f 1)"
+            done
+          } > "$receipt"
+          cat "$receipt"
+
+      - name: Upload exact-source qualification receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-vault-private-entry-${{ github.event.pull_request.head.sha || github.sha }}
+          path: identity-vault-private-entry-receipt.txt
+          if-no-files-found: error
