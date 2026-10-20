@@ -1,9 +1,10 @@
 # Claim Policy Performance and Comparative Qualification V1
 
-**Status:** benchmark harness and measurement protocol; no performance superiority is claimed.  
+**Status:** a paired same-runner warm-path measurement supports a large improvement from compiled-schema reuse on the frozen lifecycle microbenchmark; this does not establish production or cross-engine superiority.  
 **Scope:** the Rust claim-ceiling reference evaluator, its embedded JSON Schema validation path, and policy lifecycle reference checks.  
-**Baseline source:** lifecycle core qualification head 902d5b0896ce500e886b61db08d8160ba786bd3c.  
-**Candidate source:** this follow-on branch; exact candidate SHA must be captured from the qualification run.
+**Baseline source:** uncached lifecycle core head `902d5b0896ce500e886b61db08d8160ba786bd3c`.  
+**Measured candidate source:** `570ca1bbdb95b91a2b2fd4d7d23b5b31a2625099`.  
+**Measured run:** [Claim Policy Performance V1, run 39418510189](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39418510189); artifact SHA-256 `fe7b71b2bb651efa6548e5d7eda60158870877af3597bdf1fd135a96bb3e05c6`.
 
 ## 1. Engineering slice
 
@@ -17,9 +18,24 @@ This candidate caches compiled validators by the **exact embedded schema bytes**
 - the steady-state cache uses a read/write lock so concurrent cache hits do not serialize on a write mutex;
 - first-use compilation is serialized and the cache is process-local; it is not a schema registry or durable trust store.
 
-The new unit test asserts that exact schema bytes reuse the same compiled validator and that a byte-distinct schema receives a distinct validator. The Criterion harness warms the embedded schemas and measures the complete lifecycle evaluator against all frozen lifecycle cases. Hosted compile/test/Clippy and benchmark artifacts are required before this change is called qualified. No timing result is asserted in this document.
+The new unit test asserts that exact schema bytes reuse the same compiled validator and that a byte-distinct schema receives a distinct validator. The Criterion harness warms the embedded schemas and measures the complete lifecycle evaluator against all frozen lifecycle cases. Hosted compile/test/Clippy and benchmark artifacts are required before this change is called qualified.
 
-## 2. How to execute the benchmark
+## 2. First paired measurement (2026-10-20)
+
+The first automated comparison ran **baseline → candidate → candidate → baseline** on one GitHub-hosted runner, using the same benchmark source, exact fixture bytes, package manifest, generated dependency lock, and Rust/Cargo 1.96.0. The runner reported an AMD EPYC 9V74 with 4 vCPUs. The fixture SHA-256 was `a13d4c0c8a17dff93a278ee0e14970c10ec0e6e359b6ef0002c647a5f2414fa7`.
+
+The table reports the median across the 20 **per-case Criterion median estimates**, not request-level p50/p95.
+
+| Run | Uncached baseline | Compiled-schema cache | Candidate / baseline | Interpretation |
+|---|---:|---:|---:|---|
+| Round 1 | 2,251.964 µs | 25.907 µs | 0.01150 | ~86.9× lower warm-path latency |
+| Round 2 | 2,235.286 µs | 26.018 µs | 0.01164 | ~85.9× lower warm-path latency |
+
+Across the 40 paired per-case ratios (20 vectors × 2 rounds), the median candidate/baseline ratio was **0.0116**, or approximately **86.2× lower latency (98.84% lower)** for this warm-path evaluator workload. Individual per-case ratios were tightly grouped: 0.0113–0.0118 in round 1 and 0.0114–0.0119 in round 2. Raw Criterion samples, estimates, per-case TSV and full host/toolchain provenance are retained in the linked workflow artifact.
+
+**Interpretation boundary:** this is strong evidence that recompiling the same embedded JSON Schemas on every evaluation was dominating this particular hot path, and that validator reuse removes most of that cost. It is one hosted CPU class with two process runs per side, not five-run qualification across independent machines. It does not measure cold startup, concurrent contention, memory/allocations, signature/TUF verification, the durable store, real evidence/action consumers, or a whole production request path. It is not a comparison against Cedar or OPA. Before treating the result as a stable SLO, repeat on at least five independent same-class jobs and add separate cold-start, contention and end-to-end pipeline measurements.
+
+## 3. How to execute the benchmark
 
 From the repository root, on the package's supported Rust toolchain:
 
@@ -40,13 +56,13 @@ For an attributable before/after comparison:
 
 The checked-in benchmark is initially a measurement instrument, not a latency gate. Hosted-runner performance is too noisy to become a hard pass/fail threshold until a stable runner profile and repeated historical baseline exist.
 
-## 3. Qualification ladder
+## 4. Qualification ladder
 
 | Gate | Required evidence | Current status |
 |---|---|---|
-| Schema-cache correctness | Exact-byte reuse test, distinct-byte non-aliasing test, unchanged frozen semantic corpus | Implemented in candidate; exact-head hosted result pending |
-| Correctness regression | Format, all Rust tests, strict Clippy, independent jq lifecycle oracle, deterministic CLI replay | Must pass on the exact candidate SHA |
-| Warm-path performance | All 20 cases, Criterion raw data and provenance bundle | Harness implemented; measurements pending |
+| Schema-cache correctness | Exact-byte reuse test, distinct-byte non-aliasing test, unchanged frozen semantic corpus | Implemented; exact-head Rust gates passed on prior cache head; latest paired benchmark run passed |
+| Correctness regression | Format, all Rust tests, strict Clippy, independent jq lifecycle oracle, deterministic CLI replay | Passed on cache-only exact head; durable-store branch has separate exact-head gates |
+| Warm-path performance | All 20 cases, Criterion raw data and provenance bundle | First paired run complete; ~86× lower per-case median estimates on the tested host; replication pending |
 | Cold-start performance | Fresh-process first evaluation, including both descriptor and receipt schema compilation | Not yet implemented |
 | Contended performance | Multi-threaded harness, throughput and per-request latency distribution | Not yet implemented |
 | Resource behavior | Peak RSS, allocations where measurable, bounded input, memory under concurrency | Follow-up |
@@ -54,7 +70,7 @@ The checked-in benchmark is initially a measurement instrument, not a latency ga
 | Storage safety | Atomic state-update / crash / restart / multi-process race qualification | Not implemented by this performance slice |
 | Consumer boundary | A lifecycle receipt alone cannot admit evidence or authorize an operation | Existing lifecycle receipt carries both grants as false; no production consumer qualification is claimed |
 
-## 4. Benchmarks and acceptance targets
+## 5. Benchmarks and acceptance targets
 
 Security and performance must be evaluated separately. A faster fail-open evaluator is a regression.
 
@@ -78,7 +94,7 @@ Zero failures in a generated corpus is statistical evidence, not a proof that fa
 - Keep the proposed pure-evaluator p95 target of under 1 ms for 10,000 prevalidated policy scopes as an explicit experiment hypothesis, not a production SLO, until a representative hardware/workload baseline exists.
 - Set no hard performance gate until repeated results establish noise bounds. Adopt an optimization only when correctness is unchanged and repeated comparisons demonstrate a meaningful improvement.
 
-## 5. Fair comparison with established systems
+## 6. Fair comparison with established systems
 
 The current reference evaluator is not itself a general-purpose authorization engine. Comparing its latency directly with a Cedar or OPA authorization query would be misleading. Use three distinct workloads:
 
@@ -95,7 +111,7 @@ Useful reference practices:
 
 Publish a workload adapter, input corpus digests, tool versions and raw results before making any “better than SOTA” claim. A meaningful claim should identify the exact workload and show comparable semantics, security properties, and operating costs.
 
-## 6. Paradigm shift: a policy promotion transaction
+## 7. Paradigm shift: a policy promotion transaction
 
 The defensible architecture is not one larger boolean. It is a transaction with separately qualified inputs and an atomic promotion boundary:
 
@@ -113,6 +129,6 @@ The next storage tranche should test: two concurrent writers with the same prior
 
 The next consumer tranche should attempt to turn lifecycle acceptance and policy fit into evidence admission or action authorization without the corresponding consumer-specific evidence/authority prerequisites. Both attempts must be rejected, including when the receipt is well-formed and its digests are valid.
 
-## 7. Nonclaims
+## 8. Nonclaims
 
-This candidate does not authenticate signatures, integrate a TUF client, obtain authoritative time/revocation state, persist anti-rollback heads, qualify canonical evidence admission, or grant operational authority. The cache optimization is not yet shown to improve measured latency. No comparison proves Mycelix superior to Cedar, OPA, or another industry system. Those claims require exact-head execution, repeatable measurements, comparable workloads, and independent review.
+This candidate does not authenticate signatures, integrate a TUF client, obtain authoritative time/revocation state, persist anti-rollback heads, qualify canonical evidence admission, or grant operational authority. The first paired result demonstrates a warm-path improvement for this specific schema-heavy evaluator; it does not establish cold-start, concurrent, whole-pipeline or production latency. No comparison proves Mycelix superior to Cedar, OPA, or another industry system. Those claims require additional independent runs, comparable workloads, and independent review.
