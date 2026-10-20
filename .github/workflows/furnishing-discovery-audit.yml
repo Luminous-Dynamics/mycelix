@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Checkout event revision
         uses: actions/checkout@v4
-      - name: Install workspace Rust toolchain
+      - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: 1.94.0
@@ -30,9 +30,42 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Prepare isolated domain/client workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$RUNNER_TEMP/furnishing-discovery-workspace"
+          mkdir -p "$workspace/crates"
+          cp -a mycelix-marketplace/frontend-leptos/crates/marketplace-domain "$workspace/crates/"
+          cp -a mycelix-marketplace/frontend-leptos/crates/marketplace-client "$workspace/crates/"
+          cat > "$workspace/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = ["crates/marketplace-domain", "crates/marketplace-client"]
+
+          [workspace.package]
+          edition = "2024"
+          rust-version = "1.94"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          async-trait = "0.1"
+          base64 = "0.22"
+          leptos = { version = "0.8", features = ["csr"] }
+          leptos_router = "0.8"
+          rmp-serde = "1"
+          serde = { version = "1", features = ["derive"] }
+          serde_bytes = "0.11"
+          thiserror = "2"
+          js-sys = "0.3"
+          wasm-bindgen = "0.2"
+          wasm-bindgen-futures = "0.4"
+          web-sys = { version = "0.3", features = ["Window", "Location"] }
+          EOF
+          echo "FURNISHING_AUDIT_WORKSPACE=$workspace" >> "$GITHUB_ENV"
       - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-marketplace/frontend-leptos/Cargo.toml --all -- --check
-      - name: Test typed discovery client
-        run: cargo test --manifest-path mycelix-marketplace/frontend-leptos/Cargo.toml -p marketplace-client
+        run: cargo fmt --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" --all -- --check
+      - name: Test typed discovery client and domain contracts
+        run: cargo test --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client
       - name: Lint typed discovery client
-        run: cargo clippy --manifest-path mycelix-marketplace/frontend-leptos/Cargo.toml -p marketplace-client --all-targets -- -D warnings
+        run: cargo clippy --manifest-path "$FURNISHING_AUDIT_WORKSPACE/Cargo.toml" -p marketplace-client --all-targets -- -D warnings
