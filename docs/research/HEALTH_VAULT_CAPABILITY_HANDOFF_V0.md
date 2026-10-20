@@ -91,6 +91,14 @@ Failed delivery is a separate retryable state; it is not `Delivered`. An acknowl
 
 ## 6. Frozen adversarial corpus
 
+A machine-readable, synthetic first version is committed alongside this note:
+- [Corpus: `HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json`](fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.json)
+- [JSON Schema: `HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json`](fixtures/HEALTH_VAULT_CAPABILITY_HANDOFF_V1.schema.json)
+
+The corpus contains 25 stable IDs (`HCH-001` through `HCH-025`) across positive control, identity-binding, tampering, expiry, revocation, delivery retry, key rotation and secret-sink checks. Every fixture expects zero protected health-payload bytes from the tested handoff/read boundary. Denials have typed failure codes; offline authorization is an explicit `unavailable` result rather than success. The schema requires each of the 25 known fixture IDs exactly once. Fixture data is synthetic and contains no capability secrets or patient payloads.
+
+**Current evidence ceiling:** the JSON and schema were parsed, and authoring-time structural assertions checked the count, ID uniqueness and zero-payload invariant. A standards-compliant JSON Schema validator and runtime harness have not yet been executed against these files. Corpus presence is not test execution or security qualification.
+
 Give every fixture a stable ID and classify its status as authored, executed, failed or blocked; do not count an unexecuted test as coverage evidence.
 
 | ID | Attack / boundary | Expected result |
