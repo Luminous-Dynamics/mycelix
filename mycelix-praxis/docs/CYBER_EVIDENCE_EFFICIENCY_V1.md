@@ -40,7 +40,7 @@ Use identical candidate requests, authority inputs, budget, evidence visibility,
 5. **Human reference:** collect independently reviewed analyst policies and adjudicate disagreements.
 6. **AI/tool-using policy:** evaluate only after the same restrictions and accounting apply; any generated request outside the allowed catalog is rejected and recorded.
 
-The integration-test harness now defines deterministic no-query, fixed-playbook, and metadata-only cheapest-authorized-first traces; the policy trace generator does not accept evaluator state. It does **not yet implement all policy agents above**, run a comparative study, estimate live-world priors, or demonstrate SOTA. The next implementation slice should add more independently reviewed cases and a separately reported oracle upper bound, while preserving the evaluator boundary.
+The integration-test harness defines deterministic no-query, fixed-playbook, and metadata-only cheapest-authorized-first traces. It also includes an explicitly evaluator-informed information-gain-per-cost oracle as a **synthetic upper bound only**; unlike the deployable baselines, that oracle can inspect hidden response partitions and is therefore not a fair solver comparison. No comparative study has run, live-world priors are not estimated, and no SOTA claim is made. The next milestone is to expand independently reviewed cases across all five cyber domains and then register the held-out evaluation.
 
 ## Hard gates and proposed evaluation scale
 
