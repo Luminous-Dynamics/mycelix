@@ -20,7 +20,10 @@ pub struct ProcessReferenceValidationError {
 
 impl ProcessReferenceValidationError {
     fn new(code: &'static str, path: impl Into<String>) -> Self {
-        Self { code, path: path.into() }
+        Self {
+            code,
+            path: path.into(),
+        }
     }
 }
 
@@ -53,10 +56,20 @@ pub struct ContentDigestV1 {
 impl ContentDigestV1 {
     pub fn validate(&self, path: &str) -> Result<(), ProcessReferenceValidationError> {
         if self.hex.len() != 64 {
-            return Err(ProcessReferenceValidationError::new("digest.invalid_length", path));
+            return Err(ProcessReferenceValidationError::new(
+                "digest.invalid_length",
+                path,
+            ));
         }
-        if !self.hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
-            return Err(ProcessReferenceValidationError::new("digest.invalid_hex", path));
+        if !self
+            .hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(ProcessReferenceValidationError::new(
+                "digest.invalid_hex",
+                path,
+            ));
         }
         Ok(())
     }
@@ -90,10 +103,23 @@ pub struct CanonicalIndustrialArtifactRefV1 {
 impl CanonicalIndustrialArtifactRefV1 {
     pub fn validate(&self, path: &str) -> Result<(), ProcessReferenceValidationError> {
         validate_token("token.empty", &format!("{path}.namespace"), &self.namespace)?;
-        validate_token("token.empty", &format!("{path}.identifier_scheme"), &self.identifier_scheme)?;
-        validate_token("token.empty", &format!("{path}.identifier"), &self.identifier)?;
-        validate_token("token.empty", &format!("{path}.semantic_version"), &self.semantic_version)?;
-        self.content_digest.validate(&format!("{path}.content_digest"))
+        validate_token(
+            "token.empty",
+            &format!("{path}.identifier_scheme"),
+            &self.identifier_scheme,
+        )?;
+        validate_token(
+            "token.empty",
+            &format!("{path}.identifier"),
+            &self.identifier,
+        )?;
+        validate_token(
+            "token.empty",
+            &format!("{path}.semantic_version"),
+            &self.semantic_version,
+        )?;
+        self.content_digest
+            .validate(&format!("{path}.content_digest"))
     }
 
     fn require_kind(
@@ -140,9 +166,13 @@ pub struct ProcessRegistryEntryV1 {
 impl ProcessRegistryEntryV1 {
     pub fn validate(&self) -> Result<(), ProcessReferenceValidationError> {
         if self.schema_version != PROCESS_REGISTRY_SCHEMA_V1 {
-            return Err(ProcessReferenceValidationError::new("registry.unsupported_schema", "schema_version"));
+            return Err(ProcessReferenceValidationError::new(
+                "registry.unsupported_schema",
+                "schema_version",
+            ));
         }
-        self.process_definition_ref.validate("process_definition_ref")?;
+        self.process_definition_ref
+            .validate("process_definition_ref")?;
         self.process_definition_ref.require_kind(
             IndustrialArtifactKindV1::ProcessDefinition,
             "process_definition_ref.kind",
@@ -164,7 +194,11 @@ impl ProcessRegistryEntryV1 {
 
         let mut aliases = BTreeSet::new();
         for (index, alias) in self.legacy_operation_aliases.iter().enumerate() {
-            validate_token("token.empty", &format!("legacy_operation_aliases[{index}]"), alias)?;
+            validate_token(
+                "token.empty",
+                &format!("legacy_operation_aliases[{index}]"),
+                alias,
+            )?;
             if !aliases.insert(alias) {
                 return Err(ProcessReferenceValidationError::new(
                     "registry.duplicate_legacy_alias",
@@ -177,9 +211,15 @@ impl ProcessRegistryEntryV1 {
         for (index, previous) in self.supersedes.iter().enumerate() {
             let path = format!("supersedes[{index}]");
             previous.validate(&path)?;
-            previous.require_kind(IndustrialArtifactKindV1::ProcessDefinition, &format!("{path}.kind"))?;
+            previous.require_kind(
+                IndustrialArtifactKindV1::ProcessDefinition,
+                &format!("{path}.kind"),
+            )?;
             if previous == &self.process_definition_ref {
-                return Err(ProcessReferenceValidationError::new("registry.self_supersession", path));
+                return Err(ProcessReferenceValidationError::new(
+                    "registry.self_supersession",
+                    path,
+                ));
             }
             if !predecessors.insert(previous) {
                 return Err(ProcessReferenceValidationError::new(
@@ -215,16 +255,36 @@ pub struct TypedRoutingStepRefV1 {
 impl TypedRoutingStepRefV1 {
     pub fn validate(&self) -> Result<(), ProcessReferenceValidationError> {
         if self.schema_version != TYPED_ROUTING_BINDING_SCHEMA_V1 {
-            return Err(ProcessReferenceValidationError::new("routing.unsupported_schema", "schema_version"));
+            return Err(ProcessReferenceValidationError::new(
+                "routing.unsupported_schema",
+                "schema_version",
+            ));
         }
-        validate_token("token.empty", "source_routing_system", &self.source_routing_system)?;
-        validate_token("token.empty", "source_routing_ref", &self.source_routing_ref)?;
-        validate_token("token.empty", "source_routing_revision", &self.source_routing_revision)?;
-        self.source_routing_digest.validate("source_routing_digest")?;
+        validate_token(
+            "token.empty",
+            "source_routing_system",
+            &self.source_routing_system,
+        )?;
+        validate_token(
+            "token.empty",
+            "source_routing_ref",
+            &self.source_routing_ref,
+        )?;
+        validate_token(
+            "token.empty",
+            "source_routing_revision",
+            &self.source_routing_revision,
+        )?;
+        self.source_routing_digest
+            .validate("source_routing_digest")?;
         if self.step_sequence == 0 {
-            return Err(ProcessReferenceValidationError::new("routing.zero_sequence", "step_sequence"));
+            return Err(ProcessReferenceValidationError::new(
+                "routing.zero_sequence",
+                "step_sequence",
+            ));
         }
-        self.process_definition_ref.validate("process_definition_ref")?;
+        self.process_definition_ref
+            .validate("process_definition_ref")?;
         self.process_definition_ref.require_kind(
             IndustrialArtifactKindV1::ProcessDefinition,
             "process_definition_ref.kind",
@@ -269,7 +329,10 @@ pub fn validate_typed_routing_steps(
             || step.source_routing_revision != first.source_routing_revision
             || step.source_routing_digest != first.source_routing_digest
         {
-            return Err(ProcessReferenceValidationError::new("routing.snapshot_mismatch", path));
+            return Err(ProcessReferenceValidationError::new(
+                "routing.snapshot_mismatch",
+                path,
+            ));
         }
         if !sequences.insert(step.step_sequence) {
             return Err(ProcessReferenceValidationError::new(
@@ -281,13 +344,13 @@ pub fn validate_typed_routing_steps(
     Ok(())
 }
 
-fn validate_namespaced_ref(
-    value: &str,
-    path: &str,
-) -> Result<(), ProcessReferenceValidationError> {
+fn validate_namespaced_ref(value: &str, path: &str) -> Result<(), ProcessReferenceValidationError> {
     validate_token("token.empty", path, value)?;
     let Some((namespace, local)) = value.split_once(':') else {
-        return Err(ProcessReferenceValidationError::new("reference.missing_namespace", path));
+        return Err(ProcessReferenceValidationError::new(
+            "reference.missing_namespace",
+            path,
+        ));
     };
     validate_token("token.empty", &format!("{path}.namespace"), namespace)?;
     validate_token("token.empty", &format!("{path}.local"), local)
@@ -302,7 +365,10 @@ fn validate_token(
         return Err(ProcessReferenceValidationError::new(empty_code, path));
     }
     if value.trim() != value || value.chars().any(char::is_control) {
-        return Err(ProcessReferenceValidationError::new("token.non_canonical", path));
+        return Err(ProcessReferenceValidationError::new(
+            "token.non_canonical",
+            path,
+        ));
     }
     Ok(())
 }
@@ -313,10 +379,17 @@ mod tests {
     use serde_json::json;
 
     fn digest(hex: &str) -> ContentDigestV1 {
-        ContentDigestV1 { algorithm: DigestAlgorithmV1::Sha256, hex: hex.to_owned() }
+        ContentDigestV1 {
+            algorithm: DigestAlgorithmV1::Sha256,
+            hex: hex.to_owned(),
+        }
     }
 
-    fn artifact(kind: IndustrialArtifactKindV1, id: &str, marker: char) -> CanonicalIndustrialArtifactRefV1 {
+    fn artifact(
+        kind: IndustrialArtifactKindV1,
+        id: &str,
+        marker: char,
+    ) -> CanonicalIndustrialArtifactRefV1 {
         CanonicalIndustrialArtifactRefV1 {
             kind,
             namespace: "luminous".to_owned(),
@@ -328,15 +401,27 @@ mod tests {
     }
 
     fn process_ref() -> CanonicalIndustrialArtifactRefV1 {
-        artifact(IndustrialArtifactKindV1::ProcessDefinition, "process:cnc-milling/v1", 'a')
+        artifact(
+            IndustrialArtifactKindV1::ProcessDefinition,
+            "process:cnc-milling/v1",
+            'a',
+        )
     }
 
     fn recipe_ref() -> CanonicalIndustrialArtifactRefV1 {
-        artifact(IndustrialArtifactKindV1::ProcessRecipe, "recipe:fixture-mill-01", 'b')
+        artifact(
+            IndustrialArtifactKindV1::ProcessRecipe,
+            "recipe:fixture-mill-01",
+            'b',
+        )
     }
 
     fn capability_ref() -> CanonicalIndustrialArtifactRefV1 {
-        artifact(IndustrialArtifactKindV1::CapabilityRequirement, "capability:inspection", 'c')
+        artifact(
+            IndustrialArtifactKindV1::CapabilityRequirement,
+            "capability:inspection",
+            'c',
+        )
     }
 
     fn registry_entry() -> ProcessRegistryEntryV1 {
@@ -379,15 +464,24 @@ mod tests {
 
     #[test]
     fn digest_rejects_uppercase_and_wrong_length() {
-        assert_eq!(digest(&"A".repeat(64)).validate("digest").unwrap_err().code, "digest.invalid_hex");
-        assert_eq!(digest("abcd").validate("digest").unwrap_err().code, "digest.invalid_length");
+        assert_eq!(
+            digest(&"A".repeat(64)).validate("digest").unwrap_err().code,
+            "digest.invalid_hex"
+        );
+        assert_eq!(
+            digest("abcd").validate("digest").unwrap_err().code,
+            "digest.invalid_length"
+        );
     }
 
     #[test]
     fn registry_rejects_unknown_schema_and_wrong_artifact_kind() {
         let mut entry = registry_entry();
         entry.schema_version = "mycelix-manufacturing-process-registry/99".to_owned();
-        assert_eq!(entry.validate().unwrap_err().code, "registry.unsupported_schema");
+        assert_eq!(
+            entry.validate().unwrap_err().code,
+            "registry.unsupported_schema"
+        );
 
         let mut entry = registry_entry();
         entry.process_definition_ref.kind = IndustrialArtifactKindV1::ProcessRecipe;
@@ -400,7 +494,10 @@ mod tests {
         let mut relabelled = original.clone();
         relabelled.display_label = Some("Metal removal operation".to_owned());
         relabelled.legacy_operation_aliases = vec!["OLD-ROUTE-NAME".to_owned()];
-        assert_eq!(original.process_definition_ref, relabelled.process_definition_ref);
+        assert_eq!(
+            original.process_definition_ref,
+            relabelled.process_definition_ref
+        );
         assert!(original.validate().is_ok());
         assert!(relabelled.validate().is_ok());
     }
@@ -409,22 +506,36 @@ mod tests {
     fn registry_rejects_duplicate_or_unnamespaced_family_refs() {
         let mut entry = registry_entry();
         entry.family_refs.push(entry.family_refs[0].clone());
-        assert_eq!(entry.validate().unwrap_err().code, "registry.duplicate_family_ref");
+        assert_eq!(
+            entry.validate().unwrap_err().code,
+            "registry.duplicate_family_ref"
+        );
 
         let mut entry = registry_entry();
         entry.family_refs = vec!["material-removal".to_owned()];
-        assert_eq!(entry.validate().unwrap_err().code, "reference.missing_namespace");
+        assert_eq!(
+            entry.validate().unwrap_err().code,
+            "reference.missing_namespace"
+        );
     }
 
     #[test]
     fn registry_rejects_duplicate_aliases_and_self_supersession() {
         let mut entry = registry_entry();
-        entry.legacy_operation_aliases.push(entry.legacy_operation_aliases[0].clone());
-        assert_eq!(entry.validate().unwrap_err().code, "registry.duplicate_legacy_alias");
+        entry
+            .legacy_operation_aliases
+            .push(entry.legacy_operation_aliases[0].clone());
+        assert_eq!(
+            entry.validate().unwrap_err().code,
+            "registry.duplicate_legacy_alias"
+        );
 
         let mut entry = registry_entry();
         entry.supersedes.push(entry.process_definition_ref.clone());
-        assert_eq!(entry.validate().unwrap_err().code, "registry.self_supersession");
+        assert_eq!(
+            entry.validate().unwrap_err().code,
+            "registry.self_supersession"
+        );
     }
 
     #[test]
@@ -433,25 +544,35 @@ mod tests {
 
         let mut wrong_recipe = routing_step(1);
         wrong_recipe.recipe_ref = Some(capability_ref());
-        assert_eq!(wrong_recipe.validate().unwrap_err().code, "artifact.wrong_kind");
+        assert_eq!(
+            wrong_recipe.validate().unwrap_err().code,
+            "artifact.wrong_kind"
+        );
 
         let mut wrong_capability = routing_step(1);
         wrong_capability.capability_requirement_ref = Some(recipe_ref());
-        assert_eq!(wrong_capability.validate().unwrap_err().code, "artifact.wrong_kind");
+        assert_eq!(
+            wrong_capability.validate().unwrap_err().code,
+            "artifact.wrong_kind"
+        );
     }
 
     #[test]
     fn routing_batch_rejects_duplicate_sequence_and_mixed_revisions() {
         assert!(validate_typed_routing_steps(&[routing_step(1), routing_step(2)]).is_ok());
         assert_eq!(
-            validate_typed_routing_steps(&[routing_step(1), routing_step(1)]).unwrap_err().code,
+            validate_typed_routing_steps(&[routing_step(1), routing_step(1)])
+                .unwrap_err()
+                .code,
             "routing.duplicate_sequence"
         );
 
         let mut other_revision = routing_step(2);
         other_revision.source_routing_revision = "rev-8".to_owned();
         assert_eq!(
-            validate_typed_routing_steps(&[routing_step(1), other_revision]).unwrap_err().code,
+            validate_typed_routing_steps(&[routing_step(1), other_revision])
+                .unwrap_err()
+                .code,
             "routing.snapshot_mismatch"
         );
     }
