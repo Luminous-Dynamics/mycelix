@@ -3,7 +3,8 @@
 **Status:** proposed research contract; unmeasured; not production qualification  
 **Contract ID:** `CIVOS-MACQ-001`  
 **Source baseline:** `Luminous-Dynamics/mycelix@dbc883566ea937ee8a273c1d33d153cc6262dd9b`  
-**Machine-readable scenarios:** [civos-multi-agent-scenarios-v0.json](./civos-multi-agent-scenarios-v0.json)
+**Machine-readable scenarios:** [civos-multi-agent-scenarios-v0.json](./civos-multi-agent-scenarios-v0.json)  
+**Corpus schema:** [civos-multi-agent-scenarios-v0.schema.json](./civos-multi-agent-scenarios-v0.schema.json)
 
 ## Why this work exists
 
@@ -46,7 +47,7 @@ This is a benchmark contract only. It does not change production logic, choose a
 
 ## Scenario protocol
 
-The canonical cases live in `civos-multi-agent-scenarios-v0.json`. They cover:
+The canonical cases live in `civos-multi-agent-scenarios-v0.json`; [the JSON Schema](./civos-multi-agent-scenarios-v0.schema.json) specifies the machine-readable contract shape. They cover:
 
 - authorization and caller/actor binding;
 - authored-versus-peer-visible state;
