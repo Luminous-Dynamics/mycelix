@@ -502,6 +502,146 @@ pub fn ensure_keypair() -> SigningKey {
     }
 }
 
+/// Typed failure from a non-minting local-identity access attempt.
+///
+/// Unlike the legacy first-use helper, this API never creates or replaces
+/// key material. Call an explicit bootstrap operation when the result is
+/// NoIdentity; preserve data and use the reviewed recovery path for every
+/// unknown, legacy, unavailable or inconsistent state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalIdentityAccessError {
+    NoIdentity,
+    ProtectedLocked,
+    LegacyIdentityNeedsMigration,
+    StorageUnavailable,
+    CorruptOrInconsistent,
+    InconsistentUnprotectedIdentity,
+    CachedKeyMismatch,
+    UnlockedKeyUnavailable,
+}
+
+impl std::fmt::Display for LocalIdentityAccessError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = match self {
+            Self::NoIdentity => {
+                "No local identity exists; explicit creation or restore is required."
+            }
+            Self::ProtectedLocked => "The local identity is protected but locked in this session.",
+            Self::LegacyIdentityNeedsMigration => {
+                "A legacy identity marker exists; explicit migration is required."
+            }
+            Self::StorageUnavailable => {
+                "Local identity storage is unavailable; absence cannot be confirmed."
+            }
+            Self::CorruptOrInconsistent => {
+                "Local identity storage is corrupt or inconsistent; no replacement was created."
+            }
+            Self::InconsistentUnprotectedIdentity => {
+                "An unprotected identity was detected but its keypair could not be loaded consistently."
+            }
+            Self::CachedKeyMismatch => {
+                "The in-memory identity does not match the persisted identity."
+            }
+            Self::UnlockedKeyUnavailable => {
+                "The protected identity is marked unlocked but no valid in-memory key is available."
+            }
+        };
+        f.write_str(message)
+    }
+}
+
+impl std::error::Error for LocalIdentityAccessError {}
+
+fn access_error_for_posture(posture: LocalIdentityStoragePosture) -> LocalIdentityAccessError {
+    match posture {
+        LocalIdentityStoragePosture::NoIdentity => LocalIdentityAccessError::NoIdentity,
+        LocalIdentityStoragePosture::ProtectedLocked => LocalIdentityAccessError::ProtectedLocked,
+        LocalIdentityStoragePosture::LegacyIdentityNeedsMigration => {
+            LocalIdentityAccessError::LegacyIdentityNeedsMigration
+        }
+        LocalIdentityStoragePosture::StorageUnavailable => {
+            LocalIdentityAccessError::StorageUnavailable
+        }
+        LocalIdentityStoragePosture::CorruptOrInconsistent => {
+            LocalIdentityAccessError::CorruptOrInconsistent
+        }
+        LocalIdentityStoragePosture::UnprotectedIdentity => {
+            LocalIdentityAccessError::InconsistentUnprotectedIdentity
+        }
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+            LocalIdentityAccessError::UnlockedKeyUnavailable
+        }
+    }
+}
+
+/// Retrieve the current local signing key without creating or replacing it.
+///
+/// This is the preferred API for app shells and source adapters. It succeeds
+/// only when the persisted posture and any in-memory key agree. A NoIdentity
+/// result is a normal typed outcome which callers can render as a create/restore
+/// prompt; it is never converted into an implicit key-generation side effect.
+pub fn try_ensure_keypair() -> Result<SigningKey, LocalIdentityAccessError> {
+    if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
+        let posture = inspect_local_identity_posture();
+        let matches_storage = match posture {
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession => true,
+            LocalIdentityStoragePosture::UnprotectedIdentity => load_signing_key()
+                .is_some_and(|stored| stored.verifying_key() == signing_key.verifying_key()),
+            _ => false,
+        };
+        if matches_storage {
+            return Ok(signing_key);
+        }
+
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
+        return Err(match posture {
+            LocalIdentityStoragePosture::UnprotectedIdentity => {
+                LocalIdentityAccessError::CachedKeyMismatch
+            }
+            LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+                LocalIdentityAccessError::CachedKeyMismatch
+            }
+            other => access_error_for_posture(other),
+        });
+    }
+
+    let posture = inspect_local_identity_posture();
+    if posture == LocalIdentityStoragePosture::UnprotectedIdentity {
+        if let Some(signing_key) = load_signing_key() {
+            UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
+            return Ok(signing_key);
+        }
+        return Err(LocalIdentityAccessError::InconsistentUnprotectedIdentity);
+    }
+
+    if posture == LocalIdentityStoragePosture::ProtectedUnlockedInSession {
+        return Err(LocalIdentityAccessError::UnlockedKeyUnavailable);
+    }
+
+    Err(access_error_for_posture(posture))
+}
+
+/// Resolve the current DID without creating, migrating, or replacing an identity.
+pub fn try_local_did() -> Result<String, LocalIdentityAccessError> {
+    try_ensure_keypair().map(|signing_key| did_from_public_key(&signing_key.verifying_key()))
+}
+
+/// Sign with the existing local identity without implicit key creation.
+pub fn try_sign_with_local_identity(message: &[u8]) -> Result<Signature, LocalIdentityAccessError> {
+    try_ensure_keypair().map(|signing_key| signing_key.sign(message))
+}
+
+/// Provide the existing local identity to Leptos context without implicit creation.
+///
+/// Prefer this API at app startup. On NoIdentity, render an explicit
+/// creation/restore gate. Do not fall back to the legacy minting provider for
+/// unavailable, legacy or corrupt storage.
+pub fn try_provide_local_identity() -> Result<(), LocalIdentityAccessError> {
+    let did = try_local_did()?;
+    provide_context(LocalIdentity { did });
+    Ok(())
+}
+
 /// Is the local identity currently passphrase-protected?
 ///
 /// True once [`protect_with_passphrase`] has succeeded, until
@@ -1482,6 +1622,65 @@ mod tests {
     }
 
     #[test]
+    fn non_minting_access_errors_have_safe_display_text() {
+        let cases = [
+            (LocalIdentityAccessError::NoIdentity, "explicit creation"),
+            (LocalIdentityAccessError::ProtectedLocked, "locked"),
+            (
+                LocalIdentityAccessError::LegacyIdentityNeedsMigration,
+                "migration",
+            ),
+            (
+                LocalIdentityAccessError::StorageUnavailable,
+                "absence cannot be confirmed",
+            ),
+            (
+                LocalIdentityAccessError::CorruptOrInconsistent,
+                "no replacement",
+            ),
+            (
+                LocalIdentityAccessError::InconsistentUnprotectedIdentity,
+                "keypair",
+            ),
+            (
+                LocalIdentityAccessError::CachedKeyMismatch,
+                "persisted identity",
+            ),
+            (
+                LocalIdentityAccessError::UnlockedKeyUnavailable,
+                "in-memory key",
+            ),
+        ];
+        for (error, expected) in cases {
+            assert!(error.to_string().contains(expected));
+        }
+    }
+
+    #[test]
+    fn posture_to_access_error_mapping_keeps_no_identity_distinct() {
+        assert_eq!(
+            access_error_for_posture(LocalIdentityStoragePosture::NoIdentity),
+            LocalIdentityAccessError::NoIdentity
+        );
+        assert_eq!(
+            access_error_for_posture(LocalIdentityStoragePosture::StorageUnavailable),
+            LocalIdentityAccessError::StorageUnavailable
+        );
+        assert_eq!(
+            access_error_for_posture(LocalIdentityStoragePosture::CorruptOrInconsistent),
+            LocalIdentityAccessError::CorruptOrInconsistent
+        );
+        assert_eq!(
+            access_error_for_posture(LocalIdentityStoragePosture::ProtectedLocked),
+            LocalIdentityAccessError::ProtectedLocked
+        );
+        assert_eq!(
+            access_error_for_posture(LocalIdentityStoragePosture::LegacyIdentityNeedsMigration),
+            LocalIdentityAccessError::LegacyIdentityNeedsMigration
+        );
+    }
+
+    #[test]
     fn unavailable_storage_is_not_classified_as_no_identity() {
         let snapshot = IdentityStorageSnapshot::default();
         assert_eq!(
@@ -1942,6 +2141,87 @@ mod browser_storage_tests {
             .await
             .expect("rotated passphrase unlocks the same identity");
         assert!(public_key_matches_signing_key(&original_public, &rotated));
+    }
+
+    #[wasm_bindgen_test]
+    async fn fallible_access_does_not_mint_identity_when_storage_is_empty() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        assert_eq!(
+            try_ensure_keypair().unwrap_err(),
+            LocalIdentityAccessError::NoIdentity
+        );
+        assert_eq!(
+            try_local_did().unwrap_err(),
+            LocalIdentityAccessError::NoIdentity
+        );
+        assert_eq!(
+            try_provide_local_identity().unwrap_err(),
+            LocalIdentityAccessError::NoIdentity
+        );
+
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
+    }
+
+    #[wasm_bindgen_test]
+    async fn fallible_access_preserves_legacy_marker_without_minting() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(LEGACY_DID_KEY, "did:mycelix:synthetic-legacy")
+            .expect("test can seed legacy marker");
+
+        assert_eq!(
+            try_ensure_keypair().unwrap_err(),
+            LocalIdentityAccessError::LegacyIdentityNeedsMigration
+        );
+        assert_eq!(
+            storage.get_item(LEGACY_DID_KEY).unwrap().as_deref(),
+            Some("did:mycelix:synthetic-legacy")
+        );
+        assert!(storage.get_item(IDENTITY_SECRET_KEY).unwrap().is_none());
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn fallible_access_preserves_corrupt_partial_key_material() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_SECRET_KEY, "synthetic-not-base64!")
+            .expect("test can seed malformed secret");
+        let expected = "synthetic-not-base64!";
+
+        assert_eq!(
+            try_ensure_keypair().unwrap_err(),
+            LocalIdentityAccessError::CorruptOrInconsistent
+        );
+        assert_eq!(
+            storage.get_item(IDENTITY_SECRET_KEY).unwrap().as_deref(),
+            Some(expected)
+        );
+        assert!(storage.get_item(IDENTITY_PUBLIC_KEY).unwrap().is_none());
+        assert!(
+            storage
+                .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+                .unwrap()
+                .is_none()
+        );
+        assert!(UNLOCKED_KEY.with(|cell| cell.borrow().is_none()));
     }
 
     #[wasm_bindgen_test]
