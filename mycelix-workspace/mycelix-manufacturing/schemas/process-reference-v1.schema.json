@@ -94,15 +94,25 @@
           ]
         },
         "capability_requirement_ref": {
-          "type": ["object", "null"],
-          "allOf": [
-            { "if": { "type": "object" }, "then": { "$ref": "#/$defs/artifactRef" } }
+          "oneOf": [
+            { "type": "null" },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/artifactRef" },
+                { "properties": { "kind": { "const": "capability_requirement" } } }
+              ]
+            }
           ]
         },
         "recipe_ref": {
-          "type": ["object", "null"],
-          "allOf": [
-            { "if": { "type": "object" }, "then": { "$ref": "#/$defs/artifactRef" } }
+          "oneOf": [
+            { "type": "null" },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/artifactRef" },
+                { "properties": { "kind": { "const": "process_recipe" } } }
+              ]
+            }
           ]
         },
         "legacy_operation_name": { "type": ["string", "null"], "minLength": 1 },
