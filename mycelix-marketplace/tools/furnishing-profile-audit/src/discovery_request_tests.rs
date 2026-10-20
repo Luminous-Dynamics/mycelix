@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod discovery_request_tests {
     use super::validate_discovery_request;
     use serde_json::Value;
     use std::path::PathBuf;
@@ -143,4 +141,3 @@ mod discovery_request_tests {
             .iter()
             .any(|error| error.contains("effect contact_seller must be false")));
     }
-}
