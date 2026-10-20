@@ -10,7 +10,7 @@
 
 Mycelix has many useful domain tests, and it already contains a shared Sweettest conductor harness. The missing piece is a reusable cross-cluster qualification contract: a way to say exactly which system invariants were exercised, under which peer schedules and failures, against which source revision and runtime tuple.
 
-The current [repository maturity matrix](../../README.md#Maturity-Matrix) itself warns that unit-test counts do not establish multi-agent validation. The Finance Sweettest plan also calls out a concurrent exchange race as a stretch scenario where both operations may currently succeed under a credit limit. This benchmark turns those gaps into explicit, reproducible questions rather than assuming that more tests or a successful compile imply correctness.
+The current [repository maturity matrix](../../README.md#Maturity-Matrix) itself warns that unit-test counts do not establish multi-agent validation. The Finance Sweettest plan still lists a concurrent credit-limit race as a stretch case, while the separate Finance race audit marks the earlier balance lost-update fixes as addressed through optimistic locking/retry. Those are different properties: avoiding a lost update does not, by itself, prove that two independently authorized requests cannot both pass a stale aggregate-capacity check. Draft [PR #5248](https://github.com/Luminous-Dynamics/mycelix/pull/5248) starts a test-first scenario from two independent provider agents against one shared receiver. It has not been executed, so the race remains a candidate to qualify—not a reproduced exploit. This benchmark turns the gap into an explicit, reproducible question rather than assuming that more tests or a successful compile imply correctness.
 
 This is **not** a claim that the race is exploitable in every deployment, that every scenario applies to every cluster, or that any performance target has been achieved.
 
@@ -137,7 +137,7 @@ For credentials and status, use the [W3C Verifiable Credentials Data Model 2.0 R
 
 1. Validate the corpus itself and freeze its digest.
 2. Map each scenario to a concrete test, implementation path, and owning cluster.
-3. Add the highest-risk Finance concurrency/idempotency cases and Personal identity/source-state cases to the existing test infrastructure.
+3. Execute and review the candidate Finance cross-agent receiver-limit regression [PR #5248](https://github.com/Luminous-Dynamics/mycelix/pull/5248), then add the highest-risk idempotency and Personal identity/source-state cases to the existing test infrastructure.
 4. Run exact-head multi-agent tests locally where the pinned runtime is available; record precise blockers rather than waiting on hosted runners.
 5. Add fault-injection and restart cases; qualify the baseline with reproducible receipts.
 6. Only then publish performance comparisons or deployment-level outcome claims.
