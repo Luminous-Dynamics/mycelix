@@ -1,0 +1,238 @@
+name: Constitutional Qualification Evidence Capsule Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-governance/tools/qrec/qualification_evidence_capsule.py'
+      - '.github/workflows/constitutional-qualification-evidence-capsule-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-qualification-evidence-capsule-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 7eec9d95b95ddf685d521b3ef3265d12c0be4cc7
+  EXPECTED_PARENT: 47671935350578ff90113b0abffc70a0afb44e55
+  EXPECTED_SCRIPT_BLOB: 8036bb43064fdac50349bcc71b3ee5086100aa25
+  SCRIPT: mycelix-governance/tools/qrec/qualification_evidence_capsule.py
+
+jobs:
+  qualify:
+    name: Exact deterministic QREC evidence capsule contract
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 3
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact semantic lineage and one-file surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-qualification-evidence-capsule-qualification.yml"
+          test "$(git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SEMANTIC_HEAD")" = "$SCRIPT"
+          test "$(git hash-object "$SCRIPT")" = "$EXPECTED_SCRIPT_BLOB"
+
+          if git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SEMANTIC_HEAD" | grep -E '(^|/)(zomes|dnas|happs|apps|Cargo\.toml|Cargo\.lock)' >/dev/null; then
+            echo "QREC-002A unexpectedly changes runtime/workspace surface" >&2
+            exit 1
+          fi
+
+          rm -rf qrec-capsule-evidence
+          mkdir -p qrec-capsule-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > qrec-capsule-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > qrec-capsule-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT" > qrec-capsule-evidence/expected-parent.txt
+          git hash-object "$SCRIPT" > qrec-capsule-evidence/source-hash-before.txt
+          sha256sum "$SCRIPT" > qrec-capsule-evidence/source-sha256-before.txt
+
+      - name: Source authority ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          p = Path('mycelix-governance/tools/qrec/qualification_evidence_capsule.py')
+          source = p.read_text()
+          tree = ast.parse(source)
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          allowed = {
+              '__future__', 'argparse', 'hashlib', 'io', 'json', 'os', 'pathlib',
+              're', 'stat', 'sys', 'tarfile', 'tempfile', 'typing'
+          }
+          assert imports <= allowed, sorted(imports - allowed)
+          forbidden = [
+              'requests', 'urllib', 'socket', 'subprocess', 'actions/attest',
+              'VerifiedQualificationReceiptV1', 'xenia', 'sigstore', 'hdk', 'hdi'
+          ]
+          for marker in forbidden:
+              assert marker not in source, marker
+          assert 'R.artifact_digest' not in source
+          print('source authority ceiling: PASS')
+          PY
+
+      - name: Install pinned Python
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Syntax and embedded self-test under pinned Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" --command bash -euo pipefail -c '
+            python --version | tee qrec-capsule-evidence/python-version.txt
+            python - <<"PY"
+          from pathlib import Path
+          p = Path("mycelix-governance/tools/qrec/qualification_evidence_capsule.py")
+          compile(p.read_text(), str(p), "exec")
+          print("syntax compile: PASS")
+          PY
+            python "$SCRIPT" self-test 2>&1 | tee qrec-capsule-evidence/self-test.log
+          '
+
+      - name: Independent CLI determinism round trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" --command bash -euo pipefail -c '
+            tmp=$(mktemp -d)
+            trap "rm -rf $tmp" EXIT
+            printf "alpha\n" > "$tmp/a.txt"
+            printf "PASS\n" > "$tmp/b.txt"
+
+            python "$SCRIPT" pack-evidence --output "$tmp/e1.tar" --member b/result.txt="$tmp/b.txt" --member a/source.txt="$tmp/a.txt" > "$tmp/e1.json"
+            python "$SCRIPT" pack-evidence --output "$tmp/e2.tar" --member a/source.txt="$tmp/a.txt" --member b/result.txt="$tmp/b.txt" > "$tmp/e2.json"
+            cmp "$tmp/e1.tar" "$tmp/e2.tar"
+
+            python - "$tmp/e1.tar" "$tmp/receipt.json" <<"PY"
+          import hashlib, json, pathlib, sys
+          e = pathlib.Path(sys.argv[1]).read_bytes()
+          receipt = {
+              "schema_version": 1,
+              "dependency_id": "fixture:qrec-002a",
+              "issuer_id": "github-repository:1176351975",
+              "semantic_head": "1" * 40,
+              "verifier_head": "2" * 40,
+              "run_id": 101,
+              "run_attempt": 1,
+              "artifact_digest": "sha256:" + hashlib.sha256(e).hexdigest(),
+              "receipt_commitment": "blake3-256:" + "3" * 64,
+              "navigation": {},
+          }
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+
+            python "$SCRIPT" pack-auth --evidence "$tmp/e1.tar" --receipt "$tmp/receipt.json" --output "$tmp/a1.tar" > "$tmp/a1.json"
+            python "$SCRIPT" pack-auth --evidence "$tmp/e1.tar" --receipt "$tmp/receipt.json" --output "$tmp/a2.tar" > "$tmp/a2.json"
+            cmp "$tmp/a1.tar" "$tmp/a2.tar"
+            python "$SCRIPT" verify-auth --input "$tmp/a1.tar" > "$tmp/verify.json"
+
+            sha256sum "$tmp/e1.tar" > qrec-capsule-evidence/golden-evidence.sha256
+            sha256sum "$tmp/a1.tar" > qrec-capsule-evidence/golden-auth.sha256
+            cp "$tmp/e1.json" qrec-capsule-evidence/golden-evidence-summary.json
+            cp "$tmp/a1.json" qrec-capsule-evidence/golden-auth-summary.json
+            cp "$tmp/verify.json" qrec-capsule-evidence/golden-auth-verify.json
+          '
+
+      - name: Mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" --command python - <<'PY'
+          from pathlib import Path
+          import subprocess, sys
+
+          path = Path('mycelix-governance/tools/qrec/qualification_evidence_capsule.py')
+          original = path.read_text()
+          mutants = [
+              (
+                  'remove-receipt-evidence-binding',
+                  'if receipt["artifact_digest"] != evidence_digest:',
+                  'if False and receipt["artifact_digest"] != evidence_digest:',
+              ),
+              (
+                  'remove-auth-member-census',
+                  'by_name = dict(read_tar_exact(data, expected_names=AUTH_MEMBER_NAMES))',
+                  'by_name = dict(read_tar_exact(data))',
+              ),
+              (
+                  'allow-parent-path-segment',
+                  'if any(part in ("", ".", "..") for part in parts):',
+                  'if False and any(part in ("", ".", "..") for part in parts):',
+              ),
+              (
+                  'allow-duplicate-json-key',
+                  'if key in out:',
+                  'if False and key in out:',
+              ),
+          ]
+
+          try:
+              for name, old, new in mutants:
+                  if original.count(old) != 1:
+                      raise SystemExit(f'{name}: expected exactly one mutation target')
+                  mutated = original.replace(old, new, 1)
+                  path.write_text(mutated)
+                  compile(mutated, str(path), 'exec')
+                  result = subprocess.run(
+                      [sys.executable, str(path), 'self-test'],
+                      stdout=subprocess.PIPE,
+                      stderr=subprocess.STDOUT,
+                      text=True,
+                  )
+                  Path(f'qrec-capsule-evidence/mutant-{name}.log').write_text(result.stdout)
+                  if result.returncode == 0:
+                      raise SystemExit(f'{name}: compile-valid mutant survived focused self-test')
+                  path.write_text(original)
+              print('mutation controls: PASS')
+          finally:
+              path.write_text(original)
+          PY
+
+      - name: Postflight semantic immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git hash-object "$SCRIPT")" = "$EXPECTED_SCRIPT_BLOB"
+          git diff --exit-code -- "$SCRIPT"
+          git hash-object "$SCRIPT" > qrec-capsule-evidence/source-hash-after.txt
+          sha256sum "$SCRIPT" > qrec-capsule-evidence/source-sha256-after.txt
+          cmp qrec-capsule-evidence/source-hash-before.txt qrec-capsule-evidence/source-hash-after.txt
+          cmp qrec-capsule-evidence/source-sha256-before.txt qrec-capsule-evidence/source-sha256-after.txt
+
+      - name: Upload qualification evidence
+        if: always() && (github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-qualification-evidence-capsule-${{ github.run_id }}-${{ github.run_attempt }}
+          path: qrec-capsule-evidence
+          if-no-files-found: error
+          retention-days: 30
