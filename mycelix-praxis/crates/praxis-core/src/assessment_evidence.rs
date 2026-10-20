@@ -193,7 +193,9 @@ pub fn validate_assessment_benchmark(
         }
     }
 
-    let arm_assistance = run.arms.iter()
+    let arm_assistance = run
+        .arms
+        .iter()
         .map(|arm| (arm.arm_id.clone(), arm.allowed_practice_assistance.clone()))
         .collect::<BTreeMap<_, _>>();
 
@@ -601,4 +603,3 @@ fn issue(
         message: message.into(),
     });
 }
-
