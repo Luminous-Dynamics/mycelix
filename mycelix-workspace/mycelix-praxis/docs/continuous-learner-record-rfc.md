@@ -6,6 +6,8 @@
 - **Working product language:** “continuous diploma” / “living capability record”
 - **Normative boundary:** This RFC does not assert that production-grade credential verification, privacy-preserving synchronization, institutional accreditation, or cross-repository adapters already exist.
 
+**Companion design:** [Praxis/Craft boundary and benchmark plan](praxis-craft-boundary-and-benchmarks.md) defines product ownership, the credential/freshness distinction, integration receipts, and evaluation gates.
+
 ## 1. Summary
 
 Praxis should let a person build a lifelong, learner-controlled record of learning and demonstrated capability—whether it came from a university, apprenticeship, a book, paid work, open-source contribution, care work, community practice, research, a creative discipline, or a simulation.
