@@ -1517,6 +1517,58 @@ mod tests {
     }
 
     #[test]
+    fn bootstrap_policy_exhaustively_checks_every_posture_action_pair() {
+        use IdentityBootstrapAction as Action;
+        use LocalIdentityStoragePosture as Posture;
+
+        let postures = [
+            Posture::StorageUnavailable,
+            Posture::NoIdentity,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::ProtectedUnlockedInSession,
+            Posture::CorruptOrInconsistent,
+        ];
+        let actions = [
+            Action::CreateProtectedIdentity,
+            Action::ProtectExistingIdentity,
+            Action::UnlockProtectedIdentity,
+            Action::RestoreProtectedIdentityFromSeedPhrase,
+            Action::RotatePassphrase,
+        ];
+
+        for posture in postures {
+            for action in actions {
+                let expected = match posture {
+                    Posture::NoIdentity => matches!(
+                        action,
+                        Action::CreateProtectedIdentity
+                            | Action::RestoreProtectedIdentityFromSeedPhrase
+                    ),
+                    Posture::UnprotectedIdentity => {
+                        action == Action::ProtectExistingIdentity
+                    }
+                    Posture::ProtectedLocked => {
+                        action == Action::UnlockProtectedIdentity
+                    }
+                    Posture::ProtectedUnlockedInSession => {
+                        action == Action::RotatePassphrase
+                    }
+                    Posture::LegacyIdentityNeedsMigration
+                    | Posture::StorageUnavailable
+                    | Posture::CorruptOrInconsistent => false,
+                };
+                assert_eq!(
+                    identity_bootstrap_action_allowed(posture, action),
+                    expected,
+                    "unexpected bootstrap permission for {posture:?} -> {action:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn bootstrap_policy_denies_cross_state_identity_replacement() {
         use IdentityBootstrapAction as Action;
         use LocalIdentityStoragePosture as Posture;
