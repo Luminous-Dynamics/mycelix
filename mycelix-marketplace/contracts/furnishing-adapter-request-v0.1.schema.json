@@ -132,7 +132,9 @@
         "exact_address_transmitted",
         "occupant_profile_transmitted",
         "floor_plan_transmitted",
-        "household_preferences_transmitted"
+        "unrelated_household_preferences_transmitted",
+        "design_context_digest_transmitted",
+        "query_digest_transmitted"
       ],
       "properties": {
         "fields_permitted_for_query": {
@@ -159,7 +161,13 @@
         "floor_plan_transmitted": {
           "const": false
         },
-        "household_preferences_transmitted": {
+        "unrelated_household_preferences_transmitted": {
+          "const": false
+        },
+        "design_context_digest_transmitted": {
+          "const": false
+        },
+        "query_digest_transmitted": {
           "const": false
         }
       }
