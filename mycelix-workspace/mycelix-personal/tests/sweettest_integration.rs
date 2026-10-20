@@ -1505,3 +1505,246 @@ async fn test_bridge_dispatch_to_identity_vault() {
     // The query was created (even if auto-dispatch succeeded or not)
     assert_eq!(record.action().author(), alice.agent_pubkey());
 }
+
+
+// ============================================================================
+// Consent enforcement — assigned capability, scope, theft, and revocation
+// ============================================================================
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct ConsentCapabilityOffer {
+    owner: AgentPubKey,
+    grantee: AgentPubKey,
+    grant_hash: ActionHash,
+    capability_grant_hash: ActionHash,
+    capability_secret: CapSecret,
+    expires_at: Option<Timestamp>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct GrantConsentWithRemoteCapabilityInput {
+    grantee: AgentPubKey,
+    record_types: Vec<String>,
+    expires_at: Option<Timestamp>,
+    allow_indefinite: bool,
+    active: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct StoreConsentCapabilityInput {
+    owner: AgentPubKey,
+    grant_hash: ActionHash,
+    capability_secret: CapSecret,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct FetchSharedHealthRecordsInput {
+    owner: AgentPubKey,
+    grant_hash: ActionHash,
+    requested_record_types: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct HealthRecordView {
+    hash: String,
+    record_type: String,
+    data: String,
+    source: String,
+    event_date: i64,
+    updated_at: i64,
+}
+
+/// The owner grants a single category, the grantee receives only that category,
+/// a stolen capability secret fails the Assigned-key check, and revocation removes
+/// both the local grant and the remote calling capability.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor and built personal DNA (nix develop)"]
+async fn test_consent_remote_read_scope_stolen_secret_and_revocation() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&personal_dna_path()).await.unwrap();
+
+    let (owner,) = conductor
+        .setup_app("consent-owner", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (grantee,) = conductor
+        .setup_app("consent-grantee", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (attacker,) = conductor
+        .setup_app("consent-attacker", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    for (record_type, payload) in [
+        ("vaccination", r#"{"vaccine":"fixture"}"#),
+        ("medication", r#"{"medicine":"fixture-only"}"#),
+    ] {
+        let record = HealthRecord {
+            record_type: record_type.to_string(),
+            data: payload.to_string(),
+            source: "synthetic-test-fixture".to_string(),
+            event_date: Timestamp::now(),
+            updated_at: Timestamp::now(),
+        };
+        let _: Record = conductor
+            .call(&owner.zome("health_vault"), "create_health_record", record)
+            .await;
+    }
+
+    let too_long_expiry = Timestamp::from_micros(
+        Timestamp::now().as_micros() + 366 * 24 * 60 * 60 * 1_000_000,
+    );
+    let too_long: Result<ConsentCapabilityOffer, _> = conductor
+        .call_fallible(
+            &owner.zome("health_vault"),
+            "grant_consent_with_remote_capability",
+            GrantConsentWithRemoteCapabilityInput {
+                grantee: grantee.agent_pubkey().clone(),
+                record_types: vec!["vaccination".to_string()],
+                expires_at: Some(too_long_expiry),
+                allow_indefinite: false,
+                active: true,
+            },
+        )
+        .await;
+    assert!(too_long.is_err(), "finite remote grants over 365 days must fail closed");
+
+    let offer: ConsentCapabilityOffer = conductor
+        .call(
+            &owner.zome("health_vault"),
+            "grant_consent_with_remote_capability",
+            GrantConsentWithRemoteCapabilityInput {
+                grantee: grantee.agent_pubkey().clone(),
+                record_types: vec!["vaccination".to_string()],
+                expires_at: None,
+                allow_indefinite: false,
+                active: true,
+            },
+        )
+        .await;
+    assert_eq!(&offer.owner, owner.agent_pubkey());
+    assert_eq!(&offer.grantee, grantee.agent_pubkey());
+    let offer_expiry = offer.expires_at.expect("remote capability must default to a bounded expiry");
+    let owner_grants: Vec<Record> = conductor
+        .call(&owner.zome("health_vault"), "get_my_consents", ())
+        .await;
+    assert_eq!(owner_grants.len(), 1);
+    let persisted_grant: ConsentGrant = owner_grants[0]
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        offer_expiry.as_micros() - persisted_grant.created_at.as_micros(),
+        30 * 24 * 60 * 60 * 1_000_000,
+        "remote consent defaults to exactly 30 days"
+    );
+
+    let claim_input = StoreConsentCapabilityInput {
+        owner: owner.agent_pubkey().clone(),
+        grant_hash: offer.grant_hash.clone(),
+        capability_secret: offer.capability_secret.clone(),
+    };
+    let _: ActionHash = conductor
+        .call(
+            &grantee.zome("health_vault"),
+            "store_shared_health_capability",
+            claim_input.clone(),
+        )
+        .await;
+
+    let allowed: Vec<HealthRecordView> = conductor
+        .call(
+            &grantee.zome("health_vault"),
+            "fetch_shared_health_records",
+            FetchSharedHealthRecordsInput {
+                owner: owner.agent_pubkey().clone(),
+                grant_hash: offer.grant_hash.clone(),
+                requested_record_types: vec!["vaccination".to_string()],
+            },
+        )
+        .await;
+    assert_eq!(allowed.len(), 1, "only the in-scope vaccination record is returned");
+    assert_eq!(allowed[0].record_type, "vaccination");
+    assert!(
+        !allowed.iter().any(|record| record.record_type == "medication"),
+        "out-of-scope medication data must not be disclosed"
+    );
+
+    let out_of_scope: Result<Vec<HealthRecordView>, _> = conductor
+        .call_fallible(
+            &grantee.zome("health_vault"),
+            "fetch_shared_health_records",
+            FetchSharedHealthRecordsInput {
+                owner: owner.agent_pubkey().clone(),
+                grant_hash: offer.grant_hash.clone(),
+                requested_record_types: vec!["medication".to_string()],
+            },
+        )
+        .await;
+    assert!(out_of_scope.is_err(), "out-of-scope request must fail closed");
+
+    // Simulate a leaked secret: Assigned capabilities are still pinned to the
+    // intended grantee public key, so a third agent cannot use the stolen token.
+    let _: ActionHash = conductor
+        .call(
+            &attacker.zome("health_vault"),
+            "store_shared_health_capability",
+            claim_input,
+        )
+        .await;
+    let stolen_secret: Result<Vec<HealthRecordView>, _> = conductor
+        .call_fallible(
+            &attacker.zome("health_vault"),
+            "fetch_shared_health_records",
+            FetchSharedHealthRecordsInput {
+                owner: owner.agent_pubkey().clone(),
+                grant_hash: offer.grant_hash.clone(),
+                requested_record_types: vec!["vaccination".to_string()],
+            },
+        )
+        .await;
+    assert!(stolen_secret.is_err(), "an unassigned key must not use a leaked secret");
+
+    let revoked: Record = conductor
+        .call(
+            &owner.zome("health_vault"),
+            "revoke_consent",
+            offer.grant_hash.clone(),
+        )
+        .await;
+    let repeated_revoke: Record = conductor
+        .call(
+            &owner.zome("health_vault"),
+            "revoke_consent",
+            offer.grant_hash.clone(),
+        )
+        .await;
+    assert_eq!(
+        revoked.action_address(),
+        repeated_revoke.action_address(),
+        "repeated revocation returns the existing immutable event"
+    );
+
+    let after_revoke: Result<Vec<HealthRecordView>, _> = conductor
+        .call_fallible(
+            &grantee.zome("health_vault"),
+            "fetch_shared_health_records",
+            FetchSharedHealthRecordsInput {
+                owner: owner.agent_pubkey().clone(),
+                grant_hash: offer.grant_hash,
+                requested_record_types: vec!["vaccination".to_string()],
+            },
+        )
+        .await;
+    assert!(after_revoke.is_err(), "revoked capability must not disclose records");
+
+    let current_grants: Vec<Record> = conductor
+        .call(&owner.zome("health_vault"), "get_my_consents", ())
+        .await;
+    assert!(current_grants.is_empty(), "revoked grant is no longer effective");
+}

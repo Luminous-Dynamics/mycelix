@@ -9,6 +9,7 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use hdk::prelude::*;
 use health_vault_integrity::*;
+use std::collections::{BTreeSet, HashSet};
 
 getrandom::register_custom_getrandom!(my_custom_getrandom);
 
@@ -21,6 +22,70 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 use personal_leptos_types::{
     BiometricView, ConsentGrantInputView, ConsentGrantView, HealthRecordView,
 };
+
+/// Capability offer returned only to the local grant owner. Never put the secret
+/// in a shared entry, link tag, or DHT-published record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsentCapabilityOffer {
+    pub owner: AgentPubKey,
+    pub grantee: AgentPubKey,
+    pub grant_hash: ActionHash,
+    pub capability_grant_hash: ActionHash,
+    pub capability_secret: CapSecret,
+    pub expires_at: Option<Timestamp>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrantConsentWithRemoteCapabilityInput {
+    pub grantee: AgentPubKey,
+    pub record_types: Vec<String>,
+    pub expires_at: Option<Timestamp>,
+    /// Must be explicitly true to create a non-expiring remote grant.
+    pub allow_indefinite: bool,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoreConsentCapabilityInput {
+    pub owner: AgentPubKey,
+    pub grant_hash: ActionHash,
+    pub capability_secret: CapSecret,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchSharedHealthRecordsInput {
+    pub owner: AgentPubKey,
+    pub grant_hash: ActionHash,
+    pub requested_record_types: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SharedRecordsRemoteInput {
+    pub grant_hash: ActionHash,
+    pub requested_record_types: Vec<String>,
+}
+
+const SHAREABLE_RECORD_TYPES: &[&str] = &[
+    "allergy", "medication", "condition", "vaccination", "surgery",
+    "lab_result", "imaging", "visit_note",
+];
+const DEFAULT_REMOTE_CONSENT_TTL_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;
+const MAX_REMOTE_CONSENT_TTL_MICROS: i64 = 365 * 24 * 60 * 60 * 1_000_000;
+
+fn consent_capability_tag(grant_hash: &ActionHash) -> String {
+    format!("mycelix-health-consent-read-v0:{grant_hash}")
+}
+
+fn requested_scope_is_authorized(granted: &[String], requested: &[String]) -> bool {
+    !requested.is_empty()
+        && requested.len() <= 20
+        && requested.iter().all(|requested_type| {
+            SHAREABLE_RECORD_TYPES.contains(&requested_type.as_str())
+                && granted.iter().any(|granted_type| {
+                    granted_type == "*" || granted_type == requested_type
+                })
+        })
+}
 
 fn decode_agent_pubkey(pubkey: &str) -> ExternResult<AgentPubKey> {
     let bytes = BASE64.decode(pubkey).map_err(|e| {
@@ -40,29 +105,19 @@ fn decode_agent_pubkey(pubkey: &str) -> ExternResult<AgentPubKey> {
 /// Create a health record on the agent's source chain.
 #[hdk_extern]
 pub fn create_health_record(record: HealthRecord) -> ExternResult<Record> {
-    let action_hash = create_entry(&EntryTypes::HealthRecord(record.clone()))?;
+    let action_hash = create_entry(&EntryTypes::HealthRecord(record))?;
     let agent = agent_info()?.agent_initial_pubkey;
+    // The target entry is private. This owner-local index link may reveal that a
+    // record action exists, but it never includes the health category in a link tag.
     create_link(
-        agent.clone(),
+        agent,
         action_hash.clone(),
         LinkTypes::AgentToRecords,
         (),
     )?;
 
-    let type_anchor_hash = hash_entry(&EntryTypes::HealthRecord(HealthRecord {
-        record_type: record.record_type.clone(),
-        data: String::new(),
-        source: String::new(),
-        event_date: Timestamp::from_micros(0),
-        updated_at: Timestamp::from_micros(0),
-    }))?;
-    let _ = create_link(
-        agent,
-        type_anchor_hash,
-        LinkTypes::RecordTypeToRecord,
-        record.record_type.as_bytes().to_vec(),
-    );
-
+    // Do not write the legacy RecordTypeToRecord link: its public tag exposed the
+    // record_type. The variant is retained for entry/link-index compatibility.
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created health record".into()
     )))
@@ -79,7 +134,8 @@ pub fn record_biometric(biometric: Biometric) -> ExternResult<Record> {
     )))
 }
 
-/// Grant consent for a specific agent to read health records.
+/// Create a local consent grant without creating a remote-call capability.
+/// Remote reads use the separate Assigned-capability flow below.
 #[hdk_extern]
 pub fn grant_consent(consent: ConsentGrant) -> ExternResult<Record> {
     let action_hash = create_entry(&EntryTypes::ConsentGrant(consent))?;
@@ -88,6 +144,135 @@ pub fn grant_consent(consent: ConsentGrant) -> ExternResult<Record> {
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created consent".into()
     )))
+}
+
+/// Grant consent and issue an Assigned capability scoped to exactly one read
+/// function. The returned secret is local-call output for delivery over a
+/// separate authenticated/private channel, never persisted in the consent entry.
+#[hdk_extern]
+pub fn grant_consent_with_remote_capability(
+    input: GrantConsentWithRemoteCapabilityInput,
+) -> ExternResult<ConsentCapabilityOffer> {
+    let now = sys_time()?;
+    if !input.active {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Remote capability requires an active consent grant".into()
+        )));
+    }
+    if input.record_types.is_empty() || input.record_types.len() > 20 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Consent must contain between 1 and 20 record types".into()
+        )));
+    }
+    let expires_at = match input.expires_at {
+        Some(expiry) => Some(expiry),
+        None if input.allow_indefinite => None,
+        None => {
+            let deadline = now
+                .as_micros()
+                .checked_add(DEFAULT_REMOTE_CONSENT_TTL_MICROS)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Default consent expiry exceeds timestamp range".into()
+                )))?;
+            Some(Timestamp::from_micros(deadline))
+        }
+    };
+    if expires_at.is_some_and(|expiry| expiry.as_micros() <= now.as_micros()) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Consent expiry must be later than the current time".into()
+        )));
+    }
+    if let Some(expiry) = expires_at.as_ref() {
+        let ttl = expiry
+            .as_micros()
+            .checked_sub(now.as_micros())
+            .unwrap_or(i64::MAX);
+        if ttl > MAX_REMOTE_CONSENT_TTL_MICROS {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Finite remote consent cannot exceed 365 days".into()
+            )));
+        }
+    }
+
+    let grantee = input.grantee;
+    let grant_record = grant_consent(ConsentGrant {
+        grantee: grantee.clone(),
+        record_types: input.record_types,
+        expires_at: expires_at.clone(),
+        active: true,
+        created_at: now,
+    })?;
+    let grant_hash = grant_record.action_address().clone();
+    let tag = consent_capability_tag(&grant_hash);
+    let secret = generate_cap_secret()?;
+
+    let mut functions = HashSet::new();
+    functions.insert((
+        zome_info()?.name,
+        FunctionName::new("get_shared_records_remote"),
+    ));
+    let assignees = BTreeSet::from([grantee.clone()]);
+    let capability_grant_hash = create_cap_grant(CapGrantEntry {
+        tag,
+        access: CapAccess::Assigned {
+            secret: secret.clone(),
+            assignees,
+        },
+        functions: GrantedFunctions::Listed(functions),
+    })?;
+
+    Ok(ConsentCapabilityOffer {
+        owner: agent_info()?.agent_initial_pubkey,
+        grantee,
+        grant_hash,
+        capability_grant_hash,
+        capability_secret: secret,
+        expires_at,
+    })
+}
+
+
+/// Browser-facing wrapper for consent input that represents the grantee key as base64.
+/// The capability secret is returned only in this direct local call response.
+#[hdk_extern]
+pub fn grant_consent_with_remote_capability_view(
+    input: ConsentGrantInputView,
+) -> ExternResult<ConsentCapabilityOffer> {
+    grant_consent_with_remote_capability(GrantConsentWithRemoteCapabilityInput {
+        grantee: decode_agent_pubkey(&input.grantee)?,
+        record_types: input.record_types,
+        expires_at: input.expires_at.map(Timestamp::from_micros),
+        allow_indefinite: false,
+        active: input.active,
+    })
+}
+
+/// Store an owner-issued capability as a local CapClaim on the grantee's
+/// source chain. A stale/revoked secret is still rejected by the owner at call time.
+#[hdk_extern]
+pub fn store_shared_health_capability(
+    input: StoreConsentCapabilityInput,
+) -> ExternResult<ActionHash> {
+    let tag = consent_capability_tag(&input.grant_hash);
+    let claims = query(
+        ChainQueryFilter::new()
+            .action_type(ActionType::Create)
+            .entry_type(EntryType::CapClaim)
+            .include_entries(true),
+    )?;
+    for record in claims {
+        if let Some(Entry::CapClaim(claim)) = record.entry().as_option() {
+            if claim.grantor == input.owner && claim.tag == tag {
+                return Ok(record.action_address().clone());
+            }
+        }
+    }
+
+    create_cap_claim(CapClaimEntry {
+        tag,
+        grantor: input.owner,
+        secret: input.capability_secret,
+    })
 }
 
 /// Revoke a grant by its original ConsentGrant creation action hash.
@@ -125,6 +310,9 @@ pub fn revoke_consent(grant_hash: ActionHash) -> ExternResult<Record> {
         return Ok(record);
     }
 
+    // Delete the exact Assigned capability before recording revocation. A failed
+    // subsequent write rolls back the zome call transaction.
+    revoke_consent_capability(&grant_hash)?;
     let revocation_hash = create_entry(&EntryTypes::ConsentRevocation(ConsentRevocation {
         grant_hash,
     }))?;
@@ -137,6 +325,26 @@ pub fn revoke_consent(grant_hash: ActionHash) -> ExternResult<Record> {
     get(revocation_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not retrieve created consent revocation".into()
     )))
+}
+
+/// Delete owner-local capability grants tagged for this original consent action.
+/// The CapGrant is a private system entry, never part of the shared consent record.
+fn revoke_consent_capability(grant_hash: &ActionHash) -> ExternResult<()> {
+    let wanted_tag = consent_capability_tag(grant_hash);
+    let grants = query(
+        ChainQueryFilter::new()
+            .action_type(ActionType::Create)
+            .entry_type(EntryType::CapGrant)
+            .include_entries(true),
+    )?;
+    for record in grants {
+        if let Some(Entry::CapGrant(cap_grant)) = record.entry().as_option() {
+            if cap_grant.tag == wanted_tag {
+                delete_cap_grant(record.action_address().clone())?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Return the owner's immutable revocation-event history for audit and reconciliation.
@@ -165,7 +373,7 @@ pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<Record> 
 pub fn get_my_records(_: ()) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToRecords)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToRecords)?,
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
@@ -177,7 +385,11 @@ pub fn get_my_records(_: ()) -> ExternResult<Vec<Record>> {
             )))
         })?;
         if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
+            // Links are public metadata; never trust the link alone to establish
+            // ownership, including legacy/forged links already present in DHT.
+            if record.action().author() == &agent {
+                records.push(record);
+            }
         }
     }
     Ok(records)
@@ -211,7 +423,7 @@ pub fn get_my_records_view(_: ()) -> ExternResult<Vec<HealthRecordView>> {
 pub fn get_my_biometrics(_: ()) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToBiometrics)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToBiometrics)?,
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
@@ -223,7 +435,11 @@ pub fn get_my_biometrics(_: ()) -> ExternResult<Vec<Record>> {
             )))
         })?;
         if let Some(record) = get(target, GetOptions::default())? {
-            records.push(record);
+            // Links are public metadata; never trust the link alone to establish
+            // ownership, including legacy/forged links already present in DHT.
+            if record.action().author() == &agent {
+                records.push(record);
+            }
         }
     }
     Ok(records)
@@ -307,8 +523,132 @@ fn get_my_consent_revocation_records() -> ExternResult<Vec<(Record, ConsentRevoc
     Ok(events)
 }
 
-/// Fetch the current-effective grants using one evaluation timestamp.
-/// This is a source-local listing projection, not a grantee read-authorization gate.
+/// Owner-side remote-read authorization. Holochain capability enforcement runs
+/// before this handler; it also binds the authenticated caller to the exact grant
+/// and current owner-side lifecycle state before returning protected content.
+#[hdk_extern]
+pub fn get_shared_records_remote(
+    input: SharedRecordsRemoteInput,
+) -> ExternResult<Vec<HealthRecordView>> {
+    let requester = call_info()?.provenance;
+    let owner = agent_info()?.agent_initial_pubkey;
+    let grant_record = get(input.grant_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Consent grant is unavailable".into()
+        )))?;
+    if !matches!(grant_record.action(), Action::Create(_))
+        || grant_record.action().author() != &owner
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Consent grant must be the owner's original create action".into()
+        )));
+    }
+    let consent = grant_record
+        .entry()
+        .to_app_option::<ConsentGrant>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Consent grant entry is invalid".into()
+        )))?;
+    if consent.grantee != requester {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Authenticated caller is not the consent grantee".into()
+        )));
+    }
+
+    let now = sys_time()?;
+    let revocations: Vec<ConsentRevocation> = get_my_consent_revocation_records()?
+        .into_iter()
+        .map(|(_, event)| event)
+        .collect();
+    if !consent_is_effective_at(&input.grant_hash, &consent, &now, &revocations) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Consent is expired, inactive, revoked, or not yet effective".into()
+        )));
+    }
+    if !requested_scope_is_authorized(&consent.record_types, &input.requested_record_types) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Requested record types are empty, unsupported, or outside consent scope".into()
+        )));
+    }
+
+    let requested: HashSet<&str> = input
+        .requested_record_types
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let records = get_my_records_view(())?;
+    Ok(records
+        .into_iter()
+        .filter(|record| requested.contains(record.record_type.as_str()))
+        .collect())
+}
+
+/// Call the owner's protected read endpoint using the matching local CapClaim.
+/// Unauthorized and network-failure results are errors; no cached grants are used.
+#[hdk_extern]
+pub fn fetch_shared_health_records(
+    input: FetchSharedHealthRecordsInput,
+) -> ExternResult<Vec<HealthRecordView>> {
+    if input.requested_record_types.is_empty()
+        || input.requested_record_types.len() > 20
+        || input.requested_record_types.iter().any(|record_type| {
+            !SHAREABLE_RECORD_TYPES.contains(&record_type.as_str())
+        })
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Requested record types must be a non-empty subset of supported categories".into()
+        )));
+    }
+
+    let wanted_tag = consent_capability_tag(&input.grant_hash);
+    let claims = query(
+        ChainQueryFilter::new()
+            .action_type(ActionType::Create)
+            .entry_type(EntryType::CapClaim)
+            .include_entries(true),
+    )?;
+    let claim = claims
+        .into_iter()
+        .find_map(|record| {
+            if let Some(Entry::CapClaim(claim)) = record.entry().as_option() {
+                if claim.grantor == input.owner && claim.tag == wanted_tag {
+                    return Some(claim.clone());
+                }
+            }
+            None
+        })
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No matching local health-consent capability claim".into()
+        )))?;
+
+    let response = call_remote(
+        input.owner,
+        ZomeName::new("health_vault"),
+        FunctionName::new("get_shared_records_remote"),
+        Some(claim.secret),
+        SharedRecordsRemoteInput {
+            grant_hash: input.grant_hash,
+            requested_record_types: input.requested_record_types,
+        },
+    )?;
+    match response {
+        ZomeCallResponse::Ok(data) => data.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid shared-health response: {e}"
+            )))
+        }),
+        ZomeCallResponse::Unauthorized(..) => Err(wasm_error!(
+            WasmErrorInner::Guest("Owner revoked or denied this health-read capability".into())
+        )),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Shared-health source unavailable or call failed".into()
+        ))),
+    }
+}
+
+/// Fetch the owner's current-effective grants using one evaluation timestamp.
+/// This owner-side list is not a substitute for the protected remote-read endpoint.
 fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let revocations: Vec<ConsentRevocation> = get_my_consent_revocation_records()?
@@ -316,7 +656,7 @@ fn get_my_consents_at(now: &Timestamp) -> ExternResult<Vec<Record>> {
         .map(|(_, event)| event)
         .collect();
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToConsents)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToConsents)?,
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
@@ -449,6 +789,31 @@ mod tests {
             &ActionHash::from_raw_39(vec![11u8; 39]).unwrap(),
             &revocations
         ));
+    }
+
+    #[test]
+    fn consent_capability_tag_is_bound_to_original_grant_hash() {
+        let first = ActionHash::from_raw_39(vec![21u8; 39]).unwrap();
+        let second = ActionHash::from_raw_39(vec![22u8; 39]).unwrap();
+        assert_eq!(
+            consent_capability_tag(&first),
+            format!("mycelix-health-consent-read-v0:{first}")
+        );
+        assert_ne!(consent_capability_tag(&first), consent_capability_tag(&second));
+    }
+
+    #[test]
+    fn requested_scope_requires_explicit_grant_and_supported_categories() {
+        let grant = vec!["allergy".to_string(), "medication".to_string()];
+        assert!(requested_scope_is_authorized(&grant, &["allergy".to_string()]));
+        assert!(requested_scope_is_authorized(
+            &["*".to_string()],
+            &["lab_result".to_string(), "imaging".to_string()]
+        ));
+        assert!(!requested_scope_is_authorized(&grant, &["imaging".to_string()]));
+        assert!(!requested_scope_is_authorized(&grant, &["unknown_record_type".to_string()]));
+        assert!(!requested_scope_is_authorized(&grant, &[]));
+        assert!(!requested_scope_is_authorized(&grant, &vec!["allergy".to_string(); 21]));
     }
 
     #[test]

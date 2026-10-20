@@ -67,9 +67,17 @@ pub struct ConsentRevocation {
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
+    /// Health payloads remain on the owner's source chain; never DHT-publish them.
+    #[entry_type(visibility = "private")]
     HealthRecord(HealthRecord),
+    /// Biometric values are sensitive source-chain data.
+    #[entry_type(visibility = "private")]
     Biometric(Biometric),
+    /// Grant metadata can reveal healthcare relationships and scopes.
+    #[entry_type(visibility = "private")]
     ConsentGrant(ConsentGrant),
+    /// Revocation metadata stays owner-local; protected reads check local history.
+    #[entry_type(visibility = "private")]
     ConsentRevocation(ConsentRevocation),
 }
 
@@ -119,17 +127,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapClaim { action, .. }
                 | OpUpdate::CapGrant { action, .. } => action,
             };
-            let original = must_get_valid_record(action.original_action_address.clone())?;
-            if original
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .is_some()
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Consent revocation events are immutable".into(),
-                ));
-            }
+            // Private entries publish action metadata, not their payload. Author
+            // binding only needs the original signed action, not the hidden entry.
+            let original = must_get_action(action.original_action_address.clone())?;
             if !action_authors_match(original.action().author(), &action.author) {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the original entry author can update health-vault entries".into(),
@@ -143,30 +143,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action,
             ..
         } => match link_type {
-            LinkTypes::AgentToConsents | LinkTypes::AgentToConsentRevocations => {
+            LinkTypes::AgentToRecords
+            | LinkTypes::AgentToBiometrics
+            | LinkTypes::AgentToConsents
+            | LinkTypes::AgentToConsentRevocations => {
                 if !consent_history_base_matches_author(&base, &action.author) {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "Consent history links must be authored on the owner's agent base".into(),
+                        "Health Vault owner links must use the author agent as their base".into(),
                     ));
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDelete(OpDelete { action }) => {
-            let original = must_get_valid_record(action.deletes_address.clone())?;
-            if original
-                .entry()
-                .to_app_option::<ConsentRevocation>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .is_some()
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Consent revocation events cannot be deleted".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
-        }
+        // No delete endpoint currently exists. Keep source-chain history append-only;
+        // a future erasure feature must be an explicit, separately reviewed lifecycle.
+        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Health Vault entries are append-only; deletion requires an explicit reviewed lifecycle".into(),
+        )),
         FlatOp::RegisterDeleteLink {
             link_type,
             original_action,
@@ -297,25 +291,20 @@ fn validate_consent_revocation(
     revocation: &ConsentRevocation,
     action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
-    let original = must_get_valid_record(revocation.grant_hash.clone())?;
+    // ConsentGrant is a PRIVATE entry. Validators on peers can see its signed
+    // create action, but not its payload; must_get_valid_record + app-entry decode
+    // would therefore fail closed for every valid private grant. The owner-side
+    // coordinator checks the target is a ConsentGrant before writing this private
+    // event. Here, validate only facts that are verifiable from public action data.
+    let original = must_get_action(revocation.grant_hash.clone())?;
     if !matches!(original.action(), Action::Create(_)) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Consent revocation must reference the original grant creation action".into(),
-        ));
-    }
-
-    let consent = original
-        .entry()
-        .to_app_option::<ConsentGrant>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    if consent.is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Consent revocation target must be a ConsentGrant entry".into(),
+            "Consent revocation must reference an original create action".into(),
         ));
     }
     if !action_authors_match(original.action().author(), &action.author) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Only the consent grant owner can revoke the grant".into(),
+            "Consent revocation must be authored by the original action owner".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)

@@ -542,6 +542,10 @@ fn HealthPage() -> impl IntoView {
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
     let consent_types = RwSignal::new("allergy, medication".to_string());
+    let consent_capability_offer = RwSignal::new(String::new());
+    let shared_offer_input = RwSignal::new(String::new());
+    let shared_request_types = RwSignal::new("vaccination".to_string());
+    let shared_records = RwSignal::new(Vec::<serde_json::Value>::new());
     let ctx_for_consent = ctx.clone();
 
     let create_consent = move |ev: SubmitEvent| {
@@ -567,22 +571,97 @@ fn HealthPage() -> impl IntoView {
         let ctx = ctx_for_consent.clone();
         let consent_grantee_signal = consent_grantee;
         let consent_types_signal = consent_types;
+        let capability_offer_signal = consent_capability_offer;
         spawn_local(async move {
             match hc
                 .call_zome_default::<_, serde_json::Value>(
                     "health_vault",
-                    "grant_consent_view",
+                    "grant_consent_with_remote_capability_view",
                     &input,
                 )
                 .await
             {
-                Ok(_) => {
+                Ok(offer) => {
+                    capability_offer_signal.set(
+                        serde_json::to_string_pretty(&offer).unwrap_or_else(|_| offer.to_string())
+                    );
                     refresh_health_state(ctx.clone(), hc.clone()).await;
                     consent_grantee_signal.set(String::new());
                     consent_types_signal.set("allergy, medication".to_string());
-                    toasts.push("Consent grant created", ToastKind::Success);
+                    toasts.push("Consent created. Transfer the capability offer privately.", ToastKind::Success);
                 }
                 Err(err) => toasts.push(format!("Consent grant failed: {err}"), ToastKind::Error),
+            }
+        });
+    };
+
+    let connect_shared = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        let token = shared_offer_input.get();
+        let requested_record_types: Vec<String> = shared_request_types
+            .get()
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string)
+            .collect();
+        let hc = hc.clone();
+        let toasts = toasts.clone();
+        let shared_offer_signal = shared_offer_input;
+        let shared_records_signal = shared_records;
+        spawn_local(async move {
+            let offer: serde_json::Value = match serde_json::from_str(&token) {
+                Ok(offer) => offer,
+                Err(err) => {
+                    toasts.push(format!("Invalid capability offer JSON: {err}"), ToastKind::Error);
+                    return;
+                }
+            };
+            if offer.get("owner").is_none()
+                || offer.get("grant_hash").is_none()
+                || offer.get("capability_secret").is_none()
+            {
+                toasts.push("Capability offer is missing owner, grant hash, or secret", ToastKind::Error);
+                return;
+            }
+
+            match hc
+                .call_zome_default::<_, serde_json::Value>(
+                    "health_vault",
+                    "store_shared_health_capability",
+                    &offer,
+                )
+                .await
+            {
+                Ok(_) => {
+                    let request = serde_json::json!({
+                        "owner": offer["owner"].clone(),
+                        "grant_hash": offer["grant_hash"].clone(),
+                        "requested_record_types": requested_record_types,
+                    });
+                    match hc
+                        .call_zome_default::<_, Vec<serde_json::Value>>(
+                            "health_vault",
+                            "fetch_shared_health_records",
+                            &request,
+                        )
+                        .await
+                    {
+                        Ok(records) => {
+                            shared_records_signal.set(records);
+                            shared_offer_signal.set(String::new());
+                            toasts.push("Shared records fetched from the owner", ToastKind::Success);
+                        }
+                        Err(err) => toasts.push(
+                            format!("Shared read denied or source unavailable: {err}"),
+                            ToastKind::Error,
+                        ),
+                    }
+                }
+                Err(err) => toasts.push(
+                    format!("Could not store capability claim: {err}"),
+                    ToastKind::Error,
+                ),
             }
         });
     };
@@ -632,9 +711,19 @@ fn HealthPage() -> impl IntoView {
                             />
                         </label>
                         <div class="form-actions">
-                            <button class="btn btn-primary" type="submit">"Create Consent"</button>
+                            <button class="btn btn-primary" type="submit">"Create 30-day consent + assigned access"</button>
                         </div>
                     </form>
+                    <label class="field-block">
+                        <span>"Private capability offer — transfer this JSON only to the intended grantee"</span>
+                        <textarea
+                            class="form-textarea"
+                            rows="5"
+                            prop:value=move || consent_capability_offer.get()
+                            readonly=true
+                        />
+                    </label>
+                    <p class="muted">"Remote capabilities expire after 30 days by default; this form does not offer indefinite sharing. The secret is not written to the shared consent entry or DHT. Send the offer through a separate private channel; never post it publicly."</p>
                     <div class="consent-list">
                         <For
                             each=move || ctx.consents.get()
@@ -642,6 +731,34 @@ fn HealthPage() -> impl IntoView {
                             children=move |grant| view! { <ConsentCard grant=grant /> }
                         />
                     </div>
+                </section>
+
+                <section class="vault-card">
+                    <SectionTitle title="Use a shared health consent" />
+                    <form class="profile-form" on:submit=connect_shared>
+                        <label class="field-block">
+                            <span>"Capability offer JSON from the record owner"</span>
+                            <textarea
+                                class="form-textarea"
+                                rows="5"
+                                prop:value=move || shared_offer_input.get()
+                                on:input=move |ev| shared_offer_input.set(event_target_value(&ev))
+                            />
+                        </label>
+                        <label class="field-block">
+                            <span>"Requested record types (comma-separated)"</span>
+                            <input
+                                class="form-input"
+                                prop:value=move || shared_request_types.get()
+                                on:input=move |ev| shared_request_types.set(event_target_value(&ev))
+                            />
+                        </label>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" type="submit">"Store claim and fetch allowed records"</button>
+                        </div>
+                    </form>
+                    <p class="muted">"A failed or unreachable source is shown as an error, not replaced with cached authorization or demo data."</p>
+                    <pre>{move || serde_json::to_string_pretty(&shared_records.get()).unwrap_or_default()}</pre>
                 </section>
             </div>
         </div>
