@@ -136,7 +136,17 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         &format!("{label}.geometry_evidence_refs"),
         errors,
     );
+    let geometry_license_refs = string_set(
+        array(geometry, "geometry_license_evidence_refs"),
+        &format!("{label}.geometry_license_evidence_refs"),
+        errors,
+    );
     let geometry_license = text(geometry, "geometry_use_license").unwrap_or("unknown");
+    if geometry_license == "unknown" && !geometry_license_refs.is_empty() {
+        errors.push(format!("{label}: unknown geometry-use rights cannot cite a grant"));
+    } else if geometry_license != "unknown" && geometry_license_refs.is_empty() {
+        errors.push(format!("{label}: declared geometry-use rights need explicit rights evidence"));
+    }
 
     // Evidence identity and scoped references.
     let evidence = array(profile, "evidence");
@@ -184,6 +194,30 @@ fn validate_profile(profile: &Value, label: &str, errors: &mut Vec<String>) {
         if item_digest.is_none() || item_digest != evidence_digest {
             errors.push(format!(
                 "{label}: geometry/evidence digest mismatch for {reference:?}"
+            ));
+        }
+    }
+
+    for reference in &geometry_license_refs {
+        let Some(record) = evidence_by_id.get(reference) else {
+            errors.push(format!(
+                "{label}: unresolved geometry-rights evidence reference {reference:?}"
+            ));
+            continue;
+        };
+        if text(record, "claim_kind") != Some("geometry_use_rights") {
+            errors.push(format!(
+                "{label}: rights reference {reference:?} is not geometry-use-rights evidence"
+            ));
+        }
+        if text(record, "geometry_use_license") != Some(geometry_license) {
+            errors.push(format!(
+                "{label}: geometry rights evidence disagrees with item license for {reference:?}"
+            ));
+        }
+        if text(record, "validity_state") != Some("valid_for_scoped_claim") {
+            errors.push(format!(
+                "{label}: geometry rights evidence {reference:?} is not valid for its scoped claim"
             ));
         }
     }
