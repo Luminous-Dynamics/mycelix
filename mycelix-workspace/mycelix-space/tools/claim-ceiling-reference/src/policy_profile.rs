@@ -106,6 +106,23 @@ fn validate_profile(profile: &ClaimPolicyProfileV1) -> Result<(), String> {
     validate_ceiling("policy_profile.maximum_ceiling", &profile.maximum_ceiling)
 }
 
+/// Digest of the exact embedded profile contract used by this binary.
+pub fn policy_profile_schema_sha256() -> String {
+    sha256(POLICY_PROFILE_SCHEMA)
+}
+
+/// Validate a downloaded policy profile before it is eligible for installation.
+///
+/// This validates contract/schema and profile well-formedness only. It does not
+/// authenticate a publisher, prove policy intent, or grant evidence/action authority.
+pub fn validate_policy_profile_bytes(policy_bytes: &[u8]) -> Result<ClaimPolicyProfileV1, String> {
+    validate_json_against_schema(POLICY_PROFILE_SCHEMA, policy_bytes, "policy profile")?;
+    let profile: ClaimPolicyProfileV1 = serde_json::from_slice(policy_bytes)
+        .map_err(|error| format!("policy profile deserialization failed: {error}"))?;
+    validate_profile(&profile)?;
+    Ok(profile)
+}
+
 fn assess_candidate(candidate: &ClaimCeilingV1, maximum: &ClaimCeilingV1) -> Vec<PolicyViolation> {
     let mut violations = Vec::new();
 
