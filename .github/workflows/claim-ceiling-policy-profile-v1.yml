@@ -6,6 +6,7 @@ on:
       - "mycelix-workspace/mycelix-space/tools/claim-ceiling-reference/**"
       - "mycelix-workspace/mycelix-space/Cargo.toml"
       - "mycelix-workspace/Cargo.toml"
+      - "docs/research/CLAIM_CEILING_POLICY_ADMISSIBILITY_V1_2026-10.md"
       - ".github/workflows/claim-ceiling-policy-profile-v1.yml"
   push:
     branches: [main]
@@ -80,7 +81,7 @@ jobs:
             and .disposition == "rejected_by_profile"
             and .policy_admissibility_only == true
             and .action_authority_granted == false
-            and ([ "claim_atom_not_allowed", "subject_outside_policy", "context_outside_policy", "time_window_outside_policy", "action_scope_not_allowed", "required_qualification_missing", "required_independence_control_missing", "required_provenance_missing" ] - [.violations[].code] | length) == 0
+            and ((([ "claim_atom_not_allowed", "subject_outside_policy", "context_outside_policy", "time_window_outside_policy", "action_scope_not_allowed", "required_qualification_missing", "required_independence_control_missing", "required_provenance_missing" ] - [.violations[].code]) | length) == 0)
           ' "$RUNNER_TEMP/policy-rejected.json" > /dev/null
           echo "CLAIM_CEILING_POLICY_PROFILE_V1_PASS"
       - name: Require clean tracked source after policy checks
