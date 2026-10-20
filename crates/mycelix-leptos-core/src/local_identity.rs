@@ -2297,7 +2297,8 @@ mod browser_storage_tests {
                 .is_some()
         );
 
-        let storage_before_protection = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let storage_before_protection =
+            web_sys::window().unwrap().local_storage().unwrap().unwrap();
         storage_before_protection
             .set_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY, &expected_public)
             .expect("test can seed a stale confirmation from the prior storage posture");
