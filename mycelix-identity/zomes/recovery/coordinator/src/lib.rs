@@ -1323,10 +1323,10 @@ pub struct InitiateSelfRecoveryInput {
     pub initial_anchor: VerificationAnchor,
 }
 
-/// Initiate a self-recovery request.
+/// Legacy endpoint retained for API compatibility.
 ///
-/// Requires proving control of at least one verification anchor.
-/// The request enters a time-locked waiting period before it can execute.
+/// Fails closed because the stored-anchor equality used by the old schema
+/// does not prove possession of a phone, email, passkey, device, or biometric.
 #[hdk_extern]
 pub fn initiate_self_recovery(_input: InitiateSelfRecoveryInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
@@ -1341,10 +1341,10 @@ pub struct VerifySelfRecoveryAnchorInput {
     pub anchor: VerificationAnchor,
 }
 
-/// Verify an additional anchor on an active self-recovery request.
+/// Legacy endpoint retained for API compatibility.
 ///
-/// When the anchor threshold is met, the request transitions to Approved
-/// and the time lock countdown begins.
+/// It cannot be used until a challenge-bound proof receipt is validated by
+/// the integrity layer; an anchor label or hash is not proof of possession.
 #[hdk_extern]
 pub fn verify_self_recovery_anchor(_input: VerifySelfRecoveryAnchorInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
@@ -1352,9 +1352,10 @@ pub fn verify_self_recovery_anchor(_input: VerifySelfRecoveryAnchorInput) -> Ext
     )))
 }
 
-/// Execute a self-recovery request after time lock expires.
+/// Legacy execution endpoint retained for API compatibility.
 ///
-/// Completes the identity rotation — same effect as social recovery execution.
+/// It fails closed until the recovery request contains a validated,
+/// nonce-bound proof receipt. A time lock alone does not establish authority.
 #[hdk_extern]
 pub fn execute_self_recovery(_request_action_hash: ActionHash) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
