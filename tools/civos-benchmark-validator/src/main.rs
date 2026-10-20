@@ -217,7 +217,8 @@ fn run() -> Result<(), String> {
             }
             "--coverage" => {
                 coverage_path = Some(PathBuf::from(
-                    args.next().ok_or("--coverage requires a file path".to_string())?,
+                    args.next()
+                        .ok_or("--coverage requires a file path".to_string())?,
                 ));
             }
             "--coverage-schema" => {
@@ -282,11 +283,16 @@ fn run() -> Result<(), String> {
     let mut coverage_schema_sha256: Option<String> = None;
     let mut coverage_validation = "NOT_PROVIDED";
     let mut coverage_mapping_status_counts = BTreeMap::new();
-    if let (Some(path), Some(schema_path)) = (coverage_path.as_ref(), coverage_schema_path.as_ref()) {
-        let coverage_bytes = fs::read(path)
-            .map_err(|error| format!("cannot read coverage manifest {}: {error}", path.display()))?;
+    if let (Some(path), Some(schema_path)) = (coverage_path.as_ref(), coverage_schema_path.as_ref())
+    {
+        let coverage_bytes = fs::read(path).map_err(|error| {
+            format!("cannot read coverage manifest {}: {error}", path.display())
+        })?;
         let coverage_schema_bytes = fs::read(schema_path).map_err(|error| {
-            format!("cannot read coverage schema {}: {error}", schema_path.display())
+            format!(
+                "cannot read coverage schema {}: {error}",
+                schema_path.display()
+            )
         })?;
         let coverage_digest = sha256_hex(&coverage_bytes);
         let coverage_schema_digest = sha256_hex(&coverage_schema_bytes);
@@ -295,8 +301,9 @@ fn run() -> Result<(), String> {
         let coverage_schema_value: Value = serde_json::from_slice(&coverage_schema_bytes)
             .map_err(|error| format!("coverage schema JSON is invalid: {error}"))?;
 
-        jsonschema::meta::validate(&coverage_schema_value)
-            .map_err(|error| format!("coverage JSON Schema is invalid under its meta-schema: {error}"))?;
+        jsonschema::meta::validate(&coverage_schema_value).map_err(|error| {
+            format!("coverage JSON Schema is invalid under its meta-schema: {error}")
+        })?;
         let coverage_validator = jsonschema::validator_for(&coverage_schema_value)
             .map_err(|error| format!("cannot compile coverage JSON Schema validator: {error}"))?;
         let coverage_schema_errors: Vec<String> = coverage_validator
@@ -521,10 +528,16 @@ fn validate_coverage_semantics(
     actual_corpus_sha256: &str,
 ) -> Result<(), String> {
     if coverage.contract_id != "CIVOS-MACQ-COVERAGE-001" {
-        return Err(format!("unexpected coverage contract_id {:?}", coverage.contract_id));
+        return Err(format!(
+            "unexpected coverage contract_id {:?}",
+            coverage.contract_id
+        ));
     }
     if coverage.version != "0.1.0" {
-        return Err("coverage manifest version must be bumped deliberately before editing the frozen map".into());
+        return Err(
+            "coverage manifest version must be bumped deliberately before editing the frozen map"
+                .into(),
+        );
     }
     if coverage.status != "planning-only" {
         return Err("coverage manifest status must remain planning-only; a mapping is not a qualification receipt".into());
@@ -532,7 +545,9 @@ fn validate_coverage_semantics(
     if coverage.source_corpus.contract_id != corpus.contract_id
         || coverage.source_corpus.version != corpus.version
     {
-        return Err("coverage manifest refers to a different source corpus contract/version".into());
+        return Err(
+            "coverage manifest refers to a different source corpus contract/version".into(),
+        );
     }
     if coverage.source_corpus.sha256 != actual_corpus_sha256 {
         return Err(format!(
@@ -546,7 +561,12 @@ fn validate_coverage_semantics(
     if coverage.coverage_policy.qualified_claims_enabled {
         return Err("coverage mapping v0 cannot emit qualified claims".into());
     }
-    if !coverage.coverage_policy.global_score.to_ascii_lowercase().contains("none") {
+    if !coverage
+        .coverage_policy
+        .global_score
+        .to_ascii_lowercase()
+        .contains("none")
+    {
         return Err("coverage policy must not collapse scenarios into a global score".into());
     }
     if coverage.coverage_policy.evidence_rule.trim().is_empty() {
@@ -569,13 +589,24 @@ fn validate_coverage_semantics(
             ));
         }
         if !seen_ids.insert(mapping.scenario_id.as_str()) {
-            return Err(format!("duplicate coverage mapping {:?}", mapping.scenario_id));
+            return Err(format!(
+            "duplicate coverage mapping {:?}",
+            mapping.scenario_id
+        ));
         }
         if mapping.primary_owner.trim().is_empty() {
-            return Err(format!("{} has an empty primary owner", mapping.scenario_id));
+            return Err(format!(
+                "{} has an empty primary owner",
+                mapping.scenario_id
+            ));
         }
-        if mapping.known_gaps.is_empty() || mapping.known_gaps.iter().any(|gap| gap.trim().is_empty()) {
-            return Err(format!("{} must list concrete known gaps", mapping.scenario_id));
+        if mapping.known_gaps.is_empty()
+            || mapping.known_gaps.iter().any(|gap| gap.trim().is_empty())
+        {
+            return Err(format!(
+                "{} must list concrete known gaps",
+                mapping.scenario_id
+            ));
         }
         let mut ref_keys = BTreeSet::new();
         for reference in &mapping.test_references {
@@ -591,8 +622,15 @@ fn validate_coverage_semantics(
                     mapping.scenario_id
                 ));
             }
-            if !ref_keys.insert((reference.path.as_str(), reference.symbol.as_str(), reference.source_commit.as_str())) {
-                return Err(format!("{} has a duplicate test reference", mapping.scenario_id));
+            if !ref_keys.insert((
+                reference.path.as_str(),
+                reference.symbol.as_str(),
+                reference.source_commit.as_str(),
+            )) {
+                return Err(format!(
+                    "{} has a duplicate test reference",
+                    mapping.scenario_id
+                ));
             }
         }
         match mapping.mapping_status {
@@ -700,11 +738,19 @@ mod tests {
         validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).unwrap();
         assert_eq!(coverage.mappings.len(), 21);
         assert_eq!(
-            coverage.mappings.iter().filter(|m| m.mapping_status == MappingStatus::Unmapped).count(),
+            coverage
+                .mappings
+                .iter()
+                .filter(|m| m.mapping_status == MappingStatus::Unmapped)
+                .count(),
             18
         );
         assert_eq!(
-            coverage.mappings.iter().filter(|m| m.mapping_status == MappingStatus::CandidatePartial).count(),
+            coverage
+                .mappings
+                .iter()
+                .filter(|m| m.mapping_status == MappingStatus::CandidatePartial)
+                .count(),
             3
         );
     }
@@ -714,7 +760,9 @@ mod tests {
         let corpus = current_corpus();
         let mut coverage = current_coverage();
         coverage.mappings.pop();
-        assert!(validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err());
+        assert!(
+            validate_coverage_semantics(&coverage, &corpus, &current_coverage_sha256()).is_err()
+        );
 
         let mut coverage = current_coverage();
         coverage.mappings.swap(0, 1);
@@ -733,7 +781,9 @@ mod tests {
     fn unmapped_scenario_cannot_list_a_test_reference() {
         let corpus = current_corpus();
         let mut coverage = current_coverage();
-        let unmapped = coverage.mappings.iter_mut()
+        let unmapped = coverage
+            .mappings
+            .iter_mut()
             .find(|mapping| mapping.mapping_status == MappingStatus::Unmapped)
             .unwrap();
         unmapped.test_references.push(TestReference {
