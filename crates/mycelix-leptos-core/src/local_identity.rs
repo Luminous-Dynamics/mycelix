@@ -1000,9 +1000,12 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
     // A failed unlock leaves the identity locked rather than reusing a prior
     // in-memory key against storage whose integrity may have changed.
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
-    let wire: EncryptedBlobWire = load_json(IDENTITY_SECRET_ENCRYPTED_KEY)
+    let original_wire = load_string(IDENTITY_SECRET_ENCRYPTED_KEY)
         .ok_or_else(|| "No passphrase-protected identity found".to_string())?;
+    let wire: EncryptedBlobWire = serde_json::from_str(&original_wire)
+        .map_err(|_| "Protected identity envelope is malformed.".to_string())?;
     let blob = EncryptedBlob::try_from(&wire)?;
+    let was_legacy = blob.format_version == 1;
     let mut secret_bytes = identity_crypto::decrypt(passphrase, &blob).await?;
     let secret_array_result: Result<[u8; 32], _> = secret_bytes.as_slice().try_into();
     secret_bytes.zeroize();
@@ -1015,8 +1018,104 @@ pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, Stri
     if !public_key_matches_signing_key(&public_b64, &signing_key) {
         return Err("Protected identity key material is inconsistent.".into());
     }
+    if was_legacy {
+        migrate_legacy_envelope(
+            passphrase,
+            &original_wire,
+            &public_b64,
+            &signing_key,
+        )
+        .await?;
+    }
     UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
     Ok(signing_key)
+}
+
+/// Upgrade a legacy envelope only after decryption and public-key binding have
+/// succeeded. If read-back verification fails, restore and verify the exact
+/// original bytes before allowing the caller to continue unlocked.
+async fn migrate_legacy_envelope(
+    passphrase: &str,
+    original_wire: &str,
+    expected_public_b64: &str,
+    signing_key: &SigningKey,
+) -> Result<(), String> {
+    let window = web_sys::window()
+        .ok_or_else(|| "Browser storage unavailable during envelope migration.".to_string())?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser storage unavailable during envelope migration.".to_string())?
+        .ok_or_else(|| "Browser storage unavailable during envelope migration.".to_string())?;
+
+    let current_wire = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Could not recheck the legacy identity envelope.".to_string())?;
+    let current_public = storage
+        .get_item(IDENTITY_PUBLIC_KEY)
+        .map_err(|_| "Could not recheck identity public-key metadata.".to_string())?;
+    if current_wire.as_deref() != Some(original_wire)
+        || current_public.as_deref() != Some(expected_public_b64)
+    {
+        return Err(
+            "Identity storage changed during unlock; legacy envelope was not migrated.".into(),
+        );
+    }
+
+    let new_blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
+    let new_wire = serde_json::to_string(&EncryptedBlobWire::from(&new_blob))
+        .map_err(|_| "Could not serialize the versioned identity envelope.".to_string())?;
+
+    // Encryption is asynchronous, so repeat the compare immediately before
+    // writing to avoid replacing changes made in another tab.
+    let current_wire = storage
+        .get_item(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .map_err(|_| "Could not recheck the legacy identity envelope.".to_string())?;
+    let current_public = storage
+        .get_item(IDENTITY_PUBLIC_KEY)
+        .map_err(|_| "Could not recheck identity public-key metadata.".to_string())?;
+    if current_wire.as_deref() != Some(original_wire)
+        || current_public.as_deref() != Some(expected_public_b64)
+    {
+        return Err(
+            "Identity storage changed during envelope migration; no new envelope was written."
+                .into(),
+        );
+    }
+
+    let _write_succeeded = storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, &new_wire)
+        .is_ok();
+    let readback = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    let new_envelope_verified = readback.as_ref().is_ok_and(|value| {
+        if value.as_deref() != Some(new_wire.as_str()) {
+            return false;
+        }
+        serde_json::from_str::<EncryptedBlobWire>(&new_wire)
+            .ok()
+            .and_then(|wire| EncryptedBlob::try_from(&wire).ok())
+            .is_some_and(|blob| blob.format_version == identity_crypto::CURRENT_ENVELOPE_VERSION)
+    });
+    if new_envelope_verified {
+        return Ok(());
+    }
+
+    let _rollback_succeeded = storage
+        .set_item(IDENTITY_SECRET_ENCRYPTED_KEY, original_wire)
+        .is_ok();
+    let rollback = storage.get_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    if rollback
+        .as_ref()
+        .is_ok_and(|value| value.as_deref() == Some(original_wire))
+    {
+        return Err(
+            "Legacy envelope remains intact, but versioned migration failed verification. Retry unlock later."
+                .into(),
+        );
+    }
+    Err(
+        "Envelope migration and rollback could not be verified. The app remains locked; preserve this browser profile and inspect identity storage."
+            .into(),
+    )
 }
 
 /// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
