@@ -77,6 +77,8 @@
 //! })?;
 //! ```
 
+mod chat_qualification;
+
 #[cfg(test)]
 mod tests;
 

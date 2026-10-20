@@ -3199,6 +3199,198 @@ async fn phase0_v2_conductor_restart_recovery() {
     .expect("V2 restart-recovery lifecycle exceeded 2700-second deterministic timeout");
 }
 
+/// Phase 0.9 qualification-boundary happy path.
+///
+/// This is intentionally downstream of the real two-agent V2 send path:
+/// a durable message is created and gossiped first, then Bob must be able
+/// to cross the explicit qualification gate. The assertion is deliberately
+/// about the qualification evidence shape, not a second Chat store.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires freshly packed Pulse DNA and Holochain runtime"]
+async fn phase0_v2_qualification_boundary_happy_path() {
+    tokio::time::timeout(std::time::Duration::from_secs(1800), async {
+        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
+            .await
+            .expect("fresh DNA bundle must load");
+        let apps = conductors
+            .setup_app("pulse-v2-qualification", &[dna_file])
+            .await
+            .expect("install V2 DNA on both conductors");
+        conductors.exchange_peer_info().await;
+
+        let cells = apps.cells_flattened();
+        let alice = cells[0].clone();
+        let bob = cells[1].clone();
+
+        let now = Timestamp::now().as_micros() as u64;
+        let alice_keys_zome = alice.zome("mail_keys");
+        let bob_keys_zome = bob.zome("mail_keys");
+
+        let (alice_signing_key_hex, alice_bundle_to_publish) = real_ml_dsa_bundle(61, now);
+        let alice_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+                conductors[0].call_fallible(
+                    &alice_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    alice_bundle_to_publish.clone(),
+                )
+            })
+            .await;
+        let bob_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+                conductors[1].call_fallible(
+                    &bob_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    unpublished_bundle(62, now),
+                )
+            })
+            .await;
+
+        await_consistency([&alice, &bob])
+            .await
+            .expect("V2 key bundles must gossip");
+
+        let alice_bundle: HybridKeyBundleV2 = conductors[0]
+            .call(
+                &alice.zome("mail_keys"),
+                "get_my_hybrid_key_bundle_v2",
+                (),
+            )
+            .await
+            .expect("Alice V2 bundle");
+        let bob_bundle: HybridKeyBundleV2 = conductors[1]
+            .call(
+                &bob.zome("mail_keys"),
+                "get_my_hybrid_key_bundle_v2",
+                (),
+            )
+            .await
+            .expect("Bob V2 bundle");
+
+        let message_id = [91u8; 32];
+        let created_at_micros = Timestamp::now().as_micros();
+        let ephemeral = [71u8; 32];
+        let kem_ciphertext = vec![72u8; 1088];
+        let nonce = [73u8; 12];
+        let ciphertext = b"qualification-boundary-test".to_vec();
+
+        let envelope = EncryptedEnvelopeV2HybridPqc {
+            version: mail_leptos_types::protocol::ENVELOPE_V2_HYBRID_PQC,
+            cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            message_id: MessageId(message_id),
+            sender_agent: alice.agent_pubkey().get_raw_39().to_vec(),
+            recipient_agent: bob.agent_pubkey().get_raw_39().to_vec(),
+            sender_mldsa_key_id: EncryptionKeyId(alice_bundle.key_id),
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            recipient_hybrid_key_id: EncryptionKeyId(bob_bundle.key_id),
+            x25519_ephemeral_public_key: ephemeral,
+            ml_kem_ciphertext: kem_ciphertext.clone(),
+            nonce,
+            ciphertext: ciphertext.clone(),
+            metadata: AuthenticatedMetadataV1 {
+                in_reply_to: None,
+                thread_id: None,
+            },
+            created_at_micros,
+            agent_signature: Vec::new(),
+            ml_dsa_signature: Vec::new(),
+        };
+        let transcript = envelope
+            .canonical_signing_bytes()
+            .expect("canonical V2 transcript");
+        let ml_dsa_signature = ml_dsa_sign(&alice_signing_key_hex, &transcript);
+
+        let send_input = SendEmailV2Input {
+            recipient: bob.agent_pubkey().clone(),
+            message_id,
+            sender_mldsa_key_id: alice_bundle.key_id,
+            recipient_hybrid_key_id: bob_bundle.key_id,
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            x25519_ephemeral_public_key: ephemeral,
+            ml_kem_ciphertext: kem_ciphertext,
+            nonce,
+            ciphertext,
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros,
+            ml_dsa_signature,
+        };
+
+        let _: ActionHash = call_with_nonce_retry("send_email_v2(qualification)", || {
+            conductors[0].call_fallible(
+                &alice.zome("mail_messages"),
+                "send_email_v2",
+                send_input.clone(),
+            )
+        })
+        .await;
+
+        await_consistency([&alice, &bob])
+            .await
+            .expect("qualified V2 message must gossip");
+
+        let qualification: serde_json::Value = conductors[1]
+            .call(&bob.zome("mail_messages"), "qualify_inbox_v2", ())
+            .await;
+
+        assert_eq!(
+            qualification["schema_version"].as_u64(),
+            Some(1),
+            "qualification schema must be V1"
+        );
+        assert_eq!(
+            qualification["enumeration"]["live_links"].as_u64(),
+            Some(1),
+            "one live V2 inbox link must produce one candidate"
+        );
+        assert_eq!(
+            qualification["enumeration"]["deleted_links"].as_u64(),
+            Some(0),
+            "happy path must have no deleted inbox links"
+        );
+        assert_eq!(
+            qualification["candidates"].as_array().map(Vec::len),
+            Some(1),
+            "every live candidate must be explicitly accounted"
+        );
+        assert_eq!(
+            qualification["qualified"].as_array().map(Vec::len),
+            Some(1),
+            "the valid durable message must cross qualification"
+        );
+        assert_eq!(
+            qualification["evidence"].as_array().map(Vec::len),
+            Some(1),
+            "qualified message must have one evidence record"
+        );
+        assert_eq!(
+            qualification["candidates"][0]["disposition"].as_str(),
+            Some("Valid"),
+            "the candidate must be valid before projection"
+        );
+        assert_eq!(
+            qualification["qualified"][0]["message_id"].as_array().map(Vec::len),
+            Some(32),
+            "logical message identity must remain the 32-byte V2 message ID"
+        );
+        assert!(
+            qualification["qualified"][0]["evidence_id"].is_string(),
+            "durable evidence identity must be carried separately"
+        );
+        assert_eq!(
+            qualification["evidence"][0]["validation_state"].as_str(),
+            Some("Valid"),
+            "qualification evidence must record successful local validation"
+        );
+    })
+    .await
+    .expect("V2 qualification boundary exceeded deterministic timeout");
+}
+
+
 /// Phase 0.2 happy path — `alice_sends_bob_receives`.
 ///
 /// This is the test whose absence invalidated every "working" claim in the

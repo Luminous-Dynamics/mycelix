@@ -11,3 +11,4 @@ hdk = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 mail_messages_integrity = { path = "../integrity" }
 mail-leptos-types = { path = "../../../../crates/mail-leptos-types" }
+pulse-social-types = { path = "../../../../crates/pulse-social-types" }

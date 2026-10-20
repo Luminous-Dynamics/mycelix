@@ -26,6 +26,7 @@ const KYBER768_KEY_LEN: usize = 1088;
 const MAX_ENCRYPTED_SUBJECT_BYTES: usize = 64 * 1024;
 const MAX_ENCRYPTED_BODY_BYTES: usize = 2 * 1024 * 1024;
 const MAX_MESSAGE_ID_BYTES: usize = 512;
+const INBOX_V2_TAG: &[u8] = b"inbox-v2";
 
 // Phase 0.8 client-authoritative timestamp bounds.
 // `email.timestamp` is client-signed (RFC 5322 Date:). `action.timestamp` is
@@ -474,6 +475,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpRecord::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
+            OpRecord::DeleteEntry {
+                original_action_hash,
+                action,
+                ..
+            } => validate_delete_entry(original_action_hash, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
@@ -495,6 +501,42 @@ fn validate_create_entry(
         EntryTypes::DeliveryReceipt(receipt) => validate_delivery_receipt(&receipt, &action),
         EntryTypes::EmailThread(thread) => validate_thread(&thread, &action),
     }
+}
+
+/// V2 messages are durable protocol evidence, not mutable application state.
+///
+/// A Holochain Delete marks the original entry-creation action as dead; it does
+/// not erase the underlying bytes. Because the Chat qualification boundary uses
+/// that creation ActionHash as durable evidence identity, allowing the V2
+/// creation action to be deleted would let a previously-qualified message
+/// become non-live without changing its evidence identity. Reject the Delete
+/// operation at the integrity boundary instead of making the Chat layer guess
+/// whether deletion is intentional.
+///
+/// The original action is retrieved with must_get_valid_record, which is
+/// deterministic inside validation. The 0.6 FlatOp carries the original action
+/// hash on OpRecord::DeleteEntry; no entry-index inference is needed.
+fn validate_delete_entry(
+    original_action_hash: ActionHash,
+    _action: Delete,
+) -> ExternResult<ValidateCallbackResult> {
+    let record = must_get_valid_record(original_action_hash)?;
+    let Some(entry) = record.entry().as_option() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Delete target has no entry".into(),
+        ));
+    };
+    let Entry::App(app_bytes) = entry else {
+        return Ok(ValidateCallbackResult::Valid);
+    };
+
+    if EncryptedEmailV2::try_from(SerializedBytes::from(app_bytes.clone())).is_ok() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EncryptedEmailV2 entries cannot be deleted".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_update_entry(
@@ -1098,7 +1140,7 @@ fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
-    _tag: LinkTag,
+    tag: LinkTag,
     action: CreateLink,
 ) -> ExternResult<ValidateCallbackResult> {
     match link_type {
@@ -1118,7 +1160,7 @@ fn validate_create_link(
             Ok(ValidateCallbackResult::Valid)
         }
         LinkTypes::AgentToInbox => validate_inbox_link(base_address, target_address, action),
-        LinkTypes::AgentToInboxV2 => validate_inbox_link_v2(base_address, target_address, action),
+        LinkTypes::AgentToInboxV2 => validate_inbox_link_v2(base_address, target_address, tag, action),
         LinkTypes::FolderToEmails
         | LinkTypes::EmailToAttachments
         | LinkTypes::EmailToReadReceipts
@@ -1136,8 +1178,18 @@ fn validate_create_link(
 fn validate_inbox_link_v2(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
+    tag: LinkTag,
     action: CreateLink,
 ) -> ExternResult<ValidateCallbackResult> {
+    // The link type alone is not the complete V2 inbox namespace: the tag is
+    // part of the application contract and is the same prefix used by the
+    // qualification adapter. Enforce the canonical tag at the integrity
+    // boundary so an alternate tag cannot masquerade as an inbox-V2 link.
+    if tag.as_ref() != INBOX_V2_TAG {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 link tag must equal the canonical inbox-v2 tag".into(),
+        ));
+    }
     let inbox_owner = match base_address.into_agent_pub_key() {
         Some(agent) => agent,
         None => {
@@ -1155,6 +1207,15 @@ fn validate_inbox_link_v2(
         }
     };
     let record = must_get_valid_record(target_action_hash)?;
+    // The inbox relation points to the durable message creation action, not
+    // merely to any record whose current entry happens to deserialize as V2.
+    // V2 messages are immutable, but keeping this invariant explicit prevents
+    // future mutable entry types from accidentally becoming inbox targets.
+    if !matches!(record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 target must be a Create action".into(),
+        ));
+    }
     let entry = record.entry().as_option().ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
             "AgentToInboxV2 target record has no entry".into()
@@ -1266,20 +1327,35 @@ fn validate_inbox_link(
 }
 
 fn validate_delete_link(
-    _link_type: LinkTypes,
+    link_type: LinkTypes,
     original_action: CreateLink,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
     action: DeleteLink,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Only the original link author can delete the link
+    // Only the original link author can delete the link.
     if original_action.author != action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the link author can delete a link".to_string(),
         ));
     }
+
+    // A V2 inbox link is a protocol namespace, not merely a LinkTypes enum
+    // variant. The create action was already validated before it could become
+    // deletable, so the deletion boundary should preserve that namespace
+    // invariant rather than silently accepting an alternate tag.
+    if !valid_delete_link_namespace(link_type, &original_action.tag) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 delete target must use the canonical inbox-v2 tag".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn valid_delete_link_namespace(link_type: LinkTypes, tag: &LinkTag) -> bool {
+    !matches!(link_type, LinkTypes::AgentToInboxV2) || tag.as_ref() == INBOX_V2_TAG
 }
 
 #[cfg(test)]
@@ -1373,6 +1449,33 @@ mod tests {
     /// needed. The host-dependent checks (agent-signature verification,
     /// sender==author, timestamp skew) are proven instead by the Sweettest
     /// suite, which is the only place a real HDI host is available.
+    #[test]
+    fn inbox_v2_tag_is_exactly_canonical() {
+        assert_eq!(INBOX_V2_TAG, b"inbox-v2");
+    }
+
+    #[test]
+    fn inbox_v2_delete_requires_canonical_tag() {
+        let canonical = LinkTag::from(INBOX_V2_TAG.to_vec());
+        let noncanonical = LinkTag::from(b"inbox-v3".to_vec());
+
+        assert!(valid_delete_link_namespace(
+            LinkTypes::AgentToInboxV2,
+            &canonical
+        ));
+        assert!(!valid_delete_link_namespace(
+            LinkTypes::AgentToInboxV2,
+            &noncanonical
+        ));
+
+        // Other link namespaces retain their existing delete semantics.
+        assert!(valid_delete_link_namespace(
+            LinkTypes::AgentToSentV2,
+            &noncanonical
+        ));
+    }
+
+
     #[test]
     fn v2_structure_accepts_a_well_formed_entry() {
         assert!(validate_email_v2_structure(&test_email_v2()).is_ok());
@@ -1546,6 +1649,79 @@ mod tests {
         });
         let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
         Record::new(signed_action, Some(entry))
+    }
+
+    /// Builds a Record wrapping an EncryptedEmailV2 entry for host-mocked
+    /// validation tests. The record's action hash is supplied by the caller
+    /// through the mock host, so the test exercises the same dependency path as
+    /// the real Delete validation callback.
+    fn v2_email_record(author: AgentPubKey, email: &EncryptedEmailV2) -> Record {
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(email.clone()).unwrap()).unwrap(),
+        );
+        let entry_hash = EntryHash::from_raw_36(vec![29; 36]);
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![28; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash,
+            weight: Default::default(),
+        });
+        let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    #[test]
+    fn encrypted_email_v2_delete_is_rejected_at_integrity_boundary() {
+        let author = AgentPubKey::from_raw_36(vec![31; 36]);
+        let email = test_email_v2();
+        let original_action_hash = ActionHash::from_raw_36(vec![32; 36]);
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: v2_email_record(author.clone(), &email),
+        });
+
+        let delete = Delete {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![33; 36]),
+            deletes_address: original_action_hash.clone(),
+        };
+
+        let result = validate_delete_entry(original_action_hash, delete).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("EncryptedEmailV2")),
+            "V2 message deletion must fail closed at integrity validation: {result:?}"
+        );
+    }
+
+    #[test]
+    fn non_v2_delete_remains_allowed() {
+        let author = AgentPubKey::from_raw_36(vec![34; 36]);
+        let email = test_email();
+        let original_action_hash = ActionHash::from_raw_36(vec![35; 36]);
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: email_record(author.clone(), &email),
+        });
+
+        let delete = Delete {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![36; 36]),
+            deletes_address: original_action_hash.clone(),
+        };
+
+        let result = validate_delete_entry(original_action_hash, delete).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     fn test_attachment(email_hash: ActionHash) -> EncryptedAttachment {
