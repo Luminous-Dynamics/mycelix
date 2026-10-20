@@ -13,6 +13,8 @@ This follows Holochain's capability and cryptography model, which provides Assig
 - https://developer.holochain.org/build/capabilities/
 - https://developer.holochain.org/build/cryptography-functions/
 
+**Pinned-version research:** the Personal workspace declares `hdk = "0.6.0"`. The versioned [HDK 0.6.0 cryptography module](https://docs.rs/hdk/0.6.0/hdk/x_salsa20_poly1305/index.html) lists `create_x25519_keypair` and X25519 box encryption/decryption; it notes that encryption private keys remain in Lair and that box messages are repudiable, so box encryption alone is not third-party-verifiable proof of owner authorship. Add a separate authenticated owner-identity binding/signature to the canonical envelope. Important limit: the current `CapSecret` is still application data handled by the coordinator in order to create the grant; encrypting it inside the zome only prevents the plaintext secret from crossing the UI/transport boundary. It does **not** establish secret-free WASM memory or protect a compromised conductor. Keep secret lifetime bounded and do not claim hardware isolation.
+
 ## 2. Invariants
 
 The implementation MUST preserve all of these:
