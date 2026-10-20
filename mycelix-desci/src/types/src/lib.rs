@@ -17,6 +17,7 @@
 
 pub mod claims;
 pub mod error;
+pub mod lineage;
 pub mod storage;
 
 // Core claim types
@@ -38,6 +39,12 @@ pub use claims::MATLTrust;
 
 // Unified Fingerprint
 pub use claims::EpistemicFingerprint;
+
+// Profile-relative scientific lineage / independence policy
+pub use lineage::{
+    DimensionEvaluation, IndependenceEvaluation, IndependencePolicy, IndependenceProfile,
+    IndependenceRequirement, IndependenceState, LineageDimension,
+};
 
 pub use error::{Error, Result};
 pub use storage::{IpfsStorage, MemoryStorage, StorageBackend};
