@@ -6,8 +6,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'mycelix-marketplace/contracts/furnishing-catalog-profile-v0.1.schema.json'
+      - 'mycelix-marketplace/contracts/furnishing-catalog-profile-v0.2.schema.json'
       - 'mycelix-marketplace/contracts/furnishing-adapter-request-v0.1.schema.json'
       - 'mycelix-marketplace/contracts/fixtures/furnishing-catalog-profile-v0.1.json'
+      - 'mycelix-marketplace/contracts/fixtures/furnishing-catalog-profile-v0.2.json'
       - 'mycelix-marketplace/contracts/fixtures/furnishing-adapter-request-v0.1.json'
       - 'mycelix-marketplace/tools/furnishing-profile-audit/**'
       - '.github/workflows/furnishing-profile-audit.yml'
