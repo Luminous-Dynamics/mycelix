@@ -592,13 +592,18 @@ pub fn recovery_backup_confirmation_needed() -> bool {
     let Ok(Some(storage)) = window.local_storage() else {
         return true;
     };
-    let Ok(snapshot) = read_identity_storage_snapshot_from(&storage) else {
+    let Ok(mut snapshot) = read_identity_storage_snapshot_from(&storage) else {
         return true;
     };
-    if classify_identity_storage_snapshot(&snapshot) != LocalIdentityStoragePosture::ProtectedLocked {
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    let public_b64 = snapshot.public_b64.clone();
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if posture != LocalIdentityStoragePosture::ProtectedLocked {
         return true;
     }
-    let Some(public_b64) = snapshot.public_b64 else {
+    let Some(public_b64) = public_b64 else {
         return true;
     };
     match storage.get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY) {
@@ -2147,6 +2152,49 @@ mod browser_storage_tests {
             .await
             .expect("protected restored identity unlocks");
         assert!(public_key_matches_signing_key(&expected_public, &restored));
+    }
+
+    #[wasm_bindgen_test]
+    async fn backup_confirmation_marker_is_cleared_and_bound_to_current_public_key() {
+        let _backup = IdentityStorageBackup::new_and_clear();
+        let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        storage
+            .set_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY, "stale-public-key")
+            .expect("test can seed a stale non-secret marker");
+
+        create_protected_identity("synthetic backup-marker passphrase")
+            .await
+            .expect("creation succeeds with a stale marker but clears it");
+        assert!(
+            recovery_backup_confirmation_needed(),
+            "a new identity must require its own recovery-backup confirmation"
+        );
+        assert!(
+            storage
+                .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+                .unwrap()
+                .is_none(),
+            "stale marker must be cleared before identity activation"
+        );
+
+        mark_recovery_backup_confirmed()
+            .expect("unlocked identity can record verified backup confirmation");
+        assert!(
+            !recovery_backup_confirmation_needed(),
+            "current public-key marker should satisfy the gate"
+        );
+
+        let wrong_key = SigningKey::from_bytes(&[139u8; 32]);
+        storage
+            .set_item(
+                IDENTITY_PUBLIC_KEY,
+                &base64_encode(wrong_key.verifying_key().as_bytes()),
+            )
+            .expect("test can tamper with public metadata");
+        assert!(
+            recovery_backup_confirmation_needed(),
+            "a marker for the old public key must not bless changed identity metadata"
+        );
     }
 
     #[wasm_bindgen_test]
