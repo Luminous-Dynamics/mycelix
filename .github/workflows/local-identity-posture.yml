@@ -66,6 +66,8 @@ jobs:
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib
       - name: Test production KDF benchmark statistics natively
         run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib --features production-kdf-benchmark benchmark_statistics_tests
+      - name: Compile and test experimental Argon2id dependency natively
+        run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --lib --features argon2id-browser-benchmark benchmark_statistics_tests
       - name: Record browser runner versions
         shell: bash
         run: |
@@ -108,6 +110,8 @@ jobs:
             echo "Argon2id benchmark changed the generated dependency lockfile" >&2
             exit 1
           fi
+      - name: Compile experimental Argon2id benchmark for WASM
+        run: cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown --lib --features argon2id-browser-benchmark --no-run
       - name: Compile shared identity core for WASM
         run: cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --locked --target wasm32-unknown-unknown
       - name: Run strict Personal app Clippy
