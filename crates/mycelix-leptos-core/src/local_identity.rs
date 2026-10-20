@@ -114,6 +114,8 @@ const IDENTITY_PUBLIC_KEY: &str = "mycelix_identity_public_ed25519_b64";
 /// [`protect_with_passphrase`] has been called. Its presence is what
 /// [`is_passphrase_protected`] checks.
 const IDENTITY_SECRET_ENCRYPTED_KEY: &str = "mycelix_identity_secret_ed25519_encrypted_v1";
+const IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY: &str =
+    "mycelix_identity_recovery_backup_confirmed_public_ed25519_b64_v1";
 
 thread_local! {
     // WASM is single-threaded, so a thread-local is a plain per-session
@@ -246,6 +248,7 @@ pub enum IdentityBootstrapAction {
     ProtectExistingIdentity,
     UnlockProtectedIdentity,
     RestoreProtectedIdentityFromSeedPhrase,
+    ExportRecoveryPhrase,
     RotatePassphrase,
 }
 
@@ -265,7 +268,9 @@ pub fn allowed_identity_bootstrap_actions(
         ],
         LocalIdentityStoragePosture::UnprotectedIdentity => &[Action::ProtectExistingIdentity],
         LocalIdentityStoragePosture::ProtectedLocked => &[Action::UnlockProtectedIdentity],
-        LocalIdentityStoragePosture::ProtectedUnlockedInSession => &[Action::RotatePassphrase],
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession => {
+            &[Action::ExportRecoveryPhrase, Action::RotatePassphrase]
+        },
         LocalIdentityStoragePosture::LegacyIdentityNeedsMigration
         | LocalIdentityStoragePosture::StorageUnavailable
         | LocalIdentityStoragePosture::CorruptOrInconsistent => &[],
@@ -520,6 +525,192 @@ pub fn is_passphrase_protected() -> bool {
 /// This function still depends on browser storage semantics and cannot promise
 /// confidentiality from a compromised active page, malicious extensions, or
 /// a compromised browser profile.
+pub fn recovery_phrase_challenge_positions() -> Result<[usize; 3], String> {
+    let window =
+        web_sys::window().ok_or_else(|| "Browser Web Crypto is unavailable.".to_string())?;
+    let crypto = window
+        .crypto()
+        .map_err(|_| "Browser Web Crypto is unavailable.".to_string())?;
+    let mut positions = [0usize; 3];
+
+    for slot in 0..positions.len() {
+        let mut selected = None;
+        for _ in 0..64 {
+            let mut sample = [0u8; 1];
+            if crypto.get_random_values_with_u8_array(&mut sample).is_err() {
+                sample.zeroize();
+                return Err("Could not generate recovery confirmation positions.".into());
+            }
+            let value = sample[0];
+            sample.zeroize();
+            // 240 is the largest multiple of 24 below 256; rejection avoids
+            // modulo bias in the 1..=24 position range.
+            if value >= 240 {
+                continue;
+            }
+            let candidate = usize::from(value % 24) + 1;
+            if !positions[..slot].contains(&candidate) {
+                selected = Some(candidate);
+                break;
+            }
+        }
+        positions[slot] = selected.ok_or_else(|| {
+            "Could not generate distinct recovery confirmation positions.".to_string()
+        })?;
+    }
+
+    positions.sort_unstable();
+    Ok(positions)
+}
+
+/// Return true when the currently stored protected identity has not passed
+/// the local recovery-backup confirmation step.
+///
+/// Storage errors, malformed posture and a missing/mismatched marker fail
+/// closed. The marker contains only the public key and is a UX continuity
+/// hint, not a security boundary against same-origin script.
+pub fn recovery_backup_confirmation_needed() -> bool {
+    let Ok(window) = web_sys::window().ok_or(()) else {
+        return true;
+    };
+    let Ok(Some(storage)) = window.local_storage() else {
+        return true;
+    };
+    let Ok(mut snapshot) = read_identity_storage_snapshot_from(&storage) else {
+        return true;
+    };
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    let public_b64 = snapshot.public_b64.clone();
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if posture != LocalIdentityStoragePosture::ProtectedLocked {
+        return true;
+    }
+    let Some(public_b64) = public_b64 else {
+        return true;
+    };
+    match storage.get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY) {
+        Ok(Some(confirmed_public_b64)) => confirmed_public_b64 != public_b64,
+        Ok(None) | Err(_) => true,
+    }
+}
+
+/// Persist a non-secret confirmation marker only after the user has completed
+/// the recovery-word challenge. Bind it to the public key in current storage
+/// and verify the marker is still bound to the same protected envelope.
+pub fn mark_recovery_backup_confirmed() -> Result<(), String> {
+    let signing_key = UNLOCKED_KEY
+        .with(|cell| cell.borrow().clone())
+        .ok_or_else(|| "Protected identity is not unlocked in this session.".to_string())?;
+    if !identity_bootstrap_action_allowed(
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession,
+        IdentityBootstrapAction::ExportRecoveryPhrase,
+    ) {
+        return Err("Recovery backup confirmation is not permitted in this state.".into());
+    }
+
+    let window =
+        web_sys::window().ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "Browser identity storage is unavailable.".to_string())?
+        .ok_or_else(|| "Browser identity storage is unavailable.".to_string())?;
+    let mut snapshot = read_identity_storage_snapshot_from(&storage)
+        .map_err(|_| "Protected identity storage could not be inspected.".to_string())?;
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    let public_b64 = snapshot.public_b64.clone();
+    let envelope = snapshot.encrypted_wire.clone();
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    let Some(public_b64) = public_b64 else {
+        return Err("Protected identity public-key metadata is missing.".into());
+    };
+    if posture != LocalIdentityStoragePosture::ProtectedLocked
+        || !public_key_matches_signing_key(&public_b64, &signing_key)
+        || envelope
+            .as_deref()
+            .is_none_or(|value| !encrypted_blob_is_structurally_valid(value))
+    {
+        return Err(
+            "Protected identity changed or is inconsistent; backup confirmation was not saved."
+                .into(),
+        );
+    }
+
+    storage
+        .set_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY, &public_b64)
+        .map_err(|_| "Could not persist recovery-backup confirmation.".to_string())?;
+    let marker = storage
+        .get_item(IDENTITY_BACKUP_CONFIRMED_PUBLIC_KEY)
+        .map_err(|_| "Could not verify recovery-backup confirmation.".to_string())?;
+    let mut current = read_identity_storage_snapshot_from(&storage).map_err(|_| {
+        "Could not re-check protected identity after backup confirmation.".to_string()
+    })?;
+    let unchanged = current.secret_b64.is_none()
+        && current.public_b64.as_deref() == Some(public_b64.as_str())
+        && current.encrypted_wire.as_deref() == envelope.as_deref()
+        && public_key_matches_signing_key(&public_b64, &signing_key)
+        && classify_identity_storage_snapshot(&current)
+            == LocalIdentityStoragePosture::ProtectedLocked;
+    if let Some(secret_b64) = current.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+    if marker.as_deref() != Some(public_b64.as_str()) || !unchanged {
+        return Err(
+            "Protected identity changed while backup confirmation was being recorded.".into(),
+        );
+    }
+    Ok(())
+}
+
+/// Export a recovery phrase for the currently unlocked protected identity.
+///
+/// This function is read-only: it never calls `ensure_keypair`, never mutates
+/// storage, and refuses to export from plaintext, locked, legacy, unavailable
+/// or inconsistent identity state. The returned phrase is secret material;
+/// callers must display it only in an explicit user-initiated recovery flow,
+/// never put it into telemetry/URLs/logs or persist it back into web storage.
+pub fn export_unlocked_identity_seed_phrase() -> Result<String, String> {
+    let signing_key = UNLOCKED_KEY
+        .with(|cell| cell.borrow().clone())
+        .ok_or_else(|| "Protected identity is not unlocked in this session.".to_string())?;
+    let mut snapshot = read_identity_storage_snapshot().map_err(|_| {
+        "Identity storage is unavailable; no recovery phrase was exported.".to_string()
+    })?;
+    let posture = classify_identity_storage_snapshot(&snapshot);
+    let public_b64 = snapshot.public_b64.clone();
+    let envelope = snapshot.encrypted_wire.clone();
+    if let Some(secret_b64) = snapshot.secret_b64.as_mut() {
+        secret_b64.zeroize();
+    }
+
+    if posture != LocalIdentityStoragePosture::ProtectedLocked
+        || envelope
+            .as_deref()
+            .is_none_or(|value| !encrypted_blob_is_structurally_valid(value))
+        || public_b64
+            .as_deref()
+            .is_none_or(|value| !public_key_matches_signing_key(value, &signing_key))
+    {
+        return Err(
+            "Recovery export requires a consistent protected identity unlocked in this session."
+                .into(),
+        );
+    }
+    if !identity_bootstrap_action_allowed(
+        LocalIdentityStoragePosture::ProtectedUnlockedInSession,
+        IdentityBootstrapAction::ExportRecoveryPhrase,
+    ) {
+        return Err(
+            "Recovery phrase export is not permitted in the current identity state.".into(),
+        );
+    }
+
+    Ok(export_seed_phrase(&signing_key))
+}
+
 pub async fn create_protected_identity(
     passphrase: &str,
 ) -> Result<LocalIdentityStoragePosture, String> {
@@ -1515,7 +1706,7 @@ mod tests {
         );
         assert_eq!(
             allowed_identity_bootstrap_actions(Posture::ProtectedUnlockedInSession),
-            &[Action::RotatePassphrase]
+            &[Action::ExportRecoveryPhrase, Action::RotatePassphrase]
         );
         assert!(
             allowed_identity_bootstrap_actions(Posture::LegacyIdentityNeedsMigration).is_empty()
@@ -1543,6 +1734,7 @@ mod tests {
             Action::ProtectExistingIdentity,
             Action::UnlockProtectedIdentity,
             Action::RestoreProtectedIdentityFromSeedPhrase,
+            Action::ExportRecoveryPhrase,
             Action::RotatePassphrase,
         ];
 
@@ -1556,7 +1748,10 @@ mod tests {
                     ),
                     Posture::UnprotectedIdentity => action == Action::ProtectExistingIdentity,
                     Posture::ProtectedLocked => action == Action::UnlockProtectedIdentity,
-                    Posture::ProtectedUnlockedInSession => action == Action::RotatePassphrase,
+                    Posture::ProtectedUnlockedInSession => matches!(
+                        action,
+                        Action::ExportRecoveryPhrase | Action::RotatePassphrase
+                    ),
                     Posture::LegacyIdentityNeedsMigration
                     | Posture::StorageUnavailable
                     | Posture::CorruptOrInconsistent => false,
@@ -1615,6 +1810,27 @@ mod tests {
         assert!(!identity_bootstrap_action_allowed(
             Posture::StorageUnavailable,
             Action::RotatePassphrase
+        ));
+    }
+
+    #[test]
+    fn recovery_export_is_never_allowed_before_verified_protected_unlock() {
+        use IdentityBootstrapAction::ExportRecoveryPhrase as Export;
+        use LocalIdentityStoragePosture as Posture;
+
+        for posture in [
+            Posture::StorageUnavailable,
+            Posture::NoIdentity,
+            Posture::LegacyIdentityNeedsMigration,
+            Posture::UnprotectedIdentity,
+            Posture::ProtectedLocked,
+            Posture::CorruptOrInconsistent,
+        ] {
+            assert!(!identity_bootstrap_action_allowed(posture, Export));
+        }
+        assert!(identity_bootstrap_action_allowed(
+            Posture::ProtectedUnlockedInSession,
+            Export
         ));
     }
 
