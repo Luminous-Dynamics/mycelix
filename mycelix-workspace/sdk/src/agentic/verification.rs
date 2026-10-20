@@ -606,7 +606,6 @@ impl VerificationEngine {
                 (holds, violation)
             }
 
-
             InvariantType::ByzantineTolerance {
                 max_byzantine_fraction,
             } => {
@@ -649,7 +648,6 @@ impl VerificationEngine {
                     (true, None)
                 }
             }
-
 
             InvariantType::SlashingBounds { max_slash_fraction } => {
                 if !max_slash_fraction.is_finite()
@@ -694,7 +692,6 @@ impl VerificationEngine {
                 }
                 (true, None)
             }
-
 
             InvariantType::KVectorBounds {
                 dimension,
@@ -742,7 +739,6 @@ impl VerificationEngine {
                 }
                 (true, None)
             }
-
 
             InvariantType::Monotonicity {
                 property,
@@ -809,7 +805,6 @@ impl VerificationEngine {
                 }
                 (true, None)
             }
-
 
             InvariantType::Conservation {
                 property,
@@ -880,7 +875,6 @@ impl VerificationEngine {
                 }
                 (true, None)
             }
-
 
             InvariantType::Custom { predicate } => {
                 match state.variables.get(predicate).map(String::as_str) {
@@ -1031,13 +1025,22 @@ mod tests {
         trust_scores.insert("agent_2".to_string(), 0.6);
         trust_scores.insert("agent_3".to_string(), 0.7);
 
+        let mut variables = HashMap::new();
+        variables.insert("last_slash_fraction".to_string(), "0.0".to_string());
+        for dimension in [
+            "k_r", "k_a", "k_i", "k_p", "k_m",
+            "k_s", "k_h", "k_topo", "k_v", "k_coherence",
+        ] {
+            variables.insert(format!("kvector_{}", dimension), "0.5".to_string());
+        }
+
         SystemState {
             index: 0,
             timestamp: 1000,
             trust_scores,
             byzantine_count: 0,
             network_health: 0.9,
-            variables: HashMap::new(),
+            variables,
         }
     }
 
