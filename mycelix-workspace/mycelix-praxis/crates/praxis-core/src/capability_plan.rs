@@ -4,9 +4,11 @@
 //! Deterministic, inspectable learning-plan compilation.
 //!
 //! This module turns a learner-chosen target capability and a versioned capability
-//! graph into a bounded proposal. It chooses prerequisite-first tasks from trusted
+//! graph into a bounded proposal. It chooses prerequisite-first tasks from supplied
 //! catalog data, binds the proposal to the exact normalized graph/request digest,
 //! and fails closed when the target cannot be planned within the declared constraints.
+//! Validation is structural only: the digest does not authenticate the catalogue or
+//! establish that a task is pedagogically effective.
 //!
 //! This is not an optimizer of pedagogical efficacy. It does not infer mastery,
 //! admit evidence, issue credentials, or authorize work. Previously demonstrated
