@@ -13,8 +13,10 @@ use zeroize::Zeroize;
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
 use mycelix_leptos_core::local_identity::{
     IdentityBootstrapAction, LocalIdentityStoragePosture, allowed_identity_bootstrap_actions,
-    create_protected_identity, identity_bootstrap_action_allowed, inspect_local_identity_posture,
-    protect_existing_identity, restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
+    create_protected_identity, export_unlocked_identity_seed_phrase,
+    identity_bootstrap_action_allowed, inspect_local_identity_posture,
+    protect_existing_identity, recovery_phrase_challenge_positions,
+    restore_protected_identity_from_seed_phrase, unlock_with_passphrase,
 };
 use mycelix_leptos_core::{
     ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState, AvailabilityStateKind,
@@ -81,13 +83,17 @@ pub fn App() -> impl IntoView {
 #[component]
 fn AppInner() -> impl IntoView {
     let posture = RwSignal::new(inspect_local_identity_posture());
+    let backup_pending = RwSignal::new(false);
 
     view! {
         <Show
             when=move || {
                 posture.get() == LocalIdentityStoragePosture::ProtectedUnlockedInSession
+                    && !backup_pending.get()
             }
-            fallback=move || view! { <IdentityBootstrapGate posture=posture /> }
+            fallback=move || view! {
+                <IdentityBootstrapGate posture=posture backup_pending=backup_pending />
+            }
         >
             <PersonalReadyApp />
         </Show>
@@ -142,14 +148,47 @@ fn identity_bootstrap_description(posture: LocalIdentityStoragePosture) -> &'sta
     }
 }
 
+fn prepare_recovery_backup() -> Result<(Vec<String>, [usize; 3]), String> {
+    let mut phrase = export_unlocked_identity_seed_phrase()?;
+    let mut words: Vec<String> = phrase.split_whitespace().map(str::to_owned).collect();
+    phrase.zeroize();
+
+    if words.len() != 24 {
+        zeroize_recovery_words(&mut words);
+        return Err("The current identity did not produce a 24-word recovery phrase.".into());
+    }
+    let positions = match recovery_phrase_challenge_positions() {
+        Ok(positions) => positions,
+        Err(error) => {
+            zeroize_recovery_words(&mut words);
+            return Err(error);
+        }
+    };
+    Ok((words, positions))
+}
+
+fn zeroize_recovery_words(words: &mut Vec<String>) {
+    for word in words.iter_mut() {
+        word.zeroize();
+    }
+    words.clear();
+}
+
 #[component]
-fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl IntoView {
+fn IdentityBootstrapGate(
+    posture: RwSignal<LocalIdentityStoragePosture>,
+    backup_pending: RwSignal<bool>,
+) -> impl IntoView {
     let passphrase = RwSignal::new(String::new());
     let confirmation = RwSignal::new(String::new());
     let recovery_phrase = RwSignal::new(String::new());
     let restore_mode = RwSignal::new(false);
     let busy = RwSignal::new(false);
     let status_message = RwSignal::new(String::new());
+    let backup_phrase_words = RwSignal::new(Vec::<String>::new());
+    let backup_challenge_positions = RwSignal::new(None::<[usize; 3]>);
+    let backup_answers = RwSignal::new([String::new(), String::new(), String::new()]);
+    let backup_acknowledged = RwSignal::new(false);
 
     let submit = move |ev: SubmitEvent| {
         ev.prevent_default();
@@ -234,6 +273,11 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         let recovery_phrase_signal = recovery_phrase;
         let busy_signal = busy;
         let status_signal = status_message;
+        let backup_pending_signal = backup_pending;
+        let backup_words_signal = backup_phrase_words;
+        let backup_positions_signal = backup_challenge_positions;
+        let backup_answers_signal = backup_answers;
+        let backup_ack_signal = backup_acknowledged;
         spawn_local(async move {
             let operation: Result<LocalIdentityStoragePosture, String> = match action {
                 IdentityBootstrapAction::RestoreProtectedIdentityFromSeedPhrase => {
@@ -254,6 +298,9 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
                         .await
                         .map(|_| inspect_local_identity_posture())
                 }
+                IdentityBootstrapAction::ExportRecoveryPhrase => Err(
+                    "Recovery export is handled by the recovery backup confirmation step.".into(),
+                ),
                 IdentityBootstrapAction::RotatePassphrase => Err(
                     "Passphrase rotation is available only from the unlocked identity settings."
                         .into(),
@@ -267,8 +314,36 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
                         == LocalIdentityStoragePosture::ProtectedUnlockedInSession =>
                 {
                     posture_signal.set(LocalIdentityStoragePosture::ProtectedUnlockedInSession);
-                    status_signal
-                        .set("Protected identity state verified for this session.".to_string());
+                    if matches!(
+                        action,
+                        IdentityBootstrapAction::CreateProtectedIdentity
+                            | IdentityBootstrapAction::ProtectExistingIdentity
+                    ) {
+                        backup_pending_signal.set(true);
+                        match prepare_recovery_backup() {
+                            Ok((words, positions)) => {
+                                backup_words_signal.set(words);
+                                backup_positions_signal.set(Some(positions));
+                                backup_answers_signal
+                                    .set([String::new(), String::new(), String::new()]);
+                                backup_ack_signal.set(false);
+                                status_signal.set(
+                                    "Identity protected. Save the recovery phrase and confirm three words before continuing."
+                                        .to_string(),
+                                );
+                            }
+                            Err(error) => {
+                                backup_words_signal.set(Vec::new());
+                                backup_positions_signal.set(None);
+                                status_signal.set(format!(
+                                    "Identity protection succeeded, but backup setup must be retried before entering Personal: {error}"
+                                ));
+                            }
+                        }
+                    } else {
+                        status_signal
+                            .set("Protected identity state verified for this session.".to_string());
+                    }
                 }
                 Ok(_) => {
                     posture_signal.set(verified_posture);
@@ -293,15 +368,103 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
         });
     };
 
+    let retry_backup = move |_| {
+        match prepare_recovery_backup() {
+            Ok((words, positions)) => {
+                backup_phrase_words.set(words);
+                backup_challenge_positions.set(Some(positions));
+                backup_answers.set([String::new(), String::new(), String::new()]);
+                backup_acknowledged.set(false);
+                status_message.set(
+                    "Recovery phrase ready. Store it offline, then confirm the requested words."
+                        .to_string(),
+                );
+            }
+            Err(error) => status_message.set(format!(
+                "Backup setup is still unavailable: {error}"
+            )),
+        }
+    };
+
+    let confirm_backup = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        let mut words = backup_phrase_words.get_untracked();
+        let positions = backup_challenge_positions.get_untracked();
+        let mut answers = backup_answers.get_untracked();
+        let acknowledged = backup_acknowledged.get_untracked();
+
+        let Some(positions) = positions else {
+            zeroize_recovery_words(&mut words);
+            for answer in answers.iter_mut() {
+                answer.zeroize();
+            }
+            backup_answers.set([String::new(), String::new(), String::new()]);
+            status_message.set(
+                "Recovery challenge is not ready. Retry the backup setup.".to_string(),
+            );
+            return;
+        };
+
+        let words_match = (0..3).all(|slot| {
+            let expected = positions[slot]
+                .checked_sub(1)
+                .and_then(|index| words.get(index));
+            expected.is_some_and(|word| answers[slot].trim().eq_ignore_ascii_case(word))
+        });
+        if !acknowledged || !words_match {
+            for answer in answers.iter_mut() {
+                answer.zeroize();
+            }
+            backup_answers.set([String::new(), String::new(), String::new()]);
+            status_message.set(if !acknowledged {
+                "Confirm that you stored the recovery phrase in a place you control, then retry."
+                    .to_string()
+            } else {
+                "The requested words did not match. The phrase remains visible; check your offline copy and try again."
+                    .to_string()
+            });
+            zeroize_recovery_words(&mut words);
+            return;
+        }
+
+        zeroize_recovery_words(&mut words);
+        for answer in answers.iter_mut() {
+            answer.zeroize();
+        }
+        let mut stored_words = backup_phrase_words.get_untracked();
+        zeroize_recovery_words(&mut stored_words);
+        backup_phrase_words.set(Vec::new());
+        backup_challenge_positions.set(None);
+        backup_answers.set([String::new(), String::new(), String::new()]);
+        backup_acknowledged.set(false);
+        backup_pending.set(false);
+        status_message.set(
+            "Recovery-word challenge passed. The phrase has been cleared from this form."
+                .to_string(),
+        );
+    };
+
     view! {
         <div class="identity-bootstrap-shell">
             <main class="vault-card identity-bootstrap-card" aria-labelledby="identity-bootstrap-title">
                 <span class="page-eyebrow">"MYCELIX / IDENTITY SAFETY"</span>
                 <h1 id="identity-bootstrap-title">
-                    {move || identity_bootstrap_heading(posture.get(), restore_mode.get())}
+                    {move || {
+                        if backup_pending.get() {
+                            "Verify your recovery backup"
+                        } else {
+                            identity_bootstrap_heading(posture.get(), restore_mode.get())
+                        }
+                    }}
                 </h1>
                 <p class="supporting-copy">
-                    {move || identity_bootstrap_description(posture.get())}
+                    {move || {
+                        if backup_pending.get() {
+                            "Your identity is protected, but the application stays gated until you record the 24-word recovery phrase and correctly answer a short word-position check. Mycelix does not store the phrase."
+                        } else {
+                            identity_bootstrap_description(posture.get())
+                        }
+                    }}
                 </p>
 
                 <Show when=move || identity_bootstrap_is_actionable(posture.get())>
@@ -413,12 +576,133 @@ fn IdentityBootstrapGate(posture: RwSignal<LocalIdentityStoragePosture>) -> impl
                     </form>
                 </Show>
 
-                <Show when=move || !identity_bootstrap_is_actionable(posture.get())>
+                <Show when=move || {
+                    !backup_pending.get() && !identity_bootstrap_is_actionable(posture.get())
+                }>
                     <section class="identity-bootstrap-blocker" role="note">
                         <strong>"No automatic changes will be made."</strong>
                         <p>
                             "Do not clear browser storage or attempt to create another identity from this screen. Preserve available backups and use an explicit recovery/migration procedure."
                         </p>
+                    </section>
+                </Show>
+
+                <Show when=move || backup_pending.get()>
+                    <section class="vault-card identity-backup-card" aria-labelledby="identity-backup-title">
+                        <h2 id="identity-backup-title">"Save your recovery phrase before continuing"</h2>
+                        <p class="supporting-copy">
+                            "These 24 words recover the identity key. Anyone who obtains them can take control of the identity. Write them down or store them in a trusted offline backup location. Do not send them by email, paste them into chat, or take a screenshot. This form never persists them."
+                        </p>
+
+                        <Show when=move || backup_phrase_words.get().len() == 24>
+                            <ol class="identity-recovery-word-grid">
+                                <For
+                                    each=move || backup_phrase_words.get().into_iter().enumerate().collect::<Vec<_>>()
+                                    key=|(index, _word)| *index
+                                    children=move |(index, word)| view! {
+                                        <li>
+                                            <span>{index + 1}</span>
+                                            <strong>{word}</strong>
+                                        </li>
+                                    }
+                                />
+                            </ol>
+
+                            <form class="identity-bootstrap-form" on:submit=confirm_backup>
+                                <h3>"Confirm three words from your saved copy"</h3>
+                                <p class="supporting-copy">
+                                    "Enter the requested words exactly as written. This checks that you copied part of the phrase; it cannot prove the backup will remain available in the future."
+                                </p>
+                                <div class="identity-bootstrap-field">
+                                    <label for="identity-backup-answer-1">
+                                        {move || format!(
+                                            "Word #{}",
+                                            backup_challenge_positions.get().map(|p| p[0]).unwrap_or(0)
+                                        )}
+                                    </label>
+                                    <input
+                                        id="identity-backup-answer-1"
+                                        class="identity-bootstrap-input"
+                                        type="text"
+                                        autocomplete="off"
+                                        autocapitalize="none"
+                                        spellcheck="false"
+                                        prop:value=move || backup_answers.get()[0].clone()
+                                        on:input=move |ev| backup_answers.update(|answers| {
+                                            answers[0] = event_target_value(&ev);
+                                        })
+                                    />
+                                </div>
+                                <div class="identity-bootstrap-field">
+                                    <label for="identity-backup-answer-2">
+                                        {move || format!(
+                                            "Word #{}",
+                                            backup_challenge_positions.get().map(|p| p[1]).unwrap_or(0)
+                                        )}
+                                    </label>
+                                    <input
+                                        id="identity-backup-answer-2"
+                                        class="identity-bootstrap-input"
+                                        type="text"
+                                        autocomplete="off"
+                                        autocapitalize="none"
+                                        spellcheck="false"
+                                        prop:value=move || backup_answers.get()[1].clone()
+                                        on:input=move |ev| backup_answers.update(|answers| {
+                                            answers[1] = event_target_value(&ev);
+                                        })
+                                    />
+                                </div>
+                                <div class="identity-bootstrap-field">
+                                    <label for="identity-backup-answer-3">
+                                        {move || format!(
+                                            "Word #{}",
+                                            backup_challenge_positions.get().map(|p| p[2]).unwrap_or(0)
+                                        )}
+                                    </label>
+                                    <input
+                                        id="identity-backup-answer-3"
+                                        class="identity-bootstrap-input"
+                                        type="text"
+                                        autocomplete="off"
+                                        autocapitalize="none"
+                                        spellcheck="false"
+                                        prop:value=move || backup_answers.get()[2].clone()
+                                        on:input=move |ev| backup_answers.update(|answers| {
+                                            answers[2] = event_target_value(&ev);
+                                        })
+                                    />
+                                </div>
+
+                                <label class="identity-backup-acknowledgement">
+                                    <input
+                                        type="checkbox"
+                                        prop:checked=move || backup_acknowledged.get()
+                                        on:change=move |ev| backup_acknowledged.set(event_target_checked(&ev))
+                                    />
+                                    <span>"I have saved these words in a place I control, separate from this browser."</span>
+                                </label>
+                                <button
+                                    class="btn btn-primary identity-bootstrap-submit"
+                                    type="submit"
+                                >
+                                    "Verify backup and continue"
+                                </button>
+                            </form>
+                        </Show>
+
+                        <Show when=move || backup_phrase_words.get().len() != 24>
+                            <p class="supporting-copy">
+                                "Backup setup could not be initialized. Your key remains protected and Personal remains gated. Retry; do not clear browser storage."
+                            </p>
+                            <button
+                                type="button"
+                                class="identity-bootstrap-secondary"
+                                on:click=retry_backup
+                            >
+                                "Retry recovery phrase setup"
+                            </button>
+                        </Show>
                     </section>
                 </Show>
 
