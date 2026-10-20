@@ -37,6 +37,10 @@ A reproducible, dependency-free synthetic timing harness is available as:
 It prints CSV for 10, 30, 70, 140 and 700 candidate route arcs across three deterministic scenarios: a sparse cyclic network, constrained per-route capacity, and periodic source-route outages. Each row includes participant counts, flow/cost output and p50/p95 runtime for the min-cost-flow optimizer and greedy baseline. Run it on a pinned machine and record OS, CPU, Rust version, commit SHA and repetition count alongside results. Synthetic runtime is a microbenchmark, not evidence of real-world settlement savings.
 
 Suggested next benchmark gates:
+
+- **Correctness target:** 100% agreement with the exhaustive oracle on every frozen graph within the declared small-instance bound; zero capacity, liquidity, profile or conservation violations.
+- **Provisional performance target, not yet measured:** p95 below 100 ms for 700 candidate route arcs in release mode on a pinned reference machine. Record CPU, OS, Rust commit, and run distributions; optimize measured bottlenecks rather than weakening safeguards.
+- **Quality target:** zero flow/cost gap versus the exact min-cost-flow solution for the linear model. For nonlinear tariffs or time-dependent LSMs, report separate oracle gaps and never compare unlike objectives.
 - The min-cost-flow plan must match the exhaustive oracle's maximum flow and minimum cost on all frozen small fixtures.
 - Zero cross-profile allocations, zero allocation above supplied liquidity or route capacity, zero net-position conservation errors.
 - Identical output for reordered inputs and stable output for a pinned toolchain.
