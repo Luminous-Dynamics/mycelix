@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-EMERG-001",
+  "lesson": {
+    "standard_code": "EK-EMERG-001",
+    "title": "Prepare for Local Emergencies and Act Within Limits",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Preparedness is context-dependent. Identify plausible local hazards, official alerts, emergency contacts, communication methods, evacuation or shelter options, and resources needed by household members. Keep a plan accessible and review it when circumstances change. Use current local authorities for instructions because hazards, infrastructure, and services differ by place. For immediate danger, follow official emergency instructions and seek qualified help; a checklist or online lesson is not a substitute for practical first-aid or safety training.",
+    "examples": [
+      {
+        "problem": "A household depends on mobile phones, but a storm may interrupt power and connectivity.",
+        "steps": [
+          {
+            "instruction": "Choose an alternate contact and meeting plan.",
+            "result": "Agree on a contact outside the immediate area and a safe meeting location if appropriate."
+          },
+          {
+            "instruction": "Check official local alerts and prepare key information offline.",
+            "result": "Keep important contacts, planned routes, and essential instructions available without internet."
+          }
+        ],
+        "answer": "A resilient plan accounts for a communications failure rather than assuming every device will remain connected."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Which source should determine the evacuation instruction for a current local emergency?",
+        "answer": "Current official local emergency services or the authority responsible for the incident, while also following direct instructions from responders.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Local hazards and instructions change; use the responsible authority.",
+        "distractors": [
+          "An old social post.",
+          "A generic worldwide checklist.",
+          "An unverified forwarded message."
+        ]
+      },
+      {
+        "question": "Name three elements of an adaptable household preparedness plan.",
+        "answer": "For example: alert sources, emergency contacts, meeting/communication plan, evacuation or shelter guidance, essential supply needs, and support for people/pets.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Preparedness includes people, information, and practical contingencies.",
+        "distractors": [
+          "Only an expensive kit.",
+          "Only a single online bookmark.",
+          "A plan nobody else can access."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Contingency",
+        "definition": "A planned response to a possible disruption or failure.",
+        "example_usage": "A backup meeting plan when phones do not work."
+      },
+      {
+        "term": "Escalation",
+        "definition": "Moving a problem to a more appropriate level of help or authority.",
+        "example_usage": "Contact local emergency services when the situation warrants it."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "One emergency checklist works everywhere.",
+        "correction": "Hazards, services, law, climate, and household needs vary by location and time.",
+        "why_students_think_this": "Generic checklists need local adaptation."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Contingency",
+      "back": "A planned response to a possible disruption or failure."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Name three elements of an adaptable household preparedness plan."
+    }
+  ]
+}
