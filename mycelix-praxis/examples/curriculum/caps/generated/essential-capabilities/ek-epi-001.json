@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-EPI-001",
+  "lesson": {
+    "standard_code": "EK-EPI-001",
+    "title": "Separate Observation, Interpretation, and Assumption",
+    "grade_level": "Adult",
+    "bloom_level": "Apply",
+    "explanation": "Good reasoning starts by keeping different kinds of statements apart. An observation reports what was directly recorded or perceived; an interpretation explains what it might mean; an assumption fills a gap that has not yet been checked. Several interpretations may fit the same observation. This distinction does not make interpretation bad: it makes the path from evidence to conclusion inspectable. Record what was noticed, what was inferred, what else could explain it, and what evidence would discriminate between explanations.",
+    "examples": [
+      {
+        "problem": "A person arrives home and finds the kitchen floor wet. What can and cannot be concluded?",
+        "steps": [
+          {
+            "instruction": "Write the observation without adding a cause.",
+            "result": "The kitchen floor is wet."
+          },
+          {
+            "instruction": "List interpretations and alternatives.",
+            "result": "A spill, a leak, wet shoes, or recent cleaning could explain it."
+          }
+        ],
+        "answer": "The wet floor is observed. 'A pipe is leaking' is a hypothesis, not yet an established fact."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A service dashboard shows a red warning icon. Which statement is an observation?",
+        "answer": "The dashboard shows a red warning icon.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "It describes the displayed evidence without asserting a cause.",
+        "distractors": [
+          "The server is definitely broken.",
+          "The administrator made a mistake.",
+          "The warning will cause an outage."
+        ]
+      },
+      {
+        "question": "You hear a loud noise downstairs at night. Name two observations to gather before deciding what caused it.",
+        "answer": "For example, note the time and sound, check from a safe location whether there is a visible source, and seek help if there may be danger. Do not enter a dangerous situation to collect evidence.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "More evidence and safety constraints help distinguish plausible explanations.",
+        "distractors": [
+          "One explanation must be correct immediately.",
+          "The first explanation is usually enough.",
+          "No further information can help."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Observation",
+        "definition": "A recorded or directly noticed event or measurement.",
+        "example_usage": "'The sensor read 21 °C at 10:00.'"
+      },
+      {
+        "term": "Inference",
+        "definition": "A conclusion drawn from evidence and assumptions.",
+        "example_usage": "'The room may be warming because sunlight entered.'"
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "If a conclusion feels obvious, it is an observation.",
+        "correction": "An obvious-sounding conclusion can still be an inference; label the step from evidence to explanation.",
+        "why_students_think_this": "People often collapse familiar explanations into the event itself."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Observation",
+      "back": "A recorded or directly noticed event or measurement."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "You hear a loud noise downstairs at night. Name two observations to gather before deciding what caused it."
+    }
+  ]
+}
