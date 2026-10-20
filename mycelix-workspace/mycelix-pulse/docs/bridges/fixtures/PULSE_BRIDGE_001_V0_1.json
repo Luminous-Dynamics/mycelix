@@ -1,0 +1,33 @@
+{
+  "profile": "mycelix:pulse:matrix-discord-bridge-corpus:v0.1",
+  "schema_version": 1,
+  "reviewed_at": "2026-09-22",
+  "authority": "external-observation-fixture-only",
+  "provider_profiles": {
+    "matrix": "mycelix:pulse:matrix-appservice:review-2026-09-22:v0.1",
+    "discord": "mycelix:pulse:discord-bot-oauth-gateway-webhook:review-2026-09-22:v0.1"
+  },
+  "cases": [
+    {"id":"matrix-retry-same","provider":"matrix","txn_id":"txn-1","transaction_commitment":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","event_ids":["$event1:example.org"],"expect":"IdempotentDeliveryObservation"},
+    {"id":"matrix-retry-conflict","provider":"matrix","txn_id":"txn-1","transaction_commitments":["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],"expect":"Conflict"},
+    {"id":"matrix-event-redelivery","provider":"matrix","event_id":"$event2:example.org","delivery_txns":["txn-2","txn-3"],"expect":"OneProviderEventMultipleDeliveryObservations"},
+    {"id":"matrix-state-key","provider":"matrix","event_type":"m.room.topic","state_key":"","expect":"StateEventObservation"},
+    {"id":"matrix-ephemeral","provider":"matrix","event_type":"m.typing","room_id":"!room:example.org","expect":"EphemeralExternalObservation"},
+    {"id":"discord-bot-authored","provider":"discord","message_id":"1001","author_kind":"BotApplication","expect":"ProviderActorObservation"},
+    {"id":"discord-webhook-authorship","provider":"discord","message_id":"1002","author_kind":"Webhook","expect":"WebhookAuthorshipObservation","nonclaims":["end-user-authorship"]},
+    {"id":"discord-content-withheld","provider":"discord","message_id":"1003","access_profile":{"message_content":"WithheldUnderProviderAccessProfile"},"content":null,"expect":"ContentUnavailableUnderProviderAccessProfile"},
+    {"id":"edit-is-revision","provider":"discord","message_id":"1004","revision_of":"1004@prior","expect":"RevisionObservation","nonclaims":["history-rewrite"]},
+    {"id":"delete-preserves-lineage","provider":"matrix","event_id":"$event5:example.org","tombstone_of":"$event4:example.org","expect":"DeletionObservationWithPriorLineage"},
+    {"id":"reply-relation","provider":"discord","message_id":"1005","reply_to":"1001","expect":"ExplicitProviderReplyRelation"},
+    {"id":"unsupported-relation","provider":"discord","message_id":"1006","provider_extension":"future_relation_v9","expect":"UnknownProviderExtension"},
+    {"id":"linked-accounts-remain-distinct","accounts":[{"provider":"matrix","id":"@alice:example.org"},{"provider":"discord","id":"2001"}],"mycelix_link_ref":"link-fixture-1","expect":"CorrelatedProviderAccountsDistinctCoordinates"},
+    {"id":"bridge-loop","source":{"provider":"matrix","event_id":"$loop:example.org"},"bridge_origin_commitment":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","return_provider":"discord","expect":"BridgeOriginLoopRecognized"},
+    {"id":"attachment-not-fetched","provider":"discord","message_id":"1007","attachment_ref":"provider-attachment-1","expect":"AttachmentNotFetched"},
+    {"id":"audience-mismatch","source_visibility":"private-room","destination_visibility":"public-channel","expect":"AudienceSemanticsNotRepresentable"},
+    {"id":"role-not-authority","provider":"discord","role_ids":["3001"],"expect":"ProviderModerationStateOnly","nonclaims":["mycelix-authority"]},
+    {"id":"future-event-type","provider":"matrix","event_type":"org.example.future.unknown","expect":"UnknownProviderExtension"},
+    {"id":"profile-substitution","provider":"discord","profile":"unreviewed-profile","expect_error":"ProviderProfileMismatch"},
+    {"id":"same-text-distinct-events","events":[{"provider":"matrix","event_id":"$a:example.org","text":"hello"},{"provider":"discord","message_id":"4001","text":"hello"}],"expect":"DistinctProviderEvents"}
+  ],
+  "claim_ceiling":"supplied external-observation/loss classifications only; no native Pulse admission or provider effect authority"
+}
