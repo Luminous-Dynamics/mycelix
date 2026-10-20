@@ -1245,9 +1245,10 @@ pub struct AddVerificationAnchorInput {
 /// - 3+ anchors: 72 hours (minimum)
 #[hdk_extern]
 pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResult<Record> {
-    let record = get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("No valid owner-bound self-recovery config found for this DID".into())
-    ))?;
+    let record =
+        get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No valid owner-bound self-recovery config found for this DID".into()
+        )))?;
     let original_hash = record.action_address().clone();
     let mut config: SelfRecoveryConfig = record
         .entry()
