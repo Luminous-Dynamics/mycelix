@@ -1,0 +1,204 @@
+name: MYC-CONST-001B Exact Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/myc-const-001b-exact-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001b-exact-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  CARGO_INCREMENTAL: '0'
+  EXPECTED_QUAL_PARENT: '62d9fc51e506c2fbc0b8e08be348c02c31b5edeb'
+  EXPECTED_PRODUCT_SHA: '848d34b380e1ea7ba981a1af08d3e9822d6d5a63'
+  EXPECTED_PRODUCT_PARENT: '26b0ac1c6dbd1ba28f75371e40a623876d107536'
+  EXPECTED_FOUNDATION_PARENT: '180dd19af7cb6377d41be7570a42787a35f3416f'
+  WORKFLOW: '.github/workflows/myc-const-001b-exact-qualification.yml'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  WORKSPACE_MANIFEST: 'mycelix-governance/Cargo.toml'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  SOURCE: 'mycelix-governance/crates/constitutional-authority/src/lib.rs'
+  DELEGATION_TEST: 'mycelix-governance/crates/constitutional-authority/tests/delegation.rs'
+  ENTITLEMENT_TEST: 'mycelix-governance/crates/constitutional-authority/tests/entitlements.rs'
+  PROFILE: 'mycelix-governance/docs/CONSTITUTIONAL_AUTHORITY_V0_1B.md'
+  EXPECTED_SOURCE_BLOB: '2eb0781f205bff1aaeded87632734b1abd4ca596'
+  EXPECTED_DELEGATION_BLOB: 'e0d207053c11d4b13fc155c9921d3a1e195af318'
+  EXPECTED_ENTITLEMENT_BLOB: '11af240b348db90b73e2d33e7d805a9f3ee5a034'
+  EXPECTED_PROFILE_BLOB: 'a384215d16d2f7055c05540390d064e7191e5247'
+  EXPECTED_CRATE_MANIFEST_BLOB: 'cdc855da0ddddf57eae595bc14c1ec1907437e4f'
+
+jobs:
+  qualify:
+    name: qualify-constitutional-authority-001b
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only review shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_QUAL_PARENT"
+          mapfile -d '' changed < <(git diff --name-only -z "$EXPECTED_QUAL_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test "$(git ls-tree HEAD -- "$WORKFLOW" | awk '{print $1}')" = '100644'
+          test -z "$(git status --porcelain=v1)"
+          printf 'qualification_head=%s\nqualification_parent=%s\n' "$(git rev-parse HEAD)" "$EXPECTED_QUAL_PARENT"
+
+      - name: Checkout frozen MYC-CONST-001B product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_PRODUCT_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove exact product ancestry, scope, and blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_FOUNDATION_PARENT"
+          python3 - <<'PY'
+          import os, subprocess
+          expected = sorted([
+              os.environ['SOURCE'],
+              os.environ['DELEGATION_TEST'],
+              os.environ['ENTITLEMENT_TEST'],
+              os.environ['PROFILE'],
+          ])
+          out = subprocess.run(
+              ['git', 'diff', '--name-only', os.environ['EXPECTED_PRODUCT_PARENT'], os.environ['EXPECTED_PRODUCT_SHA']],
+              check=True, capture_output=True, text=True,
+          ).stdout.splitlines()
+          if sorted(out) != expected:
+              raise SystemExit(f'product scope mismatch: expected={expected!r} actual={sorted(out)!r}')
+          PY
+          test "$(git rev-parse "HEAD:$SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse "HEAD:$DELEGATION_TEST")" = "$EXPECTED_DELEGATION_BLOB"
+          test "$(git rev-parse "HEAD:$ENTITLEMENT_TEST")" = "$EXPECTED_ENTITLEMENT_BLOB"
+          test "$(git rev-parse "HEAD:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          test "$(git rev-parse "HEAD:$CRATE_MANIFEST")" = "$EXPECTED_CRATE_MANIFEST_BLOB"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture toolchain and frozen-input capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\nrunner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          rustc --version --verbose
+          cargo --version --verbose
+          python3 --version
+          git --version
+          sha256sum "$SOURCE" "$DELEGATION_TEST" "$ENTITLEMENT_TEST" "$PROFILE" "$CRATE_MANIFEST" "$WORKSPACE_MANIFEST" "$LOCKFILE"
+          git rev-parse "HEAD:$SOURCE" "HEAD:$DELEGATION_TEST" "HEAD:$ENTITLEMENT_TEST" "HEAD:$PROFILE" "HEAD:$CRATE_MANIFEST" "HEAD:$LOCKFILE"
+
+      - name: Independent semantic-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+
+          source = Path(os.environ['SOURCE']).read_text(encoding='utf-8')
+          manifest = Path(os.environ['CRATE_MANIFEST']).read_text(encoding='utf-8')
+          profile = Path(os.environ['PROFILE']).read_text(encoding='utf-8')
+          plain_profile = profile.replace('`', '').replace('**', '').replace('__', '')
+          norm = re.sub(r'\s+', ' ', plain_profile.casefold()).strip()
+
+          required_source = [
+              'pub enum ConstitutionalEntitlement',
+              'pub struct ConstitutionalEntitlementGrant',
+              'pub enum JurisdictionRelation',
+              'pub fn validate_delegation(',
+              'DelegationRequiresParentValidation',
+              'AutomatedAgentCannotHoldConstitutionalEntitlement',
+              'is_intrinsically_nondelegable',
+          ]
+          for token in required_source:
+              if token not in source:
+                  raise SystemExit(f'missing semantic boundary token: {token}')
+
+          if re.search(r'^\s*(hdk|hdi)\s*=', manifest, flags=re.MULTILINE):
+              raise SystemExit('pure constitutional-authority crate unexpectedly depends on HDK/HDI')
+
+          required_profile = [
+              'possessing an entitlement does not imply possession of a sovereign power',
+              'a delegated constitutionalcapability must be a strict attenuation of its parent',
+              'ordinary constitutionalcapability::validate() rejects any capability whose source is delegation',
+              'the pure constitutional crate intentionally does not infer hierarchy from jurisdiction strings',
+              'automated agents continue to hold no enumerated sovereign constitutional power',
+              'this tranche remains semantic only',
+          ]
+          for phrase in required_profile:
+              if phrase not in norm:
+                  raise SystemExit(f'missing profile boundary: {phrase}')
+
+          forbidden = [
+              'entitlement implies sovereign power',
+              'delegation may broaden its parent',
+              'automated agents may directly hold constitutional power',
+              'this tranche activates runtime enforcement',
+          ]
+          for phrase in forbidden:
+              if phrase in norm:
+                  raise SystemExit(f'forbidden overclaim present: {phrase}')
+          print('independent_semantic_boundary_audit=PASS')
+          PY
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$CRATE_MANIFEST" -- --check
+
+      - name: Compile frozen constitutional authority suite
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked --no-run
+
+      - name: Execute frozen constitutional authority suite
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path "$CRATE_MANIFEST" --all-targets --locked -- -D warnings
+
+      - name: Refuse qualification-time mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit postflight qualification facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'product_parent=%s\n' "$EXPECTED_PRODUCT_PARENT"
+          printf 'source_blob=%s\n' "$(git rev-parse "HEAD:$SOURCE")"
+          printf 'delegation_test_blob=%s\n' "$(git rev-parse "HEAD:$DELEGATION_TEST")"
+          printf 'entitlement_test_blob=%s\n' "$(git rev-parse "HEAD:$ENTITLEMENT_TEST")"
+          printf 'profile_blob=%s\n' "$(git rev-parse "HEAD:$PROFILE")"
+          printf 'rust_toolchain=%s\n' "$RUST_TOOLCHAIN"
+          printf 'claim=exact MYC-CONST-001B semantic subject compiled, tested, linted, and independently boundary-audited under this qualification profile\n'
+          printf 'nonclaim=runtime holder authentication, live jurisdiction resolution, source signature/currentness, persisted delegation traversal, branch-crossing enforcement, constitutional legitimacy, legal validity\n'
