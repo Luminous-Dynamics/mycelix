@@ -26,8 +26,18 @@ pub const BASIS_POINTS_DENOMINATOR: u128 = 10_000;
 pub struct CostModel {
     /// Flat fee assessed once per external settlement leg, in the modeled asset's minor unit.
     pub fixed_fee_per_leg_minor: u64,
-    /// Variable fee in basis points; 100 bps = 1%.
+    /// Variable fee in basis points, calculated and rounded independently for each leg.
     pub variable_fee_bps: u32,
+    /// Minimum variable component per nonzero settlement leg.
+    pub minimum_variable_fee_per_leg_minor: u64,
+    /// Optional cap on the variable component per leg.
+    pub maximum_variable_fee_per_leg_minor: Option<u64>,
+    /// Fixed fee per batch of legs; a partial final batch incurs the same fee.
+    pub batch_fee_minor: u64,
+    /// Maximum number of settlement legs in one batch (must be positive).
+    pub batch_capacity_legs: usize,
+    /// Additional fee for running the netting process, not charged to direct settlement.
+    pub netting_overhead_minor: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -102,6 +112,10 @@ pub struct SettlementLeg {
 pub struct CostEstimate {
     pub modeled_volume_minor: u128,
     pub modeled_leg_count: usize,
+    pub transaction_fixed_cost_minor: u128,
+    pub batch_cost_minor: u128,
+    pub netting_overhead_minor: u128,
+    /// Sum of transaction-fixed, batch, and netting-overhead components.
     pub fixed_cost_minor: u128,
     pub variable_cost_minor: u128,
     pub total_cost_minor: u128,
@@ -207,6 +221,7 @@ pub fn simulate_netting(
         .collect();
     let mut included_obligation_ids = Vec::new();
     let mut excluded_obligations = Vec::new();
+    let mut gross_leg_amounts = Vec::new();
     let mut gross_volume_minor = 0_u128;
 
     for obligation in canonical.values() {
@@ -237,6 +252,7 @@ pub fn simulate_netting(
                     .checked_add(u128::from(obligation.amount_minor))
                     .ok_or(NettingError::ArithmeticOverflow("gross volume"))?;
                 included_obligation_ids.push(obligation.canonical_id.clone());
+                gross_leg_amounts.push(obligation.amount_minor);
             }
             status => excluded_obligations.push(ExcludedObligation {
                 canonical_id: obligation.canonical_id.clone(),
@@ -296,16 +312,16 @@ pub fn simulate_netting(
     let net_settlement_legs = match_debtors_to_creditors(debtor_positions, creditor_positions)?;
     verify_settlement_conservation(&positions, &net_settlement_legs, net_settlement_volume_minor)?;
 
-    let gross_cost_estimate = estimate_cost(
-        gross_volume_minor,
-        included_obligation_ids.len(),
-        &profile.cost_model,
-    )?;
-    let net_cost_estimate = estimate_cost(
-        net_settlement_volume_minor,
-        net_settlement_legs.len(),
-        &profile.cost_model,
-    )?;
+    let net_leg_amounts: Vec<u64> = net_settlement_legs.iter().map(|leg| leg.amount_minor).collect();
+    let gross_cost_estimate = estimate_cost(&gross_leg_amounts, &profile.cost_model, false)?;
+    let net_cost_estimate = estimate_cost(&net_leg_amounts, &profile.cost_model, true)?;
+    if gross_cost_estimate.modeled_volume_minor != gross_volume_minor
+        || net_cost_estimate.modeled_volume_minor != net_settlement_volume_minor
+    {
+        return Err(NettingError::InvariantViolation(
+            "cost estimate volume differs from the qualified settlement plan",
+        ));
+    }
     let gross_cost = i128::try_from(gross_cost_estimate.total_cost_minor)
         .map_err(|_| NettingError::ArithmeticOverflow("gross cost signed conversion"))?;
     let net_cost = i128::try_from(net_cost_estimate.total_cost_minor)
@@ -372,6 +388,16 @@ fn validate_profile(profile: &NettingProfile) -> Result<(), NettingError> {
     }
     if profile.cost_model.variable_fee_bps > 10_000 {
         return Err(NettingError::InvalidProfile("variable fee exceeds 100 percent"));
+    }
+    if profile.cost_model.batch_capacity_legs == 0 {
+        return Err(NettingError::InvalidProfile("batch capacity must be positive"));
+    }
+    if profile.cost_model.maximum_variable_fee_per_leg_minor
+        .is_some_and(|maximum| maximum < profile.cost_model.minimum_variable_fee_per_leg_minor)
+    {
+        return Err(NettingError::InvalidProfile(
+            "maximum variable fee per leg cannot be below its minimum",
+        ));
     }
     Ok(())
 }
@@ -542,27 +568,63 @@ fn verify_settlement_conservation(
 }
 
 fn estimate_cost(
-    volume_minor: u128,
-    leg_count: usize,
+    leg_amounts_minor: &[u64],
     cost_model: &CostModel,
+    include_netting_overhead: bool,
 ) -> Result<CostEstimate, NettingError> {
-    let fixed_cost_minor = u128::from(cost_model.fixed_fee_per_leg_minor)
+    let modeled_volume_minor = leg_amounts_minor.iter().try_fold(0_u128, |sum, amount| {
+        sum.checked_add(u128::from(*amount))
+            .ok_or(NettingError::ArithmeticOverflow("modeled volume"))
+    })?;
+    let leg_count = leg_amounts_minor.len();
+    let transaction_fixed_cost_minor = u128::from(cost_model.fixed_fee_per_leg_minor)
         .checked_mul(leg_count as u128)
-        .ok_or(NettingError::ArithmeticOverflow("fixed fee total"))?;
-    let variable_product = volume_minor
-        .checked_mul(u128::from(cost_model.variable_fee_bps))
-        .ok_or(NettingError::ArithmeticOverflow("variable fee numerator"))?;
-    let rounded_numerator = variable_product
-        .checked_add(BASIS_POINTS_DENOMINATOR - 1)
-        .ok_or(NettingError::ArithmeticOverflow("variable fee rounding"))?;
-    let variable_cost_minor = rounded_numerator / BASIS_POINTS_DENOMINATOR;
+        .ok_or(NettingError::ArithmeticOverflow("transaction fixed fee total"))?;
+
+    let batch_count = if leg_count == 0 {
+        0
+    } else {
+        1 + (leg_count - 1) / cost_model.batch_capacity_legs
+    };
+    let batch_cost_minor = u128::from(cost_model.batch_fee_minor)
+        .checked_mul(batch_count as u128)
+        .ok_or(NettingError::ArithmeticOverflow("batch fee total"))?;
+    let netting_overhead_minor = if include_netting_overhead {
+        u128::from(cost_model.netting_overhead_minor)
+    } else {
+        0
+    };
+    let fixed_cost_minor = transaction_fixed_cost_minor
+        .checked_add(batch_cost_minor)
+        .and_then(|sum| sum.checked_add(netting_overhead_minor))
+        .ok_or(NettingError::ArithmeticOverflow("total fixed cost"))?;
+
+    let variable_cost_minor = leg_amounts_minor.iter().try_fold(0_u128, |sum, amount| {
+        let numerator = u128::from(*amount)
+            .checked_mul(u128::from(cost_model.variable_fee_bps))
+            .ok_or(NettingError::ArithmeticOverflow("per-leg variable fee numerator"))?;
+        let rounded = numerator
+            .checked_add(BASIS_POINTS_DENOMINATOR - 1)
+            .ok_or(NettingError::ArithmeticOverflow("per-leg variable fee rounding"))?
+            / BASIS_POINTS_DENOMINATOR;
+        let minimum = u128::from(cost_model.minimum_variable_fee_per_leg_minor);
+        let mut fee = rounded.max(minimum);
+        if let Some(maximum) = cost_model.maximum_variable_fee_per_leg_minor {
+            fee = fee.min(u128::from(maximum));
+        }
+        sum.checked_add(fee)
+            .ok_or(NettingError::ArithmeticOverflow("per-leg variable fee total"))
+    })?;
     let total_cost_minor = fixed_cost_minor
         .checked_add(variable_cost_minor)
         .ok_or(NettingError::ArithmeticOverflow("total cost"))?;
 
     Ok(CostEstimate {
-        modeled_volume_minor: volume_minor,
+        modeled_volume_minor,
         modeled_leg_count: leg_count,
+        transaction_fixed_cost_minor,
+        batch_cost_minor,
+        netting_overhead_minor,
         fixed_cost_minor,
         variable_cost_minor,
         total_cost_minor,
@@ -589,6 +651,11 @@ mod tests {
             cost_model: CostModel {
                 fixed_fee_per_leg_minor: 100,
                 variable_fee_bps: 100,
+                minimum_variable_fee_per_leg_minor: 0,
+                maximum_variable_fee_per_leg_minor: None,
+                batch_fee_minor: 0,
+                batch_capacity_legs: 1_000,
+                netting_overhead_minor: 0,
             },
         }
     }
@@ -642,9 +709,9 @@ mod tests {
         assert_eq!(report.gross_volume_minor, 160);
         assert_eq!(report.net_settlement_volume_minor, 100);
         assert_eq!(report.net_settlement_legs.len(), 2);
-        assert_eq!(report.net_cost_estimate.total_cost_minor, 201);
+        assert_eq!(report.net_cost_estimate.total_cost_minor, 202);
         assert_eq!(report.gross_cost_estimate.total_cost_minor, 202);
-        assert_eq!(report.modeled_savings_minor, 1);
+        assert_eq!(report.modeled_savings_minor, 0);
         assert_eq!(
             report.net_settlement_legs,
             vec![
@@ -757,6 +824,95 @@ mod tests {
         let report = simulate_netting(&p, &[obligation("tiny", "alice", "bob", 1)]).unwrap();
         assert_eq!(report.gross_cost_estimate.variable_cost_minor, 1);
         assert_eq!(report.net_cost_estimate.variable_cost_minor, 1);
+    }
+
+    #[test]
+    fn minimum_per_leg_fees_are_calculated_independently() {
+        let mut p = profile();
+        p.cost_model.fixed_fee_per_leg_minor = 0;
+        p.cost_model.variable_fee_bps = 0;
+        p.cost_model.minimum_variable_fee_per_leg_minor = 5;
+
+        let report = simulate_netting(
+            &p,
+            &[
+                obligation("small-1", "alice", "bob", 100),
+                obligation("small-2", "bob", "alice", 60),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(report.gross_cost_estimate.variable_cost_minor, 10);
+        assert_eq!(report.net_cost_estimate.variable_cost_minor, 5);
+        assert_eq!(report.modeled_savings_minor, 5);
+    }
+
+    #[test]
+    fn netting_overhead_can_make_netting_more_expensive() {
+        let mut p = profile();
+        p.cost_model.fixed_fee_per_leg_minor = 1;
+        p.cost_model.variable_fee_bps = 0;
+        p.cost_model.minimum_variable_fee_per_leg_minor = 0;
+        p.cost_model.netting_overhead_minor = 10;
+
+        let report = simulate_netting(
+            &p,
+            &[
+                obligation("o1", "alice", "bob", 100),
+                obligation("o2", "bob", "carol", 100),
+                obligation("o3", "carol", "alice", 100),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(report.gross_cost_estimate.total_cost_minor, 3);
+        assert_eq!(report.net_cost_estimate.total_cost_minor, 10);
+        assert_eq!(report.modeled_savings_minor, -7);
+        assert!(report.modeled_savings_bps.unwrap() < 0);
+    }
+
+    #[test]
+    fn batch_and_maximum_variable_fee_are_enforced() {
+        let mut p = profile();
+        p.cost_model.fixed_fee_per_leg_minor = 0;
+        p.cost_model.variable_fee_bps = 10_000;
+        p.cost_model.minimum_variable_fee_per_leg_minor = 1;
+        p.cost_model.maximum_variable_fee_per_leg_minor = Some(7);
+        p.cost_model.batch_fee_minor = 11;
+        p.cost_model.batch_capacity_legs = 1;
+
+        let report = simulate_netting(
+            &p,
+            &[
+                obligation("o1", "alice", "bob", 100),
+                obligation("o2", "carol", "dave", 200),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(report.gross_cost_estimate.variable_cost_minor, 14);
+        assert_eq!(report.gross_cost_estimate.batch_cost_minor, 22);
+        assert_eq!(report.gross_cost_estimate.total_cost_minor, 36);
+    }
+
+    #[test]
+    fn invalid_batch_capacity_and_fee_floor_fail_closed() {
+        let mut p = profile();
+        p.cost_model.batch_capacity_legs = 0;
+        assert!(matches!(
+            simulate_netting(&p, &[obligation("o1", "alice", "bob", 25)]),
+            Err(NettingError::InvalidProfile("batch capacity must be positive"))
+        ));
+
+        let mut p = profile();
+        p.cost_model.minimum_variable_fee_per_leg_minor = 5;
+        p.cost_model.maximum_variable_fee_per_leg_minor = Some(4);
+        assert!(matches!(
+            simulate_netting(&p, &[obligation("o1", "alice", "bob", 25)]),
+            Err(NettingError::InvalidProfile(
+                "maximum variable fee per leg cannot be below its minimum"
+            ))
+        ));
     }
 
     #[test]
