@@ -1163,3 +1163,130 @@ mod author_binding_tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }
+
+
+// Standalone/workspace parity tests for the canonical recovery-config owner rule.
+#[cfg(test)]
+mod workspace_recovery_owner_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn owner() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn attacker() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn social_config(did: String, owner: AgentPubKey) -> RecoveryConfig {
+        RecoveryConfig {
+            did,
+            owner,
+            trustees: vec![
+                "did:mycelix:trustee-a".into(),
+                "did:mycelix:trustee-b".into(),
+                "did:mycelix:trustee-c".into(),
+            ],
+            threshold: 2,
+            time_lock: 86_400,
+            active: true,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    fn self_config(did: String, owner: AgentPubKey) -> SelfRecoveryConfig {
+        SelfRecoveryConfig {
+            did,
+            owner,
+            anchors: vec![],
+            anchor_threshold: 1,
+            time_lock: SELF_RECOVERY_MIN_TIME_LOCK,
+            active: true,
+            superseded_by_social: false,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn workspace_social_recovery_config_rejects_foreign_did() {
+        let legitimate_owner = owner();
+        let victim_did = format!("did:mycelix:{legitimate_owner}");
+        let legitimate = social_config(victim_did.clone(), legitimate_owner.clone());
+
+        let accepted = validate_create_recovery_config(
+            EntryCreationAction::Create(test_action(legitimate_owner)),
+            legitimate,
+        )
+        .unwrap();
+        assert_eq!(accepted, ValidateCallbackResult::Valid);
+
+        // The attacker is both entry owner and action author, so the
+        // independent owner==author rule is satisfied. Only the canonical
+        // DID/owner binding should reject this foreign-DID config.
+        let attacker = attacker();
+        let poisoned = social_config(victim_did, attacker.clone());
+        let rejected = validate_create_recovery_config(
+            EntryCreationAction::Create(test_action(attacker)),
+            poisoned,
+        )
+        .unwrap();
+        assert!(
+            matches!(rejected, ValidateCallbackResult::Invalid(message) if message.contains("correspond")),
+            "a recovery config for another agent's DID must be rejected"
+        );
+    }
+
+    #[test]
+    fn workspace_self_recovery_config_rejects_foreign_did() {
+        let legitimate_owner = owner();
+        let victim_did = format!("did:mycelix:{legitimate_owner}");
+        let legitimate = self_config(victim_did.clone(), legitimate_owner.clone());
+
+        let accepted = validate_create_self_recovery_config(
+            EntryCreationAction::Create(test_action(legitimate_owner)),
+            legitimate,
+        )
+        .unwrap();
+        assert_eq!(accepted, ValidateCallbackResult::Valid);
+
+        let attacker = attacker();
+        let poisoned = self_config(victim_did, attacker.clone());
+        let rejected = validate_create_self_recovery_config(
+            EntryCreationAction::Create(test_action(attacker)),
+            poisoned,
+        )
+        .unwrap();
+        assert!(
+            matches!(rejected, ValidateCallbackResult::Invalid(message) if message.contains("correspond")),
+            "self-recovery config for another agent's DID must be rejected"
+        );
+    }
+
+    #[test]
+    fn workspace_owner_binding_is_a_core_integrity_rule() {
+        let owner = owner();
+        let expected_did = format!("did:mycelix:{owner}");
+        assert!(recovery_config_did_matches_owner(&expected_did, &owner));
+        assert!(
+            !recovery_config_did_matches_owner("did:mycelix:someone-else", &owner)
+        );
+    }
+}
