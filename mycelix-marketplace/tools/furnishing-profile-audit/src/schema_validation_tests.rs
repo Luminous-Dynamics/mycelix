@@ -3,8 +3,8 @@ use std::{fs, path::PathBuf};
 
 fn read_json(relative: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative);
-    let bytes = fs::read(&path)
-        .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
+    let bytes =
+        fs::read(&path).unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
     serde_json::from_slice(&bytes)
         .unwrap_or_else(|error| panic!("invalid JSON in {}: {error}", path.display()))
 }
@@ -69,8 +69,7 @@ fn missing_profile_dimension_fails_json_schema() {
 
 #[test]
 fn unauthorized_effect_fails_request_json_schema() {
-    let mut request =
-        read_json("../../contracts/fixtures/furnishing-adapter-request-v0.1.json");
+    let mut request = read_json("../../contracts/fixtures/furnishing-adapter-request-v0.1.json");
     request["effects"]["reserve_stock"] = Value::Bool(true);
     assert!(!request_validator().is_valid(&request));
 }
