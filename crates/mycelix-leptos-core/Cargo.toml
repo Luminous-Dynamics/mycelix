@@ -69,3 +69,4 @@ mycelix-crypto = { path = "../../mycelix-workspace/mycelix-identity/crates/mycel
 # its round-trip/tamper tests need `wasm-bindgen-test` + a headless browser
 # (`wasm-pack test --headless --firefox`), not plain `cargo test`.
 wasm-bindgen-test = "0.3"
+futures-util = "0.3"
