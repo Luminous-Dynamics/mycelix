@@ -848,46 +848,22 @@ async fn test_fiat_bridge_deposit() {
         .call_fallible(&alice.zome("finance_bridge"), "deposit_fiat", fiat_input)
         .await;
 
-    match result {
-        Ok(record) => {
-            if let Some(deposit_id) = extract_entry_field(&record, "id") {
-                assert!(
-                    deposit_id.starts_with("fiat:"),
-                    "Fiat deposit ID should have expected prefix, got: {}",
-                    deposit_id,
-                );
-            }
-            if let Some(status) = extract_entry_field(&record, "status") {
-                assert_eq!(
-                    status, "Pending",
-                    "Fiat deposit should start as Pending, got: {}",
-                    status,
-                );
-            }
-        }
-        Err(e) => {
-            // Expected: Citizen+ tier gating or DID mismatch
-            let err_msg = format!("{:?}", e);
-            assert!(
-                err_msg.contains("Citizen")
-                    || err_msg.contains("DID")
-                    || err_msg.contains("identity")
-                    || err_msg.contains("consciousness"),
-                "Expected consciousness gating error, got: {}",
-                err_msg,
-            );
-        }
-    }
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("disabled"),
+        "Expected explicit disabled response, got: {}",
+        err_msg
+    );
 }
 
 // ============================================================================
-// Test 10: Fiat bridge rejects zero amount
+// Test 10: Fiat bridge remains disabled for zero amount
 // ============================================================================
 
-/// A fiat bridge deposit with zero amount should be rejected.
+/// The default gate refuses even a zero-amount attempt before writes.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_fiat_bridge_rejects_zero_amount() {
+async fn test_fiat_bridge_disabled_for_zero_amount() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&finance_dna_path())
         .await
@@ -913,21 +889,18 @@ async fn test_fiat_bridge_rejects_zero_amount() {
         .call_fallible(&alice.zome("finance_bridge"), "deposit_fiat", fiat_input)
         .await;
 
-    assert!(
-        result.is_err(),
-        "Fiat deposit with zero amount should be rejected",
-    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(err_msg.contains("disabled"), "Expected disabled response, got: {}", err_msg);
 }
 
 // ============================================================================
-// Test 11: Fiat bridge rejects invalid exchange rate
+// Test 11: Fiat bridge remains disabled for invalid exchange rate
 // ============================================================================
 
-/// A fiat bridge deposit with a negative or NaN exchange rate should be
-/// rejected by the validation guard.
+/// The default gate refuses the flow before caller-provided rates can be used.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_fiat_bridge_rejects_invalid_exchange_rate() {
+async fn test_fiat_bridge_disabled_for_invalid_exchange_rate() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&finance_dna_path())
         .await
@@ -953,14 +926,52 @@ async fn test_fiat_bridge_rejects_invalid_exchange_rate() {
         .call_fallible(&alice.zome("finance_bridge"), "deposit_fiat", fiat_input)
         .await;
 
-    assert!(
-        result.is_err(),
-        "Fiat deposit with negative exchange rate should be rejected",
-    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(err_msg.contains("disabled"), "Expected disabled response, got: {}", err_msg);
 }
 
 // ============================================================================
-// Test 12: Covenant-protected collateral cannot be pledged
+// Test 12: Fiat-to-SAP verification disabled by default
+// ============================================================================
+
+/// Verification must not upgrade a caller-supplied audit assertion into SAP
+/// issuance. The default feature gate must reject before reading or writing a deposit.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_fiat_bridge_verification_disabled_by_default() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&finance_dna_path())
+        .await
+        .unwrap();
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let alice_did = format!("did:mycelix:{}", alice.agent_pubkey());
+    let input = serde_json::json!({
+        "deposit_id": "unverified-test-deposit",
+        "verifier_did": alice_did,
+        "audit": {
+            "source_institution": "synthetic-test-only",
+            "compliance_ref": "synthetic-test-only",
+            "is_speculative": false
+        }
+    });
+
+    let result: Result<::holochain::prelude::Record, _> = conductor
+        .call_fallible(&alice.zome("finance_bridge"), "verify_fiat_deposit", input)
+        .await;
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("disabled"),
+        "Expected explicit disabled response before any SAP issuance, got: {}",
+        err_msg
+    );
+}
+
+// Test 13: Covenant-protected collateral cannot be pledged
 // ============================================================================
 
 /// Active covenants should also block transitions to `Pledged` and `Frozen`
@@ -1059,7 +1070,7 @@ async fn test_covenant_blocks_pledge_and_freeze() {
 }
 
 // ============================================================================
-// Test 13: Deposit collateral with invalid rate is rejected
+// Test 14: Deposit collateral with invalid rate is rejected
 // ============================================================================
 
 /// `deposit_collateral` should reject NaN, infinity, zero, and negative
@@ -1144,7 +1155,7 @@ async fn test_deposit_collateral_rejects_invalid_rates() {
 }
 
 // ============================================================================
-// Test 14: Deposit collateral rejects unsupported collateral types
+// Test 15: Deposit collateral rejects unsupported collateral types
 // ============================================================================
 
 /// Only "ETH" and "USDC" are accepted collateral types for bridge deposits.
