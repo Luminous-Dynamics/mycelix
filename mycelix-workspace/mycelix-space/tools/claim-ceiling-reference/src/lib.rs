@@ -496,7 +496,7 @@ mod tests {
         // A byte-distinct schema is a distinct cache entry even when it is semantically
         // equivalent JSON (trailing whitespace). This prevents ambiguous keying.
         let mut alternate_bytes = REQUEST_SCHEMA.to_vec();
-        alternate_bytes.push(b'\\n');
+        alternate_bytes.push(b'\n');
         let alternate = compiled_schema_validator(&alternate_bytes, "alternate request")
             .expect("valid whitespace-extended schema should compile");
         assert!(!std::sync::Arc::ptr_eq(&first, &alternate));
