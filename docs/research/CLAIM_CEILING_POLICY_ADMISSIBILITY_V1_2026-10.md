@@ -38,9 +38,10 @@ The Rust tests additionally demonstrate the key separation directly: a pure meet
 ## Receipt and reproducibility
 
 The policy receipt binds:
-- raw request SHA-256;
-- serialized policy-profile and candidate-ceiling SHA-256;
-- request- and receipt-schema digests;
+- SHA-256 of the raw request bytes and raw policy-profile bytes;
+- the externally expected policy-profile digest and whether it matched;
+- a candidate-ceiling digest;
+- request-, policy-profile-, and receipt-schema digests;
 - exact source commit when available;
 - a deterministic disposition and sorted, stable violation records.
 
@@ -65,5 +66,6 @@ A passing policy check does not authenticate its publisher, establish source ind
 
 ## Policy pinning correction
 
+The approved policy is a separately pinned artifact. The candidate request does not carry its own policy profile. The CLI reads the profile bytes from a separate file, requires the expected SHA-256 from an out-of-band trusted channel, and returns a structured rejection when the bytes do not match that pin. Hashing an arbitrary caller-provided policy and trusting that hash would only prove self-consistency, not policy approval.
 
-6. **The approved policy is a separately pinned artifact.** The candidate request does not carry its own policy profile. The CLI reads policy bytes from a separate file, requires an expected SHA-256 supplied through an out-of-band trusted channel, and returns a structured rejection when the profile bytes do not match that pin. Hashing an arbitrary caller-provided policy and trusting that hash would only prove self-consistency, not policy approval.
+The dedicated hosted workflow also invokes a standalone jq verifier. It independently recomputes profile containment and mandatory-control retention from the request and policy JSON, and checks exact request/profile/schema digest bindings in positive, negative, and deliberately altered-policy cases. The jq verifier is a second implementation of the gate logic, not a second authority for approving the policy digest.
