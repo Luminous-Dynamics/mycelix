@@ -710,7 +710,8 @@ fn validate_update_self_recovery_config(
     }
     if config.active {
         return Ok(ValidateCallbackResult::Invalid(
-            "Self-recovery cannot be activated until anchor proof-of-possession is implemented".into(),
+            "Self-recovery cannot be activated until anchor proof-of-possession is implemented"
+                .into(),
         ));
     }
     if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
