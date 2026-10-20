@@ -1,0 +1,93 @@
+{
+  "node_id": "EK-SCI-001",
+  "lesson": {
+    "standard_code": "EK-SCI-001",
+    "title": "Reason Scientifically About Mechanisms and Causes",
+    "grade_level": "Adult",
+    "bloom_level": "Create",
+    "explanation": "Scientific reasoning connects questions, models, predictions, observations, and revision. A useful claim should say what would be expected if it were true and what evidence would weaken it. Comparisons help distinguish an intervention's effect from background changes, but ethical and practical limits matter: not every question should be tested by experiment. Observational associations can guide investigation, yet alternative mechanisms and confounders remain possible.",
+    "examples": [
+      {
+        "problem": "A team installs a new notification system and response times improve the same week. Did the system cause the improvement?",
+        "steps": [
+          {
+            "instruction": "List competing explanations.",
+            "result": "Staffing, task mix, workload, or other changes may also affect response time."
+          },
+          {
+            "instruction": "Plan a more informative comparison.",
+            "result": "Use predeclared measures and a comparable period/team where ethical and feasible, and record concurrent changes."
+          }
+        ],
+        "answer": "The timing is consistent with the system helping, but a before/after association alone does not prove causation."
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "What is one reason a correlation may not establish causation?",
+        "answer": "A confounder may influence both variables, reverse causality may exist, or the association may be coincidental.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "Association alone does not identify the mechanism.",
+        "distractors": [
+          "Correlation always proves causation.",
+          "Causation can only be studied with no data.",
+          "A graph removes all confounding."
+        ]
+      },
+      {
+        "question": "Before running a small test, name three things to specify.",
+        "answer": "A testable question or hypothesis, a defined outcome/measurement, and the procedure/comparison plus safety and ethical constraints.",
+        "difficulty_permille": 450,
+        "bloom_level": "Create",
+        "hints": [
+          "Identify what the question is asking before choosing a response.",
+          "State your reasoning and check whether it fits the context."
+        ],
+        "explanation": "A protocol reduces hindsight and selective reporting.",
+        "distractors": [
+          "Only the hoped-for conclusion.",
+          "Only who will be blamed if it fails.",
+          "Only a positive result."
+        ]
+      }
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Hypothesis",
+        "definition": "A proposed explanation that yields testable expectations.",
+        "example_usage": "A leak hypothesis predicts where moisture may recur."
+      },
+      {
+        "term": "Confounder",
+        "definition": "A factor related to both the possible cause and the observed outcome.",
+        "example_usage": "A staffing change can confound an evaluation of new software."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A failed prediction proves the whole theory is useless.",
+        "correction": "A failure challenges the stated model under the tested conditions; check measurements, assumptions, and scope before drawing a wider conclusion.",
+        "why_students_think_this": "Tests include assumptions that may themselves be wrong."
+      }
+    ],
+    "hints": [
+      "Write down the evidence and assumptions before choosing a conclusion.",
+      "Explain one alternative and what observation would help distinguish it."
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Hypothesis",
+      "back": "A proposed explanation that yields testable expectations."
+    },
+    {
+      "front": "What is the demonstration goal for this capability?",
+      "back": "Before running a small test, name three things to specify."
+    }
+  ]
+}
