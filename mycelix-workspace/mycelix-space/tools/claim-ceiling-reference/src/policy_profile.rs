@@ -539,7 +539,7 @@ mod tests {
         let approved = profile().maximum_ceiling;
         for mask in 0u16..256 {
             let mut candidate = safe_ceiling();
-            let mut expected = BTreeSet::new();
+            let mut expected = BTreeSet::<String>::new();
 
             if mask & (1 << 0) != 0 {
                 candidate.claim_atoms.insert(atom(
@@ -548,35 +548,35 @@ mod tests {
                     DerivationKind::Direct,
                     IntendedUse::OperationalExecution,
                 ));
-                expected.insert("claim_atom_not_allowed");
+                expected.insert("claim_atom_not_allowed".to_owned());
             }
             if mask & (1 << 1) != 0 {
                 candidate.subject_ids.insert("outside-subject".to_owned());
-                expected.insert("subject_outside_policy");
+                expected.insert("subject_outside_policy".to_owned());
             }
             if mask & (1 << 2) != 0 {
                 candidate.context_ids.insert("outside-context".to_owned());
-                expected.insert("context_outside_policy");
+                expected.insert("context_outside_policy".to_owned());
             }
             if mask & (1 << 3) != 0 {
                 candidate.valid_time.start_unix_seconds -= 1;
-                expected.insert("time_window_outside_policy");
+                expected.insert("time_window_outside_policy".to_owned());
             }
             if mask & (1 << 4) != 0 {
                 candidate.action_scopes.insert("operate-pump".to_owned());
-                expected.insert("action_scope_not_allowed");
+                expected.insert("action_scope_not_allowed".to_owned());
             }
             if mask & (1 << 5) != 0 {
                 candidate.required_qualifications.clear();
-                expected.insert("required_qualification_missing");
+                expected.insert("required_qualification_missing".to_owned());
             }
             if mask & (1 << 6) != 0 {
                 candidate.required_independence_controls.clear();
-                expected.insert("required_independence_control_missing");
+                expected.insert("required_independence_control_missing".to_owned());
             }
             if mask & (1 << 7) != 0 {
                 candidate.required_provenance.clear();
-                expected.insert("required_provenance_missing");
+                expected.insert("required_provenance_missing".to_owned());
             }
 
             let actual: BTreeSet<_> = assess_candidate(&candidate, &approved)
