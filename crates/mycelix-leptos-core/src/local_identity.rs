@@ -2379,8 +2379,7 @@ mod browser_storage_tests {
         create_protected_identity("synthetic first identity passphrase")
             .await
             .expect("first protected identity creation succeeds");
-        mark_recovery_backup_confirmed()
-            .expect("first identity backup marker is recorded");
+        mark_recovery_backup_confirmed().expect("first identity backup marker is recorded");
         assert!(!recovery_backup_confirmation_needed());
 
         let storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -2404,9 +2403,7 @@ mod browser_storage_tests {
             IDENTITY_PUBLIC_KEY,
             IDENTITY_SECRET_ENCRYPTED_KEY,
         ] {
-            storage
-                .remove_item(key)
-                .expect("identity reset succeeds");
+            storage.remove_item(key).expect("identity reset succeeds");
         }
         UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = None);
         create_protected_identity("synthetic second identity passphrase")
