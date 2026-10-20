@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-continuity-witness-domain-profile"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical Mycelix VC claims profile for continuity-witness administrative domains"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
