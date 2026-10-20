@@ -1,0 +1,82 @@
+name: Mycelix hApp alias portability
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/happs/**"
+      - "mycelix-workspace/mycelix-*"
+      - "mycelix-workspace/mycelix-*/**"
+      - ".github/workflows/manufacturing-happ-portability.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "mycelix-workspace/happs/**"
+      - "mycelix-workspace/mycelix-*"
+      - "mycelix-workspace/mycelix-*/**"
+      - ".github/workflows/manufacturing-happ-portability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relative-aliases:
+    name: Verify source-backed hApp aliases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all hApp aliases and enumerate unresolved source mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_root="$(git rev-parse --show-toplevel)"
+          aliases_dir="mycelix-workspace/happs"
+          checked=0
+          unresolved=0
+
+          for alias_path in "$aliases_dir"/*; do
+            test -L "$alias_path" || continue
+            name="$(basename "$alias_path")"
+            target="$(readlink "$alias_path")"
+
+            if [[ "$target" = /* ]]; then
+              case "$name:$target" in
+                "health:/srv/luminous-dynamics/mycelix-workspace/mycelix-health")
+                  echo "::warning::hApps health alias remains unmapped: mycelix-health is not tracked at the referenced path."
+                  unresolved=$((unresolved + 1))
+                  continue
+                  ;;
+                "supplychain:/srv/luminous-dynamics/mycelix-workspace/mycelix-supplychain/holochain")
+                  echo "::warning::hApps supplychain alias remains unmapped: mycelix-supplychain/holochain is not tracked at the referenced path."
+                  unresolved=$((unresolved + 1))
+                  continue
+                  ;;
+                *)
+                  echo "Unexpected absolute hApp symlink: $alias_path -> $target" >&2
+                  exit 1
+                  ;;
+              esac
+            fi
+
+            resolved_alias="$(realpath -e "$alias_path")" || {
+              echo "Broken relative hApp alias: $alias_path -> $target" >&2
+              exit 1
+            }
+            case "$resolved_alias" in
+              "$repo_root/mycelix-workspace/"*) ;;
+              *)
+                echo "hApp alias escapes tracked workspace: $alias_path -> $resolved_alias" >&2
+                exit 1
+                ;;
+            esac
+            test -d "$resolved_alias"
+            checked=$((checked + 1))
+          done
+
+          test "$checked" -ge 18
+          test "$unresolved" -eq 2
+          echo "Verified $checked source-backed relative hApp aliases."
+          echo "Known unresolved source mappings: $unresolved (health and supplychain)."
+          echo "This gate checks checkout portability; it does not qualify WASM builds, hApp packaging, or multi-agent behavior."
