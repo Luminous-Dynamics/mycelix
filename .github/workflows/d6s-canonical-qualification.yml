@@ -11,7 +11,6 @@ on:
       - main
       - myc-int-demo-d6t-canonical-encoding
     paths:
-      - ".github/workflows/d6s-canonical-qualification.yml"
       - "mycelix-manufacturing/Cargo.toml"
       - "mycelix-manufacturing/Cargo.lock"
       - "mycelix-manufacturing/crates/cos_conformance/**"
